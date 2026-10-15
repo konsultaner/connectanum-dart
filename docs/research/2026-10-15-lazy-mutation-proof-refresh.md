@@ -20,6 +20,26 @@ Their reasons and count stay unchanged in each target; only identifiers and
 source hashes are refreshed. This does not add exemptions, drop mutants, or change
 the 95% threshold. The runner's strict stale-proof rejection remains intact.
 
-Complete new VM/browser execution and resulting-head hosted checks are pending.
+Both complete targets now pass: 356 selected per target, 268 killed, 68 compile
+errors and twenty survivors (eight pre-existing equivalences), giving an adjusted
+assertion score of 95.7142857143% against 95%. Both baseline/restored-baseline
+executions succeed, with zero runner errors/timeouts. All 246 relevant core,
+fixture, dependency and mutation-policy inputs plus HEAD remain unchanged.
+Seven unrelated benchmark/reporting files change during execution; the original
+3,076-file drift check is retained as failed and is not called a frozen full-tree
+verification. The separate scoped audit passes against the actual target inputs.
+
+A read-only preflight also finds sixteen older proof records in browser transport,
+bounded router drain and router settings. Their unchanged predicates map uniquely
+from hash-verified historical source to the current complete inventories (125,
+2,491 and 345 mutations; the existing drain slice still selects 36). Reasons,
+counts, ranges and thresholds stay unchanged. Review confirms browser certificate
+options remain unused, the drain identity/list-snapshot invariants remain intact,
+and private normalized metrics paths and protocol deduplication retain their
+original guarantees. Metadata for all 154 proofs across thirteen targets and ten
+sources validates. Thirteen preflight regressions pass; canonical verification
+and CI fast checks now reject stale proofs before expensive tests.
+
+Resulting-head hosted checks remain pending.
 The source mapping audit is retained locally in
 `out/flatbuffers-milestone-finish/owned-lazy-equivalence-rekey-audit.json`.

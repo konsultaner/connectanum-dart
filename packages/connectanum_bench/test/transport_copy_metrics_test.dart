@@ -1,9 +1,74 @@
+// Benchmark-only native counter model.
+// ignore: implementation_imports
+import 'package:connectanum_client/src/transport/native/runtime.dart'
+    as client_native;
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:test/test.dart';
 
 void main() {
+  const fields = [
+    'dart_to_native_copy_bytes',
+    'ffi_borrowed_send_input_copy_bytes',
+    'io_buffer_front_copy_bytes',
+    'io_buffered_read_copy_bytes',
+    'websocket_mask_copy_bytes',
+    'websocket_coalesce_copy_bytes',
+  ];
+  client_native.NativeTransportCopyMetrics nativeSnapshot(List<int?> values) =>
+      client_native.NativeTransportCopyMetrics(
+        dartToNativeCopiedBytesTotal: values[0]!,
+        ffiBorrowedSendCopyBytesTotal: values[1],
+        ioBufferFrontCopyBytesTotal: values[2],
+        ioBufferedReadCopyBytesTotal: values[3],
+        websocketMaskCopyBytesTotal: values[4],
+        websocketCoalesceCopyBytesTotal: values[5],
+        tlsPlaintextAcceptedBytesTotal: 0,
+      );
+  test('native client observations retain each monotonic delta', () {
+    final report = nativeClientTransportCopyWindow(
+      nativeSnapshot(List.filled(6, 11)),
+      nativeSnapshot(List.filled(6, 18)),
+    );
+    expect(report, {for (final field in fields) field: 7});
+  });
+  for (var i = 0; i < fields.length; i++) {
+    for (final side in [0, 1]) {
+      for (final invalid in <int?>[-1, if (i != 0) null]) {
+        test(
+          'native client ${fields[i]} invalid=$invalid side=$side is unavailable',
+          () {
+            final good = List<int?>.filled(6, 0);
+            final changed = [...good]..[i] = invalid;
+            final report = nativeClientTransportCopyWindow(
+              nativeSnapshot(side == 0 ? changed : good),
+              nativeSnapshot(side == 1 ? changed : good),
+            );
+            expect(report[fields[i]], isNull);
+          },
+        );
+      }
+    }
+    test(
+      'native client ${fields[i]} rewind is unavailable on an active path',
+      () {
+        final before = List<int?>.filled(6, 0)..[i] = 11;
+        final after = List<int?>.filled(6, 0)..[i] = 7;
+        final report = nativeClientTransportCopyWindow(
+          nativeSnapshot(before),
+          nativeSnapshot(after),
+        );
+        expect(report[fields[i]], isNull);
+        final scenario = _scenario(
+          transport: i >= 4 ? WampTransport.websocket : WampTransport.rawsocket,
+        );
+        final result = clientTransportCopyMetricsFor(scenario, report);
+        expect(result['transport_copy_bytes'], isA<Map>());
+      },
+    );
+  }
+
   group('standard SDK client buffer boundaries', () {
     for (final implementation in WampClientImplementation.values) {
       for (final transport in WampTransport.values) {
@@ -594,6 +659,30 @@ void main() {
       expect(metrics['transport_copy_bytes'], isA<Map>());
     });
   });
+  for (final field in ['dart', 'front', 'read', 'ffi', 'websocket']) {
+    test('rewound router $field counter cannot certify transport copies', () {
+      NativeRouterTransportCopyMetrics snapshot(int value) => _routerMetrics(
+        dartToNative: field == 'dart' ? value : 0,
+        ioFront: field == 'front' ? value : 0,
+        ioRead: field == 'read' ? value : 0,
+        ffiBorrowed: field == 'ffi' ? value : 0,
+        websocketCoalesce: field == 'websocket' ? value : 0,
+      );
+      final metrics = mergeRouterTransportCopyMetrics(
+        _clientMetrics(),
+        scenario: _scenario(
+          transport: field == 'websocket'
+              ? WampTransport.websocket
+              : WampTransport.rawsocket,
+        ),
+        before: snapshot(11),
+        after: snapshot(7),
+      );
+      expect(metrics['transport_copy_bytes'], isA<Map>());
+      expect((metrics['coverage'] as Map)['transport_copy_bytes'], 'partial');
+      expect((metrics['coverage'] as Map)['unknown_boundaries'], isNotEmpty);
+    });
+  }
 }
 
 WampScenario _scenario({

@@ -20,6 +20,9 @@ Map<String, Object?> codecCopyMetricsDelta(
   if (before == null || after == null) {
     return unavailable('native codec copy metrics ABI v1 is unavailable');
   }
+  if (before['coverage_version'] != 1 || after['coverage_version'] != 1) {
+    return unavailable('native codec copy coverage v1 is unavailable');
+  }
   final delta = <String, int>{};
   for (final field in codecCopyMetricFields) {
     final start = before[field];
@@ -33,6 +36,7 @@ Map<String, Object?> codecCopyMetricsDelta(
   }
   return {
     'status': 'measured',
+    'coverage_version': 1,
     ...delta,
     'known_copy_bytes': codecCopyMetricFields.fold<int>(
       0,

@@ -3758,7 +3758,9 @@ class NativeTransportRuntime
   /// Cumulative explicit native codec buffer operations, or unavailable.
   Map<String, int>? codecCopyMetricsSnapshot() {
     final snapshot = _bindings.ctCodecCopyMetricsSnapshot;
-    if (_bindings.ctCodecCopyMetricsVersion?.call() != 1 || snapshot == null) {
+    if (_bindings.ctCodecCopyMetricsVersion?.call() != 1 ||
+        _bindings.ctCodecCopyMetricsCoverageVersion?.call() != 1 ||
+        snapshot == null) {
       return null;
     }
     final info = calloc<CtCodecCopyMetricsInfo>();
@@ -3768,6 +3770,7 @@ class NativeTransportRuntime
         _throwForError(result, 'snapshot codec copy metrics');
       }
       return {
+        'coverage_version': 1,
         'vector_copy_bytes': info.ref.vectorCopyBytesTotal,
         'string_copy_bytes': info.ref.stringCopyBytesTotal,
         'growth_copy_bytes': info.ref.growthCopyBytesTotal,

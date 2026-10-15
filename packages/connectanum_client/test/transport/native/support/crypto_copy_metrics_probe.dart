@@ -58,10 +58,15 @@ void main(List<String> args) {
       makeDefault: true,
     );
     final codecAfterKey = runtime.codecCopyMetricsSnapshot();
-    if (library.providesSymbol('ct_codec_copy_metrics_abi_version')) {
+    if (library.providesSymbol('ct_codec_copy_metrics_coverage_version') &&
+        library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+              'ct_codec_copy_metrics_coverage_version',
+            )() ==
+            1) {
       if (codecBeforeKey == null ||
           codecAfterKey == null ||
-          codecAfterKey.length != 6 ||
+          codecAfterKey.length != 7 ||
+          codecAfterKey['coverage_version'] != 1 ||
           codecAfterKey.values.any((value) => value < 0)) {
         throw StateError('Codec snapshot is unavailable or malformed');
       }

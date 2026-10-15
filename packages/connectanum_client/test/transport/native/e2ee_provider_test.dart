@@ -67,6 +67,11 @@ void main() {
     final advertised =
         library.providesSymbol('ct_codec_copy_metrics_abi_version') &&
         library.providesSymbol('ct_codec_copy_metrics_snapshot') &&
+        library.providesSymbol('ct_codec_copy_metrics_coverage_version') &&
+        library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+              'ct_codec_copy_metrics_coverage_version',
+            )() ==
+            1 &&
         library.lookupFunction<ffi.Uint32 Function(), int Function()>(
               'ct_codec_copy_metrics_abi_version',
             )() ==
@@ -80,6 +85,7 @@ void main() {
     expect(
       before!.keys,
       unorderedEquals([
+        'coverage_version',
         'vector_copy_bytes',
         'string_copy_bytes',
         'growth_copy_bytes',
@@ -119,53 +125,60 @@ void main() {
     );
   }, skip: nativeClientRuntimeUnavailableReason);
 
-  test(
-    'unknown crypto and raw-frame ABIs never call snapshots',
-    () async {
-      final source = await Isolate.resolvePackageUri(
-        Uri.parse('package:connectanum_client/connectanum.dart'),
-      );
-      final directory = await Directory.systemTemp.createTemp(
-        'connectanum-crypto-abi-',
-      );
-      addTearDown(() => directory.delete(recursive: true));
-      final library =
-          '${directory.path}/crypto.${Platform.isMacOS ? 'dylib' : 'so'}';
-      final compiled = await Process.run('cc', [
-        Platform.isMacOS ? '-dynamiclib' : '-shared',
-        '-fPIC',
-        '-o',
-        library,
-        source!
-            .resolve(
-              '../test/transport/native/support/crypto_copy_abi_fixture.c',
-            )
-            .toFilePath(),
-        File(NativeLibraryLoader.resolvePath()).absolute.path,
-      ]);
-      expect(
-        compiled.exitCode,
-        0,
-        reason: '${compiled.stdout}\n${compiled.stderr}',
-      );
-      final result = await Process.run(Platform.resolvedExecutable, [
-        'run',
-        source
-            .resolve(
-              '../test/transport/native/support/crypto_copy_metrics_probe.dart',
-            )
-            .toFilePath(),
-        library,
-      ]);
-      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
-      expect(result.stdout, contains('unsupported ABI safely unavailable'));
-    },
-    skip:
-        nativeClientRuntimeUnavailableReason ??
-        ((!Platform.isMacOS && !Platform.isLinux)
-            ? 'Requires Unix C shared-library toolchain'
-            : false),
-  );
+  for (final codecCoverage in [0, 2, 3]) {
+    test(
+      'unknown crypto/raw-frame ABIs and codec coverage $codecCoverage never call snapshots',
+      () async {
+        final source = await Isolate.resolvePackageUri(
+          Uri.parse('package:connectanum_client/connectanum.dart'),
+        );
+        final directory = await Directory.systemTemp.createTemp(
+          'connectanum-crypto-abi-',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final library =
+            '${directory.path}/crypto.${Platform.isMacOS ? 'dylib' : 'so'}';
+        final compiled = await Process.run('cc', [
+          Platform.isMacOS ? '-dynamiclib' : '-shared',
+          '-fPIC',
+          '-DCT_CODEC_COVERAGE=$codecCoverage',
+          '-o',
+          library,
+          source!
+              .resolve(
+                '../test/transport/native/support/crypto_copy_abi_fixture.c',
+              )
+              .toFilePath(),
+          File(NativeLibraryLoader.resolvePath()).absolute.path,
+        ]);
+        expect(
+          compiled.exitCode,
+          0,
+          reason: '${compiled.stdout}\n${compiled.stderr}',
+        );
+        final result = await Process.run(Platform.resolvedExecutable, [
+          'run',
+          source
+              .resolve(
+                '../test/transport/native/support/crypto_copy_metrics_probe.dart',
+              )
+              .toFilePath(),
+          library,
+        ]);
+        expect(
+          result.exitCode,
+          0,
+          reason: '${result.stdout}\n${result.stderr}',
+        );
+        expect(result.stdout, contains('unsupported ABI safely unavailable'));
+      },
+      skip:
+          nativeClientRuntimeUnavailableReason ??
+          ((!Platform.isMacOS && !Platform.isLinux)
+              ? 'Requires Unix C shared-library toolchain'
+              : false),
+    );
+  }
 
   group(
     'native-owned typed FlatBuffers encryption',

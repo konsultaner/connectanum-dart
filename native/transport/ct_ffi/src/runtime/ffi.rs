@@ -149,6 +149,12 @@ struct AsyncSha256Worker {
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
+fn copy_sha_input(bytes: &[u8]) -> Bytes {
+    let copied = Bytes::copy_from_slice(bytes);
+    ct_core::record_vector_copy(bytes.len());
+    copied
+}
+
 impl AsyncSha256Worker {
     fn start(context: DigestContext) -> Result<Self, c_int> {
         let (sender, receiver) = std::sync::mpsc::sync_channel(ASYNC_SHA256_QUEUE_CAPACITY);
@@ -169,6 +175,7 @@ impl AsyncSha256Worker {
                             let digest = context.finish();
                             let mut result = [0_u8; SHA256_DIGEST_LEN];
                             result.copy_from_slice(digest.as_ref());
+                            ct_core::record_vector_copy(result.len());
                             let _ = result_sender.send(result);
                             return;
                         }
@@ -235,7 +242,7 @@ impl Sha256State {
 
     fn update(&mut self, bytes: &[u8]) -> Result<(), c_int> {
         if let Some(worker) = self.worker.as_ref() {
-            return worker.send(Sha256Command::UpdateOwned(Bytes::copy_from_slice(bytes)));
+            return worker.send(Sha256Command::UpdateOwned(copy_sha_input(bytes)));
         }
         self.context.as_mut().ok_or(ERR_INTERNAL)?.update(bytes);
         Ok(())
@@ -249,7 +256,7 @@ impl Sha256State {
         self.worker
             .as_ref()
             .ok_or(ERR_INTERNAL)?
-            .send(Sha256Command::UpdateOwned(Bytes::copy_from_slice(bytes)))
+            .send(Sha256Command::UpdateOwned(copy_sha_input(bytes)))
     }
 
     fn update_owned_async(&mut self, bytes: Bytes) -> Result<(), c_int> {
@@ -270,6 +277,7 @@ impl Sha256State {
         let digest = self.context.ok_or(ERR_INTERNAL)?.finish();
         let mut result = [0_u8; SHA256_DIGEST_LEN];
         result.copy_from_slice(digest.as_ref());
+        ct_core::record_vector_copy(result.len());
         Ok(result)
     }
 }
@@ -856,7 +864,7 @@ fn read_optional_str(ptr: *const c_char, len: c_int) -> Result<Option<String>, c
     let len = len as usize;
     let bytes = unsafe { slice::from_raw_parts(ptr as *const u8, len) };
     let value = str::from_utf8(bytes).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    Ok(Some(value.to_string()))
+    Ok(Some(ct_core::copy_codec_string(value)))
 }
 
 fn read_required_bytes(ptr: *const u8, len: c_int) -> Result<Vec<u8>, c_int> {
@@ -1233,17 +1241,21 @@ fn encode_event_segments_json(
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
         details.insert(
-            "publisher".into(),
+            ct_core::copy_codec_string("publisher"),
             JsonValue::Number(JsonNumber::from(publisher_id)),
         );
     }
     if let Some(topic_value) = topic {
-        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("topic"),
+            JsonValue::String(ct_core::copy_codec_string(topic_value)),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_json = serde_json::to_string(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
     let details_bytes = Bytes::from(details_json.clone().into_bytes());
+    ct_core::record_framing_copy(details_json.len());
     let has_kwargs = payload.kwargs.is_some();
     let has_args = payload.args.is_some() || has_kwargs;
     let mut segments = Vec::new();
@@ -1265,6 +1277,7 @@ fn encode_event_segments_json(
         }
         segments.push(Bytes::from_static(JSON_CLOSE));
     } else {
+        ct_core::record_framing_copy(details_json.len());
         let frame = Bytes::from(
             format!(
                 "[36,{},{},{}]",
@@ -1288,12 +1301,15 @@ fn encode_event_segments_msgpack(
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
         details.insert(
-            "publisher".into(),
+            ct_core::copy_codec_string("publisher"),
             JsonValue::Number(JsonNumber::from(publisher_id)),
         );
     }
     if let Some(topic_value) = topic {
-        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("topic"),
+            JsonValue::String(ct_core::copy_codec_string(topic_value)),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1392,25 +1408,37 @@ fn insert_ppt_details_from_options(
         match serde_key_str(key) {
             Some("ppt_scheme") => match serde_value_str(value) {
                 Some(text) => {
-                    details.insert("ppt_scheme".into(), JsonValue::String(text.to_string()));
+                    details.insert(
+                        ct_core::copy_codec_string("ppt_scheme"),
+                        JsonValue::String(ct_core::copy_codec_string(text)),
+                    );
                 }
                 None => return Err(ERR_INVALID_ARGUMENT),
             },
             Some("ppt_serializer") => match serde_value_str(value) {
                 Some(text) => {
-                    details.insert("ppt_serializer".into(), JsonValue::String(text.to_string()));
+                    details.insert(
+                        ct_core::copy_codec_string("ppt_serializer"),
+                        JsonValue::String(ct_core::copy_codec_string(text)),
+                    );
                 }
                 None => return Err(ERR_INVALID_ARGUMENT),
             },
             Some("ppt_cipher") => match serde_value_str(value) {
                 Some(text) => {
-                    details.insert("ppt_cipher".into(), JsonValue::String(text.to_string()));
+                    details.insert(
+                        ct_core::copy_codec_string("ppt_cipher"),
+                        JsonValue::String(ct_core::copy_codec_string(text)),
+                    );
                 }
                 None => return Err(ERR_INVALID_ARGUMENT),
             },
             Some("ppt_keyid") => match serde_value_str(value) {
                 Some(text) => {
-                    details.insert("ppt_keyid".into(), JsonValue::String(text.to_string()));
+                    details.insert(
+                        ct_core::copy_codec_string("ppt_keyid"),
+                        JsonValue::String(ct_core::copy_codec_string(text)),
+                    );
                 }
                 None => return Err(ERR_INVALID_ARGUMENT),
             },
@@ -1431,12 +1459,15 @@ fn encode_event_segments_cbor(
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
         details.insert(
-            "publisher".into(),
+            ct_core::copy_codec_string("publisher"),
             JsonValue::Number(JsonNumber::from(publisher_id)),
         );
     }
     if let Some(topic_value) = topic {
-        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("topic"),
+            JsonValue::String(ct_core::copy_codec_string(topic_value)),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1504,12 +1535,14 @@ fn binary_ppt_body<'a>(
     {
         return None;
     }
-    let scheme = metadata.get(&SerdeValue::String("ppt_scheme".into()))?;
+    let scheme = metadata.get(&SerdeValue::String(ct_core::copy_codec_string(
+        "ppt_scheme",
+    )))?;
     if serde_value_str(scheme)?.is_empty() {
         return None;
     }
     for key in ["ppt_serializer", "ppt_cipher", "ppt_keyid"] {
-        if let Some(value) = metadata.get(&SerdeValue::String(key.into())) {
+        if let Some(value) = metadata.get(&SerdeValue::String(ct_core::copy_codec_string(key))) {
             serde_value_str(value)?;
         }
     }
@@ -1623,7 +1656,9 @@ fn reusable_forwarding_serializer(
         return Err(ERR_UNSUPPORTED);
     }
     if payload.transparent.is_some()
-        || metadata.contains_key(&SerdeValue::String("ppt_scheme".into()))
+        || metadata.contains_key(&SerdeValue::String(ct_core::copy_codec_string(
+            "ppt_scheme",
+        )))
     {
         return Err(ERR_UNSUPPORTED);
     }
@@ -1752,10 +1787,16 @@ fn encode_event_segments_for_serializer(
         RawSocketSerializer::Flatbuffers => {
             let mut details = JsonMap::new();
             if let Some(publisher) = publisher {
-                details.insert("publisher".into(), JsonValue::Number(publisher.into()));
+                details.insert(
+                    ct_core::copy_codec_string("publisher"),
+                    JsonValue::Number(publisher.into()),
+                );
             }
             if let Some(topic) = topic {
-                details.insert("topic".into(), JsonValue::String(topic.into()));
+                details.insert(
+                    ct_core::copy_codec_string("topic"),
+                    JsonValue::String(ct_core::copy_codec_string(topic)),
+                );
             }
             encode_forwarded_flatbuffers(WampMessage::Event {
                 subscription_id,
@@ -1783,35 +1824,45 @@ fn encode_invocation_segments_json(
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
         details.insert(
-            "caller".into(),
+            ct_core::copy_codec_string("caller"),
             JsonValue::Number(JsonNumber::from(caller_id)),
         );
     }
     if let Some(authid) = caller_authid {
         details.insert(
-            "caller_authid".into(),
-            JsonValue::String(authid.to_string()),
+            ct_core::copy_codec_string("caller_authid"),
+            JsonValue::String(ct_core::copy_codec_string(authid)),
         );
     }
     if let Some(authrole) = caller_authrole {
         details.insert(
-            "caller_authrole".into(),
-            JsonValue::String(authrole.to_string()),
+            ct_core::copy_codec_string("caller_authrole"),
+            JsonValue::String(ct_core::copy_codec_string(authrole)),
         );
     }
     if let Some(proc_name) = procedure {
-        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("procedure"),
+            JsonValue::String(ct_core::copy_codec_string(proc_name)),
+        );
     }
     if let Some(progress) = receive_progress {
-        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("receive_progress"),
+            JsonValue::Bool(progress),
+        );
     }
     if let Some(progress) = invocation_progress {
-        details.insert("progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("progress"),
+            JsonValue::Bool(progress),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_json = serde_json::to_string(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
     let details_bytes = Bytes::from(details_json.clone().into_bytes());
+    ct_core::record_framing_copy(details_json.len());
     let has_kwargs = payload.kwargs.is_some();
     let has_args = payload.args.is_some() || has_kwargs;
     let mut segments = Vec::new();
@@ -1833,6 +1884,7 @@ fn encode_invocation_segments_json(
         }
         segments.push(Bytes::from_static(JSON_CLOSE));
     } else {
+        ct_core::record_framing_copy(details_json.len());
         let frame = Bytes::from(
             format!(
                 "[68,{},{},{}]",
@@ -1860,30 +1912,39 @@ fn encode_invocation_segments_msgpack(
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
         details.insert(
-            "caller".into(),
+            ct_core::copy_codec_string("caller"),
             JsonValue::Number(JsonNumber::from(caller_id)),
         );
     }
     if let Some(authid) = caller_authid {
         details.insert(
-            "caller_authid".into(),
-            JsonValue::String(authid.to_string()),
+            ct_core::copy_codec_string("caller_authid"),
+            JsonValue::String(ct_core::copy_codec_string(authid)),
         );
     }
     if let Some(authrole) = caller_authrole {
         details.insert(
-            "caller_authrole".into(),
-            JsonValue::String(authrole.to_string()),
+            ct_core::copy_codec_string("caller_authrole"),
+            JsonValue::String(ct_core::copy_codec_string(authrole)),
         );
     }
     if let Some(proc_name) = procedure {
-        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("procedure"),
+            JsonValue::String(ct_core::copy_codec_string(proc_name)),
+        );
     }
     if let Some(progress) = receive_progress {
-        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("receive_progress"),
+            JsonValue::Bool(progress),
+        );
     }
     if let Some(progress) = invocation_progress {
-        details.insert("progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("progress"),
+            JsonValue::Bool(progress),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1927,30 +1988,39 @@ fn encode_invocation_segments_cbor(
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
         details.insert(
-            "caller".into(),
+            ct_core::copy_codec_string("caller"),
             JsonValue::Number(JsonNumber::from(caller_id)),
         );
     }
     if let Some(authid) = caller_authid {
         details.insert(
-            "caller_authid".into(),
-            JsonValue::String(authid.to_string()),
+            ct_core::copy_codec_string("caller_authid"),
+            JsonValue::String(ct_core::copy_codec_string(authid)),
         );
     }
     if let Some(authrole) = caller_authrole {
         details.insert(
-            "caller_authrole".into(),
-            JsonValue::String(authrole.to_string()),
+            ct_core::copy_codec_string("caller_authrole"),
+            JsonValue::String(ct_core::copy_codec_string(authrole)),
         );
     }
     if let Some(proc_name) = procedure {
-        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("procedure"),
+            JsonValue::String(ct_core::copy_codec_string(proc_name)),
+        );
     }
     if let Some(progress) = receive_progress {
-        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("receive_progress"),
+            JsonValue::Bool(progress),
+        );
     }
     if let Some(progress) = invocation_progress {
-        details.insert("progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("progress"),
+            JsonValue::Bool(progress),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -2076,7 +2146,10 @@ fn encode_invocation_segments_for_serializer(
         RawSocketSerializer::Flatbuffers => {
             let mut details = JsonMap::new();
             if let Some(caller) = caller {
-                details.insert("caller".into(), JsonValue::Number(caller.into()));
+                details.insert(
+                    ct_core::copy_codec_string("caller"),
+                    JsonValue::Number(caller.into()),
+                );
             }
             for (key, value) in [
                 ("caller_authid", caller_authid),
@@ -2084,7 +2157,10 @@ fn encode_invocation_segments_for_serializer(
                 ("procedure", procedure),
             ] {
                 if let Some(value) = value {
-                    details.insert(key.into(), JsonValue::String(value.into()));
+                    details.insert(
+                        ct_core::copy_codec_string(key),
+                        JsonValue::String(ct_core::copy_codec_string(value)),
+                    );
                 }
             }
             for (key, value) in [
@@ -2092,7 +2168,7 @@ fn encode_invocation_segments_for_serializer(
                 ("progress", invocation_progress),
             ] {
                 if let Some(value) = value {
-                    details.insert(key.into(), JsonValue::Bool(value));
+                    details.insert(ct_core::copy_codec_string(key), JsonValue::Bool(value));
                 }
             }
             encode_forwarded_flatbuffers(WampMessage::Invocation {
@@ -2219,10 +2295,10 @@ fn encode_result_segments_for_serializer(
     let payload = payload.as_ref();
     match serializer {
         RawSocketSerializer::Json => {
-            let mut details_map = options.clone();
+            let mut details_map = ct_core::clone_codec_map(options);
             if progress {
                 details_map.insert(
-                    SerdeValue::String("progress".into()),
+                    SerdeValue::String(ct_core::copy_codec_string("progress")),
                     SerdeValue::Bool(true),
                 );
             }
@@ -2235,10 +2311,10 @@ fn encode_result_segments_for_serializer(
             ))
         }
         RawSocketSerializer::MessagePack => {
-            let mut details_map = options.clone();
+            let mut details_map = ct_core::clone_codec_map(options);
             if progress {
                 details_map.insert(
-                    SerdeValue::String("progress".into()),
+                    SerdeValue::String(ct_core::copy_codec_string("progress")),
                     SerdeValue::Bool(true),
                 );
             }
@@ -2247,10 +2323,10 @@ fn encode_result_segments_for_serializer(
             build_result_segments_msgpack(payload, request_id, details_msgpack)
         }
         RawSocketSerializer::Cbor => {
-            let mut details_map = options.clone();
+            let mut details_map = ct_core::clone_codec_map(options);
             if progress {
                 details_map.insert(
-                    SerdeValue::String("progress".into()),
+                    SerdeValue::String(ct_core::copy_codec_string("progress")),
                     SerdeValue::Bool(true),
                 );
             }
@@ -2259,10 +2335,10 @@ fn encode_result_segments_for_serializer(
             build_result_segments_cbor(payload, request_id, details_cbor)
         }
         RawSocketSerializer::Flatbuffers => {
-            let mut details = options.clone();
+            let mut details = ct_core::clone_codec_map(options);
             if progress {
                 details.insert(
-                    SerdeValue::String("progress".into()),
+                    SerdeValue::String(ct_core::copy_codec_string("progress")),
                     SerdeValue::Bool(true),
                 );
             }
@@ -2301,9 +2377,9 @@ fn encode_result_segments_from_call_for_serializer(
     if binary_ppt_body(message.serializer, payload, options).is_some() {
         // Echo the opaque PPT contract, without propagating CALL routing options.
         for key in ["ppt_scheme", "ppt_serializer", "ppt_cipher", "ppt_keyid"] {
-            let key = SerdeValue::String(key.into());
+            let key = SerdeValue::String(ct_core::copy_codec_string(key));
             if let Some(value) = options.get(&key) {
-                details.insert(key, value.clone());
+                details.insert(key, ct_core::clone_codec_value(value));
             }
         }
     }
@@ -2498,8 +2574,8 @@ fn encode_error_segments_for_serializer(
         RawSocketSerializer::Flatbuffers => encode_forwarded_flatbuffers(WampMessage::Error {
             request_type,
             request_id,
-            details: details.clone(),
-            error: error.clone(),
+            details: ct_core::clone_codec_map(details),
+            error: ct_core::copy_codec_string(error),
             payload: payload.clone(),
         }),
         _ => Err(ERR_UNSUPPORTED),
@@ -3411,6 +3487,7 @@ pub extern "C" fn ct_connection_websocket_protocol(
             }
             unsafe {
                 ptr::copy_nonoverlapping(protocol.as_ptr(), buffer, required as usize);
+                ct_core::record_vector_copy(required as usize);
             }
             SUCCESS
         }
@@ -7241,6 +7318,7 @@ pub extern "C" fn ct_sha256_finalize(
     };
     unsafe {
         ptr::copy_nonoverlapping(digest.as_ptr(), out_digest, SHA256_DIGEST_LEN);
+        ct_core::record_vector_copy(SHA256_DIGEST_LEN);
     }
     SUCCESS
 }
@@ -10405,6 +10483,68 @@ mod tests {
             bytes.extend_from_slice(&segment);
         }
         bytes
+    }
+
+    #[test]
+    fn json_metadata_copy_observations_cover_both_payload_shapes() {
+        const CHILD: &str = "CONNECTANUM_JSON_COPY_OBSERVER_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            let module = module_path!().split_once("::").unwrap().1;
+            let name =
+                format!("{module}::json_metadata_copy_observations_cover_both_payload_shapes");
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", &name, "--test-threads=1", "--nocapture"])
+                .env(CHILD, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+            return;
+        }
+        let _guard = test_guard();
+        for args in [None, Some(Bytes::from_static(b"[1]"))] {
+            let payload = WampPayload {
+                args,
+                kwargs: None,
+                transparent: None,
+            };
+            let expected = if payload.args.is_some() { 2 } else { 4 };
+            let before = ct_core::codec_copy_metrics_snapshot();
+            let event =
+                encode_event_segments_json(&payload, 7, 11, None, None, &BTreeMap::new()).unwrap();
+            let after = ct_core::codec_copy_metrics_snapshot();
+            assert_eq!(
+                after.framing_copy_bytes_total - before.framing_copy_bytes_total,
+                expected
+            );
+            let _: serde_json::Value = serde_json::from_slice(&concat_segments(event)).unwrap();
+            let before = ct_core::codec_copy_metrics_snapshot();
+            let invocation = encode_invocation_segments_json(
+                &payload,
+                13,
+                17,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                &BTreeMap::new(),
+            )
+            .unwrap();
+            let after = ct_core::codec_copy_metrics_snapshot();
+            assert_eq!(
+                after.framing_copy_bytes_total - before.framing_copy_bytes_total,
+                expected
+            );
+            let _: serde_json::Value =
+                serde_json::from_slice(&concat_segments(invocation)).unwrap();
+        }
     }
 
     #[test]

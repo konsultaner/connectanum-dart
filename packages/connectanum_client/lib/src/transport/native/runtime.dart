@@ -1351,7 +1351,9 @@ class NativeClientRuntime {
   /// Cumulative explicit native codec buffer operations, or unavailable.
   Map<String, int>? codecCopyMetricsSnapshot() {
     final snapshot = _bindings.ctCodecCopyMetricsSnapshot;
-    if (_bindings.ctCodecCopyMetricsVersion?.call() != 1 || snapshot == null) {
+    if (_bindings.ctCodecCopyMetricsVersion?.call() != 1 ||
+        _bindings.ctCodecCopyMetricsCoverageVersion?.call() != 1 ||
+        snapshot == null) {
       return null;
     }
     final info = calloc<CtCodecCopyMetricsInfo>();
@@ -1361,6 +1363,7 @@ class NativeClientRuntime {
         _throwForError(result, 'snapshot codec copy metrics');
       }
       return {
+        'coverage_version': 1,
         'vector_copy_bytes': info.ref.vectorCopyBytesTotal,
         'string_copy_bytes': info.ref.stringCopyBytesTotal,
         'growth_copy_bytes': info.ref.growthCopyBytesTotal,
@@ -2308,6 +2311,7 @@ class NativeClientRuntime {
       var consumed = false;
       try {
         bytesPtr.asTypedList(bytes.length).setAll(0, bytes);
+        OwnedCopyMetrics.record(OwnedCopyKind.clone, bytes.length);
         consumed = true;
         final result = updateOwnedAsync(
           sha256Handle,
@@ -2328,6 +2332,7 @@ class NativeClientRuntime {
     final bytesPtr = malloc<ffi.Uint8>(bytes.length);
     try {
       bytesPtr.asTypedList(bytes.length).setAll(0, bytes);
+      OwnedCopyMetrics.record(OwnedCopyKind.clone, bytes.length);
       // Older native libraries retain the borrowed-input compatibility path.
       final result = bytes.length >= _asyncSha256MinimumBytes
           ? _bindings.ctSha256UpdateAsync(
@@ -2362,7 +2367,7 @@ class NativeClientRuntime {
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to finalize native SHA-256 state');
       }
-      return Uint8List.fromList(digestPtr.asTypedList(digestLength));
+      return OwnedCopyMetrics.copyBytes(digestPtr.asTypedList(digestLength));
     } finally {
       calloc.free(digestPtr);
     }

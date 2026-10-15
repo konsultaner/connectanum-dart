@@ -11,11 +11,33 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Owned pipeline accounting follow-up (2026-10-15): E2EE totals now combine eight
+independently observed owned components; mixed transcode totals expose actual
+router serializer/dispatch buffers separately from transport. Strict producer and
+Python validation reject stale native coverage, rewound counters and forged
+subtotals. The unchanged 48-byte codec layout has a separate optional coverage
+scalar; the prior production library safely yields unavailable coverage. Focused
+717 benchmark, 86 client and 35 router cases pass. All 120 full HTTP cases
+pass copy validation. Frozen full verification passes with all 3,082 inputs and
+HEAD unchanged. An extra native typed pub/sub check finds a benchmark verifier
+reading the wire payload; its one-accessor correction and eight fail-first
+regressions pass afterward. Final combined/hosted verification remains pending.
+Missing resource values now display unmeasured/fail rather than false 1.0 parity.
+No issue is closed and all performance budgets remain unchanged. See
+[accounting contract](../research/2026-10-15-owned-pipeline-copy-accounting.md).
+
+
 Lazy mutation startup repair (2026-10-15): hosted `b43a0a56` rejects stale
 source-bound equivalence records before running `core-lazy-vm` and web. All eight
 previous predicates map uniquely to unchanged text in the full current
 356-mutant inventory. Their reasons and count are revalidated; only IDs and
-source hashes change. Full target execution and replacement hosted CI are
+source hashes change. Both full 356-mutant targets pass at 95.7142857143%,
+with zero errors/timeouts and all 246 relevant inputs plus HEAD unchanged.
+Independent benchmark/reporting changes are explicitly excluded from that
+scoped proof. A preflight catches sixteen additional older stale records; their
+unchanged predicates are revalidated without changing reasons, counts, ranges
+or floors. All 154 proof records validate and thirteen preflight tests pass.
+Canonical scripts now reject stale metadata early. Replacement hosted CI is
 pending. Production dry run 38798749509 passes all five platforms and 170
 consumer cases with zero skips and audited log hashes. The two paired 90-row
 reply diagnostics complete cleanly but still show roughly 0.84 throughput

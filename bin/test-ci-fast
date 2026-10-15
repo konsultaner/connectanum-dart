@@ -3,6 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 cd_repo_root
 dart_workspace_bootstrap
+python3 tool/check_dart_mutation_equivalents.py
 "$ROOT_DIR/bin/check-format"
 dart analyze
 "$ROOT_DIR/bin/test-tooling"

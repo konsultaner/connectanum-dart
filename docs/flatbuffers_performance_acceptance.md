@@ -11,9 +11,12 @@ native submission ABI; small serialized header copies remain counted. The
 fixed CBOR/MessagePack native fixture now writes the complete existing PPT
 structure directly in native storage. Its body input copy remains counted;
 it does not build a Dart map or serialize the full payload again at send time.
-Native-path copy attribution is now partial; complete
-cross-client coverage and the paired performance campaign are unfinished. No
-parity result is accepted.
+The HTTP report now combines complete Connectanum-owned E2EE and router
+transcode observations when every required counter and native coverage
+capability is available. Dependency internals remain explicitly unmeasured.
+The paired performance campaign and allocation-volume repair are unfinished;
+no parity result is accepted. See the
+[owned accounting contract](research/2026-10-15-owned-pipeline-copy-accounting.md).
 
 The runner selects a group with `payload_construction = "values"`,
 `"native_buffer"`, or `"pre_encoded_span"` and requires
@@ -155,8 +158,9 @@ TLS rows can report a numeric owned `transport_copy_bytes` while keeping
 `tls_copy_bytes` explicitly dependency-labelled `not_measured`,
 because complete Rustls/Tokio-Rustls and SDK internal coverage remains missing;
 `tls_plaintext_accepted_bytes` measures acceptance and remains a throughput
-diagnostic. Mixed-serializer
-router transcodes are also not measured. Snapshots use before/after deltas
+diagnostic. Mixed-serializer router transcodes now expose the actual router
+serializer/dispatch buffer subtotal, separately from transport copies, with
+complete owned coverage and explicit dependency exclusions. Snapshots use before/after deltas
 around one benchmark command. Older native libraries without the optional
 snapshot symbol leave affected fields unmeasured, so those rows cannot claim
 complete coverage or establish FlatBuffers parity.
@@ -194,9 +198,12 @@ conversions and the exact prefix copied by typed FlatBuffers validation, includi
 a prefix copied before rejection. Existing `Uint8List` and bounded subviews are
 reused and report zero coercion bytes. This isolate-local Dart counter is available
 independently of the optional native staging ABI. Failed legacy CBOR conversions,
-other isolate bridges/wrappers, crypto dependency internals, serializer and framing
-transformations remain unmeasured. Encrypted
-rows keep `e2ee_copy_bytes` as `not_measured`. The comparator requires that field, rejects
+crypto dependency internals remain outside that staging subtotal. Worker-only
+results still keep `e2ee_copy_bytes` as `not_measured`, because a client worker
+cannot measure router copies. The HTTP assembler now combines client/router
+Dart, native codec, raw frame, crypto and transport observations into the numeric
+owned pipeline total, and retains the staging breakdown as diagnostics without
+adding it again. The comparator requires the total field, rejects
 an encrypted row marked `not_applicable`, and accepts numeric totals only with
 complete pipeline coverage and no unknown boundaries. ABI v1 requires both its
 version and snapshot symbols; older or unknown versions produce unavailable

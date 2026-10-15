@@ -2,9 +2,41 @@ import 'package:connectanum_bench/src/codec_copy_metrics.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final zero = {for (final field in codecCopyMetricFields) field: 0};
+  test('an older six-counter ABI cannot certify expanded copy coverage', () {
+    final oldSnapshot = {for (final field in codecCopyMetricFields) field: 0};
+    expect(
+      codecCopyMetricsDelta(oldSnapshot, oldSnapshot)['status'],
+      'not_measured',
+    );
+  });
+  final zero = {
+    'coverage_version': 1,
+    for (final field in codecCopyMetricFields) field: 0,
+  };
+  for (final version in [null, 0, -1, 2]) {
+    for (final beforeInvalid in [true, false]) {
+      test('coverage $version before=$beforeInvalid is unavailable', () {
+        final invalid = {...zero};
+        if (version == null) {
+          invalid.remove('coverage_version');
+        } else {
+          invalid['coverage_version'] = version;
+        }
+        expect(
+          codecCopyMetricsDelta(
+            beforeInvalid ? invalid : zero,
+            beforeInvalid ? zero : invalid,
+          )['status'],
+          'not_measured',
+        );
+      });
+    }
+  }
   test('each native operation contributes source bytes once', () {
-    final after = {for (final field in codecCopyMetricFields) field: 9};
+    final after = {
+      'coverage_version': 1,
+      for (final field in codecCopyMetricFields) field: 9,
+    };
     final result = codecCopyMetricsDelta(zero, after);
     expect(result['status'], 'measured');
     expect(result['known_copy_bytes'], 54);

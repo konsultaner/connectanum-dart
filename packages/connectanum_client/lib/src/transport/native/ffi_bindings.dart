@@ -901,6 +901,13 @@ class CtFfiBindings {
               CtCodecCopyMetricsVersionDart
             >('ct_codec_copy_metrics_abi_version'),
       ),
+      ctCodecCopyMetricsCoverageVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsVersionNative,
+              CtCodecCopyMetricsVersionDart
+            >('ct_codec_copy_metrics_coverage_version'),
+      ),
       ctCodecCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1216,6 +1223,7 @@ class CtFfiBindings {
   final CtRawFrameCopyMetricsVersionDart? ctRawFrameCopyMetricsVersion;
   final CtRawFrameCopyMetricsSnapshotDart? ctRawFrameCopyMetricsSnapshot;
   final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsVersion;
+  final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsCoverageVersion;
   final CtCodecCopyMetricsSnapshotDart? ctCodecCopyMetricsSnapshot;
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;

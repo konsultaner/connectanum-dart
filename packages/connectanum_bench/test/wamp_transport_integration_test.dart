@@ -804,6 +804,38 @@ void main() {
       timeout: const Timeout(Duration(seconds: 45)),
     );
 
+    for (final transport in WampTransport.values) {
+      for (final peer in [WampSerializer.cbor, WampSerializer.flatbuffers]) {
+        for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+          test(
+            'native typed encrypted pubsub verifies decoded $cipher $transport peer=$peer',
+            () async {
+              final samples = await harness!.runNative(
+                WampScenario(
+                  transport: transport,
+                  clientImplementation: WampClientImplementation.native,
+                  serializer: WampSerializer.flatbuffers,
+                  peerSerializer: peer,
+                  mode: WampMode.pubsub,
+                  uri: 'bench.topic.encrypted',
+                  iterations: 2,
+                  concurrency: 1,
+                  payloadBytes: 65536,
+                  pptScheme: 'wamp',
+                  pptSerializer: 'flatbuffers',
+                  pptCipher: cipher,
+                  pptKeyId: 'benchmark-key',
+                ),
+              );
+              expect(samples, hasLength(2));
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
+
     for (final implementation in WampClientImplementation.values) {
       for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
         test(

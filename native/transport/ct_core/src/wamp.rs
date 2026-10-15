@@ -23,8 +23,8 @@ mod flatbuffers_schema;
 mod flatbuffers_wire;
 mod flatbuffers_writer;
 pub use codec_copy_metrics::{
-    codec_copy_metrics_snapshot, record_framing_copy, record_key_material_copy,
-    CodecCopyMetricsSnapshot,
+    clone_codec_map, clone_codec_value, codec_copy_metrics_snapshot, copy_codec_string,
+    record_framing_copy, record_key_material_copy, record_vector_copy, CodecCopyMetricsSnapshot,
 };
 mod raw_frame_copy_metrics;
 pub use raw_frame_copy_metrics::{
@@ -470,7 +470,7 @@ fn parse_value_parts(
         70 => parse_yield(serializer, rest)?,
         _ => WampMessage::Unknown {
             code,
-            fields: rest.to_vec(),
+            fields: codec_copy_metrics::clone_codec_values(rest),
         },
     };
     Ok(message)
@@ -2524,7 +2524,7 @@ fn get<'a>(parts: &'a [Value], index: usize, label: &'static str) -> Result<&'a 
 
 fn expect_map(value: &Value, label: &'static str) -> Result<ValueMap, ParseError> {
     match value {
-        Value::Map(map) => Ok(map.clone()),
+        Value::Map(map) => Ok(clone_codec_map(map)),
         Value::Unit => Ok(ValueMap::new()),
         _ => Err(ParseError::ExpectedMap(label)),
     }
@@ -2553,7 +2553,7 @@ fn value_as_u64(value: &Value, label: &'static str) -> Result<u64, ParseError> {
 
 fn expect_string(value: &Value, label: &'static str) -> Result<String, ParseError> {
     match value {
-        Value::String(s) => Ok(s.clone()),
+        Value::String(s) => Ok(copy_codec_string(s)),
         Value::Char(c) => Ok(c.to_string()),
         _ => Err(ParseError::ExpectedString(label)),
     }

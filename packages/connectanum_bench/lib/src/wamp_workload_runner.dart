@@ -483,7 +483,7 @@ class WampWorkloadRunner {
               try {
                 if (_isTypedPptBenchmark(scenario)) {
                   _verifyTypedBenchmarkPayload(
-                    event.payload.arguments,
+                    event.arguments,
                     scenario: scenario,
                     worker: workerId,
                     iteration: iteration,

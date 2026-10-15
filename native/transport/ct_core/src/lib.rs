@@ -1358,12 +1358,13 @@ pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
 pub use wamp::{
-    codec_copy_metrics_snapshot, compose_flatbuffers_message_segments, encode_flatbuffers_message,
+    clone_codec_map, clone_codec_value, codec_copy_metrics_snapshot,
+    compose_flatbuffers_message_segments, copy_codec_string, encode_flatbuffers_message,
     encode_flatbuffers_message_segments, parse_message, parse_message_segments,
     raw_frame_copy_metrics_snapshot, record_framing_copy, record_key_material_copy,
-    validate_flatbuffers_payload, CodecCopyMetricsSnapshot, ParseError as WampParseError,
-    ParsedMessage, Payload as WampPayload, RawFrame as WampRawFrame, RawFrameCopyMetricsSnapshot,
-    WampMessage,
+    record_vector_copy, validate_flatbuffers_payload, CodecCopyMetricsSnapshot,
+    ParseError as WampParseError, ParsedMessage, Payload as WampPayload, RawFrame as WampRawFrame,
+    RawFrameCopyMetricsSnapshot, WampMessage,
 };
 
 static RUNTIME_MANAGER: OnceLock<RuntimeManager> = OnceLock::new();
@@ -2713,7 +2714,9 @@ impl ListenerRegistry {
             .get(&connection_id)
             .ok_or(Error::ConnectionNotFound(connection_id))?;
         match entry.protocol {
-            ConnectionProtocol::WebSocket => Ok(entry.websocket_protocol.clone()),
+            ConnectionProtocol::WebSocket => {
+                Ok(entry.websocket_protocol.as_deref().map(copy_codec_string))
+            }
             _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
         }
     }

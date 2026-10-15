@@ -340,3 +340,32 @@ impl Writer<'_> {
         Ok(table)
     }
 }
+
+#[cfg(test)]
+mod copy_tests {
+    use super::*;
+    #[test]
+    fn string_writer_counts_utf8_bytes_once_including_empty_strings() {
+        let mut writer = Writer {
+            builder: FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256)),
+            strings: 0,
+            elements: 0,
+            tables: 0,
+            estimated: 0,
+            deferred: None,
+        };
+        for text in ["", "écho", "routing.name"] {
+            let before = codec_copy_metrics::observed_on_current_thread();
+            writer.string(text).unwrap();
+            let after = codec_copy_metrics::observed_on_current_thread();
+            assert_eq!(
+                after.string_copy_bytes_total - before.string_copy_bytes_total,
+                text.len() as u64
+            );
+            assert_eq!(
+                after.vector_copy_bytes_total,
+                before.vector_copy_bytes_total
+            );
+        }
+    }
+}

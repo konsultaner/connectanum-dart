@@ -19,6 +19,7 @@ import 'package:connectanum_core/src/serializer/flatbuffers/validation.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/wire_writer.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 import 'package:ffi/ffi.dart' as ffi_alloc;
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:test/test.dart';
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
@@ -96,6 +97,29 @@ void main() {
       builder.dispose();
     }
   });
+
+  for (final length in [10, 256 * 1024]) {
+    test('SHA-256 bridge copies are observed for $length bytes', () {
+      final runtime = NativeClientRuntime.instance();
+      final payload = Uint8List(length)..[0] = 71;
+      final expected = crypto.sha256.convert(payload).bytes;
+      OwnedCopyMetrics.enable();
+      final before = OwnedCopyMetrics.snapshot()!;
+      final state = runtime.createSha256State();
+      try {
+        expect(runtime.updateSha256(state, payload), length);
+        final digest = runtime.finalizeSha256State(state);
+        expect(digest, expected);
+        final after = OwnedCopyMetrics.snapshot()!;
+        expect(
+          after['clone_copy_bytes']! - before['clone_copy_bytes']!,
+          length + 32,
+        );
+      } finally {
+        runtime.releaseSha256State(state);
+      }
+    });
+  }
 
   test('complete native ownership ABI is available', () {
     expect(

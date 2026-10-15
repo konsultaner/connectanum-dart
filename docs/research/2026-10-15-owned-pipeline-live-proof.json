@@ -1,0 +1,5236 @@
+{
+  "evidence_kind": "live_correctness_and_owned_copy_observation",
+  "independent_owned_validations_passed": true,
+  "measurement_scope": "connectanum_buffer_boundaries_v1",
+  "native_build_mode": "ffi-test; correctness evidence only",
+  "native_library_sha256": "6c4d8d40119d5727513f462733a51ccc3c149d16cb33b02d945de0506c94c3c7",
+  "performance_acceptance": false,
+  "processes_exited_cleanly": true,
+  "raw_reports": [
+    {
+      "batch": "owned-copy-http-expanded",
+      "rows": 72,
+      "sha256": "b51bcf63d1ae9da909150f2352c2e637d4b4627079e010403010fe975b03f29c"
+    },
+    {
+      "batch": "owned-copy-http-cbor-pubsub-progressive",
+      "rows": 32,
+      "sha256": "0833381f482f6c6fa631e4686fb2c113a847fd51c3cb7776b665097e192d2d46"
+    },
+    {
+      "batch": "owned-copy-http-typed-pubsub-fixed",
+      "rows": 16,
+      "sha256": "7e2f3f2dc833ab45f9f589e97258959c19b09c567f8acaf899863988fe43fc15"
+    }
+  ],
+  "row_count": 120,
+  "rows": [
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 1055117,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 3770,
+        "router_native_raw_frame": 0,
+        "transport": 135332
+      },
+      "e2ee_copy_bytes": 1198974,
+      "non_transport_owned_copy_bytes": 1063642,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 3770,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8525,
+      "transport_copy_bytes": 135332
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 535152,
+        "client_native_codec": 128,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 143331,
+        "router_native_codec": 6574,
+        "router_native_raw_frame": 0,
+        "transport": 273630
+      },
+      "e2ee_copy_bytes": 958815,
+      "non_transport_owned_copy_bytes": 685185,
+      "transcode_components": {
+        "router_dart": 143331,
+        "router_native_codec": 6574,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149905,
+      "transport_copy_bytes": 273630
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 1055117,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 3770,
+        "router_native_raw_frame": 0,
+        "transport": 135332
+      },
+      "e2ee_copy_bytes": 1198974,
+      "non_transport_owned_copy_bytes": 1063642,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 3770,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8525,
+      "transport_copy_bytes": 135332
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 535152,
+        "client_native_codec": 128,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 143331,
+        "router_native_codec": 6574,
+        "router_native_raw_frame": 0,
+        "transport": 273630
+      },
+      "e2ee_copy_bytes": 958815,
+      "non_transport_owned_copy_bytes": 685185,
+      "transcode_components": {
+        "router_dart": 143331,
+        "router_native_codec": 6574,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149905,
+      "transport_copy_bytes": 273630
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 1055117,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 3770,
+        "router_native_raw_frame": 0,
+        "transport": 133977
+      },
+      "e2ee_copy_bytes": 1197619,
+      "non_transport_owned_copy_bytes": 1063642,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 3770,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8525,
+      "transport_copy_bytes": 133977
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 535152,
+        "client_native_codec": 128,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 143331,
+        "router_native_codec": 6574,
+        "router_native_raw_frame": 0,
+        "transport": 272523
+      },
+      "e2ee_copy_bytes": 957708,
+      "non_transport_owned_copy_bytes": 685185,
+      "transcode_components": {
+        "router_dart": 143331,
+        "router_native_codec": 6574,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149905,
+      "transport_copy_bytes": 272523
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 1055117,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 3770,
+        "router_native_raw_frame": 0,
+        "transport": 133977
+      },
+      "e2ee_copy_bytes": 1197619,
+      "non_transport_owned_copy_bytes": 1063642,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 3770,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8525,
+      "transport_copy_bytes": 133977
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 535155,
+        "client_native_codec": 128,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 143355,
+        "router_native_codec": 6575,
+        "router_native_raw_frame": 0,
+        "transport": 272532
+      },
+      "e2ee_copy_bytes": 957745,
+      "non_transport_owned_copy_bytes": 685213,
+      "transcode_components": {
+        "router_dart": 143355,
+        "router_native_codec": 6575,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149930,
+      "transport_copy_bytes": 272532
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792669,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 3702,
+        "router_native_raw_frame": 0,
+        "transport": 135280
+      },
+      "e2ee_copy_bytes": 936406,
+      "non_transport_owned_copy_bytes": 801126,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 3702,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8457,
+      "transport_copy_bytes": 135280
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 402438,
+        "client_native_codec": 128,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 142852,
+        "router_native_codec": 6506,
+        "router_native_raw_frame": 0,
+        "transport": 273075
+      },
+      "e2ee_copy_bytes": 824999,
+      "non_transport_owned_copy_bytes": 551924,
+      "transcode_components": {
+        "router_dart": 142852,
+        "router_native_codec": 6506,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149358,
+      "transport_copy_bytes": 273075
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792670,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0,
+        "transport": 135283
+      },
+      "e2ee_copy_bytes": 936414,
+      "non_transport_owned_copy_bytes": 801131,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8461,
+      "transport_copy_bytes": 135283
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 402439,
+        "client_native_codec": 128,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0,
+        "transport": 273093
+      },
+      "e2ee_copy_bytes": 825069,
+      "non_transport_owned_copy_bytes": 551976,
+      "transcode_components": {
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149409,
+      "transport_copy_bytes": 273093
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792670,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0,
+        "transport": 133913
+      },
+      "e2ee_copy_bytes": 935044,
+      "non_transport_owned_copy_bytes": 801131,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8461,
+      "transport_copy_bytes": 133913
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 402439,
+        "client_native_codec": 128,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0,
+        "transport": 271947
+      },
+      "e2ee_copy_bytes": 823923,
+      "non_transport_owned_copy_bytes": 551976,
+      "transcode_components": {
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149409,
+      "transport_copy_bytes": 271947
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792670,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0,
+        "transport": 133913
+      },
+      "e2ee_copy_bytes": 935044,
+      "non_transport_owned_copy_bytes": 801131,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8461,
+      "transport_copy_bytes": 133913
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 402439,
+        "client_native_codec": 128,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0,
+        "transport": 271947
+      },
+      "e2ee_copy_bytes": 823923,
+      "non_transport_owned_copy_bytes": 551976,
+      "transcode_components": {
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149409,
+      "transport_copy_bytes": 271947
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792804,
+        "client_native_codec": 2059,
+        "client_native_raw_frame": 0,
+        "native_crypto": 1049216,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0,
+        "transport": 266533
+      },
+      "e2ee_copy_bytes": 2119143,
+      "non_transport_owned_copy_bytes": 1852610,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8531,
+      "transport_copy_bytes": 266533
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 271501,
+        "client_native_codec": 4635,
+        "client_native_raw_frame": 0,
+        "native_crypto": 529032,
+        "router_dart": 143429,
+        "router_native_codec": 6578,
+        "router_native_raw_frame": 0,
+        "transport": 273571
+      },
+      "e2ee_copy_bytes": 1228746,
+      "non_transport_owned_copy_bytes": 955175,
+      "transcode_components": {
+        "router_dart": 143429,
+        "router_native_codec": 6578,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 150007,
+      "transport_copy_bytes": 273571
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792804,
+        "client_native_codec": 2059,
+        "client_native_raw_frame": 0,
+        "native_crypto": 1049216,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0,
+        "transport": 266533
+      },
+      "e2ee_copy_bytes": 2119143,
+      "non_transport_owned_copy_bytes": 1852610,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8531,
+      "transport_copy_bytes": 266533
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 271501,
+        "client_native_codec": 4635,
+        "client_native_raw_frame": 0,
+        "native_crypto": 529032,
+        "router_dart": 143429,
+        "router_native_codec": 6578,
+        "router_native_raw_frame": 0,
+        "transport": 273571
+      },
+      "e2ee_copy_bytes": 1228746,
+      "non_transport_owned_copy_bytes": 955175,
+      "transcode_components": {
+        "router_dart": 143429,
+        "router_native_codec": 6578,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 150007,
+      "transport_copy_bytes": 273571
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792804,
+        "client_native_codec": 133515,
+        "client_native_raw_frame": 131608,
+        "native_crypto": 1049216,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 131716,
+        "transport": 532147
+      },
+      "e2ee_copy_bytes": 2779537,
+      "non_transport_owned_copy_bytes": 2247390,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 131716
+      },
+      "transcode_copy_bytes": 140247,
+      "transport_copy_bytes": 532147
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 271501,
+        "client_native_codec": 5241,
+        "client_native_raw_frame": 738,
+        "native_crypto": 529032,
+        "router_dart": 143429,
+        "router_native_codec": 6578,
+        "router_native_raw_frame": 135390,
+        "transport": 412647
+      },
+      "e2ee_copy_bytes": 1504556,
+      "non_transport_owned_copy_bytes": 1091909,
+      "transcode_components": {
+        "router_dart": 143429,
+        "router_native_codec": 6578,
+        "router_native_raw_frame": 135390
+      },
+      "transcode_copy_bytes": 285397,
+      "transport_copy_bytes": 412647
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792804,
+        "client_native_codec": 133515,
+        "client_native_raw_frame": 131608,
+        "native_crypto": 1049216,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 131716,
+        "transport": 532147
+      },
+      "e2ee_copy_bytes": 2779537,
+      "non_transport_owned_copy_bytes": 2247390,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 131716
+      },
+      "transcode_copy_bytes": 140247,
+      "transport_copy_bytes": 532147
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 271501,
+        "client_native_codec": 5241,
+        "client_native_raw_frame": 738,
+        "native_crypto": 529032,
+        "router_dart": 143429,
+        "router_native_codec": 6578,
+        "router_native_raw_frame": 135390,
+        "transport": 412647
+      },
+      "e2ee_copy_bytes": 1504556,
+      "non_transport_owned_copy_bytes": 1091909,
+      "transcode_components": {
+        "router_dart": 143429,
+        "router_native_codec": 6578,
+        "router_native_raw_frame": 135390
+      },
+      "transcode_copy_bytes": 285397,
+      "transport_copy_bytes": 412647
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792686,
+        "client_native_codec": 2045,
+        "client_native_raw_frame": 0,
+        "native_crypto": 1049232,
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0,
+        "transport": 266455
+      },
+      "e2ee_copy_bytes": 2118879,
+      "non_transport_owned_copy_bytes": 1852424,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8461,
+      "transport_copy_bytes": 266455
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 271191,
+        "client_native_codec": 4509,
+        "client_native_raw_frame": 0,
+        "native_crypto": 529112,
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0,
+        "transport": 272997
+      },
+      "e2ee_copy_bytes": 1227218,
+      "non_transport_owned_copy_bytes": 954221,
+      "transcode_components": {
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149409,
+      "transport_copy_bytes": 272997
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792686,
+        "client_native_codec": 2045,
+        "client_native_raw_frame": 0,
+        "native_crypto": 1049232,
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0,
+        "transport": 266455
+      },
+      "e2ee_copy_bytes": 2118879,
+      "non_transport_owned_copy_bytes": 1852424,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8461,
+      "transport_copy_bytes": 266455
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 271191,
+        "client_native_codec": 4509,
+        "client_native_raw_frame": 0,
+        "native_crypto": 529112,
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0,
+        "transport": 272997
+      },
+      "e2ee_copy_bytes": 1227218,
+      "non_transport_owned_copy_bytes": 954221,
+      "transcode_components": {
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 149409,
+      "transport_copy_bytes": 272997
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792686,
+        "client_native_codec": 133463,
+        "client_native_raw_frame": 131568,
+        "native_crypto": 1049232,
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 131676,
+        "transport": 531961
+      },
+      "e2ee_copy_bytes": 2779047,
+      "non_transport_owned_copy_bytes": 2247086,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 131676
+      },
+      "transcode_copy_bytes": 140137,
+      "transport_copy_bytes": 531961
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 271191,
+        "client_native_codec": 5077,
+        "client_native_raw_frame": 698,
+        "native_crypto": 529112,
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 135158,
+        "transport": 411725
+      },
+      "e2ee_copy_bytes": 1502370,
+      "non_transport_owned_copy_bytes": 1090645,
+      "transcode_components": {
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 135158
+      },
+      "transcode_copy_bytes": 284567,
+      "transport_copy_bytes": 411725
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 792686,
+        "client_native_codec": 133463,
+        "client_native_raw_frame": 131568,
+        "native_crypto": 1049232,
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 131676,
+        "transport": 531961
+      },
+      "e2ee_copy_bytes": 2779047,
+      "non_transport_owned_copy_bytes": 2247086,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3704,
+        "router_native_raw_frame": 131676
+      },
+      "transcode_copy_bytes": 140137,
+      "transport_copy_bytes": 531961
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "file_transfer",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "file_io_dependency_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 271191,
+        "client_native_codec": 5077,
+        "client_native_raw_frame": 698,
+        "native_crypto": 529112,
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 135158,
+        "transport": 411725
+      },
+      "e2ee_copy_bytes": 1502370,
+      "non_transport_owned_copy_bytes": 1090645,
+      "transcode_components": {
+        "router_dart": 142901,
+        "router_native_codec": 6508,
+        "router_native_raw_frame": 135158
+      },
+      "transcode_copy_bytes": 284567,
+      "transport_copy_bytes": 411725
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 530945,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0,
+        "transport": 135407
+      },
+      "e2ee_copy_bytes": 674953,
+      "non_transport_owned_copy_bytes": 539546,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8601,
+      "transport_copy_bytes": 135407
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 530945,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0,
+        "transport": 135407
+      },
+      "e2ee_copy_bytes": 674953,
+      "non_transport_owned_copy_bytes": 539546,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8601,
+      "transport_copy_bytes": 135407
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 530945,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0,
+        "transport": 134069
+      },
+      "e2ee_copy_bytes": 673615,
+      "non_transport_owned_copy_bytes": 539546,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8601,
+      "transport_copy_bytes": 134069
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 530945,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0,
+        "transport": 134069
+      },
+      "e2ee_copy_bytes": 673615,
+      "non_transport_owned_copy_bytes": 539546,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8601,
+      "transport_copy_bytes": 134069
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268411,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0,
+        "transport": 135353
+      },
+      "e2ee_copy_bytes": 412295,
+      "non_transport_owned_copy_bytes": 276942,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8531,
+      "transport_copy_bytes": 135353
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268411,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0,
+        "transport": 135353
+      },
+      "e2ee_copy_bytes": 412295,
+      "non_transport_owned_copy_bytes": 276942,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8531,
+      "transport_copy_bytes": 135353
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268411,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0,
+        "transport": 133999
+      },
+      "e2ee_copy_bytes": 410941,
+      "non_transport_owned_copy_bytes": 276942,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8531,
+      "transport_copy_bytes": 133999
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268411,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0,
+        "transport": 133999
+      },
+      "e2ee_copy_bytes": 410941,
+      "non_transport_owned_copy_bytes": 276942,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8531,
+      "transport_copy_bytes": 133999
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268545,
+        "client_native_codec": 2073,
+        "client_native_raw_frame": 0,
+        "native_crypto": 1049536,
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0,
+        "transport": 266643
+      },
+      "e2ee_copy_bytes": 1595398,
+      "non_transport_owned_copy_bytes": 1328755,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8601,
+      "transport_copy_bytes": 266643
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268545,
+        "client_native_codec": 2073,
+        "client_native_raw_frame": 0,
+        "native_crypto": 1049536,
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0,
+        "transport": 266643
+      },
+      "e2ee_copy_bytes": 1595398,
+      "non_transport_owned_copy_bytes": 1328755,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8601,
+      "transport_copy_bytes": 266643
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268545,
+        "client_native_codec": 133583,
+        "client_native_raw_frame": 131664,
+        "native_crypto": 1049536,
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 131772,
+        "transport": 532397
+      },
+      "e2ee_copy_bytes": 2256098,
+      "non_transport_owned_copy_bytes": 1723701,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 131772
+      },
+      "transcode_copy_bytes": 140373,
+      "transport_copy_bytes": 532397
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268545,
+        "client_native_codec": 133583,
+        "client_native_raw_frame": 131664,
+        "native_crypto": 1049536,
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 131772,
+        "transport": 532397
+      },
+      "e2ee_copy_bytes": 2256098,
+      "non_transport_owned_copy_bytes": 1723701,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3844,
+        "router_native_raw_frame": 131772
+      },
+      "transcode_copy_bytes": 140373,
+      "transport_copy_bytes": 532397
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268427,
+        "client_native_codec": 2059,
+        "client_native_raw_frame": 0,
+        "native_crypto": 1049552,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0,
+        "transport": 266565
+      },
+      "e2ee_copy_bytes": 1595134,
+      "non_transport_owned_copy_bytes": 1328569,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8531,
+      "transport_copy_bytes": 266565
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268427,
+        "client_native_codec": 2059,
+        "client_native_raw_frame": 0,
+        "native_crypto": 1049552,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0,
+        "transport": 266565
+      },
+      "e2ee_copy_bytes": 1595134,
+      "non_transport_owned_copy_bytes": 1328569,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8531,
+      "transport_copy_bytes": 266565
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268427,
+        "client_native_codec": 133531,
+        "client_native_raw_frame": 131624,
+        "native_crypto": 1049552,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 131732,
+        "transport": 532211
+      },
+      "e2ee_copy_bytes": 2255608,
+      "non_transport_owned_copy_bytes": 1723397,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 131732
+      },
+      "transcode_copy_bytes": 140263,
+      "transport_copy_bytes": 532211
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 268427,
+        "client_native_codec": 133531,
+        "client_native_raw_frame": 131624,
+        "native_crypto": 1049552,
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 131732,
+        "transport": 532211
+      },
+      "e2ee_copy_bytes": 2255608,
+      "non_transport_owned_copy_bytes": 1723397,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3774,
+        "router_native_raw_frame": 131732
+      },
+      "transcode_copy_bytes": 140263,
+      "transport_copy_bytes": 532211
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "json",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 442012,
+        "router_native_codec": 1169,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 443181,
+      "transport_copy_bytes": 310812
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "json",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 442012,
+        "router_native_codec": 1169,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 443181,
+      "transport_copy_bytes": 310812
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "json",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 442012,
+        "router_native_codec": 1169,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 443181,
+      "transport_copy_bytes": 615066
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "json",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 442012,
+        "router_native_codec": 1169,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 443181,
+      "transport_copy_bytes": 615066
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "msgpack",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4094,
+        "router_native_codec": 2765,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 6859,
+      "transport_copy_bytes": 135137
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "msgpack",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4094,
+        "router_native_codec": 2765,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 6859,
+      "transport_copy_bytes": 135137
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "msgpack",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4094,
+        "router_native_codec": 2765,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 6859,
+      "transport_copy_bytes": 133759
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "msgpack",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4094,
+        "router_native_codec": 2765,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 6859,
+      "transport_copy_bytes": 133759
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3530,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8287,
+      "transport_copy_bytes": 135163
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3530,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8287,
+      "transport_copy_bytes": 135163
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3530,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8287,
+      "transport_copy_bytes": 133729
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3530,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8287,
+      "transport_copy_bytes": 133729
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "json",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 442012,
+        "router_native_codec": 1169,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 443181,
+      "transport_copy_bytes": 617068
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "json",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 442012,
+        "router_native_codec": 1169,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 443181,
+      "transport_copy_bytes": 617068
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "json",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 442012,
+        "router_native_codec": 1169,
+        "router_native_raw_frame": 131580
+      },
+      "transcode_copy_bytes": 574761,
+      "transport_copy_bytes": 925730
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "json",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 442012,
+        "router_native_codec": 1169,
+        "router_native_raw_frame": 131580
+      },
+      "transcode_copy_bytes": 574761,
+      "transport_copy_bytes": 925730
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "msgpack",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4095,
+        "router_native_codec": 2765,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 6860,
+      "transport_copy_bytes": 266294
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "msgpack",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4095,
+        "router_native_codec": 2765,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 6860,
+      "transport_copy_bytes": 266294
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "msgpack",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4095,
+        "router_native_codec": 2765,
+        "router_native_raw_frame": 131580
+      },
+      "transcode_copy_bytes": 138440,
+      "transport_copy_bytes": 531600
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "msgpack",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4095,
+        "router_native_codec": 2765,
+        "router_native_raw_frame": 131580
+      },
+      "transcode_copy_bytes": 138440,
+      "transport_copy_bytes": 531600
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3530,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8287,
+      "transport_copy_bytes": 266319
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3530,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 8287,
+      "transport_copy_bytes": 266319
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3530,
+        "router_native_raw_frame": 131580
+      },
+      "transcode_copy_bytes": 139867,
+      "transport_copy_bytes": 531601
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_scheme": "x_connectanum_bench_typed",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": null,
+      "e2ee_copy_bytes": {
+        "reason": "workload does not use the E2EE profile",
+        "status": "not_applicable"
+      },
+      "non_transport_owned_copy_bytes": null,
+      "transcode_components": {
+        "router_dart": 4757,
+        "router_native_codec": 3530,
+        "router_native_raw_frame": 131580
+      },
+      "transcode_copy_bytes": 139867,
+      "transport_copy_bytes": 531601
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 530112,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 4059
+      },
+      "e2ee_copy_bytes": 541481,
+      "non_transport_owned_copy_bytes": 537422,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7310,
+      "transport_copy_bytes": 4059
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 3154146,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 400821,
+        "router_native_codec": 6028,
+        "router_native_raw_frame": 0,
+        "transport": 596589
+      },
+      "e2ee_copy_bytes": 4157584,
+      "non_transport_owned_copy_bytes": 3560995,
+      "transcode_components": {
+        "router_dart": 400821,
+        "router_native_codec": 6028,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406849,
+      "transport_copy_bytes": 596589
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 530112,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 4059
+      },
+      "e2ee_copy_bytes": 541481,
+      "non_transport_owned_copy_bytes": 537422,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7310,
+      "transport_copy_bytes": 4059
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 3154146,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 400821,
+        "router_native_codec": 6028,
+        "router_native_raw_frame": 0,
+        "transport": 596589
+      },
+      "e2ee_copy_bytes": 4157584,
+      "non_transport_owned_copy_bytes": 3560995,
+      "transcode_components": {
+        "router_dart": 400821,
+        "router_native_codec": 6028,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406849,
+      "transport_copy_bytes": 596589
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 530112,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 133677
+      },
+      "e2ee_copy_bytes": 671099,
+      "non_transport_owned_copy_bytes": 537422,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7310,
+      "transport_copy_bytes": 133677
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 3154146,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 400821,
+        "router_native_codec": 6028,
+        "router_native_raw_frame": 0,
+        "transport": 989167
+      },
+      "e2ee_copy_bytes": 4550162,
+      "non_transport_owned_copy_bytes": 3560995,
+      "transcode_components": {
+        "router_dart": 400821,
+        "router_native_codec": 6028,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406849,
+      "transport_copy_bytes": 989167
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 530112,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 133677
+      },
+      "e2ee_copy_bytes": 671099,
+      "non_transport_owned_copy_bytes": 537422,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7310,
+      "transport_copy_bytes": 133677
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 3154146,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 400821,
+        "router_native_codec": 6028,
+        "router_native_raw_frame": 0,
+        "transport": 989167
+      },
+      "e2ee_copy_bytes": 4550162,
+      "non_transport_owned_copy_bytes": 3560995,
+      "transcode_components": {
+        "router_dart": 400821,
+        "router_native_codec": 6028,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406849,
+      "transport_copy_bytes": 989167
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398854,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0,
+        "transport": 4059
+      },
+      "e2ee_copy_bytes": 410195,
+      "non_transport_owned_copy_bytes": 406136,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7282,
+      "transport_copy_bytes": 4059
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2366895,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 400636,
+        "router_native_codec": 5925,
+        "router_native_raw_frame": 0,
+        "transport": 596401
+      },
+      "e2ee_copy_bytes": 3369857,
+      "non_transport_owned_copy_bytes": 2773456,
+      "transcode_components": {
+        "router_dart": 400636,
+        "router_native_codec": 5925,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406561,
+      "transport_copy_bytes": 596401
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398854,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4756,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0,
+        "transport": 4060
+      },
+      "e2ee_copy_bytes": 410197,
+      "non_transport_owned_copy_bytes": 406137,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7283,
+      "transport_copy_bytes": 4060
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2366898,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 400642,
+        "router_native_codec": 5926,
+        "router_native_raw_frame": 0,
+        "transport": 596404
+      },
+      "e2ee_copy_bytes": 3369870,
+      "non_transport_owned_copy_bytes": 2773466,
+      "transcode_components": {
+        "router_dart": 400642,
+        "router_native_codec": 5926,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406568,
+      "transport_copy_bytes": 596404
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398854,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4756,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0,
+        "transport": 133640
+      },
+      "e2ee_copy_bytes": 539777,
+      "non_transport_owned_copy_bytes": 406137,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7283,
+      "transport_copy_bytes": 133640
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2366898,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 400642,
+        "router_native_codec": 5926,
+        "router_native_raw_frame": 0,
+        "transport": 988886
+      },
+      "e2ee_copy_bytes": 3762352,
+      "non_transport_owned_copy_bytes": 2773466,
+      "transcode_components": {
+        "router_dart": 400642,
+        "router_native_codec": 5926,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406568,
+      "transport_copy_bytes": 988886
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398854,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4756,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0,
+        "transport": 133640
+      },
+      "e2ee_copy_bytes": 539777,
+      "non_transport_owned_copy_bytes": 406137,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7283,
+      "transport_copy_bytes": 133640
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2366898,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 400642,
+        "router_native_codec": 5926,
+        "router_native_raw_frame": 0,
+        "transport": 988886
+      },
+      "e2ee_copy_bytes": 3762352,
+      "non_transport_owned_copy_bytes": 2773466,
+      "transcode_components": {
+        "router_dart": 400642,
+        "router_native_codec": 5926,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406568,
+      "transport_copy_bytes": 988886
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398946,
+        "client_native_codec": 1695,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524760,
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 135302
+      },
+      "e2ee_copy_bytes": 1068014,
+      "non_transport_owned_copy_bytes": 932712,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7311,
+      "transport_copy_bytes": 135302
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2367067,
+        "client_native_codec": 3181,
+        "client_native_raw_frame": 0,
+        "native_crypto": 2754312,
+        "router_dart": 400840,
+        "router_native_codec": 6031,
+        "router_native_raw_frame": 0,
+        "transport": 1187061
+      },
+      "e2ee_copy_bytes": 6718492,
+      "non_transport_owned_copy_bytes": 5531431,
+      "transcode_components": {
+        "router_dart": 400840,
+        "router_native_codec": 6031,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406871,
+      "transport_copy_bytes": 1187061
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398946,
+        "client_native_codec": 1695,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524760,
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 135302
+      },
+      "e2ee_copy_bytes": 1068014,
+      "non_transport_owned_copy_bytes": 932712,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7311,
+      "transport_copy_bytes": 135302
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2367067,
+        "client_native_codec": 3181,
+        "client_native_raw_frame": 0,
+        "native_crypto": 2754312,
+        "router_dart": 400840,
+        "router_native_codec": 6031,
+        "router_native_raw_frame": 0,
+        "transport": 1187061
+      },
+      "e2ee_copy_bytes": 6718492,
+      "non_transport_owned_copy_bytes": 5531431,
+      "transcode_components": {
+        "router_dart": 400840,
+        "router_native_codec": 6031,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406871,
+      "transport_copy_bytes": 1187061
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398946,
+        "client_native_codec": 133119,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524760,
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 131770,
+        "transport": 269072
+      },
+      "e2ee_copy_bytes": 1464978,
+      "non_transport_owned_copy_bytes": 1195906,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 131770
+      },
+      "transcode_copy_bytes": 139081,
+      "transport_copy_bytes": 269072
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2367068,
+        "client_native_codec": 200395,
+        "client_native_raw_frame": 197412,
+        "native_crypto": 2754312,
+        "router_dart": 400859,
+        "router_native_codec": 6034,
+        "router_native_raw_frame": 592122,
+        "transport": 1979161
+      },
+      "e2ee_copy_bytes": 8497363,
+      "non_transport_owned_copy_bytes": 6518202,
+      "transcode_components": {
+        "router_dart": 400859,
+        "router_native_codec": 6034,
+        "router_native_raw_frame": 592122
+      },
+      "transcode_copy_bytes": 999015,
+      "transport_copy_bytes": 1979161
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398946,
+        "client_native_codec": 133119,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524760,
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 131770,
+        "transport": 269072
+      },
+      "e2ee_copy_bytes": 1464978,
+      "non_transport_owned_copy_bytes": 1195906,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 131770
+      },
+      "transcode_copy_bytes": 139081,
+      "transport_copy_bytes": 269072
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2367068,
+        "client_native_codec": 200395,
+        "client_native_raw_frame": 197412,
+        "native_crypto": 2754312,
+        "router_dart": 400859,
+        "router_native_codec": 6034,
+        "router_native_raw_frame": 592122,
+        "transport": 1979161
+      },
+      "e2ee_copy_bytes": 8497363,
+      "non_transport_owned_copy_bytes": 6518202,
+      "transcode_components": {
+        "router_dart": 400859,
+        "router_native_codec": 6034,
+        "router_native_raw_frame": 592122
+      },
+      "transcode_copy_bytes": 999015,
+      "transport_copy_bytes": 1979161
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398894,
+        "client_native_codec": 1681,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524768,
+        "router_dart": 4756,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0,
+        "transport": 135278
+      },
+      "e2ee_copy_bytes": 1067904,
+      "non_transport_owned_copy_bytes": 932626,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2527,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7283,
+      "transport_copy_bytes": 135278
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2366819,
+        "client_native_codec": 3118,
+        "client_native_raw_frame": 0,
+        "native_crypto": 2754192,
+        "router_dart": 400661,
+        "router_native_codec": 5929,
+        "router_native_raw_frame": 0,
+        "transport": 1186766
+      },
+      "e2ee_copy_bytes": 6717485,
+      "non_transport_owned_copy_bytes": 5530719,
+      "transcode_components": {
+        "router_dart": 400661,
+        "router_native_codec": 5929,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406590,
+      "transport_copy_bytes": 1186766
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398894,
+        "client_native_codec": 1681,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524768,
+        "router_dart": 4756,
+        "router_native_codec": 2529,
+        "router_native_raw_frame": 0,
+        "transport": 135278
+      },
+      "e2ee_copy_bytes": 1067906,
+      "non_transport_owned_copy_bytes": 932628,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2529,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7285,
+      "transport_copy_bytes": 135278
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2366819,
+        "client_native_codec": 3118,
+        "client_native_raw_frame": 0,
+        "native_crypto": 2754192,
+        "router_dart": 400661,
+        "router_native_codec": 5929,
+        "router_native_raw_frame": 0,
+        "transport": 1186766
+      },
+      "e2ee_copy_bytes": 6717485,
+      "non_transport_owned_copy_bytes": 5530719,
+      "transcode_components": {
+        "router_dart": 400661,
+        "router_native_codec": 5929,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 406590,
+      "transport_copy_bytes": 1186766
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398894,
+        "client_native_codec": 133069,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524768,
+        "router_dart": 4756,
+        "router_native_codec": 2529,
+        "router_native_raw_frame": 131746,
+        "transport": 269012
+      },
+      "e2ee_copy_bytes": 1464774,
+      "non_transport_owned_copy_bytes": 1195762,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2529,
+        "router_native_raw_frame": 131746
+      },
+      "transcode_copy_bytes": 139031,
+      "transport_copy_bytes": 269012
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2366819,
+        "client_native_codec": 200275,
+        "client_native_raw_frame": 197352,
+        "native_crypto": 2754192,
+        "router_dart": 400661,
+        "router_native_codec": 5929,
+        "router_native_raw_frame": 591990,
+        "transport": 1978624
+      },
+      "e2ee_copy_bytes": 8495842,
+      "non_transport_owned_copy_bytes": 6517218,
+      "transcode_components": {
+        "router_dart": 400661,
+        "router_native_codec": 5929,
+        "router_native_raw_frame": 591990
+      },
+      "transcode_copy_bytes": 998580,
+      "transport_copy_bytes": 1978624
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 398894,
+        "client_native_codec": 133069,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524768,
+        "router_dart": 4756,
+        "router_native_codec": 2529,
+        "router_native_raw_frame": 131746,
+        "transport": 269012
+      },
+      "e2ee_copy_bytes": 1464774,
+      "non_transport_owned_copy_bytes": 1195762,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2529,
+        "router_native_raw_frame": 131746
+      },
+      "transcode_copy_bytes": 139031,
+      "transport_copy_bytes": 269012
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "file_chunk_bytes": 8192,
+        "iterations": 2,
+        "mode": "progressive_rpc",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "cbor",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.rpc.echo"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 2366819,
+        "client_native_codec": 200275,
+        "client_native_raw_frame": 197352,
+        "native_crypto": 2754192,
+        "router_dart": 400661,
+        "router_native_codec": 5929,
+        "router_native_raw_frame": 591990,
+        "transport": 1978624
+      },
+      "e2ee_copy_bytes": 8495842,
+      "non_transport_owned_copy_bytes": 6517218,
+      "transcode_components": {
+        "router_dart": 400661,
+        "router_native_codec": 5929,
+        "router_native_raw_frame": 591990
+      },
+      "transcode_copy_bytes": 998580,
+      "transport_copy_bytes": 1978624
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 267857,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0,
+        "transport": 4075
+      },
+      "e2ee_copy_bytes": 279270,
+      "non_transport_owned_copy_bytes": 275195,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7338,
+      "transport_copy_bytes": 4075
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 267857,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0,
+        "transport": 4075
+      },
+      "e2ee_copy_bytes": 279270,
+      "non_transport_owned_copy_bytes": 275195,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7338,
+      "transport_copy_bytes": 4075
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 267857,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0,
+        "transport": 133709
+      },
+      "e2ee_copy_bytes": 408904,
+      "non_transport_owned_copy_bytes": 275195,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7338,
+      "transport_copy_bytes": 133709
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 267857,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0,
+        "transport": 133709
+      },
+      "e2ee_copy_bytes": 408904,
+      "non_transport_owned_copy_bytes": 275195,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7338,
+      "transport_copy_bytes": 133709
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136597,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 4059
+      },
+      "e2ee_copy_bytes": 147966,
+      "non_transport_owned_copy_bytes": 143907,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7310,
+      "transport_copy_bytes": 4059
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136597,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 4059
+      },
+      "e2ee_copy_bytes": 147966,
+      "non_transport_owned_copy_bytes": 143907,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7310,
+      "transport_copy_bytes": 4059
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136597,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 133655
+      },
+      "e2ee_copy_bytes": 277562,
+      "non_transport_owned_copy_bytes": 143907,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7310,
+      "transport_copy_bytes": 133655
+    },
+    {
+      "configuration": {
+        "client_impl": "dart",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "dart_sdk_socket_io",
+        "dart_sdk_tls",
+        "dart_sdk_websocket_masking",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136597,
+        "client_native_codec": 0,
+        "client_native_raw_frame": 0,
+        "native_crypto": 0,
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 133655
+      },
+      "e2ee_copy_bytes": 277562,
+      "non_transport_owned_copy_bytes": 143907,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7310,
+      "transport_copy_bytes": 133655
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136689,
+        "client_native_codec": 1709,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524768,
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0,
+        "transport": 135319
+      },
+      "e2ee_copy_bytes": 805823,
+      "non_transport_owned_copy_bytes": 670504,
+      "transcode_components": {
+        "router_dart": 4755,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7338,
+      "transport_copy_bytes": 135319
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136689,
+        "client_native_codec": 1709,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524768,
+        "router_dart": 4756,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0,
+        "transport": 135320
+      },
+      "e2ee_copy_bytes": 805825,
+      "non_transport_owned_copy_bytes": 670505,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7339,
+      "transport_copy_bytes": 135320
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136689,
+        "client_native_codec": 133149,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524768,
+        "router_dart": 4756,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 131788,
+        "transport": 269122
+      },
+      "e2ee_copy_bytes": 1202855,
+      "non_transport_owned_copy_bytes": 933733,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 131788
+      },
+      "transcode_copy_bytes": 139127,
+      "transport_copy_bytes": 269122
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "xsalsa20poly1305",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136689,
+        "client_native_codec": 133149,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524768,
+        "router_dart": 4756,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 131788,
+        "transport": 269122
+      },
+      "e2ee_copy_bytes": 1202855,
+      "non_transport_owned_copy_bytes": 933733,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2583,
+        "router_native_raw_frame": 131788
+      },
+      "transcode_copy_bytes": 139127,
+      "transport_copy_bytes": 269122
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136637,
+        "client_native_codec": 1695,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524776,
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 135280
+      },
+      "e2ee_copy_bytes": 805699,
+      "non_transport_owned_copy_bytes": 670419,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7311,
+      "transport_copy_bytes": 135280
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "rawsocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136637,
+        "client_native_codec": 1695,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524776,
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0,
+        "transport": 135280
+      },
+      "e2ee_copy_bytes": 805699,
+      "non_transport_owned_copy_bytes": 670419,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 0
+      },
+      "transcode_copy_bytes": 7311,
+      "transport_copy_bytes": 135280
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": false,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136637,
+        "client_native_codec": 133097,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524776,
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 131748,
+        "transport": 269028
+      },
+      "e2ee_copy_bytes": 1202597,
+      "non_transport_owned_copy_bytes": 933569,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 131748
+      },
+      "transcode_copy_bytes": 139059,
+      "transport_copy_bytes": 269028
+    },
+    {
+      "configuration": {
+        "client_impl": "native",
+        "concurrency": 1,
+        "iterations": 2,
+        "mode": "pubsub",
+        "payload_bytes": 65536,
+        "peer_serializer": "cbor",
+        "ppt_cipher": "aes256gcm",
+        "ppt_keyid": "bench-key",
+        "ppt_scheme": "wamp",
+        "ppt_serializer": "flatbuffers",
+        "secure_transport": true,
+        "serializer": "flatbuffers",
+        "transport": "websocket",
+        "uri": "bench.topic.copy"
+      },
+      "dependency_boundaries": [
+        "crypto_dependency_internals",
+        "dart_sdk_runtime_internals",
+        "rust_std_tokio_bytes_internals",
+        "rustls_tokio_rustls",
+        "serializer_dependency_internals"
+      ],
+      "e2ee_components": {
+        "client_dart": 136637,
+        "client_native_codec": 133097,
+        "client_native_raw_frame": 0,
+        "native_crypto": 524776,
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 131748,
+        "transport": 269028
+      },
+      "e2ee_copy_bytes": 1202597,
+      "non_transport_owned_copy_bytes": 933569,
+      "transcode_components": {
+        "router_dart": 4756,
+        "router_native_codec": 2555,
+        "router_native_raw_frame": 131748
+      },
+      "transcode_copy_bytes": 139059,
+      "transport_copy_bytes": 269028
+    }
+  ],
+  "schema_version": 1,
+  "source_file_count": 2418,
+  "source_manifest_sha256": "0de560e22dac4a3fd52959b8c9b6ac0f97df034778c92040c2668dce31bf6a0a"
+}

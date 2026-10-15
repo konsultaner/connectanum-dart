@@ -1,3 +1,7 @@
+// Benchmark-only native observations.
+// ignore: implementation_imports
+import 'package:connectanum_client/src/transport/native/runtime.dart'
+    as client_native;
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 
@@ -24,6 +28,43 @@ Map<String, Object?> dependencyCopyMetric(String dependency, String reason) => {
   'scope': 'dependency_internals',
   'dependency': dependency,
   'reason': reason,
+};
+
+int? _counterWindow(int? before, int? after) =>
+    before == null || after == null || before < 0 || after < before
+    ? null
+    : after - before;
+
+/// Benchmarks require one monotonic window; runtime-reset convenience deltas
+/// cannot certify copies that happened before a counter disappeared or rewound.
+Map<String, int?> nativeClientTransportCopyWindow(
+  client_native.NativeTransportCopyMetrics before,
+  client_native.NativeTransportCopyMetrics after,
+) => {
+  'dart_to_native_copy_bytes': _counterWindow(
+    before.dartToNativeCopiedBytesTotal,
+    after.dartToNativeCopiedBytesTotal,
+  ),
+  'ffi_borrowed_send_input_copy_bytes': _counterWindow(
+    before.ffiBorrowedSendCopyBytesTotal,
+    after.ffiBorrowedSendCopyBytesTotal,
+  ),
+  'io_buffer_front_copy_bytes': _counterWindow(
+    before.ioBufferFrontCopyBytesTotal,
+    after.ioBufferFrontCopyBytesTotal,
+  ),
+  'io_buffered_read_copy_bytes': _counterWindow(
+    before.ioBufferedReadCopyBytesTotal,
+    after.ioBufferedReadCopyBytesTotal,
+  ),
+  'websocket_mask_copy_bytes': _counterWindow(
+    before.websocketMaskCopyBytesTotal,
+    after.websocketMaskCopyBytesTotal,
+  ),
+  'websocket_coalesce_copy_bytes': _counterWindow(
+    before.websocketCoalesceCopyBytesTotal,
+    after.websocketCoalesceCopyBytesTotal,
+  ),
 };
 
 /// Certifies only the documented Connectanum client buffer-copy boundaries.
@@ -140,8 +181,16 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   final routerDelta = before != null && after != null
       ? after.deltaFrom(before)
       : null;
+  final routerDartCopies = _counterWindow(
+    before?.dartToNativeCopiedBytesTotal,
+    after?.dartToNativeCopiedBytesTotal,
+  );
+  final routerWebSocketCopies = _counterWindow(
+    before?.websocketCoalesceCopyBytesTotal,
+    after?.websocketCoalesceCopyBytesTotal,
+  );
   final routerWebSocketMeasured =
-      !needsWebSocket || routerDelta?.websocketCoalesceCopyBytesTotal != null;
+      !needsWebSocket || routerWebSocketCopies != null;
   final clientTransport = _copyByteCount(metrics['transport_copy_bytes']);
   final coverageValue = metrics['coverage'];
   final clientCoverage = coverageValue is Map
@@ -176,14 +225,17 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       (_copyByteCount(clientBreakdown['io_buffer_front_copy_bytes']) != null &&
           _copyByteCount(clientBreakdown['io_buffered_read_copy_bytes']) !=
               null);
-  final routerFrontCopies = _copyByteCount(
-    routerDelta?.ioBufferFrontCopyBytesTotal,
+  final routerFrontCopies = _counterWindow(
+    before?.ioBufferFrontCopyBytesTotal,
+    after?.ioBufferFrontCopyBytesTotal,
   );
-  final routerReplayCopies = _copyByteCount(
-    routerDelta?.ioBufferedReadCopyBytesTotal,
+  final routerReplayCopies = _counterWindow(
+    before?.ioBufferedReadCopyBytesTotal,
+    after?.ioBufferedReadCopyBytesTotal,
   );
-  final routerFfiCopies = _copyByteCount(
-    routerDelta?.ffiBorrowedSendCopyBytesTotal,
+  final routerFfiCopies = _counterWindow(
+    before?.ffiBorrowedSendCopyBytesTotal,
+    after?.ffiBorrowedSendCopyBytesTotal,
   );
   final routerInputMeasured =
       routerFrontCopies != null && routerReplayCopies != null;
@@ -193,6 +245,7 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       clientUnknownBoundaries.isEmpty &&
       clientTransport != null &&
       routerDelta != null &&
+      routerDartCopies != null &&
       routerWebSocketMeasured &&
       routerInputMeasured &&
       routerFfiCopies != null;
@@ -220,6 +273,11 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       'router WebSocket coalescing copy counter is unavailable',
     );
   }
+  if (routerDelta != null && routerDartCopies == null) {
+    addUnknownBoundary(
+      'router Dart-to-native copy counter is invalid or rewound',
+    );
+  }
   if (routerDelta != null && !routerInputMeasured) {
     addUnknownBoundary('router prefetched input copy counters are unavailable');
   }
@@ -232,10 +290,8 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   );
   final routerKnownOwnBytes = routerDelta == null
       ? 0
-      : routerDelta.dartToNativeCopiedBytesTotal +
-            (needsWebSocket
-                ? (routerDelta.websocketCoalesceCopyBytesTotal ?? 0)
-                : 0) +
+      : (routerDartCopies ?? 0) +
+            (needsWebSocket ? (routerWebSocketCopies ?? 0) : 0) +
             (routerFrontCopies ?? 0) +
             (routerReplayCopies ?? 0) +
             (routerFfiCopies ?? 0);
@@ -273,15 +329,17 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   routerBreakdown['tokio_rustls_plaintext_extract_copy_bytes'] =
       _copyByteCount(routerDelta?.tokioRustlsPlaintextExtractCopyBytesTotal) ??
       notMeasured('router partial Tokio-Rustls source counter is unavailable');
-  routerBreakdown['dart_to_native_copy_bytes'] = routerDelta == null
-      ? notMeasured('router transport copy snapshots are unavailable')
-      : routerDelta.dartToNativeCopiedBytesTotal;
+  routerBreakdown['dart_to_native_copy_bytes'] =
+      routerDartCopies ??
+      notMeasured(
+        'router transport copy snapshots are unavailable, invalid or rewound',
+      );
   routerBreakdown['ffi_borrowed_send_input_copy_bytes'] =
       routerFfiCopies ??
       notMeasured('router borrowed FFI send copy counter is unavailable');
   routerBreakdown['websocket_coalesce_copy_bytes'] = !needsWebSocket
       ? 0
-      : routerDelta?.websocketCoalesceCopyBytesTotal ??
+      : routerWebSocketCopies ??
             notMeasured(
               'router WebSocket coalescing copy counter is unavailable',
             );
@@ -292,10 +350,8 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
 
   metrics['transport_copy_bytes'] = completePath
       ? clientTransport +
-            routerDelta.dartToNativeCopiedBytesTotal +
-            (needsWebSocket
-                ? routerDelta.websocketCoalesceCopyBytesTotal!
-                : 0) +
+            routerDartCopies +
+            (needsWebSocket ? routerWebSocketCopies! : 0) +
             routerFrontCopies +
             routerReplayCopies +
             routerFfiCopies

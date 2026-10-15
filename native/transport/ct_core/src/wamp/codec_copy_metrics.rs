@@ -47,7 +47,7 @@ thread_local! {
     };
 }
 
-pub(super) fn record_vector_copy(bytes: usize) {
+pub fn record_vector_copy(bytes: usize) {
     if bytes == 0 {
         return;
     }
@@ -71,6 +71,56 @@ pub(super) fn record_string_copy(bytes: usize) {
         value.string_copy_bytes_total += bytes as u64;
         cell.set(value);
     });
+}
+
+/// UTF-8 strings retain real byte storage even when used as routing scalars.
+/// Reference-counted aliases are observed at construction, never on Arc::clone.
+pub fn copy_codec_string(value: &str) -> String {
+    let copied = value.to_owned();
+    record_string_copy(copied.len());
+    copied
+}
+
+pub(super) fn copy_text_arc(value: &str) -> std::sync::Arc<str> {
+    let copied = std::sync::Arc::from(value);
+    record_string_copy(value.len());
+    copied
+}
+
+fn record_value_clone(value: &serde_value::Value) {
+    use serde_value::Value;
+    match value {
+        Value::String(value) => record_string_copy(value.len()),
+        Value::Bytes(value) => record_vector_copy(value.len()),
+        Value::Seq(values) => values.iter().for_each(record_value_clone),
+        Value::Map(values) => values.iter().for_each(|(key, value)| {
+            record_value_clone(key);
+            record_value_clone(value);
+        }),
+        Value::Option(Some(value)) | Value::Newtype(value) => record_value_clone(value),
+        _ => {}
+    }
+}
+
+pub fn clone_codec_value(value: &serde_value::Value) -> serde_value::Value {
+    let copied = value.clone();
+    record_value_clone(value);
+    copied
+}
+
+pub fn clone_codec_map(value: &super::ValueMap) -> super::ValueMap {
+    let copied = value.clone();
+    for (key, value) in value {
+        record_value_clone(key);
+        record_value_clone(value);
+    }
+    copied
+}
+
+pub(super) fn clone_codec_values(values: &[serde_value::Value]) -> Vec<serde_value::Value> {
+    let copied = values.to_vec();
+    values.iter().for_each(record_value_clone);
+    copied
 }
 
 pub(super) fn record_growth_copy(bytes: usize) {
@@ -179,6 +229,56 @@ pub(super) fn observed_on_current_thread() -> CodecCopyMetricsSnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn nested_model_clones_count_owned_utf8_and_byte_vectors_once() {
+        use serde_value::Value;
+        let nested = Value::Seq(vec![
+            Value::String("é".to_owned()),
+            Value::Bytes(vec![1, 2, 3]),
+            Value::U64(71),
+        ]);
+        let wrapped = Value::Newtype(Box::new(Value::Option(Some(Box::new(nested)))));
+        let map = super::super::ValueMap::from([(Value::String("k".to_owned()), wrapped)]);
+        let before = observed_on_current_thread();
+        assert_eq!(clone_codec_map(&map), map);
+        let after = observed_on_current_thread();
+        assert_eq!(
+            after.string_copy_bytes_total - before.string_copy_bytes_total,
+            3
+        );
+        assert_eq!(
+            after.vector_copy_bytes_total - before.vector_copy_bytes_total,
+            3
+        );
+        let value = Value::Map(map);
+        assert_eq!(clone_codec_value(&value), value);
+        assert_eq!(clone_codec_values(&[value.clone()]), vec![value]);
+        let after_more = observed_on_current_thread();
+        assert_eq!(
+            after_more.string_copy_bytes_total - after.string_copy_bytes_total,
+            6
+        );
+        assert_eq!(
+            after_more.vector_copy_bytes_total - after.vector_copy_bytes_total,
+            6
+        );
+    }
+
+    #[test]
+    fn explicit_utf8_storage_clones_and_arc_aliases_have_distinct_counts() {
+        for text in ["", "écho", "routing.name"] {
+            let before = observed_on_current_thread();
+            assert_eq!(copy_codec_string(text), text);
+            let arc = copy_text_arc(text);
+            let _alias = arc.clone();
+            let after = observed_on_current_thread();
+            assert_eq!(
+                after.string_copy_bytes_total - before.string_copy_bytes_total,
+                2 * text.len() as u64
+            );
+        }
+    }
+
     #[test]
     fn growth_preserves_the_old_suffix_and_counts_actual_bytes() {
         let before = observed_on_current_thread();

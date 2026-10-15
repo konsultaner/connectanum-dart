@@ -581,6 +581,26 @@ class WampSerializerCompareTest(unittest.TestCase):
             + report["server_process_metrics"]["peak_rss_during_bytes"],
         )
 
+    def test_missing_resource_observations_never_render_as_parity(self) -> None:
+        for run in self.manifest["measured_runs"]:
+            path = self.root / run["results"]
+            reports = [json.loads(line) for line in path.read_text().splitlines()]
+            for report in reports:
+                for process in ("client_process_metrics", "server_process_metrics"):
+                    for field in ("cpu_user_us_delta", "allocated_bytes_delta", "peak_rss_during_bytes"):
+                        report[process].pop(field)
+            path.write_text("".join(json.dumps(report) + "\n" for report in reports))
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        self.assertEqual(result["status"], "failed")
+        for metric in ("cpu_us_per_operation", "allocated_bytes_per_operation", "summed_sampled_peak_rss_bytes"):
+            observed = result["cases"][0]["metrics"][metric]
+            self.assertFalse(observed["passed"])
+            self.assertIsNone(observed["median_ratio"])
+            self.assertIsNone(observed["ci_95_low"])
+            self.assertEqual(len(observed["observations"]), 7)
+            self.assertTrue(all(row["ratio"] is None for row in observed["observations"]))
+        self.assertIn("unmeasured", compare.render_markdown(result))
+
     def test_bootstrap_is_deterministic(self) -> None:
         first = compare.evaluate_campaign(self.manifest, self.root, self.policy)
         second = compare.evaluate_campaign(self.manifest, self.root, self.policy)

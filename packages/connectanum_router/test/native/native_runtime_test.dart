@@ -117,6 +117,11 @@ void main() {
       final advertised =
           library.providesSymbol('ct_codec_copy_metrics_abi_version') &&
           library.providesSymbol('ct_codec_copy_metrics_snapshot') &&
+          library.providesSymbol('ct_codec_copy_metrics_coverage_version') &&
+          library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+                'ct_codec_copy_metrics_coverage_version',
+              )() ==
+              1 &&
           library.lookupFunction<ffi.Uint32 Function(), int Function()>(
                 'ct_codec_copy_metrics_abi_version',
               )() ==
@@ -130,6 +135,7 @@ void main() {
       expect(
         before!.keys,
         unorderedEquals([
+          'coverage_version',
           'vector_copy_bytes',
           'string_copy_bytes',
           'growth_copy_bytes',

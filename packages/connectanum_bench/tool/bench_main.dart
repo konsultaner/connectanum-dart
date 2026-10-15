@@ -18,6 +18,7 @@ import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
 import 'package:connectanum_bench/src/codec_copy_metrics.dart';
 import 'package:connectanum_bench/src/owned_copy_metrics.dart';
+import 'package:connectanum_bench/src/owned_pipeline_copy_metrics.dart';
 // Enable owned copy observation before router worker creation.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
@@ -818,7 +819,10 @@ class _BenchControlRegistry {
           'samples': samples.map((sample) => sample.toJson()).toList(),
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
-          'copy_metrics': copyMetrics,
+          'copy_metrics': mergeOwnedPipelineCopyMetrics(
+            copyMetrics,
+            scenario: scenario,
+          ),
           'server_process_metrics': serverProcessMetrics,
           if (clientProcessMetrics != null)
             'client_process_metrics': clientProcessMetrics.toJson(),
