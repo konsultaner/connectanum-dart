@@ -597,8 +597,8 @@
   - [x] Define and test a versioned, reversible MQTT topic to strict WAMP URI mapping; gateway authorization and routing remain open.
   - [x] Add a provisional TCP QoS 0 broker and Connectanum client, verify binary Paho side-by-side delivery, and gate four new source files at 100% focused executable-line coverage.
   - [x] Capture a matched local Mosquitto baseline and add a provisional delivered-throughput and p95/p99 relative regression gate with raw CI artifacts.
-  - [x] Add process-isolated AOT burst and windowed sustained benchmarks with provisional broker CPU/RSS budgets; local calibration passes, hosted sustained evidence pending.
-  - [ ] Negotiate MQTT on native listeners and bind MQTT over WebSocket/TLS without changing WAMP transport behavior.
+  - [x] Add process-isolated AOT burst and windowed sustained benchmarks with provisional broker CPU/RSS budgets; local and hosted QoS 0 gates pass.
+  - [ ] Negotiate MQTT on native listeners and bind MQTT over WebSocket/TLS without changing WAMP transport behavior. The TCP/TLS path passes hosted QoS 0 gates; WS/WSS and mixed WAMP selection pass local Paho tests, with clean-tree/hosted WebSocket evidence and WSS 3.1.1 reference stability still open.
   - [ ] Route authorized MQTT and WAMP publications across a protocol-neutral boundary; retain `ppt_scheme: mqtt` as opaque unless an authorized gateway explicitly publishes it.
   - [ ] Complete MQTT 5/3.1.1 properties, QoS 1/2, retained messages, wills, persistent sessions, conformance and recovery matrices.
   - [ ] Set final sustained, fan-out and overload budgets with broker CPU/RSS, secure transports, hosted CI and consumer-package evidence before release.

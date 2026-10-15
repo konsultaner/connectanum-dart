@@ -184,7 +184,9 @@ pub struct WebSocketHandshake {
 impl WebSocketHandshake {
     /// Converts the handshake into the underlying TCP stream.
     pub(crate) fn into_stream(self) -> IoStream {
-        self.http.into_stream()
+        let (mut stream, _, _, prefetched) = self.http.into_parts();
+        stream.buffer_front(&prefetched);
+        stream
     }
 }
 
@@ -1980,6 +1982,41 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         client.read_to_end(&mut buf).await.unwrap();
         let response = std::str::from_utf8(&buf).unwrap();
         assert!(response.starts_with("HTTP/1.1 501"));
+    }
+
+    #[tokio::test]
+    async fn websocket_upgrade_replays_prefetched_binary_frame() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        let request = b"GET /mqtt HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: SGVsbG9OZWdvdGlvbg==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: mqtt\r\n\r\n";
+        let frame = b"\x82\x80\x00\x00\x00\x00";
+        let server = async {
+            let (stream, _) = listener.accept().await.unwrap();
+            let NegotiatedConnection::WebSocket(handshake) =
+                negotiate_connection(IoStream::plain(stream), &config)
+                    .await
+                    .unwrap()
+            else {
+                panic!("expected WebSocket handshake");
+            };
+            let mut replayed = [0u8; 6];
+            handshake
+                .into_stream()
+                .read_exact(&mut replayed)
+                .await
+                .unwrap();
+            assert_eq!(&replayed, frame);
+        };
+        let client = async {
+            let mut stream = TcpStream::connect(addr).await.unwrap();
+            stream
+                .write_all(&[request.as_slice(), frame].concat())
+                .await
+                .unwrap();
+            stream.shutdown().await.unwrap();
+        };
+        let ((), ()) = tokio::join!(server, client);
     }
 
     #[tokio::test]

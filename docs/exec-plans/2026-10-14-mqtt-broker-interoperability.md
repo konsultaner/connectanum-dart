@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-10-14
-Last updated: 2026-10-14
+Last updated: 2026-10-15
 Branch: `codex/mqtt-broker-interoperability` in a separate managed worktree
 Milestone: [GitHub milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2); parent [#109](https://github.com/konsultaner/connectanum-dart/issues/109)
 Baseline: GitHub master `73d840c9`; pre-change `bin/test-fast` passes on 2026-10-14
@@ -35,6 +35,8 @@ Connectanum accepts standard MQTT clients and routes authorized publications amo
 5. **Release gate (#124).** Verify every advertised version × transport × QoS × direction row, authorization/negative/recovery cases, 100% in-scope line coverage, complete passing regression matrix, live benchmark budgets, hosted CI, consumer/package artifacts, operations docs and release notes. Close the milestone only after the evidence is linked.
 
 ## Verification
+
+- The native MQTT WebSocket candidate passes MQTT 5/3.1.1 Paho side-by-side exchange over WS/WSS, Connectanum client WS/WSS, mixed WAMP/HTTP selection, upgrade rejection, and control-frame/packet-boundary regressions. Five scoped MQTT Dart sources reach exact 642/642 executable VM lines, and the benchmark gate reaches exact 237/237 Python lines with 41 unit regressions and live WSS delivery. Local five-pair 200,000-publication benchmarks pass provisional numeric gates for MQTT 5 WS single (throughput/p95/p99/CPU ratios 0.870/1.308/1.142/3.309), MQTT 3.1.1 WS single (0.907/1.158/1.086/3.234), and MQTT 5 WSS batch64 (3.976/0.307/0.322/0.405). All 30 matched rows deliver exactly with no duplicates. The Mosquitto 2.1.2 WSS MQTT 3.1.1 reference path stalls under both sustained batch and 2,000-message single workloads while independent Paho 3.1.1 WSS→Mosquitto delivers 5,000 in order; leave WSS 3.1.1 benchmark gating open while investigating the Dart client/reference interaction. The first full `bin/verify` found a native accept/close race in malformed WS close tests; registering the MQTT wake callback before broker attachment and skipping an already closed connection fixes it. The final-source full `bin/verify` passes at exit 0. Clean-tree and hosted WS performance evidence remain pending; do not close #127 or the milestone.
 
 - Pre-change `bin/test-fast`: passed on 2026-10-14.
 - Focused MQTT frame/packet tests pass on VM and Chrome; Paho 2.1.0 MQTT 5/3.1.1 binary side-by-side integration passes with the provisional broker.

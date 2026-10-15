@@ -2370,46 +2370,131 @@ impl ListenerRegistry {
         peer_addr: SocketAddr,
     ) {
         let version = handshake.version;
-        let (reader, writer) = tokio::io::split(handshake.into_stream());
+        self.register_mqtt_stream_connection(
+            handle,
+            listener_id,
+            connection_id,
+            endpoint_config,
+            handshake.into_stream(),
+            version,
+            peer_addr,
+            false,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn register_mqtt_websocket_connection(
+        self: Arc<Self>,
+        handle: tokio::runtime::Handle,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        handshake: protocol::WebSocketHandshake,
+        peer_addr: SocketAddr,
+    ) -> Result<(), Error> {
+        if handshake.sec_websocket_version.as_deref() != Some("13")
+            || Base64Engine
+                .decode(handshake.sec_websocket_key.as_bytes())
+                .map_or(true, |decoded| decoded.len() != 16)
+        {
+            return Err(Error::Io(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid MQTT WebSocket upgrade",
+            )));
+        }
+        let accept_value = websocket_accept_value(&handshake.sec_websocket_key);
+        let mut stream = handshake.into_stream();
+        write_websocket_handshake_response(&mut stream, &accept_value, Some("mqtt")).await?;
+        let _ = stream.set_nodelay(true);
+        self.register_mqtt_stream_connection(
+            handle,
+            listener_id,
+            connection_id,
+            endpoint_config,
+            stream,
+            0,
+            peer_addr,
+            true,
+        );
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn register_mqtt_stream_connection(
+        self: Arc<Self>,
+        handle: tokio::runtime::Handle,
+        listener_id: ListenerId,
+        connection_id: ConnectionId,
+        endpoint_config: Arc<config::EndpointRuntimeConfig>,
+        stream: IoStream,
+        version: u8,
+        peer_addr: SocketAddr,
+        websocket: bool,
+    ) {
+        let (reader, writer) = tokio::io::split(stream);
         let (chunk_tx, chunk_rx) = mpsc::channel(64);
         let notification_pending = Arc::new(AtomicBool::new(false));
         let reader_notification_pending = Arc::clone(&notification_pending);
         let wakeup: Arc<Mutex<Option<extern "C" fn(i32)>>> = Arc::new(Mutex::new(None));
         let reader_wakeup = Arc::clone(&wakeup);
-        let (outbound, mut send_rx) =
+        let (outbound, send_rx) =
             MqttOutboundQueue::new(endpoint_config.outbound_send_queue_capacity);
         let (close_tx, mut close_rx) = mpsc::unbounded_channel::<ConnectionTaskSignal>();
         let reader_close = close_tx.clone();
-        let reader_task = handle.spawn(async move {
-            let mut reader = reader;
-            loop {
-                let mut buffer = BytesMut::with_capacity(64 * 1024);
-                match reader.read_buf(&mut buffer).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(_) => {
-                        if chunk_tx.send(buffer.freeze()).await.is_err() {
-                            break;
-                        }
-                        // One wake is enough until Dart drains the queue.
-                        if !reader_notification_pending.swap(true, Ordering::AcqRel) {
-                            if let Some(notify) = *reader_wakeup.lock().unwrap() {
-                                notify(connection_id.0 as i32);
+        let (reader_abort, writer_abort) = if websocket {
+            let (control_tx, control_rx) = mpsc::channel(16);
+            let reader_abort = spawn_mqtt_websocket_reader(
+                handle.clone(),
+                connection_id,
+                reader,
+                chunk_tx,
+                reader_notification_pending,
+                reader_wakeup,
+                control_tx,
+                reader_close,
+            );
+            let writer_abort = spawn_mqtt_websocket_writer(
+                handle.clone(),
+                writer,
+                send_rx,
+                control_rx,
+                close_tx.clone(),
+            );
+            (reader_abort, writer_abort)
+        } else {
+            let reader_task = handle.spawn(async move {
+                let mut reader = reader;
+                loop {
+                    let mut buffer = BytesMut::with_capacity(64 * 1024);
+                    match reader.read_buf(&mut buffer).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(_) => {
+                            if chunk_tx.send(buffer.freeze()).await.is_err() {
+                                break;
+                            }
+                            // One wake is enough until Dart drains the queue.
+                            if !reader_notification_pending.swap(true, Ordering::AcqRel) {
+                                if let Some(notify) = *reader_wakeup.lock().unwrap() {
+                                    notify(connection_id.0 as i32);
+                                }
                             }
                         }
                     }
                 }
-            }
-            let _ = reader_close.send(ConnectionTaskSignal::ReaderClosed);
-        });
-        let writer_task = handle.spawn(async move {
-            let mut writer = writer;
-            while let Some((bytes, _permit)) = send_rx.recv().await {
-                if writer.write_all(&bytes).await.is_err() {
-                    break;
+                let _ = reader_close.send(ConnectionTaskSignal::ReaderClosed);
+            });
+            let writer_task = handle.spawn(async move {
+                let mut writer = writer;
+                let mut send_rx = send_rx;
+                while let Some((bytes, _permit)) = send_rx.recv().await {
+                    if writer.write_all(&bytes).await.is_err() {
+                        break;
+                    }
                 }
-            }
-            let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
-        });
+                let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
+            });
+            (reader_task.abort_handle(), writer_task.abort_handle())
+        };
         self.connections
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
@@ -2419,7 +2504,7 @@ impl ListenerRegistry {
                     listener_id,
                     peer_addr,
                     protocol: ConnectionProtocol::Mqtt,
-                    websocket_protocol: None,
+                    websocket_protocol: websocket.then(|| "mqtt".to_string()),
                     endpoint_config,
                     stats: None,
                     record: ConnectionRecord::Mqtt {
@@ -2428,14 +2513,19 @@ impl ListenerRegistry {
                         notification_pending,
                         outbound,
                         wakeup,
-                        reader_abort: reader_task.abort_handle(),
-                        writer_abort: writer_task.abort_handle(),
+                        reader_abort,
+                        writer_abort,
                     },
                 },
             );
         let registry = Arc::clone(&self);
         handle.spawn(async move {
-            let _ = close_rx.recv().await;
+            if matches!(
+                close_rx.recv().await,
+                Some(ConnectionTaskSignal::ReaderGracefulClose)
+            ) {
+                let _ = time::timeout(WEBSOCKET_CLOSE_GRACE, close_rx.recv()).await;
+            }
             let _ = registry.close_connection(connection_id);
         });
     }
@@ -4009,6 +4099,151 @@ fn spawn_connection_heartbeat(
                 }
             }
         }
+    });
+    task.abort_handle()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_mqtt_websocket_reader(
+    handle: tokio::runtime::Handle,
+    connection_id: ConnectionId,
+    mut reader: IoReadHalf,
+    chunk_tx: mpsc::Sender<Bytes>,
+    notification_pending: Arc<AtomicBool>,
+    wakeup: Arc<Mutex<Option<extern "C" fn(i32)>>>,
+    control_tx: mpsc::Sender<(u8, Bytes)>,
+    close_tx: UnboundedSender<ConnectionTaskSignal>,
+) -> AbortHandle {
+    let task = handle.spawn(async move {
+        let pool = Arc::new(WebSocketBufferPool::default());
+        let mut accumulator = WebSocketMessageAccumulator::new(Arc::clone(&pool));
+        let mut graceful = false;
+        'read: loop {
+            let frame = match read_websocket_frame_mode(&mut reader, &pool, true).await {
+                Ok(frame) => frame,
+                Err(error) => {
+                    if let Some(code) = error.close_code() {
+                        graceful = control_tx
+                            .send((0x8, Bytes::copy_from_slice(&code.to_be_bytes())))
+                            .await
+                            .is_ok();
+                    }
+                    break;
+                }
+            };
+            match frame {
+                WebSocketFrame::Data {
+                    opcode,
+                    fin,
+                    payload,
+                } => {
+                    if opcode == 0x1 {
+                        let _ = control_tx
+                            .send((0x8, Bytes::from_static(&[0x03, 0xeb])))
+                            .await;
+                        graceful = true;
+                        break;
+                    }
+                    if let Err(error) = accumulator.push(opcode, fin, payload) {
+                        if let Some(code) = error.close_code() {
+                            graceful = control_tx
+                                .send((0x8, Bytes::copy_from_slice(&code.to_be_bytes())))
+                                .await
+                                .is_ok();
+                        }
+                        break;
+                    }
+                    if let Some(message) = accumulator.take_complete() {
+                        let segments = match message {
+                            CompletedWebSocketMessage::Single(bytes) => vec![bytes],
+                            CompletedWebSocketMessage::Segmented { segments, .. } => segments,
+                        };
+                        for segment in segments {
+                            let mut offset = 0;
+                            while offset < segment.len() {
+                                let end = (offset + 64 * 1024).min(segment.len());
+                                if chunk_tx.send(segment.slice(offset..end)).await.is_err() {
+                                    break 'read;
+                                }
+                                if !notification_pending.swap(true, Ordering::AcqRel) {
+                                    if let Some(notify) = *wakeup.lock().unwrap() {
+                                        notify(connection_id.0 as i32);
+                                    }
+                                }
+                                offset = end;
+                            }
+                        }
+                    }
+                }
+                WebSocketFrame::Ping(payload) => {
+                    if control_tx.send((0xA, payload)).await.is_err() {
+                        break;
+                    }
+                }
+                WebSocketFrame::Pong(_) => {}
+                WebSocketFrame::Close(code, reason) => {
+                    let mut payload = Vec::new();
+                    if let Some(code) = code {
+                        payload.extend_from_slice(&code.to_be_bytes());
+                        payload.extend_from_slice(reason.as_bytes());
+                    }
+                    let _ = control_tx.send((0x8, Bytes::from(payload))).await;
+                    graceful = true;
+                    break;
+                }
+            }
+        }
+        let _ = close_tx.send(if graceful {
+            ConnectionTaskSignal::ReaderGracefulClose
+        } else {
+            ConnectionTaskSignal::ReaderClosed
+        });
+    });
+    task.abort_handle()
+}
+
+fn spawn_mqtt_websocket_writer(
+    handle: tokio::runtime::Handle,
+    mut writer: IoWriteHalf,
+    mut send_rx: mpsc::Receiver<MqttOutboundChunk>,
+    mut control_rx: mpsc::Receiver<(u8, Bytes)>,
+    close_tx: UnboundedSender<ConnectionTaskSignal>,
+) -> AbortHandle {
+    let task = handle.spawn(async move {
+        let mut mask_scratch = Vec::new();
+        let mut controls_open = true;
+        loop {
+            let (opcode, bytes, _permit) = tokio::select! {
+                biased;
+                control = control_rx.recv(), if controls_open => match control {
+                    Some((opcode, bytes)) => (opcode, bytes, None),
+                    None => { controls_open = false; continue; }
+                },
+                outbound = send_rx.recv() => match outbound {
+                    Some((bytes, permit)) => (0x2, bytes, Some(permit)),
+                    None => break,
+                },
+            };
+            if write_websocket_frame_mode(
+                &mut writer,
+                opcode,
+                bytes.len(),
+                std::slice::from_ref(&bytes),
+                &[],
+                false,
+                &mut mask_scratch,
+            )
+            .await
+            .is_err()
+                || writer.flush().await.is_err()
+            {
+                break;
+            }
+            if opcode == 0x8 {
+                break;
+            }
+        }
+        let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
     });
     task.abort_handle()
 }
@@ -5652,13 +5887,35 @@ async fn negotiate_accepted_connection(
             let Ok(connection_id) = registry.next_connection_id() else {
                 return;
             };
-            registry.register_websocket_connection(
-                listener_id,
-                connection_id,
-                Arc::clone(&endpoint),
-                handshake,
-                addr,
-            );
+            if endpoint.supports_protocol(TransportProtocol::Mqtt)
+                && handshake
+                    .sec_websocket_protocols
+                    .iter()
+                    .any(|protocol| protocol == "mqtt")
+            {
+                if let Err(error) = Arc::clone(&registry)
+                    .register_mqtt_websocket_connection(
+                        runtime_handle.clone(),
+                        listener_id,
+                        connection_id,
+                        Arc::clone(&endpoint),
+                        handshake,
+                        addr,
+                    )
+                    .await
+                {
+                    eprintln!("MQTT WebSocket upgrade failed: {error}");
+                    return;
+                }
+            } else {
+                registry.register_websocket_connection(
+                    listener_id,
+                    connection_id,
+                    Arc::clone(&endpoint),
+                    handshake,
+                    addr,
+                );
+            }
             let _ = tx.send(connection_id).await;
         }
         Ok(protocol::NegotiatedConnection::Http2(handshake)) => {

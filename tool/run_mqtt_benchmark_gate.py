@@ -28,12 +28,13 @@ def workload_environment(budget, transport):
     env = dict(os.environ)
     env.pop("MQTT_BENCH_TLS_CA", None)
     env.update(MQTT_BENCH_VERSION=budget.get("mqtt_version", "5"),
+               MQTT_BENCH_TRANSPORT=transport,
                MQTT_BENCH_MESSAGES=str(budget["messages_per_run"]),
                MQTT_BENCH_WINDOW=str(budget.get("window_messages", 0)),
                MQTT_BENCH_SUBSCRIBERS=str(budget.get("subscribers", 1)),
                MQTT_BENCH_PAYLOAD_BYTES=str(budget["payload_bytes"]),
                MQTT_BENCH_MODE=budget.get("publish_mode", "single"))
-    if transport == "tls":
+    if transport in ("tls", "wss"):
         env["MQTT_BENCH_TLS_CA"] = str(TLS_CA)
     return env
 
@@ -44,7 +45,7 @@ def compare(rows, budget):
     transport = budget.get("transport", "tcp")
     if mqtt_version not in ("5", "311"):
         raise ValueError(f"invalid MQTT version: {mqtt_version}")
-    if transport not in ("tcp", "tls"):
+    if transport not in ("tcp", "tls", "ws", "wss"):
         raise ValueError(f"invalid MQTT transport: {transport}")
     if not profile.startswith(f"mqtt{mqtt_version}-{transport}-"):
         raise ValueError(f"MQTT benchmark profile/version/transport mismatch: {profile}")
@@ -294,7 +295,7 @@ def provenance(broker_exe, client_exe, mosquitto, native_lib=None,
     }
     if native_lib is not None:
         result["native_lib_sha256"] = digest(native_lib)
-    if transport == "tls":
+    if transport in ("tls", "wss"):
         result["tls_ca_sha256"] = digest(TLS_CA)
         result["tls_cert_sha256"] = digest(TLS_CERT)
         result["tls_key_sha256"] = digest(TLS_KEY)
@@ -304,7 +305,9 @@ def provenance(broker_exe, client_exe, mosquitto, native_lib=None,
 def mosquitto_config(port, transport):
     config = (f"listener {port} 127.0.0.1\nallow_anonymous true\n"
               "persistence false\nlog_dest none\n")
-    if transport == "tls":
+    if transport in ("ws", "wss"):
+        config += "protocol websockets\n"
+    if transport in ("tls", "wss"):
         config += f"certfile {TLS_CERT}\nkeyfile {TLS_KEY}\n"
     return config
 
@@ -327,10 +330,10 @@ def main():
             parser.error(f"native library not found: {native_lib}")
     budget = json.loads(args.budget.read_text())
     transport = budget.get("transport", "tcp")
-    if transport not in ("tcp", "tls"):
+    if transport not in ("tcp", "tls", "ws", "wss"):
         parser.error(f"invalid MQTT transport: {transport}")
-    if transport == "tls" and not args.native_router:
-        parser.error("TLS benchmark requires --native-router")
+    if transport != "tcp" and not args.native_router:
+        parser.error("TLS/WebSocket benchmark requires --native-router")
     args.output.mkdir(parents=True, exist_ok=True)
     port, connectanum_port = choose_broker_ports()
     with tempfile.TemporaryDirectory() as tmp:
@@ -354,7 +357,8 @@ def main():
         try:
             brokers["connectanum"] = subprocess.Popen(
                 [str(broker_exe), str(connectanum_port)] +
-                ([str(TLS_CERT), str(TLS_KEY)] if transport == "tls" else []),
+                ([str(TLS_CERT), str(TLS_KEY)] if transport in ("tls", "wss") else []),
+                env=workload_environment(budget, transport),
                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
                 stderr=broker_stderr["connectanum"], text=True)
             brokers["mosquitto"] = subprocess.Popen(

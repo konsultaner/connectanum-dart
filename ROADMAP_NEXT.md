@@ -2,14 +2,16 @@
 
 The user-prioritized MQTT milestone is active under
 `docs/exec-plans/2026-10-14-mqtt-broker-interoperability.md` and GitHub
-milestone 2. The first checkpoint has a bounded MQTT 5/3.1.1 codec,
-provisional TCP QoS 0 broker/client, reversible WAMP topic naming,
-independent Paho interop, focused 100% new-source coverage, and matched
-Mosquitto AOT burst/sustained gates with provisional broker CPU/RSS budgets.
-Continue with native listener negotiation, the authorized MQTT/WAMP publication
-boundary, full protocol/session behavior, the transport matrix and hosted
-sustained performance evidence.
-The provisional listener and its benchmark are not milestone completion.
+milestone 2. The bounded MQTT 5/3.1.1 QoS 0 codec and broker have native
+TCP/TLS listeners with hosted matched Mosquitto performance gates. An opt-in
+WS/WSS listener and public Connectanum WS/WSS client now pass local Paho
+interoperability, exact scoped Dart/Python coverage, and three provisional
+local numeric WebSocket profiles; clean-tree and hosted WS evidence is next.
+The Mosquitto WSS MQTT 3.1.1 reference path still stalls with the Connectanum
+client under load and needs diagnosis. Continue with the authorized MQTT/WAMP
+publication boundary, QoS 1/2, retained/will/session behavior, full regression
+matrix and controlled release benchmarks. The current QoS 0 checkpoint is not
+milestone completion.
 
 Deferred FlatBuffers work uses `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`
 and GitHub milestone 1. The canonical candidate now includes ordinary/native

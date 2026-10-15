@@ -30,19 +30,37 @@ Future<void> main(List<String> args) async {
   final host = args.isEmpty ? '127.0.0.1' : args[0];
   final port = broker?.port ?? int.parse(args[1]);
   final tlsCa = Platform.environment['MQTT_BENCH_TLS_CA'];
+  final transport =
+      Platform.environment['MQTT_BENCH_TRANSPORT'] ??
+      (tlsCa == null ? 'tcp' : 'tls');
+  if (!['tcp', 'tls', 'ws', 'wss'].contains(transport)) {
+    throw ArgumentError.value(transport, 'MQTT_BENCH_TRANSPORT');
+  }
   final tlsContext = tlsCa == null
       ? null
       : (SecurityContext(withTrustedRoots: false)
           ..setTrustedCertificates(tlsCa));
-  Future<MqttQos0Client> connectClient(String clientId) => tlsContext == null
-      ? MqttQos0Client.connect(host, port, clientId: clientId, version: version)
-      : MqttQos0Client.connectSecure(
-          host,
-          port,
-          clientId: clientId,
-          version: version,
-          context: tlsContext,
-        );
+  Future<MqttQos0Client> connectClient(String clientId) => switch (transport) {
+    'ws' || 'wss' => MqttQos0Client.connectWebSocket(
+      Uri.parse('$transport://$host:$port/mqtt'),
+      clientId: clientId,
+      version: version,
+      context: tlsContext,
+    ),
+    'tls' => MqttQos0Client.connectSecure(
+      host,
+      port,
+      clientId: clientId,
+      version: version,
+      context: tlsContext,
+    ),
+    _ => MqttQos0Client.connect(
+      host,
+      port,
+      clientId: clientId,
+      version: version,
+    ),
+  };
   final subscriberCount =
       int.tryParse(Platform.environment['MQTT_BENCH_SUBSCRIBERS'] ?? '') ?? 1;
   if (subscriberCount < 1 || subscriberCount > 16) {
@@ -220,7 +238,13 @@ Future<void> main(List<String> args) async {
         windowTarget = i + 1;
         if (receivedPerSubscriber.any((value) => value < windowTarget)) {
           windowDone = Completer<void>();
-          await windowDone.future.timeout(const Duration(seconds: 10));
+          await windowDone.future.timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => throw StateError(
+              'window target $windowTarget, received $receivedPerSubscriber '
+              'of $count publications, duplicates $duplicate',
+            ),
+          );
         }
         windowDone = null;
       }
@@ -253,10 +277,10 @@ Future<void> main(List<String> args) async {
       jsonEncode({
         'broker': broker == null ? '$host:$port' : 'connectanum-qos0',
         'profile':
-            'mqtt$versionLabel-${tlsCa == null ? 'tcp' : 'tls'}-qos0-${subscriberCount == 1 ? 'one-subscriber' : 'fanout$subscriberCount'}-${payloadSize}B'
+            'mqtt$versionLabel-$transport-qos0-${subscriberCount == 1 ? 'one-subscriber' : 'fanout$subscriberCount'}-${payloadSize}B'
             '${window == 0 ? '' : '-window$window'}'
             '${publishMode == 'batch' ? '-batch$window' : ''}',
-        'transport': tlsCa == null ? 'tcp' : 'tls',
+        'transport': transport,
         'publish_mode': publishMode,
         'mqtt_version': versionLabel,
         'window_messages': window,

@@ -413,6 +413,19 @@ class _RouterBoss {
             runtime.closeConnection(connectionId);
             continue;
           }
+          try {
+            mqttRuntime.setMqttWake(
+              connectionId,
+              (_) => _loopPacer.requestWake(),
+            );
+          } on NativeTransportException catch (error) {
+            // The native reader may reject a malformed frame before this
+            // accepted connection reaches the broker loop.
+            if (error.code == NativeTransportErrorCode.connectionNotFound) {
+              continue;
+            }
+            rethrow;
+          }
           _mqttBroker.attachNativeConnection(
             connectionId,
             send: (bytes) => mqttRuntime.sendMqttChunk(connectionId, bytes),
@@ -420,10 +433,6 @@ class _RouterBoss {
               mqttRuntime.setMqttWake(connectionId, null);
               runtime.closeConnection(connectionId);
             },
-          );
-          mqttRuntime.setMqttWake(
-            connectionId,
-            (_) => _loopPacer.requestWake(),
           );
           continue;
         } else if (protocol == NativeConnectionProtocol.http ||

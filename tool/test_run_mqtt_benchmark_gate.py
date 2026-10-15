@@ -59,16 +59,22 @@ def rows(connectanum_speed=80000, connectanum_p99=120, received=2000):
 
 
 class MqttBenchmarkGateTest(unittest.TestCase):
-    def test_payload_size_is_passed_to_the_client_for_tcp_and_tls(self):
+    def test_payload_size_and_transport_are_passed_to_the_client(self):
         budget = dict(BUDGET, payload_bytes=1024)
         with mock.patch.dict(gate.os.environ,
                              {"MQTT_BENCH_PAYLOAD_BYTES": "65536"}):
             tcp = gate.workload_environment(budget, "tcp")
             tls = gate.workload_environment(budget, "tls")
+            ws = gate.workload_environment(budget, "ws")
+            wss = gate.workload_environment(budget, "wss")
         self.assertEqual(tcp["MQTT_BENCH_PAYLOAD_BYTES"], "1024")
         self.assertNotIn("MQTT_BENCH_TLS_CA", tcp)
         self.assertEqual(tls["MQTT_BENCH_PAYLOAD_BYTES"], "1024")
         self.assertEqual(tls["MQTT_BENCH_TLS_CA"], str(gate.TLS_CA))
+        self.assertEqual(ws["MQTT_BENCH_TRANSPORT"], "ws")
+        self.assertNotIn("MQTT_BENCH_TLS_CA", ws)
+        self.assertEqual(wss["MQTT_BENCH_TRANSPORT"], "wss")
+        self.assertEqual(wss["MQTT_BENCH_TLS_CA"], str(gate.TLS_CA))
 
     def test_large_payload_profiles_require_their_exact_workload(self):
         for size in (1024, 65536):
@@ -145,6 +151,66 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         self.assertNotIn("certfile", plain)
         self.assertIn(f"certfile {gate.TLS_CERT}", secure)
         self.assertIn(f"keyfile {gate.TLS_KEY}", secure)
+
+    def test_websocket_reference_config_and_matched_rows(self):
+        for transport in ("ws", "wss"):
+            with self.subTest(transport=transport):
+                config = gate.mosquitto_config(9001, transport)
+                self.assertIn("protocol websockets", config)
+                self.assertEqual("certfile" in config, transport == "wss")
+                budget = dict(BUDGET, transport=transport,
+                              profile=f"mqtt5-{transport}-qos0-one-subscriber-128B")
+                samples = rows()
+                for sample in samples:
+                    sample.update(transport=transport, profile=budget["profile"])
+                self.assertTrue(compare(samples, budget)["passed"])
+                samples[0]["transport"] = "tcp"
+                with self.assertRaisesRegex(ValueError, "invalid workload"):
+                    compare(samples, budget)
+
+    def test_websocket_budgets_gate_exact_delivery_and_performance(self):
+        for filename in (
+                "mqtt_native_ws_sustained_benchmark_budget.json",
+                "mqtt_native_ws_v311_sustained_benchmark_budget.json",
+                "mqtt_native_wss_sustained_benchmark_budget.json"):
+            with self.subTest(filename=filename):
+                budget = json.loads((gate.ROOT / "tool" / filename).read_text())
+                samples = [dict(row, run=run) for run in range(1, 6)
+                           for row in rows(connectanum_speed=300_000)[:2]]
+                for row in samples:
+                    row.update(profile=budget["profile"],
+                               mqtt_version=budget["mqtt_version"],
+                               transport=budget["transport"],
+                               publish_mode=budget["publish_mode"],
+                               sent=budget["messages_per_run"],
+                               received=budget["messages_per_run"],
+                               received_per_subscriber=[budget["messages_per_run"]],
+                               window_messages=budget["window_messages"],
+                               latency_p95_us=50 if row["target"] == "connectanum" else 100,
+                               latency_p99_us=50 if row["target"] == "connectanum" else 100,
+                               broker_cpu_seconds=0.1)
+                self.assertTrue(compare(samples, budget)["passed"])
+                samples[0]["received"] -= 1
+                with self.assertRaisesRegex(ValueError, "invalid workload"):
+                    compare(samples, budget)
+                samples[0]["received"] += 1
+                for row in samples:
+                    if row["target"] == "connectanum":
+                        row["throughput_delivered_per_sec"] = 100
+                self.assertFalse(compare(samples, budget)["passed"])
+
+    def test_wss_single_packet_smoke_requires_exact_delivery(self):
+        budget = json.loads((gate.ROOT / "tool" /
+                             "mqtt_native_wss_single_smoke_benchmark_budget.json").read_text())
+        self.assertEqual(budget["mqtt_version"], "5")
+        samples = rows()
+        for row in samples:
+            row.update(profile=budget["profile"], transport="wss",
+                       window_messages=64)
+        self.assertTrue(compare(samples, budget)["passed"])
+        samples[0]["duplicates"] = 1
+        with self.assertRaisesRegex(ValueError, "invalid workload"):
+            compare(samples, budget)
 
     def test_native_tls_provenance_hashes_binaries_and_trust_material(self):
         with tempfile.TemporaryDirectory() as directory:

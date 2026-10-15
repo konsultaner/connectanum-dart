@@ -1,7 +1,7 @@
 # MQTT native listener boundary
 
 Date: 2026-10-14
-Status: opt-in MQTT 5/3.1.1 TCP/TLS negotiation and bounded FFI byte dispatch implemented for [#112](https://github.com/konsultaner/connectanum-dart/issues/112); WebSocket and WAMP routing remain open
+Status: opt-in MQTT 5/3.1.1 TCP/TLS/WS/WSS negotiation and bounded FFI byte dispatch implemented for [#112](https://github.com/konsultaner/connectanum-dart/issues/112); WAMP publication routing remains open
 
 ## Wire contract
 
@@ -9,11 +9,13 @@ The native listener must identify MQTT from a bounded CONNECT preamble, not from
 
 For MQTT over WebSocket, the client must offer and the server must select `mqtt`. MQTT data uses binary frames. WebSocket frame boundaries do not imply MQTT packet boundaries: one frame may contain part of a packet or multiple packets. Text data frames must close the connection. These are [MQTT 5 §6 requirements](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html). WAMP WebSocket subprotocol selection stays separate.
 
+The implemented WebSocket slice requires an endpoint with both MQTT and WebSocket enabled before selecting the offered `mqtt` subprotocol. Native negotiation validates the WebSocket version and 16-byte key before sending `101`, replays bytes prefetched beyond the HTTP headers, and delivers binary WebSocket message bytes through the existing bounded MQTT byte queue. The existing WebSocket frame and message limits cap fragments at 16 MiB; the Dart `MqttFrameDecoder` retains partial MQTT packets across input chunks, so WebSocket messages are not treated as MQTT packet boundaries. Native MQTT WebSocket tests cover partial packets across messages, multiple packets in one message, ping/pong, close, text-frame rejection, invalid upgrades, malformed-frame close codes 1002/1009, and distinct MQTT/WAMP/HTTP selection. Fragmented frame handling uses the shared WebSocket accumulator with existing continuation tests. This keeps MQTT framing separate from WAMP serializer selection and does not treat a WAMP PPT `mqtt` label as an upgrade request.
+
 ## Ownership and dispatch
 
 The native listener owns accepted TCP/TLS streams, WebSocket framing, handshake deadlines, connection IDs, drain and bounded inbound/outbound byte queues. It reports an MQTT connection and byte chunks through dedicated FFI operations. The Dart MQTT adapter owns CONNECT acceptance, authentication, keep-alive, subscriptions, packet IDs, QoS state and broker publications. It feeds native chunks into the existing bounded `MqttFrameDecoder` and writes encoded MQTT bytes through the native queue. No MQTT packet is converted to a WAMP frame during transport negotiation.
 
-The first end-to-end slice is opt-in MQTT 5/3.1.1 TCP on a mixed native listener, with exact preamble replay and a Paho/Connectanum exchange. TLS uses the same Dart session owner and native negotiator; the next transport slice adds `mqtt` WebSocket upgrades. Disabled MQTT listeners reject MQTT preambles without changing HTTP, RawSocket or WAMP WebSocket handling. Native close and listener drain must release both queue ends and the Dart peer state.
+The first end-to-end slice is opt-in MQTT 5/3.1.1 TCP on a mixed native listener, with exact preamble replay and a Paho/Connectanum exchange. TLS uses the same Dart session owner and native negotiator; the WebSocket slice adds `mqtt` upgrades over WS and WSS. Disabled MQTT listeners reject MQTT preambles without changing HTTP, RawSocket or WAMP WebSocket handling. Native close and listener drain must release both queue ends and the Dart peer state.
 
 The implemented TCP slice uses 64 bounded inbound read chunks per connection. The latest candidate caps the native MQTT outbound queue at 512 chunks and 8 MiB per connection: a Tokio semaphore charges each encoded chunk by its byte length before channel admission and releases credit after `write_all` or writer failure. A native read notification wakes the Dart router loop and is coalesced until Dart drains the queue; unregistering or closing a connection waits for any in-flight native callback before Dart releases it. The 1 ms periodic poll remains a fallback. A mixed MQTT/HTTP listener, CONNECT byte replay, real Paho and Connectanum pub/sub, and the callback path have focused integration tests. The listener accepts anonymous MQTT only on numeric loopback until authentication and authorization are implemented.
 
