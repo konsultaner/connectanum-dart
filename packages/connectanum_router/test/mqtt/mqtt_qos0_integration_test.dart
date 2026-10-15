@@ -10,6 +10,65 @@ import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('native MQTT forwards validated QoS 0 frames across versions', () async {
+    final broker = MqttQos0Broker.native();
+    addTearDown(broker.close);
+    final sent5 = <Uint8List>[];
+    final sent311 = <Uint8List>[];
+    broker.attachNativeConnection(71, send: sent5.add, close: () {});
+    broker.attachNativeConnection(72, send: sent311.add, close: () {});
+    for (final (id, version) in [
+      (71, MqttVersion.v5),
+      (72, MqttVersion.v311),
+    ]) {
+      broker.receiveNativeChunk(
+        id,
+        MqttPacketCodec.encodeConnect(
+          MqttConnect(version: version, clientId: 'forward-$id'),
+        ),
+      );
+      broker.receiveNativeChunk(
+        id,
+        MqttPacketCodec.encodeSubscribe(
+          version,
+          packetId: 1,
+          filter: 'sensors/+',
+        ),
+      );
+    }
+    sent5.clear();
+    sent311.clear();
+    for (final (id, version) in [
+      (71, MqttVersion.v5),
+      (72, MqttVersion.v311),
+    ]) {
+      final payload = Uint8List.fromList([0, 255, id]);
+      final wire = MqttPacketCodec.encodePublish(
+        version,
+        topic: 'sensors/µ',
+        payload: payload,
+      );
+      broker.receiveNativeChunk(id, wire);
+      await Future<void>.delayed(Duration.zero);
+      expect(sent5, [
+        MqttPacketCodec.encodePublish(
+          MqttVersion.v5,
+          topic: 'sensors/µ',
+          payload: payload,
+        ),
+      ]);
+      expect(sent311, [
+        MqttPacketCodec.encodePublish(
+          MqttVersion.v311,
+          topic: 'sensors/µ',
+          payload: payload,
+        ),
+      ]);
+      sent5.clear();
+      sent311.clear();
+    }
+  });
+
   test('native MQTT peer IDs cannot be attached twice', () async {
     final broker = MqttQos0Broker.native();
     broker.attachNativeConnection(42, send: (_) {}, close: () {});
@@ -747,6 +806,49 @@ void main() {
       expect(message.payload, [0, 255, 0, 17]);
     },
   );
+
+  test('exact dollar topic matches while root wildcard excludes it', () async {
+    final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+    final exact = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'dollar-exact',
+    );
+    final wildcard = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'dollar-wildcard',
+    );
+    final publisher = await MqttQos0Client.connect(
+      '127.0.0.1',
+      broker.port,
+      clientId: 'dollar-publisher',
+    );
+    addTearDown(() async {
+      await publisher.close();
+      await wildcard.close();
+      await exact.close();
+      await broker.close();
+    });
+
+    await exact.subscribe(r'$SYS/status');
+    await wildcard.subscribe('#');
+    final exactMessage = exact.messages.first.timeout(
+      const Duration(seconds: 3),
+    );
+    final wildcardMessage = wildcard.messages.first.timeout(
+      const Duration(seconds: 3),
+    );
+    await publisher.publish(r'$SYS/status', Uint8List.fromList([0, 255]));
+    await publisher.publish('public/status', Uint8List.fromList([17]));
+
+    final dollar = await exactMessage;
+    expect(dollar.topic, r'$SYS/status');
+    expect(dollar.payload, [0, 255]);
+    final ordinary = await wildcardMessage;
+    expect(ordinary.topic, 'public/status');
+    expect(ordinary.payload, [17]);
+  });
 
   test('MQTT 5 publisher reaches MQTT 3.1.1 wildcard subscriber', () async {
     final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
