@@ -28,7 +28,8 @@ void main() {
     final b = _CaptureBuilder();
     final root = writeWampFlatBufferFields({
       'msg_type': 'Call',
-      'msg': {'request': 1, 'procedure': 'com.echo', 'args': bytes},
+      // This SDK-builder spy only needs string and byte-vector fields.
+      'msg': {'procedure': 'com.echo', 'args': bytes},
     }, b);
     expect(identical(b.input, bytes), isTrue);
     b.finish(root);
@@ -76,7 +77,7 @@ void main() {
     );
     final codec = flatbuffers.Serializer();
     final bytes = codec.serialize(message);
-    final standard = fb.Builder();
+    final standard = flatbuffers.WampFlatBufferBuilder();
     standard.finish(writeWampFlatBufferMessage(message, standard));
     expect(bytes, standard.buffer);
     expect(bytes.buffer.lengthInBytes, lessThanOrEqualTo(bytes.length + 1024));
