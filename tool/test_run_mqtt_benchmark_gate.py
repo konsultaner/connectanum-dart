@@ -172,7 +172,8 @@ class MqttBenchmarkGateTest(unittest.TestCase):
         for filename in (
                 "mqtt_native_ws_sustained_benchmark_budget.json",
                 "mqtt_native_ws_v311_sustained_benchmark_budget.json",
-                "mqtt_native_wss_sustained_benchmark_budget.json"):
+                "mqtt_native_wss_sustained_benchmark_budget.json",
+                "mqtt_native_wss_v311_sustained_benchmark_budget.json"):
             with self.subTest(filename=filename):
                 budget = json.loads((gate.ROOT / "tool" / filename).read_text())
                 samples = [dict(row, run=run) for run in range(1, 6)
@@ -220,17 +221,22 @@ class MqttBenchmarkGateTest(unittest.TestCase):
                              "mqtt_native_wss_v311_sustained_benchmark_budget.json").read_text())
         self.assertEqual(budget["mqtt_version"], "311")
         self.assertEqual(budget["transport"], "wss")
-        self.assertEqual(budget["gate"], "correctness")
+        self.assertEqual(budget["gate"], "performance")
+        self.assertGreaterEqual(
+            budget["min_delivered_throughput_ratio_vs_mosquitto"], 2.0)
         self.assertGreaterEqual(budget["messages_per_run"], 200_000)
         self.assertEqual(budget["repetitions"], 5)
         samples = [dict(row, run=run) for run in range(1, 6)
-                   for row in rows()[:2]]
+                   for row in rows(connectanum_speed=300_000)[:2]]
         for row in samples:
             row.update(profile=budget["profile"], mqtt_version="311",
                        transport="wss", sent=budget["messages_per_run"],
                        received=budget["messages_per_run"],
                        received_per_subscriber=[budget["messages_per_run"]],
-                       window_messages=budget["window_messages"])
+                       window_messages=budget["window_messages"],
+                       latency_p95_us=50 if row["target"] == "connectanum" else 100,
+                       latency_p99_us=50 if row["target"] == "connectanum" else 100,
+                       broker_cpu_seconds=0.1)
         self.assertTrue(compare(samples, budget)["passed"])
         samples[0]["received"] -= 1
         with self.assertRaisesRegex(ValueError, "invalid workload"):
