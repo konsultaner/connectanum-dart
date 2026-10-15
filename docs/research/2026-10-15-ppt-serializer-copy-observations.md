@@ -65,7 +65,10 @@ buffered-file-segment counter is not an encrypted-file framing oracle.
 An attempted broad test run against the older production library hits tests
 requiring test-only owner oracles and a local reexport install name. The matching
 ffi-test retry passes; the separate production optional-ABI probe succeeds.
-A full resulting-source `bin/verify` is still required. Cargo incremental caches
+Resulting-source `CARGO_INCREMENTAL=0 bin/verify` passes at `7976a464`,
+with Git HEAD and all 3,052 tracked hashes unchanged. The complete 315-mutant
+E2EE target passes at 95.3125% with the original 95% floor and zero errors or
+timeouts. All 30 randomized browser and nine live RPC/file cases pass. Cargo incremental caches
 and orphaned object intermediates are cleared when disk space becomes tight;
 source, executables, release libraries and retained evidence are preserved.
 

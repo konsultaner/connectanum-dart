@@ -17,6 +17,16 @@ Bounded Qwen review completes without a confirmed issue. All other preceding
 head hosted jobs pass; resulting-head CI and fresh full verification are pending.
 No performance or complete copy-acceptance claim is added.
 
+Verification checkpoint (2026-10-15): `CARGO_INCREMENTAL=0 bin/verify`
+passes at `7976a464` with Git HEAD and all 3,052 tracked input hashes unchanged.
+The resulting complete 315-mutant E2EE target also passes at 95.3125%, retaining
+its 95% floor and zero errors/timeouts. All 131 randomized VM/native cases,
+30 randomized Chrome/Dart2Wasm cases and nine live RPC/file cases pass. Hosted
+acceptance and complete outer/transcode totals remain pending. A source audit
+also identifies unconditional singleton raw-frame coalescing in the native
+FlatBuffers receive path; its owner/pointer regression is prepared but no
+optimization or performance improvement is claimed yet.
+
 PPT/framing observation follow-up (2026-10-15): fresh pre-change
 `bin/test-fast` passes on unchanged combined head `8f1fbfb9`. Actual CBOR PPT
 wrapping, binary cloning, coalescing and cold metadata setup now have separate
@@ -26,7 +36,7 @@ the sixteen-byte v1 ABI. Fail-first observations reproduce the undercounts;
 nine Rust and 131 randomized focused VM/native cases pass. Fresh-process probes verify the
 new scalar and the preceding production library's null fallback. All 30 randomized
 Chrome/Dart2Wasm cases and nine live RPC/file cases pass. Full frozen
-`bin/verify` is pending. See
+`bin/verify` passes at `7976a464`. See
 [PPT/framing source and limits](research/2026-10-15-ppt-serializer-copy-observations.md).
 Outer WAMP serialization, transcode totals and all performance acceptance stay
 open. No milestone issue is closed by these partial observations.
