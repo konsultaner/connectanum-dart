@@ -269,6 +269,27 @@ def require_exact_line_coverage(report_path):
     return totals["num_statements"]
 
 
+def cpu_model():
+    if sys.platform == "linux":
+        try:
+            cpuinfo = Path("/proc/cpuinfo").read_text()
+        except OSError:
+            cpuinfo = ""
+        for line in cpuinfo.splitlines():
+            if line.startswith("model name"):
+                return line.partition(":")[2].strip()
+    if sys.platform == "darwin":
+        try:
+            brand = subprocess.check_output(
+                ["sysctl", "-n", "machdep.cpu.brand_string"], text=True,
+                stderr=subprocess.DEVNULL, timeout=2).strip()
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            brand = ""
+        if brand:
+            return brand
+    return platform.processor() or platform.machine()
+
+
 def provenance(broker_exe, client_exe, mosquitto, native_lib=None,
                transport="tcp"):
     def command_output(argv):
@@ -288,6 +309,9 @@ def provenance(broker_exe, client_exe, mosquitto, native_lib=None,
         "os": platform.system(),
         "architecture": platform.machine(),
         "logical_cpus": os.cpu_count(),
+        "cpu_model": cpu_model(),
+        "runner_image": os.environ.get("ImageOS"),
+        "runner_image_version": os.environ.get("ImageVersion"),
         "broker_rss_measurement": ("Linux VmHWM" if sys.platform == "linux"
                                    else "ps before/after snapshots"),
         "broker_exe_sha256": digest(broker_exe),

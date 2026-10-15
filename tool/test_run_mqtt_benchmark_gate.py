@@ -223,12 +223,18 @@ class MqttBenchmarkGateTest(unittest.TestCase):
             outputs = [subprocess.CompletedProcess([], 0, stdout=value, stderr="")
                        for value in ("commit\n", "", "Dart test\n")]
             with (mock.patch.object(gate.subprocess, "run", side_effect=outputs),
-                  mock.patch.object(gate, "mosquitto_version", return_value="2.1.2")):
+                  mock.patch.object(gate, "mosquitto_version", return_value="2.1.2"),
+                  mock.patch.object(gate, "cpu_model", return_value="Fixture CPU"),
+                  mock.patch.dict(gate.os.environ, {"ImageOS": "ubuntu24",
+                                                    "ImageVersion": "20261015"})):
                 result = gate.provenance(*paths[:2], "mosquitto", paths[2], "tls")
             self.assertEqual(result["broker_mode"], "native-router")
             self.assertEqual(result["git_commit"], "commit")
             self.assertFalse(result["git_dirty"])
             self.assertEqual(result["mosquitto_version"], "2.1.2")
+            self.assertEqual(result["cpu_model"], "Fixture CPU")
+            self.assertEqual(result["runner_image"], "ubuntu24")
+            self.assertEqual(result["runner_image_version"], "20261015")
             self.assertEqual(result["native_lib_sha256"], gate.hashlib.sha256(b"native").hexdigest())
             self.assertEqual(result["tls_ca_sha256"],
                              gate.hashlib.sha256(gate.TLS_CA.read_bytes()).hexdigest())
@@ -236,6 +242,34 @@ class MqttBenchmarkGateTest(unittest.TestCase):
                              gate.hashlib.sha256(gate.TLS_CERT.read_bytes()).hexdigest())
             self.assertEqual(result["tls_key_sha256"],
                              gate.hashlib.sha256(gate.TLS_KEY.read_bytes()).hexdigest())
+
+    def test_cpu_model_provenance_uses_linux_model_and_safe_fallbacks(self):
+        with (mock.patch.object(gate.sys, "platform", "linux"),
+              mock.patch.object(gate.Path, "read_text", return_value=(
+                  "processor : 0\nmodel name : Fixture Linux CPU\n"))):
+            self.assertEqual(gate.cpu_model(), "Fixture Linux CPU")
+        with (mock.patch.object(gate.sys, "platform", "linux"),
+              mock.patch.object(gate.Path, "read_text", side_effect=OSError("absent")),
+              mock.patch.object(gate.platform, "processor", return_value=""),
+              mock.patch.object(gate.platform, "machine", return_value="arm64")):
+            self.assertEqual(gate.cpu_model(), "arm64")
+        with (mock.patch.object(gate.sys, "platform", "linux"),
+              mock.patch.object(gate.Path, "read_text", return_value="processor : 0\n"),
+              mock.patch.object(gate.platform, "processor", return_value="generic")):
+            self.assertEqual(gate.cpu_model(), "generic")
+        with (mock.patch.object(gate.sys, "platform", "darwin"),
+              mock.patch.object(gate.Path, "read_text", side_effect=AssertionError("proc read")),
+              mock.patch.object(gate.subprocess, "check_output",
+                                return_value="Apple M3 Ultra\n") as sysctl):
+            self.assertEqual(gate.cpu_model(), "Apple M3 Ultra")
+            sysctl.assert_called_once_with(
+                ["sysctl", "-n", "machdep.cpu.brand_string"], text=True,
+                stderr=gate.subprocess.DEVNULL, timeout=2)
+        with (mock.patch.object(gate.sys, "platform", "darwin"),
+              mock.patch.object(gate.subprocess, "check_output",
+                                side_effect=OSError("absent")),
+              mock.patch.object(gate.platform, "processor", return_value="Apple M4")):
+            self.assertEqual(gate.cpu_model(), "Apple M4")
 
     def test_exact_line_coverage_gate_rejects_missing_or_excluded_source(self):
         source = "tool/run_mqtt_benchmark_gate.py"
