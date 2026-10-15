@@ -7,6 +7,16 @@ Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](h
 
 
 Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
+Performance follow-up now uses `codex/flatbuffers-lazy-ppt-views` based on
+`25e0d41f`; PR #130 retains the E2EE/counter and verified-shard review. A server
+CPU diagnostic identifies eager CBOR decoding just to unwrap an opaque PPT body.
+The public native test reproduces a body clone for FlatBuffers/CBOR. Bounded
+singleton byte views repair that boundary without parsing the application model.
+Twenty unit cases, 107 public PPT cases and nine internal regressions pass;
+analysis is clean. Paired unprofiled diagnostics and complete frozen verification
+remain pending; the earlier profiled attempts are failed diagnostics, not parity.
+See [implementation and evidence](research/2026-10-15-internal-ppt-byte-views.md).
+
 The frozen full run preserves all 20 input hashes and reaches the benchmark
 suite, where a stale live assertion expects zero AES assembly bytes rather than
 48. The repaired test checks both RPC legs: four portable/native and cipher

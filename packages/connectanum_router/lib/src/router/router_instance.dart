@@ -88,6 +88,8 @@ import 'package:connectanum_mcp/connectanum_mcp.dart' as mcp;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:meta/meta.dart';
 
+import 'binary_ppt_payload_view.dart';
+
 import 'config/authenticator.dart';
 import 'config/auth_registry.dart';
 import 'config/auth_method.dart';

@@ -1352,19 +1352,32 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   final argumentsKeywords =
       (raw[_transferredLazyPayloadArgumentsKeywordsKey] as Map?)
           ?.cast<String, dynamic>();
-  final decodedArgumentsForPpt =
-      arguments ??
-      (pptScheme != null && argumentsBytes != null && encoding != null
-          ? _payloadListDecoderForEncoding(encoding)(argumentsBytes)
-          : null);
-  final retainedPackedPayloadBytes =
-      packedPayloadBytes ??
-      _extractTransferredWrappedPayloadBytes(
-        decodedArgumentsForPpt,
-        argumentsKeywords,
-        pptScheme: pptScheme,
-        pptSerializer: pptSerializer,
-      );
+  var retainedPackedPayloadBytes = packedPayloadBytes;
+  if (retainedPackedPayloadBytes == null &&
+      pptScheme != null &&
+      arguments == null &&
+      argumentsBytes != null &&
+      encoding != null &&
+      argumentsKeywordsBytes == null &&
+      (argumentsKeywords == null || argumentsKeywords.isEmpty)) {
+    retainedPackedPayloadBytes = binaryPptArgumentView(
+      encoding,
+      argumentsBytes,
+    );
+  }
+  if (retainedPackedPayloadBytes == null) {
+    final decodedArgumentsForPpt =
+        arguments ??
+        (pptScheme != null && argumentsBytes != null && encoding != null
+            ? _payloadListDecoderForEncoding(encoding)(argumentsBytes)
+            : null);
+    retainedPackedPayloadBytes = _extractTransferredWrappedPayloadBytes(
+      decodedArgumentsForPpt,
+      argumentsKeywords,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+    );
+  }
   if (retainedPackedPayloadBytes != null) {
     return LazyMessagePayload.packed(
       transparentBinaryPayload: transparentBinaryPayload,
@@ -1579,7 +1592,7 @@ Uint8List? _extractTransferredWrappedPayloadBytes(
 }
 
 Object? _decodeCborPayloadFragment(Uint8List bytes) {
-  return _cborValueToDart(cbor.decode(bytes.toList()));
+  return _cborValueToDart(cbor.decode(bytes));
 }
 
 Object? _decodeJsonPayloadFragment(Uint8List bytes) {
