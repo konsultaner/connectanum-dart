@@ -1,3 +1,5 @@
+import '../serializer/owned_copy_metrics.dart';
+
 /// Explicit byte-buffer copies performed by Connectanum's PPT serializers.
 /// The synchronous scope excludes ordinary outer WAMP encoding. Cipher work
 /// and serializer-dependency internals are separate from these owned copies.
@@ -34,29 +36,47 @@ class PptCopyMetrics {
 
   /// Called only around synchronous serializer operations in E2EE providers.
   static T measure<T>(T Function() operation) {
-    if (!_recording) return operation();
+    if (OwnedCopyMetrics.enabled) {
+      return OwnedCopyMetrics.withoutRecording(() => _measure(operation));
+    }
+    return _measure(operation);
+  }
+
+  static T _measure<T>(T Function() operation) {
+    if (!_recording && !OwnedCopyMetrics.enabled) return operation();
     _scopeDepth++;
     try {
       return operation();
+    } catch (_) {
+      OwnedCopyMetrics.recordDedicatedFailure();
+      rethrow;
     } finally {
       _scopeDepth--;
     }
   }
 
   static void recordEncodeWrappingCopy(int bytes) {
-    if (_recording && _scopeDepth > 0) _encodeWrapping += bytes;
+    if (_scopeDepth == 0) return;
+    OwnedCopyMetrics.recordDedicated(OwnedCopyKind.pptSerializer, bytes);
+    if (_recording) _encodeWrapping += bytes;
   }
 
   static void recordDecodedBinaryCopy(int bytes) {
-    if (_recording && _scopeDepth > 0) _decodedBinary += bytes;
+    if (_scopeDepth == 0) return;
+    OwnedCopyMetrics.recordDedicated(OwnedCopyKind.pptSerializer, bytes);
+    if (_recording) _decodedBinary += bytes;
   }
 
   static void recordMetadataSetupCopy(int bytes) {
-    if (_recording && _scopeDepth > 0) _metadataSetup += bytes;
+    if (_scopeDepth == 0) return;
+    OwnedCopyMetrics.recordDedicated(OwnedCopyKind.pptSerializer, bytes);
+    if (_recording) _metadataSetup += bytes;
   }
 
   static void recordCoalescingCopy(int bytes) {
-    if (_recording && _scopeDepth > 0) _coalescing += bytes;
+    if (_scopeDepth == 0) return;
+    OwnedCopyMetrics.recordDedicated(OwnedCopyKind.pptSerializer, bytes);
+    if (_recording) _coalescing += bytes;
   }
 }
 

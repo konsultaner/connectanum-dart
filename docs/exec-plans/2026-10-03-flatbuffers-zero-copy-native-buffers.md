@@ -11,6 +11,42 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Owned-copy CI checkpoint (2026-10-15): all 633 client binding mutants
+complete with zero errors/timeouts, clean/restored baselines and a 95.9302325581%
+assertion score against the unchanged 95% floor. Pinned client/core inputs stay
+unchanged; the independent inventory guard and unrelated router correction are
+recorded separately. The first full verification fails because the new serializer
+test was missing from its independent inventory expectation. The second frozen
+run reaches three JSON mixed-PPT failures, exposing an opaque-body conversion
+gap. A router-only view wraps the same bytes in one Arguments item, retaining the
+original message/owner. All fourteen fail-first control/body cases and all 107
+public mixed PPT/E2EE cases now pass. The legacy JSON codec stays unchanged.
+Fresh full verification and hosted CI are pending; copy totals/parity stay open.
+
+Hosted CI repair in progress (2026-10-15): `fc1881d3` finishes with 39
+successful checks and one root failure: client message-binding mutation score
+94.3359375% versus the unchanged 95% floor; Full Verify correctly fails as its
+aggregate. A 24-case storage matrix adds event/result/invocation/error, PPT/plain
+and three binary encodings. It reproduces a native ERROR metadata bug: human
+message text was mistaken for a PPT scheme. The repaired predicate reads ERROR's
+actual metadata. All 1,910 binding cases pass and four exact hosted survivors
+are killed by assertions with source restoration checked. Complete resulting
+inventory, frozen full verification and replacement hosted CI remain pending.
+
+Owned copy foundation and reply retention (2026-10-15): cumulative Dart
+observations now cover explicit clones, coalescing, byte-vector writes, allocator
+moves, isolate transfers, framing, keys, PPT and portable crypto. Router worker
+snapshots fence asynchronous work and reject missing/replaced workers; workload
+quiescence returns an explicit success flag. The separate optional native codec
+ABI observes vector/string/growth/parser/framing/key bytes without extending any
+published layout. Full totals remain uncertified while the source inventory and
+aggregation are completed. The new reply regression removes two full model
+copies per RPC by retaining matching packed lazy payloads; other codecs retain
+byte-identical wrapper output. All twelve reply cases, 371 Rust core and 294 FFI
+cases, 3,383 shared serializer cases, and thirteen live copy/encryption/file cases
+pass. Production verification, new timing and complete accounting remain pending.
+No remaining issue is closed. See [source and limits](../research/2026-10-15-owned-copy-foundation.md).
+
 Raw-frame verification and exact-capacity diagnostic (2026-10-15): full
 `bin/verify` passes at `fc1881d3` with all 3,057 tracked inputs and HEAD unchanged.
 Both 90-row paired runs complete using the same production library. Throughput

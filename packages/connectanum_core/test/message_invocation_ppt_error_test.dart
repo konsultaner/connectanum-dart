@@ -3,8 +3,75 @@ import 'dart:typed_data';
 import 'package:connectanum_core/connectanum_core.dart' hide Error;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:test/test.dart';
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+import 'package:connectanum_core/cbor_serializer.dart' as cbor;
+import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
+import 'package:connectanum_core/json_serializer.dart' as json;
 
 void main() {
+  for (final isError in [false, true]) {
+    for (final size in [0, 65536]) {
+      test(
+        'packed PPT reply retains the opaque wire span error=$isError size=$size',
+        () {
+          final storage = Uint8List(size + 4);
+          final bytes = Uint8List.sublistView(storage, 2, size + 2);
+          final payload = LazyMessagePayload.packed(
+            encoding: LazyPayloadEncoding.flatbuffers,
+            packedPayloadBytes: bytes,
+            packedPayloadDecoder: (_) =>
+                throw StateError('must remain encoded'),
+            anchor: Object(),
+          );
+          final options = YieldOptions(
+            pptScheme: 'x_typed',
+            pptSerializer: 'flatbuffers',
+          );
+          final invocation = Invocation(
+            7,
+            11,
+            InvocationDetails(null, null, false),
+          );
+          late AbstractMessageWithPayload response;
+          invocation.onResponse((value) => response = value);
+          invocation.respondWith(
+            lazyPayload: payload,
+            options: options,
+            isError: isError,
+            errorUri: isError ? 'com.typed.error' : null,
+          );
+          final fragments = flatbuffers.Serializer().serializeFragments(
+            response,
+          )!;
+          expect(fragments.any((part) => identical(part, bytes)), isTrue);
+          final wire = Uint8List.fromList([
+            for (final part in fragments) ...part,
+          ]);
+          final decoded =
+              flatbuffers.Serializer().deserialize(wire)
+                  as AbstractMessageWithPayload;
+          expect(decoded.transparentBinaryPayload, bytes);
+          final ordinary = isError
+              ? core.Error(
+                  MessageTypes.codeInvocation,
+                  7,
+                  {'ppt_scheme': 'x_typed', 'ppt_serializer': 'flatbuffers'},
+                  'com.typed.error',
+                  arguments: [bytes],
+                )
+              : core.Yield(7, options: options, arguments: [bytes]);
+          for (final codec in [
+            cbor.Serializer(),
+            msgpack.Serializer(),
+            json.Serializer(),
+          ]) {
+            expect(codec.serialize(response), codec.serialize(ordinary));
+          }
+        },
+      );
+    }
+  }
+
   for (final isError in [false, true]) {
     test('plain reply decodes an explicitly packed payload error=$isError', () {
       var decodes = 0;

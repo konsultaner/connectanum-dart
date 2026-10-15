@@ -20,6 +20,9 @@ import 'package:connectanum_client/native_buffers.dart' as native_buffers;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart'
     as native_e2ee;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
+// Observe declared core buffer boundaries across the live router's workers.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
@@ -46,12 +49,61 @@ void main() {
       if (skipReason != null || nativeLib == null) {
         return;
       }
+      OwnedCopyMetrics.enable();
       harness = await _WampTransportHarness.start(nativeLib);
     });
 
     tearDownAll(() async {
       await harness?.close();
     });
+
+    test(
+      'owned router observations include stable fenced worker snapshots',
+      () async {
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          clientImplementation: WampClientImplementation.native,
+          serializer: WampSerializer.flatbuffers,
+          peerSerializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 2,
+          concurrency: 1,
+          payloadBytes: 4096,
+          pptScheme: 'x_connectanum_bench_typed',
+          pptSerializer: 'flatbuffers',
+        );
+        await harness!.nativeWorker.runWithMetrics(scenario);
+        final before = await harness!.binding.collectOwnedBufferCopies();
+        expect(before['status'], 'measured', reason: '$before');
+        final result = await harness!.nativeWorker.runWithMetrics(scenario);
+        final after = await harness!.binding.collectOwnedBufferCopies();
+        expect(result.samples, hasLength(2));
+        expect(after['status'], 'measured', reason: '$after');
+        expect(after['boss_generation'], before['boss_generation']);
+        final earlierWorkers = before['workers'] as Map;
+        final laterWorkers = after['workers'] as Map;
+        expect(earlierWorkers, isNotEmpty);
+        expect(laterWorkers.keys, unorderedEquals(earlierWorkers.keys));
+        final pairs = [
+          (before['main_isolate'] as Map, after['main_isolate'] as Map),
+          for (final id in earlierWorkers.keys)
+            (earlierWorkers[id] as Map, laterWorkers[id] as Map),
+        ];
+        for (final (start, end) in pairs) {
+          expect(end.keys, unorderedEquals(start.keys));
+          for (final key in start.keys) {
+            expect(start[key], isA<int>());
+            expect(end[key], greaterThanOrEqualTo(start[key] as int));
+          }
+          expect(
+            end['failed_copy_operations'],
+            start['failed_copy_operations'],
+          );
+        }
+      },
+      skip: skipReason,
+    );
 
     for (final serializer in [
       WampSerializer.cbor,
@@ -86,6 +138,22 @@ void main() {
               (result.copyMetrics['raw_frame_copy_breakdown'] as Map)['client']
                   as Map;
           expect(result.samples, hasLength(2));
+          final dartCopies =
+              (result.copyMetrics['dart_owned_buffer_copy_breakdown']
+                      as Map)['client']
+                  as Map;
+          expect(dartCopies['status'], 'measured', reason: '$dartCopies');
+          if (serializer == WampSerializer.flatbuffers) {
+            expect(
+              dartCopies['clone_copy_bytes'],
+              lessThan(65536),
+              reason:
+                  'matching packed replies must avoid full model re-encoding and decode clones',
+            );
+          }
+          print(
+            'DART_BUFFER_OBSERVATION ${serializer.name} ${jsonEncode(dartCopies)}',
+          );
           for (final observed in [client, router]) {
             expect(observed['status'], 'measured');
             expect(
@@ -774,6 +842,23 @@ void main() {
               'not_measured',
             );
             final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
+            final owned =
+                (result.copyMetrics['dart_owned_buffer_copy_breakdown']
+                        as Map)['client']
+                    as Map;
+            final portableSubset =
+                breakdown['client_worker_isolate_portable_provider'] as Map;
+            final pptSubset =
+                breakdown['client_worker_isolate_ppt_serializer'] as Map;
+            expect(
+              owned['portable_crypto_copy_bytes'],
+              portableSubset.values.cast<int>().fold<int>(0, (a, b) => a + b),
+            );
+            expect(
+              owned['ppt_serializer_copy_bytes'],
+              pptSubset.values.cast<int>().fold<int>(0, (a, b) => a + b),
+            );
+
             expect(breakdown['coverage'], 'known_staging_only');
             expect(breakdown['client_worker_isolate_ppt_serializer'], {
               'encode_wrapping_copy_bytes': 0,

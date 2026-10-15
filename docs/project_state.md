@@ -6,6 +6,42 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Owned-copy CI checkpoint (2026-10-15): all 633 client binding mutants
+complete with zero errors/timeouts, clean/restored baselines and a 95.9302325581%
+assertion score against the unchanged 95% floor. Pinned client/core inputs stay
+unchanged; the independent inventory guard and unrelated router correction are
+recorded separately. The first full verification fails because the new serializer
+test was missing from its independent inventory expectation. The second frozen
+run reaches three JSON mixed-PPT failures, exposing an opaque-body conversion
+gap. A router-only view wraps the same bytes in one Arguments item, retaining the
+original message/owner. All fourteen fail-first control/body cases and all 107
+public mixed PPT/E2EE cases now pass. The legacy JSON codec stays unchanged.
+Fresh full verification and hosted CI are pending; copy totals/parity stay open.
+
+Hosted CI repair in progress (2026-10-15): `fc1881d3` finishes with 39
+successful checks and one root failure: client message-binding mutation score
+94.3359375% versus the unchanged 95% floor; Full Verify correctly fails as its
+aggregate. A 24-case storage matrix adds event/result/invocation/error, PPT/plain
+and three binary encodings. It reproduces a native ERROR metadata bug: human
+message text was mistaken for a PPT scheme. The repaired predicate reads ERROR's
+actual metadata. All 1,910 binding cases pass and four exact hosted survivors
+are killed by assertions with source restoration checked. Complete resulting
+inventory, frozen full verification and replacement hosted CI remain pending.
+
+Owned copy foundation and reply retention (2026-10-15): cumulative Dart
+observations now cover explicit clones, coalescing, byte-vector writes, allocator
+moves, isolate transfers, framing, keys, PPT and portable crypto. Router worker
+snapshots fence asynchronous work and reject missing/replaced workers; workload
+quiescence returns an explicit success flag. The separate optional native codec
+ABI observes vector/string/growth/parser/framing/key bytes without extending any
+published layout. Full totals remain uncertified while the source inventory and
+aggregation are completed. The new reply regression removes two full model
+copies per RPC by retaining matching packed lazy payloads; other codecs retain
+byte-identical wrapper output. All twelve reply cases, 371 Rust core and 294 FFI
+cases, 3,383 shared serializer cases, and thirteen live copy/encryption/file cases
+pass. Production verification, new timing and complete accounting remain pending.
+No remaining issue is closed. See [source and limits](research/2026-10-15-owned-copy-foundation.md).
+
 Nonce-freshness CI repair (2026-10-15): four repeated-plaintext/key checks cover
 both ciphers and both plaintext profiles. The exact skipped-initialization CI
 mutant fails first; all 168 focused E2EE cases and sixteen Chrome/Dart2Wasm

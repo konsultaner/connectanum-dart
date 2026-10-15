@@ -10,6 +10,7 @@ const int _workerCmdAddConnection = 3;
 const int _workerCmdRemoveConnection = 4;
 const int _workerCmdSendMessage = 5;
 const int _workerCmdDrainConnections = 6;
+const int _workerCmdCopySnapshot = 7;
 
 const int _workerEventRegister = 1;
 const int _workerEventReady = 2;
@@ -234,8 +235,10 @@ Uint8List encodeMessage(
 ) {
   switch (serializer) {
     case NativeMessageSerializer.json:
-      return Uint8List.fromList(
-        utf8.encode(_jsonSerializer.serializeToString(message)),
+      return OwnedCopyMetrics.copyBytes(
+        utf8.encode(
+          _jsonSerializer.serializeToString(_jsonPayloadView(message)),
+        ),
       );
     case NativeMessageSerializer.messagePack:
       return _msgpackSerializer.serialize(message);
@@ -246,6 +249,65 @@ Uint8List encodeMessage(
     default:
       throw UnsupportedError('Serializer ${serializer.name} not supported');
   }
+}
+
+// FlatBuffers has an opaque payload column. List-based WAMP encodings put
+// that same body in one Arguments element. Keep the original message and owner
+// intact for fan-out, and let the JSON serializer perform its binary conversion.
+AbstractMessage _jsonPayloadView(AbstractMessage message) {
+  if (message is! AbstractMessageWithPayload ||
+      message.transparentBinaryPayload == null) {
+    return message;
+  }
+  final arguments = <dynamic>[message.transparentBinaryPayload!];
+  final AbstractMessageWithPayload view = switch (message) {
+    call_msg.Call() => call_msg.Call(
+      message.requestId,
+      message.procedure,
+      options: message.options,
+      arguments: arguments,
+    ),
+    publish_msg.Publish() => publish_msg.Publish(
+      message.requestId,
+      message.topic,
+      options: message.options,
+      arguments: arguments,
+    ),
+    invocation_msg.Invocation() => invocation_msg.Invocation(
+      message.requestId,
+      message.registrationId,
+      message.details,
+      arguments: arguments,
+    ),
+    event_msg.Event() => event_msg.Event(
+      message.subscriptionId,
+      message.publicationId,
+      message.details,
+      arguments: arguments,
+    ),
+    result_msg.Result() => result_msg.Result(
+      message.callRequestId,
+      message.details,
+      arguments: arguments,
+    ),
+    yield_msg.Yield() => yield_msg.Yield(
+      message.invocationRequestId,
+      options: message.options,
+      arguments: arguments,
+    ),
+    error_msg.Error() => error_msg.Error(
+      message.requestTypeId,
+      message.requestId,
+      message.details,
+      message.error,
+      arguments: arguments,
+    ),
+    _ => throw UnsupportedError(
+      'Opaque JSON payload for message code ${message.id}',
+    ),
+  };
+  view.retainLazyPayload(view.toLazyPayload(anchor: message));
+  return view;
 }
 
 NativeMessageSerializer? _serializerFromName(String name) {
@@ -284,6 +346,9 @@ void defaultRouterWorkerEntryPoint(Map<String, Object?> init) {
 /// Default worker entry point that materialises native message handles in an
 /// isolate and hands them over to the router once available.
 void _routerWorkerEntryPoint(Map<String, Object?> init) {
+  final observesBufferCopies = init['observeBufferCopies'] == true;
+  if (observesBufferCopies) OwnedCopyMetrics.enable();
+  final copyFence = observesBufferCopies ? CopyMetricsFence() : null;
   registerDefaultAuthenticators();
 
   final bossPort = init['bossPort'] as SendPort;
@@ -374,6 +439,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     'commandPort': commandPort.sendPort,
     'statePort': statePort,
     'workerHash': workerId,
+    'observesBufferCopies': observesBufferCopies,
   });
   bossPort.send({
     'type': _workerEventReady,
@@ -466,7 +532,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   }
 
   late final StreamSubscription<dynamic> subscription;
-  subscription = commandPort.listen((dynamic raw) async {
+  Future<void> handleCommand(dynamic raw) async {
     if (raw is! List || raw.isEmpty) {
       return;
     }
@@ -478,7 +544,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       final connectionId = raw[1] as int;
       final handle = raw[2] as int;
       final listenerId = connections[connectionId] ?? initialListenerId;
-      unawaited(processMessage(connectionId, listenerId, handle));
+      await processMessage(connectionId, listenerId, handle);
     } else if (command == _workerCmdAddConnection) {
       final listenerId = raw[1] as int;
       final newConnectionId = raw[2] as int;
@@ -594,6 +660,51 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         'connectionId': initialConnectionId,
       });
     }
+  }
+
+  subscription = commandPort.listen((dynamic raw) {
+    if (raw is List && raw.isNotEmpty && raw[0] == _workerCmdCopySnapshot) {
+      final reply = raw[1] as SendPort;
+      final budget = Duration(microseconds: raw[2] as int);
+      void respond(Map<String, Object?> value) {
+        // Share the event port with worker_send: the boss must process earlier
+        // byte-buffer work before it forwards this observation to the waiter.
+        bossPort.send({
+          'type': 'worker_copy_snapshot',
+          'reply': reply,
+          'snapshot': value,
+        });
+      }
+
+      unawaited(() async {
+        if (copyFence == null) {
+          respond({
+            'status': 'not_measured',
+            'reason': 'worker observation was not enabled at startup',
+          });
+          return;
+        }
+        try {
+          final counters = await copyFence.snapshot(
+            OwnedCopyMetrics.snapshot,
+            timeout: budget,
+          );
+          respond({
+            'status': counters == null ? 'not_measured' : 'measured',
+            'worker_hash': workerId,
+            'counters': counters,
+          });
+        } catch (error) {
+          respond({'status': 'not_measured', 'reason': error.toString()});
+        }
+      }());
+      return;
+    }
+    unawaited(
+      copyFence == null
+          ? handleCommand(raw)
+          : copyFence.submit(() => handleCommand(raw)),
+    );
   });
 }
 

@@ -1214,6 +1214,14 @@ fn write_external_byte_buffer_range(
     SUCCESS
 }
 
+/// Append an already encoded buffer. Callers reserve metadata plus the
+/// bounded scalar headers before writing, so this operation never relocates.
+fn append_codec_bytes(buffer: &mut Vec<u8>, bytes: &[u8]) {
+    assert!(buffer.capacity() - buffer.len() >= bytes.len());
+    buffer.extend_from_slice(bytes);
+    ct_core::record_framing_copy(bytes.len());
+}
+
 fn encode_event_segments_json(
     payload: &ct_core::WampPayload,
     subscription_id: u64,
@@ -1301,12 +1309,12 @@ fn encode_event_segments_msgpack(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_msgpack.len() + 37);
     write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, 36).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, subscription_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, publication_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    prefix.extend_from_slice(&details_msgpack);
+    append_codec_bytes(&mut prefix, &details_msgpack);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -1347,7 +1355,7 @@ fn append_forwarded_binary_payload(
         if payload.args.is_some() || payload.kwargs.is_some() {
             return Err(ERR_INVALID_ARGUMENT);
         }
-        let mut wrapper = Vec::new();
+        let mut wrapper = Vec::with_capacity(10);
         match serializer {
             RawSocketSerializer::MessagePack => {
                 write_array_len(&mut wrapper, 1).map_err(|_| ERR_INVALID_ARGUMENT)?;
@@ -1444,15 +1452,21 @@ fn encode_event_segments_cbor(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_cbor.len() + 37);
     write_cbor_array_len(&mut prefix, element_count);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&36u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&36u64).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
         &serde_cbor::to_vec(&subscription_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
     );
-    prefix
-        .extend_from_slice(&serde_cbor::to_vec(&publication_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&details_cbor);
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&publication_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(&mut prefix, &details_cbor);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -1885,12 +1899,12 @@ fn encode_invocation_segments_msgpack(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_msgpack.len() + 37);
     write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, 68).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, invocation_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, registration_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    prefix.extend_from_slice(&details_msgpack);
+    append_codec_bytes(&mut prefix, &details_msgpack);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -1952,15 +1966,21 @@ fn encode_invocation_segments_cbor(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_cbor.len() + 37);
     write_cbor_array_len(&mut prefix, element_count);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&68u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix
-        .extend_from_slice(&serde_cbor::to_vec(&invocation_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&68u64).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&invocation_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
         &serde_cbor::to_vec(&registration_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
     );
-    prefix.extend_from_slice(&details_cbor);
+    append_codec_bytes(&mut prefix, &details_cbor);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -2128,7 +2148,7 @@ fn build_result_segments_msgpack(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(37);
     write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, 50).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, request_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
@@ -2154,11 +2174,17 @@ fn build_result_segments_cbor(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_cbor.len() + 37);
     write_cbor_array_len(&mut prefix, element_count);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&50u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&details_cbor);
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&50u64).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(&mut prefix, &details_cbor);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -2359,13 +2385,13 @@ fn build_error_segments_msgpack(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_msgpack.len() + error_msgpack.len() + 37);
     write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, 8).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, request_type).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, request_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    prefix.extend_from_slice(&details_msgpack);
-    prefix.extend_from_slice(&error_msgpack);
+    append_codec_bytes(&mut prefix, &details_msgpack);
+    append_codec_bytes(&mut prefix, &error_msgpack);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -2390,13 +2416,22 @@ fn build_error_segments_cbor(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_cbor.len() + error_cbor.len() + 37);
     write_cbor_array_len(&mut prefix, element_count);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&8u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&request_type).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&details_cbor);
-    prefix.extend_from_slice(&error_cbor);
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&8u64).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&request_type).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(&mut prefix, &details_cbor);
+    append_codec_bytes(&mut prefix, &error_cbor);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -2541,7 +2576,10 @@ pub extern "C" fn ct_e2ee_keyring_add_key(
         _ => return ERR_INVALID_ARGUMENT,
     };
     let key = match read_required_bytes(key_ptr, key_len) {
-        Ok(value) => value,
+        Ok(value) => {
+            ct_core::record_key_material_copy(value.len());
+            value
+        }
         Err(code) => return code,
     };
     if key.len() != E2EE_KEY_LEN {

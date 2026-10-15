@@ -7,6 +7,7 @@ mod resource_handles;
 mod state;
 
 mod borrowed_send_copy_metrics;
+mod codec_copy_metrics;
 mod crypto_copy_metrics;
 mod external_lease_ffi;
 mod external_leases;
@@ -21,6 +22,7 @@ mod external_network_tests;
 mod resource_restart_tests;
 
 pub use borrowed_send_copy_metrics::*;
+pub use codec_copy_metrics::*;
 pub use constants::*;
 pub use crypto_copy_metrics::*;
 pub use external_lease_ffi::*;

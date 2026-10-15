@@ -108,6 +108,42 @@ void main() {
       }
     }, skip: skipReason);
 
+    test('codec snapshots preserve named cumulative counters', () {
+      final runtime = NativeTransportRuntime(libraryPath: libraryPath!);
+      addTearDown(runtime.dispose);
+      final before = runtime.codecCopyMetricsSnapshot();
+      final after = runtime.codecCopyMetricsSnapshot();
+      final library = ffi.DynamicLibrary.open(libraryPath);
+      final advertised =
+          library.providesSymbol('ct_codec_copy_metrics_abi_version') &&
+          library.providesSymbol('ct_codec_copy_metrics_snapshot') &&
+          library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+                'ct_codec_copy_metrics_abi_version',
+              )() ==
+              1;
+      if (!advertised) {
+        expect(before, isNull);
+        expect(after, isNull);
+        return;
+      }
+      expect(before, isNotNull);
+      expect(
+        before!.keys,
+        unorderedEquals([
+          'vector_copy_bytes',
+          'string_copy_bytes',
+          'growth_copy_bytes',
+          'parser_read_copy_bytes',
+          'framing_copy_bytes',
+          'key_material_copy_bytes',
+        ]),
+      );
+      for (final key in before.keys) {
+        expect(before[key], greaterThanOrEqualTo(0));
+        expect(after![key], greaterThanOrEqualTo(before[key]!));
+      }
+    }, skip: skipReason);
+
     test(
       'router-scoped capability validates arguments and fails closed on old ABI',
       () {

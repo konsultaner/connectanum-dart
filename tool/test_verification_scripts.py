@@ -653,6 +653,7 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         original_files = set((root / 'serializer').rglob('*.dart')) | {
             root / 'serializer_challenge_welcome_test.dart',
             root / 'message_lazy_payload_regression_test.dart',
+            root / 'owned_copy_metrics_test.dart',
         }
         for runtime, entrypoint in [('vm', common), ('web', browser)]:
             for codec in ('cbor', 'msgpack'):

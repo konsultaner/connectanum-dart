@@ -3755,6 +3755,31 @@ class NativeTransportRuntime
     }
   }
 
+  /// Cumulative explicit native codec buffer operations, or unavailable.
+  Map<String, int>? codecCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctCodecCopyMetricsSnapshot;
+    if (_bindings.ctCodecCopyMetricsVersion?.call() != 1 || snapshot == null) {
+      return null;
+    }
+    final info = calloc<CtCodecCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot codec copy metrics');
+      }
+      return {
+        'vector_copy_bytes': info.ref.vectorCopyBytesTotal,
+        'string_copy_bytes': info.ref.stringCopyBytesTotal,
+        'growth_copy_bytes': info.ref.growthCopyBytesTotal,
+        'parser_read_copy_bytes': info.ref.parserReadCopyBytesTotal,
+        'framing_copy_bytes': info.ref.framingCopyBytesTotal,
+        'key_material_copy_bytes': info.ref.keyMaterialCopyBytesTotal,
+      };
+    } finally {
+      calloc.free(info);
+    }
+  }
+
   NativeRouterTransportCopyMetrics transportCopyMetricsSnapshot() {
     final rustls = _rustlsCopyMetricsSnapshot();
     final tokioRustls = _tokioRustlsCopyMetricsSnapshot();

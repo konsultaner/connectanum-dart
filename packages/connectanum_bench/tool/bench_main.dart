@@ -16,11 +16,17 @@ import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
+import 'package:connectanum_bench/src/codec_copy_metrics.dart';
+import 'package:connectanum_bench/src/owned_copy_metrics.dart';
+// Enable owned copy observation before router worker creation.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
 Future<void> main(List<String> args) async {
+  OwnedCopyMetrics.enable();
   await runZonedGuarded(
     () => _runBenchMain(args),
     (error, stackTrace) {
@@ -725,6 +731,11 @@ class _BenchControlRegistry {
       } catch (_) {
         baselineMetrics = null;
       }
+      final ownedCopiesBefore = await binding.collectOwnedBufferCopies();
+      final codecBefore = binding.runtime is NativeTransportRuntime
+          ? (binding.runtime as NativeTransportRuntime)
+                .codecCopyMetricsSnapshot()
+          : null;
       final rawFrameMetricsBefore = _routerRawFrameCopyMetrics(binding.runtime);
       final routerCopyMetricsBefore = _routerTransportCopyMetrics(
         binding.runtime,
@@ -758,9 +769,10 @@ class _BenchControlRegistry {
       final samples = result.samples;
       final fileSegmentMetrics = result.fileSegmentMetrics;
       final clientProcessMetrics = result.processMetrics;
-      if (baselineMetrics != null) {
-        await _awaitRouterQuiescence(baselineMetrics);
-      }
+      final quiescent =
+          baselineMetrics != null &&
+          await _awaitRouterQuiescence(baselineMetrics);
+      final ownedCopiesAfter = await binding.collectOwnedBufferCopies();
       final routerCopyMetricsAfter = _routerTransportCopyMetrics(
         binding.runtime,
       );
@@ -779,6 +791,26 @@ class _BenchControlRegistry {
         if (previousRawBreakdown is Map)
           ...Map<String, Object?>.from(previousRawBreakdown),
         'router': rawFrameMetrics,
+      };
+      final codecBreakdown = copyMetrics['native_codec_copy_breakdown'];
+      copyMetrics['native_codec_copy_breakdown'] = {
+        if (codecBreakdown is Map) ...Map<String, Object?>.from(codecBreakdown),
+        'router': codecCopyMetricsDelta(
+          codecBefore,
+          binding.runtime is NativeTransportRuntime
+              ? (binding.runtime as NativeTransportRuntime)
+                    .codecCopyMetricsSnapshot()
+              : null,
+        ),
+      };
+      final ownedBreakdown = copyMetrics['dart_owned_buffer_copy_breakdown'];
+      copyMetrics['dart_owned_buffer_copy_breakdown'] = {
+        if (ownedBreakdown is Map) ...Map<String, Object?>.from(ownedBreakdown),
+        'router': routerOwnedBufferCopyMetricsDelta(
+          ownedCopiesBefore,
+          ownedCopiesAfter,
+          quiescent: quiescent,
+        ),
       };
       final dataWindow = WampSampleWindow.fromSamples(samples);
       context.sendJson(
@@ -888,7 +920,7 @@ class _BenchControlRegistry {
     return error.toString();
   }
 
-  Future<void> _awaitRouterQuiescence(
+  Future<bool> _awaitRouterQuiescence(
     Object baseline, {
     Duration timeout = const Duration(seconds: 3),
   }) async {
@@ -904,7 +936,7 @@ class _BenchControlRegistry {
           metrics.subscriptionCount <= baselineSnapshot.subscriptionCount &&
           metrics.registrationCount <= baselineSnapshot.registrationCount;
       if (isQuiescent) {
-        return;
+        return true;
       }
       if (DateTime.now().isAfter(deadline)) {
         _logger.warning(
@@ -915,7 +947,7 @@ class _BenchControlRegistry {
           'subscriptions=${metrics.subscriptionCount} '
           'registrations=${metrics.registrationCount}',
         );
-        return;
+        return false;
       }
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }

@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -59,7 +60,7 @@ Map<String, dynamic> decodeFlatBufferMetadata(Uint8List bytes) {
 Object? _normalize(Object? value) {
   if (value is CborBytes) {
     final data = value.bytes;
-    return data is Uint8List ? data : Uint8List.fromList(data);
+    return data is Uint8List ? data : OwnedCopyMetrics.copyBytes(data);
   }
   if (value is CborValue && value is! CborList && value is! CborMap) {
     return _normalize(value.toObject());

@@ -8,6 +8,12 @@ import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_bench/src/e2ee_copy_metrics.dart';
 import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
+import 'package:connectanum_bench/src/codec_copy_metrics.dart';
+import 'package:connectanum_bench/src/owned_copy_metrics.dart';
+// Observe core-owned buffers independently of transport and crypto counters.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart'
+    as core_buffers;
 import 'package:connectanum_client/src/transport/dart_transport_copy_metrics.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -18,6 +24,7 @@ import 'package:connectanum_core/src/message/ppt_copy_metrics.dart';
 import 'package:logging/logging.dart';
 
 Future<void> main(List<String> args) async {
+  core_buffers.OwnedCopyMetrics.enable();
   final parser = ArgParser()
     ..addOption('realm', mandatory: true)
     ..addOption('targets-json', mandatory: true)
@@ -129,11 +136,13 @@ Future<void> main(List<String> args) async {
         final scenario = WampScenario.fromJson(
           Map<String, Object?>.from(jsonDecode(trimmed) as Map),
         );
+        final ownedCopiesBefore = core_buffers.OwnedCopyMetrics.snapshot();
         final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
         final copyMetricsBefore = nativeRuntime.transportCopyMetricsSnapshot();
         final e2eeMetricsBefore = nativeRuntime.e2eeCopyMetricsSnapshot();
         final rawFrameMetricsBefore = nativeRuntime
             .rawFrameCopyMetricsSnapshot();
+        final codecBefore = nativeRuntime.codecCopyMetricsSnapshot();
         final rssBeforeBytes = ProcessInfo.currentRss;
         late final List<WampSample> samples;
         late final DartTransportCopyMetricsSnapshot dartCopyMetrics;
@@ -175,16 +184,30 @@ Future<void> main(List<String> args) async {
               'buffered_file_segment_bytes':
                   fileMetrics.bufferedFileSegmentBytesTotal,
             },
-            'copy_metrics': _copyMetricsFor(
-              scenario,
-              samples,
-              copyMetrics,
-              dartCopyMetrics,
-              e2eeMetrics,
-              portableE2eeMetrics,
-              pptMetrics,
-              rawFrameMetrics,
-            ),
+            'copy_metrics': {
+              ..._copyMetricsFor(
+                scenario,
+                samples,
+                copyMetrics,
+                dartCopyMetrics,
+                e2eeMetrics,
+                portableE2eeMetrics,
+                pptMetrics,
+                rawFrameMetrics,
+              ),
+              'native_codec_copy_breakdown': {
+                'client': codecCopyMetricsDelta(
+                  codecBefore,
+                  nativeRuntime.codecCopyMetricsSnapshot(),
+                ),
+              },
+              'dart_owned_buffer_copy_breakdown': {
+                'client': ownedBufferCopyMetricsDelta(
+                  ownedCopiesBefore,
+                  core_buffers.OwnedCopyMetrics.snapshot(),
+                ),
+              },
+            },
             'process_metrics': {
               'pid': pid,
               'rss_before_bytes': rssBeforeBytes,

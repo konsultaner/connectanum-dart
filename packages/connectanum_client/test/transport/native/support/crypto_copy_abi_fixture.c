@@ -19,3 +19,7 @@ int ct_raw_frame_copy_metrics_snapshot(void *out) {
   (void)out;
   abort();
 }
+
+// A future codec layout must also be rejected before Dart allocates v1 storage.
+uint32_t ct_codec_copy_metrics_abi_version(void) { return 2; }
+int ct_codec_copy_metrics_snapshot(void *out) { (void)out; abort(); }

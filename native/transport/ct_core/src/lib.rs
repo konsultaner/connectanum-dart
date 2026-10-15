@@ -1358,9 +1358,10 @@ pub use platform::{Runtime as PlatformRuntime, UnsupportedPlatform};
 pub use protocol::{Http2Handshake, Http3Handshake, HttpHandshake, WebSocketHandshake};
 pub use rawsocket::Serializer as RawSocketSerializer;
 pub use wamp::{
-    compose_flatbuffers_message_segments, encode_flatbuffers_message,
+    codec_copy_metrics_snapshot, compose_flatbuffers_message_segments, encode_flatbuffers_message,
     encode_flatbuffers_message_segments, parse_message, parse_message_segments,
-    raw_frame_copy_metrics_snapshot, validate_flatbuffers_payload, ParseError as WampParseError,
+    raw_frame_copy_metrics_snapshot, record_framing_copy, record_key_material_copy,
+    validate_flatbuffers_payload, CodecCopyMetricsSnapshot, ParseError as WampParseError,
     ParsedMessage, Payload as WampPayload, RawFrame as WampRawFrame, RawFrameCopyMetricsSnapshot,
     WampMessage,
 };

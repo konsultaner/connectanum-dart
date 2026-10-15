@@ -1,3 +1,6 @@
+// Observe the core buffer operations without changing public codec APIs.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
@@ -720,10 +723,10 @@ abstract class _NativeTransportBase extends AbstractTransport
       return serialized;
     }
     if (serialized is String) {
-      return Uint8List.fromList(utf8.encode(serialized));
+      return OwnedCopyMetrics.copyBytes(utf8.encode(serialized));
     }
     if (serialized is List<int>) {
-      return Uint8List.fromList(serialized);
+      return OwnedCopyMetrics.copyBytes(serialized);
     }
     throw UnsupportedError(
       'Serializer ${_nativeSerializer.name} returned unsupported payload ${serialized.runtimeType}',
@@ -795,13 +798,15 @@ Uint8List buildNativeFileSegmentPrefix(
       encodedMessage.length - expectedTail.length + retainedTailBytes;
   final prefix = Uint8List(retainedLength + binaryHeader.length);
   prefix.setRange(0, retainedLength, encodedMessage);
+  OwnedCopyMetrics.record(OwnedCopyKind.coalescing, retainedLength);
   prefix.setRange(retainedLength, prefix.length, binaryHeader);
+  OwnedCopyMetrics.record(OwnedCopyKind.coalescing, binaryHeader.length);
   return prefix;
 }
 
 Uint8List _nativeFileSegmentSuffix(int serializerType) {
   return serializerType == SocketHelper.serializationJson
-      ? Uint8List.fromList(const [0x22, 0x5d, 0x5d])
+      ? OwnedCopyMetrics.copyBytes(const [0x22, 0x5d, 0x5d])
       : Uint8List(0);
 }
 
@@ -823,7 +828,7 @@ bool _endsWith(Uint8List bytes, List<int> suffix) {
 
 Uint8List _msgpackBinaryHeader(int length) {
   if (length <= 0xff) {
-    return Uint8List.fromList([0xc4, length]);
+    return OwnedCopyMetrics.copyBytes([0xc4, length]);
   }
   if (length <= 0xffff) {
     return Uint8List(3)
@@ -844,10 +849,10 @@ Uint8List _msgpackBinaryHeader(int length) {
 
 Uint8List _cborBinaryHeader(int length) {
   if (length <= 23) {
-    return Uint8List.fromList([0x40 | length]);
+    return OwnedCopyMetrics.copyBytes([0x40 | length]);
   }
   if (length <= 0xff) {
-    return Uint8List.fromList([0x58, length]);
+    return OwnedCopyMetrics.copyBytes([0x58, length]);
   }
   if (length <= 0xffff) {
     return Uint8List(3)

@@ -460,6 +460,13 @@ typedef CtRawFrameCopyMetricsSnapshotNative =
 typedef CtRawFrameCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtRawFrameCopyMetricsInfo>);
 
+typedef CtCodecCopyMetricsVersionNative = ffi.Uint32 Function();
+typedef CtCodecCopyMetricsVersionDart = int Function();
+typedef CtCodecCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtCodecCopyMetricsInfo>);
+typedef CtCodecCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtCodecCopyMetricsInfo>);
+
 typedef CtRustlsCopyMetricsSnapshotNative =
     ffi.Int32 Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
 typedef CtRustlsCopyMetricsSnapshotDart =
@@ -993,6 +1000,21 @@ final class CtRawFrameCopyMetricsInfo extends ffi.Struct {
   external int singleSegmentContiguousRequestsTotal;
   @ffi.Uint64()
   external int multiSegmentContiguousRequestsTotal;
+}
+
+final class CtCodecCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int vectorCopyBytesTotal;
+  @ffi.Uint64()
+  external int stringCopyBytesTotal;
+  @ffi.Uint64()
+  external int growthCopyBytesTotal;
+  @ffi.Uint64()
+  external int parserReadCopyBytesTotal;
+  @ffi.Uint64()
+  external int framingCopyBytesTotal;
+  @ffi.Uint64()
+  external int keyMaterialCopyBytesTotal;
 }
 
 final class CtRustlsCopyMetricsInfo extends ffi.Struct {
@@ -1594,6 +1616,20 @@ class CtFfiBindings {
               CtRawFrameCopyMetricsSnapshotDart
             >('ct_raw_frame_copy_metrics_snapshot'),
       ),
+      ctCodecCopyMetricsVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsVersionNative,
+              CtCodecCopyMetricsVersionDart
+            >('ct_codec_copy_metrics_abi_version'),
+      ),
+      ctCodecCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsSnapshotNative,
+              CtCodecCopyMetricsSnapshotDart
+            >('ct_codec_copy_metrics_snapshot'),
+      ),
       ctRustlsCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1766,6 +1802,8 @@ class CtFfiBindings {
   final CtTokioRustlsCopyMetricsSnapshotDart? ctTokioRustlsCopyMetricsSnapshot;
   final CtRawFrameCopyMetricsVersionDart? ctRawFrameCopyMetricsVersion;
   final CtRawFrameCopyMetricsSnapshotDart? ctRawFrameCopyMetricsSnapshot;
+  final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsVersion;
+  final CtCodecCopyMetricsSnapshotDart? ctCodecCopyMetricsSnapshot;
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;

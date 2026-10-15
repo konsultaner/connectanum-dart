@@ -1,3 +1,5 @@
+import '../serializer/owned_copy_metrics.dart';
+
 /// Isolate-local copy counters at explicit portable E2EE provider boundaries.
 /// Collection is disabled except during a benchmark window. Cipher output
 /// computation, serializer work and dependency-internal
@@ -35,18 +37,22 @@ class PortableE2eeCopyMetrics {
   }
 
   static void recordPlaintextWrappingCopy(int bytes) {
+    OwnedCopyMetrics.record(OwnedCopyKind.portableCrypto, bytes);
     if (_recording) _plaintextWrappingCopyBytes += bytes;
   }
 
   static void recordCiphertextWrappingCopy(int bytes) {
+    OwnedCopyMetrics.record(OwnedCopyKind.portableCrypto, bytes);
     if (_recording) _ciphertextWrappingCopyBytes += bytes;
   }
 
   static void recordCiphertextAssemblyCopy(int bytes) {
+    OwnedCopyMetrics.record(OwnedCopyKind.portableCrypto, bytes);
     if (_recording) _ciphertextAssemblyCopyBytes += bytes;
   }
 
   static void recordCiphertextCoercionCopy(int bytes) {
+    OwnedCopyMetrics.record(OwnedCopyKind.portableCrypto, bytes);
     if (_recording) _ciphertextCoercionCopyBytes += bytes;
   }
 }

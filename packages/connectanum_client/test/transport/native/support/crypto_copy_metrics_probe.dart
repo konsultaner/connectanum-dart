@@ -24,6 +24,7 @@ void main(List<String> args) {
     return;
   }
   if (args.isNotEmpty) {
+    _equal(runtime.codecCopyMetricsSnapshot(), null, 'unknown codec ABI');
     _equal(
       runtime.rawFrameCopyMetricsSnapshot(),
       null,
@@ -46,6 +47,7 @@ void main(List<String> args) {
   } else {
     _equal(rawFrame, null, 'legacy raw-frame observation unavailable');
   }
+  final codecBeforeKey = runtime.codecCopyMetricsSnapshot();
   final keyring = runtime.createE2eeKeyring();
   int? session;
   try {
@@ -55,6 +57,24 @@ void main(List<String> args) {
       Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
       makeDefault: true,
     );
+    final codecAfterKey = runtime.codecCopyMetricsSnapshot();
+    if (library.providesSymbol('ct_codec_copy_metrics_abi_version')) {
+      if (codecBeforeKey == null ||
+          codecAfterKey == null ||
+          codecAfterKey.length != 6 ||
+          codecAfterKey.values.any((value) => value < 0)) {
+        throw StateError('Codec snapshot is unavailable or malformed');
+      }
+      _equal(
+        codecAfterKey['key_material_copy_bytes']! -
+            codecBeforeKey['key_material_copy_bytes']!,
+        64,
+        'native key copies',
+      );
+    } else {
+      _equal(codecBeforeKey, null, 'legacy codec observation unavailable');
+      _equal(codecAfterKey, null, 'legacy codec observation unavailable');
+    }
     session = runtime.createE2eeSession(keyring);
     for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
       for (final size in [0, 1, 65536]) {

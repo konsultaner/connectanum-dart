@@ -58,6 +58,42 @@ void main() {
     }
   }, skip: nativeClientRuntimeUnavailableReason);
 
+  test('codec snapshots preserve named cumulative counters', () {
+    final runtime = NativeClientRuntime.instance();
+    addTearDown(NativeClientRuntime.shutdownShared);
+    final before = runtime.codecCopyMetricsSnapshot();
+    final after = runtime.codecCopyMetricsSnapshot();
+    final library = ffi.DynamicLibrary.open(runtime.libraryPath);
+    final advertised =
+        library.providesSymbol('ct_codec_copy_metrics_abi_version') &&
+        library.providesSymbol('ct_codec_copy_metrics_snapshot') &&
+        library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+              'ct_codec_copy_metrics_abi_version',
+            )() ==
+            1;
+    if (!advertised) {
+      expect(before, isNull);
+      expect(after, isNull);
+      return;
+    }
+    expect(before, isNotNull);
+    expect(
+      before!.keys,
+      unorderedEquals([
+        'vector_copy_bytes',
+        'string_copy_bytes',
+        'growth_copy_bytes',
+        'parser_read_copy_bytes',
+        'framing_copy_bytes',
+        'key_material_copy_bytes',
+      ]),
+    );
+    for (final key in before.keys) {
+      expect(before[key], greaterThanOrEqualTo(0));
+      expect(after![key], greaterThanOrEqualTo(before[key]!));
+    }
+  }, skip: nativeClientRuntimeUnavailableReason);
+
   test('crypto staging and Dart bridge counts match actual operations', () async {
     final source = await Isolate.resolvePackageUri(
       Uri.parse('package:connectanum_client/connectanum.dart'),

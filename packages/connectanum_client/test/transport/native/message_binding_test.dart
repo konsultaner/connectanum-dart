@@ -126,6 +126,98 @@ void main() {
       }
     });
   }
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    for (final code in [
+      MessageTypes.codeEvent,
+      MessageTypes.codeResult,
+      MessageTypes.codeInvocation,
+      MessageTypes.codeError,
+    ]) {
+      for (final ppt in [false, true]) {
+        test(
+          'native binary storage contract $serializer code=$code PPT=$ppt',
+          () {
+            final body = Uint8List.fromList([7, 8, 9]);
+            Uint8List encode(Object value) =>
+                serializer == NativeMessageSerializer.messagePack
+                ? msgpack.serialize(value)
+                : Uint8List.fromList(cbor.cbor.encode(cbor.CborValue(value)));
+            final encoded = encode([body]);
+            final raw = Uint8List(encoded.length + 9)
+              ..setRange(4, 4 + encoded.length, encoded);
+            final source = Uint8List.sublistView(
+              raw,
+              4,
+              4 + encoded.length,
+            ).asUnmodifiableView();
+            final error = code == MessageTypes.codeError;
+            final result = code == MessageTypes.codeResult;
+            final meta = _metadata(
+              messageCode: code,
+              primaryId: error ? MessageTypes.codeInvocation : 7,
+              secondaryId: 11,
+              flags: NativeMessageMetadata.flagDirectBind,
+              detailsBytes: encode({
+                if (ppt) ...{
+                  'ppt_scheme': 'x_bytes',
+                  'ppt_serializer': 'flatbuffers',
+                },
+              }),
+              stringA: error
+                  ? 'com.bytes.error'
+                  : result
+                  ? (ppt ? 'x_bytes' : null)
+                  : 'com.bytes.echo',
+              stringB: error
+                  ? 'ordinary error message'
+                  : result
+                  ? (ppt ? 'flatbuffers' : null)
+                  : (ppt ? 'x_bytes' : null),
+              stringC: !error && !result && ppt ? 'flatbuffers' : null,
+            );
+            final wrapped = bindSessionMessage(
+              serializer,
+              Uint8List(0),
+              argsBytes: source,
+              metadata: meta,
+            );
+            for (final message in [
+              wrapped,
+              materializeSessionMessage(wrapped),
+            ]) {
+              final value =
+                  (message as AbstractMessageWithPayload).wireArguments!.single;
+              expect(value, isA<List<int>>());
+              final bytes = value as List<int>;
+              expect(bytes, [7, 8, 9]);
+              if (ppt) {
+                expect(bytes, isA<Uint8List>());
+                final view = bytes as Uint8List;
+                expect(view.buffer.lengthInBytes, source.buffer.lengthInBytes);
+                expect(
+                  view.offsetInBytes,
+                  source.offsetInBytes + encoded.length - 3,
+                );
+                expect(() => view[0] = 42, throwsUnsupportedError);
+              } else if (serializer != NativeMessageSerializer.messagePack) {
+                expect(
+                  () => bytes[0] = 42,
+                  returnsNormally,
+                  reason:
+                      'ordinary arguments are independent mutable application values',
+                );
+                expect(source[source.length - 3], 7);
+              }
+            }
+          },
+        );
+      }
+    }
+  }
   _deferredSessionStateCases();
   _deferredBindingContracts();
   test('malformed FlatBuffers frame fails as malformed input', () {

@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:collection';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -20,7 +21,7 @@ Uint8List encodeWampFlatBufferCbor(
       'Encoded FlatBuffers CBOR value exceeds the byte limit',
     );
   }
-  return bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+  return bytes is Uint8List ? bytes : OwnedCopyMetrics.copyBytes(bytes);
 }
 
 /// Bound and normalize construction before encoding or metadata snapshots.

@@ -14,6 +14,7 @@ mod flatbuffers_conformance_tests;
 #[allow(unused_imports)]
 mod flatbuffers_generated;
 
+mod codec_copy_metrics;
 mod flatbuffers_cbor;
 mod flatbuffers_codec;
 mod flatbuffers_encoder;
@@ -21,6 +22,10 @@ mod flatbuffers_projection;
 mod flatbuffers_schema;
 mod flatbuffers_wire;
 mod flatbuffers_writer;
+pub use codec_copy_metrics::{
+    codec_copy_metrics_snapshot, record_framing_copy, record_key_material_copy,
+    CodecCopyMetricsSnapshot,
+};
 mod raw_frame_copy_metrics;
 pub use raw_frame_copy_metrics::{
     snapshot as raw_frame_copy_metrics_snapshot, RawFrameCopyMetricsSnapshot,
@@ -2086,6 +2091,7 @@ impl Read for SegmentedFrameReader {
             }
             let count = remaining.len().min(buf.len() - written);
             buf[written..written + count].copy_from_slice(&remaining[..count]);
+            codec_copy_metrics::record_parser_read_copy(count);
             written += count;
             self.segment_offset += count;
             if self.segment_offset >= segment.len() {

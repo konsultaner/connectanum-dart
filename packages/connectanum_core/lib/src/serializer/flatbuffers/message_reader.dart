@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 import 'dictionary_retention.dart';
 import 'cbor_validation.dart';
@@ -228,7 +229,7 @@ Object? _decodeApplication(Uint8List bytes) {
 Object? _applicationValue(Object? value) {
   if (value is CborBytes) {
     final bytes = value.bytes;
-    return bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+    return bytes is Uint8List ? bytes : OwnedCopyMetrics.copyBytes(bytes);
   }
   if (value is CborValue && value is! CborList && value is! CborMap) {
     return _applicationValue(value.toObject());

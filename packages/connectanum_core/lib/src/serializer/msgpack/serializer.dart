@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 import 'dart:isolate';
 
@@ -1115,7 +1116,7 @@ class Serializer extends AbstractSerializer {
   }
 
   Uint8List _buildMessage(int length, List<Uint8List> parts) {
-    final builder = BytesBuilder(copy: false)..add([_fixArrayHeader(length)]);
+    final builder = CopyAwareBytesBuilder()..add([_fixArrayHeader(length)]);
     for (final part in parts) {
       builder.add(part);
     }
@@ -1127,7 +1128,7 @@ class Serializer extends AbstractSerializer {
     List<Uint8List> fixedParts,
     SerializedPayload<int, Uint8List> payload,
   ) {
-    final builder = BytesBuilder(copy: false)
+    final builder = CopyAwareBytesBuilder()
       ..add([_fixArrayHeader(fixedLength + payload.payloadType)]);
     for (final part in fixedParts) {
       builder.add(part);
@@ -1145,7 +1146,7 @@ class Serializer extends AbstractSerializer {
   ) {
     final binaryArgument = _materializedSingleBinaryArgument(message);
     if (binaryArgument != null) {
-      final prefix = BytesBuilder(copy: false)
+      final prefix = CopyAwareBytesBuilder()
         ..add([_fixArrayHeader(fixedLength + 1)]);
       for (final part in fixedParts) {
         prefix.add(part);
@@ -1178,7 +1179,7 @@ class Serializer extends AbstractSerializer {
         (argumentsKeywords == null
             ? null
             : msgpack_dart.serialize(argumentsKeywords));
-    final prefix = BytesBuilder(copy: false)
+    final prefix = CopyAwareBytesBuilder()
       ..add([
         _fixArrayHeader(fixedLength + (kwargsBytes == null ? 1 : 2)),
       ]);
@@ -1208,13 +1209,13 @@ class Serializer extends AbstractSerializer {
 
   Uint8List _encodeMessagePackBinaryHeader(int length) {
     if (length <= 0xff) {
-      return Uint8List.fromList([0xc4, length]);
+      return OwnedCopyMetrics.copyBytes([0xc4, length]);
     }
     if (length <= 0xffff) {
-      return Uint8List.fromList([0xc5, length >> 8, length]);
+      return OwnedCopyMetrics.copyBytes([0xc5, length >> 8, length]);
     }
     if (length <= 0xffffffff) {
-      return Uint8List.fromList([
+      return OwnedCopyMetrics.copyBytes([
         0xc6,
         length >> 24,
         length >> 16,
@@ -1710,7 +1711,9 @@ class Serializer extends AbstractSerializer {
   Uint8List _concatBytes(Uint8List left, Uint8List right) {
     final combined = Uint8List(left.length + right.length);
     combined.setRange(0, left.length, left);
+    OwnedCopyMetrics.record(OwnedCopyKind.coalescing, left.length);
     combined.setRange(left.length, combined.length, right);
+    OwnedCopyMetrics.record(OwnedCopyKind.coalescing, right.length);
     return combined;
   }
 
@@ -1940,7 +1943,7 @@ class Serializer extends AbstractSerializer {
     final argsBytes = argumentsBytes ?? msgpack_dart.serialize(arguments);
     final kwargsBytes =
         argumentsKeywordsBytes ?? msgpack_dart.serialize(argumentsKeywords);
-    final builder = BytesBuilder(copy: false)
+    final builder = CopyAwareBytesBuilder()
       ..add([0x82])
       ..add(_pptArgsKeyBytes)
       ..add(argsBytes.isEmpty ? _nilBytes : argsBytes)

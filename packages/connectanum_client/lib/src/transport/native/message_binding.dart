@@ -1027,7 +1027,14 @@ bool _canBorrowBinaryPptArgument(AbstractMessageWithPayload message) {
             metadata.messageCode == MessageTypes.codeResult ||
             metadata.messageCode == MessageTypes.codeInvocation ||
             metadata.messageCode == MessageTypes.codeError) &&
-        _nativeTypedE2eeFields(metadata).$1 != null;
+        (metadata.messageCode == MessageTypes.codeError
+            ? ((_decodeOptionalMapFragment(
+                        message.serializer,
+                        metadata.detailsBytes,
+                      ) ??
+                      const <String, dynamic>{})['ppt_scheme']
+                  is String)
+            : _nativeTypedE2eeFields(metadata).$1 != null);
   }
   return switch (message) {
     Event value => value.details.pptScheme != null,

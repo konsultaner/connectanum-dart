@@ -9,6 +9,7 @@ import 'package:pointycastle/export.dart'
 import 'abstract_ppt_options.dart';
 import 'e2ee_copy_metrics.dart';
 import 'ppt_copy_metrics.dart';
+import '../serializer/owned_copy_metrics.dart';
 import '../message/ppt_payload.dart';
 import '../serializer/cbor/serializer.dart' as cbor_serializer;
 import '../serializer/abstract_serializer.dart';
@@ -913,15 +914,21 @@ abstract class _WampE2eeCipherProvider
         );
       }
       final bytes = Uint8List(SecretBox.keyLength);
-      for (var index = 0; index < bytes.length; index++) {
-        final byte = entry.value[index];
-        if (byte < 0 || byte > 255) {
-          throw ArgumentError(
-            'E2EE key "$keyId" bytes must be integers from 0 to 255',
-            'keys',
-          );
+      var copied = 0;
+      try {
+        for (var index = 0; index < bytes.length; index++) {
+          final byte = entry.value[index];
+          if (byte < 0 || byte > 255) {
+            throw ArgumentError(
+              'E2EE key "$keyId" bytes must be integers from 0 to 255',
+              'keys',
+            );
+          }
+          bytes[index] = byte;
+          copied++;
         }
-        bytes[index] = byte;
+      } finally {
+        OwnedCopyMetrics.record(OwnedCopyKind.keyMaterial, copied);
       }
       normalized[keyId] = bytes;
     }

@@ -1295,10 +1295,10 @@ Object? _copyTransferredNativeCallPayload(
     ),
     argumentsBytes: argumentsBytes == null
         ? null
-        : Uint8List.fromList(argumentsBytes),
+        : OwnedCopyMetrics.copyBytes(argumentsBytes),
     argumentsKeywordsBytes: argumentsKeywordsBytes == null
         ? null
-        : Uint8List.fromList(argumentsKeywordsBytes),
+        : OwnedCopyMetrics.copyBytes(argumentsKeywordsBytes),
   );
 }
 
@@ -1438,10 +1438,10 @@ Uint8List? _coerceTransferredBytes(Object? value) {
     return value;
   }
   if (value is List<int>) {
-    return Uint8List.fromList(value);
+    return OwnedCopyMetrics.copyBytes(value);
   }
   if (value is List) {
-    return Uint8List.fromList(value.cast<int>());
+    return OwnedCopyMetrics.copyBytes(value.cast<int>());
   }
   throw StateError('Expected transferred byte payload but got $value');
 }
@@ -1577,10 +1577,10 @@ Uint8List? _extractTransferredWrappedPayloadBytes(
     return first;
   }
   if (first is List<int>) {
-    return Uint8List.fromList(first);
+    return OwnedCopyMetrics.copyBytes(first);
   }
   if (first is List) {
-    return Uint8List.fromList(first.cast<int>());
+    return OwnedCopyMetrics.copyBytes(first.cast<int>());
   }
   if (pptSerializer == null ||
       (pptSerializer != 'json' &&
@@ -1606,7 +1606,9 @@ Object? _normalizeJsonBinaryPayload(Object? value) {
     final prefix = value.startsWith(_jsonBinaryPrefix)
         ? _jsonBinaryPrefix
         : _jsonEscapedBinaryPrefix;
-    return Uint8List.fromList(base64.decode(value.substring(prefix.length)));
+    return OwnedCopyMetrics.copyBytes(
+      base64.decode(value.substring(prefix.length)),
+    );
   }
   if (value is List) {
     return value
@@ -1636,7 +1638,7 @@ Object? _normalizeJsonBinaryPayload(Object? value) {
 
 Object? _cborValueToDart(Object? value) {
   if (value is CborBytes) {
-    return Uint8List.fromList(value.bytes);
+    return OwnedCopyMetrics.copyBytes(value.bytes);
   }
   if (value is CborList) {
     return value.map(_cborValueToDart).toList(growable: false);
@@ -1667,7 +1669,17 @@ Object? _cborValueToDart(Object? value) {
 
 Object? _transferIsolateValue(Object? value) {
   if (value is Uint8List) {
-    return TransferableTypedData.fromList([value]);
+    try {
+      final transferred = TransferableTypedData.fromList([value]);
+      OwnedCopyMetrics.record(
+        OwnedCopyKind.isolateTransfer,
+        value.lengthInBytes,
+      );
+      return transferred;
+    } catch (_) {
+      OwnedCopyMetrics.recordFailedCopy();
+      rethrow;
+    }
   }
   if (value is List) {
     return value

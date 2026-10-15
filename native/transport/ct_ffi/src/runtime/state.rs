@@ -122,7 +122,9 @@ impl StoredE2eeKeyring {
         let mut state = self.state.lock().unwrap();
         let was_empty = state.keys.is_empty();
         let had_implicit_default = state.default_key_id.is_some() && !state.default_key_explicit;
+        let key_len = key.len();
         state.keys.insert(key_id.clone(), Arc::<[u8]>::from(key));
+        ct_core::record_key_material_copy(key_len);
         if make_default {
             state.default_key_id = Some(key_id);
             state.default_key_explicit = true;

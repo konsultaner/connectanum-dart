@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
+// Observe explicit key-buffer transfers separately from payload staging.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/native_message_bytes.dart';
@@ -587,6 +590,7 @@ class NativeClientRuntime {
     final keyPtr = malloc<ffi.Uint8>(key.length);
     try {
       keyPtr.asTypedList(key.length).setAll(0, key);
+      OwnedCopyMetrics.record(OwnedCopyKind.keyMaterial, key.length);
       final result = _bindings.ctE2eeKeyringAddKey(
         keyringHandle,
         keyIdPtr,
@@ -1338,6 +1342,31 @@ class NativeClientRuntime {
             info.ref.singleSegmentContiguousRequestsTotal,
         'multi_segment_contiguous_requests':
             info.ref.multiSegmentContiguousRequestsTotal,
+      };
+    } finally {
+      calloc.free(info);
+    }
+  }
+
+  /// Cumulative explicit native codec buffer operations, or unavailable.
+  Map<String, int>? codecCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctCodecCopyMetricsSnapshot;
+    if (_bindings.ctCodecCopyMetricsVersion?.call() != 1 || snapshot == null) {
+      return null;
+    }
+    final info = calloc<CtCodecCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot codec copy metrics');
+      }
+      return {
+        'vector_copy_bytes': info.ref.vectorCopyBytesTotal,
+        'string_copy_bytes': info.ref.stringCopyBytesTotal,
+        'growth_copy_bytes': info.ref.growthCopyBytesTotal,
+        'parser_read_copy_bytes': info.ref.parserReadCopyBytesTotal,
+        'framing_copy_bytes': info.ref.framingCopyBytesTotal,
+        'key_material_copy_bytes': info.ref.keyMaterialCopyBytesTotal,
       };
     } finally {
       calloc.free(info);

@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 
 import '../message_lazy_payload_regression_test.dart' as lazy_payload;
+import '../owned_copy_metrics_test.dart' as owned_copies;
 import '../serializer/cbor/serializer_indefinite_test.dart' as cbor_indefinite;
 import '../serializer/cbor/serializer_missing_messages_test.dart'
     as cbor_missing;
@@ -54,6 +55,7 @@ import '../serializer/serializer_security_limits_test.dart' as limits;
 import '../serializer_challenge_welcome_test.dart' as handshake;
 
 void main() {
+  group('owned buffer copy metrics', owned_copies.main);
   group('lazy payload', lazy_payload.main);
   group('CBOR indefinite', cbor_indefinite.main);
   group('CBOR missing messages', cbor_missing.main);

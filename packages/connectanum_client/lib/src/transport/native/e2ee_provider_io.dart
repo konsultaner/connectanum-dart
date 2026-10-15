@@ -1,4 +1,7 @@
 import 'dart:typed_data';
+// Count key preparation outside the dedicated payload/PPT scopes.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
 // Observe the shared built-in PPT serializer boundaries.
 // ignore: implementation_imports
@@ -580,7 +583,10 @@ abstract class _NativeWampE2eeCipherProvider
           'E2EE key ids must not be empty',
         );
       }
-      final bytes = Uint8List.fromList(entry.value);
+      final bytes = OwnedCopyMetrics.copyBytes(
+        entry.value,
+        kind: OwnedCopyKind.keyMaterial,
+      );
       if (bytes.length != 32) {
         throw ArgumentError.value(
           entry.value,
