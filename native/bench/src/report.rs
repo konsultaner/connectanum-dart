@@ -315,6 +315,8 @@ pub struct ClientProcessMetrics {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allocated_bytes_delta: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allocation_measurement: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gc_count_delta: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gc_pause_us_delta: Option<u64>,

@@ -11,6 +11,28 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Allocation/performance follow-up (2026-10-16): stock-SDK heap/GC volume now
+retains raw proof and runs its observers outside both measured PIDs. Independent
+Python recomputation rejects the legacy live-heap census and forged totals;
+35 comparison cases and the live 24-row/48-process allocation matrix pass.
+The Rust driver now preserves the raw metadata (fail-first round-trip regression,
+17 driver cases pass). GC crossing one measured snapshot is reproduced; bounded
+three-attempt boundary retries retain the entire original workload and collection
+window. All 100 focused allocation/GC/wire/process cases pass.
+
+Typed input, completed CBOR encoder/decoder buffers and PPT singleton binary
+views avoid extra copies. Metadata-only native PPT views now respect dictionary
+authority; all 1,916 binding cases pass. All 3,270 serializer/owned-copy cases
+pass before the small-frame reservation threshold refinement. Large-frame
+reservation reproduces oversized backing allocation and matches standard wire
+bytes. The next short diagnostic reaches 1.003 native-buffer throughput, but allocation
+ratios remain 1.10–1.23 and latency still fails. All 180 allocation observations
+validate after the boundary repair. The earlier diagnostic has one
+allocation report correctly remains unmeasured at the ambiguous GC boundary.
+No budget or inventory is relaxed. Current-source full verification, new paired
+timing and hosted acceptance remain pending. See
+[allocation method](../research/2026-10-15-dart-allocation-volume-research.md).
+
 Owned pipeline accounting follow-up (2026-10-15): E2EE totals now combine eight
 independently observed owned components; mixed transcode totals expose actual
 router serializer/dispatch buffers separately from transport. Strict producer and

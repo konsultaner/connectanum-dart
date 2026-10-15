@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import wamp_serializer_compare as compare
+from test_dart_heap_allocation_evidence import allocation_fixture
 
 
 class WampSerializerCompareTest(unittest.TestCase):
@@ -32,7 +33,7 @@ class WampSerializerCompareTest(unittest.TestCase):
         allocated = {"flatbuffers": 80, "cbor": 100, "msgpack": 90}[codec]
         pause = {"flatbuffers": 8, "cbor": 10, "msgpack": 9}[codec]
         peak = {"flatbuffers": 90, "cbor": 100, "msgpack": 95}[codec]
-        return {
+        report = {
             "workload": workload,
             "protocol": "wamp_rawsocket_rpc",
             "client_impl": "dart",
@@ -59,7 +60,7 @@ class WampSerializerCompareTest(unittest.TestCase):
                 "max_rss_bytes": peak,
                 "cpu_user_us_delta": cpu * 15,
                 "cpu_system_us_delta": cpu * 5,
-                "allocated_bytes_delta": allocated * 20,
+                "allocated_bytes_delta": allocated * 20 * 1000,
                 "gc_count_delta": 1,
                 "gc_pause_us_delta": pause * 20,
                 "peak_rss_during_bytes": peak * 3 // 5,
@@ -71,7 +72,7 @@ class WampSerializerCompareTest(unittest.TestCase):
                 "max_rss_bytes": peak,
                 "cpu_user_us_delta": cpu * 4,
                 "cpu_system_us_delta": cpu,
-                "allocated_bytes_delta": allocated * 5,
+                "allocated_bytes_delta": allocated * 5 * 1000,
                 "gc_count_delta": 1,
                 "gc_pause_us_delta": pause * 5,
                 "peak_rss_during_bytes": peak * 2 // 5,
@@ -117,6 +118,10 @@ class WampSerializerCompareTest(unittest.TestCase):
                 },
             },
         }
+
+        for key in ("client_process_metrics", "server_process_metrics"):
+            report[key]["allocation_measurement"] = allocation_fixture(report[key])
+        return report
 
     def test_standard_sdk_tls_internals_are_labelled_without_hiding_owned_copies(self):
         report = self._report("tls", "flatbuffers", 1)
@@ -573,7 +578,7 @@ class WampSerializerCompareTest(unittest.TestCase):
 
         self.assertEqual(findings, [])
         self.assertEqual(summary["cpu_us_per_operation"], 80.0)
-        self.assertEqual(summary["allocated_bytes_per_operation"], 80.0)
+        self.assertEqual(summary["allocated_bytes_per_operation"], 80000.0)
         self.assertEqual(summary["gc_pause_us_per_operation"], 8.0)
         self.assertEqual(
             summary["summed_sampled_peak_rss_bytes"],
@@ -600,6 +605,26 @@ class WampSerializerCompareTest(unittest.TestCase):
             self.assertEqual(len(observed["observations"]), 7)
             self.assertTrue(all(row["ratio"] is None for row in observed["observations"]))
         self.assertIn("unmeasured", compare.render_markdown(result))
+
+    def test_positive_legacy_heap_census_cannot_establish_allocation_parity(self):
+        report = self._report("legacy", "flatbuffers", 0)
+        for key in ("client_process_metrics", "server_process_metrics"):
+            report[key].pop("allocation_measurement")
+        summary, findings = compare._summarize_report(
+            report, min_duration_ms=10000, min_samples=25, label="legacy",
+        )
+        self.assertIsNone(summary["allocated_bytes_per_operation"])
+        self.assertTrue(any("allocation measurement" in finding for finding in findings))
+
+    def test_allocation_gate_uses_conservative_bounds_and_retains_points(self):
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        metric = result["cases"][0]["metrics"]["allocated_bytes_per_operation"]
+        observed = metric["observations"][0]
+        self.assertEqual(observed["flatbuffers"], 80000)
+        bounds = observed["comparison_bounds"]
+        self.assertGreater(bounds["flatbuffers_upper"], observed["flatbuffers"])
+        self.assertLess(bounds["msgpack_lower"], observed["msgpack"])
+        self.assertEqual(observed["ratio"], bounds["flatbuffers_upper"] / bounds["msgpack_lower"])
 
     def test_bootstrap_is_deterministic(self) -> None:
         first = compare.evaluate_campaign(self.manifest, self.root, self.policy)

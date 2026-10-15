@@ -14,7 +14,7 @@ it does not build a Dart map or serialize the full payload again at send time.
 The HTTP report now combines complete Connectanum-owned E2EE and router
 transcode observations when every required counter and native coverage
 capability is available. Dependency internals remain explicitly unmeasured.
-The paired performance campaign and allocation-volume repair are unfinished;
+The allocation-volume repair has focused and live validation. The paired performance campaign is unfinished;
 no parity result is accepted. See the
 [owned accounting contract](research/2026-10-15-owned-pipeline-copy-accounting.md).
 
@@ -413,3 +413,22 @@ prove final buffer release. Keep failed results, teardown evidence and complete
 configuration. Hosted CI must publish exact-head comparisons and enforce the
 same declared machine-readable policy. Shared-host noise, unexecuted construction
 groups or missing ownership metrics must remain visible limitations.
+
+## Allocation-volume evidence
+
+The standard SDK method `dart_heap_gc_volume_v1` reports
+`dart_managed_heap_allocation_pressure`: combined new/old heap occupancy change
+plus bytes reclaimed by every collection in the measured interval. It includes
+managed allocation overhead and excludes native allocations. It is not a
+live-heap delta or the SDK's `ClassHeapStats.accumulatedSize` census. VM-service
+observers run in separate OS processes outside both measured PIDs.
+
+Reports retain heap snapshots, timestamp brackets, raw GC events, collection
+counters, SDK version and PID attribution. Missing events, changed groups,
+rewound counters or ambiguous snapshot boundaries make allocation unmeasured.
+GC fields have KiB precision; each collection contributes at most 2,048 bytes
+of rounding uncertainty. Evidence is numeric only when that bound is at most
+1% of its estimate. The independent evaluator recomputes all observations and
+compares candidate upper bounds against baseline lower bounds. Existing
+allocation budgets, samples, durations and case inventories are unchanged.
+See [source audit and validation](research/2026-10-15-dart-allocation-volume-research.md).

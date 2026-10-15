@@ -18,6 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from dart_heap_allocation_evidence import allocation_evidence
+
 
 CODECS = ("flatbuffers", "cbor", "msgpack")
 METRICS = ("throughput_mbps", "latency_p95_ms", "latency_p99_ms")
@@ -651,6 +653,14 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
             or set(dependencies) != expected_dependencies
         ):
             missing.append(f"{label}: dependency boundary labels do not match the active path")
+    observed_pids = {
+        process.get("pid") for process in process_sets.values()
+        if type(process.get("pid")) is int and process["pid"] > 0
+    }
+    for process_name, process in process_sets.items():
+        missing.extend(allocation_evidence(
+            process, observed_pids=observed_pids, label=f"{label}.{process_name}",
+        )[2])
     e2ee_copy_bytes = copy_metrics.get("e2ee_copy_bytes")
     if isinstance(e2ee_copy_bytes, (int, float)) and not isinstance(e2ee_copy_bytes, bool):
         missing.extend(_owned_pipeline_findings(report, 'e2ee', label=label))
@@ -759,6 +769,15 @@ def _summarize_report(
         values = [process_value(key) for key in keys]
         return None if any(value is None for value in values) else sum(values) / len(samples)
 
+    observed_pids = {
+        process.get("pid") for process in process_metrics
+        if isinstance(process, dict) and type(process.get("pid")) is int
+    }
+    allocations = [allocation_evidence(process, observed_pids=observed_pids, label=label)
+                   for process in process_metrics]
+    allocation_bytes = None if any(item[0] is None or item[0] <= 0 for item in allocations) else sum(item[0] for item in allocations) / len(samples)
+    allocation_error = None if allocation_bytes is None else sum(item[1] for item in allocations) / len(samples)
+
     return (
         {
             "throughput_mbps": throughput_mbps,
@@ -770,7 +789,8 @@ def _summarize_report(
             "request_bytes_total": float(request_bytes),
             "response_bytes_total": float(response_bytes),
             "cpu_us_per_operation": per_operation("cpu_user_us_delta", "cpu_system_us_delta"),
-            "allocated_bytes_per_operation": per_operation("allocated_bytes_delta"),
+            "allocated_bytes_per_operation": allocation_bytes,
+            "allocated_bytes_error_bound_per_operation": allocation_error,
             "gc_pause_us_per_operation": per_operation("gc_pause_us_delta"),
             "summed_sampled_peak_rss_bytes": process_value("peak_rss_during_bytes"),
         },
@@ -1005,7 +1025,7 @@ def evaluate_campaign(
                             key: summary[key]
                             for key in RESOURCE_METRICS
                             if key in summary
-                        },
+                        } | {"allocated_bytes_error_bound_per_operation": summary["allocated_bytes_error_bound_per_operation"]},
                         "copy_metrics": report.get("copy_metrics"),
                         "wamp_configuration": report.get("wamp_configuration"),
                     }
@@ -1025,6 +1045,13 @@ def evaluate_campaign(
                         "best_baseline_codec": None, "best_baseline": None, "ratio": None,
                     })
                     continue
+                point_values = {"flatbuffers": candidate, "cbor": cbor, "msgpack": msgpack}
+                # Compare the candidate upper bound to baseline lower bounds.
+                # No numeric budget changes or missing-pair filtering is allowed.
+                if metric == "allocated_bytes_per_operation":
+                    candidate += summaries["flatbuffers"][index]["allocated_bytes_error_bound_per_operation"]
+                    cbor = max(0, cbor - summaries["cbor"][index]["allocated_bytes_error_bound_per_operation"])
+                    msgpack = max(0, msgpack - summaries["msgpack"][index]["allocated_bytes_error_bound_per_operation"])
                 if metric == "throughput_mbps":
                     baseline_codec = "cbor" if cbor >= msgpack else "msgpack"
                     baseline = max(cbor, msgpack)
@@ -1033,19 +1060,23 @@ def evaluate_campaign(
                     baseline = min(cbor, msgpack)
                 winner_counts[baseline_codec] += 1
                 if baseline <= 0:
-                    ratio = 1.0 if candidate == 0 else 1e12
+                    ratio = None
                     findings.append(
                         f"{case_id} repetition {index + 1} {metric}: baseline metric is zero"
                     )
                 else:
                     ratio = candidate / baseline
-                ratios.append(ratio)
+                if ratio is not None:
+                    ratios.append(ratio)
                 observations.append(
                     {
                         "repetition": index + 1,
-                        "flatbuffers": candidate,
-                        "cbor": cbor,
-                        "msgpack": msgpack,
+                        **point_values,
+                        **({"comparison_bounds": {
+                            "flatbuffers_upper": candidate,
+                            "cbor_lower": cbor,
+                            "msgpack_lower": msgpack,
+                        }} if metric == "allocated_bytes_per_operation" else {}),
                         "best_baseline_codec": baseline_codec,
                         "best_baseline": baseline,
                         "ratio": ratio,
@@ -1156,7 +1187,8 @@ def render_markdown(result: dict[str, Any]) -> str:
         lines.extend(f"- {finding}" for finding in result["findings"])
     else:
         lines.append("No gate findings.")
-    lines.extend(["", "Ratios compare FlatBuffers to the better of CBOR and MessagePack within each paired repetition.", ""])
+    lines.extend(["", "Ratios compare FlatBuffers to the better of CBOR and MessagePack within each paired repetition.",
+                  "Allocation ratios conservatively compare the candidate upper bound with baseline lower bounds; raw estimates and error bounds are retained.", ""])
     return "\n".join(lines)
 
 

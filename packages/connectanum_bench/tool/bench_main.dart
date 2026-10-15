@@ -12,6 +12,7 @@ import 'package:logging/logging.dart';
 import 'package:connectanum_bench/src/http_stream_handler.dart';
 import 'package:connectanum_bench/src/http_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/dart_vm_metrics.dart';
+import 'package:connectanum_bench/src/dart_vm_metrics_external.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
@@ -259,7 +260,7 @@ class _BenchRouterService {
     }
   }
 
-  Future<DartVmMetricsCollector> _connectServerProcessMetricsCollector() async {
+  Future<DartVmMetricsObserver> _connectServerProcessMetricsCollector() async {
     final serviceUri = (await developer.Service.getInfo()).serverUri;
     if (serviceUri == null) {
       throw StateError(
@@ -267,7 +268,7 @@ class _BenchRouterService {
         'launch bench_main with --enable-vm-service',
       );
     }
-    return DartVmMetricsCollector.connect(
+    return ExternalDartVmMetricsCollector.connect(
       serviceUri: serviceUri,
       pid: pid,
       allIsolates: true,
@@ -433,7 +434,7 @@ class _BenchControlRegistry {
   final String nativeLibraryPath;
   final String workerScriptPath;
   final bool enableVmMetrics;
-  final DartVmMetricsCollector? serverProcessMetricsCollector;
+  final DartVmMetricsObserver? serverProcessMetricsCollector;
 
   final _logger = Logger('BenchControlRegistry');
   final List<_BenchRegisteredHandler> _registrations = [];
@@ -852,7 +853,7 @@ class _BenchControlRegistry {
   }
 
   Future<Map<String, Object?>> _serverProcessMetricsJson(
-    DartVmMetricsCollector collector,
+    DartVmMetricsObserver collector,
     DartVmMetricsWindow window, {
     required int rssBeforeBytes,
     required int? currentRssAtWindowEnd,
@@ -877,6 +878,7 @@ class _BenchControlRegistry {
       'cpu_user_us_delta': measured.cpuUserMicros,
       'cpu_system_us_delta': measured.cpuSystemMicros,
       'allocated_bytes_delta': measured.allocatedBytes,
+      'allocation_measurement': measured.allocationMeasurement,
       'gc_count_delta': measured.gcCount,
       'gc_pause_us_delta': measured.gcPauseMicros,
       'peak_rss_during_bytes': measured.peakRssBytes,

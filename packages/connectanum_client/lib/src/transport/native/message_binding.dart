@@ -1022,19 +1022,27 @@ Error _bindError(List<dynamic> message) {
 bool _canBorrowBinaryPptArgument(AbstractMessageWithPayload message) {
   if (message is NativeSessionMessage) {
     final metadata = message.metadata;
-    return metadata.hasFlag(NativeMessageMetadata.flagDirectBind) &&
-        (metadata.messageCode == MessageTypes.codeEvent ||
-            metadata.messageCode == MessageTypes.codeResult ||
-            metadata.messageCode == MessageTypes.codeInvocation ||
-            metadata.messageCode == MessageTypes.codeError) &&
-        (metadata.messageCode == MessageTypes.codeError
-            ? ((_decodeOptionalMapFragment(
-                        message.serializer,
-                        metadata.detailsBytes,
-                      ) ??
-                      const <String, dynamic>{})['ppt_scheme']
-                  is String)
-            : _nativeTypedE2eeFields(metadata).$1 != null);
+    if (!metadata.hasFlag(NativeMessageMetadata.flagMetadataBind) ||
+        !{
+          MessageTypes.codeEvent,
+          MessageTypes.codeResult,
+          MessageTypes.codeInvocation,
+          MessageTypes.codeError,
+        }.contains(metadata.messageCode)) {
+      return false;
+    }
+    if (metadata.messageCode == MessageTypes.codeError ||
+        !metadata.hasFlag(NativeMessageMetadata.flagDirectBind)) {
+      // Extra dictionary fields disable direct binding, not binary borrowing.
+      // Only the dictionary is authoritative without the direct-bind flag.
+      return (_decodeOptionalMapFragment(
+                message.serializer,
+                metadata.detailsBytes,
+              ) ??
+              const <String, dynamic>{})['ppt_scheme']
+          is String;
+    }
+    return _nativeTypedE2eeFields(metadata).$1 != null;
   }
   return switch (message) {
     Event value => value.details.pptScheme != null,

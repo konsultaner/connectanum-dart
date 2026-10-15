@@ -218,6 +218,61 @@ void main() {
       }
     }
   }
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    for (final ppt in [false, true]) {
+      test('metadata-only PPT storage $serializer PPT=$ppt', () {
+        Uint8List encode(Object value) =>
+            serializer == NativeMessageSerializer.messagePack
+            ? msgpack.serialize(value)
+            : Uint8List.fromList(cbor.cbor.encode(cbor.CborValue(value)));
+        final encoded = encode([
+          Uint8List.fromList([7, 8, 9]),
+        ]);
+        final backing = Uint8List(encoded.length + 9)
+          ..setRange(4, 4 + encoded.length, encoded);
+        final source = Uint8List.sublistView(
+          backing,
+          4,
+          4 + encoded.length,
+        ).asUnmodifiableView();
+        final message = bindSessionMessage(
+          serializer,
+          Uint8List(0),
+          argsBytes: source,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            primaryId: 1,
+            flags: NativeMessageMetadata.flagMetadataBind,
+            // Without direct-bind, the dictionary is authoritative.
+            stringA: 'ghost_scheme',
+            stringB: 'flatbuffers',
+            detailsBytes: encode({
+              'custom': true,
+              if (ppt) 'ppt_scheme': 'x_bytes',
+            }),
+          ),
+        );
+        final body =
+            (message as AbstractMessageWithPayload).wireArguments!.single
+                as List<int>;
+        expect(body, [7, 8, 9]);
+        if (ppt) {
+          expect(body, isA<Uint8List>());
+          final view = body as Uint8List;
+          expect(view.buffer.lengthInBytes, source.buffer.lengthInBytes);
+          expect(view.offsetInBytes, source.offsetInBytes + encoded.length - 3);
+          expect(() => view[0] = 42, throwsUnsupportedError);
+        } else if (serializer != NativeMessageSerializer.messagePack) {
+          body[0] = 42;
+          expect(source.last, 9);
+        }
+      });
+    }
+  }
   _deferredSessionStateCases();
   _deferredBindingContracts();
   test('malformed FlatBuffers frame fails as malformed input', () {

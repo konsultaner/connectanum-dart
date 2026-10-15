@@ -22,8 +22,18 @@ import 'wire_writer.dart';
 class Serializer extends AbstractSerializer {
   @override
   Uint8List serialize(AbstractMessage message) {
-    final builder = WampFlatBufferBuilder();
-    builder.finish(writeWampFlatBufferMessage(message, builder));
+    final fields = prepareWampFlatBufferMessage(message);
+    final body = fields['msg'] as Map<String, Object?>;
+    var vectorBytes = (fields['metadata'] as Uint8List?)?.length ?? 0;
+    for (final value in body.values) {
+      if (value is Uint8List) vectorBytes += value.length;
+    }
+    // Encoding already produced these vectors. Reserve their bytes once instead
+    // of growing a small envelope to twice the large application payload size.
+    final builder = WampFlatBufferBuilder(
+      initialSize: vectorBytes > 1024 ? (vectorBytes + 1024 + 7) & ~7 : 1024,
+    );
+    builder.finish(writeWampFlatBufferFields(fields, builder));
     final bytes = builder.buffer;
     if (bytes.length > 64 * 1024 * 1024) {
       throw ArgumentError('FlatBuffers frame exceeds the byte limit');

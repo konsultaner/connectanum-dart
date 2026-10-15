@@ -2,8 +2,10 @@ import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 import 'dictionary_retention.dart';
 import 'cbor_validation.dart';
+import '../../message/binary_ppt_payload_view.dart';
 
 import 'package:cbor/cbor.dart';
+import 'package:typed_data/typed_buffers.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/src/serializer/limits.dart';
 import 'frame.dart';
@@ -147,7 +149,13 @@ AbstractMessage _readMessage(Uint8List bytes) {
         encoding: LazyPayloadEncoding.cbor,
         argumentsBytes: fields['args'] as Uint8List?,
         argumentsKeywordsBytes: fields['kwargs'] as Uint8List?,
-        argumentsDecoder: (value) => _decodeApplication(value) as List,
+        argumentsDecoder: (value) {
+          // Frame validation has already checked the entire CBOR argument span.
+          final binary = dictionary['ppt_scheme'] is String
+              ? binaryPptArgumentView(LazyPayloadEncoding.cbor, value)
+              : null;
+          return binary == null ? _decodeApplication(value) as List : [binary];
+        },
         argumentsKeywordsDecoder: (value) => Map<String, dynamic>.from(
           _decodeApplication(value) as Map,
         ),
@@ -229,7 +237,13 @@ Object? _decodeApplication(Uint8List bytes) {
 Object? _applicationValue(Object? value) {
   if (value is CborBytes) {
     final bytes = value.bytes;
-    return bytes is Uint8List ? bytes : OwnedCopyMetrics.copyBytes(bytes);
+    if (bytes is Uint8List) return bytes;
+    if (bytes is Uint8Buffer) {
+      // The decoder owns this completed buffer. Retain its typed backing store;
+      // no later decode can resize or reuse this byte-string buffer.
+      return Uint8List.view(bytes.buffer, bytes.offsetInBytes, bytes.length);
+    }
+    return OwnedCopyMetrics.copyBytes(bytes);
   }
   if (value is CborValue && value is! CborList && value is! CborMap) {
     return _applicationValue(value.toObject());

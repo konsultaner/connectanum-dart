@@ -1,16 +1,66 @@
-# Dart allocation-volume investigation — 2026-10-15
+# Stock Dart SDK allocation volume — 2026-10-16
 
-Pinned local SDK is Dart 3.13.1, revision 852b3e3608906afbe6102573cfd4407aeedd1b78 in both PATH and Flutter SDK. The idle repro finishes7 self-observed and7 externally observed windows. Self has2–3 GCs; external has0. Both allocation fields are around14–27 MiB; external grows by61,872 bytes per idle window.
+The pinned local SDK is Dart 3.13.1, commit
+`852b3e3608906afbe6102573cfd4407aeedd1b78`. Hosted acceptance uses 3.13.5,
+commit `04bcd1036cdc799ac6564988f159ee454d42c822`.
 
-Primary source at https://github.com/dart-lang/sdk/blob/852b3e3608906afbe6102573cfd4407aeedd1b78/runtime/vm/class_table.cc#L337 counts heap objects with CountObjectsVisitor, then assigns the same size to accumulatedSize and bytesCurrent (lines342–346). The public protocol docs describe accumulatedSize as allocations since reset, but this implementation emits current heap inventory, not allocation volume. https://github.com/dart-lang/sdk/blob/852b3e3608906afbe6102573cfd4407aeedd1b78/runtime/vm/service.cc updates the reset timestamp only. Historical benchmark resource metrics therefore cannot establish allocated bytes per operation from this field.
+## Rejected measurements
 
-At the verified `03524853` checkpoint, no collector source or numeric budget has been changed. Need a valid standard SDK allocation counter and an external observer process to remove parsing-induced GC from the target. Do not replace allocation volume with net live-heap delta or accept a missing value as zero. Primary parity remains open.
+The 3.13.1 [class-table implementation](https://github.com/dart-lang/sdk/blob/852b3e3608906afbe6102573cfd4407aeedd1b78/runtime/vm/class_table.cc#L337)
+counts current heap objects and writes the same size into `accumulatedSize` and
+`bytesCurrent`. Its field name does not make it allocation volume. A controlled
+80 MiB allocation followed by GC reports only 44,629,952 bytes through the prior
+collector. Historical allocation ratios based on that field are invalid.
 
-The standard SDK exposes Dart_RegisterHeapSamplingCallback, Dart_SetHeapSamplingPeriod, Dart_EnableHeapSampling and Dart_DisableHeapSampling in its executable. A native callback prototype filters by application isolate-group pointer and only updates atomic counters, returning null userdata. At period 4096, 128 allocations of 1 MiB produce 128 samples and134,221,824 weighted bytes: requested 134,217,728 payload bytes plus 4,096 bytes of object headers. This survives collection and is actual volume rather than live heap. This is a prototype, not integrated acceptance evidence.
+The native heap-sampling prototype preserved large one-MiB allocations after
+GC, but warmed small-allocation probes missed 100 MiB of known allocation at
+three sampling periods. It is rejected for acceptance and is not integrated.
+No custom SDK or patched dependency is introduced.
 
-Public SDK heap sampling reports weighted estimates for small new-space allocations. Old-space sampling behavior and error bounds need review before certification. Sampling overhead must be measured. Callback registration cannot be cleared to null after initialization; benchmark process lifetime must retain the native callback library and use a non-null no-op delete callback. No custom SDK build is required. The installed SDK header byte-matches pinned commit source. Tag-URL responses retrieved different cached revisions; implementation decisions must use the exact commit.
+## Integrated method
 
+`dart_heap_gc_volume_v1` measures managed allocation pressure as:
 
-The service-based controlled probe verifies that Dart_CurrentIsolateGroupId matches VM Service's isolateGroupId. After 128 one-MiB allocations and a full GC, native callbacks retain 134,222,208 weighted bytes while the public allocation profile reports live heap 8,591,936 bytes (starting at 7,241,472). Every ClassHeapStats.accumulatedSize still equals bytesCurrent. This rules out using the old field or a live-heap delta as allocation volume. The isolated child is stopped cleanly; callbacks stay mapped and are disabled before exit, never cleared to null.
+```
+heap_used_after - heap_used_before + sum(gc_used_before - gc_used_after)
+```
 
-Potential implementation: a tiny optional Rust native callback with atomic counters and no VM calls/allocation, filtered to a registered application group; opt-in setup only in controlled benchmark processes using the public SDK API. The group id must agree with the collector's selected groups, or allocation measurement is unavailable. Keep weighted estimator metadata and sampling period explicit; small old-space behavior and statistical precision need validation. Native callback registration belongs to process lifetime. Move VM-service profiling/JSON handling to an external observer process, since an observer isolate shares PID/heap/resource budgets. Existing copy counters and all numeric budgets remain unchanged. This remains a prototype/design lead; do not report complete resource acceptance.
+New and old generation values are combined so promotion cancels. The pinned
+[old-space collection implementation](https://github.com/dart-lang/sdk/blob/04bcd1036cdc799ac6564988f159ee454d42c822/runtime/vm/heap/pages.cc#L1124)
+resets occupancy from marked words plus allocations during marking before
+asynchronous sweeping. This supports including concurrent old collections in
+the reclamation sum. The metric includes managed object overhead and allocation
+pressure; it excludes native allocations and is not retained memory.
+
+Each VM-service observer runs in a separate OS process outside both measured
+PIDs. Raw group heap snapshots, collection counters, GC timeline observations,
+SDK version, PID attribution and RPC timestamp brackets remain in every report.
+Group changes, counter rewind, incomplete events or GC overlapping an ambiguous
+snapshot bracket produce `not_measured`. After a real paired run catches one
+such overlap, capture now retries only that heap boundary, at most three times.
+An end-boundary retry preserves all GC events since the original start and never
+reruns or discards workload operations. Exhaustion or missing evidence still
+fails closed. Matching native collection-counter
+deltas are required, including concurrent old marking.
+
+Timeline heap sizes have KiB precision. The absolute rounding bound is 2,048
+bytes per collection and must be at most 1% of the estimate. The independent
+Python evaluator recomputes raw totals and uses candidate upper bounds versus
+baseline lower bounds. Existing budgets and workload inventories are unchanged.
+Legacy live-heap reports cannot satisfy the allocation gate.
+
+## Validation and limits
+
+A retained 16 MiB plus transient 64 MiB regression fails with the old collector
+and passes with the external observer after collection. Separate small/large
+allocation calibrations retain history across young and concurrent old GC.
+Thirty-two pure calculation cases and process/GC/lifecycle tests cover missing
+or duplicate events, timestamps, count mismatch, observer failure and PID
+attribution. Independent Python tests reject forged evidence.
+
+A clean 24-row HTTP matrix covers three outer encodings, Dart/native clients,
+RawSocket/WebSocket and TLS/cleartext. All 48 process allocation reports pass
+independent validation. These short correctness runs use the same FlatBuffers
+inner payload and establish no performance parity. Full paired timing and Linux
+CPU/RSS acceptance remain required. SDK/TLS/crypto internals remain unmeasured
+under the approved standard-SDK copy scope.

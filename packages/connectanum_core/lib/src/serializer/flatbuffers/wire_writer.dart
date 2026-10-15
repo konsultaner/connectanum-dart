@@ -230,7 +230,7 @@ class _Writer {
               value.any((item) => item is! int || item < 0 || item > 255)) {
             invalid();
           }
-          return byteVector(value.cast<int>());
+          return byteVector(value is List<int> ? value : value.cast<int>());
         }
         final integers = [for (final item in value) integer(field, item)];
         return switch (field.width) {

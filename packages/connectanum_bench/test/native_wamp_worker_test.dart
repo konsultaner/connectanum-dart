@@ -64,6 +64,36 @@ void main() {
     });
   });
 
+  test(
+    'process metrics retain allocation evidence without inventing legacy proof',
+    () {
+      final metadata = <String, Object?>{
+        'status': 'measured',
+        'method': 'dart_heap_gc_volume_v1',
+        'heap_group_ids': ['isolateGroups/7'],
+        'gc_observations': <Object?>[],
+      };
+      final parsed = NativeWampWorkerProcessMetrics.fromJson({
+        'pid': 42,
+        'rss_before_bytes': 100,
+        'current_rss_bytes': 200,
+        'max_rss_bytes': 300,
+        'allocated_bytes_delta': 500000,
+        'allocation_measurement': metadata,
+      });
+      expect(parsed.allocationMeasurement, metadata);
+      expect(parsed.toJson()['allocation_measurement'], metadata);
+      final legacy = NativeWampWorkerProcessMetrics.fromJson({
+        'pid': 42,
+        'rss_before_bytes': 1,
+        'current_rss_bytes': 1,
+        'max_rss_bytes': 1,
+      });
+      expect(legacy.allocationMeasurement, isNull);
+      expect(legacy.toJson(), isNot(contains('allocation_measurement')));
+    },
+  );
+
   test('native worker preserves Dart package executable entrypoints', () {
     final worker = NativeWampWorker(
       realmUri: 'bench.control',

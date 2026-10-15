@@ -3,13 +3,23 @@ import 'dart:io';
 
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
+import 'dart_heap_allocation_volume.dart';
 
 /// Captures Dart heap and GC counters for a supervised source WAMP worker.
 ///
 /// The supervisor connects to the worker's VM service from a different
 /// isolate/process so profiling RPCs can pause the target without pausing the
 /// observer that must receive their replies.
-class DartVmMetricsCollector {
+abstract interface class DartVmMetricsObserver {
+  Future<DartVmMetricsWindow> beginWindow();
+  Future<DartVmMetricsResult> endWindow(
+    DartVmMetricsWindow window, {
+    required DartVmMetricsRssSnapshot rssSnapshot,
+  });
+  Future<void> close();
+}
+
+class DartVmMetricsCollector implements DartVmMetricsObserver {
   DartVmMetricsCollector._(
     this._service,
     this._pid, {
@@ -23,6 +33,8 @@ class DartVmMetricsCollector {
   final bool _allIsolates;
   late final StreamSubscription<Event> _gcSubscription;
   int _gcEventGeneration = 0;
+  bool _timelineAvailable = false;
+  String? _observedSdk;
 
   static Future<DartVmMetricsCollector> connect({
     required Uri serviceUri,
@@ -33,6 +45,9 @@ class DartVmMetricsCollector {
     final service = await vmServiceConnectUri(websocketUri.toString());
     try {
       final vm = await service.getVM();
+      if (vm.pid != pid) {
+        throw StateError('VM service PID does not match the observed process');
+      }
       final isolates = vm.isolates ?? const <IsolateRef>[];
       final isolateIds = selectDartVmMetricIsolateIds(
         isolates,
@@ -47,6 +62,8 @@ class DartVmMetricsCollector {
         allIsolates: allIsolates,
       );
       await service.streamListen('GC');
+      collector._observedSdk = vm.version;
+      await collector._enableGcTimeline();
       return collector;
     } catch (_) {
       await service.dispose();
@@ -54,6 +71,7 @@ class DartVmMetricsCollector {
     }
   }
 
+  @override
   Future<DartVmMetricsWindow> beginWindow() async {
     final isolates = (await _service.getVM()).isolates ?? const <IsolateRef>[];
     final isolateIds = selectDartVmMetricIsolateIds(
@@ -70,13 +88,20 @@ class DartVmMetricsCollector {
     if (profiledIsolateIds == null) {
       throw StateError('Observed VM has no reliable isolate-group metadata');
     }
-    await Future.wait(
-      profiledIsolateIds.map(
-        (isolateId) => _service.getAllocationProfile(isolateId, reset: true),
-      ),
-    );
     await _waitForGcEventDrain();
-    final gcSnapshots = await _gcHeapSnapshots(profiledIsolateIds);
+    Map<String, DartVmGcHeapSnapshot>? gcSnapshots;
+    final allocationSnapshot = await captureDartHeapBoundary(
+      capture: () async {
+        final before = await _timelineMicros();
+        gcSnapshots = await _gcHeapSnapshots(profiledIsolateIds);
+        final after = await _timelineMicros();
+        return _allocationSnapshot(gcSnapshots, before, after);
+      },
+      events: (snapshot) => _allocationEvents(snapshot, snapshot),
+      quiet: () async {
+        await _waitForGcEventDrain();
+      },
+    );
     final cpuTicks = await _readLinuxCpuTicks(_pid);
     return DartVmMetricsWindow(
       cpuUserTicks: cpuTicks?.user,
@@ -84,39 +109,50 @@ class DartVmMetricsCollector {
       isolateIds: isolateIds,
       gcSnapshots: gcSnapshots,
       profiledIsolateIds: profiledIsolateIds,
+      allocationSnapshot: allocationSnapshot,
     );
   }
 
+  @override
   Future<DartVmMetricsResult> endWindow(
     DartVmMetricsWindow window, {
     required DartVmMetricsRssSnapshot rssSnapshot,
   }) async {
+    final cpuAfter = await _readLinuxCpuTicks(_pid);
     final isolateIds = await _currentIsolateIds();
     requireStableDartVmMetricIsolates(window.isolateIds, isolateIds);
     final profiledIsolateIds = window.profiledIsolateIds;
-    var allocatedBytes = 0;
-    var allocationComplete = profiledIsolateIds?.isNotEmpty ?? false;
-    for (final isolateId in profiledIsolateIds ?? const <String>[]) {
-      final allocation = await _service.getAllocationProfile(isolateId);
-      final members = allocation.members;
-      if (members == null) {
-        allocationComplete = false;
-        continue;
-      }
-      for (final member in members) {
-        final size = member.accumulatedSize;
-        if (size == null || size < 0) {
-          allocationComplete = false;
-          continue;
-        }
-        allocatedBytes = (allocatedBytes + size).clamp(0, 1 << 62).toInt();
-      }
-    }
     final gcStable = await _waitForGcEventDrain();
-    final gcSnapshots = profiledIsolateIds == null || profiledIsolateIds.isEmpty
-        ? null
-        : await _gcHeapSnapshots(profiledIsolateIds);
-    final cpuAfter = await _readLinuxCpuTicks(_pid);
+    Map<String, DartVmGcHeapSnapshot>? gcSnapshots;
+    final allocationAfter = await captureDartHeapBoundary(
+      capture: () async {
+        final before = await _timelineMicros();
+        gcSnapshots = profiledIsolateIds == null || profiledIsolateIds.isEmpty
+            ? null
+            : await _gcHeapSnapshots(profiledIsolateIds);
+        final after = await _timelineMicros();
+        return _allocationSnapshot(gcSnapshots, before, after);
+      },
+      events: (snapshot) => _allocationEvents(snapshot, snapshot),
+      quiet: () async {
+        await _waitForGcEventDrain();
+      },
+    );
+    final events = await _allocationEvents(
+      window.allocationSnapshot,
+      allocationAfter,
+    );
+    final allocation = dartHeapAllocationVolume(
+      gcStable && events != null ? window.allocationSnapshot : null,
+      allocationAfter,
+      events ?? const [],
+    );
+    allocation.addAll({
+      'sdk_version': _observedSdk,
+      'observed_pid': _pid,
+      'observer_pid': pid,
+      'capture_strategy': pid == _pid ? 'self_observed' : 'external_process',
+    });
     final userTicks = window.cpuUserTicks == null || cpuAfter == null
         ? null
         : cpuAfter.user - window.cpuUserTicks!;
@@ -130,7 +166,8 @@ class DartVmMetricsCollector {
         ? dartVmGcHeapDelta(window.gcSnapshots, gcSnapshots)
         : null;
     return DartVmMetricsResult(
-      allocatedBytes: allocationComplete ? allocatedBytes : null,
+      allocatedBytes: allocation['estimated_bytes'] as int?,
+      allocationMeasurement: allocation,
       gcCount: gcMetrics?.count,
       gcPauseMicros: gcMetrics?.pauseMicros,
       cpuUserMicros: userTicks == null || tickRate == null || userTicks < 0
@@ -143,6 +180,78 @@ class DartVmMetricsCollector {
       currentRssBytes: rssSnapshot.currentRssBytes,
       peakRssBytes: rssSnapshot.peakRssBytes,
     );
+  }
+
+  Future<void> _enableGcTimeline() async {
+    try {
+      final flags = await _service.getVMTimelineFlags();
+      final streams = flags.recordedStreams;
+      if (streams == null) return;
+      if (!streams.contains('GC')) {
+        await _service.setVMTimelineFlags([...streams, 'GC']);
+      }
+      _timelineAvailable =
+          (await _service.getVMTimelineFlags()).recordedStreams?.contains(
+            'GC',
+          ) ==
+          true;
+    } on RPCError {
+      _timelineAvailable = false;
+    }
+  }
+
+  Future<int?> _timelineMicros() async {
+    if (!_timelineAvailable) return null;
+    try {
+      return (await _service.getVMTimelineMicros()).timestamp;
+    } on RPCError {
+      return null;
+    }
+  }
+
+  DartHeapUsageSnapshot? _allocationSnapshot(
+    Map<String, DartVmGcHeapSnapshot>? snapshots,
+    int? before,
+    int? after,
+  ) {
+    if (snapshots == null ||
+        before == null ||
+        after == null ||
+        snapshots.values.any((snapshot) => snapshot.heapUsedBytes == null)) {
+      return null;
+    }
+    return DartHeapUsageSnapshot(
+      beforeMicros: before,
+      afterMicros: after,
+      groups: {
+        for (final entry in snapshots.entries)
+          entry.key: (
+            usedBytes: entry.value.heapUsedBytes!,
+            youngCollections: entry.value.newCollections,
+            oldCollections: entry.value.oldCollections,
+          ),
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>?> _allocationEvents(
+    DartHeapUsageSnapshot? before,
+    DartHeapUsageSnapshot? after,
+  ) async {
+    if (before == null ||
+        after == null ||
+        after.afterMicros < before.beforeMicros) {
+      return null;
+    }
+    try {
+      final timeline = await _service.getVMTimeline(
+        timeOriginMicros: before.beforeMicros,
+        timeExtentMicros: after.afterMicros - before.beforeMicros,
+      );
+      return timeline.traceEvents?.map((event) => event.toJson()).toList();
+    } on RPCError {
+      return null;
+    }
   }
 
   Future<Map<String, DartVmGcHeapSnapshot>?> _gcHeapSnapshots(
@@ -185,6 +294,7 @@ class DartVmMetricsCollector {
     return false;
   }
 
+  @override
   Future<void> close() async {
     await _gcSubscription.cancel();
     await _service.dispose();
@@ -198,6 +308,7 @@ class DartVmMetricsWindow {
     required this.isolateIds,
     this.gcSnapshots,
     this.profiledIsolateIds,
+    this.allocationSnapshot,
   });
 
   final int? cpuUserTicks;
@@ -205,6 +316,7 @@ class DartVmMetricsWindow {
   final List<String> isolateIds;
   final Map<String, DartVmGcHeapSnapshot>? gcSnapshots;
   final List<String>? profiledIsolateIds;
+  final DartHeapUsageSnapshot? allocationSnapshot;
 }
 
 /// Cumulative GC statistics for one shared VM isolate-group heap.
@@ -219,12 +331,14 @@ class DartVmGcHeapSnapshot {
     required this.oldCollections,
     required this.newPauseMicros,
     required this.oldPauseMicros,
+    this.heapUsedBytes,
   });
 
   final int newCollections;
   final int oldCollections;
   final int newPauseMicros;
   final int oldPauseMicros;
+  final int? heapUsedBytes;
 
   static DartVmGcHeapSnapshot? parse(Map<String, dynamic>? isolate) {
     final heaps = isolate?['_heaps'];
@@ -248,7 +362,20 @@ class DartVmGcHeapSnapshot {
     final young = space(heaps['new']);
     final old = space(heaps['old']);
     if (young == null || old == null) return null;
+    int? used(Object? raw) {
+      if (raw is! Map) return null;
+      final value = raw['used'];
+      return value is int && value >= 0 && value <= 9007199254740991
+          ? value
+          : null;
+    }
+
+    final newUsed = used(heaps['new']);
+    final oldUsed = used(heaps['old']);
     return DartVmGcHeapSnapshot(
+      heapUsedBytes: newUsed == null || oldUsed == null
+          ? null
+          : newUsed + oldUsed,
       newCollections: young.$1,
       oldCollections: old.$1,
       newPauseMicros: young.$2,
@@ -357,9 +484,11 @@ class DartVmMetricsResult {
     required this.cpuSystemMicros,
     required this.currentRssBytes,
     required this.peakRssBytes,
+    this.allocationMeasurement,
   });
 
   final int? allocatedBytes;
+  final Map<String, Object?>? allocationMeasurement;
   final int? gcCount;
   final int? gcPauseMicros;
   final int? cpuUserMicros;
