@@ -18,7 +18,7 @@ Connectanum accepts standard MQTT clients and routes authorized publications amo
 - Connection identity, authentication, topic filters, QoS 0/1/2, retained publications, wills, persistent sessions and offline delivery.
 - A protocol-neutral publication boundary with byte payloads and explicit MQTT↔WAMP topic, authorization, metadata and loop rules. WAMP `ppt_scheme: mqtt` remains opaque unless an authorized gateway API explicitly opts in.
 - Public Connectanum MQTT client mode, Eclipse Paho side-by-side integration, and a Mosquitto reference-broker control.
-- Benchmarks of real MQTT publish/subscribe paths, including secure transports, fan-out, mixed WAMP traffic, throughput, p95/p99 latency, CPU, RSS and overload behavior.
+- Benchmarks of real MQTT publish/subscribe and both MQTT↔WAMP translation paths, including secure transports, fan-out, throughput, p95/p99 latency, CPU, peak/steady/post-drain RSS, queue growth and overload behavior.
 
 ## Preconditions
 
@@ -31,8 +31,9 @@ Connectanum accepts standard MQTT clients and routes authorized publications amo
 1. **Contract and coverage foundation (#110–#111).** Define the advertised feature/rejection matrix, topic and principal mapping, packet fixtures, per-source 100% line-coverage gate, and automated regression row inventory. Begin with fail-first fixed-header/framing tests and a bounded shared codec.
 2. **First live QoS 0 checkpoint (#112–#117, #125–#126).** Add MQTT listener and Connectanum client pub/sub paths, broker publication boundary, topic filters, and explicit WAMP gateway. Run Paho and Connectanum clients against the router in both directions and a Mosquitto control, asserting exact bytes and delivery counts.
 3. **Measure before tuning (#127).** Capture the first immutable end-to-end QoS 0 baseline, define checked-in numeric throughput/latency/CPU/RSS budgets, and add failing CI artifact gates. Compare matched Mosquitto workloads and preserve raw evidence. Profile bottlenecks before moving framing or changing ownership boundaries.
-4. **Complete protocol behavior (#118–#123).** Add MQTT 5 properties/capabilities, QoS 1/2, persisted sessions, retained publications/wills and MQTT 3.1.1 compatibility. Extend client, conformance and benchmark matrices after each feature.
-5. **Release gate (#124).** Verify every advertised version × transport × QoS × direction row, authorization/negative/recovery cases, 100% in-scope line coverage, complete passing regression matrix, live benchmark budgets, hosted CI, consumer/package artifacts, operations docs and release notes. Close the milestone only after the evidence is linked.
+4. **Gate cross-protocol translation (#131, after #116–#117).** Run both real MQTT→WAMP and explicit WAMP→MQTT paths with exact-byte/delivery checks. Compare each with matched direct MQTT→MQTT and WAMP→WAMP controls, keeping the Mosquitto control for the MQTT leg only. Measure throughput, p95/p99, broker CPU, peak/steady/post-drain RSS, allocation and queue growth, and repeated connect/drain cycles. Define numeric budgets from a locked live baseline before tuning, run fast GitHub Actions smoke plus controlled release profiles, and fail on any missing direction, memory field or correctness row. The gateway does not yet exist, so this step has no performance result or budget claim.
+5. **Complete protocol behavior (#118–#123).** Add MQTT 5 properties/capabilities, QoS 1/2, persisted sessions, retained publications/wills and MQTT 3.1.1 compatibility. Extend client, conformance and benchmark matrices after each feature.
+6. **Release gate (#124).** Verify every advertised version × transport × QoS × direction row, authorization/negative/recovery cases, 100% in-scope line coverage, complete passing regression matrix, direct MQTT and cross-protocol live benchmark budgets (#127 and #131), hosted CI, consumer/package artifacts, operations docs and release notes. Close the milestone only after the evidence is linked.
 
 ## Verification
 
