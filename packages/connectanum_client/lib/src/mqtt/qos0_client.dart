@@ -7,6 +7,7 @@ import 'package:connectanum_core/mqtt.dart';
 /// A TCP, TLS, WebSocket or secure WebSocket MQTT QoS 0 client.
 final class MqttQos0Client {
   static const int _maxUnflushedSocketBytes = 64 * 1024;
+  static final Future<void> _queuedPublish = Future<void>.value();
 
   MqttQos0Client._(this._socket, this._webSocket, this.version) {
     _socket?.listen(_onData, onDone: _onDone, onError: _onError);
@@ -160,19 +161,24 @@ final class MqttQos0Client {
   ///
   /// Completion does not acknowledge delivery. Call [close] to drain queued
   /// packets before closing a healthy connection.
-  Future<void> publish(String topic, Uint8List payload) async {
-    final wire = MqttPacketCodec.encodePublish(
-      version,
-      topic: topic,
-      payload: payload,
-    );
-    _send(wire);
-    if (_socket case final socket?) {
-      _unflushedSocketBytes += wire.length;
-      if (_unflushedSocketBytes >= _maxUnflushedSocketBytes) {
-        _unflushedSocketBytes = 0;
-        await socket.flush();
+  Future<void> publish(String topic, Uint8List payload) {
+    try {
+      final wire = MqttPacketCodec.encodePublish(
+        version,
+        topic: topic,
+        payload: payload,
+      );
+      _send(wire);
+      if (_socket case final socket?) {
+        _unflushedSocketBytes += wire.length;
+        if (_unflushedSocketBytes >= _maxUnflushedSocketBytes) {
+          _unflushedSocketBytes = 0;
+          return socket.flush();
+        }
       }
+      return _queuedPublish;
+    } catch (error, stackTrace) {
+      return Future<void>.error(error, stackTrace);
     }
   }
 

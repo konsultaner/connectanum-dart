@@ -220,6 +220,10 @@ void main() {
             await subscriber.close();
           });
           await subscriber.subscribe('native/websocket/raw');
+          await expectLater(
+            publisher.publish('native/#', Uint8List(0)),
+            throwsA(isA<MqttProtocolException>()),
+          );
           final received = subscriber.messages.first.timeout(
             const Duration(seconds: 5),
           );

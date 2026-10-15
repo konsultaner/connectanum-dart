@@ -1037,6 +1037,10 @@ void main() {
       await broker.close();
     });
     await subscriber.subscribe('queued/publish');
+    await expectLater(
+      publisher.publish('queued/#', Uint8List(0)),
+      throwsA(isA<MqttProtocolException>()),
+    );
     Uint8List payload(int id) {
       final bytes = Uint8List(128);
       bytes[0] = id >> 8;
