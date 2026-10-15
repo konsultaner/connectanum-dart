@@ -685,12 +685,10 @@ abstract class _WampE2eeCipherProvider
 
   Uint8List _encryptAes256Gcm(Uint8List plaintext, Uint8List key) {
     final random = Random.secure();
-    final nonce = Uint8List.fromList(
-      List<int>.generate(
-        ConnectanumE2eeProfile.aes256GcmNonceLength,
-        (_) => random.nextInt(256),
-      ),
-    );
+    final nonce = Uint8List(ConnectanumE2eeProfile.aes256GcmNonceLength);
+    for (var index = 0; index < nonce.length; index++) {
+      nonce[index] = random.nextInt(256);
+    }
     final cipher = GCMBlockCipher(AESEngine())
       ..init(
         true,
@@ -707,6 +705,7 @@ abstract class _WampE2eeCipherProvider
     final encrypted = Uint8List(
       nonce.length + cipher.getOutputSize(plaintext.length),
     )..setRange(0, nonce.length, nonce);
+    PortableE2eeCopyMetrics.recordCiphertextAssemblyCopy(nonce.length);
     var written = cipher.processBytes(
       plaintext,
       0,

@@ -331,7 +331,7 @@ class NativeTransportCopyMetrics {
 
 /// Bulk crypto staging copies in this process plus this runtime's Dart bridge
 /// and native-provider ciphertext coercion in the current isolate.
-/// Nonce/tag construction and serializer/framing work are excluded. Native
+/// Nonce/tag copies have a separate optional scalar. Serializer work is excluded. Native
 /// counters are null unless the complete optional metrics ABI v1 is available.
 class NativeE2eeCopyMetrics {
   const NativeE2eeCopyMetrics({
@@ -340,6 +340,7 @@ class NativeE2eeCopyMetrics {
     required this.plaintextStagingCopyBytesTotal,
     required this.ciphertextStagingCopyBytesTotal,
     this.ciphertextCoercionCopyBytesTotal = 0,
+    this.nonceTagCopyBytesTotal,
   });
 
   final int dartToNativeCopiedBytesTotal;
@@ -347,33 +348,38 @@ class NativeE2eeCopyMetrics {
   final int? plaintextStagingCopyBytesTotal;
   final int? ciphertextStagingCopyBytesTotal;
   final int ciphertextCoercionCopyBytesTotal;
+  final int? nonceTagCopyBytesTotal;
 
-  NativeE2eeCopyMetrics deltaFrom(NativeE2eeCopyMetrics before) =>
-      NativeE2eeCopyMetrics(
-        dartToNativeCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
-          dartToNativeCopiedBytesTotal,
-          before.dartToNativeCopiedBytesTotal,
+  NativeE2eeCopyMetrics deltaFrom(
+    NativeE2eeCopyMetrics before,
+  ) => NativeE2eeCopyMetrics(
+    dartToNativeCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
+      dartToNativeCopiedBytesTotal,
+      before.dartToNativeCopiedBytesTotal,
+    ),
+    nativeToDartCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
+      nativeToDartCopiedBytesTotal,
+      before.nativeToDartCopiedBytesTotal,
+    ),
+    plaintextStagingCopyBytesTotal:
+        NativeTransportCopyMetrics._nullableCounterDelta(
+          plaintextStagingCopyBytesTotal,
+          before.plaintextStagingCopyBytesTotal,
         ),
-        nativeToDartCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
-          nativeToDartCopiedBytesTotal,
-          before.nativeToDartCopiedBytesTotal,
+    ciphertextStagingCopyBytesTotal:
+        NativeTransportCopyMetrics._nullableCounterDelta(
+          ciphertextStagingCopyBytesTotal,
+          before.ciphertextStagingCopyBytesTotal,
         ),
-        plaintextStagingCopyBytesTotal:
-            NativeTransportCopyMetrics._nullableCounterDelta(
-              plaintextStagingCopyBytesTotal,
-              before.plaintextStagingCopyBytesTotal,
-            ),
-        ciphertextStagingCopyBytesTotal:
-            NativeTransportCopyMetrics._nullableCounterDelta(
-              ciphertextStagingCopyBytesTotal,
-              before.ciphertextStagingCopyBytesTotal,
-            ),
-        ciphertextCoercionCopyBytesTotal:
-            NativeTransportCopyMetrics._counterDelta(
-              ciphertextCoercionCopyBytesTotal,
-              before.ciphertextCoercionCopyBytesTotal,
-            ),
-      );
+    nonceTagCopyBytesTotal: NativeTransportCopyMetrics._nullableCounterDelta(
+      nonceTagCopyBytesTotal,
+      before.nonceTagCopyBytesTotal,
+    ),
+    ciphertextCoercionCopyBytesTotal: NativeTransportCopyMetrics._counterDelta(
+      ciphertextCoercionCopyBytesTotal,
+      before.ciphertextCoercionCopyBytesTotal,
+    ),
+  );
 }
 
 class NativeClientRuntime {
@@ -1320,7 +1326,22 @@ class NativeClientRuntime {
         calloc.free(info);
       }
     }
+    int? nonceTag;
+    final nonceTagSnapshot = _bindings.ctE2eeNonceTagCopyMetricsSnapshot;
+    if (nonceTagSnapshot != null) {
+      final out = calloc<ffi.Uint64>();
+      try {
+        final result = nonceTagSnapshot(out);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'snapshot E2EE nonce/tag copy metrics');
+        }
+        nonceTag = out.value;
+      } finally {
+        calloc.free(out);
+      }
+    }
     return NativeE2eeCopyMetrics(
+      nonceTagCopyBytesTotal: nonceTag,
       dartToNativeCopiedBytesTotal: _e2eeDartToNativeCopiedBytesTotal,
       nativeToDartCopiedBytesTotal: _e2eeNativeToDartCopiedBytesTotal,
       plaintextStagingCopyBytesTotal: plaintext,

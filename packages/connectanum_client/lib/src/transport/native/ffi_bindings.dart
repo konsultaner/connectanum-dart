@@ -248,6 +248,11 @@ typedef CtTransportCopyMetricsSnapshotV2Native =
 typedef CtTransportCopyMetricsSnapshotV2Dart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
 
+typedef CtE2eeNonceTagCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtE2eeNonceTagCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+
 typedef CtE2eeCopyMetricsVersionNative = ffi.Uint32 Function();
 typedef CtE2eeCopyMetricsVersionDart = int Function();
 typedef CtE2eeCopyMetricsSnapshotNative =
@@ -852,6 +857,13 @@ class CtFfiBindings {
               CtTransportCopyMetricsSnapshotDart
             >('ct_transport_copy_metrics_snapshot'),
       ),
+      ctE2eeNonceTagCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtE2eeNonceTagCopyMetricsSnapshotNative,
+              CtE2eeNonceTagCopyMetricsSnapshotDart
+            >('ct_e2ee_nonce_tag_copy_metrics_snapshot'),
+      ),
       ctE2eeCopyMetricsVersion = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1125,6 +1137,8 @@ class CtFfiBindings {
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
+  final CtE2eeNonceTagCopyMetricsSnapshotDart?
+  ctE2eeNonceTagCopyMetricsSnapshot;
   final CtE2eeCopyMetricsVersionDart? ctE2eeCopyMetricsVersion;
   final CtE2eeCopyMetricsSnapshotDart? ctE2eeCopyMetricsSnapshot;
   final CtPollConnectionMessageDart ctPollConnectionMessage;

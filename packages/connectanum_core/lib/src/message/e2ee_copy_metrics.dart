@@ -1,6 +1,6 @@
 /// Isolate-local copy counters at explicit portable E2EE provider boundaries.
 /// Collection is disabled except during a benchmark window. Cipher output
-/// computation, nonce/tag construction, serializer work and dependency-internal
+/// computation, serializer work and dependency-internal
 /// copies are outside this measurement; zero here is not a zero-copy claim.
 class PortableE2eeCopyMetrics {
   PortableE2eeCopyMetrics._();

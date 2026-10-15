@@ -153,3 +153,96 @@ fn aes_consuming_decryption_reuses_storage_without_crypto_staging_copy() {
         process.plaintext_staging_copy_bytes_total >= before.plaintext_staging_copy_bytes_total
     );
 }
+
+#[test]
+fn crypto_nonce_tag_oracle_counts_actual_framing_copies() {
+    use super::super::crypto_copy_metrics::observed_nonce_tag_on_current_thread as observed;
+    let key = [7_u8; 32];
+    for size in [0, 1, 64 * 1024] {
+        for aes in [false, true] {
+            let before = observed();
+            let mut encrypted = if aes {
+                encrypt_e2ee_aes256_gcm_payload(&key, &vec![42; size]).unwrap()
+            } else {
+                encrypt_e2ee_payload(&key, &vec![42; size]).unwrap()
+            };
+            assert_eq!(observed() - before, if aes { 28 } else { 40 });
+            let decrypt = if aes {
+                decrypt_e2ee_aes256_gcm_payload
+            } else {
+                decrypt_e2ee_payload
+            };
+            let before = observed();
+            assert_eq!(decrypt(&key, &encrypted).unwrap(), vec![42; size]);
+            assert_eq!(observed() - before, if aes { 12 } else { 0 });
+            let last = encrypted.len() - 1;
+            encrypted[last] ^= 1;
+            let before = observed();
+            assert_eq!(decrypt(&key, &encrypted), Err(ERR_DECRYPT_FAILED));
+            assert_eq!(observed() - before, if aes { 12 } else { 0 });
+        }
+    }
+}
+
+#[test]
+fn crypto_nonce_tag_scalar_preserves_adjacent_legacy_storage() {
+    use super::super::crypto_copy_metrics::{
+        ct_e2ee_nonce_tag_copy_metrics_snapshot as snapshot, CtE2eeCopyMetricsInfo,
+    };
+    assert_eq!(std::mem::size_of::<CtE2eeCopyMetricsInfo>(), 16);
+    assert_eq!(snapshot(ptr::null_mut()), ERR_INVALID_ARGUMENT);
+    let mut guarded = [0x123456789abcdef_u64; 3];
+    assert_eq!(snapshot(&mut guarded[1]), SUCCESS);
+    assert_eq!(guarded[0], 0x123456789abcdef);
+    assert_eq!(guarded[2], 0x123456789abcdef);
+}
+
+#[test]
+fn crypto_nonce_tag_in_place_and_file_paths_keep_exact_counts() {
+    use super::super::crypto_copy_metrics::observed_nonce_tag_on_current_thread as observed;
+    let key = [7_u8; 32];
+    let mut encrypted = encrypt_e2ee_aes256_gcm_payload(&key, b"owned").unwrap();
+    let length = encrypted.len();
+    let before = observed();
+    let range = decrypt_e2ee_aes256_gcm_payload_in_place(&key, &mut encrypted, 0..length).unwrap();
+    assert_eq!(&encrypted[range], b"owned");
+    assert_eq!(observed() - before, 12);
+    let before = observed();
+    assert_eq!(
+        decrypt_e2ee_aes256_gcm_payload_in_place(&key, &mut encrypted, 0..11),
+        Err(ERR_INVALID_ARGUMENT)
+    );
+    assert_eq!(observed(), before);
+
+    let path = std::env::temp_dir().join(format!(
+        "ct-crypto-copy-{}-{}.bin",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .unwrap();
+    std::io::Write::write_all(&mut file, b"abc").unwrap();
+    let before = observed();
+    let result = encrypt_e2ee_aes256_gcm_file_payload(&key, &file, 0, 3);
+    let encrypted = result.unwrap();
+    assert_eq!(observed() - before, 28);
+    assert!(decrypt_e2ee_aes256_gcm_payload(&key, &encrypted)
+        .unwrap()
+        .windows(3)
+        .any(|v| v == b"abc"));
+    let before = observed();
+    assert_eq!(
+        encrypt_e2ee_aes256_gcm_file_payload(&key, &file, 0, 4),
+        Err(ERR_INVALID_ARGUMENT)
+    );
+    assert_eq!(observed(), before);
+    drop(file);
+    std::fs::remove_file(path).unwrap();
+}

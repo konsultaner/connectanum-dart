@@ -66,7 +66,8 @@ void main() {
                   delta.dartToNativeCopiedBytesTotal +
                   delta.nativeToDartCopiedBytesTotal +
                   (delta.plaintextStagingCopyBytesTotal ?? 0) +
-                  (delta.ciphertextStagingCopyBytesTotal ?? 0);
+                  (delta.ciphertextStagingCopyBytesTotal ?? 0) +
+                  (delta.nonceTagCopyBytesTotal ?? 0);
               expect(
                 (result['known_e2ee_staging_copy_bytes'] as int) -
                     bridgeAndStaging,
@@ -208,6 +209,34 @@ void main() {
       expect(breakdown['excludes'], contains('crypto dependency internals'));
     },
   );
+
+  test('nonce/tag scalar stays separately observable and optional', () {
+    const before = NativeE2eeCopyMetrics(
+      dartToNativeCopiedBytesTotal: 0,
+      nativeToDartCopiedBytesTotal: 0,
+      plaintextStagingCopyBytesTotal: 0,
+      ciphertextStagingCopyBytesTotal: 0,
+      nonceTagCopyBytesTotal: 40,
+    );
+    const after = NativeE2eeCopyMetrics(
+      dartToNativeCopiedBytesTotal: 0,
+      nativeToDartCopiedBytesTotal: 0,
+      plaintextStagingCopyBytesTotal: 0,
+      ciphertextStagingCopyBytesTotal: 0,
+      nonceTagCopyBytesTotal: 80,
+    );
+    final delta = after.deltaFrom(before);
+    expect(delta.nonceTagCopyBytesTotal, 40);
+    expect(after.deltaFrom(_metrics(0, 0)).nonceTagCopyBytesTotal, isNull);
+    final result = e2eeCopyMetricsFor(_scenario('wamp'), delta);
+    expect(result['known_e2ee_staging_copy_bytes'], 40);
+    expect(
+      (result['e2ee_copy_breakdown']
+          as Map)['client_process_nonce_tag_copy_bytes'],
+      40,
+    );
+    expect((result['e2ee_copy_bytes'] as Map)['status'], 'not_measured');
+  });
 
   test('an absent portable window cannot become a measured zero', () {
     final result = e2eeCopyMetricsFor(_scenario('wamp'), _metrics(0, 0));

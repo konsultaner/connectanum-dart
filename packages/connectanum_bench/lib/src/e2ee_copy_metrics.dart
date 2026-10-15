@@ -39,6 +39,7 @@ Map<String, Object?> e2eeCopyMetricsFor(
         metrics.ciphertextCoercionCopyBytesTotal +
         (metrics.plaintextStagingCopyBytesTotal ?? 0) +
         (metrics.ciphertextStagingCopyBytesTotal ?? 0) +
+        (metrics.nonceTagCopyBytesTotal ?? 0) +
         (portableMetrics?.knownOwnCopyBytes ?? 0),
     'e2ee_copy_breakdown': {
       'client_worker_isolate_dart_to_native_copy_bytes':
@@ -49,6 +50,12 @@ Map<String, Object?> e2eeCopyMetricsFor(
           metrics.ciphertextCoercionCopyBytesTotal,
       'client_process_plaintext_staging_copy_bytes':
           metrics.plaintextStagingCopyBytesTotal ?? unavailable(),
+      'client_process_nonce_tag_copy_bytes':
+          metrics.nonceTagCopyBytesTotal ??
+          {
+            'status': 'not_measured',
+            'reason': 'native nonce/tag copy scalar is unavailable',
+          },
       'client_process_ciphertext_staging_copy_bytes':
           metrics.ciphertextStagingCopyBytesTotal ?? unavailable(),
       'client_worker_isolate_portable_provider':
@@ -59,11 +66,9 @@ Map<String, Object?> e2eeCopyMetricsFor(
           },
       'coverage': 'known_staging_only',
       'excludes': [
-        'nonce/tag construction',
         'cipher computation',
         'serializer/framing',
         'crypto dependency internals',
-        'failed legacy CBOR ciphertext coercion',
         'other isolate native provider ciphertext coercion',
         'other isolate portable provider copies',
         'other isolate Dart bridges',

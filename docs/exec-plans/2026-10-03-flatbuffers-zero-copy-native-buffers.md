@@ -12,6 +12,18 @@ Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107)
 
 
 Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
+E2EE follow-up reproduces and repairs unobserved portable AES nonce assembly,
+partial failed native legacy CBOR coercion, and Rust nonce/tag framing copies.
+An additive optional scalar preserves the 16-byte v1 ABI; eight Rust crypto
+cases pass. The final sequential provider/report retry passes 117 cases against the rebuilt
+new-scalar library; older production lookup safely returns unavailable. Frozen
+full verification remains pending. The CI audit
+now also requires both router shard jobs, and all 28 audit cases pass on a stable
+head. The earlier 129-case run's four failures come from moving HEAD during its
+fake-head assertions; its stable audit retry passes. The current fast run sees a
+transient Dart ffi qualification error during edits and is not accepted; analysis
+passes after qualification. See [copy boundaries](../research/2026-10-15-e2ee-copy-boundaries.md).
+
 PR #129 now passes every hosted job and both Codecov gates. PR #130 passes
 both coverage gates, but its router message-binding mutation job reaches its
 90-minute deadline after 622 of 699 mutants, cancelling Full Verify. A rerun

@@ -905,6 +905,7 @@ fn encrypt_e2ee_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> 
     let body_start = E2EE_NONCE_LEN + E2EE_AUTH_TAG_LEN;
     let mut combined = Vec::with_capacity(body_start + plaintext.len());
     combined.extend_from_slice(nonce.as_slice());
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce.len());
     combined.resize(body_start, 0);
     combined.extend_from_slice(plaintext);
     super::crypto_copy_metrics::record_plaintext_copy(plaintext.len());
@@ -912,6 +913,7 @@ fn encrypt_e2ee_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> 
         .encrypt_in_place_detached(&nonce, &[], &mut combined[body_start..])
         .map_err(|_| ERR_INTERNAL)?;
     combined[E2EE_NONCE_LEN..body_start].copy_from_slice(tag.as_slice());
+    super::crypto_copy_metrics::record_nonce_tag_copy(tag.len());
     Ok(combined)
 }
 
@@ -945,6 +947,7 @@ fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u
     let mut combined =
         Vec::with_capacity(E2EE_AES256_GCM_NONCE_LEN + plaintext.len() + E2EE_AUTH_TAG_LEN);
     combined.extend_from_slice(&nonce_bytes);
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     combined.extend_from_slice(plaintext);
     super::crypto_copy_metrics::record_plaintext_copy(plaintext.len());
     let tag = cipher
@@ -955,6 +958,7 @@ fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u
         )
         .map_err(|_| ERR_INTERNAL)?;
     combined.extend_from_slice(tag.as_ref());
+    super::crypto_copy_metrics::record_nonce_tag_copy(tag.as_ref().len());
     Ok(combined)
 }
 
@@ -966,6 +970,7 @@ fn decrypt_e2ee_aes256_gcm_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<
     let (nonce_bytes, message) = ciphertext.split_at(E2EE_AES256_GCM_NONCE_LEN);
     let nonce_bytes = <[u8; E2EE_AES256_GCM_NONCE_LEN]>::try_from(nonce_bytes)
         .map_err(|_| ERR_INVALID_ARGUMENT)?;
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     let mut plaintext = message.to_vec();
     super::crypto_copy_metrics::record_ciphertext_copy(plaintext.len());
     let plaintext_len = cipher
@@ -995,6 +1000,7 @@ fn decrypt_e2ee_aes256_gcm_payload_in_place(
     let nonce_bytes =
         <[u8; E2EE_AES256_GCM_NONCE_LEN]>::try_from(&bytes[ciphertext_range.start..nonce_end])
             .map_err(|_| ERR_INVALID_ARGUMENT)?;
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     let cipher = aes256_gcm_key(key)?;
     let plaintext_len = cipher
         .open_in_place(
@@ -6572,6 +6578,7 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
         .map_err(|_| ERR_INTERNAL)?;
     let mut combined = Vec::with_capacity(capacity);
     combined.extend_from_slice(&nonce_bytes);
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     combined.extend_from_slice(&[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81]);
     combined.extend_from_slice(&binary_header);
     let payload_start = combined.len();
@@ -6591,6 +6598,7 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
         )
         .map_err(|_| ERR_INTERNAL)?;
     combined.extend_from_slice(tag.as_ref());
+    super::crypto_copy_metrics::record_nonce_tag_copy(tag.as_ref().len());
     Ok(combined)
 }
 

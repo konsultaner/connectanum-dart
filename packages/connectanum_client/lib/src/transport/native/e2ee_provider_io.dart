@@ -508,14 +508,18 @@ abstract class _NativeWampE2eeCipherProvider
     if (value is Uint8List) {
       return value;
     }
-    if (value is List<int>) {
-      final bytes = Uint8List.fromList(value);
-      _runtime.recordE2eeCiphertextCoercionCopy(bytes.length);
-      return bytes;
-    }
     if (value is List) {
-      final bytes = Uint8List.fromList(value.cast<int>());
-      _runtime.recordE2eeCiphertextCoercionCopy(bytes.length);
+      final bytes = Uint8List(value.length);
+      var copied = 0;
+      try {
+        for (var index = 0; index < bytes.length; index++) {
+          // Keep legacy Uint8List integer wrapping and cast errors unchanged.
+          bytes[index] = value[index] as int;
+          copied++;
+        }
+      } finally {
+        _runtime.recordE2eeCiphertextCoercionCopy(copied);
+      }
       return bytes;
     }
     throw WampE2eeInvalidPayloadException(
