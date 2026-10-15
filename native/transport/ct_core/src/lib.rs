@@ -1851,8 +1851,31 @@ impl MqttInbound {
         };
         if bytes.len() > max_bytes {
             self.pending = Some(bytes.split_off(max_bytes));
+            return Ok(bytes);
         }
-        Ok(bytes)
+        let mut total = bytes.len();
+        let mut combined = None;
+        while total < max_bytes {
+            let mut next = match self.receiver.try_recv() {
+                Ok(next) => next,
+                Err(TryRecvError::Empty | TryRecvError::Disconnected) => break,
+            };
+            let remaining = max_bytes - total;
+            if next.len() > remaining {
+                self.pending = Some(next.split_off(remaining));
+            }
+            let buffer = combined.get_or_insert_with(|| {
+                let mut buffer = BytesMut::with_capacity(max_bytes.min(4096));
+                buffer.extend_from_slice(&bytes);
+                buffer
+            });
+            buffer.extend_from_slice(&next);
+            total += next.len();
+            if self.pending.is_some() {
+                break;
+            }
+        }
+        Ok(combined.map(BytesMut::freeze).unwrap_or(bytes))
     }
 }
 
@@ -4107,7 +4130,7 @@ fn spawn_connection_heartbeat(
 fn spawn_mqtt_websocket_reader(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
-    mut reader: IoReadHalf,
+    reader: IoReadHalf,
     chunk_tx: mpsc::Sender<Bytes>,
     notification_pending: Arc<AtomicBool>,
     wakeup: Arc<Mutex<Option<extern "C" fn(i32)>>>,
@@ -4115,6 +4138,9 @@ fn spawn_mqtt_websocket_reader(
     close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
     let task = handle.spawn(async move {
+        // Most MQTT publishes occupy small WebSocket frames. Read ahead so
+        // their headers and masks do not each require a socket read.
+        let mut reader = BufReader::with_capacity(16 * 1024, reader);
         let pool = Arc::new(WebSocketBufferPool::default());
         let mut accumulator = WebSocketMessageAccumulator::new(Arc::clone(&pool));
         let mut graceful = false;
@@ -4871,8 +4897,8 @@ async fn read_websocket_frame(
     read_websocket_frame_mode(reader, buffer_pool, true).await
 }
 
-async fn read_websocket_frame_mode(
-    reader: &mut IoReadHalf,
+async fn read_websocket_frame_mode<R: AsyncRead + Unpin>(
+    reader: &mut R,
     buffer_pool: &Arc<WebSocketBufferPool>,
     expect_masked: bool,
 ) -> Result<WebSocketFrame, WebSocketFrameError> {
@@ -9268,6 +9294,31 @@ mod tests {
             Bytes::copy_from_slice(&payload)
         );
         assert!(inbound.pending.is_none());
+    }
+
+    #[test]
+    fn mqtt_inbound_coalesces_queued_small_chunks_with_bounded_pending_tail() {
+        let (sender, receiver) = mpsc::channel(4);
+        sender.try_send(Bytes::from_static(b"ab")).unwrap();
+        sender.try_send(Bytes::from_static(b"cdef")).unwrap();
+        sender.try_send(Bytes::from_static(b"gh")).unwrap();
+        drop(sender);
+
+        let mut inbound = MqttInbound::new(receiver);
+        assert_eq!(
+            inbound.try_recv_limited(5).unwrap(),
+            Bytes::from_static(b"abcde")
+        );
+        assert_eq!(inbound.pending.as_ref().unwrap(), &Bytes::from_static(b"f"));
+        assert_eq!(
+            inbound.try_recv_limited(5).unwrap(),
+            Bytes::from_static(b"fgh")
+        );
+        assert!(inbound.pending.is_none());
+        assert!(matches!(
+            inbound.try_recv_limited(5),
+            Err(TryRecvError::Disconnected)
+        ));
     }
 
     fn test_guard() -> std::sync::MutexGuard<'static, ()> {
