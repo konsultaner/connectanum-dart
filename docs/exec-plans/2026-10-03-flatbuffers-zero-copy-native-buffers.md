@@ -36,8 +36,12 @@ all 109 session tests pass with default and enabled native forwarding. Analysis
 passes with the same 30 existing infos. The rejected-volume gate is unchanged.
 See [the checked research](../research/2026-10-16-wamp-late-cancellation-responses.md).
 Renewed 300 short supplemental rows, 120 independent accounting cases and
-36 progressive combinations pass on `895ff3d9`; full frozen and hosted checks
-are running. The strict `c15f2185` Linux diagnostic completes all 90 rows and
+36 progressive combinations pass on `895ff3d9`. Its full frozen `bin/verify`
+passes with all 3,116 inputs unchanged. All 190 production consumers across
+five platforms pass with zero skips and independently matched library/archive/
+manifest/log hashes. macOS Intel first failed SDK download DNS resolution;
+its unchanged-source retry passes, with the original failure retained. Hosted
+CI completion is still being checked. The strict `c15f2185` Linux diagnostic completes all 90 rows and
 validates 180 allocation observations, but CPU ratios 1.0867 / 1.0254 / 1.0216
 and other throughput/latency/GC/RSS gates fail. One lifetime-RSS observation is
 explicitly unavailable. No performance acceptance or milestone closure is claimed.
@@ -47,8 +51,20 @@ paths explicitly; the default remains native/native-buffer. Five mocked
 orchestration tests check startup/probe/audit attribution, unsupported selections
 and independent targets. The actual Dart SDK verifies the six probe argument
 positions; generated-probe analysis has no errors and workflow actionlint passes.
-Per-request JSON and selected-case provenance are retained. Resulting-source
-hosted profiling remains pending and never supplies primary acceptance.
+Per-request JSON and selected-case provenance are retained. The `8cb54d20`
+Linux Dart-values profile succeeds: all 3,117 source hashes, the native binary,
+13 actual request files, process IDs and three real sampling windows are
+independently checked. These profiles never supply primary acceptance.
+
+The RSS endpoint repair reads final VmRSS and the first VmHWM from one procfs
+snapshot. All 32 metrics tests, including existing strict negative controls,
+pass and changed-file analysis is clean. Missing/contradictory values still
+block acceptance; fresh Linux observation is pending. See the paired Linux RSS
+research document. Router internal PPT handoff remains the next performance
+investigation: the existing Dart guards reject PPT even though the native
+result-from-call encoder can preserve opaque PPT headers and body slices.
+Measured router copies are about 128 KiB in Dart plus 64 KiB at native submission
+per 64 KiB RPC; no-copy forwarding requires careful ownership/metadata guards.
 
 Active native candidate (2026-10-16): a fail-first typed-send regression observes
 172 native control-string copy bytes. The private canonical Call/Publish path now

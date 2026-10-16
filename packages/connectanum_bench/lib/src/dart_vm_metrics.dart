@@ -512,20 +512,35 @@ class DartVmMetricsRssSnapshot {
   final List<int?> lifetimeMaxReadAttemptsBytes;
 }
 
+/// The two process RSS fields read from one procfs status snapshot.
+typedef DartVmMetricsRssEndpoint = ({
+  int? currentRssBytes,
+  int? lifetimeMaxRssBytes,
+});
+
 class DartVmMetricsRssSampler {
   DartVmMetricsRssSampler(
     int pid, {
     Future<int?> Function()? readRssBytes,
     Future<int?> Function()? readMaxRssBytes,
+    // An explicit endpoint reader overrides the default paired procfs read.
+    // Individual legacy overrides keep their separate final-read behavior.
+    Future<DartVmMetricsRssEndpoint> Function()? readFinalRss,
   }) : _readRssBytes = readRssBytes ?? (() => _readLinuxRssBytes(pid)),
        _readMaxRssBytes =
-           readMaxRssBytes ?? (() => _readLinuxStatusBytes(pid, 'VmHWM:')) {
+           readMaxRssBytes ?? (() => _readLinuxStatusBytes(pid, 'VmHWM:')),
+       _readFinalRss =
+           readFinalRss ??
+           (readRssBytes == null && readMaxRssBytes == null
+               ? () => _readLinuxRssEndpoint(pid)
+               : null) {
     _timer = Timer.periodic(const Duration(milliseconds: 50), (_) => _sample());
     _sample();
   }
 
   final Future<int?> Function() _readRssBytes;
   final Future<int?> Function() _readMaxRssBytes;
+  final Future<DartVmMetricsRssEndpoint> Function()? _readFinalRss;
   bool _lastReadSucceeded = false;
   late final Timer _timer;
   bool _stopped = false;
@@ -551,14 +566,17 @@ class DartVmMetricsRssSampler {
   Future<void> _readAndRecordSample() async {
     _lastReadSucceeded = false;
     try {
-      final bytes = await _readRssBytes();
-      if (bytes == null || bytes <= 0 || bytes > 9007199254740991) return;
-      _lastReadSucceeded = true;
-      currentRssBytes = bytes;
-      if (bytes > (peakRssBytes ?? 0)) peakRssBytes = bytes;
+      _recordRss(await _readRssBytes());
     } on FileSystemException {
       // The child may have exited between a timer tick and its final sample.
     }
+  }
+
+  void _recordRss(int? bytes) {
+    if (bytes == null || bytes <= 0 || bytes > 9007199254740991) return;
+    _lastReadSucceeded = true;
+    currentRssBytes = bytes;
+    if (bytes > (peakRssBytes ?? 0)) peakRssBytes = bytes;
   }
 
   Future<DartVmMetricsRssSnapshot> stop() => _stopFuture ??= _stop();
@@ -570,13 +588,29 @@ class DartVmMetricsRssSampler {
     }
     final inFlight = _sampleInFlight;
     if (inFlight != null) await inFlight;
-    await _startSample();
+    final endpointReader = _readFinalRss;
+    DartVmMetricsRssEndpoint? endpoint;
+    if (endpointReader == null) {
+      await _startSample();
+    } else {
+      _lastReadSucceeded = false;
+      try {
+        endpoint = await endpointReader();
+        _recordRss(endpoint.currentRssBytes);
+      } on FileSystemException {
+        // A failed endpoint must not reuse a preceding live observation.
+      }
+    }
     final current = _lastReadSucceeded ? currentRssBytes : null;
     int? maximum;
     final attempts = <int?>[];
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
-        maximum = await _readMaxRssBytes();
+        // Linux emits VmRSS and VmHWM from the same total_rss local. Preserve
+        // that endpoint pairing before any bounded, actual HWM rereads.
+        maximum = attempt == 0 && endpointReader != null
+            ? endpoint?.lifetimeMaxRssBytes
+            : await _readMaxRssBytes();
       } on FileSystemException {
         maximum = null;
       }
@@ -611,23 +645,43 @@ class DartVmMetricsRssSampler {
 Future<int?> _readLinuxRssBytes(int pid) =>
     _readLinuxStatusBytes(pid, 'VmRSS:');
 
+Future<DartVmMetricsRssEndpoint> _readLinuxRssEndpoint(int pid) async {
+  if (Platform.isLinux) {
+    try {
+      final status = await File('/proc/$pid/status').readAsString();
+      return (
+        currentRssBytes: _parseLinuxStatusBytes(status, 'VmRSS:'),
+        lifetimeMaxRssBytes: _parseLinuxStatusBytes(status, 'VmHWM:'),
+      );
+    } on FileSystemException {
+      // The supervised process may have exited before its final read.
+    }
+  }
+  return (currentRssBytes: null, lifetimeMaxRssBytes: null);
+}
+
 Future<int?> _readLinuxStatusBytes(int pid, String field) async {
   if (!Platform.isLinux) return null;
   try {
     final status = await File('/proc/$pid/status').readAsString();
-    for (final line in status.split('\n')) {
-      if (!line.startsWith(field)) continue;
-      final kilobytes = int.tryParse(
-        line.substring(field.length).trim().split(RegExp(r'\s+')).first,
-      );
-      return kilobytes == null ||
-              kilobytes <= 0 ||
-              kilobytes > 9007199254740991 ~/ 1024
-          ? null
-          : kilobytes * 1024;
-    }
+    return _parseLinuxStatusBytes(status, field);
   } on FileSystemException {
     // The child may have exited between a timer tick and its final sample.
+  }
+  return null;
+}
+
+int? _parseLinuxStatusBytes(String status, String field) {
+  for (final line in status.split('\n')) {
+    if (!line.startsWith(field)) continue;
+    final kilobytes = int.tryParse(
+      line.substring(field.length).trim().split(RegExp(r'\s+')).first,
+    );
+    return kilobytes == null ||
+            kilobytes <= 0 ||
+            kilobytes > 9007199254740991 ~/ 1024
+        ? null
+        : kilobytes * 1024;
   }
   return null;
 }

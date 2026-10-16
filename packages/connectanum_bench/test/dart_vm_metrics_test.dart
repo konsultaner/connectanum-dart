@@ -123,6 +123,142 @@ void main() {
     },
   );
 
+  test('RSS joint endpoint preserves the two observed fields', () async {
+    for (final maximum in [339804160, 350000000]) {
+      final active = Completer<int?>();
+      final reads = <String>[];
+      final sampler = DartVmMetricsRssSampler(
+        pid,
+        readRssBytes: () {
+          reads.add('live');
+          return active.future;
+        },
+        readFinalRss: () async {
+          reads.add('endpoint');
+          return (
+            currentRssBytes: 339804160,
+            lifetimeMaxRssBytes: maximum,
+          );
+        },
+        readMaxRssBytes: () => throw StateError('Unexpected separate read'),
+      );
+      final stop = sampler.stop();
+      expect(identical(stop, sampler.stop()), isTrue);
+      expect(reads, ['live']);
+      active.complete(339664896);
+      final result = await stop;
+      expect(reads, ['live', 'endpoint']);
+      expect(result.currentRssBytes, 339804160);
+      expect(result.peakRssBytes, 339804160);
+      expect(result.lifetimeMaxRssBytes, maximum);
+      expect(result.lifetimeMaxReadAttemptsBytes, [maximum]);
+    }
+  });
+
+  test('RSS joint endpoint still checks the historical sampled peak', () async {
+    final result = await DartVmMetricsRssSampler(
+      pid,
+      readRssBytes: () async => 32768,
+      readFinalRss: () async => (
+        currentRssBytes: 8192,
+        lifetimeMaxRssBytes: 16384,
+      ),
+      readMaxRssBytes: () async => 16384,
+    ).stop();
+    expect(result.currentRssBytes, 8192);
+    expect(result.peakRssBytes, 32768);
+    expect(result.lifetimeMaxRssBytes, isNull);
+    expect(result.lifetimeMaxReadAttemptsBytes, [16384, 16384, 16384]);
+  });
+
+  test('RSS explicit endpoint works with default live readers', () async {
+    final result = await DartVmMetricsRssSampler(
+      999999999,
+      readFinalRss: () async => (
+        currentRssBytes: 4096,
+        lifetimeMaxRssBytes: 8192,
+      ),
+    ).stop();
+    expect(result.currentRssBytes, 4096);
+    expect(result.peakRssBytes, 4096);
+    expect(result.lifetimeMaxRssBytes, 8192);
+    expect(result.lifetimeMaxReadAttemptsBytes, [8192]);
+  });
+
+  test(
+    'RSS joint endpoint retries only actual contradictory HWM values',
+    () async {
+      final result = await DartVmMetricsRssSampler(
+        pid,
+        readRssBytes: () async => 8192,
+        readFinalRss: () async => (
+          currentRssBytes: 4096,
+          lifetimeMaxRssBytes: 4096,
+        ),
+        readMaxRssBytes: () async => 16384,
+      ).stop();
+      expect(result.currentRssBytes, 4096);
+      expect(result.peakRssBytes, 8192);
+      expect(result.lifetimeMaxRssBytes, 16384);
+      expect(result.lifetimeMaxReadAttemptsBytes, [4096, 16384]);
+    },
+  );
+
+  for (final current in <int?>[null, 0, -1, 9007199254740992]) {
+    test(
+      'RSS joint invalid final current stays unavailable: $current',
+      () async {
+        final result = await DartVmMetricsRssSampler(
+          pid,
+          readRssBytes: () async => 4096,
+          readFinalRss: () async => (
+            currentRssBytes: current,
+            lifetimeMaxRssBytes: 8192,
+          ),
+          readMaxRssBytes: () => throw StateError('Unexpected separate read'),
+        ).stop();
+        expect(result.currentRssBytes, isNull);
+        expect(result.peakRssBytes, 4096);
+        expect(result.lifetimeMaxRssBytes, isNull);
+        expect(result.lifetimeMaxReadAttemptsBytes, [8192]);
+      },
+    );
+  }
+
+  for (final maximum in <int?>[null, 0, -1, 4096, 9007199254740992]) {
+    test('RSS joint invalid final HWM stays unavailable: $maximum', () async {
+      final result = await DartVmMetricsRssSampler(
+        pid,
+        readRssBytes: () async => 4096,
+        readFinalRss: () async => (
+          currentRssBytes: 8192,
+          lifetimeMaxRssBytes: maximum,
+        ),
+        readMaxRssBytes: () async => maximum,
+      ).stop();
+      expect(result.currentRssBytes, 8192);
+      expect(result.peakRssBytes, 8192);
+      expect(result.lifetimeMaxRssBytes, isNull);
+      expect(
+        result.lifetimeMaxReadAttemptsBytes,
+        maximum == 4096 ? [4096, 4096, 4096] : [maximum],
+      );
+    });
+  }
+
+  test('RSS failed joint endpoint does not reuse a live observation', () async {
+    final result = await DartVmMetricsRssSampler(
+      pid,
+      readRssBytes: () async => 4096,
+      readFinalRss: () => throw const FileSystemException('gone'),
+      readMaxRssBytes: () => throw StateError('Unexpected separate read'),
+    ).stop();
+    expect(result.currentRssBytes, isNull);
+    expect(result.peakRssBytes, 4096);
+    expect(result.lifetimeMaxRssBytes, isNull);
+    expect(result.lifetimeMaxReadAttemptsBytes, [null]);
+  });
+
   test('RSS lifetime maximum is read after the final live boundary', () async {
     final reads = <String>[];
     final active = Completer<int?>();
