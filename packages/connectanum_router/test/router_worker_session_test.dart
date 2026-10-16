@@ -12,6 +12,9 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
+import 'package:connectanum_core/flatbuffers_serializer.dart'
+    as flatbuffers_serializer;
+import 'package:connectanum_core/msgpack_serializer.dart' as msgpack_serializer;
 import 'package:connectanum_core/src/message/goodbye.dart' as goodbye_msg;
 import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
 import 'package:connectanum_core/src/message/event.dart' as event_msg;
@@ -860,11 +863,19 @@ void main() {
     test(
       'reuses retained native CALL payload for exact internal lazy result',
       () async {
+        Completer<void>? progressiveForwarded;
         final bossMessages = <Map<String, Object?>>[];
         final bossPort = ReceivePort()
           ..listen((dynamic message) {
             if (message is Map<String, Object?>) {
               bossMessages.add(message);
+              final result = message['message'];
+              if (result is result_msg.Result &&
+                  result.details.progress == true &&
+                  progressiveForwarded != null &&
+                  !progressiveForwarded.isCompleted) {
+                progressiveForwarded.complete();
+              }
             }
           });
         addTearDown(bossPort.close);
@@ -872,12 +883,20 @@ void main() {
         final invocationPort = ReceivePort();
         addTearDown(invocationPort.close);
         var returnExactPayload = true;
+        var holdProgressiveReply = false;
         Object? seenTransferredPayload;
         invocationPort.listen((dynamic rawMessage) {
           final message = (rawMessage as Map).cast<String, Object?>();
+          if (message['type'] != 'invocation') return;
           seenTransferredPayload = message['lazyPayload'];
           final replyPort = message['replyPort'] as SendPort;
-          if (returnExactPayload) {
+          if (holdProgressiveReply) {
+            replyPort.send({
+              'type': 'result',
+              'progress': true,
+              'lazyPayload': message['lazyPayload'],
+            });
+          } else if (returnExactPayload) {
             replyPort.send({
               'type': 'result',
               'lazyPayload': message['lazyPayload'],
@@ -1022,8 +1041,226 @@ void main() {
         final fallbackResult = fallback['message'] as result_msg.Result;
         expect(fallbackResult.arguments, const ['modified']);
         expect(releasedHandles, [414]);
+
+        // Keep the borrowed CALL alive between progressive replies, then retire
+        // the pending port and loan even if the callee never sends a final reply.
+        bossMessages.clear();
+        holdProgressiveReply = true;
+        progressiveForwarded = Completer<void>();
+        final progressiveCall =
+            call_msg.Call(
+              9203,
+              'com.example.native.internal.echo',
+              options: call_msg.CallOptions(receiveProgress: true),
+            )..setLazyPayload(
+              argumentsBytes: encodedArguments,
+              argumentsDecoder: (_) =>
+                  throw StateError('progressive reply decoded'),
+              encoding: LazyPayloadEncoding.messagePack,
+            );
+        final progressiveIncoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.messagePack,
+          message: progressiveCall,
+          handle: 415,
+          argumentsBytes: encodedArguments,
+          onRetain: (_) => 416,
+          onRelease: releasedHandles.add,
+        );
+        var completed = false;
+        final pendingReply = handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: progressiveCall,
+          connectionId: 51,
+          incomingMessage: progressiveIncoming,
+        ).whenComplete(() => completed = true);
+        await progressiveForwarded.future.timeout(const Duration(seconds: 2));
+        expect(completed, isFalse);
+        expect(releasedHandles, [414]);
+        stateStore.commandPort.send(
+          SessionCloseCommand(realmUri: 'realm1', sessionId: 925),
+        );
+        await pendingReply.timeout(const Duration(seconds: 2));
+        expect(releasedHandles, [414, 416]);
+        expect(_extractForwardMessages(bossMessages), hasLength(1));
       },
     );
+
+    for (final profile in [
+      (
+        label: 'flatbuffers',
+        scheme: 'x_typed',
+        codec: 'flatbuffers',
+        cipher: null,
+        progressive: false,
+      ),
+      (
+        label: 'flatbuffers progressive',
+        scheme: 'x_typed',
+        codec: 'flatbuffers',
+        cipher: null,
+        progressive: true,
+      ),
+      (
+        label: 'cbor',
+        scheme: 'x_typed',
+        codec: 'cbor',
+        cipher: null,
+        progressive: false,
+      ),
+      (
+        label: 'msgpack',
+        scheme: 'x_typed',
+        codec: 'msgpack',
+        cipher: null,
+        progressive: false,
+      ),
+      (
+        label: 'encrypted',
+        scheme: 'wamp',
+        codec: 'cbor',
+        cipher: 'aes256gcm',
+        progressive: false,
+      ),
+      (
+        label: 'ordinary binary',
+        scheme: null,
+        codec: null,
+        cipher: null,
+        progressive: false,
+      ),
+    ]) {
+      test('preserves packed internal PPT reply: ${profile.label}', () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic value) {
+            bossMessages.add((value as Map).cast<String, Object?>());
+          });
+        addTearDown(bossPort.close);
+        final invocationPort = ReceivePort();
+        addTearDown(invocationPort.close);
+        final packed = Uint8List.fromList(switch (profile.codec) {
+          'cbor' =>
+            profile.cipher == null
+                ? [0x81, 1]
+                : List<int>.generate(64, (i) => i),
+          'msgpack' => [0x91, 1],
+          _ => [0, 1, 2, 255],
+        });
+        invocationPort.listen((dynamic value) {
+          final request = value as Map;
+          final replyPort = request['replyPort'] as SendPort;
+          for (final progress in [if (profile.progressive) true, false]) {
+            replyPort.send({
+              'type': 'result',
+              'lazyPayload': {
+                r'$connectanumLazyPayload': true,
+                'encoding': profile.codec ?? 'cbor',
+                'arguments': [packed],
+              },
+              'progress': progress,
+              'pptScheme': profile.scheme,
+              'pptSerializer': profile.codec,
+              'pptCipher': profile.cipher,
+              'pptKeyId': profile.cipher == null ? null : 'test-key',
+            });
+          }
+        });
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.cbor
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 925;
+        _openSession(
+          stateStore,
+          sessionId: 925,
+          listener: listener,
+          connectionId: 51,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 926,
+          listener: listener,
+          connectionId: -1,
+          internalSendPort: invocationPort.sendPort,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+        final context = realmContexts.contextFor('realm1');
+        await context.registerProcedure(
+          sessionId: 926,
+          procedure: 'com.example.internal.ppt',
+          details: const {},
+        );
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          connectionId: 51,
+          message: call_msg.Call(
+            9201,
+            'com.example.internal.ppt',
+            options: call_msg.CallOptions(
+              receiveProgress: profile.progressive,
+              pptScheme: profile.scheme,
+              pptSerializer: profile.codec,
+              pptCipher: profile.cipher,
+              pptKeyId: profile.cipher == null ? null : 'test-key',
+            ),
+            arguments: [packed],
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        final forwards = _extractForwardMessages(bossMessages);
+        expect(forwards, hasLength(profile.progressive ? 2 : 1));
+        for (var index = 0; index < forwards.length; index++) {
+          final result = forwards[index]['message'] as result_msg.Result;
+          expect(result.details.progress, profile.progressive && index == 0);
+          expect(result.details.pptScheme, profile.scheme);
+          expect(result.details.pptSerializer, profile.codec);
+          expect(result.details.pptCipher, profile.cipher);
+          expect(
+            result.details.pptKeyId,
+            profile.cipher == null ? null : 'test-key',
+          );
+          final payload = result.toLazyPayload();
+          if (profile.scheme == null) {
+            expect(payload.packedPayloadBytes, isNull);
+            expect(result.arguments, [packed]);
+          } else {
+            expect(payload.packedPayloadBytes, orderedEquals(packed));
+            expect(result.hasDecodedPptPayload, isFalse);
+          }
+          for (final codec in <AbstractSerializer>[
+            cbor_serializer.Serializer(),
+            msgpack_serializer.Serializer(),
+            flatbuffers_serializer.Serializer(),
+          ]) {
+            final decoded =
+                codec.deserialize(codec.serialize(result))!
+                    as result_msg.Result;
+            final body =
+                decoded.transparentBinaryPayload ??
+                decoded.wireArguments!.single;
+            expect(body, orderedEquals(packed));
+          }
+        }
+      });
+    }
 
     test('closing session removes subscriptions and registrations', () async {
       final bossMessages = <Map<String, Object?>>[];

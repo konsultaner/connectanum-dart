@@ -6,39 +6,27 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
-Current performance work (2026-10-16): the Linux CPU diagnostic on
-`0b9ebbc9` succeeds for all three serializers, with native sampling completely
-inside actual operation windows and source/library/process audits intact. Selected
-allocation stacks over 100 warmed RPC operations identify duplicate outgoing
-control-frame reconstruction and option dictionary/projection staging. A focused
-candidate removes that repeated internal work, keeps all caller-supplied-frame
-validation and rechecks live connection/session state after lazy model accessors.
-CALL/PUBLISH/YIELD maps retain null/false/zero/custom precedence and mutation
-semantics. All 3,386 serializer VM and 110 native ownership/profile/lifetime cases pass;
-all 154 mutation proofs and focused analysis pass. Fresh source-frozen
-attribution on `f2b577ff` reduces selected FlatBuffers client objects by 23.6%
-and router-worker objects by 2.6%; this is not byte-allocation or timing parity.
-Frozen full verification catches one additional WebSocket wrapper-spy assertion;
-its actual native submission/owner checks already pass. Replacing that spy with
-the existing native observer passes all 22 WebSocket network cases. Fresh full
-verification remains pending; failed evidence is retained. See [measured
-metadata work](research/2026-10-16-flatbuffers-metadata-projection.md).
+Current packed-reply correction (2026-10-16): full frozen `bin/verify` on
+`84fe0f29` passes with all 3,113 inputs unchanged; its renewed 120 live accounting
+cases independently reconcile Connectanum E2EE, transcode and encoded WAMP volume
+components. Hosted CI currently has 36 passing jobs and VM coverage still running.
+The `f2b577ff` 90-row Linux diagnostic still fails parity: CPU ratios
+1.08631 / 1.07976 / 1.07664 and native-buffer allocation 1.03508. Every allocation
+observation validates; one warmup lifetime RSS endpoint is unavailable. Measured
+endpoints remain valid. No gate is relaxed.
 
-Latest full verified source remains `8f6f86f5` (frozen `bin/verify`, both browser
-compilers, all 3,112 inputs unchanged). The earlier `8be8d5c0` has fully green
-hosted CI and 170 passing five-platform production native consumers. Intermediate
-hosted runs were retired after useful checks; cancelled jobs do not certify
-acceptance. Current-source full hosted CI and final consumers remain required.
-
-The last uninstrumented 90-row Linux diagnostic on `8be8d5c0` still fails parity:
-CPU 1.05537 / 1.08584 / 1.07985 and native-buffer allocation 1.05014, with all 180
-allocation observations and RSS/duration/sample boundaries valid. No numerical
-failure is waived. The 42-case supplemental short proof completes 252 rows with
-stable PIDs and unchanged inputs; independently audited encryption, transcode,
-zero-copy and encoded-volume checks are correctness evidence only. All 48 primary
-cases, 42 supplemental cases, budgets and measurement guards remain unchanged.
-Full primary/supplemental campaigns and actual parity still block #103 and the
-milestone. No issue, milestone or release is closed.
+An actual typed RPC probe finds internal replies losing their packed-payload
+classification because PPT metadata was omitted from payload restoration. The
+candidate passes the existing four metadata fields to that restoration helper;
+a fresh probe preserves the exact 65,576-byte packed payload without materialized
+arguments. Progressive internal replies now consume their reply stream through
+the terminal result, retaining native loans until completion or cancellation.
+All 114 focused router regressions, analysis and 154 mutation proofs pass. Local
+companion suggestions were checked against source and resource-lifetime tests.
+Resulting-source full verification, renewed accounting and Linux parity remain
+required. Existing progressive benchmark cases measure CALL input chunks; explicit
+progressive-result cost coverage remains required before supplemental acceptance.
+No issue, milestone or release is closed.
 
 Encoded-volume CI repair (2026-10-16): source `1b751b72` passes all 120
 live copy/encoded-volume cases, with 3,108 unchanged inputs and independent

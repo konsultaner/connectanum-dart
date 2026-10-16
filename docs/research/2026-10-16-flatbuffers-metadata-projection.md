@@ -107,3 +107,45 @@ clears the connection ID synchronously and `_finishOpen` awaits
 cannot complete close/reopen inside that send stack. The explicit close-loader
 regression covers the real reentrancy path. Advisory output and source dispositions
 are retained; no unsupported finding is presented as a verified defect.
+
+## Packed reply reproduction and repair
+
+The subsequent uninstrumented Linux diagnostic on `f2b577ff` still fails CPU
+parity for values, native-buffer and preencoded construction (1.08631, 1.07976,
+1.07664), and native-buffer allocation (1.03508). All 180 allocation observations
+validate. One warmup lifetime RSS endpoint is unavailable; measured endpoints are
+valid. Attribution profiles and selected allocation objects are not parity.
+
+An isolated observational typed native-buffer RPC probe finds the internal echo
+handler returning one packed 65,576-byte binary argument. `_sendInternalInvocationResult`
+constructs PPT details but omits those details when restoring its transferred
+lazy payload. The existing restoration helper therefore cannot recognize the
+binary wrapper as a packed PPT payload. The resulting model has materialized
+arguments and enters general CBOR staging. Passing the four existing PPT fields
+to restoration preserves the exact packed bytes; an after-fix two-operation probe
+records `packed=65576`, `args=null`, `kwargs=null` and `pptDecoded=false` for both
+results, with source and native library unchanged during observation. These logs
+are correctness evidence, not timing measurements.
+
+New tests fail before the correction for FlatBuffers, CBOR, MessagePack and
+encrypted PPT replies, while ordinary binary arguments remain ordinary arguments.
+Each resulting PPT reply survives all three outer serializers without decoding.
+A progressive-response test also reproduces the existing `replyPort.first`
+behavior discarding the terminal reply after the first progress reply. The router
+now reads replies until completion, and checks authoritative invocation lifetime
+for progressive calls so cancellation/disconnection retires the port and releases
+its retained native loan exactly once. Progress never transfers that native loan;
+the terminal native-forward branch explicitly requires `!progress`.
+
+All 114 router worker/profile/native regressions, focused analysis and all 154
+mutation proofs pass. The retained-loan test verifies that the first progress
+reply keeps the handler pending and the loan alive, and caller removal retires
+both with exactly one release. Advisory local reviews were checked against source;
+rejected assumptions and the supporting invariants are retained in
+`packed-reply-review-dispositions.json`. No new SDK, native ABI or payload schema
+is introduced. Fresh full verification and timed Linux comparison remain required.
+
+The current supplemental `progressive` cases exercise progressive CALL input,
+not progressive RESULT streams. Result-stream performance/copy coverage must be
+added explicitly before claiming the original issue's progressive-result scope.
+Primary inventories and strict performance budgets remain unchanged.
