@@ -84,6 +84,31 @@ class Serializer extends AbstractSerializer {
     );
   }
 
+  /// Retain immutable, owner-backed native metadata for a forwarding path.
+  /// Validation is immediate; decoding and snapshots wait until a Dart resend.
+  /// [initialMessage] must reconstruct the original control fields without
+  /// payloads or retained metadata, independently of later edits to [message].
+  /// The native bytes must remain unchanged while the message is alive. A
+  /// successful call replaces prior retained metadata; invalid bytes leave it
+  /// unchanged. The factory must not re-enter retention on this message.
+  void retainNativeMetadata(
+    AbstractMessage message,
+    Uint8List encodedDictionary,
+    AbstractMessage Function() initialMessage,
+  ) {
+    validateFlatBufferCbor(
+      encodedDictionary,
+      rootMajor: 5,
+      stringDictionaryKeys: true,
+      limits: const FlatBufferCborLimits(maxBytes: 1048576),
+    );
+    retainNativeWampFlatBufferDictionary(
+      message,
+      encodedDictionary,
+      initialMessage,
+    );
+  }
+
   /// Return a bounded, detached logical dictionary, including retained unknown
   /// keys and current model edits. Application vectors are never accessed.
   Map<String, dynamic> metadataFor(AbstractMessage message) =>

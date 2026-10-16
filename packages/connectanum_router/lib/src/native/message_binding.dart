@@ -115,6 +115,7 @@ AbstractMessage? bindMessageFromMetadata(
   String? stringE,
   Uint8List? argsBytes,
   Uint8List? kwargsBytes,
+  bool retainFlatBufferMetadata = true,
 }) {
   if ((flags & _metadataBindFlag) == 0) {
     return null;
@@ -399,12 +400,75 @@ AbstractMessage? bindMessageFromMetadata(
     _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
   }
   if (message != null &&
+      retainFlatBufferMetadata &&
       serializer == NativeMessageSerializer.flatbuffers &&
       messageCode != MessageTypes.codeHeartbeat &&
       detailsBytes != null) {
-    flatbuffers.Serializer().retainMetadata(message, detailsBytes);
+    if (directBind &&
+        (message is Call || message is Publish || message is Yield)) {
+      final baseline = _NativeFlatBufferMetadataBaseline(
+        messageCode,
+        primaryId,
+        secondaryId,
+        detailNumberA,
+        flags,
+        detailsBytes,
+        stringA,
+        stringB,
+        stringC,
+        stringD,
+        stringE,
+      );
+      flatbuffers.Serializer().retainNativeMetadata(
+        message,
+        detailsBytes,
+        baseline.reconstruct,
+      );
+    } else {
+      flatbuffers.Serializer().retainMetadata(message, detailsBytes);
+    }
   }
   return message;
+}
+
+// Deliberately captures no application vectors or current mutable model. A
+// resend compares edits against the original native control fields and bytes.
+class _NativeFlatBufferMetadataBaseline {
+  _NativeFlatBufferMetadataBaseline(
+    this.messageCode,
+    this.primaryId,
+    this.secondaryId,
+    this.detailNumberA,
+    this.flags,
+    this.detailsBytes,
+    this.stringA,
+    this.stringB,
+    this.stringC,
+    this.stringD,
+    this.stringE,
+  );
+
+  final int messageCode, primaryId, secondaryId, detailNumberA, flags;
+  final Uint8List detailsBytes;
+  final String? stringA, stringB, stringC, stringD, stringE;
+
+  // The metadata dictionary projection is independent of application payloads.
+  // Clearing this flag avoids reconstructing or retaining the opaque body.
+  AbstractMessage reconstruct() => bindMessageFromMetadata(
+    NativeMessageSerializer.flatbuffers,
+    messageCode: messageCode,
+    primaryId: primaryId,
+    secondaryId: secondaryId,
+    detailNumberA: detailNumberA,
+    flags: flags & ~_transparentPayloadFlag,
+    detailsBytes: detailsBytes,
+    stringA: stringA,
+    stringB: stringB,
+    stringC: stringC,
+    stringD: stringD,
+    stringE: stringE,
+    retainFlatBufferMetadata: false,
+  )!;
 }
 
 Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {

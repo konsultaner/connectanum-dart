@@ -6,6 +6,24 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Current deferred-metadata candidate (2026-10-16): the hosted Linux profile
+passes source/PID/window/report/map audits, with 46 inclusive Dart retention
+ticks (not a CPU-cost or parity result). Native perf Dart addresses remain
+unresolved. Three fail-first cases reproduce 16 KiB of eager metadata clones
+for a 4 KiB binary extension. Native CALL/PUBLISH/YIELD now validate immediately
+and defer original decode/projection/snapshots, retaining immutable native bytes
+and payload-free original control fields. All 129 focused
+metadata cases, five Chrome/WASM cases and 3,877 binding/fragment regressions
+pass, including all 32 native flag combinations. Original eager
+semantics, unknown/default/null fields, edits before resend and application
+laziness are covered. Fresh full/hosted/accounting/performance proof is pending.
+
+Eligibility source `7388e666` now passes frozen full `bin/verify` with all 3,119
+inputs unchanged, all 190 production consumers on five platforms, 300 short
+supplemental rows, 120 accounting cases and 36 progressive combinations. The
+preceding `4738c452` hosted CI is fully green. Resulting-head hosted CI remains
+in progress without a known failure. No parity or milestone closure is claimed.
+
 CPU diagnosis follow-up: Linux native profiles now request standard Dart router
 JIT maps, retain PID/hash attribution and separate router/client perf reports.
 Nine tool tests cover startup/probe configuration and missing/corrupt/foreign
