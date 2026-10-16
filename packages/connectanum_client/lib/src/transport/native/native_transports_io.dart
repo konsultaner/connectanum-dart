@@ -157,6 +157,7 @@ abstract class _NativeTransportBase extends AbstractTransport
 
   bool _sendNativeFlatBufferPptPayload(
     AbstractMessage message,
+    int connectionId,
   ) {
     if (_nativeSerializer != NativeMessageSerializer.flatbuffers ||
         !nativeBuffers.supportsFlatBufferFrames ||
@@ -224,7 +225,21 @@ abstract class _NativeTransportBase extends AbstractTransport
       control?.dispose();
     }
     try {
-      sendNativeFrame(frame, transfer: true);
+      // This control frame was just projected from the supplied message and
+      // validated by native composition. Reconstructing that same model is
+      // unnecessary; caller-supplied frames still use _prepareNativeFrame.
+      // Recheck the current phase after any model accessors have run.
+      if (_connectionId != connectionId) {
+        throw StateError(
+          'Transport connection changed during frame construction',
+        );
+      }
+      final nextProfile = _flatBuffersProfile?.prepareOutgoing(
+        message,
+        advertise: false,
+      );
+      nativeBuffers.sendFrame(connectionId, frame, transfer: true);
+      _commitSend(nextProfile, message);
       recordNativeFlatBufferPptSubmission(payloadOwner, payloadOwner.length);
       return true;
     } finally {
@@ -568,7 +583,7 @@ abstract class _NativeTransportBase extends AbstractTransport
       throw StateError('Transport is not connected.');
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
-    if (_sendNativeFlatBufferPptPayload(message)) return;
+    if (_sendNativeFlatBufferPptPayload(message, connectionId)) return;
     if (_sendNativeEncodedPptPayload(message)) {
       _commitSend(nextProfile, message);
       return;
@@ -1363,7 +1378,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
       throw StateError('Transport is not connected.');
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
-    if (_sendNativeFlatBufferPptPayload(message)) return;
+    if (_sendNativeFlatBufferPptPayload(message, connectionId)) return;
     if ((_fragmentSize ?? 0) == 0 && _sendNativeEncodedPptPayload(message)) {
       _commitSend(nextProfile, message);
       return;
