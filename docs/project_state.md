@@ -51,6 +51,11 @@ Linux Dart-values profile succeeds: all 3,117 source hashes, the native binary,
 13 actual request files, process IDs and three real sampling windows are
 independently checked. These profiles never supply primary acceptance.
 
+Full verification of `4b840309` reproduced three profiler-test failures on
+macOS: the production launcher resolves output paths but the mocked assertion
+expected an unresolved `/var` path. The assertion now checks the same canonical
+path; all five profiler tests pass. Full verification is being rerun.
+
 The RSS endpoint repair reads final VmRSS and the first VmHWM from one procfs
 snapshot. All 32 metrics tests, including existing strict negative controls,
 pass and changed-file analysis is clean. Missing/contradictory values still

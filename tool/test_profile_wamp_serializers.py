@@ -87,7 +87,7 @@ class ProfileSelectionTests(unittest.TestCase):
                     self.assertEqual(len(dart_args), 6)
                     self.assertEqual(json.loads(dart_args[5]), target)
                     self.assertEqual(dart_args[4], '')  # native perf remains explicitly unmeasured
-                    self.assertEqual(dart_args[3], str(output))
+                    self.assertEqual(dart_args[3], str(output.resolve()))
                     self.assertTrue((output / 'probe.dart').is_file())
                     return SimpleNamespace(returncode=0)
 
