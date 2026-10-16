@@ -270,6 +270,15 @@ jobs:
         run: |
           echo '## FlatBuffers CPU diagnostic' >> "$GITHUB_STEP_SUMMARY"
           echo 'Dart CPU samples and Linux perf stacks are retained for all three codecs. Frame pointers, native debug information and profiling alter execution; these results never establish primary parity. Dart JIT addresses may be unresolved in perf; Dart CPU samples are retained separately.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Give the runner ownership of captured perf data
+        if: always()
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for perf_file in out/wamp-flatbuffers-profile/cpu/*-native.perf; do
+            sudo -n chown --reference=out/wamp-flatbuffers-profile/cpu "$perf_file"
+            test -r "$perf_file"
+          done
       - uses: actions/upload-artifact@v7
         if: always()
         with:
