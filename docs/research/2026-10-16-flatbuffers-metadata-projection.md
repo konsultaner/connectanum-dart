@@ -157,7 +157,7 @@ independently recomputed allocation observations. Allocation gates now pass for
 all three construction modes: 0.84549 / 0.89153 / 0.81924. CPU still fails at
 1.03383 / 1.03914 / 1.03297. Several throughput, latency, GC and sampled RSS
 point gates also fail. Two lifetime RSS values are unavailable (rows 3 and 13,
-one warmup and one measured); actual sampled RSS remains available. Failed and
+both warmup); actual sampled RSS remains available. Failed and
 unavailable observations remain retained; no gate or inventory is relaxed.
 
 Full frozen `bin/verify` on `87b89830` subsequently passes with all 3,113 inputs
@@ -166,3 +166,49 @@ five platforms but an outdated declaration still requires 10. Updating that
 exact declaration to 12 and showing expected/observed counts preserves strict
 rejection of omitted, skipped or unfinished cases. All recorded profiles and
 focused verifier guards pass; complete replacement consumers remain required.
+
+## Reuse validated fields in native composition
+
+The fresh Linux profile on `7452ab61` succeeds with source/library unchanged,
+confirmed operation windows and complete process teardown. Inclusive native
+composition accounts for 1.54% of sampled combined CPU; its parse child accounts
+for 0.80%. These overlapping samples are not added or treated as macro costs.
+Source inspection shows composition parsing a complete control frame and then
+reprojecting its metadata dictionary and CBOR-encoding it before writing the frame.
+
+The parser now has a private tuple-returning helper retaining its validated wire
+fields; the ordinary parser returns the same ParsedMessage as before. Composition
+retains every original control and metadata byte, changes only application slots,
+and explicitly validates supplied containers. The inner Arc is borrowed in place
+to avoid an unnecessary clone. No incoming validation, frozen-owner check,
+producer identity check, public API or schema changes. The supplied-payload match
+remains limited to the same nine payload-bearing message variants.
+
+A new regression first fails because metadata keys are re-ordered during
+composition. It now verifies exact metadata bytes, independent generated-reader
+acceptance, unchanged controls, correct decoded values and original application
+allocation identity. The all-25-message fixture test additionally rejects wrong
+container roots, excessive nesting, mixed ordinary/opaque payloads and payloads
+on unsupported message types. All 384 core and 295 FFI library tests pass, as do
+71 Dart native/frame/network cases and the independent 33 upstream / 42 extended
+fixture, bidirectional, all-model and live RawSocket/WebSocket checks. Bindings
+remain unchanged. Initial interop invocations used the system Python/missing
+flatc; the existing pinned virtual environment and compiler reruns pass. Failed
+logs remain retained.
+
+The stock-SDK macOS component measurement uses balanced old/new/new/old process
+order, five warmed repetitions per process and 20,000 compositions per repetition.
+Median component time is 4.49725 / 3.772925 us (ratio 0.83894). The original and
+candidate production-library hashes are retained. This only verifies a local
+component gain; it cannot establish Linux end-to-end CPU, latency or RSS parity.
+Fresh complete verification and campaign evidence remain required.
+
+The local judge's ownership concern is addressed by borrowing the inner Arc in
+place; the raw frame owns Bytes, not the parsed field tree. Both local reviews'
+validation concerns were independently checked against the full parser, unchanged
+message-type match, payload validator, schema writer and adversarial fixtures.
+Dispositions are retained in `retained-wire-compose-review-dispositions.json`.
+
+RSS classification correction: the diagnostic has 27 warmup rows, not nine.
+Missing lifetime readings at rows 3 and 13 are both warmup. All measured lifetime
+and sampled readings are present; the original failing numeric gates are unchanged.

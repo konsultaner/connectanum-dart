@@ -6,6 +6,25 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Native composition candidate (2026-10-16): frozen `bin/test-fast` passes on
+`7452ab61` with all 3,113 inputs unchanged. That checkpoint also passes renewed
+120-case copy accounting, 36 progressive codec combinations and 180 independently
+audited production consumers across five platforms, with zero skips. Its Linux
+CPU diagnostic passes source/library/window audits; attribution shows native
+composition rebuilding already validated metadata.
+
+The candidate retains the full existing parser, reuses its validated field tree,
+changes only application slots and validates every supplied container. Original
+encoded metadata survives byte-for-byte. The regression fails first on reordered
+metadata keys. All 384 core / 295 FFI library cases, 71 Dart native/frame/network
+cases, 33/42 independent fixtures, all 25 public message models, generated bindings
+and independent live RawSocket/WebSocket peers pass. Every public model also
+rejects malformed/mixed/deep supplied containers and unsupported payload slots.
+A balanced local component probe improves composition from 4.50 to 3.77 us;
+this is not macro parity. Resulting-source full verification, renewed copy totals,
+Linux timing and fresh native consumers remain required. No public ABI, schema,
+primary inventory or performance budget changes.
+
 Verified checkpoint (2026-10-16): full frozen `bin/verify` passes on
 `87b89830` with HEAD and all 3,113 inputs unchanged, including 4,984 core and
 2,865 client Wasm cases (20 existing native-only skips). Hosted CI on `84fe0f29`
@@ -22,7 +41,7 @@ The packed-reply Linux diagnostic on `01300605` completes 90 rows / 180 valid
 allocation observations. Allocation ratios now pass: 0.84549 / 0.89153 / 0.81924.
 CPU still fails: 1.03383 / 1.03914 / 1.03297; some throughput, latency, GC and
 sampled RSS gates also fail. Two lifetime RSS observations are unavailable,
-including one measured row; they remain explicit. Sampled RSS gates use actual
+both in warmup; they remain explicit. Sampled RSS gates use actual
 available readings and fail. No numeric gate is waived. Fresh CPU attribution,
 actual parity and full campaign acceptance remain required.
 
