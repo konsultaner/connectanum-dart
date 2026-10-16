@@ -241,7 +241,7 @@ jobs:
           bin/bootstrap 2>&1 | tee out/wamp-flatbuffers-profile/setup/bootstrap.log
           sudo apt-get update -qq
           sudo apt-get install -y linux-tools-generic
-          perf_path="$(rg --files -L /usr/lib/linux-tools | rg '/perf$' | sort -V | tail -n 1)"
+          perf_path="$(python3 -c 'import os, sys; from pathlib import Path; paths = [p for p in Path(sys.argv[1]).glob("*/perf") if p.is_file() and os.access(p, os.X_OK)]; print(sorted(paths)[-1].resolve())' /usr/lib/linux-tools)"
           test -n "$perf_path"
           sudo -n "$perf_path" --version
           echo "CONNECTANUM_PROFILE_PERF=$perf_path" >> "$GITHUB_ENV"
