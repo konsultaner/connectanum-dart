@@ -491,6 +491,7 @@
       "packages/connectanum_core/test/serializer/flatbuffers_fragments_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_deferred_metadata_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_encoding_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
@@ -545,6 +546,7 @@
       "packages/connectanum_core/test/serializer/flatbuffers_fragments_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_deferred_metadata_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_encoding_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
@@ -600,6 +602,7 @@
       "packages/connectanum_core/test/serializer/flatbuffers_fragments_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_deferred_metadata_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_encoding_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
@@ -657,6 +660,7 @@
       "packages/connectanum_core/test/serializer/flatbuffers_fragments_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_deferred_metadata_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_encoding_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
@@ -725,7 +729,8 @@
       "packages/connectanum_router/lib/src/native/message_binding.dart"
     ],
     "tests": [
-      "packages/connectanum_router/test/native/message_binding_test.dart"
+      "packages/connectanum_router/test/native/message_binding_test.dart",
+      "packages/connectanum_router/test/native/flatbuffers_deferred_metadata_test.dart"
     ],
     "supportFiles": [
       "packages/connectanum_core/test/support/native_role_contract.dart"

@@ -6,6 +6,19 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Serializer mutation inventory repair: the hosted `b4e2b4ea` Fast Checks failure
+reproduces five omissions of the new core metadata test. All four CBOR/MessagePack
+VM/browser support inventories and the shared suite now include it; the router
+binding target also runs its new native regression file. All 87 tooling checks
+and all eight new cases through both VM and JavaScript wrappers pass. No test
+exclusion, inventory equality or mutation threshold is relaxed. The preceding
+source completes 300 short rows, 120 accounting cases and 36 progressive cases
+with all 3,123 inputs unchanged. Its redundant full verification is intentionally
+stopped for the known tooling failure; it is not a pass. Application code is
+unchanged by this inventory repair. Run resulting-source tooling/CI first, use
+the strict Linux diagnostic to choose the next performance step, and complete
+fresh full verification before handoff/acceptance.
+
 Deferred validation repair: a bounded 10,240-value tag diagnostic finds two
 well-formed date-tag values rejected by the materializer. A fail-first native
 retention test confirms rejection moved to resend. Tagged dictionaries now
