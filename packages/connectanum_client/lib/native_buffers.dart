@@ -11,9 +11,6 @@ import 'package:connectanum_core/connectanum_core.dart'
 // Shared observations preserve disjoint allocator and serializer counters.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
-// ignore: implementation_imports
-import 'package:connectanum_core/src/serializer/flatbuffers/runtime.dart'
-    show tryWriteFlatBufferByteWords;
 import 'package:ffi/ffi.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 
@@ -1147,13 +1144,7 @@ final class NativeFlatBufferBuilder
   int writeListUint8(List<int> values) => _write(() {
     late final int result;
     try {
-      result =
-          tryWriteFlatBufferByteWords(
-            _builder,
-            values,
-            () => _allocator.current!,
-          ) ??
-          _builder.writeListUint8(values);
+      result = _builder.writeListUint8(values);
     } catch (_) {
       OwnedCopyMetrics.recordFailedCopy();
       rethrow;

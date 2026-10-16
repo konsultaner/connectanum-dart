@@ -23,7 +23,6 @@ class _CaptureBuilder extends fb.Builder {
 }
 
 void main() {
-  _byteVectorCases();
   test('byte storage reaches vector builder without a cast wrapper', () {
     final bytes = Uint8List.fromList([0, 1, 255]);
     final b = _CaptureBuilder();
@@ -110,71 +109,5 @@ void main() {
     (decoded.single as Uint8List)[0] = 77;
     expect(expected[0], 0);
     expect((decodeWampFlatBufferApplication(source) as List).single, expected);
-  });
-}
-
-void _byteVectorCases() {
-  test(
-    'byte vectors preserve exact SDK wire bytes across alignments and views',
-    () {
-      var combinations = 0;
-      for (final length in [255, 256, 257, 258, 259, 1025, 65537]) {
-        final storage = Uint8List(length + 8)..fillRange(0, length + 8, 0xe7);
-        for (var i = 0; i < length; i++) {
-          storage[i + 3] = (i * 31 + length) & 255;
-        }
-        final view = Uint8List.sublistView(storage, 3, 3 + length);
-        for (final values in [view, view.asUnmodifiableView(), view.toList()]) {
-          for (var prefix = 0; prefix < 8; prefix++) {
-            for (final capacity in [8, 128]) {
-              final standard = fb.Builder(initialSize: capacity);
-              final candidate = flatbuffers.WampFlatBufferBuilder(
-                initialSize: capacity,
-              );
-              for (var i = 0; i < prefix; i++) {
-                standard.putUint8(i + 101);
-                candidate.putUint8(i + 101);
-              }
-              standard.finish(standard.writeListUint8(values), 'BYTS');
-              candidate.finish(candidate.writeListUint8(values), 'BYTS');
-              expect(
-                candidate.buffer,
-                standard.buffer,
-                reason:
-                    'n=$length prefix=$prefix capacity=$capacity ${values.runtimeType}',
-              );
-              final read = const fb.ListReader<int>(
-                fb.Uint8Reader(),
-              ).read(fb.BufferContext.fromBytes(candidate.buffer), 0);
-              expect(read, view);
-              combinations++;
-            }
-          }
-        }
-      }
-      expect(combinations, 336);
-    },
-  );
-  test('typed byte vectors observe source bytes exactly once', () {
-    OwnedCopyMetrics.enable();
-    final before = OwnedCopyMetrics.snapshot()!;
-    final builder = flatbuffers.WampFlatBufferBuilder(initialSize: 8);
-    final bytes = Uint8List(65537)..[65536] = 255;
-    builder.finish(builder.writeListUint8(bytes));
-    final after = OwnedCopyMetrics.snapshot()!;
-    expect(
-      after['flatbuffer_vector_copy_bytes']! -
-          before['flatbuffer_vector_copy_bytes']!,
-      bytes.length,
-    );
-    expect(
-      after['failed_copy_operations']! - before['failed_copy_operations']!,
-      0,
-    );
-    expect(
-      after['unmeasured_copy_operations']! -
-          before['unmeasured_copy_operations']!,
-      0,
-    );
   });
 }

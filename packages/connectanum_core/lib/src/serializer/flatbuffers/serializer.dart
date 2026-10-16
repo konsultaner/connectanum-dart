@@ -45,6 +45,7 @@ class Serializer extends AbstractSerializer {
   /// Concatenate the fragments in order; each fragment is part of that frame.
   /// Keep their backing owners and contents valid until transmission completes.
   /// Ordinary Dart arguments still require CBOR encoding before composition.
+  /// Typed FlatBuffers PPT bytes can be retained after a small CBOR prefix.
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is! AbstractMessageWithPayload) return null;

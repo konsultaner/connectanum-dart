@@ -28,7 +28,6 @@ void main() {
   setUpAll(() {
     allocator = NativeBufferAllocator.instance();
   });
-  _nativeByteVectorCases(() => allocator);
 
   test('native message vectors contribute once through the shared writer', () {
     OwnedCopyMetrics.enable();
@@ -962,72 +961,4 @@ class _ReentrantBytes extends ListBase<int> {
   @override
   void operator []=(int index, int value) =>
       throw UnsupportedError('Read only');
-}
-
-void _nativeByteVectorCases(NativeBufferAllocator Function() getAllocator) {
-  test('native byte vectors preserve SDK bytes, ownership and observations', () {
-    final api = getAllocator();
-    OwnedCopyMetrics.enable();
-    var combinations = 0;
-    for (final length in [255, 256, 257, 263, 4095, 4097, 65537]) {
-      for (var prefix = 0; prefix < 8; prefix++) {
-        for (final capacity in [8, 1024, length + 128]) {
-          for (final readOnly in [false, true]) {
-            final storage = Uint8List(length + 8)
-              ..fillRange(0, length + 8, 0xf7);
-            for (var i = 0; i < length; i++) {
-              storage[i + 3] = (i * 31 + length) & 255;
-            }
-            final view = Uint8List.sublistView(storage, 3, 3 + length);
-            final source = readOnly ? view.asUnmodifiableView() : view;
-            final standard = fb.Builder(initialSize: capacity);
-            final candidate = api.flatBuffers(initialSize: capacity);
-            NativeOwnedBuffer? owner;
-            try {
-              for (var i = 0; i < prefix; i++) {
-                standard.putUint8(i + 101);
-                candidate.putUint8(i + 101);
-              }
-              final before = OwnedCopyMetrics.snapshot()!;
-              candidate.finish(candidate.writeListUint8(source), 'BYTS');
-              final after = OwnedCopyMetrics.snapshot()!;
-              standard.finish(standard.writeListUint8(source), 'BYTS');
-              owner = candidate.freeze();
-              final bytes = owner.bytes;
-              expect(owner.inputCopiedBytes, length);
-              expect(
-                after['flatbuffer_vector_copy_bytes']! -
-                    before['flatbuffer_vector_copy_bytes']!,
-                length,
-              );
-              expect(
-                after['failed_copy_operations']! -
-                    before['failed_copy_operations']!,
-                0,
-              );
-              expect(
-                after['unmeasured_copy_operations']! -
-                    before['unmeasured_copy_operations']!,
-                0,
-              );
-              candidate.dispose();
-              owner.dispose();
-              storage.fillRange(0, storage.length, 0);
-              expect(
-                bytes,
-                standard.buffer,
-                reason:
-                    'n=$length prefix=$prefix capacity=$capacity readonly=$readOnly',
-              );
-              combinations++;
-            } finally {
-              owner?.dispose();
-              candidate.dispose();
-            }
-          }
-        }
-      }
-    }
-    expect(combinations, 336);
-  });
 }

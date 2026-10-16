@@ -1,6 +1,10 @@
 // Observe the core buffer operations without changing public codec APIs.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
+// Outgoing profile checks do not expose editable reconstructed messages.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/message_reader.dart'
+    show readWampFlatBufferProfileMessage;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
@@ -136,7 +140,7 @@ abstract class _NativeTransportBase extends AbstractTransport
   _prepareEncodedBytes(Uint8List bytes) {
     final profile = _flatBuffersProfile;
     if (profile == null) return null;
-    final message = (_serializer as flatbuffers.Serializer).deserialize(bytes)!;
+    final message = readWampFlatBufferProfileMessage(bytes);
     return (
       profile: profile.prepareOutgoing(message, advertise: false),
       message: message,

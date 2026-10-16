@@ -10,6 +10,7 @@ import 'package:connectanum_core/src/serializer/flatbuffers/runtime.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/message_writer.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/serializer.dart'
     as flatbuffers;
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
 Uint8List join(List<Uint8List> fragments) =>
     (BytesBuilder(copy: false)..addAllFragments(fragments)).takeBytes();
@@ -41,6 +42,7 @@ void expectCallVectorsAligned(Uint8List joined) {
 }
 
 void main() {
+  _typedBinaryFragmentCases();
   final codec = flatbuffers.Serializer();
   test('large encoded opaque body can remain an original send fragment', () {
     final bytes = Uint8List(65536);
@@ -358,4 +360,150 @@ void main() {
       expect(codec.serialize(decoded), codec.serialize(message));
     });
   }
+}
+
+void _typedBinaryFragmentCases() {
+  test(
+    'fragmented byte vectors retain parts and observe explicit coalescing',
+    () {
+      final first = Uint8List.fromList([1, 2]);
+      final second = Uint8List.fromList([3]);
+      final input = [first, second];
+      final parts = FlatBufferByteVectorParts(input);
+      input.clear();
+      expect(parts.length, 3);
+      expect(parts.parts, [first, second]);
+      expect(() => parts.parts.clear(), throwsUnsupportedError);
+      final vector = DeferredFlatBufferVector.fragmented(0, 0, parts);
+      expect(vector.length, 3);
+      expect(vector.parts, [first, second]);
+      OwnedCopyMetrics.enable();
+      final before = OwnedCopyMetrics.snapshot()!;
+      expect(vector.bytes, [1, 2, 3]);
+      final after = OwnedCopyMetrics.snapshot()!;
+      expect(
+        after['coalescing_copy_bytes']! - before['coalescing_copy_bytes']!,
+        3,
+      );
+      final single = DeferredFlatBufferVector(0, 0, first);
+      expect(single.bytes, same(first));
+      expect(single.parts.single, same(first));
+      expect(single.length, 2);
+      expect(FlatBufferByteVectorParts([]).toBytes(), isEmpty);
+      expect(FlatBufferByteVectorParts([first]).toBytes(), same(first));
+      final repeated = Uint8List(1024 * 1024);
+      expect(
+        () => FlatBufferByteVectorParts(List.filled(65, repeated)),
+        throwsArgumentError,
+      );
+    },
+  );
+  Call call(Uint8List payload, {Map<String, dynamic>? kwargs}) => Call(
+    7,
+    'com.proc',
+    options: CallOptions(pptScheme: 'x_typed', pptSerializer: 'flatbuffers'),
+    arguments: [payload],
+    argumentsKeywords: kwargs,
+  );
+  test('typed PPT fragments retain bytes inside the unchanged CBOR vector', () {
+    for (final length in [0, 1, 23, 24, 255, 256, 65535, 65536, 65537]) {
+      for (final offset in [0, 3]) {
+        for (final readOnly in [false, true]) {
+          final storage = Uint8List(length + offset + 5);
+          for (var i = 0; i < length; i++) {
+            storage[offset + i] = i & 255;
+          }
+          final view = Uint8List.sublistView(storage, offset, offset + length);
+          final payload = readOnly ? view.asUnmodifiableView() : view;
+          final codec = flatbuffers.Serializer();
+          final fragments = codec.serializeFragments(call(payload))!;
+          if (length > 0) {
+            expect(fragments.any((part) => identical(part, payload)), isTrue);
+          }
+          final encoded = join(fragments);
+          validateWampFlatBuffer(encoded);
+          final body = wire.Message(encoded).msg as wire.Call;
+          expect(body.args, cbor.encode(CborValue([payload])));
+          expect(body.payload, isNull);
+          expect(
+            (codec.deserialize(encoded) as Call).wireArguments!.single,
+            payload,
+          );
+        }
+      }
+    }
+  });
+  test(
+    'typed PPT fragment selection follows effective metadata and crypto flags',
+    () {
+      final payload = Uint8List.fromList([1, 2, 3]);
+      final codec = flatbuffers.Serializer();
+      for (final metadata in <Map<String, dynamic>>[
+        {},
+        {'ppt_scheme': '', 'ppt_serializer': 'flatbuffers'},
+        {'ppt_scheme': 'wamp', 'ppt_serializer': 'flatbuffers'},
+        {'ppt_scheme': 'x_typed', 'ppt_serializer': 'cbor'},
+        {
+          'ppt_scheme': 'x_typed',
+          'ppt_serializer': 'flatbuffers',
+          'ppt_cipher': 'xsalsa20poly1305',
+        },
+        {
+          'ppt_scheme': 'x_typed',
+          'ppt_serializer': 'flatbuffers',
+          'ppt_keyid': 'key',
+        },
+      ]) {
+        final message = call(payload);
+        codec.retainMetadataValues(message, metadata);
+        final fragments = codec.serializeFragments(message)!;
+        expect(
+          fragments.any((part) => identical(part, payload)),
+          isFalse,
+          reason: '$metadata',
+        );
+      }
+      final message = Call(7, 'com.proc', arguments: [payload]);
+      codec.retainMetadataValues(message, {
+        'ppt_scheme': 'x_typed',
+        'ppt_serializer': 'flatbuffers',
+      });
+      expect(
+        codec
+            .serializeFragments(message)!
+            .any((part) => identical(part, payload)),
+        isTrue,
+      );
+    },
+  );
+  test('typed PPT fragmentation preserves explicit and lazy kwargs', () {
+    final payload = Uint8List.fromList([1, 2, 3]);
+    final codec = flatbuffers.Serializer();
+    final fragments = codec.serializeFragments(call(payload, kwargs: {}))!;
+    expect(fragments.any((part) => identical(part, payload)), isFalse);
+    expect((wire.Message(join(fragments)).msg as wire.Call).kwargs, isNotNull);
+    final encodedArgs = Uint8List.fromList(cbor.encode(CborValue([payload])));
+    final encodedKwargs = Uint8List.fromList(
+      cbor.encode(CborValue(<String, dynamic>{})),
+    );
+    final message = call(payload)
+      ..setLazyPayload(
+        encoding: LazyPayloadEncoding.cbor,
+        argumentsBytes: encodedArgs,
+        argumentsKeywordsBytes: encodedKwargs,
+        argumentsDecoder: (_) => throw StateError('Decoded arguments'),
+        argumentsKeywordsDecoder: (_) => throw StateError('Decoded keywords'),
+      );
+    final lazyFragments = codec.serializeFragments(message)!;
+    expect(lazyFragments.any((part) => identical(part, encodedArgs)), isTrue);
+    expect(lazyFragments.any((part) => identical(part, encodedKwargs)), isTrue);
+  });
+  test('typed PPT fragmentation keeps the existing byte budget', () {
+    expect(
+      () => flatbuffers.Serializer().serializeFragments(
+        call(Uint8List(67108865)),
+      ),
+      throwsArgumentError,
+    );
+  });
 }
