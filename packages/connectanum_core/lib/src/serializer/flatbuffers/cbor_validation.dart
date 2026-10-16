@@ -197,11 +197,13 @@ class _Scanner {
     return true;
   }
 
-  void utf8Range(int start, int end) {
+  bool utf8Range(int start, int end) {
+    var ascii = true;
     var index = start;
     while (index < end) {
       final first = bytes[index++];
       if (first < 128) continue;
+      ascii = false;
       final int count;
       final int low;
       final int high;
@@ -229,6 +231,7 @@ class _Scanner {
         index++;
       }
     }
+    return ascii;
   }
 
   String? string(int major, int info, {bool key = false}) {
@@ -236,10 +239,11 @@ class _Scanner {
       final count = length(chunkInfo);
       final start = cursor;
       skip(count);
-      if (major == 3) utf8Range(start, cursor);
-      return key
-          ? utf8.decode(Uint8List.sublistView(bytes, start, cursor))
-          : null;
+      final ascii = major == 3 && utf8Range(start, cursor);
+      if (!key) return null;
+      return ascii
+          ? String.fromCharCodes(bytes, start, cursor)
+          : utf8.decode(Uint8List.sublistView(bytes, start, cursor));
     }
 
     if (info != 31) return chunk(info);

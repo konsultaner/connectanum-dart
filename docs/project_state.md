@@ -6,6 +6,18 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Current candidate (2026-10-16): a pinned, licensed SDK-derived VM builder
+bulk-copies typed byte vectors through the standard Builder API. Web retains the
+SDK backend after a read-only alias regression. Bool staging is eliminated and
+owned UTF-8 staging is observed as framing copies. All outgoing checks remain.
+Checks pass: 3,386 serializer VM / 3,391 JS / 3,381 Wasm, 30 native-owner cases,
+analysis, all 154 mutation proofs, generated bindings, and independent 33/42
+fixture plus 25-message interoperability. Component bulk-writer time is about
+1% of the SDK byte loop; no macro parity is claimed. Final full verification,
+renewed live accounting, hosted consumers and the Linux comparison are pending.
+Actual encoded-size measurement and extension diagnostics remain blockers.
+See [bulk writer evidence](research/2026-10-16-flatbuffers-bulk-byte-writer.md).
+
 Current checkpoint (2026-10-16): `5dda2ecd` passes `bin/test-fast`, focused
 VM/JS/Wasm ownership checks, all 120 renewed copy cases with 3,099 unchanged
 inputs, and 170 audited five-platform production consumers with zero skips.

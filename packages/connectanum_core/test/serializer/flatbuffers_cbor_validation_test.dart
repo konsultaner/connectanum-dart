@@ -9,6 +9,35 @@ import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart
 Uint8List bytes(List<int> values) => Uint8List.fromList(values);
 
 void main() {
+  test('ASCII and Unicode metadata text preserves logical readonly ranges', () {
+    for (final value in ['\u0000ASCII\u007f', 'é€🧪']) {
+      final encoded = bytes(cbor.encode(CborValue({'\u0000\u007f': value})));
+      for (var offset = 0; offset < 8; offset++) {
+        final backing = Uint8List(encoded.length + offset + 7)
+          ..fillRange(0, encoded.length + offset + 7, 255)
+          ..setRange(offset, offset + encoded.length, encoded);
+        final view = Uint8List.sublistView(
+          backing,
+          offset,
+          offset + encoded.length,
+        ).asUnmodifiableView();
+        expect(decodeFlatBufferMetadata(view), {'\u0000\u007f': value});
+      }
+    }
+    expect(
+      decodeFlatBufferMetadata(
+        bytes([0xa1, 0x61, 0x6b, 0x7f, 0x61, 0, 0x61, 127, 0xff]),
+      ),
+      {'k': '\u0000\u007f'},
+    );
+    // UTF-8 code points cannot be split across indefinite text chunks.
+    expect(
+      () => decodeFlatBufferMetadata(
+        bytes([0xa1, 0x61, 0x6b, 0x7f, 0x61, 0xc3, 0x61, 0xa9, 0xff]),
+      ),
+      throwsFormatException,
+    );
+  });
   _singlePassMetadataCases();
   group('scalar metadata decoding', _scalarMetadataDecodeCases);
   test(

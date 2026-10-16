@@ -189,6 +189,10 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 - `packages/connectanum_core/lib/flatbuffers_serializer.dart` exports the public
   stateless codec, portable builder, direct model writer and same-builder vector
   references. Client/facade exports provide the same serializer surface.
+- `byte_vector_builder.dart` selects the SDK-compatible bulk-copy VM backend
+  or the standard web SDK builder. The VM implementation's upstream source
+  manifest/license sit in `flatbuffers/upstream/`; wrapper counters observe
+  byte-vector/growth copies and the backend observes its UTF-8 staging.
 - `native/transport/ct_core/src/wamp/flatbuffers_wire.rs` and
   `flatbuffers_cbor.rs` validate incoming frames and encoded application spans.
   `flatbuffers_codec.rs` reconstructs native models; `flatbuffers_projection.rs`
