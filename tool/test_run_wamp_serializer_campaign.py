@@ -211,7 +211,18 @@ with (root / 'driver-results.jsonl').open('wb') as stream:
 
     def test_extension_prepare_declares_complete_diagnostic_inventory(self):
         output = self.root / 'extensions'
-        with mock.patch.object(campaign, 'LOCK', self.root / 'lock'):
+        fixture_root = self.root / 'metadata-fixture'
+        for name in ('pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.lock'):
+            path = fixture_root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('explicit synthetic lockfile for preparation fixture\n')
+        def fixture_command(command, root):
+            if command[:2] == ['git', 'status']:
+                return ''
+            return 'a' * 40 if command[:2] == ['git', 'rev-parse'] else 'synthetic fixture tool version'
+        with mock.patch.object(campaign, 'LOCK', self.root / 'lock'), \
+             mock.patch.object(campaign, 'ROOT', fixture_root), \
+             mock.patch.object(campaign, 'command_output', side_effect=fixture_command):
             self.assertEqual(campaign.main(self.cli_args(output) + ['--extension-diagnostics']), 0)
         manifest = json.loads((output / 'manifest.json').read_text())
         self.assertEqual(manifest['metadata']['campaign_kind'], 'extension_diagnostic')
