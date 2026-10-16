@@ -1,10 +1,24 @@
 # Project State
 
-Last updated: 2026-10-16.
+Last updated: 2026-10-17.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
+
+Current native envelope candidate (2026-10-17): source `b2fb8b63` passes
+frozen full `bin/verify`, 300 short supplemental rows, 120 accounting cases and
+36 progressive combinations with all 3,124 inputs unchanged. Its strict Linux
+90-row diagnostic still fails parity (CPU 1.0099 / 1.0057 / 1.0038), with all
+allocation comparisons passing and additional throughput/latency/GC/RSS failures.
+A fail-first regression now motivates keeping a single borrowed application's
+vector header in the native envelope, removing its separate header allocation.
+All 386 core, 26 segmented-forwarding FFI and 26 FlatBuffers FFI tests pass,
+including generated verification, original owners and multi-vector fallback.
+Fresh production copy/volume and performance evidence is pending; no acceptance
+budget, workload, measurement floor or dependency scope changes. See the checked
+terminal-vector research. PR #132 remains draft for unmet parity; #130 still
+requires independent review.
 
 Current fully represented CALL candidate: a fresh audited Linux profile on
 `65833214` still captures 24 inclusive native-metadata retention ticks (diagnostic

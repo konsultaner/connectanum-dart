@@ -18,6 +18,7 @@ pub(super) fn write(fields: &Fields) -> Result<Bytes, ParseError> {
         tables: 0,
         estimated: 0,
         deferred: None,
+        terminal_vector: None,
     };
     let root = writer.table(fields, schema::ROOT, 1)?;
     writer.builder.finish(root, None);
@@ -45,26 +46,62 @@ struct Writer<'a> {
     tables: usize,
     estimated: usize,
     deferred: Option<Vec<DeferredVector>>,
+    terminal_vector: Option<WIPOffset<UnionWIPOffset>>,
 }
 
 /// Keep application vectors in their existing owners and append them after the
 /// newly built envelope. Only bounded metadata and vector headers are allocated.
 pub(super) fn write_segments(fields: &Fields) -> Result<Vec<Bytes>, ParseError> {
+    let mut builder = FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256));
+    // The builder grows backwards. A vector created first ends the envelope,
+    // so its header can directly precede one borrowed application span.
+    let single_vector = match fields.get("msg") {
+        Some(Value::Table(body)) => {
+            ["args", "kwargs", "payload"]
+                .iter()
+                .filter(|key| matches!(body.get(**key), Some(Value::Bytes(_))))
+                .count()
+                == 1
+        }
+        _ => false,
+    };
+    let terminal_vector = single_vector.then(|| builder.create_vector::<u8>(&[]).as_union_value());
     let mut writer = Writer {
-        builder: FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256)),
+        builder,
         strings: 0,
         elements: 0,
         tables: 0,
         estimated: 0,
         deferred: Some(Vec::new()),
+        terminal_vector,
     };
     let root = writer.table(fields, schema::ROOT, 1)?;
     writer.builder.finish(root, None);
     let (allocator, start) = writer.builder.collapse_in();
     let mut allocation = allocator.into_vec();
     let mut length = allocation.len() - start;
+    let mut deferred = writer.deferred.unwrap_or_default();
+    if let Some(vector) = terminal_vector.filter(|_| deferred.len() == 1) {
+        let bytes = deferred.pop().unwrap().bytes;
+        let header = allocation
+            .len()
+            .checked_sub(vector.value() as usize)
+            .ok_or_else(|| wire::invalid("vector offset"))?;
+        if header.checked_add(4) != Some(allocation.len()) {
+            return Err(wire::invalid("terminal vector offset"));
+        }
+        length = length
+            .checked_add(bytes.len())
+            .ok_or_else(|| wire::invalid("byte limit"))?;
+        if length > wire::MAX_BYTES {
+            return Err(wire::invalid("byte limit"));
+        }
+        let count = u32::try_from(bytes.len()).map_err(|_| wire::invalid("vector limit"))?;
+        allocation[header..].copy_from_slice(&count.to_le_bytes());
+        return Ok(vec![Bytes::from(allocation).slice(start..), bytes]);
+    }
     let mut segments = vec![Bytes::new()];
-    for vector in writer.deferred.unwrap_or_default() {
+    for vector in deferred {
         let table = allocation
             .len()
             .checked_sub(vector.table as usize)
@@ -221,10 +258,10 @@ impl Writer<'_> {
                     if self.deferred.is_some()
                         && matches!(field.name, "args" | "kwargs" | "payload")
                     {
-                        Slot::Borrowed(
-                            self.builder.create_vector::<u8>(&[]).as_union_value(),
-                            bytes.clone(),
-                        )
+                        let offset = self.terminal_vector.take().unwrap_or_else(|| {
+                            self.builder.create_vector::<u8>(&[]).as_union_value()
+                        });
+                        Slot::Borrowed(offset, bytes.clone())
                     } else {
                         let offset = self.builder.create_vector(bytes.as_ref()).as_union_value();
                         codec_copy_metrics::record_vector_copy(bytes.len());
@@ -353,6 +390,7 @@ mod copy_tests {
             tables: 0,
             estimated: 0,
             deferred: None,
+            terminal_vector: None,
         };
         for text in ["", "écho", "routing.name"] {
             let before = codec_copy_metrics::observed_on_current_thread();

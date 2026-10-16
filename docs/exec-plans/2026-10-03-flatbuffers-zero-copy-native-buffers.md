@@ -11,6 +11,20 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Current native envelope candidate (2026-10-17): source `b2fb8b63` passes
+frozen full `bin/verify`, 300 short supplemental rows, 120 accounting cases and
+36 progressive combinations with all 3,124 inputs unchanged. Its strict Linux
+90-row diagnostic still fails parity (CPU 1.0099 / 1.0057 / 1.0038), with all
+allocation comparisons passing and additional throughput/latency/GC/RSS failures.
+A fail-first regression now motivates keeping a single borrowed application's
+vector header in the native envelope, removing its separate header allocation.
+All 386 core, 26 segmented-forwarding FFI and 26 FlatBuffers FFI tests pass,
+including generated verification, original owners and multi-vector fallback.
+Fresh production copy/volume and performance evidence is pending; no acceptance
+budget, workload, measurement floor or dependency scope changes. See the checked
+terminal-vector research. PR #132 remains draft for unmet parity; #130 still
+requires independent review.
+
 Current fully represented CALL candidate: a fresh audited Linux profile on
 `65833214` still captures 24 inclusive native-metadata retention ticks (diagnostic
 only). A limited complete-grammar match now avoids the custom loader and retained

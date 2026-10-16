@@ -12,6 +12,14 @@ fn guarded(bytes: Vec<u8>) -> Bytes {
 
 fn assert_segments(message: WampMessage, payload: Payload) {
     let segments = encode_flatbuffers_message_segments(&message).unwrap();
+    let vectors = [&payload.args, &payload.kwargs, &payload.transparent]
+        .into_iter()
+        .flatten()
+        .count();
+    assert_eq!(
+        segments.len(),
+        if vectors == 1 { 2 } else { 1 + 2 * vectors }
+    );
     for bytes in [&payload.args, &payload.kwargs, &payload.transparent]
         .into_iter()
         .flatten()
@@ -391,4 +399,81 @@ fn composition_preserves_validated_metadata_bytes_without_reencoding() {
         }
         _ => panic!("expected CALL"),
     }
+}
+
+#[test]
+fn flatbuffers_single_application_vector_uses_only_envelope_and_original_owner() {
+    for request_id in [0, 1, 9_007_199_254_740_992] {
+        for length in (0..40).chain([128 * 1024]) {
+            for kind in 0..3 {
+                let bytes = guarded(match kind {
+                    0 => serde_cbor::to_vec(&Value::Seq(vec![Value::Bytes(vec![0x5a; length])]))
+                        .unwrap(),
+                    1 => serde_cbor::to_vec(&Value::Map(ValueMap::from([(
+                        Value::String("value".into()),
+                        Value::Bytes(vec![0x5a; length]),
+                    )])))
+                    .unwrap(),
+                    _ => vec![0x5a; length],
+                });
+                let mut payload = Payload::default();
+                *match kind {
+                    0 => &mut payload.args,
+                    1 => &mut payload.kwargs,
+                    _ => &mut payload.transparent,
+                } = Some(bytes.clone());
+                // Force several builder reallocations after the placeholder.
+                let details = ValueMap::from([(
+                    Value::String("vendor".into()),
+                    Value::String("x".repeat(4096)),
+                )]);
+                let message = WampMessage::Result {
+                    request_id,
+                    details,
+                    payload: payload.clone(),
+                };
+                let segments = encode_flatbuffers_message_segments(&message).unwrap();
+                assert_eq!(
+                    segments.len(),
+                    2,
+                    "one vector needs only its envelope and original owner"
+                );
+                assert_eq!(segments[1].as_ptr(), bytes.as_ptr());
+                assert_eq!(segments[1].len(), bytes.len());
+                let header = &segments[0];
+                assert_eq!(
+                    u32::from_le_bytes(header[header.len() - 4..].try_into().unwrap()) as usize,
+                    bytes.len()
+                );
+                assert_segments(message, payload);
+                drop(bytes);
+                let wire = segments
+                    .iter()
+                    .flat_map(|part| part.iter().copied())
+                    .collect::<Vec<_>>();
+                super::flatbuffers_generated::wamp::proto::root_as_message(&wire).unwrap();
+                parse_message(crate::rawsocket::Serializer::Flatbuffers, Bytes::from(wire))
+                    .unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn flatbuffers_two_application_vectors_keep_independent_headers_and_owners() {
+    let payload = Payload {
+        args: Some(guarded(vec![0x81, 0x01])),
+        kwargs: Some(guarded(vec![0xa0])),
+        transparent: None,
+    };
+    let message = WampMessage::Result {
+        request_id: 1,
+        details: ValueMap::new(),
+        payload: payload.clone(),
+    };
+    assert_eq!(
+        encode_flatbuffers_message_segments(&message).unwrap().len(),
+        5
+    );
+    assert_segments(message, payload);
 }
