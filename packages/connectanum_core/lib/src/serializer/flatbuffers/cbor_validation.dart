@@ -24,6 +24,30 @@ void validateFlatBufferCbor(
   bool stringDictionaryKeys = false,
   bool rootStringDictionaryKeys = false,
   FlatBufferCborLimits limits = const FlatBufferCborLimits(),
+}) => _validateFlatBufferCbor(
+  bytes,
+  rootMajor: rootMajor,
+  stringDictionaryKeys: stringDictionaryKeys,
+  rootStringDictionaryKeys: rootStringDictionaryKeys,
+  limits: limits,
+);
+
+/// Validate native metadata immediately. Tagged values keep eager decoding:
+/// semantic tag handlers can reject well-formed CBOR (for example bad dates).
+bool validateDeferredFlatBufferMetadata(Uint8List bytes) =>
+    !_validateFlatBufferCbor(
+      bytes,
+      rootMajor: 5,
+      stringDictionaryKeys: true,
+      limits: const FlatBufferCborLimits(maxBytes: 1048576),
+    ).hasTags;
+
+_Scanner _validateFlatBufferCbor(
+  Uint8List bytes, {
+  int? rootMajor,
+  bool stringDictionaryKeys = false,
+  bool rootStringDictionaryKeys = false,
+  FlatBufferCborLimits limits = const FlatBufferCborLimits(),
 }) {
   if (limits.maxBytes < 0 || limits.maxDepth < 1 || limits.maxItems < 1) {
     throw ArgumentError('Invalid CBOR validation limits');
@@ -41,6 +65,7 @@ void validateFlatBufferCbor(
   );
   scanner.value(0);
   if (scanner.cursor != bytes.length) scanner.invalid('trailing values');
+  return scanner;
 }
 
 Map<String, dynamic> decodeFlatBufferMetadata(Uint8List bytes) {
@@ -139,6 +164,7 @@ Object? _normalize(Object? value) {
 }
 
 class _Scanner {
+  bool hasTags = false;
   _Scanner(
     this.bytes,
     this.limits,
@@ -295,6 +321,7 @@ class _Scanner {
           index++;
         }
       case 6:
+        hasTags = true;
         if (depth >= limits.maxDepth) invalid('depth limit');
         if (info >= 24) skip(width(info));
         value(depth + 1);

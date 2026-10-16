@@ -6,6 +6,15 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Deferred validation repair: a bounded 10,240-value tag diagnostic finds two
+well-formed date-tag values rejected by the materializer. A fail-first native
+retention test confirms rejection moved to resend. Tagged dictionaries now
+retain eager semantic decoding; tag-free dictionaries keep deferred snapshots.
+Tags nested in metadata are detected, while byte-string contents stay opaque.
+All 312 focused VM and 160 Chrome/WASM cases pass; focused analysis is clean.
+The superseded `a353ce56` proof/diagnostic attempts are stopped and preserved;
+no resulting-source full verification or parity is claimed for them.
+
 Current deferred-metadata candidate (2026-10-16): the hosted Linux profile
 passes source/PID/window/report/map audits, with 46 inclusive Dart retention
 ticks (not a CPU-cost or parity result). Native perf Dart addresses remain

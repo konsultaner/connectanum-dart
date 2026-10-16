@@ -11,6 +11,15 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Deferred validation repair: a bounded 10,240-value tag diagnostic finds two
+well-formed date-tag values rejected by the materializer. A fail-first native
+retention test confirms rejection moved to resend. Tagged dictionaries now
+retain eager semantic decoding; tag-free dictionaries keep deferred snapshots.
+Tags nested in metadata are detected, while byte-string contents stay opaque.
+All 312 focused VM and 160 Chrome/WASM cases pass; focused analysis is clean.
+The superseded `a353ce56` proof/diagnostic attempts are stopped and preserved;
+no resulting-source full verification or parity is claimed for them.
+
 Current deferred-metadata candidate (2026-10-16): the hosted Linux profile
 passes source/PID/window/report/map audits, with 46 inclusive Dart retention
 ticks (not a CPU-cost or parity result). Native perf Dart addresses remain
