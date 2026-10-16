@@ -17,6 +17,24 @@ import urllib.request
 
 import run_wamp_serializer_campaign as campaign
 
+PROFILE_CASES = {
+    case['id']: {'client_impl': case['client_impl'], 'payload_construction': case['construction']}
+    for case in campaign.primary_cases()
+    if case['id'] in {
+        'rpc_rawsocket_clear_dart_values',
+        'rpc_rawsocket_clear_native_native_buffer',
+        'rpc_rawsocket_clear_native_pre_encoded_span',
+    }
+}
+DEFAULT_CASE = 'rpc_rawsocket_clear_native_native_buffer'
+
+
+def profile_target(case_id):
+    if case_id not in PROFILE_CASES:
+        raise ValueError(f'Unsupported CPU profile case: {case_id}')
+    return dict(PROFILE_CASES[case_id])
+
+
 CPU_PROBE = r'''
 import 'dart:async';
 import 'dart:convert';
@@ -24,21 +42,24 @@ import 'dart:io';
 import 'package:vm_service/vm_service_io.dart';
 
 Future<void> main(List<String> args) async {
+  // Args: control URL, router service, client service, output, perf, target JSON.
   final services = {
     'router': await vmServiceConnectUri(Uri.parse(args[1]).replace(scheme: 'ws').resolve('ws').toString()),
     'client': await vmServiceConnectUri(Uri.parse(args[2]).replace(scheme: 'ws').resolve('ws').toString()),
   };
   final output = Directory(args[3]);
+  final target = (jsonDecode(args[5]) as Map).cast<String, dynamic>();
   final http = HttpClient()..badCertificateCallback = ((cert, host, port) => host == 'localhost');
   Future<Map<String, dynamic>> run(String codec, int milliseconds, String label) async {
-    final scenario = {'transport': 'rawsocket', 'serializer': codec, 'client_impl': 'native',
+    final scenario = {'transport': 'rawsocket', 'serializer': codec, ...target,
       'secure_transport': false, 'mode': 'rpc', 'uri': 'bench.rpc.echo',
       'iterations': 1000, 'minimum_duration_ms': milliseconds, 'concurrency': 1,
-      'payload_bytes': 65536, 'payload_construction': 'native_buffer',
+      'payload_bytes': 65536,
       'ppt_scheme': 'x_connectanum_bench_typed', 'ppt_serializer': codec};
     final request = await http.postUrl(Uri.parse(args[0]));
     request.headers.contentType = ContentType.json;
     final bodyBytes = utf8.encode(jsonEncode(scenario));
+    File('${output.path}/$codec-$label-request.json').writeAsBytesSync(bodyBytes);
     request.contentLength = bodyBytes.length;
     request.add(bodyBytes);
     final response = await request.close();
@@ -137,13 +158,19 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def main():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--native-lib', required=True, type=Path)
     parser.add_argument('--perf', default='', help='Absolute Linux perf executable; omitted native sampling is labelled unmeasured')
     parser.add_argument('--dart', default='dart')
-    args = parser.parse_args()
+    parser.add_argument('--case', dest='profile_case', choices=sorted(PROFILE_CASES), default=DEFAULT_CASE,
+                        help='Canonical diagnostic case to profile; never parity acceptance')
+    return parser.parse_args(argv)
+
+
+def main():
+    args = parse_args()
     with campaign.LOCK.open('a') as lease:
         fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if campaign.interfering_jobs():
@@ -153,6 +180,7 @@ def main():
 
 def profile(args):
     root = Path(__file__).resolve().parents[1]
+    target = profile_target(args.profile_case)
     output = args.output.resolve(); output.mkdir(parents=True, exist_ok=False)
     library = args.native_lib.resolve(strict=True)
     library_digest = digest(library)
@@ -197,9 +225,10 @@ def profile(args):
     try:
         if not ready.wait(120): raise RuntimeError('profiling server did not become ready')
         control = f'https://localhost:{ports[0]}/bench/wamp'
-        scenario = dict(transport='rawsocket', serializer='flatbuffers', client_impl='native', secure_transport=False,
+        scenario = dict(transport='rawsocket', serializer='flatbuffers', **target, secure_transport=False,
                         mode='rpc', uri='bench.rpc.echo', iterations=10, concurrency=1, payload_bytes=65536,
-                        payload_construction='native_buffer', ppt_scheme='x_connectanum_bench_typed', ppt_serializer='flatbuffers')
+                        ppt_scheme='x_connectanum_bench_typed', ppt_serializer='flatbuffers')
+        (output/'initial-request.json').write_text(json.dumps(scenario, indent=2)+'\n')
         request = urllib.request.Request(control, data=json.dumps(scenario).encode(), headers={'content-type': 'application/json'})
         with urllib.request.urlopen(request, context=ssl.create_default_context(cafile=str(root/'native/bench/bench_tls.crt')), timeout=120) as response:
             (output/'initial-http.json').write_bytes(response.read())
@@ -207,7 +236,7 @@ def profile(args):
         monitoring = threading.Thread(target=watch, daemon=True); monitoring.start()
         with (output/'cpu-summary.jsonl').open('w') as log:
             result = subprocess.run([args.dart, '--packages='+str(root/'.dart_tool/package_config.json'), str(output/'probe.dart'),
-                control, (output/'server-uri.txt').read_text(), (output/'worker-uri.txt').read_text(), str(output), args.perf],
+                control, (output/'server-uri.txt').read_text(), (output/'worker-uri.txt').read_text(), str(output), args.perf, json.dumps(target)],
                 cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=300)
         status = result.returncode
     finally:
@@ -223,7 +252,8 @@ def profile(args):
         thread.join(timeout=5)
         changed = [p for p, h in inputs.items() if not (root/p).is_file() or digest(root/p) != h]
         after = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
-        audit = {'kind': 'cpu_profile_only_never_acceptance', 'head': head, 'inputs': inputs,
+        audit = {'kind': 'cpu_profile_only_never_acceptance', 'case_id': args.profile_case,
+                 'requested_configuration': target, 'head': head, 'inputs': inputs,
                  'inputs_unchanged': not changed and head == after, 'changed': changed,
                  'native_library_sha256': library_digest, 'native_library_unchanged': digest(library) == library_digest,
                  'platform': platform.uname()._asdict(), 'perf': args.perf or 'not_measured',

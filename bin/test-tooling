@@ -20,6 +20,7 @@ python3 tool/test_dart_heap_allocation_evidence.py
 python3 tool/test_wamp_serializer_compare.py
 python3 tool/test_owned_copy_evidence.py
 python3 tool/test_run_wamp_serializer_campaign.py
+python3 tool/test_profile_wamp_serializers.py
 python3 tool/test_merge_wamp_extension_campaigns.py
 python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py

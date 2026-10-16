@@ -35,9 +35,20 @@ fail-first assertions now pass, alongside two existing store-error controls;
 all 109 session tests pass with default and enabled native forwarding. Analysis
 passes with the same 30 existing infos. The rejected-volume gate is unchanged.
 See [the checked research](../research/2026-10-16-wamp-late-cancellation-responses.md).
-Renewed complete live accounting and resulting-source full/hosted verification
-remain required. A strict Linux timing diagnostic is running on `c15f2185`;
-no new performance acceptance or milestone closure is claimed.
+Renewed 300 short supplemental rows, 120 independent accounting cases and
+36 progressive combinations pass on `895ff3d9`; full frozen and hosted checks
+are running. The strict `c15f2185` Linux diagnostic completes all 90 rows and
+validates 180 allocation observations, but CPU ratios 1.0867 / 1.0254 / 1.0216
+and other throughput/latency/GC/RSS gates fail. One lifetime-RSS observation is
+explicitly unavailable. No performance acceptance or milestone closure is claimed.
+
+CPU profiling now selects each of the three canonical diagnostic construction
+paths explicitly; the default remains native/native-buffer. Five mocked
+orchestration tests check startup/probe/audit attribution, unsupported selections
+and independent targets. The actual Dart SDK verifies the six probe argument
+positions; generated-probe analysis has no errors and workflow actionlint passes.
+Per-request JSON and selected-case provenance are retained. Resulting-source
+hosted profiling remains pending and never supplies primary acceptance.
 
 Active native candidate (2026-10-16): a fail-first typed-send regression observes
 172 native control-string copy bytes. The private canonical Call/Publish path now

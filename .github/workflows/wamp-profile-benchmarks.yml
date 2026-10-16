@@ -29,6 +29,15 @@ on:
           - flatbuffers_diagnostic
           - flatbuffers_extensions
           - flatbuffers_profile
+      profile_case:
+        description: Canonical case used only by the CPU profiling diagnostic
+        required: false
+        default: rpc_rawsocket_clear_native_native_buffer
+        type: choice
+        options:
+          - rpc_rawsocket_clear_dart_values
+          - rpc_rawsocket_clear_native_native_buffer
+          - rpc_rawsocket_clear_native_pre_encoded_span
       router_worker_counts:
         description: Router worker counts passed to the bench orchestrator
         required: false
@@ -318,12 +327,14 @@ jobs:
       - name: Capture Dart and native CPU stacks
         env:
           RUSTFLAGS: -C force-frame-pointers=yes -C debuginfo=1
+          INPUT_PROFILE_CASE: ${{ inputs.profile_case || 'rpc_rawsocket_clear_native_native_buffer' }}
         run: |
           set -euo pipefail
           python3 tool/profile_wamp_serializers.py \
             --output out/wamp-flatbuffers-profile/cpu \
             --native-lib out/wamp-flatbuffers-profile/setup/libct_ffi.so \
             --perf "$CONNECTANUM_PROFILE_PERF" \
+            --case "$INPUT_PROFILE_CASE" \
             2>&1 | tee out/wamp-flatbuffers-profile/capture.log
       - name: Explain profiling scope
         if: always()
