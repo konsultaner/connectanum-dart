@@ -6,6 +6,13 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+The complete local tooling run on `10d21c49` also reproduces a stale exact
+router-test-list assertion in the mutation-runner tests. Its expected list now
+includes the new router regression, while the client list remains exact. All
+93 runner checks (one existing skip) and the remaining five tooling scripts pass.
+The full tooling prefix had passed before that assertion. Fresh whole-tooling
+and hosted checks are required on the repaired fixture; no gate is loosened.
+
 Serializer mutation inventory repair: the hosted `b4e2b4ea` Fast Checks failure
 reproduces five omissions of the new core metadata test. All four CBOR/MessagePack
 VM/browser support inventories and the shared suite now include it; the router

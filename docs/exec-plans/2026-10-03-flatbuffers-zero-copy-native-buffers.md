@@ -11,6 +11,13 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+The complete local tooling run on `10d21c49` also reproduces a stale exact
+router-test-list assertion in the mutation-runner tests. Its expected list now
+includes the new router regression, while the client list remains exact. All
+93 runner checks (one existing skip) and the remaining five tooling scripts pass.
+The full tooling prefix had passed before that assertion. Fresh whole-tooling
+and hosted checks are required on the repaired fixture; no gate is loosened.
+
 Serializer mutation inventory repair: the hosted `b4e2b4ea` Fast Checks failure
 reproduces five omissions of the new core metadata test. All four CBOR/MessagePack
 VM/browser support inventories and the shared suite now include it; the router

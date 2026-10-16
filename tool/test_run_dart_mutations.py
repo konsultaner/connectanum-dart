@@ -528,9 +528,13 @@ class MutationRunnerTests(unittest.TestCase):
                 self.assertEqual(target['sources'], [
                     f'{prefix}/lib/src/{directory}/message_binding.dart',
                 ])
-                self.assertEqual(target['tests'], [
+                expected_tests = [
                     f'{prefix}/test/{directory}/message_binding_test.dart',
-                ])
+                ]
+                if package == 'router':
+                    expected_tests.append(
+                        f'{prefix}/test/native/flatbuffers_deferred_metadata_test.dart')
+                self.assertEqual(target['tests'], expected_tests)
                 self.assertIn(
                     'packages/connectanum_core/test/support/native_role_contract.dart',
                     target['supportFiles'],
