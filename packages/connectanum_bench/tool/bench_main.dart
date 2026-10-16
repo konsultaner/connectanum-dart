@@ -884,6 +884,9 @@ class _BenchControlRegistry {
       'gc_count_delta': measured.gcCount,
       'gc_pause_us_delta': measured.gcPauseMicros,
       'peak_rss_during_bytes': measured.peakRssBytes,
+      if (Platform.isLinux && rssSnapshot != null)
+        'rss_lifetime_max_read_attempts_bytes':
+            rssSnapshot.lifetimeMaxReadAttemptsBytes,
     };
   }
 

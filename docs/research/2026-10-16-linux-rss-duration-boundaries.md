@@ -50,3 +50,36 @@ weakening ownership, interoperability or read-only-input behavior.
 Every original performance budget, primary case, duration, repetition, sample
 minimum, mutation inventory and coverage floor remains in force. The full
 campaign must run again after measurement repairs and credible diagnostic parity.
+
+## Following Linux observations
+
+Source `25862a53` passes frozen full `bin/verify` with all 3,098 inputs and HEAD
+unchanged. Its 90-row Linux campaign has 180 independently validated allocation
+observations and valid RSS/duration/sample boundaries, but numerical parity fails.
+
+The concrete word writer at `5dda2ecd` reduces Linux CPU ratios to
+1.1590 / 1.1782 / 1.1633. Native-buffer allocation remains 1.0634. All 120 renewed
+copy cases and 170 audited five-platform consumer checks pass; `bin/test-fast`
+and focused VM/JavaScript/Wasm ownership regressions pass. Full verification of
+the writer remains required. No primary acceptance is claimed.
+
+One MessagePack client endpoint in the following 90-row diagnostic is null for
+the lifetime maximum, with live/sampled peak 414,035,968 bytes. The rejected raw
+maximum was not retained, so its exact cause is unproven. Linux documents
+[asynchronous, approximate RSS accounting](https://www.kernel.org/doc/html/v6.10/filesystems/proc.html)
+and labels both [VmRSS and VmHWM inaccurate](https://man7.org/linux/man-pages/man5/proc_pid_status.5.html).
+This supports handling transient inconsistent readings; it does not justify
+inventing an upward maximum or accepting a missing value.
+
+The sampler now rereads only a positive below-peak maximum, up to three actual
+reads total, with an event-loop turn between attempts. Equal maxima, missing
+values, exceptions and invalid values stop immediately. Persistent contradiction
+remains null. All attempted readings survive Dart/Rust report serialization.
+Two deterministic regressions fail before this change and pass afterward;
+an equality/exception test rejects the advisory review's two control-flow claims.
+All 30 focused Dart and 32 Rust library / 139 Rust driver cases pass. Budgets,
+sample windows and 50 ms sampling remain unchanged.
+
+The comparison also labels application-byte totals as `wire_bytes`. Actual
+encoded WAMP message volume still needs a separate measured boundary; renaming
+logical bytes alone cannot satisfy the encoded-size reporting requirement.

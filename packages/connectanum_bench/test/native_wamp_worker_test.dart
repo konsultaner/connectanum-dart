@@ -18,11 +18,17 @@ void main() {
           'rss_before_bytes': 1,
           'current_rss_bytes': null,
           'max_rss_bytes': null,
+          'rss_lifetime_max_read_attempts_bytes': [4096, 4096, null],
           'allocated_bytes_delta': 8192,
           'cpu_user_us_delta': 123,
         });
         expect(metrics.toJson()['current_rss_bytes'], isNull);
         expect(metrics.toJson()['max_rss_bytes'], isNull);
+        expect(metrics.toJson()['rss_lifetime_max_read_attempts_bytes'], [
+          4096,
+          4096,
+          null,
+        ]);
         expect(metrics.allocatedBytesDelta, 8192);
         expect(metrics.cpuUserUsDelta, 123);
       },

@@ -150,6 +150,64 @@ void main() {
     expect(result.peakRssBytes, 16384);
     expect(result.lifetimeMaxRssBytes, 32768);
   });
+
+  test(
+    'RSS rereads a transiently lagging lifetime maximum without inference',
+    () async {
+      var reads = 0;
+      final sampler = DartVmMetricsRssSampler(
+        pid,
+        readRssBytes: () async => 8192,
+        readMaxRssBytes: () async => ++reads == 1 ? 4096 : 16384,
+      );
+      final result = await sampler.stop();
+      expect(reads, 2);
+      expect(result.currentRssBytes, 8192);
+      expect(result.peakRssBytes, 8192);
+      expect(result.lifetimeMaxRssBytes, 16384);
+      expect(result.lifetimeMaxReadAttemptsBytes, [4096, 16384]);
+    },
+  );
+
+  test(
+    'RSS accepts an equal maximum and does not retry missing endpoints',
+    () async {
+      for (final missing in [false, true]) {
+        var reads = 0;
+        final sampler = DartVmMetricsRssSampler(
+          pid,
+          readRssBytes: () async => 8192,
+          readMaxRssBytes: () async {
+            reads++;
+            if (missing) throw const FileSystemException('gone');
+            return 8192;
+          },
+        );
+        final result = await sampler.stop();
+        expect(reads, 1);
+        expect(result.lifetimeMaxRssBytes, missing ? isNull : 8192);
+        expect(result.lifetimeMaxReadAttemptsBytes, missing ? [null] : [8192]);
+      }
+    },
+  );
+
+  test(
+    'RSS bounds contradictory lifetime rereads and never infers a maximum',
+    () async {
+      var reads = 0;
+      final sampler = DartVmMetricsRssSampler(
+        pid,
+        readRssBytes: () async => 8192,
+        readMaxRssBytes: () async => ++reads <= 3 ? 4096 : 16384,
+      );
+      final result = await sampler.stop();
+      expect(reads, 3);
+      expect(result.lifetimeMaxRssBytes, isNull);
+      expect(result.lifetimeMaxReadAttemptsBytes, [4096, 4096, 4096]);
+      expect(result.currentRssBytes, 8192);
+      expect(result.peakRssBytes, 8192);
+    },
+  );
   for (final maximum in <int?>[null, 0, 4096, 9007199254740992]) {
     test(
       'RSS missing or contradictory lifetime maximum stays unavailable: $maximum',

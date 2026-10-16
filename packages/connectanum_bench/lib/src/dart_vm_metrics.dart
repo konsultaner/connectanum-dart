@@ -502,12 +502,14 @@ class DartVmMetricsRssSnapshot {
     required this.currentRssBytes,
     required this.peakRssBytes,
     this.lifetimeMaxRssBytes,
+    this.lifetimeMaxReadAttemptsBytes = const [],
   });
 
   final int? currentRssBytes;
   final int? peakRssBytes;
   // A fresh OS lifetime high-water value, captured after the final live sample.
   final int? lifetimeMaxRssBytes;
+  final List<int?> lifetimeMaxReadAttemptsBytes;
 }
 
 class DartVmMetricsRssSampler {
@@ -571,10 +573,25 @@ class DartVmMetricsRssSampler {
     await _startSample();
     final current = _lastReadSucceeded ? currentRssBytes : null;
     int? maximum;
-    try {
-      maximum = await _readMaxRssBytes();
-    } on FileSystemException {
-      // A process disappearing at the final boundary is unavailable evidence.
+    final attempts = <int?>[];
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        maximum = await _readMaxRssBytes();
+      } on FileSystemException {
+        maximum = null;
+      }
+      attempts.add(maximum);
+      if (current == null ||
+          maximum == null ||
+          maximum <= 0 ||
+          maximum > 9007199254740991 ||
+          maximum >= (peakRssBytes ?? current)) {
+        break;
+      }
+      // Linux RSS accounting can lag between procfs reads. Retain every actual
+      // observation and reread a bounded number of times; never infer a high
+      // water mark from a live sample or replace a missing process value.
+      if (attempt < 2) await Future<void>.delayed(Duration.zero);
     }
     if (current == null ||
         maximum == null ||
@@ -586,6 +603,7 @@ class DartVmMetricsRssSampler {
       currentRssBytes: current,
       peakRssBytes: peakRssBytes,
       lifetimeMaxRssBytes: maximum,
+      lifetimeMaxReadAttemptsBytes: List.unmodifiable(attempts),
     );
   }
 }

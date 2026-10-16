@@ -56,6 +56,7 @@ class NativeWampWorkerProcessMetrics {
     this.gcCountDelta,
     this.gcPauseUsDelta,
     this.peakRssDuringBytes,
+    this.rssLifetimeMaxReadAttemptsBytes,
   });
 
   final int pid;
@@ -69,6 +70,7 @@ class NativeWampWorkerProcessMetrics {
   final int? gcCountDelta;
   final int? gcPauseUsDelta;
   final int? peakRssDuringBytes;
+  final List<int?>? rssLifetimeMaxReadAttemptsBytes;
 
   factory NativeWampWorkerProcessMetrics.fromJson(
     Map<String, Object?> json,
@@ -86,6 +88,10 @@ class NativeWampWorkerProcessMetrics {
     gcCountDelta: (json['gc_count_delta'] as num?)?.toInt(),
     gcPauseUsDelta: (json['gc_pause_us_delta'] as num?)?.toInt(),
     peakRssDuringBytes: (json['peak_rss_during_bytes'] as num?)?.toInt(),
+    rssLifetimeMaxReadAttemptsBytes:
+        json['rss_lifetime_max_read_attempts_bytes'] == null
+        ? null
+        : List<int?>.from(json['rss_lifetime_max_read_attempts_bytes'] as List),
   );
 
   Map<String, Object?> toJson() => {
@@ -102,6 +108,8 @@ class NativeWampWorkerProcessMetrics {
     if (gcCountDelta != null) 'gc_count_delta': gcCountDelta,
     if (gcPauseUsDelta != null) 'gc_pause_us_delta': gcPauseUsDelta,
     if (peakRssDuringBytes != null) 'peak_rss_during_bytes': peakRssDuringBytes,
+    if (rssLifetimeMaxReadAttemptsBytes != null)
+      'rss_lifetime_max_read_attempts_bytes': rssLifetimeMaxReadAttemptsBytes,
   };
 }
 
@@ -228,6 +236,9 @@ class NativeWampWorker {
             gcCountDelta: measured.gcCount,
             gcPauseUsDelta: measured.gcPauseMicros,
             peakRssDuringBytes: measured.peakRssBytes,
+            rssLifetimeMaxReadAttemptsBytes: Platform.isLinux
+                ? rssSnapshot.lifetimeMaxReadAttemptsBytes
+                : null,
           );
         }
       }

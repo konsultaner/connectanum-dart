@@ -4555,6 +4555,7 @@ mod tests {
             gc_count_delta: Some(1),
             gc_pause_us_delta: Some(250),
             peak_rss_during_bytes: Some(805_306_368),
+            rss_lifetime_max_read_attempts_bytes: None,
         });
         report.server_process_metrics = Some(crate::report::ClientProcessMetrics {
             pid: 43,
@@ -4568,6 +4569,7 @@ mod tests {
             gc_count_delta: Some(2),
             gc_pause_us_delta: Some(500),
             peak_rss_during_bytes: Some(234_881_024),
+            rss_lifetime_max_read_attempts_bytes: None,
         });
         report.metrics_before["metrics"]["transport"]["rawsocket_zero_copy_calls_total"] =
             json!(10);
@@ -4649,6 +4651,7 @@ mod tests {
             gc_count_delta: Some(1),
             gc_pause_us_delta: Some(250),
             peak_rss_during_bytes: Some(805_306_368),
+            rss_lifetime_max_read_attempts_bytes: None,
         };
         report.client_process_metrics = Some(expected.clone());
         let server_expected = crate::report::ClientProcessMetrics {
@@ -4663,6 +4666,7 @@ mod tests {
             gc_count_delta: Some(2),
             gc_pause_us_delta: Some(500),
             peak_rss_during_bytes: Some(234_881_024),
+            rss_lifetime_max_read_attempts_bytes: None,
         };
         report.server_process_metrics = Some(server_expected.clone());
 

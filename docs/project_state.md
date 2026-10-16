@@ -6,6 +6,22 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Current checkpoint (2026-10-16): `5dda2ecd` passes `bin/test-fast`, focused
+VM/JS/Wasm ownership checks, all 120 renewed copy cases with 3,099 unchanged
+inputs, and 170 audited five-platform production consumers with zero skips.
+Its 90-row Linux diagnostic improves CPU to 1.1590 / 1.1782 / 1.1633, but
+native-buffer allocation is still 1.0634 and other numerical gates fail. One
+baseline lifetime RSS endpoint is unavailable. Bounded rereads now retain every
+actual observation; all 30 focused Dart and 32 Rust library / 139 driver tests
+pass. Persistent or missing endpoints remain unavailable; no budget is changed.
+
+Performance and reporting remain blockers: investigate repeated metadata string
+allocations, measure actual encoded WAMP volume separately from logical
+application bytes, and complete the declared extension diagnostics. The 48-case
+primary campaign must wait for credible diagnostic parity. Full resulting-source
+verification remains required; no issue or milestone is closed and no release
+is made.
+
 Concrete typed-word candidate (2026-10-16): the preceding source `25862a53`
 passes frozen full `bin/verify` with all 3,098 inputs and HEAD unchanged. Its
 90-row Linux diagnostic has no RSS/duration measurement failures but still
