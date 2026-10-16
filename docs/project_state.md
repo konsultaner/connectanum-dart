@@ -18,6 +18,16 @@ and every RSS endpoint, but still fails parity: CPU ratios 1.0057 / 1.0185 /
 CPU profiling succeeds on a second unchanged-source attempt; the first attempt's
 CBOR `perf record` failure and partial data remain retained explicitly.
 
+Current blockers on `4dab389f`: hosted Fast Checks requires the newly direct
+native-runtime profile regression in the mutation target inventory. Its existing
+fail-first guard reproduces the omission; the target now includes it without
+changing sources, budgets or isolation. The short live protocol batch completes
+180 rows but one no-PPT WebSocket cancellation row records one rejected router
+submission, making its volume observation explicitly unavailable. This row does
+not use the new native typed-send path. Cancellation cleanup is under investigation;
+remaining live batches and full verification have not run, and the timing run was
+cancelled before acceptance. No failure or copy gate is waived.
+
 Active native candidate (2026-10-16): a fail-first typed-send regression observes
 172 native control-string copy bytes. The private canonical Call/Publish path now
 builds an aligned native prefix with the vector length at its tail and submits it
