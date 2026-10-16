@@ -11,6 +11,20 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Vector/metadata follow-up (2026-10-16): frozen full `bin/verify` passes at
+`63a802f7` with all 3,095 source inputs and HEAD unchanged. Five-platform
+production consumers pass 170 independently audited cases with zero skips;
+package publishing dry run passes. Hosted CI is running. Fresh macOS benchmark
+coverage is 97.82% (3,810/3,895); the unchanged 98% gate awaits hosted Linux CPU
+and RSS paths. It is not reported as passing locally.
+
+The next candidate uses the SDK word loop for eligible typed byte vectors and
+validates/materializes scalar metadata in one scan. Exact VM/JS/Wasm SDK wire
+comparisons and native ownership checks pass in isolation, as do 16,415 strict
+baseline metadata comparisons. All 3,392 integrated serializer/native-builder
+cases pass. New paired timing and final combined verification remain pending;
+#103 stays open. See [vector/metadata research](../research/2026-10-16-flatbuffers-vector-metadata-allocation.md).
+
 Coverage repair in progress (2026-10-16): the first full benchmark VM run
 passes all 2,657 tests but measures 93.81%, below the unchanged 98% gate.
 The new external metrics observer runs outside the instrumented test process.

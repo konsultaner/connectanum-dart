@@ -1,5 +1,6 @@
 import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
+import 'dart:collection';
 
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 
@@ -102,7 +103,9 @@ class WampFlatBufferBuilder extends fb.Builder
   @override
   int writeListUint8(List<int> values) => _observeByteVector(
     values.length,
-    () => super.writeListUint8(values),
+    () =>
+        tryWriteFlatBufferByteWords(this, values, () => _storage.current!) ??
+        super.writeListUint8(values),
   );
 
   @override
@@ -201,4 +204,50 @@ class _TrackingAllocator extends fb.Allocator {
     }
     return current!;
   }
+}
+
+/// Writes typed byte vectors through the SDK's word loop instead of byte loop.
+/// With an aligned existing tail, both reserve 4 + roundUp(length, 4) bytes;
+/// only their length headers differ. Patch that header in the latest allocation.
+/// Return null before writes when the ordinary byte writer is required.
+int? tryWriteFlatBufferByteWords(
+  fb.Builder builder,
+  List<int> values,
+  ByteData Function() currentStorage,
+) {
+  if (values is! Uint8List || values.length < 256 || builder.offset % 4 != 0) {
+    return null;
+  }
+  final result = builder.writeListUint32(_LittleEndianByteWords(values));
+  final data = currentStorage();
+  data.setUint32(data.lengthInBytes - result, values.length, Endian.little);
+  return result;
+}
+
+class _LittleEndianByteWords extends ListBase<int> {
+  _LittleEndianByteWords(Uint8List bytes)
+    : _data = ByteData.sublistView(bytes),
+      _length = (bytes.length + 3) ~/ 4;
+  final ByteData _data;
+  final int _length;
+  @override
+  int get length => _length;
+  @override
+  set length(int value) => throw UnsupportedError('Read-only word view');
+  @override
+  int operator [](int index) {
+    RangeError.checkValidIndex(index, this, null, _length);
+    final start = index * 4;
+    final remaining = _data.lengthInBytes - start;
+    if (remaining >= 4) return _data.getUint32(start, Endian.little);
+    var value = 0;
+    for (var byte = 0; byte < remaining; byte++) {
+      value |= _data.getUint8(start + byte) << (byte * 8);
+    }
+    return value;
+  }
+
+  @override
+  void operator []=(int index, int value) =>
+      throw UnsupportedError('Read-only word view');
 }

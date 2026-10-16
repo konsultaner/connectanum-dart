@@ -44,14 +44,14 @@ void validateFlatBufferCbor(
 }
 
 Map<String, dynamic> decodeFlatBufferMetadata(Uint8List bytes) {
+  final scalar = _scalarMetadata(bytes);
+  if (scalar != null) return scalar;
   validateFlatBufferCbor(
     bytes,
     rootMajor: 5,
     stringDictionaryKeys: true,
     limits: const FlatBufferCborLimits(maxBytes: 1048576),
   );
-  final scalar = _scalarMetadata(bytes);
-  if (scalar != null) return scalar;
   try {
     return _normalize(cbor.decode(bytes)) as Map<String, dynamic>;
   } on Exception {
@@ -59,22 +59,30 @@ Map<String, dynamic> decodeFlatBufferMetadata(Uint8List bytes) {
   }
 }
 
-// The complete metadata span is validated before this shortcut. Complex values
-// retain the existing CBOR decoder and normalization semantics.
+// Scalar dictionaries are completely validated while materializing their values.
+// Complex values retain the existing full validation and CBOR normalization.
 Map<String, dynamic>? _scalarMetadata(Uint8List bytes) {
+  if (bytes.isEmpty || bytes.length > 1048576 || bytes.first ~/ 32 != 5) {
+    throw const FormatException('Invalid FlatBuffers CBOR container or size');
+  }
   final reader = _Scanner(
     bytes,
     const FlatBufferCborLimits(maxBytes: 1048576),
     true,
     false,
   );
+  reader.charge();
   final root = reader.byte();
   final count = root % 32 == 31 ? null : reader.length(root % 32);
   final result = <String, dynamic>{};
   var index = 0;
   while (count == null ? !reader.takeBreak() : index < count) {
+    reader.charge();
     final keyHeader = reader.byte();
+    if (keyHeader ~/ 32 != 3) reader.invalid('dictionary key');
     final key = reader.string(3, keyHeader % 32, key: true)!;
+    if (result.containsKey(key)) reader.invalid('duplicate dictionary key');
+    reader.charge();
     final initial = reader.byte();
     final major = initial ~/ 32;
     final info = initial % 32;
@@ -104,6 +112,7 @@ Map<String, dynamic>? _scalarMetadata(Uint8List bytes) {
     result[key] = value;
     index++;
   }
+  if (reader.cursor != bytes.length) reader.invalid('trailing values');
   return result;
 }
 

@@ -6,6 +6,20 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Vector/metadata follow-up (2026-10-16): frozen full `bin/verify` passes at
+`63a802f7` with all 3,095 source inputs and HEAD unchanged. Five-platform
+production consumers pass 170 independently audited cases with zero skips;
+package publishing dry run passes. Hosted CI is running. Fresh macOS benchmark
+coverage is 97.82% (3,810/3,895); the unchanged 98% gate awaits hosted Linux CPU
+and RSS paths. It is not reported as passing locally.
+
+The next candidate uses the SDK word loop for eligible typed byte vectors and
+validates/materializes scalar metadata in one scan. Exact VM/JS/Wasm SDK wire
+comparisons and native ownership checks pass in isolation, as do 16,415 strict
+baseline metadata comparisons. All 3,392 integrated serializer/native-builder
+cases pass. New paired timing and final combined verification remain pending;
+#103 stays open. See [vector/metadata research](research/2026-10-16-flatbuffers-vector-metadata-allocation.md).
+
 Coverage repair in progress (2026-10-16): the first full benchmark VM run
 passes all 2,657 tests but measures 93.81%, below the unchanged 98% gate.
 The new external metrics observer runs outside the instrumented test process.
