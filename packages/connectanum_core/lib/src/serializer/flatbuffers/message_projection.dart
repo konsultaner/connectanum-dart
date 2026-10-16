@@ -61,7 +61,15 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
           'message': message.message!.message,
       };
     case Error():
-      if (!{16, 32, 34, 48, 64, 66, 68}.contains(message.requestTypeId)) {
+      if (!(const {
+        16,
+        32,
+        34,
+        48,
+        64,
+        66,
+        68,
+      }).contains(message.requestTypeId)) {
         throw ArgumentError('Unsupported ERROR request type');
       }
       name = 'Error';
@@ -257,19 +265,19 @@ Map<String, Object?> projectFlatBufferDictionary(
   final table = wampValidationTables.singleWhere((table) => table.name == name);
   final fields = <String, Object?>{};
   final routingFields = switch (name) {
-    'Hello' => {'realm'},
-    'Authenticate' => {'signature'},
-    'Abort' || 'Goodbye' => {'reason'},
-    'Error' => {'request_type', 'error'},
-    'Publish' || 'Subscribe' => {'topic'},
-    'Event' => {'subscription', 'publication'},
-    'Call' || 'Register' => {'procedure'},
-    'Invocation' => {'registration'},
-    _ => <String>{},
+    'Hello' => const {'realm'},
+    'Authenticate' => const {'signature'},
+    'Abort' || 'Goodbye' => const {'reason'},
+    'Error' => const {'request_type', 'error'},
+    'Publish' || 'Subscribe' => const {'topic'},
+    'Event' => const {'subscription', 'publication'},
+    'Call' || 'Register' => const {'procedure'},
+    'Invocation' => const {'registration'},
+    _ => const <String>{},
   };
   for (final field in table.fields) {
     if (routingFields.contains(field.name) ||
-        {
+        (const {
           'session',
           'request',
           'args',
@@ -277,7 +285,7 @@ Map<String, Object?> projectFlatBufferDictionary(
           'payload',
           'method',
           'method_name',
-        }.contains(field.name)) {
+        }).contains(field.name)) {
       continue;
     }
     final value =

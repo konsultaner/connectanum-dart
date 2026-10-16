@@ -6,6 +6,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Latest performance candidate (2026-10-16): source `249e0c8a` passes the
+renewed 120-case copy matrix with 3,097 inputs unchanged. The short diagnostic
+improves native-buffer throughput to 1.0170 and p95/p99 to 0.9625 / 0.9927,
+but allocation still fails at 1.1503; managed/pre-encoded throughput is below
+parity. Component probes show native construction is already cheaper than
+MessagePack. Sharing immutable membership sets in metadata projection reduces
+profile allocation from about 22,000 to 8,600 bytes while retaining every check.
+All 3,375 serializer VM tests, analysis and unchanged mutation preflight pass.
+Browser, whole-source and end-to-end verification are pending for that candidate.
+
 Current checkpoint (2026-10-16): `d12196ce` passes renewed 120-case owned
 E2EE/transcode proof with 3,096 inputs unchanged and all 170 audited five-platform
 production consumer checks. Its 90-row diagnostic still fails (throughput

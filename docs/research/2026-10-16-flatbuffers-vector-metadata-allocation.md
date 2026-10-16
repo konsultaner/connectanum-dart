@@ -94,3 +94,25 @@ The hosted workflow adds an explicit three-case Linux diagnostic at the same
 This obtains CPU/RSS observations before another long primary campaign. It is
 always labelled diagnostic and fails primary acceptance by design. The complete
 48-case / 1,440-row primary inventory, policy and all numeric gates are unchanged.
+
+
+## Immutable projection lookup follow-up
+
+At `249e0c8a`, the fresh 120-case owned-copy proof again passes with all 3,097
+inputs and HEAD unchanged. Its short 90-row diagnostic improves native-buffer
+throughput to 1.0170 and p95/p99 to 0.9625 / 0.9927; allocation still fails at
+1.1503. Managed/pre-encoded throughput remains 0.9836 / 0.9860 and allocation
+1.0234 / 1.0374. All observations are retained; no parity acceptance is inferred.
+
+Component isolation finds native FlatBuffers construction already allocates less
+than MessagePack: 68,057 / 67,965 bytes versus 71,430 / 71,006 per operation.
+The major remaining cost is in frame/profile checking. Immutable membership sets
+were rebuilt inside every metadata-field projection. The selected change shares
+constant routing/common/error/payload lookup sets and preserves the same union
+membership checks without a mutable `addAll`. No validation, model conversion,
+projection, ownership or copy observer is removed. Repeated stock-SDK observations
+reduce frame allocation from 12,074 / 12,065 to 4,965 / 4,962 bytes and profile
+allocation from 22,088 / 21,980 to 8,651 / 8,544. Independent raw heap/GC replay
+validates all component observations. VM serializer checks pass all 3,375 cases;
+browser verification and renewed end-to-end measurements are required before
+accepting this candidate. The SDK byte-vector writer is unchanged.

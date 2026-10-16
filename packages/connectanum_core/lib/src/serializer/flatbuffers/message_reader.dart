@@ -51,13 +51,13 @@ AbstractMessage _readMessage(
   final fields = frame.fields;
   final map = frame.dictionary;
   if (map == null &&
-      !{
+      !(const {
         'Published',
         'Subscribed',
         'Unsubscribe',
         'Registered',
         'Unregister',
-      }.contains(frame.name)) {
+      }).contains(frame.name)) {
     throw const FormatException('Extended FlatBuffers metadata is required');
   }
   final dictionary = Map<String, dynamic>.from(map ?? const {});

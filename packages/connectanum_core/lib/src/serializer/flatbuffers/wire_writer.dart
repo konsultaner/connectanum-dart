@@ -190,7 +190,7 @@ class _Writer {
           if (deferredVectors != null &&
               field.kind == FlatBufferFieldKind.scalarVector &&
               field.width == 1 &&
-              {'args', 'kwargs', 'payload'}.contains(field.name) &&
+              (const {'args', 'kwargs', 'payload'}).contains(field.name) &&
               (value is Uint8List || value is FlatBufferByteVectorParts)) {
             offsets[slot] = byteVector(const <int>[]);
             borrowed[slot] = value;
