@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_client/native_buffers.dart';
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
 import 'package:test/test.dart';
@@ -17,6 +18,32 @@ import 'support/native_library.dart';
 
 void main() {
   final nativeLibrary = nativeBenchTestLibrary();
+  test('managed typed fixture observes its byte-vector input copy', () {
+    OwnedCopyMetrics.enable();
+    final before = OwnedCopyMetrics.snapshot()!;
+    final bytes = BenchPayloadCodec.encodeDart(
+      worker: 7,
+      iteration: 11,
+      bodyBytes: 65536,
+    );
+    final after = OwnedCopyMetrics.snapshot()!;
+    expect(
+      after['flatbuffer_vector_copy_bytes']! -
+          before['flatbuffer_vector_copy_bytes']!,
+      65536,
+    );
+    expect(
+      after['flatbuffer_growth_copy_bytes']! -
+          before['flatbuffer_growth_copy_bytes']!,
+      0,
+    );
+    BenchPayloadCodec.verify(
+      bytes: bytes,
+      worker: 7,
+      iteration: 11,
+      bodyBytes: 65536,
+    );
+  });
 
   test(
     'Dart FlatBuffers fixture fills its backing array with unchanged wire bytes',

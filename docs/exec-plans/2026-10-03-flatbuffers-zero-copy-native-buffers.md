@@ -11,6 +11,41 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Coverage repair in progress (2026-10-16): the first full benchmark VM run
+passes all 2,657 tests but measures 93.81%, below the unchanged 98% gate.
+The new external metrics observer runs outside the instrumented test process.
+Direct real-VM collector tests and deterministic observer-protocol/process-failure
+tests pass all 72 focused checks; the fresh full benchmark suite passes all
+2,692 tests. Fresh coverage calculation and hosted CI remain pending; earlier full verification is historical evidence for `24f4276b`.
+The latest scalar-metadata diagnostic still fails parity: throughput ratios are
+0.9602 / 0.9973 / 0.9679 and allocation ratios 1.1364 / 1.1777 / 1.0556 for
+managed values / native buffers / pre-encoded spans. No acceptance gate is waived.
+
+Browser CI repair (2026-10-16): hosted `24f4276b` passes 4,852 browser
+cases and fails two new reference-builder tests. Raw SDK builders call uint64
+accessors unsupported by dart2js; production uses the portable WAMP builder.
+Both failures reproduce locally. The byte-vector spy now supplies only relevant
+fields and the wire comparison uses the portable builder. All 155 focused JS
+cases pass without skips or threshold changes. Resulting-head CI is pending.
+
+Verified allocation checkpoint (2026-10-16): full frozen `bin/verify` passes at
+`24f4276b` with HEAD and all 3,092 tracked/intended-new inputs unchanged. This
+includes Rust, VM/live, packaging, core Chrome/Wasm and 2,865 client browser cases
+with twenty declared native-only skips. Prior copy-accounting source `bb549a4c`
+also passes every hosted CI check and all five production consumer platforms
+(170 cases, zero skips, audited hashes). New-head CI/native dry run is running.
+
+The next measured bottleneck is repeated FlatBuffers metadata normalization.
+A validated scalar-map shortcut preserves fallback semantics for complex values;
+all 3,358 serializer cases pass. Fifty-five differential/reference vectors and
+all truncation prefixes pass on VM and Chrome/Wasm. Two independently checked
+metadata-allocation probe pairs drop from about 13,900 to 3,000 managed bytes per
+decode; this is allocation-only diagnostic evidence, not primary acceptance.
+A fail-first managed-fixture case also exposes an unobserved byte-vector build;
+the benchmark now uses the public observed builder. All 31 fixture cases preserve
+wire bytes/capacity and pass. New end-to-end timing and final verification remain
+pending, and #103 stays open with unchanged budgets.
+
 Allocation/performance follow-up (2026-10-16): stock-SDK heap/GC volume now
 retains raw proof and runs its observers outside both measured PIDs. Independent
 Python recomputation rejects the legacy live-heap census and forged totals;

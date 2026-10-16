@@ -59,6 +59,7 @@ class ExternalDartVmMetricsCollector implements DartVmMetricsObserver {
     required Uri serviceUri,
     required int pid,
     bool allIsolates = false,
+    Future<Process> Function(String, List<String>)? startProcess,
   }) async {
     final script = await Isolate.resolvePackageUri(
       Uri.parse(
@@ -71,15 +72,18 @@ class ExternalDartVmMetricsCollector implements DartVmMetricsObserver {
         'External VM metrics require source package configuration',
       );
     }
-    final process = await Process.start(Platform.resolvedExecutable, [
-      '--packages=${packages.toFilePath()}',
-      script.toFilePath(),
-      jsonEncode({
-        'service_uri': serviceUri.toString(),
-        'pid': pid,
-        'all_isolates': allIsolates,
-      }),
-    ]);
+    final process = await (startProcess ?? Process.start)(
+      Platform.resolvedExecutable,
+      [
+        '--packages=${packages.toFilePath()}',
+        script.toFilePath(),
+        jsonEncode({
+          'service_uri': serviceUri.toString(),
+          'pid': pid,
+          'all_isolates': allIsolates,
+        }),
+      ],
+    );
     final collector = ExternalDartVmMetricsCollector._(process, pid);
     try {
       await collector._ready.future.timeout(const Duration(seconds: 30));

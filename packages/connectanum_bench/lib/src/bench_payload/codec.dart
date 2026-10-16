@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_buffers.dart';
-import 'package:flat_buffers/flat_buffers.dart' as fb;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 
 import 'generated/workload_payload_connectanum.bench_generated.dart' as schema;
 
@@ -43,7 +43,7 @@ abstract final class BenchPayloadCodec {
     required int iteration,
     required int bodyBytes,
   }) {
-    final builder = fb.Builder(
+    final builder = flatbuffers.WampFlatBufferBuilder(
       initialSize: _initialFlatBufferSize(bodyBytes),
       deduplicateTables: false,
     );

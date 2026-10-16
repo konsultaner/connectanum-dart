@@ -71,3 +71,19 @@ Performance parity remains open: the preceding production reply diagnostic
 retains roughly 0.84 throughput ratios. Historical SDK `accumulatedSize` fields
 are live heap inventories and cannot establish allocation-volume acceptance.
 See the [allocation investigation](2026-10-15-dart-allocation-volume-research.md).
+
+## Allocation and portability checkpoint (2026-10-16)
+
+Frozen full verification at `24f4276b` passes with all 3,092 source inputs and
+HEAD unchanged. All five production artifact platforms pass 170 independently
+audited consumer cases with zero skips. That source includes the typed pub/sub
+verifier correction described above. The following `c2ff8817` test-only repair
+uses the portable builder in two new browser reference cases; 155 focused JS
+cases pass. Resulting-source hosted coverage is still pending.
+
+The scalar-metadata follow-up preserves complex-value fallback and wire format.
+All 180 process allocation reports in its short paired diagnostic independently
+validate against raw heap/GC observations. That diagnostic still fails parity;
+its allocation ratios range from 1.0556 to 1.1777. The managed typed fixture now
+uses the public observed builder so its explicit body-vector copy is included.
+Dependency-internal memory remains outside the approved copy scope.

@@ -8,6 +8,7 @@ import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart
 Uint8List bytes(List<int> values) => Uint8List.fromList(values);
 
 void main() {
+  group('scalar metadata decoding', _scalarMetadataDecodeCases);
   test(
     'decode bounded dictionary preserves binary and portable integer values',
     () {
@@ -194,5 +195,145 @@ void main() {
 
   test('application CBOR allows non-string map keys', () {
     validateFlatBufferCbor(bytes([0x81, 0xa1, 1, 0xf6]), rootMajor: 4);
+  });
+}
+
+void _scalarMetadataDecodeCases() {
+  final values = <Object?>[
+    null,
+    true,
+    false,
+    '',
+    'plain',
+    'ä😀',
+    0,
+    1,
+    23,
+    24,
+    255,
+    256,
+    65535,
+    65536,
+    4294967295,
+    4294967296,
+    9007199254740991,
+    9007199254740992,
+    -1,
+    -24,
+    -25,
+    -256,
+    -257,
+    -65536,
+    -65537,
+    -9007199254740991,
+    -9007199254740992,
+    BigInt.parse('18446744073709551615'),
+    BigInt.parse('-18446744073709551616'),
+    1.25,
+    double.infinity,
+    double.negativeInfinity,
+    Uint8List.fromList([1, 2, 3]),
+    [1, 'text'],
+    {'nested': true},
+    DateTime.utc(2026, 10, 16),
+  ];
+  final vectors = <Uint8List>[
+    Uint8List.fromList([0xa0]),
+    Uint8List.fromList([0xbf, 0xff]),
+    Uint8List.fromList([
+      0xbf,
+      0x7f,
+      0x61,
+      0x6b,
+      0xff,
+      0x7f,
+      0x62,
+      0xc3,
+      0xa4,
+      0x61,
+      0x61,
+      0xff,
+      0xff,
+    ]),
+    for (final value in values)
+      Uint8List.fromList(cbor.encode(CborValue({'value': value}))),
+    for (final width in [1, 2, 4, 8])
+      Uint8List.fromList([
+        0xa1,
+        0x61,
+        0x6b,
+        width == 1
+            ? 0x18
+            : width == 2
+            ? 0x19
+            : width == 4
+            ? 0x1a
+            : 0x1b,
+        ...List.filled(width - 1, 0),
+        1,
+      ]),
+  ];
+  for (final magnitude in [
+    BigInt.parse('9007199254740991'),
+    BigInt.parse('9007199254740992'),
+    BigInt.parse('9007199254740993'),
+    BigInt.parse('9223372036854775807'),
+    BigInt.parse('9223372036854775808'),
+    BigInt.parse('18446744073709551615'),
+  ]) {
+    for (final major in [0, 1]) {
+      vectors.add(
+        Uint8List.fromList([
+          0xa1,
+          0x61,
+          0x6b,
+          (major << 5) | 27,
+          for (var shift = 56; shift >= 0; shift -= 8)
+            ((magnitude >> shift) & BigInt.from(255)).toInt(),
+        ]),
+      );
+    }
+  }
+  for (var index = 0; index < vectors.length; index++) {
+    final vector = vectors[index];
+    test('preserves CBOR reference vector $index', () {
+      // The protocol narrows exact portable BigInts, including 2^53.
+      final expected = (cbor.decode(vector).toObject() as Map).map(
+        (key, value) => MapEntry(
+          key,
+          value is BigInt && value.abs() <= BigInt.from(9007199254740992)
+              ? value.toInt()
+              : value,
+        ),
+      );
+      final actual = decodeFlatBufferMetadata(vector);
+      expect(actual, expected);
+      for (final key in expected.keys) {
+        final value = expected[key];
+        if (value is! List && value is! Map) {
+          expect(actual[key].runtimeType, value.runtimeType);
+        }
+      }
+    });
+    test('truncated vector $index preserves validation', () {
+      for (var length = 0; length < vector.length; length++) {
+        final prefix = Uint8List.sublistView(vector, 0, length);
+        expect(() => decodeFlatBufferMetadata(prefix), throwsFormatException);
+      }
+    });
+  }
+  test('duplicate equivalent chunked keys remain rejected', () {
+    final duplicate = Uint8List.fromList([
+      0xa2,
+      0x61,
+      0x6b,
+      0xf4,
+      0x7f,
+      0x61,
+      0x6b,
+      0xff,
+      0xf5,
+    ]);
+    expect(() => decodeFlatBufferMetadata(duplicate), throwsFormatException);
   });
 }

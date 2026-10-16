@@ -36,6 +36,72 @@ Map<String, dynamic> collection({String name = 'CollectNewGeneration'}) => {
 };
 
 void main() {
+  test('KB conversion and cross-group heap sums cannot overflow', () {
+    final oversized = collection();
+    (oversized['args'] as Map)['Before.New.Used (kB)'] = 8796093022208;
+    expect(
+      dartHeapAllocationVolume(snapshot(), snapshot(end: true), [
+        oversized,
+      ])['status'],
+      'not_measured',
+    );
+    final groups = {
+      group: (
+        usedBytes: 9007199254740991,
+        youngCollections: 0,
+        oldCollections: 0,
+      ),
+      'isolateGroups/8': (usedBytes: 1, youngCollections: 0, oldCollections: 0),
+    };
+    expect(
+      dartHeapAllocationVolume(
+        DartHeapUsageSnapshot(
+          beforeMicros: 100,
+          afterMicros: 110,
+          groups: groups,
+        ),
+        DartHeapUsageSnapshot(
+          beforeMicros: 190,
+          afterMicros: 200,
+          groups: groups,
+        ),
+        [],
+      )['status'],
+      'not_measured',
+    );
+  });
+  test(
+    'boundary capture rejects unknown heap collectors but ignores phase markers',
+    () async {
+      final unknown = collection(name: 'FutureCollector')..['ts'] = 105;
+      expect(
+        await captureDartHeapBoundary(
+          capture: () async => snapshot(),
+          events: (_) async => [unknown],
+          quiet: () async {
+            fail('Unsupported evidence must stay unavailable');
+          },
+        ),
+        isNull,
+      );
+      final marker = {
+        'cat': 'GC',
+        'name': 'PhaseMarker',
+        'args': {'isolateGroupId': group},
+      };
+      expect(
+        await captureDartHeapBoundary(
+          capture: () async => snapshot(),
+          events: (_) async => [marker],
+          quiet: () async {
+            fail('An informational marker does not cross a collection');
+          },
+        ),
+        isNotNull,
+      );
+    },
+  );
+
   test(
     'snapshot retry retains earlier GC in the complete allocation window',
     () async {
