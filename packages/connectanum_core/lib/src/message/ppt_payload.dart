@@ -1,3 +1,4 @@
+import '../serializer/owned_copy_metrics.dart';
 import 'dart:typed_data';
 
 import '../message/abstract_ppt_options.dart';
@@ -99,10 +100,10 @@ class PPTPayload {
       return value;
     }
     if (value is List<int>) {
-      return Uint8List.fromList(value);
+      return OwnedCopyMetrics.copyBytes(value);
     }
     if (value is List) {
-      return Uint8List.fromList(value.cast<int>());
+      return OwnedCopyMetrics.copyBytes(value.cast<int>());
     }
     throw ArgumentError.value(
       value,

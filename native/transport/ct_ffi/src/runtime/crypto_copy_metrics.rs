@@ -1,5 +1,6 @@
 //! Actual bulk crypto staging copies, independent of transport counters.
-//! Nonce/tag construction and cipher processing are excluded. An attached tag
+//! Nonce/tag assembly has a separate additive scalar counter. Cipher processing
+//! is excluded. An attached tag
 //! copied along with a ciphertext body is included. These counters do not
 //! cover serializer/framing, Dart bridges or crypto operations outside this ABI.
 
@@ -8,6 +9,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 static PLAINTEXT: AtomicU64 = AtomicU64::new(0);
 static CIPHERTEXT: AtomicU64 = AtomicU64::new(0);
+static NONCE_TAG: AtomicU64 = AtomicU64::new(0);
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -18,6 +20,7 @@ pub struct CtE2eeCopyMetricsInfo {
 
 #[cfg(test)]
 thread_local! {
+    static OBSERVED_NONCE_TAG: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
     // Per-thread oracle observes the real staging sites without parallel-test
     // noise in the public process-wide counters.
     static OBSERVED: std::cell::Cell<CtE2eeCopyMetricsInfo> = const {
@@ -70,6 +73,62 @@ pub extern "C" fn ct_e2ee_copy_metrics_snapshot(out: *mut CtE2eeCopyMetricsInfo)
             plaintext_staging_copy_bytes_total: PLAINTEXT.load(Ordering::Relaxed),
             ciphertext_staging_copy_bytes_total: CIPHERTEXT.load(Ordering::Relaxed),
         });
+    }
+    SUCCESS
+}
+
+/// Explicit nonce/tag copies in Connectanum framing; excludes cipher internals.
+pub(super) fn record_nonce_tag_copy(bytes: usize) {
+    NONCE_TAG.fetch_add(bytes as u64, Ordering::Relaxed);
+    #[cfg(test)]
+    OBSERVED_NONCE_TAG.with(|value| value.set(value.get() + bytes as u64));
+}
+
+#[cfg(test)]
+pub(super) fn observed_nonce_tag_on_current_thread() -> u64 {
+    OBSERVED_NONCE_TAG.with(std::cell::Cell::get)
+}
+
+/// Additive scalar observation. The existing 16-byte v1 ABI is unchanged.
+#[no_mangle]
+pub extern "C" fn ct_e2ee_nonce_tag_copy_metrics_snapshot(out: *mut u64) -> i32 {
+    if out.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        out.write(NONCE_TAG.load(Ordering::Relaxed));
+    }
+    SUCCESS
+}
+
+static PLAINTEXT_FRAMING: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(test)]
+thread_local! {
+    static OBSERVED_PLAINTEXT_FRAMING: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// Explicit CBOR plaintext wrapper/header copies, including native file input.
+/// File reads and cipher output computation are not memory-copy observations.
+pub(super) fn record_plaintext_framing_copy(bytes: usize) {
+    PLAINTEXT_FRAMING.fetch_add(bytes as u64, Ordering::Relaxed);
+    #[cfg(test)]
+    OBSERVED_PLAINTEXT_FRAMING.with(|value| value.set(value.get() + bytes as u64));
+}
+
+#[cfg(test)]
+pub(super) fn observed_plaintext_framing_on_current_thread() -> u64 {
+    OBSERVED_PLAINTEXT_FRAMING.with(std::cell::Cell::get)
+}
+
+/// Additive scalar; existing crypto metric structs and versions are unchanged.
+#[no_mangle]
+pub extern "C" fn ct_e2ee_plaintext_framing_copy_metrics_snapshot(out: *mut u64) -> i32 {
+    if out.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        out.write(PLAINTEXT_FRAMING.load(Ordering::Relaxed));
     }
     SUCCESS
 }

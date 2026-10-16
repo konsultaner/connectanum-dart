@@ -8,6 +8,9 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
     show LazyMessagePayload, LazyPayloadEncoding, PackedPayloadDecoder;
+// Shared observations preserve disjoint allocator and serializer counters.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 
@@ -830,6 +833,7 @@ final class NativeBufferBuilder implements ffi.Finalizable {
     RangeError.checkValidRange(offset, offset + bytes.length, length);
     _data.buffer.asUint8List().setRange(offset, offset + bytes.length, bytes);
     _inputCopiedBytes += bytes.length;
+    OwnedCopyMetrics.record(OwnedCopyKind.clone, bytes.length);
   });
 
   NativeOwnedBuffer freeze({int offset = 0, int? length}) {
@@ -849,7 +853,8 @@ final class NativeBufferBuilder implements ffi.Finalizable {
   }
 }
 
-final class _NativeAllocator extends fb.Allocator implements ffi.Finalizable {
+final class _NativeAllocator extends fb.Allocator
+    implements ffi.Finalizable, CopyObservedAllocator {
   _NativeAllocator(this.api);
   final NativeBufferAllocator api;
   final Map<ByteData, _OwnedHandle> _owners = Map.identity();
@@ -890,6 +895,7 @@ final class _NativeAllocator extends fb.Allocator implements ffi.Finalizable {
   ByteData resize(ByteData oldData, int size, int back, int front) {
     final data = super.resize(oldData, size, back, front);
     growthCopiedBytes += back + front;
+    OwnedCopyMetrics.record(OwnedCopyKind.flatBufferGrowth, back + front);
     return data;
   }
 
@@ -918,7 +924,8 @@ final class _NativeAllocator extends fb.Allocator implements ffi.Finalizable {
 
 /// Implements the pinned Builder API through guarded composition, including
 /// model callbacks. No raw allocator or writable buffer escapes this facade.
-final class NativeFlatBufferBuilder implements fb.Builder, ffi.Finalizable {
+final class NativeFlatBufferBuilder
+    implements fb.Builder, ffi.Finalizable, CopyObservedByteVectorBuilder {
   NativeFlatBufferBuilder._(
     NativeBufferAllocator api,
     this.initialSize,
@@ -1121,15 +1128,29 @@ final class NativeFlatBufferBuilder implements fb.Builder, ffi.Finalizable {
 
   @override
   int writeListInt8(List<int> values) => _write(() {
-    final result = _builder.writeListInt8(values);
+    late final int result;
+    try {
+      result = _builder.writeListInt8(values);
+    } catch (_) {
+      OwnedCopyMetrics.recordFailedCopy();
+      rethrow;
+    }
     _inputCopiedBytes += values.length;
+    OwnedCopyMetrics.record(OwnedCopyKind.flatBufferVector, values.length);
     return result;
   });
 
   @override
   int writeListUint8(List<int> values) => _write(() {
-    final result = _builder.writeListUint8(values);
+    late final int result;
+    try {
+      result = _builder.writeListUint8(values);
+    } catch (_) {
+      OwnedCopyMetrics.recordFailedCopy();
+      rethrow;
+    }
     _inputCopiedBytes += values.length;
+    OwnedCopyMetrics.record(OwnedCopyKind.flatBufferVector, values.length);
     return result;
   });
 

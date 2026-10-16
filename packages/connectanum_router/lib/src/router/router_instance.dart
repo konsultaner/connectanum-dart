@@ -27,6 +27,8 @@ import 'dart:io'
         pid;
 
 import 'package:cbor/cbor.dart';
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
+import 'copy_metrics_fence.dart';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:connectanum_core/connectanum_core.dart'
@@ -88,6 +90,8 @@ import 'package:connectanum_mcp/connectanum_mcp.dart' as mcp;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 import 'package:meta/meta.dart';
 
+import 'package:connectanum_core/src/message/binary_ppt_payload_view.dart';
+
 import 'config/authenticator.dart';
 import 'config/auth_registry.dart';
 import 'config/auth_method.dart';
@@ -136,3 +140,5 @@ part 'router_instance/router_worker.dart';
 part 'router_instance/router_controller.dart';
 part 'router_instance/router_mcp.dart';
 part 'router_instance/router_internal_session.dart';
+
+int _nextCopyObserverGeneration = 1;

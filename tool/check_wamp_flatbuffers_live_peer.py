@@ -82,7 +82,7 @@ def main():
         parser.error("Python assertions must be enabled")
     manifest = verify_inputs(ROOT)
     expected = {"flatbuffers": manifest["python_runtime"]["version"],
-                "cbor2": "5.7.1", "websockets": "15.0.1"}
+                "cbor2": "5.9.0", "websockets": "15.0.1"}
     versions = {name: importlib.metadata.version(name) for name in expected}
     if versions != expected:
         parser.error("Install the pinned tool/flatbuffers_peer_requirements.txt")

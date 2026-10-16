@@ -8,12 +8,118 @@ import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/src/message/e2ee_copy_metrics.dart';
+import 'package:connectanum_core/src/message/ppt_copy_metrics.dart';
+import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:test/test.dart';
 
 import 'support/native_library.dart';
 
 void main() {
   final nativeLibrary = nativeBenchTestLibrary();
+  test('plaintext framing scalar keeps absence and deltas separate', () {
+    const before = NativeE2eeCopyMetrics(
+      dartToNativeCopiedBytesTotal: 0,
+      nativeToDartCopiedBytesTotal: 0,
+      plaintextStagingCopyBytesTotal: 0,
+      ciphertextStagingCopyBytesTotal: 0,
+      plaintextFramingCopyBytesTotal: 5,
+    );
+    const after = NativeE2eeCopyMetrics(
+      dartToNativeCopiedBytesTotal: 0,
+      nativeToDartCopiedBytesTotal: 0,
+      plaintextStagingCopyBytesTotal: 0,
+      ciphertextStagingCopyBytesTotal: 0,
+      plaintextFramingCopyBytesTotal: 9,
+    );
+    final delta = after.deltaFrom(before);
+    expect(delta.plaintextFramingCopyBytesTotal, 4);
+    expect(
+      after.deltaFrom(_metrics(0, 0)).plaintextFramingCopyBytesTotal,
+      isNull,
+    );
+    expect(
+      _metrics(0, 0).deltaFrom(after).plaintextFramingCopyBytesTotal,
+      isNull,
+    );
+    final result = e2eeCopyMetricsFor(_scenario('wamp'), delta);
+    expect(result['known_e2ee_staging_copy_bytes'], 4);
+    expect(
+      (result['e2ee_copy_breakdown']
+          as Map)['client_process_plaintext_framing_copy_bytes'],
+      4,
+    );
+    expect((result['e2ee_copy_bytes'] as Map)['status'], 'not_measured');
+  });
+
+  group('PPT serializer copy evidence', () {
+    setUpAll(() {
+      cbor.Serializer().serializePPT(PPTPayload(arguments: [Uint8List(0)]));
+    });
+
+    tearDown(() {
+      PptCopyMetrics.endWindow();
+      NativeClientRuntime.shutdownShared();
+    });
+    for (final serializer in ['cbor', 'flatbuffers']) {
+      for (final aes in [false, true]) {
+        test(
+          '$serializer native aes=$aes observes plaintext serialization',
+          () {
+            final provider = _nativeProvider(
+              serializer,
+              aes,
+              List<int>.filled(32, 7),
+              nativeLibrary,
+            );
+            addTearDown(provider.release);
+            final body = Uint8List.fromList(List.generate(65, (i) => i));
+            final options = PublishOptions(pptScheme: 'wamp');
+            PptCopyMetrics.beginWindow();
+            final packed = provider.packPayload([body], null, options);
+            final decoded = provider.unpackPayload(packed, options);
+            expect(decoded.arguments, [body]);
+            final metrics = PptCopyMetrics.endWindow();
+            expect(
+              metrics.encodeWrappingCopyBytes,
+              serializer == 'cbor' ? 2 : 0,
+            );
+            expect(metrics.coalescingCopyBytes, serializer == 'cbor' ? 82 : 0);
+            expect(metrics.decodedBinaryCopyBytes, 0);
+            const setupBytes = 0;
+            expect(metrics.metadataSetupCopyBytes, setupBytes);
+            expect(
+              metrics.knownOwnCopyBytes,
+              (serializer == 'cbor' ? 84 : 0) + setupBytes,
+            );
+          },
+          skip: nativeLibrary == null
+              ? 'Native transport artifact unavailable'
+              : false,
+        );
+      }
+    }
+    test(
+      'PPT breakdown adds actual bytes without certifying missing phases',
+      () {
+        const ppt = PptCopyMetricsSnapshot(
+          encodeWrappingCopyBytes: 2,
+          decodedBinaryCopyBytes: 3,
+          coalescingCopyBytes: 5,
+        );
+        final result = e2eeCopyMetricsFor(
+          _scenario('wamp'),
+          _metrics(10, 20),
+          pptMetrics: ppt,
+        );
+        expect(result['known_e2ee_staging_copy_bytes'], 47);
+        final breakdown = result['e2ee_copy_breakdown'] as Map;
+        expect(breakdown['client_worker_isolate_ppt_serializer'], ppt.toJson());
+        expect(breakdown['coverage'], 'known_staging_only');
+        expect((result['e2ee_copy_bytes'] as Map)['status'], 'not_measured');
+      },
+    );
+  });
+
   group('native ciphertext coercion copy evidence', () {
     tearDown(NativeClientRuntime.shutdownShared);
     for (final serializer in ['cbor', 'flatbuffers']) {
@@ -66,7 +172,8 @@ void main() {
                   delta.dartToNativeCopiedBytesTotal +
                   delta.nativeToDartCopiedBytesTotal +
                   (delta.plaintextStagingCopyBytesTotal ?? 0) +
-                  (delta.ciphertextStagingCopyBytesTotal ?? 0);
+                  (delta.ciphertextStagingCopyBytesTotal ?? 0) +
+                  (delta.nonceTagCopyBytesTotal ?? 0);
               expect(
                 (result['known_e2ee_staging_copy_bytes'] as int) -
                     bridgeAndStaging,
@@ -208,6 +315,34 @@ void main() {
       expect(breakdown['excludes'], contains('crypto dependency internals'));
     },
   );
+
+  test('nonce/tag scalar stays separately observable and optional', () {
+    const before = NativeE2eeCopyMetrics(
+      dartToNativeCopiedBytesTotal: 0,
+      nativeToDartCopiedBytesTotal: 0,
+      plaintextStagingCopyBytesTotal: 0,
+      ciphertextStagingCopyBytesTotal: 0,
+      nonceTagCopyBytesTotal: 40,
+    );
+    const after = NativeE2eeCopyMetrics(
+      dartToNativeCopiedBytesTotal: 0,
+      nativeToDartCopiedBytesTotal: 0,
+      plaintextStagingCopyBytesTotal: 0,
+      ciphertextStagingCopyBytesTotal: 0,
+      nonceTagCopyBytesTotal: 80,
+    );
+    final delta = after.deltaFrom(before);
+    expect(delta.nonceTagCopyBytesTotal, 40);
+    expect(after.deltaFrom(_metrics(0, 0)).nonceTagCopyBytesTotal, isNull);
+    final result = e2eeCopyMetricsFor(_scenario('wamp'), delta);
+    expect(result['known_e2ee_staging_copy_bytes'], 40);
+    expect(
+      (result['e2ee_copy_breakdown']
+          as Map)['client_process_nonce_tag_copy_bytes'],
+      40,
+    );
+    expect((result['e2ee_copy_bytes'] as Map)['status'], 'not_measured');
+  });
 
   test('an absent portable window cannot become a measured zero', () {
     final result = e2eeCopyMetricsFor(_scenario('wamp'), _metrics(0, 0));

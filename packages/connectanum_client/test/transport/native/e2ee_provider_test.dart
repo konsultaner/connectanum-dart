@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -22,6 +23,82 @@ void main() {
 
   _nativeTypedProviderCases(nativeClientRuntimeUnavailableReason);
   _nativePolicyCallbackContractCases(nativeClientRuntimeUnavailableReason);
+
+  test('raw-frame snapshots preserve named cumulative counters', () {
+    final runtime = NativeClientRuntime.instance();
+    addTearDown(NativeClientRuntime.shutdownShared);
+    final before = runtime.rawFrameCopyMetricsSnapshot();
+    final after = runtime.rawFrameCopyMetricsSnapshot();
+    final library = ffi.DynamicLibrary.open(runtime.libraryPath);
+    final advertised =
+        library.providesSymbol('ct_raw_frame_copy_metrics_abi_version') &&
+        library.providesSymbol('ct_raw_frame_copy_metrics_snapshot') &&
+        library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+              'ct_raw_frame_copy_metrics_abi_version',
+            )() ==
+            1;
+    if (!advertised) {
+      expect(before, isNull);
+      expect(after, isNull);
+      return;
+    }
+    expect(before, isNotNull);
+    expect(
+      before!.keys,
+      unorderedEquals([
+        'coalescing_copy_bytes',
+        'range_copy_bytes',
+        'single_segment_contiguous_requests',
+        'multi_segment_contiguous_requests',
+      ]),
+    );
+    for (final key in before.keys) {
+      expect(before[key], greaterThanOrEqualTo(0));
+      expect(after![key], greaterThanOrEqualTo(before[key]!));
+    }
+  }, skip: nativeClientRuntimeUnavailableReason);
+
+  test('codec snapshots preserve named cumulative counters', () {
+    final runtime = NativeClientRuntime.instance();
+    addTearDown(NativeClientRuntime.shutdownShared);
+    final before = runtime.codecCopyMetricsSnapshot();
+    final after = runtime.codecCopyMetricsSnapshot();
+    final library = ffi.DynamicLibrary.open(runtime.libraryPath);
+    final advertised =
+        library.providesSymbol('ct_codec_copy_metrics_abi_version') &&
+        library.providesSymbol('ct_codec_copy_metrics_snapshot') &&
+        library.providesSymbol('ct_codec_copy_metrics_coverage_version') &&
+        library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+              'ct_codec_copy_metrics_coverage_version',
+            )() ==
+            1 &&
+        library.lookupFunction<ffi.Uint32 Function(), int Function()>(
+              'ct_codec_copy_metrics_abi_version',
+            )() ==
+            1;
+    if (!advertised) {
+      expect(before, isNull);
+      expect(after, isNull);
+      return;
+    }
+    expect(before, isNotNull);
+    expect(
+      before!.keys,
+      unorderedEquals([
+        'coverage_version',
+        'vector_copy_bytes',
+        'string_copy_bytes',
+        'growth_copy_bytes',
+        'parser_read_copy_bytes',
+        'framing_copy_bytes',
+        'key_material_copy_bytes',
+      ]),
+    );
+    for (final key in before.keys) {
+      expect(before[key], greaterThanOrEqualTo(0));
+      expect(after![key], greaterThanOrEqualTo(before[key]!));
+    }
+  }, skip: nativeClientRuntimeUnavailableReason);
 
   test('crypto staging and Dart bridge counts match actual operations', () async {
     final source = await Isolate.resolvePackageUri(
@@ -48,53 +125,60 @@ void main() {
     );
   }, skip: nativeClientRuntimeUnavailableReason);
 
-  test(
-    'unknown crypto metrics ABI never calls the snapshot',
-    () async {
-      final source = await Isolate.resolvePackageUri(
-        Uri.parse('package:connectanum_client/connectanum.dart'),
-      );
-      final directory = await Directory.systemTemp.createTemp(
-        'connectanum-crypto-abi-',
-      );
-      addTearDown(() => directory.delete(recursive: true));
-      final library =
-          '${directory.path}/crypto.${Platform.isMacOS ? 'dylib' : 'so'}';
-      final compiled = await Process.run('cc', [
-        Platform.isMacOS ? '-dynamiclib' : '-shared',
-        '-fPIC',
-        '-o',
-        library,
-        source!
-            .resolve(
-              '../test/transport/native/support/crypto_copy_abi_fixture.c',
-            )
-            .toFilePath(),
-        File(NativeLibraryLoader.resolvePath()).absolute.path,
-      ]);
-      expect(
-        compiled.exitCode,
-        0,
-        reason: '${compiled.stdout}\n${compiled.stderr}',
-      );
-      final result = await Process.run(Platform.resolvedExecutable, [
-        'run',
-        source
-            .resolve(
-              '../test/transport/native/support/crypto_copy_metrics_probe.dart',
-            )
-            .toFilePath(),
-        library,
-      ]);
-      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
-      expect(result.stdout, contains('unsupported ABI safely unavailable'));
-    },
-    skip:
-        nativeClientRuntimeUnavailableReason ??
-        ((!Platform.isMacOS && !Platform.isLinux)
-            ? 'Requires Unix C shared-library toolchain'
-            : false),
-  );
+  for (final codecCoverage in [0, 2, 3]) {
+    test(
+      'unknown crypto/raw-frame ABIs and codec coverage $codecCoverage never call snapshots',
+      () async {
+        final source = await Isolate.resolvePackageUri(
+          Uri.parse('package:connectanum_client/connectanum.dart'),
+        );
+        final directory = await Directory.systemTemp.createTemp(
+          'connectanum-crypto-abi-',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final library =
+            '${directory.path}/crypto.${Platform.isMacOS ? 'dylib' : 'so'}';
+        final compiled = await Process.run('cc', [
+          Platform.isMacOS ? '-dynamiclib' : '-shared',
+          '-fPIC',
+          '-DCT_CODEC_COVERAGE=$codecCoverage',
+          '-o',
+          library,
+          source!
+              .resolve(
+                '../test/transport/native/support/crypto_copy_abi_fixture.c',
+              )
+              .toFilePath(),
+          File(NativeLibraryLoader.resolvePath()).absolute.path,
+        ]);
+        expect(
+          compiled.exitCode,
+          0,
+          reason: '${compiled.stdout}\n${compiled.stderr}',
+        );
+        final result = await Process.run(Platform.resolvedExecutable, [
+          'run',
+          source
+              .resolve(
+                '../test/transport/native/support/crypto_copy_metrics_probe.dart',
+              )
+              .toFilePath(),
+          library,
+        ]);
+        expect(
+          result.exitCode,
+          0,
+          reason: '${result.stdout}\n${result.stderr}',
+        );
+        expect(result.stdout, contains('unsupported ABI safely unavailable'));
+      },
+      skip:
+          nativeClientRuntimeUnavailableReason ??
+          ((!Platform.isMacOS && !Platform.isLinux)
+              ? 'Requires Unix C shared-library toolchain'
+              : false),
+    );
+  }
 
   group(
     'native-owned typed FlatBuffers encryption',

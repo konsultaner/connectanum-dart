@@ -1,3 +1,4 @@
+import '../serializer/owned_copy_metrics.dart';
 import 'dart:collection';
 import 'dart:typed_data';
 
@@ -436,7 +437,7 @@ class _OwnedPayloadCopier {
       return previous;
     }
     if (value is Uint8List) {
-      return _copies[value] = Uint8List.fromList(value);
+      return _copies[value] = OwnedCopyMetrics.copyBytes(value);
     }
     final Object target = value is List
         ? <dynamic>[]
@@ -670,16 +671,22 @@ Uint8List _coercePptBinaryPayload(Object? value) {
   }
   if (value is List) {
     final bytes = Uint8List(value.length);
-    for (var index = 0; index < bytes.length; index++) {
-      final byte = value[index];
-      if (byte is! int || byte < 0 || byte > 255) {
-        throw FormatException(
-          'PPT payload bytes must be integers from 0 to 255',
-        );
+    var copied = 0;
+    try {
+      for (var index = 0; index < bytes.length; index++) {
+        final byte = value[index];
+        if (byte is! int || byte < 0 || byte > 255) {
+          throw FormatException(
+            'PPT payload bytes must be integers from 0 to 255',
+          );
+        }
+        bytes[index] = byte;
+        copied++;
       }
-      bytes[index] = byte;
+      return bytes;
+    } finally {
+      OwnedCopyMetrics.record(OwnedCopyKind.clone, copied);
     }
-    return bytes;
   }
   throw ArgumentError.value(
     value,

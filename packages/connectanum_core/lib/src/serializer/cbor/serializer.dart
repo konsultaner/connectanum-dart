@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 import 'dart:isolate';
 
@@ -6,23 +7,35 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
 import '../limits.dart';
+import '../../message/ppt_copy_metrics.dart';
 
 /// This is a serializer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
   static final Logger _logger = Logger('Connectanum.Serializer');
-  static final Uint8List _emptyListBytes = Uint8List.fromList(
+  static final Uint8List _emptyListBytes = OwnedCopyMetrics.copyBytes(
     cbor.encode(CborValue(const [])),
   );
-  static final Uint8List _pptArgsKeyBytes = Uint8List.fromList(
+  static final Uint8List _pptArgsKeyBytes = _copyPptMetadataBytes(
     cbor.encode(CborValue('args')),
   );
-  static final Uint8List _pptKwargsKeyBytes = Uint8List.fromList(
+  static final Uint8List _pptKwargsKeyBytes = _copyPptMetadataBytes(
     cbor.encode(CborValue('kwargs')),
   );
-  static final Uint8List _nullBytes = Uint8List.fromList(
+  static final Uint8List _nullBytes = _copyPptMetadataBytes(
     cbor.encode(CborValue(null)),
   );
+  static final Uint8List _pptMapHeaderBytes = _copyPptMetadataBytes([0xa2]);
+  static final Uint8List _pptBinaryArrayHeaderBytes = _copyPptMetadataBytes([
+    0x81,
+  ]);
+
+  static Uint8List _copyPptMetadataBytes(List<int> bytes) {
+    final copied = OwnedCopyMetrics.copyBytes(bytes);
+    PptCopyMetrics.recordMetadataSetupCopy(copied.length);
+    return copied;
+  }
+
   static const Set<String> _invocationDetailKeys = {
     'caller',
     'procedure',
@@ -107,7 +120,9 @@ class Serializer extends AbstractSerializer {
     if (fastPathMessage != null) {
       return fastPathMessage;
     }
-    final decodedMessage = cbor.decode(message.toList());
+    final decodedMessage = cbor.decode(
+      OwnedCopyMetrics.copyByteValues(message),
+    );
     if (decodedMessage is CborList) {
       validateWampMessageFieldCount(decodedMessage.length);
       if (decodedMessage.isEmpty) {
@@ -494,7 +509,9 @@ class Serializer extends AbstractSerializer {
     if (messageData.length >= argumentsOffset + 1) {
       final arguments = messageData[argumentsOffset];
       if (arguments is CborBytes) {
-        message.transparentBinaryPayload = Uint8List.fromList(arguments.bytes);
+        message.transparentBinaryPayload = OwnedCopyMetrics.copyBytes(
+          arguments.bytes,
+        );
       } else if (arguments is CborList) {
         message.arguments = _cborListToDart(arguments);
       } else {
@@ -1007,7 +1024,7 @@ class Serializer extends AbstractSerializer {
   @override
   Uint8List serialize(AbstractMessage message) {
     if (message is Hello) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeHello,
@@ -1018,7 +1035,7 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Challenge) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeChallenge,
@@ -1029,7 +1046,7 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Authenticate) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeAuthenticate,
@@ -1040,7 +1057,7 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Welcome) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeWelcome,
@@ -1051,7 +1068,7 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Register) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeRegister,
@@ -1063,7 +1080,7 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Unregister) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeUnregister,
@@ -1088,7 +1105,7 @@ class Serializer extends AbstractSerializer {
               message.procedure,
             ];
             _appendPayloadToList(structuredMessage, message);
-            return Uint8List.fromList(
+            return OwnedCopyMetrics.copyBytes(
               cbor.encode(CborValue(structuredMessage)),
             );
           })();
@@ -1106,7 +1123,7 @@ class Serializer extends AbstractSerializer {
               _serializeYieldOptions(message.options),
             ];
             _appendPayloadToList(structuredMessage, message);
-            return Uint8List.fromList(
+            return OwnedCopyMetrics.copyBytes(
               cbor.encode(CborValue(structuredMessage)),
             );
           })();
@@ -1116,7 +1133,7 @@ class Serializer extends AbstractSerializer {
       if (message.options?.mode != null) {
         details['mode'] = message.options!.mode;
       }
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([MessageTypes.codeCancel, message.requestId, details]),
         ),
@@ -1127,7 +1144,7 @@ class Serializer extends AbstractSerializer {
       if (message.options?.mode != null) {
         details['mode'] = message.options!.mode;
       }
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([MessageTypes.codeInterrupt, message.requestId, details]),
         ),
@@ -1148,7 +1165,7 @@ class Serializer extends AbstractSerializer {
               _serializeInvocationDetails(message.details),
             ];
             _appendPayloadToList(structuredMessage, message);
-            return Uint8List.fromList(
+            return OwnedCopyMetrics.copyBytes(
               cbor.encode(CborValue(structuredMessage)),
             );
           })();
@@ -1168,13 +1185,13 @@ class Serializer extends AbstractSerializer {
               message.topic,
             ];
             _appendPayloadToList(structuredMessage, message);
-            return Uint8List.fromList(
+            return OwnedCopyMetrics.copyBytes(
               cbor.encode(CborValue(structuredMessage)),
             );
           })();
     }
     if (message is Published) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codePublished,
@@ -1199,7 +1216,7 @@ class Serializer extends AbstractSerializer {
               _serializeEventDetails(message.details),
             ];
             _appendPayloadToList(structuredMessage, message);
-            return Uint8List.fromList(
+            return OwnedCopyMetrics.copyBytes(
               cbor.encode(CborValue(structuredMessage)),
             );
           })();
@@ -1211,10 +1228,12 @@ class Serializer extends AbstractSerializer {
         _serializeSubscribeOptions(message.options),
         message.topic,
       ];
-      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+      return OwnedCopyMetrics.copyBytes(
+        cbor.encode(CborValue(structuredMessage)),
+      );
     }
     if (message is Subscribed) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeSubscribed,
@@ -1230,7 +1249,9 @@ class Serializer extends AbstractSerializer {
         message.requestId,
         message.subscriptionId,
       ];
-      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+      return OwnedCopyMetrics.copyBytes(
+        cbor.encode(CborValue(structuredMessage)),
+      );
     }
     if (message is Unsubscribed) {
       final details = message.details;
@@ -1243,7 +1264,7 @@ class Serializer extends AbstractSerializer {
           map['reason'] = details.reason;
         }
         if (map.isNotEmpty) {
-          return Uint8List.fromList(
+          return OwnedCopyMetrics.copyBytes(
             cbor.encode(
               CborValue([
                 MessageTypes.codeUnsubscribed,
@@ -1254,7 +1275,7 @@ class Serializer extends AbstractSerializer {
           );
         }
       }
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeUnsubscribed,
@@ -1296,7 +1317,7 @@ class Serializer extends AbstractSerializer {
               details,
             ];
             _appendPayloadToList(structuredMessage, message);
-            return Uint8List.fromList(
+            return OwnedCopyMetrics.copyBytes(
               cbor.encode(CborValue(structuredMessage)),
             );
           })();
@@ -1318,7 +1339,7 @@ class Serializer extends AbstractSerializer {
               message.error,
             ];
             _appendPayloadToList(structuredMessage, message);
-            return Uint8List.fromList(
+            return OwnedCopyMetrics.copyBytes(
               cbor.encode(CborValue(structuredMessage)),
             );
           })();
@@ -1329,7 +1350,9 @@ class Serializer extends AbstractSerializer {
         message.message != null ? {'message': message.message!.message} : {},
         message.reason,
       ];
-      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+      return OwnedCopyMetrics.copyBytes(
+        cbor.encode(CborValue(structuredMessage)),
+      );
     }
     if (message is Goodbye) {
       var structuredMessage = [
@@ -1339,10 +1362,12 @@ class Serializer extends AbstractSerializer {
             : {},
         message.reason,
       ];
-      return Uint8List.fromList(cbor.encode(CborValue(structuredMessage)));
+      return OwnedCopyMetrics.copyBytes(
+        cbor.encode(CborValue(structuredMessage)),
+      );
     }
     if (message is Registered) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeRegistered,
@@ -1353,7 +1378,7 @@ class Serializer extends AbstractSerializer {
       );
     }
     if (message is Unregistered) {
-      return Uint8List.fromList(
+      return OwnedCopyMetrics.copyBytes(
         cbor.encode(
           CborValue([
             MessageTypes.codeUnregistered,
@@ -1382,7 +1407,7 @@ class Serializer extends AbstractSerializer {
     if (segments == null) {
       return null;
     }
-    final builder = BytesBuilder(copy: false);
+    final builder = CopyAwareBytesBuilder();
     for (final segment in segments) {
       builder.add(segment);
     }
@@ -1402,7 +1427,7 @@ class Serializer extends AbstractSerializer {
       return null;
     }
 
-    final prefix = BytesBuilder(copy: false)
+    final prefix = CopyAwareBytesBuilder()
       ..add([
         _fixArrayHeader(
           fixedLength + (payloadFragments?.length ?? 1),
@@ -1470,17 +1495,23 @@ class Serializer extends AbstractSerializer {
   }
 
   Uint8List _encodeCborValue(Object? value) {
-    return Uint8List.fromList(
+    return _copyPptEncodedBytes(
       cbor.encode(CborValue(_cborEncodablePayloadFragment(value))),
     );
   }
 
+  Uint8List _copyPptEncodedBytes(List<int> bytes) {
+    final copied = OwnedCopyMetrics.copyBytes(bytes);
+    PptCopyMetrics.recordEncodeWrappingCopy(copied.length);
+    return copied;
+  }
+
   Uint8List _encodeCborByteStringHeader(int length) {
     if (length < 24) {
-      return Uint8List.fromList(<int>[0x40 | length]);
+      return _copyPptEncodedBytes(<int>[0x40 | length]);
     }
     if (length <= 0xff) {
-      return Uint8List.fromList(<int>[0x58, length]);
+      return _copyPptEncodedBytes(<int>[0x58, length]);
     }
     if (length <= 0xffff) {
       final bytes = Uint8List(3)..[0] = 0x59;
@@ -1612,7 +1643,9 @@ class Serializer extends AbstractSerializer {
 
   Object? _cborValueToDart(Object? value) {
     if (value is CborBytes) {
-      return Uint8List.fromList(value.bytes);
+      final copied = OwnedCopyMetrics.copyBytes(value.bytes);
+      PptCopyMetrics.recordDecodedBinaryCopy(copied.length);
+      return copied;
     }
     if (value is CborList) {
       return _cborListToDart(value);
@@ -2177,26 +2210,31 @@ class Serializer extends AbstractSerializer {
         ? arguments.single as Uint8List
         : null;
     if (binaryArgument != null) {
-      return (BytesBuilder(copy: false)
-            ..add(const [0xa2])
-            ..add(_pptArgsKeyBytes)
-            ..add(const [0x81])
-            ..add(_encodeCborByteStringHeader(binaryArgument.length))
-            ..add(binaryArgument)
-            ..add(_pptKwargsKeyBytes)
-            ..add(_nullBytes))
-          .takeBytes();
+      final encoded =
+          (CopyAwareBytesBuilder()
+                ..add(_pptMapHeaderBytes)
+                ..add(_pptArgsKeyBytes)
+                ..add(_pptBinaryArrayHeaderBytes)
+                ..add(_encodeCborByteStringHeader(binaryArgument.length))
+                ..add(binaryArgument)
+                ..add(_pptKwargsKeyBytes)
+                ..add(_nullBytes))
+              .takeBytes();
+      PptCopyMetrics.recordCoalescingCopy(encoded.length);
+      return encoded;
     }
     final argsBytes = argumentsBytes ?? _encodeCborValue(arguments);
     final kwargsBytes =
         argumentsKeywordsBytes ?? _encodeCborValue(argumentsKeywords);
-    final builder = BytesBuilder(copy: false)
-      ..add([0xa2])
+    final builder = CopyAwareBytesBuilder()
+      ..add(_pptMapHeaderBytes)
       ..add(_pptArgsKeyBytes)
       ..add(argsBytes.isEmpty ? _nullBytes : argsBytes)
       ..add(_pptKwargsKeyBytes)
       ..add(kwargsBytes.isEmpty ? _nullBytes : kwargsBytes);
-    return builder.takeBytes();
+    final encoded = builder.takeBytes();
+    PptCopyMetrics.recordCoalescingCopy(encoded.length);
+    return encoded;
   }
 
   PPTPayload? _deserializeSingleBinaryPpt(Uint8List bytes) {

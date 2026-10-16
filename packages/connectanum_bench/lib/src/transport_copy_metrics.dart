@@ -1,5 +1,141 @@
+// Benchmark-only native observations.
+// ignore: implementation_imports
+import 'package:connectanum_client/src/transport/native/runtime.dart'
+    as client_native;
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_router/connectanum_router.dart';
+
+/// Versioned boundary contract approved for the standard Dart SDK campaign.
+const connectanumCopyMeasurementScope = 'connectanum_buffer_boundaries_v1';
+
+const _nativeClientCopyFields = [
+  'dart_to_native_copy_bytes',
+  'ffi_borrowed_send_input_copy_bytes',
+  'io_buffer_front_copy_bytes',
+  'io_buffered_read_copy_bytes',
+];
+const _dartClientCopyFields = [
+  'rawsocket_frame_payload_copy_bytes',
+  'rawsocket_frame_header_copy_bytes',
+  'rawsocket_input_copy_bytes',
+  'rawsocket_fragment_coalesce_copy_bytes',
+  'rawsocket_pre_handshake_queue_copy_bytes',
+  'websocket_fragment_coalesce_copy_bytes',
+];
+
+Map<String, Object?> dependencyCopyMetric(String dependency, String reason) => {
+  'status': 'not_measured',
+  'scope': 'dependency_internals',
+  'dependency': dependency,
+  'reason': reason,
+};
+
+int? _counterWindow(int? before, int? after) =>
+    before == null || after == null || before < 0 || after < before
+    ? null
+    : after - before;
+
+/// Benchmarks require one monotonic window; runtime-reset convenience deltas
+/// cannot certify copies that happened before a counter disappeared or rewound.
+Map<String, int?> nativeClientTransportCopyWindow(
+  client_native.NativeTransportCopyMetrics before,
+  client_native.NativeTransportCopyMetrics after,
+) => {
+  'dart_to_native_copy_bytes': _counterWindow(
+    before.dartToNativeCopiedBytesTotal,
+    after.dartToNativeCopiedBytesTotal,
+  ),
+  'ffi_borrowed_send_input_copy_bytes': _counterWindow(
+    before.ffiBorrowedSendCopyBytesTotal,
+    after.ffiBorrowedSendCopyBytesTotal,
+  ),
+  'io_buffer_front_copy_bytes': _counterWindow(
+    before.ioBufferFrontCopyBytesTotal,
+    after.ioBufferFrontCopyBytesTotal,
+  ),
+  'io_buffered_read_copy_bytes': _counterWindow(
+    before.ioBufferedReadCopyBytesTotal,
+    after.ioBufferedReadCopyBytesTotal,
+  ),
+  'websocket_mask_copy_bytes': _counterWindow(
+    before.websocketMaskCopyBytesTotal,
+    after.websocketMaskCopyBytesTotal,
+  ),
+  'websocket_coalesce_copy_bytes': _counterWindow(
+    before.websocketCoalesceCopyBytesTotal,
+    after.websocketCoalesceCopyBytesTotal,
+  ),
+};
+
+/// Certifies only the documented Connectanum client buffer-copy boundaries.
+/// Unknown dependencies remain separate from missing owned counters.
+Map<String, Object?> clientTransportCopyMetricsFor(
+  WampScenario scenario,
+  Map<String, Object?> counters,
+) {
+  final native =
+      scenario.clientImplementation == WampClientImplementation.native;
+  final websocket = scenario.transport == WampTransport.websocket;
+  final requiredFields = native
+      ? [
+          ..._nativeClientCopyFields,
+          if (websocket) 'websocket_mask_copy_bytes',
+          if (websocket) 'websocket_coalesce_copy_bytes',
+        ]
+      : _dartClientCopyFields;
+  final missing = <String>[];
+  var measuredBytes = 0;
+  for (final field in requiredFields) {
+    final value = _copyByteCount(counters[field]);
+    if (value == null) {
+      missing.add('client $field is invalid or unavailable');
+    } else {
+      measuredBytes += value;
+    }
+  }
+  Map<String, Object?> notApplicable(String reason) => {
+    'status': 'not_applicable',
+    'reason': reason,
+  };
+  return {
+    'measurement_scope': connectanumCopyMeasurementScope,
+    'transport_copy_bytes': missing.isEmpty
+        ? measuredBytes
+        : {'status': 'not_measured', 'reason': missing.join('; ')},
+    'known_own_transport_copy_bytes': measuredBytes,
+    'known_own_copy_breakdown': {'client': Map<String, Object?>.from(counters)},
+    'coverage': {
+      'transport_copy_bytes': missing.isEmpty
+          ? 'complete_client_connectanum_path'
+          : 'partial',
+      'unknown_boundaries': missing,
+      'unmeasured_dependency_boundaries': [
+        if (!native) 'dart_sdk_socket_io',
+        if (!native && websocket) 'dart_sdk_websocket_masking',
+        if (scenario.secureTransport)
+          native ? 'rustls_tokio_rustls' : 'dart_sdk_tls',
+      ],
+    },
+    'websocket_mask_copy_bytes': !websocket
+        ? notApplicable('RawSocket does not mask WebSocket frames')
+        : native
+        ? _copyByteCount(counters['websocket_mask_copy_bytes']) ??
+              {
+                'status': 'not_measured',
+                'reason': 'native mask counter missing',
+              }
+        : dependencyCopyMetric(
+            'dart_sdk_websocket_masking',
+            'Dart SDK WebSocket masking is outside Connectanum instrumentation',
+          ),
+    'tls_copy_bytes': !scenario.secureTransport
+        ? notApplicable('workload uses cleartext transport')
+        : dependencyCopyMetric(
+            native ? 'rustls_tokio_rustls' : 'dart_sdk_tls',
+            'TLS dependency internals are not a total Connectanum buffer-copy metric',
+          ),
+  };
+}
 
 /// Payload copies after a frozen native FlatBuffers owner is submitted.
 /// The worker invokes this only for its native-owned typed payload workloads.
@@ -26,7 +162,7 @@ Object ownedFlatBuffersPayloadCopyBytes(List<WampSample> samples) {
 ///
 /// A numeric transport total is emitted only when the client already reports
 /// complete coverage and the router has every counter needed for the active
-/// cleartext transport. Known counters remain available as a lower bound when
+/// transport. Known counters remain available as a lower bound when
 /// some path is unmeasured.
 Map<String, Object?> mergeRouterTransportCopyMetrics(
   Map<String, Object?> clientMetrics, {
@@ -45,8 +181,16 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   final routerDelta = before != null && after != null
       ? after.deltaFrom(before)
       : null;
+  final routerDartCopies = _counterWindow(
+    before?.dartToNativeCopiedBytesTotal,
+    after?.dartToNativeCopiedBytesTotal,
+  );
+  final routerWebSocketCopies = _counterWindow(
+    before?.websocketCoalesceCopyBytesTotal,
+    after?.websocketCoalesceCopyBytesTotal,
+  );
   final routerWebSocketMeasured =
-      !needsWebSocket || routerDelta?.websocketCoalesceCopyBytesTotal != null;
+      !needsWebSocket || routerWebSocketCopies != null;
   final clientTransport = _copyByteCount(metrics['transport_copy_bytes']);
   final coverageValue = metrics['coverage'];
   final clientCoverage = coverageValue is Map
@@ -56,11 +200,6 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   final clientUnknownBoundaries = clientBoundaryValue is List
       ? clientBoundaryValue.whereType<String>().toList()
       : <String>[];
-  final clientCoverageComplete =
-      clientCoverage['transport_copy_bytes'] ==
-          'complete_client_connectanum_path' &&
-      clientBoundaryValue is List &&
-      clientBoundaryValue.every((value) => value is String);
   final breakdownValue = metrics['known_own_copy_breakdown'];
   final breakdown = breakdownValue is Map
       ? Map<String, Object?>.from(breakdownValue)
@@ -69,16 +208,34 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   final clientBreakdown = clientBreakdownValue is Map
       ? Map<String, Object?>.from(clientBreakdownValue)
       : <String, Object?>{};
+  final measuredClient = clientTransportCopyMetricsFor(
+    scenario,
+    clientBreakdown,
+  );
+  final clientCoverageComplete =
+      metrics['measurement_scope'] == connectanumCopyMeasurementScope &&
+      clientCoverage['transport_copy_bytes'] ==
+          'complete_client_connectanum_path' &&
+      clientBoundaryValue is List &&
+      clientBoundaryValue.every((value) => value is String) &&
+      _copyByteCount(measuredClient['transport_copy_bytes']) != null &&
+      measuredClient['transport_copy_bytes'] == clientTransport;
   final clientInputMeasured =
       scenario.clientImplementation != WampClientImplementation.native ||
       (_copyByteCount(clientBreakdown['io_buffer_front_copy_bytes']) != null &&
           _copyByteCount(clientBreakdown['io_buffered_read_copy_bytes']) !=
               null);
-  final routerFrontCopies = _copyByteCount(
-    routerDelta?.ioBufferFrontCopyBytesTotal,
+  final routerFrontCopies = _counterWindow(
+    before?.ioBufferFrontCopyBytesTotal,
+    after?.ioBufferFrontCopyBytesTotal,
   );
-  final routerReplayCopies = _copyByteCount(
-    routerDelta?.ioBufferedReadCopyBytesTotal,
+  final routerReplayCopies = _counterWindow(
+    before?.ioBufferedReadCopyBytesTotal,
+    after?.ioBufferedReadCopyBytesTotal,
+  );
+  final routerFfiCopies = _counterWindow(
+    before?.ffiBorrowedSendCopyBytesTotal,
+    after?.ffiBorrowedSendCopyBytesTotal,
   );
   final routerInputMeasured =
       routerFrontCopies != null && routerReplayCopies != null;
@@ -88,9 +245,10 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       clientUnknownBoundaries.isEmpty &&
       clientTransport != null &&
       routerDelta != null &&
+      routerDartCopies != null &&
       routerWebSocketMeasured &&
       routerInputMeasured &&
-      !needsTls;
+      routerFfiCopies != null;
 
   final unknownBoundaries = clientUnknownBoundaries;
   void addUnknownBoundary(String value) {
@@ -115,11 +273,16 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       'router WebSocket coalescing copy counter is unavailable',
     );
   }
+  if (routerDelta != null && routerDartCopies == null) {
+    addUnknownBoundary(
+      'router Dart-to-native copy counter is invalid or rewound',
+    );
+  }
   if (routerDelta != null && !routerInputMeasured) {
     addUnknownBoundary('router prefetched input copy counters are unavailable');
   }
-  if (needsTls) {
-    addUnknownBoundary('TLS memory-copy behavior is not measured');
+  if (routerDelta != null && routerFfiCopies == null) {
+    addUnknownBoundary('router borrowed FFI send copy counter is unavailable');
   }
 
   final clientKnownOwnBytes = _copyByteCount(
@@ -127,12 +290,11 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   );
   final routerKnownOwnBytes = routerDelta == null
       ? 0
-      : routerDelta.dartToNativeCopiedBytesTotal +
-            (needsWebSocket
-                ? (routerDelta.websocketCoalesceCopyBytesTotal ?? 0)
-                : 0) +
+      : (routerDartCopies ?? 0) +
+            (needsWebSocket ? (routerWebSocketCopies ?? 0) : 0) +
             (routerFrontCopies ?? 0) +
-            (routerReplayCopies ?? 0);
+            (routerReplayCopies ?? 0) +
+            (routerFfiCopies ?? 0);
   metrics['known_own_transport_copy_bytes'] =
       (clientKnownOwnBytes ?? 0) + routerKnownOwnBytes;
 
@@ -164,12 +326,20 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
   routerBreakdown['rustls_record_append_copy_bytes'] =
       _copyByteCount(routerDelta?.rustlsRecordAppendCopyBytesTotal) ??
       notMeasured('router partial Rustls source counter is unavailable');
-  routerBreakdown['dart_to_native_copy_bytes'] = routerDelta == null
-      ? notMeasured('router transport copy snapshots are unavailable')
-      : routerDelta.dartToNativeCopiedBytesTotal;
+  routerBreakdown['tokio_rustls_plaintext_extract_copy_bytes'] =
+      _copyByteCount(routerDelta?.tokioRustlsPlaintextExtractCopyBytesTotal) ??
+      notMeasured('router partial Tokio-Rustls source counter is unavailable');
+  routerBreakdown['dart_to_native_copy_bytes'] =
+      routerDartCopies ??
+      notMeasured(
+        'router transport copy snapshots are unavailable, invalid or rewound',
+      );
+  routerBreakdown['ffi_borrowed_send_input_copy_bytes'] =
+      routerFfiCopies ??
+      notMeasured('router borrowed FFI send copy counter is unavailable');
   routerBreakdown['websocket_coalesce_copy_bytes'] = !needsWebSocket
       ? 0
-      : routerDelta?.websocketCoalesceCopyBytesTotal ??
+      : routerWebSocketCopies ??
             notMeasured(
               'router WebSocket coalescing copy counter is unavailable',
             );
@@ -180,16 +350,13 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
 
   metrics['transport_copy_bytes'] = completePath
       ? clientTransport +
-            routerDelta.dartToNativeCopiedBytesTotal +
-            (needsWebSocket
-                ? routerDelta.websocketCoalesceCopyBytesTotal!
-                : 0) +
+            routerDartCopies +
+            (needsWebSocket ? routerWebSocketCopies! : 0) +
             routerFrontCopies +
-            routerReplayCopies
+            routerReplayCopies +
+            routerFfiCopies
       : notMeasured(
-          needsTls
-              ? 'TLS copy behavior is not instrumented'
-              : !clientCoverageComplete || clientTransport == null
+          !clientCoverageComplete || clientTransport == null
               ? 'client transport copy coverage is incomplete'
               : !clientInputMeasured
               ? 'client prefetched input copy counters are unavailable'
@@ -204,11 +371,22 @@ Map<String, Object?> mergeRouterTransportCopyMetrics(
       ? 'complete_connectanum_owned_path'
       : 'partial';
   clientCoverage['unknown_boundaries'] = unknownBoundaries;
+  final dependencies = clientCoverage['unmeasured_dependency_boundaries'];
+  clientCoverage['unmeasured_dependency_boundaries'] = [
+    if (dependencies is List) ...dependencies,
+    if (needsTls &&
+        (dependencies is! List ||
+            !dependencies.contains('rustls_tokio_rustls')))
+      'rustls_tokio_rustls',
+  ];
   metrics['coverage'] = clientCoverage;
 
   if (needsTls) {
-    metrics['tls_copy_bytes'] = notMeasured(
-      'TLS accepted-plaintext bytes do not measure memory copies',
+    metrics['tls_copy_bytes'] = dependencyCopyMetric(
+      scenario.clientImplementation == WampClientImplementation.native
+          ? 'rustls_tokio_rustls'
+          : 'dart_sdk_tls_and_rustls_tokio_rustls',
+      'TLS dependency internals are not measured by plaintext acceptance',
     );
     final clientTls = _copyByteCount(metrics['tls_plaintext_accepted_bytes']);
     final routerTls = routerDelta?.tlsPlaintextAcceptedBytesTotal;

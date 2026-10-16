@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
@@ -122,7 +123,7 @@ Map<String, Object?> _merge(
 }
 
 Object? _snapshot(Object? value) {
-  if (value is Uint8List) return Uint8List.fromList(value);
+  if (value is Uint8List) return OwnedCopyMetrics.copyBytes(value);
   if (value is List) return value.map(_snapshot).toList(growable: false);
   if (value is Map) {
     return <String, Object?>{

@@ -6,14 +6,84 @@ import 'dart:typed_data';
 import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_client/native_buffers.dart';
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
 import 'package:test/test.dart';
+import 'package:flat_buffers/flat_buffers.dart' as fb;
+import 'package:connectanum_bench/src/bench_payload/generated/workload_payload_connectanum.bench_generated.dart'
+    as schema;
 
 import 'support/native_library.dart';
 
 void main() {
   final nativeLibrary = nativeBenchTestLibrary();
+  test('managed typed fixture observes its byte-vector input copy', () {
+    OwnedCopyMetrics.enable();
+    final before = OwnedCopyMetrics.snapshot()!;
+    final bytes = BenchPayloadCodec.encodeDart(
+      worker: 7,
+      iteration: 11,
+      bodyBytes: 65536,
+    );
+    final after = OwnedCopyMetrics.snapshot()!;
+    expect(
+      after['flatbuffer_vector_copy_bytes']! -
+          before['flatbuffer_vector_copy_bytes']!,
+      65536,
+    );
+    expect(
+      after['flatbuffer_growth_copy_bytes']! -
+          before['flatbuffer_growth_copy_bytes']!,
+      0,
+    );
+    BenchPayloadCodec.verify(
+      bytes: bytes,
+      worker: 7,
+      iteration: 11,
+      bodyBytes: 65536,
+    );
+  });
+
+  test(
+    'Dart FlatBuffers fixture fills its backing array with unchanged wire bytes',
+    () {
+      for (final size in [0, 1, 2, 3, 4, 5, 7, 8, 9, 16, 65535, 65536]) {
+        for (final worker in [0, 1, 0xffffffff]) {
+          for (final iteration in [0, 1, 0xffffffff]) {
+            final expectedBuilder = fb.Builder(
+              initialSize: (size + 128 + 7) & ~7,
+              deduplicateTables: false,
+            );
+            expectedBuilder.finish(
+              schema.WorkloadPayloadObjectBuilder(
+                worker: worker,
+                iteration: iteration,
+                body: BenchPayloadCodec.body(
+                  worker: worker,
+                  iteration: iteration,
+                  length: size,
+                ),
+              ).finish(expectedBuilder),
+              'CBEN',
+            );
+            final bytes = BenchPayloadCodec.encodeDart(
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: size,
+            );
+            expect(bytes, orderedEquals(expectedBuilder.buffer));
+            expect(
+              bytes.offsetInBytes,
+              0,
+              reason: 'body=$size worker=$worker iteration=$iteration',
+            );
+            expect(bytes.buffer.lengthInBytes, bytes.length);
+          }
+        }
+      }
+    },
+  );
 
   for (final codec in [
     ('cbor', cbor.Serializer()),
@@ -149,6 +219,31 @@ void main() {
 
   for (final bodyBytes in [0, 1, 1024, 64 * 1024]) {
     test(
+      'default native allocation avoids growth for $bodyBytes body bytes',
+      () {
+        final native = BenchPayloadCodec.encodeNative(
+          NativeBufferAllocator.instance(libraryPath: nativeLibrary),
+          worker: 7,
+          iteration: 19,
+          bodyBytes: bodyBytes,
+        );
+        addTearDown(native.dispose);
+        expect(native.growthCopiedBytes, 0);
+        expect(native.inputCopiedBytes, bodyBytes);
+        expect(
+          native.bytes,
+          BenchPayloadCodec.encodeDart(
+            worker: 7,
+            iteration: 19,
+            bodyBytes: bodyBytes,
+          ),
+        );
+      },
+      skip: nativeLibrary == null
+          ? 'Native transport artifact unavailable'
+          : false,
+    );
+    test(
       'Dart and native FlatBuffers match for $bodyBytes body bytes',
       () {
         final expectedWorker = 7;
@@ -222,7 +317,7 @@ void main() {
       throwsFormatException,
     );
     final decodedBody = BenchPayloadCodec.decode(bytes).body!;
-    expect(() => decodedBody[0] = 0, throwsStateError);
+    expect(() => decodedBody[0] = 0, throwsUnsupportedError);
     final bodyOffset = _findSubsequence(
       bytes,
       BenchPayloadCodec.body(worker: 2, iteration: 3, length: 16),

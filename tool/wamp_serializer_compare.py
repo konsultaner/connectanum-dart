@@ -18,6 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from dart_heap_allocation_evidence import allocation_evidence
+
 
 CODECS = ("flatbuffers", "cbor", "msgpack")
 METRICS = ("throughput_mbps", "latency_p95_ms", "latency_p99_ms")
@@ -53,6 +55,26 @@ COPY_METRICS = (
     "transcode_copy_bytes",
     "e2ee_copy_bytes",
 )
+COPY_MEASUREMENT_SCOPE = "connectanum_buffer_boundaries_v1"
+NATIVE_CLIENT_COPY_FIELDS = (
+    "dart_to_native_copy_bytes", "ffi_borrowed_send_input_copy_bytes",
+    "io_buffer_front_copy_bytes",
+    "io_buffered_read_copy_bytes",
+)
+DART_CLIENT_COPY_FIELDS = (
+    "rawsocket_frame_payload_copy_bytes", "rawsocket_frame_header_copy_bytes",
+    "rawsocket_input_copy_bytes", "rawsocket_fragment_coalesce_copy_bytes",
+    "rawsocket_pre_handshake_queue_copy_bytes", "websocket_fragment_coalesce_copy_bytes",
+)
+
+
+def _copy_byte_count(value: Any) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value)) and value >= 0 and value == int(value)
+    except OverflowError:
+        return False
 
 
 class CampaignError(ValueError):
@@ -278,6 +300,188 @@ def _resolve_results(base_dir: Path, run: dict[str, Any]) -> tuple[list[dict[str
     return reports, {report["workload"]: report for report in reports}
 
 
+OWNED_DART_COPY_FIELDS = (
+    'clone_copy_bytes', 'coalescing_copy_bytes', 'flatbuffer_vector_copy_bytes',
+    'flatbuffer_growth_copy_bytes', 'isolate_transfer_copy_bytes',
+    'framing_copy_bytes', 'key_material_copy_bytes', 'ppt_serializer_copy_bytes',
+    'portable_crypto_copy_bytes',
+)
+NATIVE_CODEC_COPY_FIELDS = (
+    'vector_copy_bytes', 'string_copy_bytes', 'growth_copy_bytes',
+    'parser_read_copy_bytes', 'framing_copy_bytes', 'key_material_copy_bytes',
+)
+RAW_FRAME_COPY_FIELDS = ('coalescing_copy_bytes', 'range_copy_bytes')
+RAW_FRAME_REQUEST_FIELDS = (
+    'single_segment_contiguous_requests', 'multi_segment_contiguous_requests',
+)
+NATIVE_CRYPTO_COPY_FIELDS = (
+    'dart_to_native_copy_bytes', 'native_to_dart_copy_bytes',
+    'ciphertext_coercion_copy_bytes', 'plaintext_staging_copy_bytes',
+    'ciphertext_staging_copy_bytes', 'nonce_tag_copy_bytes',
+    'plaintext_framing_copy_bytes',
+)
+
+
+def _owned_count(value, label):
+    if type(value) is not int or value < 0:
+        raise ValueError(f'{label} must be a nonnegative integer')
+    return value
+
+
+def _owned_map(value, label):
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+        raise ValueError(f'{label} must be a map with string keys')
+    return value
+
+
+def _owned_component(value, fields, label, *, flags=(), requests=()):
+    value = _owned_map(value, label)
+    if value.get('status') != 'measured':
+        raise ValueError(f'{label} was not measured')
+    total = sum(_owned_count(value.get(field), f'{label}.{field}') for field in fields)
+    for field in flags:
+        if _owned_count(value.get(field), f'{label}.{field}') != 0:
+            raise ValueError(f'{label} has a failed or unmeasured operation')
+    for field in requests:
+        _owned_count(value.get(field), f'{label}.{field}')
+    if _owned_count(value.get('known_copy_bytes'), f'{label}.known_copy_bytes') != total:
+        raise ValueError(f'{label} subtotal disagrees with its fields')
+    return total
+
+
+def _owned_codec(value, label):
+    value = _owned_map(value, label)
+    if _owned_count(value.get('coverage_version'), f'{label} coverage') != 1:
+        raise ValueError(f'{label} copy coverage v1 is unavailable')
+    return _owned_component(value, NATIVE_CODEC_COPY_FIELDS, label)
+
+
+def _owned_dart(value, label):
+    return _owned_component(value, OWNED_DART_COPY_FIELDS, label,
+        flags=('failed_copy_operations', 'unmeasured_copy_operations'))
+
+
+def _owned_router_dart(value):
+    value = _owned_map(value, 'router Dart')
+    generation = _owned_count(value.get('boss_generation'), 'router boss generation')
+    workers = _owned_map(value.get('workers'), 'router workers')
+    if value.get('status') != 'measured' or generation < 1 or not workers or any(not key for key in workers):
+        raise ValueError('router owner generations are incomplete')
+    total = _owned_dart(value.get('main_isolate'), 'router main isolate')
+    total += sum(_owned_dart(worker, f'router worker {key}') for key, worker in workers.items())
+    if _owned_count(value.get('known_copy_bytes'), 'router Dart subtotal') != total:
+        raise ValueError('router Dart subtotal disagrees with its isolates')
+    return total
+
+
+def _owned_crypto(value, active):
+    value = _owned_map(value, 'native crypto')
+    if value.get('status') != 'measured' or value.get('active') is not active:
+        raise ValueError('native crypto provider observations are incomplete')
+    if active:
+        return _owned_component(value, NATIVE_CRYPTO_COPY_FIELDS, 'native crypto')
+    for index, field in enumerate(NATIVE_CRYPTO_COPY_FIELDS):
+        count = value.get(field)
+        if index < 3 or count is not None:
+            if _owned_count(count, f'inactive native crypto.{field}') != 0:
+                raise ValueError('inactive native crypto performed copies')
+    if _owned_count(value.get('known_copy_bytes'), 'inactive native crypto subtotal') != 0:
+        raise ValueError('inactive native crypto has a nonzero subtotal')
+    return 0
+
+
+def _owned_transport(copies, native, websocket):
+    coverage = _owned_map(copies.get('coverage'), 'transport coverage')
+    if (coverage.get('transport_copy_bytes') != 'complete_connectanum_owned_path'
+            or coverage.get('unknown_boundaries') != []):
+        raise ValueError('transport coverage is incomplete')
+    boundaries = _owned_map(copies.get('known_own_copy_breakdown'), 'transport breakdown')
+    client_fields = NATIVE_CLIENT_COPY_FIELDS if native else DART_CLIENT_COPY_FIELDS
+    if native and websocket:
+        client_fields += ('websocket_mask_copy_bytes', 'websocket_coalesce_copy_bytes')
+    router_fields = NATIVE_CLIENT_COPY_FIELDS + (('websocket_coalesce_copy_bytes',) if websocket else ())
+    total = 0
+    for process, fields in (('client', client_fields), ('router', router_fields)):
+        counters = _owned_map(boundaries.get(process), f'{process} transport')
+        total += sum(_owned_count(counters.get(field), f'{process} transport.{field}') for field in fields)
+    if _owned_count(copies.get('transport_copy_bytes'), 'transport total') != total:
+        raise ValueError('transport total disagrees with its fields')
+    return total
+
+
+def _owned_pipeline_findings(report, kind, *, label):
+    try:
+        copies = _owned_map(report.get('copy_metrics'), 'copy metrics')
+        details = _owned_map(copies.get(f'{kind}_copy_breakdown'), f'{kind} breakdown')
+        if (details.get('coverage') != 'complete_connectanum_owned_path'
+                or details.get('measurement_scope') != COPY_MEASUREMENT_SCOPE
+                or details.get('unknown_boundaries') != []):
+            raise ValueError('requires complete pipeline coverage at declared owned boundaries')
+        config = _owned_map(report.get('wamp_configuration'), 'WAMP configuration')
+        if report.get('client_impl') not in ('native', 'dart') or type(config.get('secure_transport')) is not bool:
+            raise ValueError('owned copy applicability is missing')
+        protocol = report.get('protocol')
+        if not isinstance(protocol, str) or not protocol.startswith(('wamp_rawsocket_', 'wamp_websocket_')):
+            raise ValueError('owned copy transport is invalid')
+        native = report.get('client_impl') == 'native'
+        websocket = protocol.startswith('wamp_websocket_')
+        secure = config.get('secure_transport') is True
+        encrypted = report.get('ppt_scheme') == 'wamp' or config.get('ppt_scheme') == 'wamp'
+        dart = _owned_map(copies.get('dart_owned_buffer_copy_breakdown'), 'Dart breakdown')
+        codec = _owned_map(copies.get('native_codec_copy_breakdown'), 'native codec breakdown')
+        raw = _owned_map(copies.get('raw_frame_copy_breakdown'), 'raw frame breakdown')
+        parts = {
+            'router_dart': _owned_router_dart(dart.get('router')),
+            'router_native_codec': _owned_codec(codec.get('router'), 'router native codec'),
+            'router_native_raw_frame': _owned_component(raw.get('router'), RAW_FRAME_COPY_FIELDS, 'router raw frame', requests=RAW_FRAME_REQUEST_FIELDS),
+        }
+        if kind == 'e2ee':
+            if not encrypted:
+                raise ValueError('E2EE copy totals require an encrypted workload')
+            parts.update({
+                'client_dart': _owned_dart(dart.get('client'), 'client Dart'),
+                'client_native_codec': _owned_codec(codec.get('client'), 'client native codec'),
+                'client_native_raw_frame': _owned_component(raw.get('client'), RAW_FRAME_COPY_FIELDS, 'client raw frame', requests=RAW_FRAME_REQUEST_FIELDS),
+                'native_crypto': _owned_crypto(copies.get('native_crypto_copy_breakdown'), native),
+                'transport': _owned_transport(copies, native, websocket),
+            })
+            if native and dart['client']['portable_crypto_copy_bytes'] != 0:
+                raise ValueError('portable crypto ran in a native-provider window')
+            non_transport = _owned_count(details.get('non_transport_owned_copy_bytes'), 'non-transport owned total')
+            if non_transport != sum(parts.values()) - parts['transport']:
+                raise ValueError('non-transport owned total disagrees with its components')
+        elif details.get('boundary') != 'router_serializer_and_dispatch_buffers':
+            raise ValueError('transcode boundary is unsupported')
+        recorded = _owned_map(details.get('components'), 'owned components')
+        if set(recorded) != set(parts) or any(_owned_count(recorded[key], key) != value for key, value in parts.items()):
+            raise ValueError('owned component subtotals disagree with their observations')
+        if _owned_count(copies.get(f'{kind}_copy_bytes'), f'{kind} total') != sum(parts.values()):
+            raise ValueError(f'{kind} total disagrees with its components')
+        dependencies = {
+            'dart_sdk_runtime_internals', 'rust_std_tokio_bytes_internals',
+            'serializer_dependency_internals',
+        }
+        if encrypted:
+            dependencies.add('crypto_dependency_internals')
+        if report.get('protocol', '').endswith('_file_transfer'):
+            dependencies.add('file_io_dependency_internals')
+        if not native:
+            dependencies.add('dart_sdk_socket_io')
+            if websocket:
+                dependencies.add('dart_sdk_websocket_masking')
+        if secure:
+            dependencies.add('rustls_tokio_rustls')
+            if not native:
+                dependencies.add('dart_sdk_tls')
+        labels = details.get('unmeasured_dependency_boundaries')
+        if (not isinstance(labels, list) or any(not isinstance(item, str) for item in labels)
+                or len(labels) != len(dependencies) or set(labels) != dependencies):
+            raise ValueError('dependency labels disagree with the active path')
+    except ValueError as error:
+        return [f'{label}: {kind}_copy_bytes {error}']
+    return []
+
+
 def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
     missing: list[str] = []
     process_sets: dict[str, dict[str, Any]] = {}
@@ -345,8 +549,38 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
     copy_metrics = report.get("copy_metrics")
     if not isinstance(copy_metrics, dict):
         return missing + [f"{label}: missing copy_metrics"]
+    if copy_metrics.get("measurement_scope") != COPY_MEASUREMENT_SCOPE:
+        missing.append(f"{label}: missing or unsupported copy measurement scope")
+    config = report.get("wamp_configuration")
+    config = config if isinstance(config, dict) else {}
+    if not isinstance(config.get("secure_transport"), bool):
+        missing.append(f"{label}: copy applicability requires an explicit secure_transport boolean")
+    secure = config.get("secure_transport") is True
+    protocol = report.get("protocol")
+    if not isinstance(protocol, str) or not protocol.startswith(("wamp_rawsocket_", "wamp_websocket_")):
+        missing.append(f"{label}: copy applicability requires a WAMP transport protocol")
+    websocket = isinstance(protocol, str) and protocol.startswith("wamp_websocket_")
+    if report.get("client_impl") not in ("native", "dart"):
+        missing.append(f"{label}: copy applicability requires an explicit client implementation")
+    native = report.get("client_impl") == "native"
+    allowed_dependencies = {
+        "tls_copy_bytes": (
+            "rustls_tokio_rustls" if native
+            else "dart_sdk_tls_and_rustls_tokio_rustls"
+        ) if secure else None,
+        "websocket_mask_copy_bytes": "dart_sdk_websocket_masking"
+        if websocket and not native else None,
+    }
     for key in COPY_METRICS:
         value = copy_metrics.get(key)
+        if (
+            isinstance(value, dict) and value.get("status") == "not_measured"
+            and value.get("scope") == "dependency_internals"
+            and allowed_dependencies.get(key) is not None
+            and value.get("dependency") == allowed_dependencies[key]
+            and isinstance(value.get("reason"), str) and value["reason"].strip()
+        ):
+            continue
         if isinstance(value, dict) and value.get("status") == "not_applicable":
             if key == "transport_copy_bytes":
                 missing.append(f"{label}: transport_copy_bytes cannot be not_applicable")
@@ -358,10 +592,14 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
                 missing.append(f"{label}: encrypted e2ee_copy_bytes cannot be not_applicable")
             elif not isinstance(value.get("reason"), str) or not value["reason"].strip():
                 missing.append(f"{label}: {key} not-applicable entry needs a reason")
+            elif (key == "tls_copy_bytes" and secure) or (key == "websocket_mask_copy_bytes" and websocket):
+                missing.append(f"{label}: active {key} cannot be not_applicable")
         elif not isinstance(value, (int, float)) or isinstance(value, bool):
             missing.append(f"{label}: missing copy_metrics.{key}")
-        elif not math.isfinite(float(value)) or value < 0:
+        elif not _copy_byte_count(value):
             missing.append(f"{label}: invalid copy_metrics.{key}")
+        elif key == "tls_copy_bytes" and secure:
+            missing.append(f"{label}: standard-SDK TLS internals must remain explicitly labelled unmeasured")
     transport_copy_bytes = copy_metrics.get("transport_copy_bytes")
     if isinstance(transport_copy_bytes, (int, float)) and not isinstance(
         transport_copy_bytes, bool
@@ -378,29 +616,59 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
                 f"{label}: complete transport_copy_bytes coverage cannot have unknown boundaries"
             )
         breakdown = copy_metrics.get("known_own_copy_breakdown")
-        processes = ("router", "client") if report.get("client_impl") == "native" else ("router",)
-        for process in processes:
+        total = 0
+        complete = True
+        client_fields = NATIVE_CLIENT_COPY_FIELDS if native else DART_CLIENT_COPY_FIELDS
+        if native and websocket:
+            client_fields += ("websocket_mask_copy_bytes", "websocket_coalesce_copy_bytes")
+        router_fields = NATIVE_CLIENT_COPY_FIELDS
+        if websocket:
+            router_fields += ("websocket_coalesce_copy_bytes",)
+        for process, fields in (("client", client_fields), ("router", router_fields)):
             counters = breakdown.get(process) if isinstance(breakdown, dict) else None
-            for field in ("io_buffer_front_copy_bytes", "io_buffered_read_copy_bytes"):
+            for field in fields:
                 value = counters.get(field) if isinstance(counters, dict) else None
-                if (
-                    not isinstance(value, (int, float))
-                    or isinstance(value, bool)
-                    or not math.isfinite(float(value))
-                    or value < 0
-                ):
+                if not _copy_byte_count(value):
+                    complete = False
                     missing.append(
                         f"{label}: complete transport coverage requires measured {process}.{field}"
                     )
+                else:
+                    total += int(value)
+        if complete and transport_copy_bytes != total:
+            missing.append(f"{label}: transport_copy_bytes does not equal its owned boundary breakdown")
+        dependencies = coverage.get("unmeasured_dependency_boundaries") if isinstance(coverage, dict) else None
+        expected_dependencies = set()
+        if not native:
+            expected_dependencies.add("dart_sdk_socket_io")
+            if websocket:
+                expected_dependencies.add("dart_sdk_websocket_masking")
+        if secure:
+            expected_dependencies.add("rustls_tokio_rustls")
+            if not native:
+                expected_dependencies.add("dart_sdk_tls")
+        if (
+            not isinstance(dependencies, list)
+            or any(not isinstance(item, str) for item in dependencies)
+            or set(dependencies) != expected_dependencies
+        ):
+            missing.append(f"{label}: dependency boundary labels do not match the active path")
+    observed_pids = {
+        process.get("pid") for process in process_sets.values()
+        if type(process.get("pid")) is int and process["pid"] > 0
+    }
+    for process_name, process in process_sets.items():
+        missing.extend(allocation_evidence(
+            process, observed_pids=observed_pids, label=f"{label}.{process_name}",
+        )[2])
     e2ee_copy_bytes = copy_metrics.get("e2ee_copy_bytes")
     if isinstance(e2ee_copy_bytes, (int, float)) and not isinstance(e2ee_copy_bytes, bool):
-        breakdown = copy_metrics.get("e2ee_copy_breakdown")
-        if (
-            not isinstance(breakdown, dict)
-            or breakdown.get("coverage") != "complete_pipeline"
-            or breakdown.get("unknown_boundaries") != []
-        ):
-            missing.append(f"{label}: e2ee_copy_bytes requires complete pipeline coverage without unknown boundaries")
+        missing.extend(_owned_pipeline_findings(report, 'e2ee', label=label))
+    peer = config.get('peer_serializer')
+    mixed = peer is not None and peer != config.get('serializer')
+    transcode_copy_bytes = copy_metrics.get('transcode_copy_bytes')
+    if mixed and isinstance(transcode_copy_bytes, (int, float)) and not isinstance(transcode_copy_bytes, bool):
+        missing.extend(_owned_pipeline_findings(report, 'transcode', label=label))
     return missing
 
 
@@ -434,7 +702,7 @@ def _configuration_findings(report: dict[str, Any], case: dict[str, Any], codec:
 
 def _summarize_report(
     report: dict[str, Any], *, min_duration_ms: int, min_samples: int, label: str
-) -> tuple[dict[str, float], list[str]]:
+) -> tuple[dict[str, float | None], list[str]]:
     findings = _validate_evidence(report, label=label)
     samples = report.get("samples")
     if not isinstance(samples, list) or not samples:
@@ -483,7 +751,7 @@ def _summarize_report(
         report.get("server_process_metrics"),
     ]
 
-    def process_value(key: str) -> float:
+    def process_value(key: str) -> float | None:
         total = 0.0
         for process in process_metrics:
             value = process.get(key) if isinstance(process, dict) else None
@@ -493,9 +761,22 @@ def _summarize_report(
                 or not math.isfinite(float(value))
                 or value < 0
             ):
-                return 0.0
+                return None
             total += float(value)
         return total
+
+    def per_operation(*keys: str) -> float | None:
+        values = [process_value(key) for key in keys]
+        return None if any(value is None for value in values) else sum(values) / len(samples)
+
+    observed_pids = {
+        process.get("pid") for process in process_metrics
+        if isinstance(process, dict) and type(process.get("pid")) is int
+    }
+    allocations = [allocation_evidence(process, observed_pids=observed_pids, label=label)
+                   for process in process_metrics]
+    allocation_bytes = None if any(item[0] is None or item[0] <= 0 for item in allocations) else sum(item[0] for item in allocations) / len(samples)
+    allocation_error = None if allocation_bytes is None else sum(item[1] for item in allocations) / len(samples)
 
     return (
         {
@@ -507,15 +788,10 @@ def _summarize_report(
             "data_window_elapsed_ms": elapsed_ms,
             "request_bytes_total": float(request_bytes),
             "response_bytes_total": float(response_bytes),
-            "cpu_us_per_operation": (
-                process_value("cpu_user_us_delta")
-                + process_value("cpu_system_us_delta")
-            )
-            / len(samples),
-            "allocated_bytes_per_operation": process_value("allocated_bytes_delta")
-            / len(samples),
-            "gc_pause_us_per_operation": process_value("gc_pause_us_delta")
-            / len(samples),
+            "cpu_us_per_operation": per_operation("cpu_user_us_delta", "cpu_system_us_delta"),
+            "allocated_bytes_per_operation": allocation_bytes,
+            "allocated_bytes_error_bound_per_operation": allocation_error,
+            "gc_pause_us_per_operation": per_operation("gc_pause_us_delta"),
             "summed_sampled_peak_rss_bytes": process_value("peak_rss_during_bytes"),
         },
         findings,
@@ -582,6 +858,8 @@ def evaluate_campaign(
         raise CampaignError("manifest must record a non-zero deterministic order_seed")
 
     findings: list[str] = _campaign_findings(manifest)
+    if policy.get("copy_measurement_scope") != COPY_MEASUREMENT_SCOPE:
+        findings.append("policy requires the approved versioned Connectanum copy measurement scope")
     metadata = manifest.get("metadata")
     configuration_required = isinstance(metadata, dict) and metadata.get("campaign_kind") is not None
     loaded_warmups: list[dict[str, dict[str, Any]]] = []
@@ -675,7 +953,7 @@ def evaluate_campaign(
         if any(count == 0 for count in (first_counts[codec] for codec in CODECS)):
             findings.append(f"{case_id}: each codec must appear first at least once")
 
-        summaries: dict[str, list[dict[str, float]]] = {codec: [] for codec in CODECS}
+        summaries: dict[str, list[dict[str, float | None]]] = {codec: [] for codec in CODECS}
         signatures: dict[str, tuple[Any, ...]] = {}
         for codec in CODECS:
             for run_index, report in enumerate(case_reports[codec], start=1):
@@ -747,7 +1025,7 @@ def evaluate_campaign(
                             key: summary[key]
                             for key in RESOURCE_METRICS
                             if key in summary
-                        },
+                        } | {"allocated_bytes_error_bound_per_operation": summary["allocated_bytes_error_bound_per_operation"]},
                         "copy_metrics": report.get("copy_metrics"),
                         "wamp_configuration": report.get("wamp_configuration"),
                     }
@@ -760,6 +1038,20 @@ def evaluate_campaign(
                 candidate = summaries["flatbuffers"][index][metric]
                 cbor = summaries["cbor"][index][metric]
                 msgpack = summaries["msgpack"][index][metric]
+                if any(value is None for value in (candidate, cbor, msgpack)):
+                    observations.append({
+                        "repetition": index + 1, "flatbuffers": candidate,
+                        "cbor": cbor, "msgpack": msgpack,
+                        "best_baseline_codec": None, "best_baseline": None, "ratio": None,
+                    })
+                    continue
+                point_values = {"flatbuffers": candidate, "cbor": cbor, "msgpack": msgpack}
+                # Compare the candidate upper bound to baseline lower bounds.
+                # No numeric budget changes or missing-pair filtering is allowed.
+                if metric == "allocated_bytes_per_operation":
+                    candidate += summaries["flatbuffers"][index]["allocated_bytes_error_bound_per_operation"]
+                    cbor = max(0, cbor - summaries["cbor"][index]["allocated_bytes_error_bound_per_operation"])
+                    msgpack = max(0, msgpack - summaries["msgpack"][index]["allocated_bytes_error_bound_per_operation"])
                 if metric == "throughput_mbps":
                     baseline_codec = "cbor" if cbor >= msgpack else "msgpack"
                     baseline = max(cbor, msgpack)
@@ -768,19 +1060,23 @@ def evaluate_campaign(
                     baseline = min(cbor, msgpack)
                 winner_counts[baseline_codec] += 1
                 if baseline <= 0:
-                    ratio = 1.0 if candidate == 0 else 1e12
+                    ratio = None
                     findings.append(
                         f"{case_id} repetition {index + 1} {metric}: baseline metric is zero"
                     )
                 else:
                     ratio = candidate / baseline
-                ratios.append(ratio)
+                if ratio is not None:
+                    ratios.append(ratio)
                 observations.append(
                     {
                         "repetition": index + 1,
-                        "flatbuffers": candidate,
-                        "cbor": cbor,
-                        "msgpack": msgpack,
+                        **point_values,
+                        **({"comparison_bounds": {
+                            "flatbuffers_upper": candidate,
+                            "cbor_lower": cbor,
+                            "msgpack_lower": msgpack,
+                        }} if metric == "allocated_bytes_per_operation" else {}),
                         "best_baseline_codec": baseline_codec,
                         "best_baseline": baseline,
                         "ratio": ratio,
@@ -789,17 +1085,23 @@ def evaluate_campaign(
             metric_policy = policy["metrics"][metric]
             seed_material = f"{policy['random_seed']}:{case_id}:{metric}".encode()
             seed = int.from_bytes(hashlib.sha256(seed_material).digest()[:4], "big")
-            gate = _ratio_gate(
-                ratios,
-                metric_policy,
-                seed=seed,
-                resamples=int(policy["bootstrap_resamples"]),
-                confidence=float(policy["confidence_level"]),
-            )
+            if len(ratios) != len(runs):
+                gate = {
+                    "status": "not_measured", "paired_ratios": [row["ratio"] for row in observations],
+                    "median_ratio": None, "ci_95_low": None, "ci_95_high": None,
+                    "passed": False,
+                }
+                findings.append(f"{case_id} {metric}: incomplete paired resource observations; parity is unmeasured")
+            else:
+                gate = _ratio_gate(
+                    ratios, metric_policy, seed=seed,
+                    resamples=int(policy["bootstrap_resamples"]),
+                    confidence=float(policy["confidence_level"]),
+                )
             gate["best_baseline_by_repetition"] = dict(winner_counts)
             gate["observations"] = observations
             metric_results[metric] = gate
-            if not gate["passed"]:
+            if not gate["passed"] and gate["median_ratio"] is not None:
                 findings.append(
                     f"{case_id} {metric}: paired ratio median {gate['median_ratio']:.4f}, "
                     f"95% CI [{gate['ci_95_low']:.4f}, {gate['ci_95_high']:.4f}] "
@@ -843,6 +1145,16 @@ def evaluate_campaign(
 
 
 def render_markdown(result: dict[str, Any]) -> str:
+    dependencies = set()
+    for case in result["cases"]:
+        for rows in case.get("evidence", {}).values():
+            for row in rows:
+                copies = row.get("copy_metrics")
+                coverage = copies.get("coverage") if isinstance(copies, dict) else None
+                labels = coverage.get("unmeasured_dependency_boundaries") if isinstance(coverage, dict) else None
+                for dependency in labels if isinstance(labels, list) else ():
+                    if isinstance(dependency, str):
+                        dependencies.add(dependency)
     lines = [
         "# WAMP serializer performance comparison",
         "",
@@ -850,11 +1162,21 @@ def render_markdown(result: dict[str, Any]) -> str:
         "",
         f"Cases analyzed: {result['case_count']}",
         "",
+        f"Copy scope: `{result['policy'].get('copy_measurement_scope', 'legacy')}`. "
+        "Transport totals cover the documented Connectanum buffer boundaries. "
+        "Dependency internals are excluded only where explicitly labelled unmeasured; "
+        "they are not zero-copy claims. Raw copy breakdowns remain in comparison.json.",
+        "",
+        "Unmeasured dependency internals: " + (", ".join(sorted(dependencies)) or "none reported") + ".",
+        "",
         "| Case | Construction | Metric | Median ratio | Paired 95% CI | Gate |",
         "|---|---|---|---:|---:|---|",
     ]
     for case in result["cases"]:
         for metric, data in case["metrics"].items():
+            if data.get("status") == "not_measured":
+                lines.append(f"| {case['id']} | {case['construction']} | {metric} | unmeasured | unmeasured | FAIL |")
+                continue
             lines.append(
                 f"| {case['id']} | {case['construction']} | {metric} | "
                 f"{data['median_ratio']:.4f} | [{data['ci_95_low']:.4f}, "
@@ -865,7 +1187,8 @@ def render_markdown(result: dict[str, Any]) -> str:
         lines.extend(f"- {finding}" for finding in result["findings"])
     else:
         lines.append("No gate findings.")
-    lines.extend(["", "Ratios compare FlatBuffers to the better of CBOR and MessagePack within each paired repetition.", ""])
+    lines.extend(["", "Ratios compare FlatBuffers to the better of CBOR and MessagePack within each paired repetition.",
+                  "Allocation ratios conservatively compare the candidate upper bound with baseline lower bounds; raw estimates and error bounds are retained.", ""])
     return "\n".join(lines)
 
 

@@ -112,6 +112,7 @@ def generate(root, flatc, output):
         source = source.replace("fb.BufferContext.fromBytes(bytes)", "wamp_runtime.bufferContext(bytes)")
         source = source.replace("fb.Uint64Reader()", "wamp_runtime.WampUint64Reader()")
         source = source.replace("fb.Uint64ListReader()", "fb.ListReader<int>(wamp_runtime.WampUint64Reader())")
+        source = source.replace("fb.Uint8ListReader()", "wamp_runtime.FlatBufferUint8ListReader()")
         source = source.replace("fb.Builder(", "wamp_runtime.WampFlatBufferBuilder(")
         path.write_text(source)
     run(["dart", "format", "--language-version", manifest["dart_format_language"],

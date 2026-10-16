@@ -113,14 +113,16 @@ class RequiredGateTests(unittest.TestCase):
 
     def test_required_gate_accepts_only_complete_success(self):
         names = ('fast', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
-                 'mutation-gates', 'mcp-mutations', 'browser-coverage')
+                 'mutation-gates', 'mcp-mutations', 'router-mutations', 'browser-coverage')
         needs = {name: {'result': 'success'} for name in names}
         self.assertEqual(self.execute(needs).returncode, 0)
         for status in ('failure', 'skipped', 'cancelled', 'pending', None):
             broken = copy.deepcopy(needs)
-            broken['verification']['result'] = status
-            with self.subTest(status=status):
-                self.assertNotEqual(self.execute(broken).returncode, 0)
+            for name in names:
+                broken = copy.deepcopy(needs)
+                broken[name]['result'] = status
+                with self.subTest(status=status, lane=name):
+                    self.assertNotEqual(self.execute(broken).returncode, 0)
         for broken in ({}, {k: v for k, v in needs.items() if k != 'mcp-mutations'}):
             self.assertNotEqual(self.execute(broken).returncode, 0)
 
@@ -286,7 +288,7 @@ run_command_with_timeout() { shift 2; "$@"; }
     def test_grouping_preserves_all_34_original_targets_once(self):
         expected = set('router-authorization router-metrics-vm core-mcp-completion-vm core-mcp-completion-web core-registered-vm core-registered-web core-subscribed-vm core-subscribed-web core-metadata-vm core-metadata-web auth-server client-installer router-installer core-e2ee-vm bench-config bench-http-auth-vm core-lazy-vm core-lazy-web core-pem-pkcs8-vm core-pem-pkcs8-web client-message-binding-vm router-message-binding-vm bench-remote-auth-native mcp-library router-remote-wamp-vm router-config-loader-vm router-remote-authenticator-vm router-http-auth-vm core-scram-request-vm core-scram-request-web client-meta-cache-vm client-meta-cache-web core-base64-vm core-base64-web'.split())
         groups = json.loads((ROOT / 'tool/ci_mutation_groups.json').read_text())
-        members = [target for targets in groups.values() for target in targets] + ['mcp-library']
+        members = [target for targets in groups.values() for target in targets] + ['mcp-library', 'router-message-binding-vm']
         self.assertEqual(len(members), 34)
         self.assertEqual(set(members), expected)
         workflow = (ROOT / '.github/workflows/dart.yml').read_text()

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 
 import 'dart_vm_metrics.dart';
+import 'dart_vm_metrics_external.dart';
 import 'wamp_transport_targets.dart';
 import 'wamp_workload_runner.dart';
 
@@ -51,6 +52,7 @@ class NativeWampWorkerProcessMetrics {
     this.cpuUserUsDelta,
     this.cpuSystemUsDelta,
     this.allocatedBytesDelta,
+    this.allocationMeasurement,
     this.gcCountDelta,
     this.gcPauseUsDelta,
     this.peakRssDuringBytes,
@@ -63,6 +65,7 @@ class NativeWampWorkerProcessMetrics {
   final int? cpuUserUsDelta;
   final int? cpuSystemUsDelta;
   final int? allocatedBytesDelta;
+  final Map<String, Object?>? allocationMeasurement;
   final int? gcCountDelta;
   final int? gcPauseUsDelta;
   final int? peakRssDuringBytes;
@@ -77,6 +80,9 @@ class NativeWampWorkerProcessMetrics {
     cpuUserUsDelta: (json['cpu_user_us_delta'] as num?)?.toInt(),
     cpuSystemUsDelta: (json['cpu_system_us_delta'] as num?)?.toInt(),
     allocatedBytesDelta: (json['allocated_bytes_delta'] as num?)?.toInt(),
+    allocationMeasurement: json['allocation_measurement'] == null
+        ? null
+        : Map<String, Object?>.from(json['allocation_measurement'] as Map),
     gcCountDelta: (json['gc_count_delta'] as num?)?.toInt(),
     gcPauseUsDelta: (json['gc_pause_us_delta'] as num?)?.toInt(),
     peakRssDuringBytes: (json['peak_rss_during_bytes'] as num?)?.toInt(),
@@ -91,6 +97,8 @@ class NativeWampWorkerProcessMetrics {
     if (cpuSystemUsDelta != null) 'cpu_system_us_delta': cpuSystemUsDelta,
     if (allocatedBytesDelta != null)
       'allocated_bytes_delta': allocatedBytesDelta,
+    if (allocationMeasurement != null)
+      'allocation_measurement': allocationMeasurement,
     if (gcCountDelta != null) 'gc_count_delta': gcCountDelta,
     if (gcPauseUsDelta != null) 'gc_pause_us_delta': gcPauseUsDelta,
     if (peakRssDuringBytes != null) 'peak_rss_during_bytes': peakRssDuringBytes,
@@ -213,6 +221,7 @@ class NativeWampWorker {
             cpuUserUsDelta: measured.cpuUserMicros,
             cpuSystemUsDelta: measured.cpuSystemMicros,
             allocatedBytesDelta: measured.allocatedBytes,
+            allocationMeasurement: measured.allocationMeasurement,
             gcCountDelta: measured.gcCount,
             gcPauseUsDelta: measured.gcPauseMicros,
             peakRssDuringBytes: measured.peakRssBytes,
@@ -394,10 +403,11 @@ class NativeWampWorker {
             'Source WAMP worker did not announce its VM service URI',
           ),
         );
-        generation.metricsCollector = await DartVmMetricsCollector.connect(
-          serviceUri: serviceUri,
-          pid: process.pid,
-        );
+        generation.metricsCollector =
+            await ExternalDartVmMetricsCollector.connect(
+              serviceUri: serviceUri,
+              pid: process.pid,
+            );
       }
     } catch (_) {
       await _stop(generation);
@@ -491,7 +501,7 @@ class _WorkerGeneration {
   Future<void>? closed;
   bool isReady = false;
   bool stopping = false;
-  DartVmMetricsCollector? metricsCollector;
+  DartVmMetricsObserver? metricsCollector;
 }
 
 String _normalizeWorkerEntrypoint(String workerScriptPath) {

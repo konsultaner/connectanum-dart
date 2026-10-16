@@ -34,9 +34,49 @@ pub extern "C" fn ct_rustls_copy_metrics_snapshot(out: *mut CtRustlsCopyMetricsI
     SUCCESS
 }
 
+/// Separate optional scalar observation; preserves the Rustls 48-byte ABI.
+#[no_mangle]
+pub extern "C" fn ct_tokio_rustls_copy_metrics_snapshot(out: *mut u64) -> i32 {
+    if out.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        out.write(ct_core::tokio_rustls_plaintext_extract_copy_bytes());
+    }
+    SUCCESS
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tokio_rustls_snapshot_rejects_null_and_preserves_adjacent_storage() {
+        #[repr(C)]
+        struct Guarded {
+            head: u64,
+            copied_bytes: u64,
+            tail: u64,
+        }
+        let before = ct_core::tokio_rustls_plaintext_extract_copy_bytes();
+        let mut guarded = Guarded {
+            head: 0x1234_5678_90ab_cdef,
+            copied_bytes: u64::MAX,
+            tail: 0xfedc_ba98_7654_3210,
+        };
+        assert_eq!(
+            ct_tokio_rustls_copy_metrics_snapshot(&mut guarded.copied_bytes),
+            SUCCESS
+        );
+        assert!(guarded.copied_bytes >= before);
+        assert!(guarded.copied_bytes <= ct_core::tokio_rustls_plaintext_extract_copy_bytes());
+        assert_eq!(guarded.head, 0x1234_5678_90ab_cdef);
+        assert_eq!(guarded.tail, 0xfedc_ba98_7654_3210);
+        assert_eq!(
+            ct_tokio_rustls_copy_metrics_snapshot(std::ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+    }
 
     #[test]
     fn partial_rustls_snapshot_keeps_its_layout_and_does_not_overwrite_tail() {

@@ -16,6 +16,263 @@ import 'package:test/test.dart';
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    test(
+      'ordinary binary arguments keep their decoded-copy semantics $serializer',
+      () {
+        final source = Uint8List.fromList(
+          cbor.cbor.encode(
+            cbor.CborValue([
+              Uint8List.fromList([7, 8, 9]),
+            ]),
+          ),
+        );
+        final message = bindSessionMessage(
+          serializer,
+          Uint8List(0),
+          argsBytes: source,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            primaryId: 1,
+            flags: NativeMessageMetadata.flagDirectBind,
+          ),
+        );
+        final body =
+            (message as AbstractMessageWithPayload).wireArguments!.single
+                as List<int>;
+        body[0] = 42;
+        expect(source.last, 9);
+        expect(
+          source[source.length - 3],
+          7,
+          reason: 'ordinary application edits cannot mutate native input',
+        );
+      },
+    );
+  }
+  test(
+    'native FlatBuffers PPT view retains the original encoded-byte limit',
+    () {
+      const size = 64 * 1024 * 1024;
+      final source = Uint8List(size + 6)
+        ..[0] = 0x81
+        ..[1] = 0x5a;
+      ByteData.sublistView(source).setUint32(2, size, Endian.big);
+      final message = bindSessionMessage(
+        NativeMessageSerializer.flatbuffers,
+        Uint8List(0),
+        argsBytes: source,
+        metadata: _metadata(
+          messageCode: MessageTypes.codeResult,
+          primaryId: 1,
+          flags: NativeMessageMetadata.flagDirectBind,
+          stringA: 'x_bytes',
+          stringB: 'flatbuffers',
+        ),
+      );
+      expect(
+        () => (message as AbstractMessageWithPayload).wireArguments,
+        throwsFormatException,
+      );
+    },
+  );
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    test('native PPT body retains encoded storage $serializer', () {
+      final body = Uint8List.fromList([7, 8, 9]);
+      final encoded = serializer == NativeMessageSerializer.messagePack
+          ? msgpack.serialize([body])
+          : Uint8List.fromList(cbor.cbor.encode(cbor.CborValue([body])));
+      final raw = Uint8List(encoded.length + 9)
+        ..setRange(5, 5 + encoded.length, encoded);
+      final source = Uint8List.sublistView(
+        raw,
+        5,
+        5 + encoded.length,
+      ).asUnmodifiableView();
+      final wrapped = bindSessionMessage(
+        serializer,
+        Uint8List(0),
+        argsBytes: source,
+        metadata: _metadata(
+          messageCode: MessageTypes.codeResult,
+          primaryId: 1,
+          flags: NativeMessageMetadata.flagDirectBind,
+          stringA: 'x_bytes',
+          stringB: 'flatbuffers',
+        ),
+      );
+      for (final message in [wrapped, materializeSessionMessage(wrapped)]) {
+        final bytes =
+            (message as AbstractMessageWithPayload).wireArguments!.single
+                as Uint8List;
+        expect(bytes, orderedEquals(body));
+        expect(
+          bytes.buffer.lengthInBytes,
+          source.buffer.lengthInBytes,
+          reason: 'extracting an opaque body must not clone its allocation',
+        );
+        expect(
+          bytes.offsetInBytes,
+          source.offsetInBytes + encoded.length - body.length,
+        );
+        expect(() => bytes[0] = 4, throwsUnsupportedError);
+      }
+    });
+  }
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    for (final code in [
+      MessageTypes.codeEvent,
+      MessageTypes.codeResult,
+      MessageTypes.codeInvocation,
+      MessageTypes.codeError,
+    ]) {
+      for (final ppt in [false, true]) {
+        test(
+          'native binary storage contract $serializer code=$code PPT=$ppt',
+          () {
+            final body = Uint8List.fromList([7, 8, 9]);
+            Uint8List encode(Object value) =>
+                serializer == NativeMessageSerializer.messagePack
+                ? msgpack.serialize(value)
+                : Uint8List.fromList(cbor.cbor.encode(cbor.CborValue(value)));
+            final encoded = encode([body]);
+            final raw = Uint8List(encoded.length + 9)
+              ..setRange(4, 4 + encoded.length, encoded);
+            final source = Uint8List.sublistView(
+              raw,
+              4,
+              4 + encoded.length,
+            ).asUnmodifiableView();
+            final error = code == MessageTypes.codeError;
+            final result = code == MessageTypes.codeResult;
+            final meta = _metadata(
+              messageCode: code,
+              primaryId: error ? MessageTypes.codeInvocation : 7,
+              secondaryId: 11,
+              flags: NativeMessageMetadata.flagDirectBind,
+              detailsBytes: encode({
+                if (ppt) ...{
+                  'ppt_scheme': 'x_bytes',
+                  'ppt_serializer': 'flatbuffers',
+                },
+              }),
+              stringA: error
+                  ? 'com.bytes.error'
+                  : result
+                  ? (ppt ? 'x_bytes' : null)
+                  : 'com.bytes.echo',
+              stringB: error
+                  ? 'ordinary error message'
+                  : result
+                  ? (ppt ? 'flatbuffers' : null)
+                  : (ppt ? 'x_bytes' : null),
+              stringC: !error && !result && ppt ? 'flatbuffers' : null,
+            );
+            final wrapped = bindSessionMessage(
+              serializer,
+              Uint8List(0),
+              argsBytes: source,
+              metadata: meta,
+            );
+            for (final message in [
+              wrapped,
+              materializeSessionMessage(wrapped),
+            ]) {
+              final value =
+                  (message as AbstractMessageWithPayload).wireArguments!.single;
+              expect(value, isA<List<int>>());
+              final bytes = value as List<int>;
+              expect(bytes, [7, 8, 9]);
+              if (ppt) {
+                expect(bytes, isA<Uint8List>());
+                final view = bytes as Uint8List;
+                expect(view.buffer.lengthInBytes, source.buffer.lengthInBytes);
+                expect(
+                  view.offsetInBytes,
+                  source.offsetInBytes + encoded.length - 3,
+                );
+                expect(() => view[0] = 42, throwsUnsupportedError);
+              } else if (serializer != NativeMessageSerializer.messagePack) {
+                expect(
+                  () => bytes[0] = 42,
+                  returnsNormally,
+                  reason:
+                      'ordinary arguments are independent mutable application values',
+                );
+                expect(source[source.length - 3], 7);
+              }
+            }
+          },
+        );
+      }
+    }
+  }
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    for (final ppt in [false, true]) {
+      test('metadata-only PPT storage $serializer PPT=$ppt', () {
+        Uint8List encode(Object value) =>
+            serializer == NativeMessageSerializer.messagePack
+            ? msgpack.serialize(value)
+            : Uint8List.fromList(cbor.cbor.encode(cbor.CborValue(value)));
+        final encoded = encode([
+          Uint8List.fromList([7, 8, 9]),
+        ]);
+        final backing = Uint8List(encoded.length + 9)
+          ..setRange(4, 4 + encoded.length, encoded);
+        final source = Uint8List.sublistView(
+          backing,
+          4,
+          4 + encoded.length,
+        ).asUnmodifiableView();
+        final message = bindSessionMessage(
+          serializer,
+          Uint8List(0),
+          argsBytes: source,
+          metadata: _metadata(
+            messageCode: MessageTypes.codeResult,
+            primaryId: 1,
+            flags: NativeMessageMetadata.flagMetadataBind,
+            // Without direct-bind, the dictionary is authoritative.
+            stringA: 'ghost_scheme',
+            stringB: 'flatbuffers',
+            detailsBytes: encode({
+              'custom': true,
+              if (ppt) 'ppt_scheme': 'x_bytes',
+            }),
+          ),
+        );
+        final body =
+            (message as AbstractMessageWithPayload).wireArguments!.single
+                as List<int>;
+        expect(body, [7, 8, 9]);
+        if (ppt) {
+          expect(body, isA<Uint8List>());
+          final view = body as Uint8List;
+          expect(view.buffer.lengthInBytes, source.buffer.lengthInBytes);
+          expect(view.offsetInBytes, source.offsetInBytes + encoded.length - 3);
+          expect(() => view[0] = 42, throwsUnsupportedError);
+        } else if (serializer != NativeMessageSerializer.messagePack) {
+          body[0] = 42;
+          expect(source.last, 9);
+        }
+      });
+    }
+  }
   _deferredSessionStateCases();
   _deferredBindingContracts();
   test('malformed FlatBuffers frame fails as malformed input', () {

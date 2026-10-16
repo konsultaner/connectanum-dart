@@ -1,5 +1,6 @@
 //! Schema-driven construction with the pinned FlatBuffers runtime.
 use super::{
+    codec_copy_metrics::{self, CodecAllocator},
     flatbuffers_schema as schema,
     flatbuffers_wire::{self as wire, FieldSpec, Fields, Kind, Value},
     ParseError,
@@ -7,9 +8,11 @@ use super::{
 use bytes::Bytes;
 use flatbuffers::{FlatBufferBuilder, TableFinishedWIPOffset, UnionWIPOffset, WIPOffset};
 
+// The common opaque-PPT control frame fits in 256 bytes. Starting at that
+// size avoids repeated growth while retaining its previous final allocation.
 pub(super) fn write(fields: &Fields) -> Result<Bytes, ParseError> {
     let mut writer = Writer {
-        builder: FlatBufferBuilder::new(),
+        builder: FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256)),
         strings: 0,
         elements: 0,
         tables: 0,
@@ -18,8 +21,8 @@ pub(super) fn write(fields: &Fields) -> Result<Bytes, ParseError> {
     };
     let root = writer.table(fields, schema::ROOT, 1)?;
     writer.builder.finish(root, None);
-    let (allocation, start) = writer.builder.collapse();
-    let bytes = Bytes::from(allocation).slice(start..);
+    let (allocation, start) = writer.builder.collapse_in();
+    let bytes = Bytes::from(allocation.into_vec()).slice(start..);
     if bytes.len() > wire::MAX_BYTES {
         return Err(wire::invalid("byte limit"));
     }
@@ -36,7 +39,7 @@ struct DeferredVector {
     bytes: Bytes,
 }
 struct Writer<'a> {
-    builder: FlatBufferBuilder<'a>,
+    builder: FlatBufferBuilder<'a, CodecAllocator>,
     strings: usize,
     elements: usize,
     tables: usize,
@@ -48,7 +51,7 @@ struct Writer<'a> {
 /// newly built envelope. Only bounded metadata and vector headers are allocated.
 pub(super) fn write_segments(fields: &Fields) -> Result<Vec<Bytes>, ParseError> {
     let mut writer = Writer {
-        builder: FlatBufferBuilder::new(),
+        builder: FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256)),
         strings: 0,
         elements: 0,
         tables: 0,
@@ -57,7 +60,8 @@ pub(super) fn write_segments(fields: &Fields) -> Result<Vec<Bytes>, ParseError> 
     };
     let root = writer.table(fields, schema::ROOT, 1)?;
     writer.builder.finish(root, None);
-    let (mut allocation, start) = writer.builder.collapse();
+    let (allocator, start) = writer.builder.collapse_in();
+    let mut allocation = allocator.into_vec();
     let mut length = allocation.len() - start;
     let mut segments = vec![Bytes::new()];
     for vector in writer.deferred.unwrap_or_default() {
@@ -153,7 +157,9 @@ impl Writer<'_> {
             return Err(wire::invalid("string limit"));
         }
         self.charge(value.len() + 8)?;
-        Ok(self.builder.create_string(value).as_union_value())
+        let offset = self.builder.create_string(value).as_union_value();
+        codec_copy_metrics::record_string_copy(value.len());
+        Ok(offset)
     }
     fn table(
         &mut self,
@@ -220,7 +226,9 @@ impl Writer<'_> {
                             bytes.clone(),
                         )
                     } else {
-                        Slot::Offset(self.builder.create_vector(bytes.as_ref()).as_union_value())
+                        let offset = self.builder.create_vector(bytes.as_ref()).as_union_value();
+                        codec_copy_metrics::record_vector_copy(bytes.len());
+                        Slot::Offset(offset)
                     }
                 }
                 (
@@ -330,5 +338,34 @@ impl Writer<'_> {
             }));
         }
         Ok(table)
+    }
+}
+
+#[cfg(test)]
+mod copy_tests {
+    use super::*;
+    #[test]
+    fn string_writer_counts_utf8_bytes_once_including_empty_strings() {
+        let mut writer = Writer {
+            builder: FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256)),
+            strings: 0,
+            elements: 0,
+            tables: 0,
+            estimated: 0,
+            deferred: None,
+        };
+        for text in ["", "écho", "routing.name"] {
+            let before = codec_copy_metrics::observed_on_current_thread();
+            writer.string(text).unwrap();
+            let after = codec_copy_metrics::observed_on_current_thread();
+            assert_eq!(
+                after.string_copy_bytes_total - before.string_copy_bytes_total,
+                text.len() as u64
+            );
+            assert_eq!(
+                after.vector_copy_bytes_total,
+                before.vector_copy_bytes_total
+            );
+        }
     }
 }

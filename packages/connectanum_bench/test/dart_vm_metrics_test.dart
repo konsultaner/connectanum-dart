@@ -180,10 +180,27 @@ void main() {
       expect(exitCode, 0, reason: '$output');
       expect(
         result['allocated_bytes_delta'],
-        greaterThan(16 * 1024 * 1024),
+        greaterThanOrEqualTo(result['known_payload_allocation_bytes'] as int),
       );
-      expect(result['gc_count_delta'], isA<int>());
-      expect(result['gc_pause_us_delta'], isA<int>());
+      expect(result['known_payload_allocation_bytes'], 80 * 1024 * 1024);
+      expect(
+        result['allocated_bytes_delta'],
+        lessThan(160 * 1024 * 1024),
+        reason: 'Isolates in one group must not duplicate the same heap',
+      );
+      final allocation = result['allocation_measurement'] as Map;
+      expect(allocation['status'], 'measured');
+      expect(allocation['method'], 'dart_heap_gc_volume_v1');
+      expect(allocation['capture_strategy'], 'external_process');
+      expect(allocation['observer_pid'], isNot(allocation['observed_pid']));
+      expect(result['pid_mismatch_rejected'], isTrue);
+      expect(result['observer_crash_propagated'], isTrue);
+      expect(result['close_idempotent'], isTrue);
+      expect(result['gc_count_delta'], greaterThan(0));
+      expect(result['gc_pause_us_delta'], greaterThan(0));
+      expect(result['missing_metadata_allocated_bytes'], isNull);
+      expect(result['missing_metadata_gc_count'], isNull);
+      expect(result['missing_metadata_gc_pause_us'], isNull);
       expect(result['current_rss_bytes'], greaterThan(0));
       expect(
         result['peak_rss_bytes'],

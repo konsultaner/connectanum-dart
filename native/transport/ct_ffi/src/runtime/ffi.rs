@@ -149,6 +149,12 @@ struct AsyncSha256Worker {
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
+fn copy_sha_input(bytes: &[u8]) -> Bytes {
+    let copied = Bytes::copy_from_slice(bytes);
+    ct_core::record_vector_copy(bytes.len());
+    copied
+}
+
 impl AsyncSha256Worker {
     fn start(context: DigestContext) -> Result<Self, c_int> {
         let (sender, receiver) = std::sync::mpsc::sync_channel(ASYNC_SHA256_QUEUE_CAPACITY);
@@ -169,6 +175,7 @@ impl AsyncSha256Worker {
                             let digest = context.finish();
                             let mut result = [0_u8; SHA256_DIGEST_LEN];
                             result.copy_from_slice(digest.as_ref());
+                            ct_core::record_vector_copy(result.len());
                             let _ = result_sender.send(result);
                             return;
                         }
@@ -235,7 +242,7 @@ impl Sha256State {
 
     fn update(&mut self, bytes: &[u8]) -> Result<(), c_int> {
         if let Some(worker) = self.worker.as_ref() {
-            return worker.send(Sha256Command::UpdateOwned(Bytes::copy_from_slice(bytes)));
+            return worker.send(Sha256Command::UpdateOwned(copy_sha_input(bytes)));
         }
         self.context.as_mut().ok_or(ERR_INTERNAL)?.update(bytes);
         Ok(())
@@ -249,7 +256,7 @@ impl Sha256State {
         self.worker
             .as_ref()
             .ok_or(ERR_INTERNAL)?
-            .send(Sha256Command::UpdateOwned(Bytes::copy_from_slice(bytes)))
+            .send(Sha256Command::UpdateOwned(copy_sha_input(bytes)))
     }
 
     fn update_owned_async(&mut self, bytes: Bytes) -> Result<(), c_int> {
@@ -270,6 +277,7 @@ impl Sha256State {
         let digest = self.context.ok_or(ERR_INTERNAL)?.finish();
         let mut result = [0_u8; SHA256_DIGEST_LEN];
         result.copy_from_slice(digest.as_ref());
+        ct_core::record_vector_copy(result.len());
         Ok(result)
     }
 }
@@ -856,7 +864,7 @@ fn read_optional_str(ptr: *const c_char, len: c_int) -> Result<Option<String>, c
     let len = len as usize;
     let bytes = unsafe { slice::from_raw_parts(ptr as *const u8, len) };
     let value = str::from_utf8(bytes).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    Ok(Some(value.to_string()))
+    Ok(Some(ct_core::copy_codec_string(value)))
 }
 
 fn read_required_bytes(ptr: *const u8, len: c_int) -> Result<Vec<u8>, c_int> {
@@ -905,6 +913,7 @@ fn encrypt_e2ee_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> 
     let body_start = E2EE_NONCE_LEN + E2EE_AUTH_TAG_LEN;
     let mut combined = Vec::with_capacity(body_start + plaintext.len());
     combined.extend_from_slice(nonce.as_slice());
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce.len());
     combined.resize(body_start, 0);
     combined.extend_from_slice(plaintext);
     super::crypto_copy_metrics::record_plaintext_copy(plaintext.len());
@@ -912,6 +921,7 @@ fn encrypt_e2ee_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> 
         .encrypt_in_place_detached(&nonce, &[], &mut combined[body_start..])
         .map_err(|_| ERR_INTERNAL)?;
     combined[E2EE_NONCE_LEN..body_start].copy_from_slice(tag.as_slice());
+    super::crypto_copy_metrics::record_nonce_tag_copy(tag.len());
     Ok(combined)
 }
 
@@ -945,6 +955,7 @@ fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u
     let mut combined =
         Vec::with_capacity(E2EE_AES256_GCM_NONCE_LEN + plaintext.len() + E2EE_AUTH_TAG_LEN);
     combined.extend_from_slice(&nonce_bytes);
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     combined.extend_from_slice(plaintext);
     super::crypto_copy_metrics::record_plaintext_copy(plaintext.len());
     let tag = cipher
@@ -955,6 +966,7 @@ fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u
         )
         .map_err(|_| ERR_INTERNAL)?;
     combined.extend_from_slice(tag.as_ref());
+    super::crypto_copy_metrics::record_nonce_tag_copy(tag.as_ref().len());
     Ok(combined)
 }
 
@@ -966,6 +978,7 @@ fn decrypt_e2ee_aes256_gcm_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<
     let (nonce_bytes, message) = ciphertext.split_at(E2EE_AES256_GCM_NONCE_LEN);
     let nonce_bytes = <[u8; E2EE_AES256_GCM_NONCE_LEN]>::try_from(nonce_bytes)
         .map_err(|_| ERR_INVALID_ARGUMENT)?;
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     let mut plaintext = message.to_vec();
     super::crypto_copy_metrics::record_ciphertext_copy(plaintext.len());
     let plaintext_len = cipher
@@ -995,6 +1008,7 @@ fn decrypt_e2ee_aes256_gcm_payload_in_place(
     let nonce_bytes =
         <[u8; E2EE_AES256_GCM_NONCE_LEN]>::try_from(&bytes[ciphertext_range.start..nonce_end])
             .map_err(|_| ERR_INVALID_ARGUMENT)?;
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     let cipher = aes256_gcm_key(key)?;
     let plaintext_len = cipher
         .open_in_place(
@@ -1208,6 +1222,14 @@ fn write_external_byte_buffer_range(
     SUCCESS
 }
 
+/// Append an already encoded buffer. Callers reserve metadata plus the
+/// bounded scalar headers before writing, so this operation never relocates.
+fn append_codec_bytes(buffer: &mut Vec<u8>, bytes: &[u8]) {
+    assert!(buffer.capacity() - buffer.len() >= bytes.len());
+    buffer.extend_from_slice(bytes);
+    ct_core::record_framing_copy(bytes.len());
+}
+
 fn encode_event_segments_json(
     payload: &ct_core::WampPayload,
     subscription_id: u64,
@@ -1219,17 +1241,21 @@ fn encode_event_segments_json(
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
         details.insert(
-            "publisher".into(),
+            ct_core::copy_codec_string("publisher"),
             JsonValue::Number(JsonNumber::from(publisher_id)),
         );
     }
     if let Some(topic_value) = topic {
-        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("topic"),
+            JsonValue::String(ct_core::copy_codec_string(topic_value)),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_json = serde_json::to_string(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
     let details_bytes = Bytes::from(details_json.clone().into_bytes());
+    ct_core::record_framing_copy(details_json.len());
     let has_kwargs = payload.kwargs.is_some();
     let has_args = payload.args.is_some() || has_kwargs;
     let mut segments = Vec::new();
@@ -1251,6 +1277,7 @@ fn encode_event_segments_json(
         }
         segments.push(Bytes::from_static(JSON_CLOSE));
     } else {
+        ct_core::record_framing_copy(details_json.len());
         let frame = Bytes::from(
             format!(
                 "[36,{},{},{}]",
@@ -1274,12 +1301,15 @@ fn encode_event_segments_msgpack(
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
         details.insert(
-            "publisher".into(),
+            ct_core::copy_codec_string("publisher"),
             JsonValue::Number(JsonNumber::from(publisher_id)),
         );
     }
     if let Some(topic_value) = topic {
-        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("topic"),
+            JsonValue::String(ct_core::copy_codec_string(topic_value)),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1295,12 +1325,12 @@ fn encode_event_segments_msgpack(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_msgpack.len() + 37);
     write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, 36).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, subscription_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, publication_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    prefix.extend_from_slice(&details_msgpack);
+    append_codec_bytes(&mut prefix, &details_msgpack);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -1341,7 +1371,7 @@ fn append_forwarded_binary_payload(
         if payload.args.is_some() || payload.kwargs.is_some() {
             return Err(ERR_INVALID_ARGUMENT);
         }
-        let mut wrapper = Vec::new();
+        let mut wrapper = Vec::with_capacity(10);
         match serializer {
             RawSocketSerializer::MessagePack => {
                 write_array_len(&mut wrapper, 1).map_err(|_| ERR_INVALID_ARGUMENT)?;
@@ -1378,25 +1408,37 @@ fn insert_ppt_details_from_options(
         match serde_key_str(key) {
             Some("ppt_scheme") => match serde_value_str(value) {
                 Some(text) => {
-                    details.insert("ppt_scheme".into(), JsonValue::String(text.to_string()));
+                    details.insert(
+                        ct_core::copy_codec_string("ppt_scheme"),
+                        JsonValue::String(ct_core::copy_codec_string(text)),
+                    );
                 }
                 None => return Err(ERR_INVALID_ARGUMENT),
             },
             Some("ppt_serializer") => match serde_value_str(value) {
                 Some(text) => {
-                    details.insert("ppt_serializer".into(), JsonValue::String(text.to_string()));
+                    details.insert(
+                        ct_core::copy_codec_string("ppt_serializer"),
+                        JsonValue::String(ct_core::copy_codec_string(text)),
+                    );
                 }
                 None => return Err(ERR_INVALID_ARGUMENT),
             },
             Some("ppt_cipher") => match serde_value_str(value) {
                 Some(text) => {
-                    details.insert("ppt_cipher".into(), JsonValue::String(text.to_string()));
+                    details.insert(
+                        ct_core::copy_codec_string("ppt_cipher"),
+                        JsonValue::String(ct_core::copy_codec_string(text)),
+                    );
                 }
                 None => return Err(ERR_INVALID_ARGUMENT),
             },
             Some("ppt_keyid") => match serde_value_str(value) {
                 Some(text) => {
-                    details.insert("ppt_keyid".into(), JsonValue::String(text.to_string()));
+                    details.insert(
+                        ct_core::copy_codec_string("ppt_keyid"),
+                        JsonValue::String(ct_core::copy_codec_string(text)),
+                    );
                 }
                 None => return Err(ERR_INVALID_ARGUMENT),
             },
@@ -1417,12 +1459,15 @@ fn encode_event_segments_cbor(
     let mut details = JsonMap::new();
     if let Some(publisher_id) = publisher {
         details.insert(
-            "publisher".into(),
+            ct_core::copy_codec_string("publisher"),
             JsonValue::Number(JsonNumber::from(publisher_id)),
         );
     }
     if let Some(topic_value) = topic {
-        details.insert("topic".into(), JsonValue::String(topic_value.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("topic"),
+            JsonValue::String(ct_core::copy_codec_string(topic_value)),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1438,15 +1483,21 @@ fn encode_event_segments_cbor(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_cbor.len() + 37);
     write_cbor_array_len(&mut prefix, element_count);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&36u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&36u64).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
         &serde_cbor::to_vec(&subscription_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
     );
-    prefix
-        .extend_from_slice(&serde_cbor::to_vec(&publication_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&details_cbor);
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&publication_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(&mut prefix, &details_cbor);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -1484,12 +1535,14 @@ fn binary_ppt_body<'a>(
     {
         return None;
     }
-    let scheme = metadata.get(&SerdeValue::String("ppt_scheme".into()))?;
+    let scheme = metadata.get(&SerdeValue::String(ct_core::copy_codec_string(
+        "ppt_scheme",
+    )))?;
     if serde_value_str(scheme)?.is_empty() {
         return None;
     }
     for key in ["ppt_serializer", "ppt_cipher", "ppt_keyid"] {
-        if let Some(value) = metadata.get(&SerdeValue::String(key.into())) {
+        if let Some(value) = metadata.get(&SerdeValue::String(ct_core::copy_codec_string(key))) {
             serde_value_str(value)?;
         }
     }
@@ -1603,7 +1656,9 @@ fn reusable_forwarding_serializer(
         return Err(ERR_UNSUPPORTED);
     }
     if payload.transparent.is_some()
-        || metadata.contains_key(&SerdeValue::String("ppt_scheme".into()))
+        || metadata.contains_key(&SerdeValue::String(ct_core::copy_codec_string(
+            "ppt_scheme",
+        )))
     {
         return Err(ERR_UNSUPPORTED);
     }
@@ -1732,10 +1787,16 @@ fn encode_event_segments_for_serializer(
         RawSocketSerializer::Flatbuffers => {
             let mut details = JsonMap::new();
             if let Some(publisher) = publisher {
-                details.insert("publisher".into(), JsonValue::Number(publisher.into()));
+                details.insert(
+                    ct_core::copy_codec_string("publisher"),
+                    JsonValue::Number(publisher.into()),
+                );
             }
             if let Some(topic) = topic {
-                details.insert("topic".into(), JsonValue::String(topic.into()));
+                details.insert(
+                    ct_core::copy_codec_string("topic"),
+                    JsonValue::String(ct_core::copy_codec_string(topic)),
+                );
             }
             encode_forwarded_flatbuffers(WampMessage::Event {
                 subscription_id,
@@ -1763,35 +1824,45 @@ fn encode_invocation_segments_json(
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
         details.insert(
-            "caller".into(),
+            ct_core::copy_codec_string("caller"),
             JsonValue::Number(JsonNumber::from(caller_id)),
         );
     }
     if let Some(authid) = caller_authid {
         details.insert(
-            "caller_authid".into(),
-            JsonValue::String(authid.to_string()),
+            ct_core::copy_codec_string("caller_authid"),
+            JsonValue::String(ct_core::copy_codec_string(authid)),
         );
     }
     if let Some(authrole) = caller_authrole {
         details.insert(
-            "caller_authrole".into(),
-            JsonValue::String(authrole.to_string()),
+            ct_core::copy_codec_string("caller_authrole"),
+            JsonValue::String(ct_core::copy_codec_string(authrole)),
         );
     }
     if let Some(proc_name) = procedure {
-        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("procedure"),
+            JsonValue::String(ct_core::copy_codec_string(proc_name)),
+        );
     }
     if let Some(progress) = receive_progress {
-        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("receive_progress"),
+            JsonValue::Bool(progress),
+        );
     }
     if let Some(progress) = invocation_progress {
-        details.insert("progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("progress"),
+            JsonValue::Bool(progress),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
     let details_json = serde_json::to_string(&details_value).map_err(|_| ERR_INVALID_ARGUMENT)?;
     let details_bytes = Bytes::from(details_json.clone().into_bytes());
+    ct_core::record_framing_copy(details_json.len());
     let has_kwargs = payload.kwargs.is_some();
     let has_args = payload.args.is_some() || has_kwargs;
     let mut segments = Vec::new();
@@ -1813,6 +1884,7 @@ fn encode_invocation_segments_json(
         }
         segments.push(Bytes::from_static(JSON_CLOSE));
     } else {
+        ct_core::record_framing_copy(details_json.len());
         let frame = Bytes::from(
             format!(
                 "[68,{},{},{}]",
@@ -1840,30 +1912,39 @@ fn encode_invocation_segments_msgpack(
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
         details.insert(
-            "caller".into(),
+            ct_core::copy_codec_string("caller"),
             JsonValue::Number(JsonNumber::from(caller_id)),
         );
     }
     if let Some(authid) = caller_authid {
         details.insert(
-            "caller_authid".into(),
-            JsonValue::String(authid.to_string()),
+            ct_core::copy_codec_string("caller_authid"),
+            JsonValue::String(ct_core::copy_codec_string(authid)),
         );
     }
     if let Some(authrole) = caller_authrole {
         details.insert(
-            "caller_authrole".into(),
-            JsonValue::String(authrole.to_string()),
+            ct_core::copy_codec_string("caller_authrole"),
+            JsonValue::String(ct_core::copy_codec_string(authrole)),
         );
     }
     if let Some(proc_name) = procedure {
-        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("procedure"),
+            JsonValue::String(ct_core::copy_codec_string(proc_name)),
+        );
     }
     if let Some(progress) = receive_progress {
-        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("receive_progress"),
+            JsonValue::Bool(progress),
+        );
     }
     if let Some(progress) = invocation_progress {
-        details.insert("progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("progress"),
+            JsonValue::Bool(progress),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1879,12 +1960,12 @@ fn encode_invocation_segments_msgpack(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_msgpack.len() + 37);
     write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, 68).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, invocation_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, registration_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    prefix.extend_from_slice(&details_msgpack);
+    append_codec_bytes(&mut prefix, &details_msgpack);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -1907,30 +1988,39 @@ fn encode_invocation_segments_cbor(
     let mut details = JsonMap::new();
     if let Some(caller_id) = caller {
         details.insert(
-            "caller".into(),
+            ct_core::copy_codec_string("caller"),
             JsonValue::Number(JsonNumber::from(caller_id)),
         );
     }
     if let Some(authid) = caller_authid {
         details.insert(
-            "caller_authid".into(),
-            JsonValue::String(authid.to_string()),
+            ct_core::copy_codec_string("caller_authid"),
+            JsonValue::String(ct_core::copy_codec_string(authid)),
         );
     }
     if let Some(authrole) = caller_authrole {
         details.insert(
-            "caller_authrole".into(),
-            JsonValue::String(authrole.to_string()),
+            ct_core::copy_codec_string("caller_authrole"),
+            JsonValue::String(ct_core::copy_codec_string(authrole)),
         );
     }
     if let Some(proc_name) = procedure {
-        details.insert("procedure".into(), JsonValue::String(proc_name.to_string()));
+        details.insert(
+            ct_core::copy_codec_string("procedure"),
+            JsonValue::String(ct_core::copy_codec_string(proc_name)),
+        );
     }
     if let Some(progress) = receive_progress {
-        details.insert("receive_progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("receive_progress"),
+            JsonValue::Bool(progress),
+        );
     }
     if let Some(progress) = invocation_progress {
-        details.insert("progress".into(), JsonValue::Bool(progress));
+        details.insert(
+            ct_core::copy_codec_string("progress"),
+            JsonValue::Bool(progress),
+        );
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1946,15 +2036,21 @@ fn encode_invocation_segments_cbor(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_cbor.len() + 37);
     write_cbor_array_len(&mut prefix, element_count);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&68u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix
-        .extend_from_slice(&serde_cbor::to_vec(&invocation_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&68u64).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&invocation_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
         &serde_cbor::to_vec(&registration_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
     );
-    prefix.extend_from_slice(&details_cbor);
+    append_codec_bytes(&mut prefix, &details_cbor);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -2050,7 +2146,10 @@ fn encode_invocation_segments_for_serializer(
         RawSocketSerializer::Flatbuffers => {
             let mut details = JsonMap::new();
             if let Some(caller) = caller {
-                details.insert("caller".into(), JsonValue::Number(caller.into()));
+                details.insert(
+                    ct_core::copy_codec_string("caller"),
+                    JsonValue::Number(caller.into()),
+                );
             }
             for (key, value) in [
                 ("caller_authid", caller_authid),
@@ -2058,7 +2157,10 @@ fn encode_invocation_segments_for_serializer(
                 ("procedure", procedure),
             ] {
                 if let Some(value) = value {
-                    details.insert(key.into(), JsonValue::String(value.into()));
+                    details.insert(
+                        ct_core::copy_codec_string(key),
+                        JsonValue::String(ct_core::copy_codec_string(value)),
+                    );
                 }
             }
             for (key, value) in [
@@ -2066,7 +2168,7 @@ fn encode_invocation_segments_for_serializer(
                 ("progress", invocation_progress),
             ] {
                 if let Some(value) = value {
-                    details.insert(key.into(), JsonValue::Bool(value));
+                    details.insert(ct_core::copy_codec_string(key), JsonValue::Bool(value));
                 }
             }
             encode_forwarded_flatbuffers(WampMessage::Invocation {
@@ -2122,7 +2224,7 @@ fn build_result_segments_msgpack(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(37);
     write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, 50).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, request_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
@@ -2148,11 +2250,17 @@ fn build_result_segments_cbor(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_cbor.len() + 37);
     write_cbor_array_len(&mut prefix, element_count);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&50u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&details_cbor);
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&50u64).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(&mut prefix, &details_cbor);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -2187,10 +2295,10 @@ fn encode_result_segments_for_serializer(
     let payload = payload.as_ref();
     match serializer {
         RawSocketSerializer::Json => {
-            let mut details_map = options.clone();
+            let mut details_map = ct_core::clone_codec_map(options);
             if progress {
                 details_map.insert(
-                    SerdeValue::String("progress".into()),
+                    SerdeValue::String(ct_core::copy_codec_string("progress")),
                     SerdeValue::Bool(true),
                 );
             }
@@ -2203,10 +2311,10 @@ fn encode_result_segments_for_serializer(
             ))
         }
         RawSocketSerializer::MessagePack => {
-            let mut details_map = options.clone();
+            let mut details_map = ct_core::clone_codec_map(options);
             if progress {
                 details_map.insert(
-                    SerdeValue::String("progress".into()),
+                    SerdeValue::String(ct_core::copy_codec_string("progress")),
                     SerdeValue::Bool(true),
                 );
             }
@@ -2215,10 +2323,10 @@ fn encode_result_segments_for_serializer(
             build_result_segments_msgpack(payload, request_id, details_msgpack)
         }
         RawSocketSerializer::Cbor => {
-            let mut details_map = options.clone();
+            let mut details_map = ct_core::clone_codec_map(options);
             if progress {
                 details_map.insert(
-                    SerdeValue::String("progress".into()),
+                    SerdeValue::String(ct_core::copy_codec_string("progress")),
                     SerdeValue::Bool(true),
                 );
             }
@@ -2227,10 +2335,10 @@ fn encode_result_segments_for_serializer(
             build_result_segments_cbor(payload, request_id, details_cbor)
         }
         RawSocketSerializer::Flatbuffers => {
-            let mut details = options.clone();
+            let mut details = ct_core::clone_codec_map(options);
             if progress {
                 details.insert(
-                    SerdeValue::String("progress".into()),
+                    SerdeValue::String(ct_core::copy_codec_string("progress")),
                     SerdeValue::Bool(true),
                 );
             }
@@ -2269,9 +2377,9 @@ fn encode_result_segments_from_call_for_serializer(
     if binary_ppt_body(message.serializer, payload, options).is_some() {
         // Echo the opaque PPT contract, without propagating CALL routing options.
         for key in ["ppt_scheme", "ppt_serializer", "ppt_cipher", "ppt_keyid"] {
-            let key = SerdeValue::String(key.into());
+            let key = SerdeValue::String(ct_core::copy_codec_string(key));
             if let Some(value) = options.get(&key) {
-                details.insert(key, value.clone());
+                details.insert(key, ct_core::clone_codec_value(value));
             }
         }
     }
@@ -2353,13 +2461,13 @@ fn build_error_segments_msgpack(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_msgpack.len() + error_msgpack.len() + 37);
     write_array_len(&mut prefix, element_count as u32).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, 8).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, request_type).map_err(|_| ERR_INVALID_ARGUMENT)?;
     write_u64(&mut prefix, request_id).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    prefix.extend_from_slice(&details_msgpack);
-    prefix.extend_from_slice(&error_msgpack);
+    append_codec_bytes(&mut prefix, &details_msgpack);
+    append_codec_bytes(&mut prefix, &error_msgpack);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -2384,13 +2492,22 @@ fn build_error_segments_cbor(
         element_count += 1;
     }
 
-    let mut prefix = Vec::new();
+    let mut prefix = Vec::with_capacity(details_cbor.len() + error_cbor.len() + 37);
     write_cbor_array_len(&mut prefix, element_count);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&8u64).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&request_type).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?);
-    prefix.extend_from_slice(&details_cbor);
-    prefix.extend_from_slice(&error_cbor);
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&8u64).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&request_type).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(
+        &mut prefix,
+        &serde_cbor::to_vec(&request_id).map_err(|_| ERR_INVALID_ARGUMENT)?,
+    );
+    append_codec_bytes(&mut prefix, &details_cbor);
+    append_codec_bytes(&mut prefix, &error_cbor);
 
     let mut segments = Vec::new();
     segments.push(Bytes::from(prefix));
@@ -2457,8 +2574,8 @@ fn encode_error_segments_for_serializer(
         RawSocketSerializer::Flatbuffers => encode_forwarded_flatbuffers(WampMessage::Error {
             request_type,
             request_id,
-            details: details.clone(),
-            error: error.clone(),
+            details: ct_core::clone_codec_map(details),
+            error: ct_core::copy_codec_string(error),
             payload: payload.clone(),
         }),
         _ => Err(ERR_UNSUPPORTED),
@@ -2535,7 +2652,10 @@ pub extern "C" fn ct_e2ee_keyring_add_key(
         _ => return ERR_INVALID_ARGUMENT,
     };
     let key = match read_required_bytes(key_ptr, key_len) {
-        Ok(value) => value,
+        Ok(value) => {
+            ct_core::record_key_material_copy(value.len());
+            value
+        }
         Err(code) => return code,
     };
     if key.len() != E2EE_KEY_LEN {
@@ -3367,6 +3487,7 @@ pub extern "C" fn ct_connection_websocket_protocol(
             }
             unsafe {
                 ptr::copy_nonoverlapping(protocol.as_ptr(), buffer, required as usize);
+                ct_core::record_vector_copy(required as usize);
             }
             SUCCESS
         }
@@ -5932,7 +6053,7 @@ pub extern "C" fn ct_send_message(
             return ERR_INVALID_ARGUMENT;
         }
         let slice = unsafe { std::slice::from_raw_parts(payload_ptr, payload_len as usize) };
-        Bytes::copy_from_slice(slice)
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(slice)
     };
     match send_wamp_message(connection_id, payload) {
         Ok(()) => SUCCESS,
@@ -6091,7 +6212,7 @@ pub extern "C" fn ct_send_message_fragmented(
             return ERR_INVALID_ARGUMENT;
         }
         let slice = unsafe { std::slice::from_raw_parts(payload_ptr, payload_len as usize) };
-        Bytes::copy_from_slice(slice)
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(slice)
     };
     if payload.is_empty() || fragment_len as usize >= payload.len() {
         return match send_wamp_message(connection_id, payload) {
@@ -6204,14 +6325,18 @@ pub extern "C" fn ct_send_message_file_segment(
     } else if prefix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(prefix_ptr, prefix_len as usize)
+        })
     };
     let suffix = if suffix_len == 0 {
         Bytes::new()
     } else if suffix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(suffix_ptr, suffix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(suffix_ptr, suffix_len as usize)
+        })
     };
     let file_len = match usize::try_from(file_len) {
         Ok(file_len) => file_len,
@@ -6253,14 +6378,18 @@ pub extern "C" fn ct_send_message_base64_file_segment(
     } else if prefix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(prefix_ptr, prefix_len as usize)
+        })
     };
     let suffix = if suffix_len == 0 {
         Bytes::new()
     } else if suffix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(suffix_ptr, suffix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(suffix_ptr, suffix_len as usize)
+        })
     };
     let file_len = match usize::try_from(file_len) {
         Ok(file_len) => file_len,
@@ -6371,7 +6500,9 @@ fn send_message_native_e2ee_file_segment_impl(
     } else if prefix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(prefix_ptr, prefix_len as usize)
+        })
     };
     if suffix_len < 0 {
         return ERR_INVALID_ARGUMENT;
@@ -6381,7 +6512,9 @@ fn send_message_native_e2ee_file_segment_impl(
     } else if suffix_ptr.is_null() {
         return ERR_INVALID_ARGUMENT;
     } else {
-        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(suffix_ptr, suffix_len as usize) })
+        super::borrowed_send_copy_metrics::copy_borrowed_send_input(unsafe {
+            slice::from_raw_parts(suffix_ptr, suffix_len as usize)
+        })
     };
     let file_len = match usize::try_from(file_len) {
         Ok(value) => value,
@@ -6518,7 +6651,9 @@ fn read_native_e2ee_file_payload(
     let binary_header = cbor_byte_string_header(file_len)?;
     let mut plaintext = Vec::with_capacity(file_len + binary_header.len() + 15);
     plaintext.extend_from_slice(&[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81]);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(7);
     plaintext.extend_from_slice(&binary_header);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(binary_header.len());
     let payload_start = plaintext.len();
     plaintext.resize(payload_start + file_len, 0);
     read_file_exact_at_sync(
@@ -6528,6 +6663,7 @@ fn read_native_e2ee_file_payload(
     )
     .map_err(|_| ERR_IO)?;
     plaintext.extend_from_slice(&[0x66, b'k', b'w', b'a', b'r', b'g', b's', 0xf6]);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(8);
     Ok(plaintext)
 }
 
@@ -6560,8 +6696,11 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
         .map_err(|_| ERR_INTERNAL)?;
     let mut combined = Vec::with_capacity(capacity);
     combined.extend_from_slice(&nonce_bytes);
+    super::crypto_copy_metrics::record_nonce_tag_copy(nonce_bytes.len());
     combined.extend_from_slice(&[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81]);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(7);
     combined.extend_from_slice(&binary_header);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(binary_header.len());
     let payload_start = combined.len();
     let payload_end = payload_start
         .checked_add(file_len)
@@ -6570,6 +6709,7 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
     read_file_exact_at_sync(file, file_offset, &mut combined[payload_start..payload_end])
         .map_err(|_| ERR_IO)?;
     combined.extend_from_slice(&[0x66, b'k', b'w', b'a', b'r', b'g', b's', 0xf6]);
+    super::crypto_copy_metrics::record_plaintext_framing_copy(8);
 
     let tag = cipher
         .seal_in_place_separate_tag(
@@ -6579,6 +6719,7 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
         )
         .map_err(|_| ERR_INTERNAL)?;
     combined.extend_from_slice(tag.as_ref());
+    super::crypto_copy_metrics::record_nonce_tag_copy(tag.as_ref().len());
     Ok(combined)
 }
 
@@ -6590,18 +6731,24 @@ fn cbor_byte_string_header(length: usize) -> Result<Vec<u8>, c_int> {
         return Ok(vec![0x58, value]);
     }
     if let Ok(value) = u16::try_from(length) {
-        let mut header = vec![0x59];
+        let mut header = Vec::with_capacity(3);
+        header.push(0x59);
         header.extend_from_slice(&value.to_be_bytes());
+        super::crypto_copy_metrics::record_plaintext_framing_copy(2);
         return Ok(header);
     }
     if let Ok(value) = u32::try_from(length) {
-        let mut header = vec![0x5a];
+        let mut header = Vec::with_capacity(5);
+        header.push(0x5a);
         header.extend_from_slice(&value.to_be_bytes());
+        super::crypto_copy_metrics::record_plaintext_framing_copy(4);
         return Ok(header);
     }
     let value = u64::try_from(length).map_err(|_| ERR_INVALID_ARGUMENT)?;
-    let mut header = vec![0x5b];
+    let mut header = Vec::with_capacity(9);
+    header.push(0x5b);
     header.extend_from_slice(&value.to_be_bytes());
+    super::crypto_copy_metrics::record_plaintext_framing_copy(8);
     Ok(header)
 }
 
@@ -7171,6 +7318,7 @@ pub extern "C" fn ct_sha256_finalize(
     };
     unsafe {
         ptr::copy_nonoverlapping(digest.as_ptr(), out_digest, SHA256_DIGEST_LEN);
+        ct_core::record_vector_copy(SHA256_DIGEST_LEN);
     }
     SUCCESS
 }
@@ -10335,6 +10483,68 @@ mod tests {
             bytes.extend_from_slice(&segment);
         }
         bytes
+    }
+
+    #[test]
+    fn json_metadata_copy_observations_cover_both_payload_shapes() {
+        const CHILD: &str = "CONNECTANUM_JSON_COPY_OBSERVER_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            let module = module_path!().split_once("::").unwrap().1;
+            let name =
+                format!("{module}::json_metadata_copy_observations_cover_both_payload_shapes");
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", &name, "--test-threads=1", "--nocapture"])
+                .env(CHILD, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+            return;
+        }
+        let _guard = test_guard();
+        for args in [None, Some(Bytes::from_static(b"[1]"))] {
+            let payload = WampPayload {
+                args,
+                kwargs: None,
+                transparent: None,
+            };
+            let expected = if payload.args.is_some() { 2 } else { 4 };
+            let before = ct_core::codec_copy_metrics_snapshot();
+            let event =
+                encode_event_segments_json(&payload, 7, 11, None, None, &BTreeMap::new()).unwrap();
+            let after = ct_core::codec_copy_metrics_snapshot();
+            assert_eq!(
+                after.framing_copy_bytes_total - before.framing_copy_bytes_total,
+                expected
+            );
+            let _: serde_json::Value = serde_json::from_slice(&concat_segments(event)).unwrap();
+            let before = ct_core::codec_copy_metrics_snapshot();
+            let invocation = encode_invocation_segments_json(
+                &payload,
+                13,
+                17,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                &BTreeMap::new(),
+            )
+            .unwrap();
+            let after = ct_core::codec_copy_metrics_snapshot();
+            assert_eq!(
+                after.framing_copy_bytes_total - before.framing_copy_bytes_total,
+                expected
+            );
+            let _: serde_json::Value =
+                serde_json::from_slice(&concat_segments(invocation)).unwrap();
+        }
     }
 
     #[test]

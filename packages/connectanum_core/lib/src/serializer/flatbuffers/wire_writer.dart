@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 
 import 'package:flat_buffers/flat_buffers.dart' as fb;
@@ -32,6 +33,12 @@ class _Writer {
   _Writer(this.builder, this.deferredVectors);
   final fb.Builder builder;
   final List<DeferredFlatBufferVector>? deferredVectors;
+
+  // The pinned schema is constant; reuse field-name sets across frames.
+  static final _fieldNames = [
+    for (final table in wampValidationTables)
+      {for (final field in table.fields) field.name},
+  ];
 
   static final enums = <String, Map<String, int>>{
     'msg_type': {
@@ -117,7 +124,7 @@ class _Writer {
 
   int table(int reference, Map<String, Object?> fields) {
     final spec = wampValidationTables[reference];
-    final names = {for (final field in spec.fields) field.name};
+    final names = _fieldNames[reference];
     if (fields.keys.any((key) => !names.contains(key))) invalid();
     final offsets = <int, int>{};
     final scalars = <int, int>{};
@@ -158,7 +165,7 @@ class _Writer {
               field.width == 1 &&
               {'args', 'kwargs', 'payload'}.contains(field.name) &&
               value is Uint8List) {
-            offsets[slot] = builder.writeListUint8(const <int>[]);
+            offsets[slot] = byteVector(const <int>[]);
             borrowed[slot] = value;
           } else {
             offsets[slot] = vector(field, value);
@@ -190,6 +197,21 @@ class _Writer {
     return offset;
   }
 
+  int byteVector(List<int> values) {
+    try {
+      final result = builder.writeListUint8(values);
+      if (builder is! CopyObservedByteVectorBuilder) {
+        OwnedCopyMetrics.record(OwnedCopyKind.flatBufferVector, values.length);
+      }
+      return result;
+    } catch (_) {
+      if (builder is! CopyObservedByteVectorBuilder) {
+        OwnedCopyMetrics.recordFailedCopy();
+      }
+      rethrow;
+    }
+  }
+
   int vector(FlatBufferFieldSpec field, Object value) {
     if (value is FlatBufferByteVectorReference) {
       if (field.kind != FlatBufferFieldKind.scalarVector ||
@@ -208,11 +230,11 @@ class _Writer {
               value.any((item) => item is! int || item < 0 || item > 255)) {
             invalid();
           }
-          return builder.writeListUint8(value.cast<int>());
+          return byteVector(value is List<int> ? value : value.cast<int>());
         }
         final integers = [for (final item in value) integer(field, item)];
         return switch (field.width) {
-          1 => builder.writeListUint8(integers),
+          1 => byteVector(integers),
           2 => builder.writeListUint16(integers),
           4 => builder.writeListUint32(integers),
           8 => builder.writeListUint64(integers),

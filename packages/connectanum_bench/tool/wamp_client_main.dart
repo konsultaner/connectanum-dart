@@ -7,14 +7,25 @@ import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_bench/src/e2ee_copy_metrics.dart';
+import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
+import 'package:connectanum_bench/src/codec_copy_metrics.dart';
+import 'package:connectanum_bench/src/native_crypto_copy_metrics.dart';
+import 'package:connectanum_bench/src/owned_copy_metrics.dart';
+// Observe core-owned buffers independently of transport and crypto counters.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart'
+    as core_buffers;
 import 'package:connectanum_client/src/transport/dart_transport_copy_metrics.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 // ignore: implementation_imports
 import 'package:connectanum_core/src/message/e2ee_copy_metrics.dart';
+// ignore: implementation_imports
+import 'package:connectanum_core/src/message/ppt_copy_metrics.dart';
 import 'package:logging/logging.dart';
 
 Future<void> main(List<String> args) async {
+  core_buffers.OwnedCopyMetrics.enable();
   final parser = ArgParser()
     ..addOption('realm', mandatory: true)
     ..addOption('targets-json', mandatory: true)
@@ -126,29 +137,42 @@ Future<void> main(List<String> args) async {
         final scenario = WampScenario.fromJson(
           Map<String, Object?>.from(jsonDecode(trimmed) as Map),
         );
+        final ownedCopiesBefore = core_buffers.OwnedCopyMetrics.snapshot();
         final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
         final copyMetricsBefore = nativeRuntime.transportCopyMetricsSnapshot();
         final e2eeMetricsBefore = nativeRuntime.e2eeCopyMetricsSnapshot();
+        final rawFrameMetricsBefore = nativeRuntime
+            .rawFrameCopyMetricsSnapshot();
+        final codecBefore = nativeRuntime.codecCopyMetricsSnapshot();
         final rssBeforeBytes = ProcessInfo.currentRss;
         late final List<WampSample> samples;
         late final DartTransportCopyMetricsSnapshot dartCopyMetrics;
         late final PortableE2eeCopyMetricsSnapshot portableE2eeMetrics;
+        late final PptCopyMetricsSnapshot pptMetrics;
         DartTransportCopyMetrics.beginWindow();
         PortableE2eeCopyMetrics.beginWindow();
+        PptCopyMetrics.beginWindow();
         try {
           samples = await runner.run(scenario);
         } finally {
           dartCopyMetrics = DartTransportCopyMetrics.endWindow();
           portableE2eeMetrics = PortableE2eeCopyMetrics.endWindow();
+          pptMetrics = PptCopyMetrics.endWindow();
         }
         final fileMetrics = nativeRuntime
             .fileSegmentMetricsSnapshot()
             .deltaFrom(fileMetricsBefore);
-        final copyMetrics = nativeRuntime
-            .transportCopyMetricsSnapshot()
-            .deltaFrom(copyMetricsBefore);
-        final e2eeMetrics = nativeRuntime.e2eeCopyMetricsSnapshot().deltaFrom(
-          e2eeMetricsBefore,
+        final copyMetricsAfter = nativeRuntime.transportCopyMetricsSnapshot();
+        final copyMetrics = copyMetricsAfter.deltaFrom(copyMetricsBefore);
+        final nativeTransportWindow = nativeClientTransportCopyWindow(
+          copyMetricsBefore,
+          copyMetricsAfter,
+        );
+        final e2eeMetricsAfter = nativeRuntime.e2eeCopyMetricsSnapshot();
+        final e2eeMetrics = e2eeMetricsAfter.deltaFrom(e2eeMetricsBefore);
+        final rawFrameMetrics = rawFrameCopyMetricsDelta(
+          rawFrameMetricsBefore,
+          nativeRuntime.rawFrameCopyMetricsSnapshot(),
         );
         stdout.writeln(
           jsonEncode({
@@ -163,14 +187,39 @@ Future<void> main(List<String> args) async {
               'buffered_file_segment_bytes':
                   fileMetrics.bufferedFileSegmentBytesTotal,
             },
-            'copy_metrics': _copyMetricsFor(
-              scenario,
-              samples,
-              copyMetrics,
-              dartCopyMetrics,
-              e2eeMetrics,
-              portableE2eeMetrics,
-            ),
+            'copy_metrics': {
+              ..._copyMetricsFor(
+                scenario,
+                samples,
+                copyMetrics,
+                dartCopyMetrics,
+                e2eeMetrics,
+                portableE2eeMetrics,
+                pptMetrics,
+                rawFrameMetrics,
+                nativeTransportWindow: nativeTransportWindow,
+              ),
+              'native_crypto_copy_breakdown': nativeCryptoCopyMetricsDelta(
+                e2eeMetricsBefore,
+                e2eeMetricsAfter,
+                active:
+                    scenario.pptScheme == 'wamp' &&
+                    scenario.clientImplementation ==
+                        WampClientImplementation.native,
+              ),
+              'native_codec_copy_breakdown': {
+                'client': codecCopyMetricsDelta(
+                  codecBefore,
+                  nativeRuntime.codecCopyMetricsSnapshot(),
+                ),
+              },
+              'dart_owned_buffer_copy_breakdown': {
+                'client': ownedBufferCopyMetricsDelta(
+                  ownedCopiesBefore,
+                  core_buffers.OwnedCopyMetrics.snapshot(),
+                ),
+              },
+            },
             'process_metrics': {
               'pid': pid,
               'rss_before_bytes': rssBeforeBytes,
@@ -200,7 +249,10 @@ Map<String, Object?> _copyMetricsFor(
   DartTransportCopyMetricsSnapshot dartCopyMetrics,
   NativeE2eeCopyMetrics e2eeMetrics,
   PortableE2eeCopyMetricsSnapshot portableE2eeMetrics,
-) {
+  PptCopyMetricsSnapshot pptMetrics,
+  Map<String, Object?> rawFrameMetrics, {
+  required Map<String, int?> nativeTransportWindow,
+}) {
   Map<String, Object?> notApplicable(String reason) => {
     'status': 'not_applicable',
     'reason': reason,
@@ -232,46 +284,12 @@ Map<String, Object?> _copyMetricsFor(
   final websocket = scenario.transport == WampTransport.websocket;
   final nativeClient =
       scenario.clientImplementation == WampClientImplementation.native;
-  final websocketCountersAvailable =
-      nativeCopyMetrics.websocketMaskCopyBytesTotal != null &&
-      nativeCopyMetrics.websocketCoalesceCopyBytesTotal != null;
-  final inputCountersAvailable =
-      nativeCopyMetrics.ioBufferFrontCopyBytesTotal != null &&
-      nativeCopyMetrics.ioBufferedReadCopyBytesTotal != null;
-  final transportCountersAvailable =
-      nativeClient &&
-      inputCountersAvailable &&
-      (!websocket || websocketCountersAvailable);
-  final measuredTransportCopyBytes = transportCountersAvailable
-      ? nativeCopyMetrics.dartToNativeCopiedBytesTotal +
-            nativeCopyMetrics.ioBufferFrontCopyBytesTotal! +
-            nativeCopyMetrics.ioBufferedReadCopyBytesTotal! +
-            (websocket
-                ? nativeCopyMetrics.websocketMaskCopyBytesTotal! +
-                      nativeCopyMetrics.websocketCoalesceCopyBytesTotal!
-                : 0)
-      : null;
-  final clientTransportCopyCoverage =
-      nativeClient &&
-      inputCountersAvailable &&
-      !scenario.secureTransport &&
-      (!websocket || websocketCountersAvailable);
-  final transportCopyBytes = !clientTransportCopyCoverage
-      ? null
-      : measuredTransportCopyBytes;
-  final knownOwnTransportCopyBytes = nativeClient
-      ? nativeCopyMetrics.dartToNativeCopiedBytesTotal +
-            (nativeCopyMetrics.ioBufferFrontCopyBytesTotal ?? 0) +
-            (nativeCopyMetrics.ioBufferedReadCopyBytesTotal ?? 0) +
-            (websocket
-                ? (nativeCopyMetrics.websocketMaskCopyBytesTotal ?? 0) +
-                      (nativeCopyMetrics.websocketCoalesceCopyBytesTotal ?? 0)
-                : 0)
-      : dartCopyMetrics.knownOwnCopyBytes;
   final knownOwnCopyBreakdown = nativeClient
       ? <String, Object?>{
           'dart_to_native_copy_bytes':
-              nativeCopyMetrics.dartToNativeCopiedBytesTotal,
+              nativeTransportWindow['dart_to_native_copy_bytes'],
+          'ffi_borrowed_send_input_copy_bytes':
+              nativeTransportWindow['ffi_borrowed_send_input_copy_bytes'],
           'rustls_outbound_chunk_copy_bytes':
               nativeCopyMetrics.rustlsOutboundChunkCopyBytesTotal,
           'rustls_queue_read_copy_bytes':
@@ -284,37 +302,28 @@ Map<String, Object?> _copyMetricsFor(
               nativeCopyMetrics.rustlsRecordBufferCopyBytesTotal,
           'rustls_record_append_copy_bytes':
               nativeCopyMetrics.rustlsRecordAppendCopyBytesTotal,
+          'tokio_rustls_plaintext_extract_copy_bytes':
+              nativeCopyMetrics.tokioRustlsPlaintextExtractCopyBytesTotal,
           'io_buffer_front_copy_bytes':
-              nativeCopyMetrics.ioBufferFrontCopyBytesTotal,
+              nativeTransportWindow['io_buffer_front_copy_bytes'],
           'io_buffered_read_copy_bytes':
-              nativeCopyMetrics.ioBufferedReadCopyBytesTotal,
+              nativeTransportWindow['io_buffered_read_copy_bytes'],
           'websocket_mask_copy_bytes': websocket
-              ? nativeCopyMetrics.websocketMaskCopyBytesTotal
+              ? nativeTransportWindow['websocket_mask_copy_bytes']
               : 0,
           'websocket_coalesce_copy_bytes': websocket
-              ? nativeCopyMetrics.websocketCoalesceCopyBytesTotal
+              ? nativeTransportWindow['websocket_coalesce_copy_bytes']
               : 0,
         }
       : dartCopyMetrics.toJson();
-  final unknownTransportCopyBoundaries = <String>[
-    if (nativeClient && !inputCountersAvailable)
-      'native prefetched input copy counters are unavailable',
-    if (!nativeClient)
-      'Dart socket/WebSocket SDK write and framing behavior is not instrumented',
-    if (websocket && !nativeClient)
-      'Dart WebSocket masking behavior is not instrumented',
-    if (scenario.secureTransport)
-      nativeClient
-          ? 'Rustls TLS copy behavior is not measured by plaintext acceptance'
-          : 'Dart TLS copy behavior is not instrumented',
-    if (nativeClient && websocket && !websocketCountersAvailable)
-      'native WebSocket copy counters are unavailable',
-  ];
   return {
+    'raw_frame_copy_breakdown': {'client': rawFrameMetrics},
+    ...clientTransportCopyMetricsFor(scenario, knownOwnCopyBreakdown),
     ...e2eeCopyMetricsFor(
       scenario,
       e2eeMetrics,
       portableMetrics: portableE2eeMetrics,
+      pptMetrics: pptMetrics,
     ),
     // This counter covers only the application payload after the explicit
     // native FlatBuffers owner is frozen and submitted through the owned-view
@@ -328,34 +337,6 @@ Map<String, Object?> _copyMetricsFor(
     'builder_growth_copy_bytes': builderMeasurementsAvailable
         ? growthCopies
         : notApplicable('workload did not grow a Connectanum native builder'),
-    'transport_copy_bytes':
-        transportCopyBytes ??
-        notMeasured(
-          scenario.secureTransport
-              ? 'TLS copy behavior is not instrumented'
-              : nativeClient
-              ? 'an active transport copy counter is unavailable'
-              : 'Dart client transport copy paths are not instrumented',
-        ),
-    'known_own_transport_copy_bytes': knownOwnTransportCopyBytes,
-    'known_own_copy_breakdown': {'client': knownOwnCopyBreakdown},
-    'coverage': {
-      'transport_copy_bytes': clientTransportCopyCoverage
-          ? 'complete_client_connectanum_path'
-          : 'partial',
-      'unknown_boundaries': unknownTransportCopyBoundaries,
-    },
-    'websocket_mask_copy_bytes': websocket
-        ? (nativeClient
-              ? (nativeCopyMetrics.websocketMaskCopyBytesTotal ??
-                    notMeasured('WebSocket mask copy counter is unavailable'))
-              : notMeasured('Dart WebSocket mask copies are not instrumented'))
-        : notApplicable('RawSocket does not mask WebSocket frames'),
-    'tls_copy_bytes': scenario.secureTransport
-        ? notMeasured(
-            'TLS accepted-plaintext bytes do not measure memory copies',
-          )
-        : notApplicable('workload uses cleartext transport'),
     'tls_plaintext_accepted_bytes': scenario.secureTransport
         ? (nativeClient
               ? (nativeCopyMetrics.tlsPlaintextAcceptedBytesTotal ??

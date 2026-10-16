@@ -136,6 +136,8 @@ expected_ci_jobs=(
   'MCP Mutation Shard 3'
   'MCP Mutation Shard 4'
   'MCP Mutation Shard 5'
+  'Router Message Binding Mutation Shard 0'
+  'Router Message Binding Mutation Shard 1'
   'core-contracts-vm Mutation Gate'
   'core-contracts-web Mutation Gate'
   'bench-config-http Mutation Gate'

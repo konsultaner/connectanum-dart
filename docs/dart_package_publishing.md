@@ -52,11 +52,13 @@ and version-sequencing decisions.
   matching native tag from hosted package metadata while preserving source
   checkout builds. Public dependency constraints use `^3.0.0-beta.2`, and the
   strict release gate rejects future package-version drift.
-- All seven `3.0.0-beta.7` packages and the matching native assets are live
-  under the verified `dart.konsultaner.de` publisher. The source graph now
-  prepares synchronized `3.0.0-beta.8` packages and Rust crates with the merged
-  FlatBuffers encoding and native buffer APIs. Performance parity and complete
-  copy coverage remain unaccepted; this release retains the beta designation.
+- All seven `3.0.0-beta.8` packages and the matching five-platform native assets
+  are live under the verified `dart.konsultaner.de` publisher, from protected
+  merge `73d840c9`. All publication workflows and a fresh isolated hosted
+  consumer pass. Native reports verify 170 profile cases with zero skips;
+  the public native FlatBuffers example reports zero application-input and
+  control-growth copies. Performance parity and complete copy coverage remain
+  unaccepted; this release retains the beta designation.
 
 ## Latest Evidence
 
@@ -125,11 +127,11 @@ When that decision exists, use this sequence:
 
 - No code-owned archive-readiness or private workspace dependency blockers
   remain for the workspace package graph.
-- Promotion of the synchronized `3.0.0-beta.8` manifests through protected
-  `master` and the hosted deployment chain must complete before publish tags
-  are created.
+- The synchronized `3.0.0-beta.8` graph is promoted through protected master
+  and all seven exact versions are published. Future version tags require the
+  same reviewed, dependency-ordered release sequence.
 - Package ownership and GitHub OIDC publication are proven by the public
-  packages and verified publisher pages. Beta.8 still requires its matching
-  native release assets before package-specific tags are pushed.
+  packages and verified publisher pages. Beta.8 native release assets are
+  published and freshly installed before its package-specific tags are pushed.
 - The published `3.0.0-beta.1` native hook default is unsuitable for external
   native execution; testers should use `3.0.0-beta.2` or newer.

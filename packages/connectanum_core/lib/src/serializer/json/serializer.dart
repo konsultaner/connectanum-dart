@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 import 'dart:isolate';
 
@@ -69,9 +70,10 @@ class Serializer extends AbstractSerializer {
   static final Logger _logger = Logger('Connectanum.Serializer');
   static const Utf8Decoder _utf8Decoder = Utf8Decoder();
   static const int _minimumSingleBinaryFastPathBytes = 1024;
-  static final Uint8List _singleBinaryArgumentsPrefix = Uint8List.fromList(
-    const [0x5b, 0x22, 0x5c, 0x75, 0x30, 0x30, 0x30, 0x30],
-  );
+  static final Uint8List _singleBinaryArgumentsPrefix =
+      OwnedCopyMetrics.copyBytes(
+        const [0x5b, 0x22, 0x5c, 0x75, 0x30, 0x30, 0x30, 0x30],
+      );
   static const Set<String> _resultDetailKeys = {
     'progress',
     'ppt_scheme',
@@ -182,11 +184,13 @@ class Serializer extends AbstractSerializer {
 
     final metadata = Uint8List(argumentsStart + 3);
     metadata.setRange(0, argumentsStart, payload);
+    OwnedCopyMetrics.record(OwnedCopyKind.coalescing, argumentsStart);
     metadata.setRange(argumentsStart, metadata.length, const [
       0x5b,
       0x5d,
       0x5d,
     ]);
+    OwnedCopyMetrics.record(OwnedCopyKind.framing, 3);
 
     AbstractMessage? message;
     try {
@@ -1649,11 +1653,11 @@ class Serializer extends AbstractSerializer {
         _encodeJsonObject(value, encodedTransfers: encodedTransfers);
     final fragments = <Uint8List>[];
     if (encodedArguments != null) {
-      fragments.add(Uint8List.fromList(utf8.encode('$messagePrefix,')));
+      fragments.add(OwnedCopyMetrics.copyBytes(utf8.encode('$messagePrefix,')));
       fragments.add(encodedArguments);
     } else {
       fragments.add(
-        Uint8List.fromList(
+        OwnedCopyMetrics.copyBytes(
           utf8.encode(
             '$messagePrefix,${encodePayload(message.wireArguments ?? const <dynamic>[])}',
           ),
@@ -1662,19 +1666,19 @@ class Serializer extends AbstractSerializer {
     }
 
     if (encodedArgumentsKeywords != null) {
-      fragments.add(Uint8List.fromList(const [0x2c]));
+      fragments.add(OwnedCopyMetrics.copyBytes(const [0x2c]));
       fragments.add(encodedArgumentsKeywords);
     } else {
       final argumentsKeywords = message.wireArgumentsKeywords;
       if (argumentsKeywords != null) {
         fragments.add(
-          Uint8List.fromList(
+          OwnedCopyMetrics.copyBytes(
             utf8.encode(',${encodePayload(argumentsKeywords)}'),
           ),
         );
       }
     }
-    fragments.add(Uint8List.fromList(const [0x5d]));
+    fragments.add(OwnedCopyMetrics.copyBytes(const [0x5d]));
     return fragments;
   }
 
@@ -1694,10 +1698,10 @@ class Serializer extends AbstractSerializer {
       return null;
     }
 
-    final prefix = Uint8List.fromList(
+    final prefix = OwnedCopyMetrics.copyBytes(
       utf8.encode('$messagePrefix,["$_escapedBinaryPrefix'),
     );
-    final suffix = Uint8List.fromList(const [0x22, 0x5d, 0x5d]);
+    final suffix = OwnedCopyMetrics.copyBytes(const [0x22, 0x5d, 0x5d]);
     if (binary.isEmpty) {
       return <Uint8List>[prefix, suffix];
     }

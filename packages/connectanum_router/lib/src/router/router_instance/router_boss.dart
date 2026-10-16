@@ -140,6 +140,7 @@ class _RouterBoss {
   Future<void> _metaEventPublishTail = Future<void>.value();
   final Map<int, RouterListener> _listenerById = {};
   final List<_WorkerHandle> _workers = [];
+  final int _copyObserverGeneration = _nextCopyObserverGeneration++;
   final Map<int, _WorkerHandle> _connectionOwners = {};
   final Map<int, Isolate> _pendingIsolates = {};
   final Map<int, RouterListener> _httpConnectionListeners = {};
@@ -1682,6 +1683,70 @@ class _RouterBoss {
     }
   }
 
+  /// Quiescent cumulative observations with stable worker generation identities.
+  Future<Map<String, Object?>> collectOwnedBufferCopies(
+    Duration timeout,
+  ) async {
+    Map<String, Object?> unavailable(String reason) => {
+      'status': 'not_measured',
+      'reason': reason,
+    };
+    if (!OwnedCopyMetrics.enabled) {
+      return unavailable('main isolate observation is disabled');
+    }
+    if (_pendingIsolates.isNotEmpty) {
+      return unavailable('worker startup is incomplete');
+    }
+    final workers = List<_WorkerHandle>.of(_workers);
+    if (workers.isEmpty ||
+        workers.any((worker) => !worker.observesBufferCopies)) {
+      return unavailable('a worker was not observed from startup');
+    }
+    final budget = Duration(
+      microseconds: (timeout.inMicroseconds * 4 ~/ 5).clamp(1, 4000000),
+    );
+    final values = await Future.wait(
+      workers.map((worker) async {
+        final reply = ReceivePort();
+        try {
+          worker.commandPort.send([
+            _workerCmdCopySnapshot,
+            reply.sendPort,
+            budget.inMicroseconds,
+          ]);
+          final response = await reply.first.timeout(timeout);
+          if (response is! Map ||
+              response['status'] != 'measured' ||
+              response['worker_hash'] != worker.isolateHash ||
+              response['counters'] is! Map) {
+            return null;
+          }
+          return Map<String, Object?>.from(response['counters'] as Map);
+        } catch (_) {
+          return null;
+        } finally {
+          reply.close();
+        }
+      }),
+    );
+    if (values.any((value) => value == null)) {
+      return unavailable('worker fence did not return a complete snapshot');
+    }
+    if (_pendingIsolates.isNotEmpty ||
+        workers.length != _workers.length ||
+        workers.any((worker) => !_workers.contains(worker))) {
+      return unavailable('worker generation changed during observation');
+    }
+    return {
+      'status': 'measured',
+      'boss_generation': _copyObserverGeneration,
+      'main_isolate': OwnedCopyMetrics.snapshot(),
+      'workers': {
+        for (var i = 0; i < workers.length; i++) '${workers[i].id}': values[i],
+      },
+    };
+  }
+
   Future<RouterMetricsSnapshot> collectMetricsSnapshot() async {
     final stateMetrics = await _fetchStateMetrics();
     final transportMetrics = _ensureTransportMetrics();
@@ -1755,6 +1820,7 @@ class _RouterBoss {
   }) async {
     final args = <String, Object?>{
       'bossPort': _eventPort.sendPort,
+      'observeBufferCopies': OwnedCopyMetrics.enabled,
       'connectionId': connectionId,
       'listenerId': listener.listenerId,
       'libraryPath': libraryPathHint,
@@ -1800,6 +1866,11 @@ class _RouterBoss {
     }
 
     final type = message['type'];
+    if (type == 'worker_copy_snapshot') {
+      final reply = message['reply'];
+      if (reply is SendPort) reply.send(message['snapshot']);
+      return;
+    }
     final Map<String, Object?> payload = {'source': 'worker'};
 
     if (type == _workerEventRegister) {
@@ -2404,6 +2475,7 @@ class _RouterBoss {
       commandPort: commandPort,
       statePort: statePort ?? _stateStore.commandPort,
       isolateHash: message['workerHash'] as int? ?? isolate.hashCode,
+      observesBufferCopies: message['observesBufferCopies'] == true,
     );
     if (connectionId > 0) {
       worker.connections.add(connectionId);
@@ -2543,6 +2615,7 @@ class _WorkerHandle {
     required this.commandPort,
     required this.statePort,
     required this.isolateHash,
+    this.observesBufferCopies = false,
   });
 
   final int id;
@@ -2550,6 +2623,7 @@ class _WorkerHandle {
   final SendPort commandPort;
   final SendPort statePort;
   final int isolateHash;
+  final bool observesBufferCopies;
   final List<int> connections = [];
   int connectionCursor = 0;
   bool busy = false;

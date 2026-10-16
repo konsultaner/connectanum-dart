@@ -35,7 +35,9 @@ pub(super) fn agree(
                     _ => return Err(wire::invalid("map key")),
                 };
                 let value = match pair.get("value") {
-                    Some(Value::Text(value)) => Some(Cbor::String(value.to_string())),
+                    Some(Value::Text(value)) => Some(Cbor::String(
+                        super::codec_copy_metrics::copy_codec_string(value),
+                    )),
                     Some(Value::Null) => Some(Cbor::Unit),
                     _ => None,
                 };
@@ -85,7 +87,9 @@ fn ignored(name: &str, key: &str) -> bool {
     }
 }
 fn get<'a>(map: &'a ValueMap, key: &str) -> Option<&'a Cbor> {
-    map.get(&Cbor::String(key.to_string()))
+    map.get(&Cbor::String(super::codec_copy_metrics::copy_codec_string(
+        key,
+    )))
 }
 fn unsigned(value: &Cbor) -> Option<u64> {
     match value {
@@ -147,7 +151,7 @@ pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fi
                 result.insert(
                     field.name,
                     match field.kind {
-                        Kind::String => Value::Text(Arc::from("")),
+                        Kind::String => Value::Text(super::codec_copy_metrics::copy_text_arc("")),
                         Kind::Table => Value::Table(Arc::new(Fields::new())),
                         _ => return Err(wire::invalid("required metadata")),
                     },
@@ -159,7 +163,9 @@ pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fi
         let projected = match field.kind {
             Kind::String => {
                 if let Some(Cbor::String(value)) = value {
-                    Some(Value::Text(Arc::from(value.as_str())))
+                    Some(Value::Text(super::codec_copy_metrics::copy_text_arc(
+                        value.as_str(),
+                    )))
                 } else {
                     return Err(invalid());
                 }
@@ -212,7 +218,9 @@ pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fi
                         let Cbor::String(value) = value else {
                             return Err(invalid());
                         };
-                        vector.push(Value::Text(Arc::from(value.as_str())));
+                        vector.push(Value::Text(super::codec_copy_metrics::copy_text_arc(
+                            value.as_str(),
+                        )));
                     } else {
                         vector.push(Value::Integer(unsigned(value).ok_or_else(invalid)?));
                     }
@@ -240,8 +248,18 @@ pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fi
                                 return None;
                             }
                             Some(Value::Table(Arc::new(Fields::from([
-                                ("key", Value::Text(Arc::from(key.as_str()))),
-                                ("value", Value::Text(Arc::from(value.as_str()))),
+                                (
+                                    "key",
+                                    Value::Text(super::codec_copy_metrics::copy_text_arc(
+                                        key.as_str(),
+                                    )),
+                                ),
+                                (
+                                    "value",
+                                    Value::Text(super::codec_copy_metrics::copy_text_arc(
+                                        value.as_str(),
+                                    )),
+                                ),
                             ]))))
                         } else {
                             None
@@ -315,7 +333,12 @@ pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fi
                                 let Cbor::String(item) = item else {
                                     return Err(invalid());
                                 };
-                                principal.insert(key, Value::Text(Arc::from(item.as_str())));
+                                principal.insert(
+                                    key,
+                                    Value::Text(super::codec_copy_metrics::copy_text_arc(
+                                        item.as_str(),
+                                    )),
+                                );
                             }
                         }
                     }

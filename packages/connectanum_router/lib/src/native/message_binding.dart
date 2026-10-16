@@ -1,3 +1,6 @@
+// Observe explicit binary conversions at the core codec boundary.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -746,7 +749,7 @@ Map<String, dynamic>? _decodeOptionalMapFragment(
 }
 
 Object? _decodeCborBytes(Uint8List bytes) {
-  return cbor.cborDecode(bytes.toList()).toObject();
+  return cbor.cborDecode(OwnedCopyMetrics.copyByteValues(bytes)).toObject();
 }
 
 Object? _normalizeJsonBinaryPayload(Object? value) {
@@ -756,7 +759,9 @@ Object? _normalizeJsonBinaryPayload(Object? value) {
     final prefix = value.startsWith(_jsonBinaryPrefix)
         ? _jsonBinaryPrefix
         : _jsonEscapedBinaryPrefix;
-    return Uint8List.fromList(base64.decode(value.substring(prefix.length)));
+    return OwnedCopyMetrics.copyBytes(
+      base64.decode(value.substring(prefix.length)),
+    );
   }
   if (value is List) {
     return value

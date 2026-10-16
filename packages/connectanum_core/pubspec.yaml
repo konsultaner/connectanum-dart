@@ -11,6 +11,7 @@ environment:
 dependencies:
   meta: ^1.16.0
   collection: ^1.18.0
+  typed_data: ^1.4.0
   saslprep: ^1.0.1
   pointycastle: ^4.0.0
   pinenacl: ^0.6.0

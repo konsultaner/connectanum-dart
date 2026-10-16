@@ -294,6 +294,56 @@ class _Harness {
 
 void main() {
   final library = resolveOrBuildNativeLib();
+  for (final serializer in ['flatbuffers', 'cbor', 'msgpack']) {
+    test('internal PPT singleton retains encoded body $serializer', () async {
+      final harness = _Harness.start(library!);
+      Uint8List? retainedBody;
+      try {
+        final caller = await harness.connect(serializer, library, _modes.first);
+        final callee = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+        );
+        final registration = await callee.register('com.internal.view');
+        final application = _application(42);
+        registration.onLazyInvokePayload((invocation) {
+          retainedBody = invocation.packedPayloadBytes;
+          invocation.respondWith(
+            lazyPayload: invocation.payload,
+            options: _modes.first.replyOptions(),
+          );
+        });
+        final result = await caller.session
+            .callLazyPayload(
+              'com.internal.view',
+              payload: core.LazyMessagePayload.packed(
+                encoding: core.LazyPayloadEncoding.cbor,
+                packedPayloadBytes: application,
+                packedPayloadDecoder: (_) =>
+                    (arguments: [application], argumentsKeywords: null),
+              ),
+              options: _modes.first.callOptions(),
+            )
+            .first
+            .timeout(_deadline);
+        expect(result.arguments, [application]);
+        expect(retainedBody, orderedEquals(application));
+        expect(
+          retainedBody!.buffer.lengthInBytes,
+          greaterThan(application.length),
+          reason: 'opaque body retains its original encoded allocation',
+        );
+        expect(() => retainedBody![0] = 0, throwsUnsupportedError);
+        await callee.close();
+      } finally {
+        await harness.close();
+      }
+      expect(
+        _applicationId(retainedBody!),
+        42,
+        reason: 'view survives its native message and sessions',
+      );
+    }, skip: library == null ? 'Native transport artifact unavailable' : false);
+  }
   for (final pair in _pairs) {
     test(
       'ordinary public routing ${pair.$1} -> ${pair.$2} keeps lazy payloads',

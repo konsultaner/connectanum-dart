@@ -1645,6 +1645,30 @@ class RouterBinding {
     }
   }
 
+  /// Observe cumulative owned byte-buffer operations in this isolate and every
+  /// default worker. Enable core OwnedCopyMetrics before starting the binding.
+  /// This fences Dart commands; callers must also settle native network traffic.
+  Future<Map<String, Object?>> collectOwnedBufferCopies({
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    if (timeout <= Duration.zero) throw ArgumentError.value(timeout, 'timeout');
+    final boss = _boss;
+    if (boss == null) {
+      return {
+        'status': 'not_measured',
+        'reason': 'native worker observation is unavailable',
+      };
+    }
+    final result = await boss.collectOwnedBufferCopies(timeout);
+    if (!identical(_boss, boss)) {
+      return {
+        'status': 'not_measured',
+        'reason': 'router generation changed during observation',
+      };
+    }
+    return result;
+  }
+
   Future<RouterMetricsSnapshot> collectMetrics() async {
     final boss = _boss;
     if (boss == null) {

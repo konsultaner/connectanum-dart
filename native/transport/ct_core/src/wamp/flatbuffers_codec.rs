@@ -232,7 +232,7 @@ fn integer(fields: &Fields, key: &'static str) -> Result<u64, ParseError> {
 }
 fn text(fields: &Fields, key: &'static str) -> Result<String, ParseError> {
     match fields.get(key) {
-        Some(Value::Text(value)) => Ok(value.to_string()),
+        Some(Value::Text(value)) => Ok(super::codec_copy_metrics::copy_codec_string(value)),
         _ => Err(wire::invalid("text field")),
     }
 }
@@ -258,9 +258,9 @@ fn challenge(body: &Fields) -> Result<String, ParseError> {
             } else if method != 0 {
                 return Err(wire::invalid("custom authentication method"));
             }
-            Ok(name.to_string())
+            Ok(super::codec_copy_metrics::copy_codec_string(name))
         }
-        Some(Value::Null) => Ok(known.to_string()),
+        Some(Value::Null) => Ok(super::codec_copy_metrics::copy_codec_string(known)),
         _ => Err(wire::invalid("authentication method name")),
     }
 }

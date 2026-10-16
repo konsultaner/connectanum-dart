@@ -33,6 +33,18 @@ def project_lint_header(source):
     raise ValueError("flatc output is missing its Dart lint directive")
 
 
+def project_byte_views(source):
+    import_line = "import 'package:flat_buffers/flat_buffers.dart' as fb;"
+    project_import = "import 'package:connectanum_core/flatbuffers_serializer.dart' as byte_views;"
+    if project_import not in source:
+        if import_line not in source:
+            raise ValueError("flatc output is missing its FlatBuffers import")
+        source = source.replace(import_line, import_line + "\n" + project_import)
+    return source.replace("fb.BufferContext.fromBytes(bytes)", "byte_views.flatBufferContext(bytes)").replace(
+        "fb.Uint8ListReader()", "byte_views.FlatBufferUint8ListReader()"
+    )
+
+
 def generate(flatc):
     manifest = json.loads(MANIFEST.read_text())
     expected = f'flatc version {manifest["flatc"]}'
@@ -46,7 +58,7 @@ def generate(flatc):
             [flatc, "--dart", "--gen-all", "-o", directory, SCHEMA],
             check=True,
         )
-        generated.write_text(project_lint_header(generated.read_text()))
+        generated.write_text(project_byte_views(project_lint_header(generated.read_text())))
         subprocess.run(
             [
                 "dart",

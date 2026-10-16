@@ -228,6 +228,30 @@ typedef CtTransportCopyMetricsSnapshotNative =
 typedef CtTransportCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
 
+typedef CtFfiBorrowedSendCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtFfiBorrowedSendCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+
+typedef CtTokioRustlsCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtTokioRustlsCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+
+typedef CtRawFrameCopyMetricsVersionNative = ffi.Uint32 Function();
+typedef CtRawFrameCopyMetricsVersionDart = int Function();
+typedef CtRawFrameCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtRawFrameCopyMetricsInfo>);
+typedef CtRawFrameCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtRawFrameCopyMetricsInfo>);
+
+typedef CtCodecCopyMetricsVersionNative = ffi.Uint32 Function();
+typedef CtCodecCopyMetricsVersionDart = int Function();
+typedef CtCodecCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtCodecCopyMetricsInfo>);
+typedef CtCodecCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtCodecCopyMetricsInfo>);
+
 typedef CtRustlsCopyMetricsSnapshotNative =
     ffi.Int32 Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
 typedef CtRustlsCopyMetricsSnapshotDart =
@@ -237,6 +261,15 @@ typedef CtTransportCopyMetricsSnapshotV2Native =
     ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
 typedef CtTransportCopyMetricsSnapshotV2Dart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfoV2>);
+
+typedef CtE2eeNonceTagCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtE2eeNonceTagCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+typedef CtE2eePlaintextFramingCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtE2eePlaintextFramingCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
 
 typedef CtE2eeCopyMetricsVersionNative = ffi.Uint32 Function();
 typedef CtE2eeCopyMetricsVersionDart = int Function();
@@ -511,6 +544,32 @@ final class CtTransportCopyMetricsInfo extends ffi.Struct {
 
   @ffi.Uint64()
   external int tlsPlaintextAcceptedBytesTotal;
+}
+
+final class CtRawFrameCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int coalescingCopyBytesTotal;
+  @ffi.Uint64()
+  external int rangeCopyBytesTotal;
+  @ffi.Uint64()
+  external int singleSegmentContiguousRequestsTotal;
+  @ffi.Uint64()
+  external int multiSegmentContiguousRequestsTotal;
+}
+
+final class CtCodecCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int vectorCopyBytesTotal;
+  @ffi.Uint64()
+  external int stringCopyBytesTotal;
+  @ffi.Uint64()
+  external int growthCopyBytesTotal;
+  @ffi.Uint64()
+  external int parserReadCopyBytesTotal;
+  @ffi.Uint64()
+  external int framingCopyBytesTotal;
+  @ffi.Uint64()
+  external int keyMaterialCopyBytesTotal;
 }
 
 final class CtRustlsCopyMetricsInfo extends ffi.Struct {
@@ -807,6 +866,55 @@ class CtFfiBindings {
             CtFileSegmentMetricsSnapshotNative,
             CtFileSegmentMetricsSnapshotDart
           >('ct_file_segment_metrics_snapshot'),
+      ctFfiBorrowedSendCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtFfiBorrowedSendCopyMetricsSnapshotNative,
+              CtFfiBorrowedSendCopyMetricsSnapshotDart
+            >('ct_ffi_borrowed_send_copy_metrics_snapshot'),
+      ),
+      ctTokioRustlsCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTokioRustlsCopyMetricsSnapshotNative,
+              CtTokioRustlsCopyMetricsSnapshotDart
+            >('ct_tokio_rustls_copy_metrics_snapshot'),
+      ),
+      ctRawFrameCopyMetricsVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtRawFrameCopyMetricsVersionNative,
+              CtRawFrameCopyMetricsVersionDart
+            >('ct_raw_frame_copy_metrics_abi_version'),
+      ),
+      ctRawFrameCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtRawFrameCopyMetricsSnapshotNative,
+              CtRawFrameCopyMetricsSnapshotDart
+            >('ct_raw_frame_copy_metrics_snapshot'),
+      ),
+      ctCodecCopyMetricsVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsVersionNative,
+              CtCodecCopyMetricsVersionDart
+            >('ct_codec_copy_metrics_abi_version'),
+      ),
+      ctCodecCopyMetricsCoverageVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsVersionNative,
+              CtCodecCopyMetricsVersionDart
+            >('ct_codec_copy_metrics_coverage_version'),
+      ),
+      ctCodecCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsSnapshotNative,
+              CtCodecCopyMetricsSnapshotDart
+            >('ct_codec_copy_metrics_snapshot'),
+      ),
       ctRustlsCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -827,6 +935,20 @@ class CtFfiBindings {
               CtTransportCopyMetricsSnapshotNative,
               CtTransportCopyMetricsSnapshotDart
             >('ct_transport_copy_metrics_snapshot'),
+      ),
+      ctE2eeNonceTagCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtE2eeNonceTagCopyMetricsSnapshotNative,
+              CtE2eeNonceTagCopyMetricsSnapshotDart
+            >('ct_e2ee_nonce_tag_copy_metrics_snapshot'),
+      ),
+      ctE2eePlaintextFramingCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtE2eePlaintextFramingCopyMetricsSnapshotNative,
+              CtE2eePlaintextFramingCopyMetricsSnapshotDart
+            >('ct_e2ee_plaintext_framing_copy_metrics_snapshot'),
       ),
       ctE2eeCopyMetricsVersion = _tryLookup(
         () =>
@@ -1095,9 +1217,21 @@ class CtFfiBindings {
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionSupportsFileSegmentsDart ctConnectionSupportsFileSegments;
   final CtFileSegmentMetricsSnapshotDart ctFileSegmentMetricsSnapshot;
+  final CtFfiBorrowedSendCopyMetricsSnapshotDart?
+  ctFfiBorrowedSendCopyMetricsSnapshot;
+  final CtTokioRustlsCopyMetricsSnapshotDart? ctTokioRustlsCopyMetricsSnapshot;
+  final CtRawFrameCopyMetricsVersionDart? ctRawFrameCopyMetricsVersion;
+  final CtRawFrameCopyMetricsSnapshotDart? ctRawFrameCopyMetricsSnapshot;
+  final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsVersion;
+  final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsCoverageVersion;
+  final CtCodecCopyMetricsSnapshotDart? ctCodecCopyMetricsSnapshot;
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;
+  final CtE2eeNonceTagCopyMetricsSnapshotDart?
+  ctE2eeNonceTagCopyMetricsSnapshot;
+  final CtE2eePlaintextFramingCopyMetricsSnapshotDart?
+  ctE2eePlaintextFramingCopyMetricsSnapshot;
   final CtE2eeCopyMetricsVersionDart? ctE2eeCopyMetricsVersion;
   final CtE2eeCopyMetricsSnapshotDart? ctE2eeCopyMetricsSnapshot;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
