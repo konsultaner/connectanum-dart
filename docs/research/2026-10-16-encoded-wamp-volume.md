@@ -40,6 +40,11 @@ be an exact nonnegative integer within the JSON-safe range, monotonic and
 versioned. Rejections, missing components, overflow, rewinds and unavailable
 symbols prevent complete measurement. Observed zero remains a valid component.
 
+The human comparison reports the median accepted serialized bytes per application
+operation for every case/codec, retaining every repetition. A missing observation
+renders unmeasured rather than dropping that repetition. Raw totals and all four
+process components remain in the JSON report.
+
 Encoded volume is reported separately and never added to E2EE, transcode or
 other buffer-copy totals. The comparison independently verifies the four
 components, total, failure count, scope and transport exclusions.
@@ -47,7 +52,7 @@ components, total, failure count, scope and transport exclusions.
 ## Verification
 
 Focused verification passes: 825 combined ownership/volume/pipeline cases,
-37 Python comparison cases, 85 VM transport cases, 122 native ABI/provider/runtime
+38 Python comparison cases, 85 VM transport cases, 122 native ABI/provider/runtime
 cases, the native send-queue and 48-byte ABI regressions, and 25 core / two client
 browser cases under both JavaScript and WebAssembly. Analysis has no errors or
 warnings (30 existing informational lints). All 154 source-bound mutation proofs

@@ -315,6 +315,16 @@ class WampSerializerCompareTest(unittest.TestCase):
         self.assertEqual(evidence['encoded_wamp_volume']['accepted_bytes'], 4000)
         self.assertNotEqual(sum(evidence['application_bytes'].values()), 4000)
 
+    def test_human_report_keeps_all_encoded_volume_observations(self):
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        text = compare.render_markdown(result)
+        self.assertIn('Serialized message volume', text)
+        self.assertIn('| primary-rpc-rawsocket-values | flatbuffers | 160.0 |', text)
+        self.assertIn('excludes RawSocket/WebSocket framing', text)
+        result['cases'][0]['evidence']['flatbuffers'][0].pop('encoded_wamp_volume')
+        self.assertIn('| primary-rpc-rawsocket-values | flatbuffers | unmeasured |',
+                      compare.render_markdown(result))
+
     def test_encoded_volume_rejects_incomplete_or_forged_observations(self):
         valid = self._report('test', 'flatbuffers', 1)['copy_metrics']['encoded_wamp_volume']
         mutations = [

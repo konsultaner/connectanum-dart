@@ -1218,6 +1218,27 @@ def render_markdown(result: dict[str, Any]) -> str:
                 f"{data['median_ratio']:.4f} | [{data['ci_95_low']:.4f}, "
                 f"{data['ci_95_high']:.4f}] | {'PASS' if data['passed'] else 'FAIL'} |"
             )
+    lines.extend([
+        "", "## Serialized message volume", "",
+        "Median accepted serialized bytes per application operation, including "
+        "every observed send hop and control message in the process window. "
+        "This excludes RawSocket/WebSocket framing, TLS records and network "
+        "packet headers. It is separate from logical application bytes and copy totals.",
+        "", "| Case | Codec | Encoded bytes/operation |", "|---|---|---:|",
+    ])
+    for case in result["cases"]:
+        for codec in CODECS:
+            rows = case.get("evidence", {}).get(codec, [])
+            values = []
+            for row in rows:
+                volume = row.get("encoded_wamp_volume")
+                samples = row.get("sample_count")
+                if (_encoded_wamp_volume_findings(volume, 'render') or
+                        type(samples) is not int or samples <= 0):
+                    break
+                values.append(volume['accepted_bytes'] / samples)
+            value = f"{statistics.median(values):.1f}" if rows and len(values) == len(rows) else "unmeasured"
+            lines.append(f"| {case['id']} | {codec} | {value} |")
     lines.extend(["", "## Findings", ""])
     if result["findings"]:
         lines.extend(f"- {finding}" for finding in result["findings"])
