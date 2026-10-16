@@ -243,3 +243,65 @@ extra error-fixture compile attempt used a name inherited by Socket; renaming th
 fixture field resolves it. Local review claims of cap overflow and missed copies
 on socket failure are contradicted by the guarded increment and copy-before-send
 ordering, with explicit passing regressions. Macro parity remains unestablished.
+
+
+## Reuse native spans for canonical typed sends
+
+The fully verified `792cd99d` checkpoint passes all 38 hosted jobs and all 180
+five-platform consumers, plus renewed 300-row/120-case/36-combination accounting.
+Its strict 90-row Linux comparison still fails. CPU ratios are 1.0057, 1.0185 and
+1.0229 for values/native-buffer/pre-encoded; other gates also fail. All allocation
+and RSS observations validate. A complete CPU profile passes on unchanged-source
+attempt two; attempt one's failed CBOR perf recording remains explicit. Profiles
+are attribution only, never performance acceptance.
+
+Native send previously built a validated model into a native SDK control buffer,
+parsed/composed that buffer in Rust, registered a temporary frame, queried its
+metadata and transferred it. A real fail-first submission window observes 172
+native control-string copy bytes, excluding the later incoming reply. The private
+canonical Call/Publish path can use the already shipped segment ABI instead.
+
+The SDK writes backwards. Writing the payload length first leaves that uint32 at
+the end of the eventual prefix; `FlatBufferByteVectorReference` links its existing
+builder offset without reading or copying the application allocation. An unused
+float64 written next establishes eight-byte minimum alignment before the trailing
+length word. The complete prefix plus body is an ordinary contiguous wire frame;
+the private prefix alone is intentionally incomplete and never goes through the
+public caller-supplied frame API. The prefix remains at most the 64 MiB frame
+limit minus the payload; oversized cases retain the old rejection path.
+
+Existing `ct_owned_buffer_send_segments` synchronously borrows/retains every
+frozen allocation before queue submission. Its Frame retains control and
+application owners through write/flush. The new path therefore disposes its
+caller prefix handle after acceptance while preserving the body handle. Profile
+commit and reuse counters occur only after acceptance, following a final
+connection check after all model/profile accessors. Public raw-frame validation
+and the existing frame-composition fallback remain intact. No new ABI or encoding
+is introduced; the same pinned writer and immutable native allocations are used.
+
+All 36 complete-wire shape cases pass for Call/Publish, zero/one/max IDs,
+empty/three-byte/64 KiB bodies, initial-capacity growth and eight-byte offsets.
+All 76 focused ownership/native/transport cases pass separately, including new
+full-frame boundary rejection and zero native control-string copies. The
+process-global native copy counter case reexecutes in an isolated child VM and
+checks its actual successful completion. Combining unrelated native test files
+reproduces global runtime teardown races; the canonical scripts already use
+separate processes, and those failed combined runs remain retained.
+
+A test-only copy of the production library hides the optional segment ABI version
+export while retaining all other dynamic exports/addresses and machine code.
+All 14 profiles pass with an explicit unavailable-capability/legacy-copy assertion.
+This proves optional-capability fallback, not historical build compatibility. An
+initial nmedit fixture changed symbol-table visibility without hiding the dynamic
+export; its capability assertion correctly failed. The corrected fixture and all
+hashes remain separate from production and timing artifacts.
+
+A quiet old/new/new/old component probe, 5,000 warmups and 50,000 preparations per
+process, measures mean 8.23754 versus 4.17613 us (ratio 0.50696). This experiment
+excludes native submission, I/O, profile/session work and allocation acceptance;
+it neither establishes macro parity nor predicts a full-workload percentage.
+Advisory claims about wire non-contiguity, premature release and connection
+checks were verified against actual concatenation, retention code, ordering and
+executed tests. Fresh full verification, live accounting, cross-platform consumers
+and Linux timing remain required. The first consumer profile now requires 14
+cases, raising the five-platform total from 180 to 190 without allowing skips.

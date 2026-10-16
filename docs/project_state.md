@@ -6,6 +6,38 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Verified prefix checkpoint (2026-10-16): source `792cd99d` passes full frozen
+`bin/verify` with all 3,115 inputs unchanged, all 38 hosted CI jobs and 180 audited
+production consumers across five platforms, with zero skips and independently
+matched archive/library/manifest/log hashes. Renewed 300 short supplemental rows,
+120 accounting cases and 36 progressive codec combinations reconcile every owned
+copy and encoded-volume component. All 36 Linux RawSocket pointer probes pass.
+The strict Linux diagnostic validates all 90 rows / 180 allocation observations
+and every RSS endpoint, but still fails parity: CPU ratios 1.0057 / 1.0185 /
+1.0229, with additional throughput/latency/GC/RSS failures. No budget is waived.
+CPU profiling succeeds on a second unchanged-source attempt; the first attempt's
+CBOR `perf record` failure and partial data remain retained explicitly.
+
+Active native candidate (2026-10-16): a fail-first typed-send regression observes
+172 native control-string copy bytes. The private canonical Call/Publish path now
+builds an aligned native prefix with the vector length at its tail and submits it
+with the existing frozen payload through the existing owned-segment ABI. It avoids
+native reparse/composition and extra frame wrappers. Public supplied-frame checks,
+64 MiB full-frame limits, profile/connection guards and the old-ABI frame fallback
+remain. No native ABI, schema, payload copy, benchmark inventory or budget changes.
+
+All 76 focused native/ownership/transport cases pass in canonical separate
+processes, plus 36 complete-wire shape cases and 14 missing-optional-ABI fixture
+cases. The counter test uses an isolated child VM because native counters are
+process-wide. Parallel native-file runs reproduce shared-runtime teardown
+interference; their failures are retained, not used as accepted verification.
+The capability fixture changes only an optional dynamic export in a test copy,
+not a historical binary or production artifact. A balanced local preparation-only
+probe measures 8.24 to 4.18 us; it excludes send/network/session work and is not
+macro parity. Resulting-source full verification, renewed live accounting, hosted
+CI and strict timing remain required. Production consumers now require 14 first
+profile cases (190 across five platforms); fresh evidence is still pending.
+
 RawSocket prefix candidate (2026-10-16): frozen `bin/test-fast` passes on
 `2524d89b` with all 3,115 inputs unchanged. A focused fail-first regression proves
 large FlatBuffers/CBOR/MessagePack frames submit their small fragments separately.

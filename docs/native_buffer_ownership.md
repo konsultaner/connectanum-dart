@@ -388,3 +388,15 @@ Run `python3 tool/run_native_guardmalloc.py --output out/native-guardmalloc` on
 macOS to generate `out/native-guardmalloc/report.json` and the per-group logs.
 The CI job publishes these records as the `native-ownership-guardmalloc` artifact.
 Hosted acceptance requires a successful execution on the feature commit.
+
+
+Canonical native FlatBuffers PPT Call/Publish sends may use the existing owned
+segment ABI to queue a native prefix together with the frozen application buffer.
+The private prefix ends at the vector length word; the combined wire frame keeps
+the payload eight-byte aligned. This bypasses re-parsing an envelope produced by
+the canonical writer. Caller-supplied frames keep their existing validation.
+Both allocations remain retained through the native write/flush, while caller
+body handles remain valid after either acceptance or rejection. Libraries without
+the optional segment ABI keep the existing frame-composition path. The full-frame
+64 MiB bound and session-profile checks still apply. This does not extend foreign
+storage or database transaction lifetimes.

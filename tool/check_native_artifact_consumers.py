@@ -19,7 +19,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = (
-    ("connectanum_client", "test/transport/native/flatbuffers_profile_test.dart", 12),
+    ("connectanum_client", "test/transport/native/flatbuffers_profile_test.dart", 14),
     ("connectanum_client", "test/transport/flatbuffers_transport_profile_vm_test.dart", 22),
     ("connectanum_router", "test/router_flatbuffers_native_test.dart", 2),
 )

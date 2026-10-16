@@ -204,6 +204,15 @@ abstract class _NativeTransportBase extends AbstractTransport
       return false;
     }
 
+    if (nativeBuffers.supportsSegmentedBuffers &&
+        _sendCanonicalNativeFlatBufferPptSegments(
+          message,
+          connectionId,
+          payloadOwner,
+        )) {
+      return true;
+    }
+
     final builder = nativeBuffers.flatBuffers(initialSize: 1024);
     NativeOwnedBuffer? control;
     late final NativeFlatBufferFrame frame;
@@ -244,6 +253,60 @@ abstract class _NativeTransportBase extends AbstractTransport
       return true;
     } finally {
       frame.dispose();
+    }
+  }
+
+  bool _sendCanonicalNativeFlatBufferPptSegments(
+    AbstractMessage message,
+    int connectionId,
+    NativeOwnedBuffer payloadOwner,
+  ) {
+    const maximumFrameBytes = 64 * 1024 * 1024;
+    if (payloadOwner.length > maximumFrameBytes) {
+      return false;
+    }
+    final builder = nativeBuffers.flatBuffers(initialSize: 1024);
+    NativeOwnedBuffer? prefix;
+    try {
+      // The SDK builds backwards: this first word ends the prefix, directly
+      // before the separately retained body. The prefix alone is incomplete.
+      builder.putUint32(payloadOwner.length);
+      final vector = flatbuffers.FlatBufferByteVectorReference(
+        builder,
+        builder.offset,
+      );
+      // Keep the opaque body's logical wire offset eight-byte aligned even
+      // when all uint64 fields have their default values and are omitted.
+      builder.putFloat64(0.0);
+      builder.finish(
+        flatbuffers.writeWampFlatBufferMessage(
+          message,
+          builder,
+          payloadVector: vector,
+        ),
+      );
+      prefix = builder.freeze();
+      if (prefix.length + payloadOwner.length > maximumFrameBytes) {
+        return false;
+      }
+      final nextProfile = _flatBuffersProfile?.prepareOutgoing(
+        message,
+        advertise: false,
+      );
+      // Canonical projection and profile accessors may run user code. Public
+      // raw-frame submission keeps its independent structural/profile checks.
+      if (_connectionId != connectionId) {
+        throw StateError(
+          'Transport connection changed during frame construction',
+        );
+      }
+      nativeBuffers.sendSegments(connectionId, [prefix, payloadOwner]);
+      _commitSend(nextProfile, message);
+      recordNativeFlatBufferPptSubmission(payloadOwner, payloadOwner.length);
+      return true;
+    } finally {
+      builder.dispose();
+      prefix?.dispose();
     }
   }
 
