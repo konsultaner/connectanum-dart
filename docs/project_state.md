@@ -6,6 +6,25 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Current fully represented CALL candidate: a fresh audited Linux profile on
+`65833214` still captures 24 inclusive native-metadata retention ticks (diagnostic
+only). A limited complete-grammar match now avoids the custom loader and retained
+history for two PPT strings exactly represented by fresh CALL options, with all
+other fields null. Unknown/null/default/tagged/Unicode or other control shapes
+keep their prior path. All 3,971 binding/metadata cases, both production consumers,
+nonminimal decoder comparisons and source-restored fail-first checks pass;
+analysis is clean. See the checked fully represented CALL research. Fresh
+performance measurements and final full verification are pending.
+
+The preceding `65833214` whole `bin/test-tooling` and hosted Fast Checks pass
+with all 3,123 inputs unchanged. Its nonfinal remaining CI jobs were cancelled
+to free the profiler runner; no full CI pass is claimed for it. The earlier
+`7388e666` hosted CI now passes every job, alongside its frozen full local verify
+and five-platform consumers. The `b4e2b4ea` strict 90-row diagnostic has complete
+allocation/RSS observations but fails CPU ratios 1.0122 / 1.0024 / 1.0045 and
+other gates. All three allocation comparisons pass. No budget is changed and no
+primary/supplemental performance acceptance or milestone closure is claimed.
+
 The complete local tooling run on `10d21c49` also reproduces a stale exact
 router-test-list assertion in the mutation-runner tests. Its expected list now
 includes the new router regression, while the client list remains exact. All

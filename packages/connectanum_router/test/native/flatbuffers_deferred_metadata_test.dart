@@ -45,6 +45,42 @@ void main() {
     return result;
   }
 
+  Call rawCall(
+    Uint8List bytes, {
+    bool eager = false,
+    int flags = 17,
+    String scheme = 'x_test',
+    String serializer = 'flatbuffers',
+    String? cipher,
+    String? key,
+  }) {
+    final value =
+        bindMessageFromMetadata(
+              NativeMessageSerializer.flatbuffers,
+              messageCode: 48,
+              primaryId: 17,
+              secondaryId: 0,
+              detailNumberA: 123,
+              flags: flags,
+              detailsBytes: bytes,
+              stringA: 'com.target',
+              stringB: scheme,
+              stringC: serializer,
+              stringD: cipher,
+              stringE: key,
+              argsBytes: Uint8List.fromList([0xff]),
+              kwargsBytes: Uint8List.fromList([0xff]),
+              retainFlatBufferMetadata: !eager,
+            )!
+            as Call;
+    if (eager) codec.retainMetadata(value, bytes);
+    return value;
+  }
+
+  Uint8List dictionary(Map<String, Object?> value) => Uint8List.fromList(
+    cbor.cbor.encode(cbor.CborValue(value)),
+  ).asUnmodifiableView();
+
   const ppt = {'ppt_scheme': 'x_test', 'ppt_serializer': 'flatbuffers'};
   for (final code in [16, 48, 70]) {
     for (final edit in [
@@ -207,6 +243,344 @@ void main() {
       }
     });
   }
+  test('known CALL metadata supports either key order and ASCII widths', () {
+    for (final length in [0, 1, 23, 24, 25, 255, 256, 65535, 65536]) {
+      final scheme = 'a' * length;
+      for (final reversed in [false, true]) {
+        final bytes = dictionary(
+          reversed
+              ? {'ppt_serializer': 'flatbuffers', 'ppt_scheme': scheme}
+              : {'ppt_scheme': scheme, 'ppt_serializer': 'flatbuffers'},
+        );
+        final value = rawCall(bytes, scheme: scheme);
+        expect(
+          (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+          length > 65535,
+        );
+        expect(codec.metadataFor(value), {
+          'ppt_scheme': scheme,
+          'ppt_serializer': 'flatbuffers',
+        });
+        expect(value.debugEncodedArgumentsBytes, [0xff]);
+        expect(value.debugEncodedArgumentsKeywordsBytes, [0xff]);
+      }
+    }
+  });
+  test(
+    'known CALL metadata matches readonly subviews and nonminimal text lengths',
+    () {
+      final original = dictionary(ppt);
+      for (var offset = 0; offset < 8; offset++) {
+        final backing = Uint8List(original.length + offset + 7)
+          ..fillRange(0, original.length + offset + 7, 255)
+          ..setRange(offset, offset + original.length, original);
+        final value = rawCall(
+          Uint8List.sublistView(
+            backing,
+            offset,
+            offset + original.length,
+          ).asUnmodifiableView(),
+        );
+        expect(
+          (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+          isFalse,
+        );
+        expect(codec.metadataFor(value), ppt);
+      }
+      List<int> text(String value, int width) => [
+        if (width == 1) ...[
+          0x78,
+          value.length,
+        ] else if (width == 2) ...[
+          0x79,
+          0,
+          value.length,
+        ] else ...[
+          0x7a,
+          0,
+          0,
+          0,
+          value.length,
+        ],
+        ...value.codeUnits,
+      ];
+      for (final width in [1, 2, 4]) {
+        final encoded = Uint8List.fromList([
+          0xa2,
+          ...text('ppt_scheme', width),
+          ...text('x_test', width),
+          ...text('ppt_serializer', width),
+          ...text('flatbuffers', width),
+        ]);
+        expect(codec.deserializeMetadata(encoded), ppt);
+        final value = rawCall(encoded);
+        expect(
+          (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+          width == 4,
+        );
+        expect(codec.metadataFor(value), ppt);
+      }
+      for (final bytes in [
+        Uint8List.fromList([0xb8, 2, ...original.skip(1)]),
+        Uint8List.fromList([0xbf, ...original.skip(1), 0xff]),
+      ]) {
+        final value = rawCall(bytes);
+        expect(
+          (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+          isTrue,
+        );
+        expect(codec.metadataFor(value), ppt);
+      }
+    },
+  );
+  test('incomplete extended text lengths keep immediate rejection', () {
+    final key = cbor.cbor.encode(cbor.CborValue('ppt_scheme'));
+    for (final suffix in [
+      [0x78],
+      [0x79],
+      [0x79, 0],
+      [0x7a],
+      [0x7b],
+    ]) {
+      expect(
+        () => rawCall(Uint8List.fromList([0xa2, ...suffix])),
+        throwsFormatException,
+      );
+      expect(
+        () => rawCall(Uint8List.fromList([0xa2, ...key, ...suffix])),
+        throwsFormatException,
+      );
+    }
+    final oversized = Uint8List(1048577)
+      ..setRange(0, dictionary(ppt).length, dictionary(ppt));
+    expect(() => rawCall(oversized), throwsFormatException);
+  });
+
+  test('known CALL metadata keeps all edits before first resend', () {
+    for (final edit in [
+      'timeout',
+      'false',
+      'clear scheme',
+      'custom override',
+      'transaction hash',
+      'replace root',
+    ]) {
+      Map<String, dynamic> edited(bool eager) {
+        final value = rawCall(dictionary(ppt), eager: eager);
+        switch (edit) {
+          case 'timeout':
+            value.options!.timeout = 456;
+          case 'false':
+            value.options!.receiveProgress = false;
+          case 'clear scheme':
+            value.options!.pptScheme = null;
+          case 'custom override':
+            value.options!.custom['ppt_scheme'] = 'x_custom';
+          case 'transaction hash':
+            value.options!.transactionHash = 'tx-17';
+          case 'replace root':
+            value.options = CallOptions(custom: {'x_new': true});
+        }
+        return codec.metadataFor(value);
+      }
+
+      expect(edited(false), edited(true), reason: edit);
+    }
+  });
+  test('other CALL controls keep the retained dictionary', () {
+    final bytes = dictionary(ppt);
+    for (final flag in [2, 8, 32, 64]) {
+      final value = rawCall(bytes, flags: 17 | flag);
+      expect(
+        (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+        isTrue,
+      );
+      expect(
+        codec.metadataFor(value),
+        codec.metadataFor(rawCall(bytes, flags: 17 | flag, eager: true)),
+      );
+    }
+    for (final cipher in [false, true]) {
+      final value = rawCall(
+        bytes,
+        cipher: cipher ? 'x_cipher' : null,
+        key: cipher ? null : 'key',
+      );
+      expect(
+        (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+        isTrue,
+      );
+      expect(codec.metadataFor(value), ppt);
+    }
+    for (final changed in ['scheme', 'serializer']) {
+      final value = rawCall(
+        bytes,
+        scheme: changed == 'scheme' ? 'x_other' : 'x_test',
+        serializer: changed == 'serializer' ? 'cbor' : 'flatbuffers',
+      );
+      expect(
+        (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+        isTrue,
+      );
+      expect(codec.metadataFor(value), ppt);
+    }
+  });
+  test('canonical fast path never accepts matching invalid Latin1 UTF8', () {
+    final key = 'ppt_scheme'.codeUnits;
+    final tail = cbor.cbor.encode(cbor.CborValue('ppt_serializer'));
+    final serializer = cbor.cbor.encode(cbor.CborValue('flatbuffers'));
+    for (final byte in [128, 191, 192, 233, 255]) {
+      final bytes = Uint8List.fromList([
+        0xa2,
+        0x6a,
+        ...key,
+        0x63,
+        120,
+        95,
+        byte,
+        ...tail,
+        ...serializer,
+      ]);
+      expect(
+        () => rawCall(bytes, scheme: String.fromCharCodes([120, 95, byte])),
+        throwsFormatException,
+      );
+    }
+    final value = rawCall(
+      dictionary({'ppt_scheme': 'x_é', 'ppt_serializer': 'flatbuffers'}),
+      scheme: 'x_é',
+    );
+    expect(
+      (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+      isTrue,
+    );
+    expect(codec.metadataFor(value)['ppt_scheme'], 'x_é');
+  });
+  test(
+    'canonical fast path rejects every incomplete prefix and trailing data',
+    () {
+      final bytes = dictionary(ppt);
+      for (var end = 0; end < bytes.length; end++) {
+        expect(
+          () => rawCall(Uint8List.sublistView(bytes, 0, end)),
+          throwsFormatException,
+          reason: 'prefix $end',
+        );
+      }
+      expect(
+        () => rawCall(Uint8List.fromList([...bytes, 0])),
+        throwsFormatException,
+      );
+      final key = cbor.cbor.encode(cbor.CborValue('ppt_scheme'));
+      final value = cbor.cbor.encode(cbor.CborValue('x_test'));
+      expect(
+        () => rawCall(
+          Uint8List.fromList([0xa2, ...key, ...value, ...key, ...value]),
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+  test('canonical-looking tagged invalid date still rejects immediately', () {
+    final key = cbor.cbor.encode(cbor.CborValue('ppt_scheme'));
+    final tail = cbor.cbor.encode(cbor.CborValue('ppt_serializer'));
+    final serializer = cbor.cbor.encode(cbor.CborValue('flatbuffers'));
+    expect(
+      () => rawCall(
+        Uint8List.fromList([
+          0xa2,
+          ...key,
+          0xc0,
+          0x61,
+          0x78,
+          ...tail,
+          ...serializer,
+        ]),
+        scheme: 'x',
+      ),
+      throwsFormatException,
+    );
+  });
+  test(
+    'mutated native CALL dictionaries agree with eager error phases and values',
+    () {
+      final original = dictionary(ppt);
+      Object outcome(Uint8List bytes, bool eager) {
+        Call value;
+        try {
+          value = rawCall(bytes, eager: eager);
+        } catch (error) {
+          return ('ingest', error.runtimeType);
+        }
+        try {
+          value.options!.timeout = 456;
+          value.options!.custom['x_added'] = 42;
+          return codec.metadataFor(value);
+        } catch (error) {
+          return ('resend', error.runtimeType);
+        }
+      }
+
+      for (var offset = 0; offset < original.length; offset++) {
+        for (final byte in [
+          0,
+          0x1f,
+          0x20,
+          0x3f,
+          0x5f,
+          0x60,
+          0x7f,
+          0x80,
+          0xbf,
+          0xc0,
+          0xdf,
+          0xe0,
+          0xff,
+        ]) {
+          final changed = Uint8List.fromList(original)..[offset] = byte;
+          expect(
+            outcome(changed, false),
+            outcome(changed, true),
+            reason: 'offset $offset byte $byte',
+          );
+        }
+      }
+    },
+  );
+
+  test('transaction hash metadata keeps its custom loader and value', () {
+    final bytes = dictionary({
+      ...ppt,
+      CallOptions.transactionHashWireField: 'tx-17',
+    });
+    final value = rawCall(bytes);
+    expect(
+      (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+      isTrue,
+    );
+    expect(value.options!.transactionHash, 'tx-17');
+    expect(
+      codec.metadataFor(value),
+      codec.metadataFor(rawCall(bytes, eager: true)),
+    );
+  });
+
+  test('known-only native CALL has no unresolved custom dictionary', () {
+    final value = bind(48, ppt) as Call;
+    expect(
+      (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+      isFalse,
+    );
+    expect(value.options!.transactionHash, isNull);
+    value.options!.custom['x_added'] = 42;
+    value.options!.pptScheme = 'x_changed';
+    expect(codec.metadataFor(value), {
+      'ppt_scheme': 'x_changed',
+      'ppt_serializer': 'flatbuffers',
+      'x_added': 42,
+    });
+  });
+
   test(
     'explicit default assignment before first resend preserves presence',
     () {
