@@ -152,8 +152,8 @@ class NativeWampWorker {
   final String workerScriptPath;
   final bool enableVmMetrics;
 
-  /// Preserve JIT warmup for successful RPC/pub-sub campaigns. Other modes and
-  /// failures still recycle the helper to isolate late cancellation messages.
+  /// Preserve JIT warmup for successful RPC, pub/sub, progressive and control
+  /// operation campaigns. Other modes and failures still recycle the helper.
   final bool reuseSuccessfulWorkers;
   final String dartExecutable;
   final Duration _readyTimeout;
@@ -172,8 +172,8 @@ class NativeWampWorker {
       (await runWithMetrics(scenario)).samples;
 
   Future<NativeWampWorkerResult> runWithMetrics(WampScenario scenario) {
-    // Each scenario owns a fresh native runtime. Queue callers rather than
-    // letting one scenario's cleanup cancel another scenario's response.
+    // Serialize commands and cleanup, including reused workers, so one
+    // scenario's cleanup cannot cancel another scenario's response.
     final epoch = _closeEpoch;
     final result = _runTail.then((_) {
       if (epoch != _closeEpoch) {
@@ -256,12 +256,19 @@ class NativeWampWorker {
         await _stop(generation);
         rethrow;
       }
-      // Native cancel-cycle workloads can leave late interrupts/errors in flight.
-      // Recycle the helper between scenarios so those messages do not poison the
-      // next benchmark command in the same worker isolate.
-      if (!succeeded ||
-          !reuseSuccessfulWorkers ||
-          (scenario.mode != WampMode.rpc && scenario.mode != WampMode.pubsub)) {
+      // These modes await per-command session/registration cleanup. Successful
+      // campaign reuse keeps the same runtime; failures always discard it.
+      final reusableMode = switch (scenario.mode) {
+        WampMode.rpc ||
+        WampMode.pubsub ||
+        WampMode.progressiveRpc ||
+        WampMode.publishAck ||
+        WampMode.subscribeCycle ||
+        WampMode.registerCycle ||
+        WampMode.cancelCycle => true,
+        _ => false,
+      };
+      if (!succeeded || !reuseSuccessfulWorkers || !reusableMode) {
         await _stop(generation);
       }
     }

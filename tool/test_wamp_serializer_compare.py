@@ -307,6 +307,89 @@ class WampSerializerCompareTest(unittest.TestCase):
             "measured_runs": measured,
         }
 
+    def test_control_diagnostics_report_operation_rate_and_keep_costs_visible(self):
+        # Isolate metric/report classification; inventory/configuration have
+        # independent strict tests. These synthetic rows are never performance evidence.
+        from unittest import mock
+        manifest = self._campaign(flatbuffer_speed=900)
+        manifest['metadata']['campaign_kind'] = 'extension_diagnostic'
+        names = manifest['cases'][0]['workloads']
+        manifest['cases'] = [{**compare.extensions.extension_cases()[0], 'workloads': names}]
+        self.policy = json.loads((Path(__file__).parents[1] / 'native/bench/artifact_gate/wamp_flatbuffers_performance.json').read_text())
+        manifest['metadata']['policy_sha256'] = compare.hashlib.sha256((Path(__file__).parents[1] / 'native/bench/artifact_gate/wamp_flatbuffers_performance.json').read_bytes()).hexdigest()
+        first = None
+        for run in manifest['warmup_runs'] + manifest['measured_runs']:
+            p = self.root / run['results']
+            rows = [json.loads(line) for line in p.read_text().splitlines()]
+            first = first or rows[0]
+            for row in rows:
+                if row['wamp_configuration']['serializer'] == 'flatbuffers':
+                    row['data_window_elapsed_ms'] = 12000
+                row['samples'] = [dict(row['samples'][0], iteration=i, request_bytes=0, response_bytes=0) for i in range(1000)]
+            p.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+        manifest['execution'] = {'observed_process_pids': {
+            key: first[key]['pid'] for key in ('client_process_metrics', 'server_process_metrics')}}
+        with mock.patch.object(compare, '_campaign_findings', return_value=[]), \
+             mock.patch.object(compare.extensions, 'configuration_findings', return_value=[]):
+            result = compare.evaluate_campaign(manifest, self.root, self.policy)
+            self.assertEqual(result['status'], 'diagnostic_complete', result['findings'])
+            self.assertFalse(result['primary_acceptance_eligible'])
+            metrics = result['cases'][0]['metrics']
+            self.assertIn('operations_per_second', metrics)
+            self.assertNotIn('throughput_mbps', metrics)
+            self.assertFalse(metrics['operations_per_second']['passed'])
+            self.assertTrue(result['performance_findings'])
+            text = compare.render_markdown(result)
+            self.assertIn('Supplemental performance costs', text)
+            self.assertIn('never establishes primary acceptance', text)
+            p = self.root / manifest['measured_runs'][0]['results']
+            rows = [json.loads(line) for line in p.read_text().splitlines()]
+            rows[0]['copy_metrics'].pop('encoded_wamp_volume')
+            p.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+            invalid = compare.evaluate_campaign(manifest, self.root, self.policy)
+            self.assertEqual(invalid['status'], 'failed')
+            self.assertTrue(any('encoded WAMP' in item for item in invalid['findings']))
+
+    def test_primary_and_extensions_cannot_substitute_a_looser_policy(self):
+        for kind in ('primary', 'extension_diagnostic'):
+            manifest = copy.deepcopy(self.manifest)
+            manifest['metadata']['campaign_kind'] = kind
+            if kind == 'extension_diagnostic':
+                names = manifest['cases'][0]['workloads']
+                manifest['cases'] = [{**compare.extensions.extension_cases()[0], 'workloads': names}]
+            result = compare.evaluate_campaign(manifest, self.root, self.policy)
+            self.assertEqual(result['status'], 'failed')
+            self.assertTrue(any('unchanged checked-in performance policy' in f for f in result['findings']))
+
+    def test_declared_zero_copy_path_rejects_an_observed_copy(self):
+        run = self.manifest['measured_runs'][0]
+        path = self.root / run['results']
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        next(r for r in rows if r['wamp_configuration']['serializer'] == 'flatbuffers')['copy_metrics']['optimized_payload_copy_bytes'] = 1
+        path.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        self.assertEqual(result['status'], 'failed')
+        self.assertTrue(any('optimized payload boundary copied 1 bytes; expected zero' in f for f in result['findings']))
+
+    def test_primary_zero_copy_declarations_cannot_be_removed(self):
+        import run_wamp_serializer_campaign as campaign
+        manifest = copy.deepcopy(self.manifest)
+        manifest['metadata']['campaign_kind'] = 'primary'
+        manifest['cases'] = campaign.primary_cases()
+        self.assertFalse(any('avoidable' in f for f in compare._campaign_findings(manifest)))
+        required = [c for c in manifest['cases'] if c.get('zero_copy_codecs')]
+        self.assertEqual(len(required), 16)
+        required[0].pop('zero_copy_codecs')
+        self.assertTrue(any('avoidable' in f for f in compare._campaign_findings(manifest)))
+
+    def test_extension_inventory_cannot_omit_or_substitute_cases(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest['metadata']['campaign_kind'] = 'extension_diagnostic'
+        manifest['cases'] = compare.extensions.extension_cases()
+        self.assertFalse(any('42-case' in f for f in compare._campaign_findings(manifest)))
+        manifest['cases'][-1] = copy.deepcopy(manifest['cases'][0])
+        self.assertTrue(any('42-case' in f for f in compare._campaign_findings(manifest)))
+
     def test_encoded_volume_is_distinct_from_application_bytes(self):
         result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
         self.assertEqual(result['status'], 'passed', result['findings'])
@@ -464,7 +547,7 @@ class WampSerializerCompareTest(unittest.TestCase):
                 "secure_transport": False, "construction": "native_buffer"}
         report = self._report("case_flatbuffers", "flatbuffers", 0)
         report["wamp_configuration"] = {
-            "serializer": "flatbuffers", "peer_serializer": None, "peer_count": 1,
+            "serializer": "flatbuffers", "peer_serializer": None, "peer_count": 1, "payload_bytes": 65536,
             "secure_transport": False, "ppt_scheme": "x_connectanum_bench_typed",
             "ppt_serializer": "flatbuffers", "payload_construction": "native_buffer",
             "ppt_cipher": None, "ppt_keyid": None,

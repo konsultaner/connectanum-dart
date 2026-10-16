@@ -6,16 +6,32 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
-Native RawSocket candidate (2026-10-16): `ef9895e9` passes frozen full
-`bin/verify` and all 120 renewed copy/encoded-volume cases, with HEAD and 3,108
-inputs unchanged. Hosted Fast Checks are green; remaining CI is running.
-The preceding native source passes 170 audited five-platform consumers.
-A real-writer fail-first case finds three scalar writes for header/two spans.
-Bounded stack scatter/gather now uses one vectored call and retains the exact
-span addresses. All 54 RawSocket / seven receipt cases and the full 383 core /
-311 FFI Rust library cases and 445 Dart native cases pass. Full verification,
-live ownership proof and Linux timing remain pending. No parity is claimed.
-See [scatter/gather evidence](research/2026-10-16-native-rawsocket-vectored-writes.md).
+Latest verified checkpoint (2026-10-16): `8be8d5c0` passes frozen full
+`bin/verify`, including VM, JavaScript and WebAssembly, with HEAD and all 3,109
+inputs unchanged. The preceding attempt hit fake CLI worker readiness deadlines
+while an unrelated control probe overlapped it; all ten CLI cases and the full
+quiet rerun pass without changing their deadlines. All 120 live ownership and
+encoded-volume cases independently reconcile (96 encrypted, 120 transcode,
+48 active native-crypto cases), and 170 five-platform native consumers pass
+with no skips. All hosted CI jobs on that checkpoint are green.
+
+Its [90-row Linux diagnostic](https://github.com/konsultaner/connectanum-dart/actions/runs/38872392453)
+completes with all 180 allocation observations and RSS/duration/sample boundaries
+valid, but still fails parity: CPU ratios 1.05537 / 1.08584 / 1.07985, native-buffer
+allocation 1.05014, and additional point/interval gates. No numerical failure is
+waived. Raw results and independent recomputation remain retained.
+
+Current harness work makes the 16 primary native buffer/span zero-copy gates
+mandatory and adds the declared 42-case supplemental inventory. Timed control
+and progressive operations and opt-in worker reuse first reproduce eleven
+failures; their fixes retain default/failure recycling and unsupported-mode
+rejection. Supplemental costs are reported separately and cannot certify primary
+parity; missing evidence and substituted policies fail. The corrected 42-case
+short run completes 252 rows with stable PIDs and all 3,111 inputs unchanged: 48 encrypted/native-crypto, 28 active transcode, 32
+zero-copy and 252 encoded-volume checks pass. It is correctness evidence only.
+Current-source full verification and hosted checks remain pending. CPU/allocation
+parity and the full primary/supplemental campaigns still block #103 and milestone closure.
+See [supplemental diagnostic plan](research/2026-10-16-flatbuffers-supplemental-diagnostics.md).
 
 Encoded-volume CI repair (2026-10-16): source `1b751b72` passes all 120
 live copy/encoded-volume cases, with 3,108 unchanged inputs and independent

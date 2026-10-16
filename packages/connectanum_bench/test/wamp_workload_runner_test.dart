@@ -376,7 +376,58 @@ void main() {
       },
     );
 
-    test('rejects minimum-duration use outside RPC and pubsub', () async {
+    for (final mode in [
+      WampMode.progressiveRpc,
+      WampMode.publishAck,
+      WampMode.subscribeCycle,
+      WampMode.registerCycle,
+      WampMode.cancelCycle,
+    ]) {
+      test('minimum duration covers actual $mode operation samples', () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: Logger.detached('extension_duration_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.cbor,
+            mode: mode,
+            uri: 'bench.extension',
+            iterations: 1,
+            concurrency: 1,
+            minimumDurationMs: 30,
+            payloadBytes:
+                mode == WampMode.progressiveRpc || mode == WampMode.publishAck
+                ? 16
+                : 0,
+          ),
+        );
+        expect(samples.length, greaterThan(1));
+        expect(
+          WampSampleWindow.fromSamples(samples)!.elapsedMs,
+          greaterThanOrEqualTo(30),
+        );
+        expect(
+          samples.map((s) => s.iteration),
+          orderedEquals(List.generate(samples.length, (i) => i)),
+        );
+        expect(broker.registerAdds, broker.registerRemoves);
+        expect(
+          broker.subscribeRemoves,
+          greaterThanOrEqualTo(broker.subscribeAdds),
+        );
+        expect(broker._subscribers, isEmpty);
+        expect(broker._payloadSubscribers, isEmpty);
+        expect(broker._callbackSubscribers, isEmpty);
+        expect(broker._payloadCallbackSubscribers, isEmpty);
+        expect(broker._lazyRegistrations, isEmpty);
+      });
+    }
+
+    test('rejects minimum-duration authentication workloads', () async {
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => _FakeWampSession(_FakeWampBroker()),
         logger: Logger.detached('unsupported_minimum_duration_test'),

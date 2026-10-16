@@ -12,11 +12,14 @@ import math
 import random
 import re
 import statistics
+
 import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+import wamp_serializer_extensions as extensions
 
 from dart_heap_allocation_evidence import allocation_evidence
 
@@ -94,10 +97,10 @@ def _campaign_findings(manifest: dict[str, Any]) -> list[str]:
     kind = metadata.get("campaign_kind")
     if kind == "diagnostic":
         findings.append("diagnostic campaigns cannot establish primary acceptance")
-    elif kind is not None and kind != "primary":
+    elif kind is not None and kind not in ("primary", "extension_diagnostic"):
         findings.append("metadata.campaign_kind is unsupported")
     if metadata.get("inputs_unchanged") is False or (
-        kind == "primary" and metadata.get("inputs_unchanged") is not True
+        kind in ("primary", "extension_diagnostic") and metadata.get("inputs_unchanged") is not True
     ):
         findings.append("campaign inputs must remain unchanged throughout execution")
     execution = manifest.get("execution")
@@ -136,6 +139,18 @@ def _campaign_findings(manifest: dict[str, Any]) -> list[str]:
         ) for item in actual)
         if len(actual) != 48 or not valid_types or set(actual) != expected:
             findings.append("primary campaign matrix must contain all 48 distinct declared cases")
+        for case in cases if isinstance(cases, list) else ():
+            if not isinstance(case, dict):
+                continue
+            expected_zero = ["flatbuffers"] if case.get("client_impl") == "native" and case.get("construction") in ("native_buffer", "pre_encoded_span") else []
+            if case.get("zero_copy_codecs") != expected_zero:
+                findings.append("primary cases must retain their declared zero avoidable-payload-copy gates")
+    if kind == "extension_diagnostic":
+        if metadata.get("diagnostic_inventory") != extensions.INVENTORY:
+            findings.append("extension diagnostics require the declared inventory revision")
+        if manifest.get("cases") != extensions.extension_cases():
+            findings.append("extension diagnostics must contain the exact declared 42-case inventory")
+    if kind in ("primary", "extension_diagnostic"):
         for key in ("router_config_sha256", "policy_sha256"):
             if not isinstance(metadata.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", metadata[key]):
                 findings.append(f"primary metadata.{key} must be a SHA-256 hash")
@@ -716,7 +731,7 @@ def _configuration_findings(report: dict[str, Any], case: dict[str, Any], codec:
     findings = []
     if required:
         expected.update({
-            "peer_serializer": None, "peer_count": 1,
+            "peer_serializer": None, "peer_count": 1, "payload_bytes": 65536,
             "secure_transport": case.get("secure_transport"),
             "ppt_scheme": "x_connectanum_bench_typed", "ppt_serializer": codec,
             "payload_construction": case.get("construction"),
@@ -816,6 +831,7 @@ def _summarize_report(
     return (
         {
             "throughput_mbps": throughput_mbps,
+            "operations_per_second": len(samples) / (elapsed_ms / 1000.0),
             "latency_p50_ms": _percentile(latencies, 0.50),
             "latency_p95_ms": _percentile(latencies, 0.95),
             "latency_p99_ms": _percentile(latencies, 0.99),
@@ -897,6 +913,19 @@ def evaluate_campaign(
         findings.append("policy requires the approved versioned Connectanum copy measurement scope")
     metadata = manifest.get("metadata")
     configuration_required = isinstance(metadata, dict) and metadata.get("campaign_kind") is not None
+    supplemental = isinstance(metadata, dict) and metadata.get("campaign_kind") == "extension_diagnostic"
+    if isinstance(metadata, dict) and metadata.get("campaign_kind") in ("primary", "extension_diagnostic"):
+        canonical = Path(__file__).resolve().parents[1] / "native/bench/artifact_gate/wamp_flatbuffers_performance.json"
+        if policy != json.loads(canonical.read_text()):
+            findings.append("campaign requires the unchanged checked-in performance policy")
+        if metadata.get("policy_sha256") != hashlib.sha256(canonical.read_bytes()).hexdigest():
+            findings.append("campaign policy hash does not match the checked-in performance policy")
+    performance_findings = []
+
+    def check_configuration(report, case, codec, *, label, required):
+        if supplemental:
+            return extensions.configuration_findings(report, case, codec, label=label)
+        return _configuration_findings(report, case, codec, label=label, required=required)
     loaded_warmups: list[dict[str, dict[str, Any]]] = []
     for run in warmups:
         _, by_name = _resolve_results(base_dir, run)
@@ -948,7 +977,7 @@ def evaluate_campaign(
                 )
             for codec, name in rows.items():
                 if name in warmup:
-                    findings.extend(_configuration_findings(
+                    findings.extend(check_configuration(
                         warmup[name], case, codec,
                         label=f"{case_id} warm-up {warmup_index} {codec}",
                         required=configuration_required,
@@ -993,7 +1022,7 @@ def evaluate_campaign(
         for codec in CODECS:
             for run_index, report in enumerate(case_reports[codec], start=1):
                 label = f"{case_id} repetition {run_index} {codec}"
-                findings.extend(_configuration_findings(
+                findings.extend(check_configuration(
                     report, case, codec, label=label, required=configuration_required,
                 ))
                 summary, evidence_findings = _summarize_report(
@@ -1066,7 +1095,8 @@ def evaluate_campaign(
                         "wamp_configuration": report.get("wamp_configuration"),
                     }
                 )
-        for metric in ALL_METRICS:
+        metrics = ["operations_per_second" if supplemental and case.get("group") == "small_control" and metric == "throughput_mbps" else metric for metric in ALL_METRICS]
+        for metric in metrics:
             ratios: list[float] = []
             winner_counts: Counter[str] = Counter()
             observations: list[dict[str, Any]] = []
@@ -1088,7 +1118,7 @@ def evaluate_campaign(
                     candidate += summaries["flatbuffers"][index]["allocated_bytes_error_bound_per_operation"]
                     cbor = max(0, cbor - summaries["cbor"][index]["allocated_bytes_error_bound_per_operation"])
                     msgpack = max(0, msgpack - summaries["msgpack"][index]["allocated_bytes_error_bound_per_operation"])
-                if metric == "throughput_mbps":
+                if metric in ("throughput_mbps", "operations_per_second"):
                     baseline_codec = "cbor" if cbor >= msgpack else "msgpack"
                     baseline = max(cbor, msgpack)
                 else:
@@ -1118,7 +1148,7 @@ def evaluate_campaign(
                         "ratio": ratio,
                     }
                 )
-            metric_policy = policy["metrics"][metric]
+            metric_policy = policy["metrics"]["throughput_mbps" if metric == "operations_per_second" else metric]
             seed_material = f"{policy['random_seed']}:{case_id}:{metric}".encode()
             seed = int.from_bytes(hashlib.sha256(seed_material).digest()[:4], "big")
             if len(ratios) != len(runs):
@@ -1138,7 +1168,8 @@ def evaluate_campaign(
             gate["observations"] = observations
             metric_results[metric] = gate
             if not gate["passed"] and gate["median_ratio"] is not None:
-                findings.append(
+                target = performance_findings if supplemental else findings
+                target.append(
                     f"{case_id} {metric}: paired ratio median {gate['median_ratio']:.4f}, "
                     f"95% CI [{gate['ci_95_low']:.4f}, {gate['ci_95_high']:.4f}] "
                     "misses the declared parity gate"
@@ -1161,6 +1192,7 @@ def evaluate_campaign(
             {
                 "id": case_id,
                 "construction": case["construction"],
+                **({"diagnostic_configuration": case} if supplemental else {}),
                 "workloads": rows,
                 "repetitions": len(runs),
                 "codec_orders": [list(order) for order in codec_orders],
@@ -1171,7 +1203,9 @@ def evaluate_campaign(
 
     return {
         "schema_version": 1,
-        "status": "passed" if not findings else "failed",
+        "status": ("diagnostic_complete" if supplemental else "passed") if not findings else "failed",
+        "primary_acceptance_eligible": isinstance(metadata, dict) and metadata.get("campaign_kind") == "primary",
+        "performance_findings": performance_findings,
         "policy": policy,
         "source_manifest": manifest.get("campaign_id"),
         "case_count": len(results),
@@ -1205,9 +1239,19 @@ def render_markdown(result: dict[str, Any]) -> str:
         "",
         "Unmeasured dependency internals: " + (", ".join(sorted(dependencies)) or "none reported") + ".",
         "",
-        "| Case | Construction | Metric | Median ratio | Paired 95% CI | Gate |",
-        "|---|---|---|---:|---:|---|",
     ]
+    if result.get("primary_acceptance_eligible") is False and any(c.get("diagnostic_configuration") for c in result["cases"]):
+        lines.extend(["", "## Supplemental configurations", "",
+                      "| Case | Payload profile | Mode | Transport/TLS | Client | Application bytes | Peers | Peer serializer | PPT serializer/cipher | Fragment bytes |",
+                      "|---|---|---|---|---|---:|---:|---|---|---:|"])
+        for item in result["cases"]:
+            c = item["diagnostic_configuration"]
+            f = c["fields"]
+            peer_label = 'matches envelope' if c.get('peer_serializer_mode') == 'match_envelope' else f.get('peer_serializer', 'same')
+            lines.append(f"| {c['id']} | {c['payload_profile']} | {c['mode']} | {c['transport']}/{c['secure_transport']} | {c['client_impl']} | {f['request_bytes']} | {f['peer_count']} | {peer_label} | {f.get('ppt_serializer', 'matches envelope')}/{f.get('ppt_cipher', 'none')} | {f.get('websocket_fragment_size', 'none')} |")
+        lines.append("")
+    lines.extend(["| Case | Construction | Metric | Median ratio | Paired 95% CI | Gate |",
+                  "|---|---|---|---:|---:|---|"])
     for case in result["cases"]:
         for metric, data in case["metrics"].items():
             if data.get("status") == "not_measured":
@@ -1244,6 +1288,11 @@ def render_markdown(result: dict[str, Any]) -> str:
         lines.extend(f"- {finding}" for finding in result["findings"])
     else:
         lines.append("No gate findings.")
+    if result.get("primary_acceptance_eligible") is False:
+        lines.extend(["", "This diagnostic never establishes primary acceptance."])
+    if result.get("performance_findings"):
+        lines.extend(["", "## Supplemental performance costs", ""])
+        lines.extend(f"- {finding}" for finding in result["performance_findings"])
     lines.extend(["", "Ratios compare FlatBuffers to the better of CBOR and MessagePack within each paired repetition.",
                   "Allocation ratios conservatively compare the candidate upper bound with baseline lower bounds; raw estimates and error bounds are retained.", ""])
     return "\n".join(lines)

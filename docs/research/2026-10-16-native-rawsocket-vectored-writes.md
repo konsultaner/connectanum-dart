@@ -63,3 +63,24 @@ Current-source full verification, renewed live ownership
 proof, five-platform consumers and Linux comparisons remain required. No parity
 budget, case, duration, sample minimum, repetition or coverage/mutation floor
 is changed. No issue, milestone or release is closed by this component change.
+
+## Verified checkpoint and remaining regression
+
+Source `8be8d5c0` passes frozen full `bin/verify`, including both browser
+compilers, with HEAD and all 3,109 inputs unchanged. An earlier overlapping
+control probe coincided with fake CLI startup deadline failures; the isolated
+10-case CLI rerun and subsequent complete quiet verification pass with no
+deadline changes. The earlier failed log is retained.
+
+All 120 renewed live copy/encoded-volume cases reconcile independently, including
+96 encrypted and 48 native-crypto cases. Five production platforms pass 170
+audited consumer tests, with no skips. The native workflow is a dry run.
+
+[Linux run 38872392453](https://github.com/konsultaner/connectanum-dart/actions/runs/38872392453)
+completes 90 rows with 180 valid allocation observations and valid RSS, sample
+and duration boundaries. CPU ratios are 1.05537, 1.08584 and 1.07985 for values,
+native buffers and pre-encoded spans respectively. Native-buffer allocation is
+1.05014. Additional throughput, latency, GC and RSS gates fail. The preceding
+run has higher CPU ratios, but separate hosted runs do not by themselves prove
+the causal contribution of scatter/gather. Only the writer call-count and
+ownership changes are directly reproduced. Primary parity remains unproven.

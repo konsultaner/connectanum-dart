@@ -445,15 +445,42 @@ void main() {
         },
       );
 
-      test('campaign reuse still recycles cancellation workloads', () async {
+      for (final mode in [
+        'progressive_rpc',
+        'publish_ack',
+        'subscribe_cycle',
+        'register_cycle',
+        'cancel_cycle',
+      ]) {
+        test(
+          'campaign reuse preserves successful $mode warmup before RPC',
+          () async {
+            final fixture = await _WorkerFixture.create(
+              reuseSuccessfulWorkers: true,
+            );
+            final scenario = WampScenario.fromJson({
+              ..._scenario().toJson(),
+              'mode': mode,
+            });
+            await fixture.worker.runWithMetrics(scenario);
+            await fixture.worker.runWithMetrics(scenario);
+            await fixture.worker.runWithMetrics(_scenario());
+            expect(fixture.pids, hasLength(1));
+            await fixture.worker.close();
+            await fixture.expectNoLiveChildren();
+          },
+        );
+      }
+      test('campaign reuse still recycles authentication workloads', () async {
         final fixture = await _WorkerFixture.create(
           reuseSuccessfulWorkers: true,
         );
-        final scenario = WampScenario.fromJson({
-          ..._scenario().toJson(),
-          'mode': 'cancel_cycle',
-        });
-        await fixture.worker.runWithMetrics(scenario);
+        await fixture.worker.runWithMetrics(
+          WampScenario.fromJson({
+            ..._scenario().toJson(),
+            'mode': 'authenticate',
+          }),
+        );
         await fixture.expectNoLiveChildren();
         await fixture.worker.runWithMetrics(_scenario());
         expect(fixture.pids, hasLength(2));
@@ -461,22 +488,29 @@ void main() {
         await fixture.expectNoLiveChildren();
       });
 
-      test('campaign reuse stops failed helpers before recovery', () async {
-        final fixture = await _WorkerFixture.create(
-          reuseSuccessfulWorkers: true,
+      for (final mode in ['rpc', 'cancel_cycle']) {
+        test(
+          'campaign reuse stops failed $mode helpers before recovery',
+          () async {
+            final fixture = await _WorkerFixture.create(
+              reuseSuccessfulWorkers: true,
+            );
+            await fixture.response.writeAsString('{"error":"failed workload"}');
+            await expectLater(
+              fixture.worker.runWithMetrics(
+                WampScenario.fromJson({..._scenario().toJson(), 'mode': mode}),
+              ),
+              throwsA(isA<StateError>()),
+            );
+            await fixture.expectNoLiveChildren();
+            await fixture.response.writeAsString(_response);
+            await fixture.worker.runWithMetrics(_scenario());
+            expect(fixture.pids, hasLength(2));
+            await fixture.worker.close();
+            await fixture.expectNoLiveChildren();
+          },
         );
-        await fixture.response.writeAsString('{"error":"failed workload"}');
-        await expectLater(
-          fixture.worker.runWithMetrics(_scenario()),
-          throwsA(isA<StateError>()),
-        );
-        await fixture.expectNoLiveChildren();
-        await fixture.response.writeAsString(_response);
-        await fixture.worker.runWithMetrics(_scenario());
-        expect(fixture.pids, hasLength(2));
-        await fixture.worker.close();
-        await fixture.expectNoLiveChildren();
-      });
+      }
 
       test(
         'response preserves samples and all metrics across recycling',

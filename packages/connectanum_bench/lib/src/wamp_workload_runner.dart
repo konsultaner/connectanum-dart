@@ -255,11 +255,21 @@ class WampWorkloadRunner {
         'must be positive',
       );
     }
-    if (scenario.mode != WampMode.rpc && scenario.mode != WampMode.pubsub) {
+    final supported = switch (scenario.mode) {
+      WampMode.rpc ||
+      WampMode.pubsub ||
+      WampMode.progressiveRpc ||
+      WampMode.publishAck ||
+      WampMode.subscribeCycle ||
+      WampMode.registerCycle ||
+      WampMode.cancelCycle => true,
+      _ => false,
+    };
+    if (!supported) {
       throw ArgumentError.value(
         scenario.mode,
         'mode',
-        'minimum duration is supported for RPC and pub/sub workloads only',
+        'minimum duration is supported for RPC, pub/sub, progressive RPC and control cycles only',
       );
     }
   }

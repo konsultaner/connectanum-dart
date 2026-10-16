@@ -712,6 +712,8 @@ fn run_bench_suite(
                             "peer_serializer": prepared.peer_serializer,
                             "secure_transport": prepared.secure_transport,
                             "peer_count": prepared.peer_count,
+                            "payload_bytes": prepared.request_bytes,
+                            "websocket_fragment_size": prepared.websocket_fragment_size,
                             "in_flight_per_session": prepared.in_flight_per_session,
                             "ppt_scheme": prepared.ppt_scheme,
                             "ppt_serializer": prepared.ppt_serializer,
@@ -1986,9 +1988,18 @@ impl PreparedWorkload {
             }
             let (_, mode) = parse_wamp_protocol(&config.protocol)
                 .ok_or_else(|| anyhow!("minimum_duration_ms is only supported for WAMP"))?;
-            if !matches!(mode, BenchWampMode::Rpc | BenchWampMode::PubSub) {
+            if !matches!(
+                mode,
+                BenchWampMode::Rpc
+                    | BenchWampMode::PubSub
+                    | BenchWampMode::ProgressiveRpc
+                    | BenchWampMode::PublishAck
+                    | BenchWampMode::SubscribeCycle
+                    | BenchWampMode::RegisterCycle
+                    | BenchWampMode::CancelCycle
+            ) {
                 bail!(
-                    "workload {} minimum_duration_ms is supported for RPC and pub/sub only",
+                    "workload {} minimum_duration_ms is supported for RPC, pub/sub, progressive RPC and control cycles only",
                     config.name
                 );
             }
@@ -7143,7 +7154,7 @@ mod tests {
     }
 
     #[test]
-    fn minimum_duration_is_limited_to_positive_rpc_and_pubsub_workloads() {
+    fn minimum_duration_supports_positive_timed_operations() {
         let scenario: ScenarioFile = toml::from_str(
             r#"
 name = "timed"
@@ -7160,6 +7171,21 @@ minimum_duration_ms = 30
         .unwrap();
         let prepared = PreparedWorkload::from_config(&scenario.workloads[0]).unwrap();
         assert!(prepared.is_wamp());
+        for mode in [
+            "pubsub",
+            "progressive_rpc",
+            "publish_ack",
+            "subscribe_cycle",
+            "register_cycle",
+            "cancel_cycle",
+        ] {
+            let input = format!("name = \"timed\"\n[[workloads]]\nname = \"operation\"\nprotocol = \"wamp_rawsocket_{mode}\"\nminimum_duration_ms = 30\n");
+            let scenario: ScenarioFile = toml::from_str(&input).unwrap();
+            assert!(
+                PreparedWorkload::from_config(&scenario.workloads[0]).is_ok(),
+                "{mode}"
+            );
+        }
 
         let zero_duration: ScenarioFile = toml::from_str(
             r#"
@@ -7191,7 +7217,7 @@ minimum_duration_ms = 30
         let error = PreparedWorkload::from_config(&unsupported_mode.workloads[0])
             .err()
             .unwrap();
-        assert!(error.to_string().contains("RPC and pub/sub only"));
+        assert!(error.to_string().contains("control cycles only"));
     }
 
     #[test]
