@@ -149,3 +149,20 @@ The current supplemental `progressive` cases exercise progressive CALL input,
 not progressive RESULT streams. Result-stream performance/copy coverage must be
 added explicitly before claiming the original issue's progressive-result scope.
 Primary inventories and strict performance budgets remain unchanged.
+
+## Packed-reply numeric follow-up
+
+The 90-row Linux run on `01300605` completes all duration/sample floors and 180
+independently recomputed allocation observations. Allocation gates now pass for
+all three construction modes: 0.84549 / 0.89153 / 0.81924. CPU still fails at
+1.03383 / 1.03914 / 1.03297. Several throughput, latency, GC and sampled RSS
+point gates also fail. Two lifetime RSS values are unavailable (rows 3 and 13,
+one warmup and one measured); actual sampled RSS remains available. Failed and
+unavailable observations remain retained; no gate or inventory is relaxed.
+
+Full frozen `bin/verify` on `87b89830` subsequently passes with all 3,113 inputs
+unchanged. The first production-native profile passes its 12 real cases on all
+five platforms but an outdated declaration still requires 10. Updating that
+exact declaration to 12 and showing expected/observed counts preserves strict
+rejection of omitted, skipped or unfinished cases. All recorded profiles and
+focused verifier guards pass; complete replacement consumers remain required.

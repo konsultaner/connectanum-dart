@@ -6,6 +6,26 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Verified checkpoint (2026-10-16): full frozen `bin/verify` passes on
+`87b89830` with HEAD and all 3,113 inputs unchanged, including 4,984 core and
+2,865 client Wasm cases (20 existing native-only skips). Hosted CI on `84fe0f29`
+passes all 38 jobs. Current hosted CI remains pending.
+
+The production native dry run on `87b89830` builds all five artifacts and passes
+all 12 first-profile consumer cases on every platform, but its verifier still
+expects 10. All five actual logs reproduce the count rejection and validate with
+12; the declaration now requires 12, retaining every omitted/skipped/unfinished
+failure guard and reporting expected/observed counts. Focused verifier checks
+pass. Replacement five-platform dry-run evidence remains required.
+
+The packed-reply Linux diagnostic on `01300605` completes 90 rows / 180 valid
+allocation observations. Allocation ratios now pass: 0.84549 / 0.89153 / 0.81924.
+CPU still fails: 1.03383 / 1.03914 / 1.03297; some throughput, latency, GC and
+sampled RSS gates also fail. Two lifetime RSS observations are unavailable,
+including one measured row; they remain explicit. Sampled RSS gates use actual
+available readings and fail. No numeric gate is waived. Fresh CPU attribution,
+actual parity and full campaign acceptance remain required.
+
 Progressive-result coverage (2026-10-16): the supplemental inventory is now
 version `flatbuffers_extensions_v2`, with 50 cases (1,500 full campaign rows).
 The four progressive RPC cases retain three CALL chunks and now validate two
