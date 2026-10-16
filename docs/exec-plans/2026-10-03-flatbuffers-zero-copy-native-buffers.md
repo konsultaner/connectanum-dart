@@ -11,6 +11,19 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Concrete typed-word candidate (2026-10-16): the preceding source `25862a53`
+passes frozen full `bin/verify` with all 3,098 inputs and HEAD unchanged. Its
+90-row Linux diagnostic has no RSS/duration measurement failures but still
+fails CPU (1.32–1.39) and native-buffer allocation (1.0838), among other gates.
+A concrete `Uint32List.view` writer matches the SDK wire/allocation layout in
+38,400 prototype cases and reduces 64 KiB component writer time to 0.307–0.317
+of the SDK path. Integrated VM serializer (3,378) and native ownership (30)
+cases pass; browser, final-source verification and end-to-end measurements are
+pending. This differs from the rejected generic word adapter. Native source188
+artifact retry now passes all five platforms, with 170 independently audited
+consumer cases and zero skips. No parity or release is claimed.
+See [concrete writer evidence](../research/2026-10-16-flatbuffers-concrete-word-writer.md).
+
 RSS/duration repair ready (2026-10-16): fresh Linux lifetime RSS is now read
 after the final sampled live boundary; missing or contradictory endpoints stay
 null through Dart/Rust reports while other resource observations are retained.

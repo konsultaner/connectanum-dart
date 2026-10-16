@@ -7,6 +7,54 @@ const _wordBase = 4294967296;
 // WAMP IDs include 2^53 itself, which is exactly representable in JavaScript.
 const _maximumWampInteger = 9007199254740992;
 
+/// Writes a byte vector through concrete typed words when its layout permits.
+///
+/// This is shared by the managed and native builders, which own observation
+/// and write guards. Returns null before writing when the SDK byte path is
+/// needed. The source is only viewed; its bytes and ownership are unchanged.
+int? tryWriteFlatBufferByteWords(
+  fb.Builder builder,
+  List<int> values,
+  ByteData Function() storage,
+) {
+  if (values is! Uint8List ||
+      values.length < 256 ||
+      values.offsetInBytes % 4 != 0 ||
+      builder.offset % 4 != 0 ||
+      Endian.host != Endian.little) {
+    return null;
+  }
+  // The temporary word count must not become an input element when a caller
+  // supplies a view of this builder's own allocation. Preserve SDK overlap
+  // behavior, including its writes to the source, through the original path.
+  if (values.buffer == storage().buffer) return null;
+  final remainder = values.length % 4;
+  if (remainder != 0) {
+    // Adding the tail separately must not trigger a different allocation or
+    // growth copy from the SDK's single reservation. Fall back before writing.
+    final needed = 4 + ((values.length + 3) & ~3);
+    if (storage().lengthInBytes - builder.offset < needed) return null;
+  }
+  final words = Uint32List.view(
+    values.buffer,
+    values.offsetInBytes,
+    values.length ~/ 4,
+  );
+  if (remainder != 0) {
+    var tail = 0;
+    for (var i = 0; i < remainder; i++) {
+      tail |= values[values.length - remainder + i] << (i * 8);
+    }
+    // The backward builder stores this zero-padded tail after the full words.
+    builder.putUint32(tail);
+  }
+  final result = builder.writeListUint32(words);
+  final data = storage();
+  // A FlatBuffers vector length counts byte elements, not the word view.
+  data.setUint32(data.lengthInBytes - result, values.length, Endian.little);
+  return result;
+}
+
 /// Preserve uint64 wire bits using operations supported by dart2js.
 class WampUint64Reader extends fb.Reader<int> {
   const WampUint64Reader();
@@ -102,7 +150,9 @@ class WampFlatBufferBuilder extends fb.Builder
   @override
   int writeListUint8(List<int> values) => _observeByteVector(
     values.length,
-    () => super.writeListUint8(values),
+    () =>
+        tryWriteFlatBufferByteWords(this, values, () => _storage.current!) ??
+        super.writeListUint8(values),
   );
 
   @override
