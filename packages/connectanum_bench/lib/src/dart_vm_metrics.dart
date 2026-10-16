@@ -501,20 +501,30 @@ class DartVmMetricsRssSnapshot {
   const DartVmMetricsRssSnapshot({
     required this.currentRssBytes,
     required this.peakRssBytes,
+    this.lifetimeMaxRssBytes,
   });
 
   final int? currentRssBytes;
   final int? peakRssBytes;
+  // A fresh OS lifetime high-water value, captured after the final live sample.
+  final int? lifetimeMaxRssBytes;
 }
 
 class DartVmMetricsRssSampler {
-  DartVmMetricsRssSampler(int pid, {Future<int?> Function()? readRssBytes})
-    : _readRssBytes = readRssBytes ?? (() => _readLinuxRssBytes(pid)) {
+  DartVmMetricsRssSampler(
+    int pid, {
+    Future<int?> Function()? readRssBytes,
+    Future<int?> Function()? readMaxRssBytes,
+  }) : _readRssBytes = readRssBytes ?? (() => _readLinuxRssBytes(pid)),
+       _readMaxRssBytes =
+           readMaxRssBytes ?? (() => _readLinuxStatusBytes(pid, 'VmHWM:')) {
     _timer = Timer.periodic(const Duration(milliseconds: 50), (_) => _sample());
     _sample();
   }
 
   final Future<int?> Function() _readRssBytes;
+  final Future<int?> Function() _readMaxRssBytes;
+  bool _lastReadSucceeded = false;
   late final Timer _timer;
   bool _stopped = false;
   Future<void>? _sampleInFlight;
@@ -537,9 +547,11 @@ class DartVmMetricsRssSampler {
   }
 
   Future<void> _readAndRecordSample() async {
+    _lastReadSucceeded = false;
     try {
       final bytes = await _readRssBytes();
-      if (bytes == null || bytes <= 0) return;
+      if (bytes == null || bytes <= 0 || bytes > 9007199254740991) return;
+      _lastReadSucceeded = true;
       currentRssBytes = bytes;
       if (bytes > (peakRssBytes ?? 0)) peakRssBytes = bytes;
     } on FileSystemException {
@@ -557,23 +569,44 @@ class DartVmMetricsRssSampler {
     final inFlight = _sampleInFlight;
     if (inFlight != null) await inFlight;
     await _startSample();
+    final current = _lastReadSucceeded ? currentRssBytes : null;
+    int? maximum;
+    try {
+      maximum = await _readMaxRssBytes();
+    } on FileSystemException {
+      // A process disappearing at the final boundary is unavailable evidence.
+    }
+    if (current == null ||
+        maximum == null ||
+        maximum > 9007199254740991 ||
+        maximum < (peakRssBytes ?? current)) {
+      maximum = null;
+    }
     return DartVmMetricsRssSnapshot(
-      currentRssBytes: currentRssBytes,
+      currentRssBytes: current,
       peakRssBytes: peakRssBytes,
+      lifetimeMaxRssBytes: maximum,
     );
   }
 }
 
-Future<int?> _readLinuxRssBytes(int pid) async {
+Future<int?> _readLinuxRssBytes(int pid) =>
+    _readLinuxStatusBytes(pid, 'VmRSS:');
+
+Future<int?> _readLinuxStatusBytes(int pid, String field) async {
   if (!Platform.isLinux) return null;
   try {
     final status = await File('/proc/$pid/status').readAsString();
     for (final line in status.split('\n')) {
-      if (!line.startsWith('VmRSS:')) continue;
+      if (!line.startsWith(field)) continue;
       final kilobytes = int.tryParse(
-        line.substring('VmRSS:'.length).trim().split(RegExp(r'\s+')).first,
+        line.substring(field.length).trim().split(RegExp(r'\s+')).first,
       );
-      return kilobytes == null || kilobytes <= 0 ? null : kilobytes * 1024;
+      return kilobytes == null ||
+              kilobytes <= 0 ||
+              kilobytes > 9007199254740991 ~/ 1024
+          ? null
+          : kilobytes * 1024;
     }
   } on FileSystemException {
     // The child may have exited between a timer tick and its final sample.

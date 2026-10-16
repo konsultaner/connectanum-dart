@@ -2404,11 +2404,12 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
     }
     if let Some(metrics) = &report.client_process_metrics {
         println!(
-            "  Client process {} RSS: before {} | current {} | peak {}",
+            "  Client process {} RSS: before {} | current {} | lifetime maximum {} | sampled window peak {}",
             metrics.pid,
             format_bytes(metrics.rss_before_bytes),
-            format_bytes(metrics.current_rss_bytes),
-            format_bytes(metrics.max_rss_bytes)
+            format_optional_bytes(metrics.current_rss_bytes),
+            format_optional_bytes(metrics.max_rss_bytes),
+            format_optional_bytes(metrics.peak_rss_during_bytes)
         );
     }
     if let Some(metrics) = &report.server_process_metrics {
@@ -2420,7 +2421,7 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
             format_optional_u64(metrics.allocated_bytes_delta),
             format_optional_u64(metrics.gc_count_delta),
             format_optional_u64(metrics.gc_pause_us_delta),
-            format_bytes(metrics.current_rss_bytes),
+            format_optional_bytes(metrics.current_rss_bytes),
             metrics
                 .peak_rss_during_bytes
                 .map_or_else(|| "unavailable".to_string(), format_bytes),
@@ -2625,6 +2626,10 @@ fn format_bytes(bytes: u64) -> String {
         unit += 1;
     }
     format!("{:.2} {}", value, UNITS[unit])
+}
+
+fn format_optional_bytes(value: Option<u64>) -> String {
+    value.map_or_else(|| "unavailable".to_string(), format_bytes)
 }
 
 fn format_optional_u64(value: Option<u64>) -> String {
@@ -6696,12 +6701,39 @@ mod tests {
 
         assert_eq!(metrics.pid, 42);
         assert_eq!(metrics.rss_before_bytes, 67_108_864);
-        assert_eq!(metrics.current_rss_bytes, 536_870_912);
-        assert_eq!(metrics.max_rss_bytes, 805_306_368);
+        assert_eq!(metrics.current_rss_bytes, Some(536_870_912));
+        assert_eq!(metrics.max_rss_bytes, Some(805_306_368));
         assert_eq!(
             parse_wamp_client_process_metrics(&json!({"samples": []})).unwrap(),
             None
         );
+    }
+
+    #[test]
+    fn wamp_process_metrics_keep_allocations_when_rss_endpoints_are_unavailable() {
+        for key in ["client_process_metrics", "server_process_metrics"] {
+            for (current, maximum) in [
+                (json!(null), json!(3)),
+                (json!(2), json!(null)),
+                (json!(null), json!(null)),
+            ] {
+                let response = json!({key: {"pid": 42, "rss_before_bytes": 1,
+                    "current_rss_bytes": current, "max_rss_bytes": maximum,
+                    "allocated_bytes_delta": 8192, "cpu_user_us_delta": 123}});
+                let metrics = if key == "client_process_metrics" {
+                    parse_wamp_client_process_metrics(&response)
+                } else {
+                    parse_wamp_server_process_metrics(&response)
+                }
+                .unwrap()
+                .unwrap();
+                let retained = serde_json::to_value(metrics).unwrap();
+                assert_eq!(retained["current_rss_bytes"], current);
+                assert_eq!(retained["max_rss_bytes"], maximum);
+                assert_eq!(retained["allocated_bytes_delta"], 8192);
+                assert_eq!(retained["cpu_user_us_delta"], 123);
+            }
+        }
     }
 
     #[test]

@@ -10,6 +10,24 @@ void main() {
     'bin/worker',
     'worker:with/slashes',
   ]) {
+    test(
+      'process metrics retain unavailable RSS without losing allocation evidence',
+      () {
+        final metrics = NativeWampWorkerProcessMetrics.fromJson({
+          'pid': 42,
+          'rss_before_bytes': 1,
+          'current_rss_bytes': null,
+          'max_rss_bytes': null,
+          'allocated_bytes_delta': 8192,
+          'cpu_user_us_delta': 123,
+        });
+        expect(metrics.toJson()['current_rss_bytes'], isNull);
+        expect(metrics.toJson()['max_rss_bytes'], isNull);
+        expect(metrics.allocatedBytesDelta, 8192);
+        expect(metrics.cpuUserUsDelta, 123);
+      },
+    );
+
     test('native worker normalizes relative file entrypoint $entrypoint', () {
       final worker = NativeWampWorker(
         realmUri: 'bench.control',
@@ -164,6 +182,7 @@ Future<void> main() async {
   await stdout.flush();
   await for (final line in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
     if (line == 'STOP') break;
+    final earlyMaximum = ProcessInfo.maxRss;
     final retained = <List<int>>[];
     for (var i = 0; i < 80; i++) {
       retained.add(List<int>.filled(128 * 1024, i));
@@ -176,7 +195,7 @@ Future<void> main() async {
         'pid': pid,
         'rss_before_bytes': ProcessInfo.currentRss,
         'current_rss_bytes': ProcessInfo.currentRss,
-        'max_rss_bytes': ProcessInfo.maxRss,
+        'max_rss_bytes': earlyMaximum,
       },
     }));
     await stdout.flush();
@@ -211,6 +230,14 @@ Future<void> main() async {
         expect(metrics.cpuUserUsDelta, isNotNull);
         expect(metrics.cpuSystemUsDelta, isNotNull);
         expect(metrics.peakRssDuringBytes, greaterThan(0));
+        expect(
+          metrics.maxRssBytes,
+          greaterThanOrEqualTo(metrics.currentRssBytes!),
+        );
+        expect(
+          metrics.maxRssBytes,
+          greaterThanOrEqualTo(metrics.peakRssDuringBytes!),
+        );
       }
     },
     skip: Platform.isWindows

@@ -123,6 +123,86 @@ void main() {
     },
   );
 
+  test('RSS lifetime maximum is read after the final live boundary', () async {
+    final reads = <String>[];
+    final active = Completer<int?>();
+    var calls = 0;
+    final sampler = DartVmMetricsRssSampler(
+      pid,
+      readRssBytes: () {
+        calls++;
+        reads.add('live$calls');
+        return calls == 1 ? active.future : Future.value(16384);
+      },
+      readMaxRssBytes: () async {
+        reads.add('maximum');
+        return 32768;
+      },
+    );
+    final stop = sampler.stop();
+    expect(identical(stop, sampler.stop()), isTrue);
+    await Future<void>.delayed(Duration.zero);
+    expect(reads, ['live1']);
+    active.complete(8192);
+    final result = await stop;
+    expect(reads, ['live1', 'live2', 'maximum']);
+    expect(result.currentRssBytes, 16384);
+    expect(result.peakRssBytes, 16384);
+    expect(result.lifetimeMaxRssBytes, 32768);
+  });
+  for (final maximum in <int?>[null, 0, 4096, 9007199254740992]) {
+    test(
+      'RSS missing or contradictory lifetime maximum stays unavailable: $maximum',
+      () async {
+        var calls = 0;
+        final sampler = DartVmMetricsRssSampler(
+          pid,
+          readRssBytes: () async => ++calls == 1 ? 8192 : 4096,
+          readMaxRssBytes: () async => maximum,
+        );
+        final result = await sampler.stop();
+        expect(result.currentRssBytes, 4096);
+        expect(result.peakRssBytes, 8192);
+        expect(result.lifetimeMaxRssBytes, isNull);
+      },
+    );
+  }
+  for (final throwOnRead in [false, true]) {
+    test(
+      'RSS failed final read does not reuse an earlier live value throw=$throwOnRead',
+      () async {
+        var calls = 0;
+        final sampler = DartVmMetricsRssSampler(
+          pid,
+          readRssBytes: () async {
+            if (++calls == 1) return 8192;
+            if (throwOnRead) throw const FileSystemException('gone');
+            return null;
+          },
+          readMaxRssBytes: () async => 16384,
+        );
+        final result = await sampler.stop();
+        expect(result.currentRssBytes, isNull);
+        expect(result.peakRssBytes, 8192);
+        expect(result.lifetimeMaxRssBytes, isNull);
+      },
+    );
+  }
+
+  test('RSS missing process or lifetime read remains unavailable', () async {
+    final absent = await DartVmMetricsRssSampler(999999999).stop();
+    expect(absent.currentRssBytes, isNull);
+    expect(absent.peakRssBytes, isNull);
+    expect(absent.lifetimeMaxRssBytes, isNull);
+    final failedMaximum = await DartVmMetricsRssSampler(
+      pid,
+      readRssBytes: () async => 4096,
+      readMaxRssBytes: () async => throw const FileSystemException('gone'),
+    ).stop();
+    expect(failedMaximum.currentRssBytes, 4096);
+    expect(failedMaximum.lifetimeMaxRssBytes, isNull);
+  });
+
   test('profiles allocation work across stable application isolates', () async {
     var workspaceDirectory = Directory.current.absolute;
     while (!File(

@@ -334,6 +334,48 @@ void main() {
       expect(broker.callCounts['bench.rpc.echo'], samples.length);
     });
 
+    test(
+      'minimum duration covers actual samples after slow completion logging',
+      () async {
+        final broker = _FakeWampBroker();
+        final logger = Logger.detached('sample_span_duration_test')
+          ..level = Level.ALL;
+        var delayed = false;
+        final subscription = logger.onRecord.listen((record) {
+          if (!delayed && record.message.startsWith('RPC call done')) {
+            delayed = true;
+            final pause = Stopwatch()..start();
+            while (pause.elapsedMilliseconds < 80) {}
+          }
+        });
+        addTearDown(subscription.cancel);
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: logger,
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            inFlightPerSession: 1,
+            minimumDurationMs: 30,
+            payloadBytes: 16,
+          ),
+        );
+        expect(delayed, isTrue);
+        expect(
+          WampSampleWindow.fromSamples(samples)!.elapsedMs,
+          greaterThanOrEqualTo(30),
+        );
+        expect(broker.callCounts['bench.rpc.echo'], samples.length);
+      },
+    );
+
     test('rejects minimum-duration use outside RPC and pubsub', () async {
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => _FakeWampSession(_FakeWampBroker()),

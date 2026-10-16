@@ -2021,9 +2021,15 @@ class WampWorkloadRunner {
         ? maxInFlight.clamp(1, iterations)
         : maxInFlight;
     var nextIteration = 0;
+    int? sampleWindowStartUs;
+    int? sampleWindowEndUs;
     bool shouldScheduleNext() =>
         nextIteration < iterations ||
-        (minimumDuration != null && timer.elapsed < minimumDuration);
+        (minimumDuration != null &&
+            (timer.elapsed < minimumDuration ||
+                sampleWindowStartUs == null ||
+                sampleWindowEndUs! - sampleWindowStartUs <
+                    minimumDuration.inMicroseconds));
     while (shouldScheduleNext() || pending.isNotEmpty) {
       while (shouldScheduleNext() && pending.length < boundedInFlight) {
         final iteration = nextIteration;
@@ -2040,7 +2046,21 @@ class WampWorkloadRunner {
       }
       final completed = await Future.any(pending.map((entry) => entry.future));
       pending.removeWhere((entry) => entry.iteration == completed.iteration);
-      samples.add(completed.sample);
+      final sample = completed.sample;
+      if (minimumDuration != null) {
+        final start = sample.startedAtUs;
+        final end = sample.completedAtUs;
+        if (start == null || end == null || end < start) {
+          throw StateError('Duration workloads require valid sample timing');
+        }
+        if (sampleWindowStartUs == null || start < sampleWindowStartUs) {
+          sampleWindowStartUs = start;
+        }
+        if (sampleWindowEndUs == null || end > sampleWindowEndUs) {
+          sampleWindowEndUs = end;
+        }
+      }
+      samples.add(sample);
     }
     return samples;
   }

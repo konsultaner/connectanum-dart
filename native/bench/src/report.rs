@@ -306,8 +306,10 @@ impl FileSegmentMetricsDelta {
 pub struct ClientProcessMetrics {
     pub pid: u32,
     pub rss_before_bytes: u64,
-    pub current_rss_bytes: u64,
-    pub max_rss_bytes: u64,
+    #[serde(default)]
+    pub current_rss_bytes: Option<u64>,
+    #[serde(default)]
+    pub max_rss_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cpu_user_us_delta: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

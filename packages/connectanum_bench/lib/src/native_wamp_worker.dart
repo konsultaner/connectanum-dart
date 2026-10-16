@@ -60,8 +60,8 @@ class NativeWampWorkerProcessMetrics {
 
   final int pid;
   final int rssBeforeBytes;
-  final int currentRssBytes;
-  final int maxRssBytes;
+  final int? currentRssBytes;
+  final int? maxRssBytes;
   final int? cpuUserUsDelta;
   final int? cpuSystemUsDelta;
   final int? allocatedBytesDelta;
@@ -75,8 +75,8 @@ class NativeWampWorkerProcessMetrics {
   ) => NativeWampWorkerProcessMetrics(
     pid: (json['pid'] as num).toInt(),
     rssBeforeBytes: (json['rss_before_bytes'] as num).toInt(),
-    currentRssBytes: (json['current_rss_bytes'] as num).toInt(),
-    maxRssBytes: (json['max_rss_bytes'] as num).toInt(),
+    currentRssBytes: (json['current_rss_bytes'] as num?)?.toInt(),
+    maxRssBytes: (json['max_rss_bytes'] as num?)?.toInt(),
     cpuUserUsDelta: (json['cpu_user_us_delta'] as num?)?.toInt(),
     cpuSystemUsDelta: (json['cpu_system_us_delta'] as num?)?.toInt(),
     allocatedBytesDelta: (json['allocated_bytes_delta'] as num?)?.toInt(),
@@ -216,8 +216,11 @@ class NativeWampWorker {
             pid: process.pid,
             rssBeforeBytes: process.rssBeforeBytes,
             currentRssBytes:
-                measured.currentRssBytes ?? process.currentRssBytes,
-            maxRssBytes: process.maxRssBytes,
+                measured.currentRssBytes ??
+                (!Platform.isLinux ? process.currentRssBytes : null),
+            maxRssBytes:
+                rssSnapshot.lifetimeMaxRssBytes ??
+                (!Platform.isLinux ? process.maxRssBytes : null),
             cpuUserUsDelta: measured.cpuUserMicros,
             cpuSystemUsDelta: measured.cpuSystemMicros,
             allocatedBytesDelta: measured.allocatedBytes,

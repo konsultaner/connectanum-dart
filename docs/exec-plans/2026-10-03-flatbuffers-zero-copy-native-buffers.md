@@ -11,6 +11,24 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+RSS/duration repair ready (2026-10-16): fresh Linux lifetime RSS is now read
+after the final sampled live boundary; missing or contradictory endpoints stay
+null through Dart/Rust reports while other resource observations are retained.
+The scheduler now performs real operations until actual sample coverage reaches
+the unchanged minimum; the fail-first logging-delay case reproduces 2.578 ms
+versus a required 30 ms. All 139 Rust driver, 31 library/artifact, 93 focused
+Dart, 35 comparator and 87 inventory-script checks pass; analysis and all 154
+mutation proofs pass. Resulting-source full verification is pending.
+
+The `188d33cd` Linux diagnostic completes but still fails CPU (1.24–1.34)
+and native-buffer allocation (1.0637), among other gates. A quiet CPU profile
+without allocation tracing identifies SDK byte-vector writing as a major cost.
+All 3,097 tracked/intended inputs stay unchanged during profiling. The next
+optimization targets that measured bottleneck; no parity is claimed. Native
+artifact source188 fails only Linux x64 manifest attestation due to a Sigstore
+network timeout; its failed job is retried. PR #130 source63 remains fully green.
+See [boundary repair evidence](../research/2026-10-16-linux-rss-duration-boundaries.md).
+
 Verification/measurement repair (2026-10-16): `188d33cd` passes all
 120 renewed HTTP copy cases with all 3,097 inputs unchanged. Its local diagnostic
 still fails: throughput 0.9827 / 1.0156 / 0.9838; allocation

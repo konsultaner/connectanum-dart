@@ -874,7 +874,9 @@ class _BenchControlRegistry {
       'current_rss_bytes':
           measured.currentRssBytes ??
           (!Platform.isLinux ? currentRssAtWindowEnd : null),
-      'max_rss_bytes': ProcessInfo.maxRss,
+      'max_rss_bytes':
+          rssSnapshot?.lifetimeMaxRssBytes ??
+          (!Platform.isLinux ? ProcessInfo.maxRss : null),
       'cpu_user_us_delta': measured.cpuUserMicros,
       'cpu_system_us_delta': measured.cpuSystemMicros,
       'allocated_bytes_delta': measured.allocatedBytes,
