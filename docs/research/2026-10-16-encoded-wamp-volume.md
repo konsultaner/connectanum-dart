@@ -95,3 +95,13 @@ The byte-vector loop is no longer a dominant function. Native active samples
 are too sparse to identify a Rust bottleneck, and this platform-specific probe
 does not establish Linux parity. Raw VM/native stacks and unchanged-source
 hashes are retained for follow-up profiling.
+
+The 120 live cases at `1b751b72` pass independent encoded-volume and copy
+audits with all 3,108 inputs unchanged. The production library SHA-256 is
+`a7117d6f08b353269d1ebd689adc5bbe03c73629e2f3b3ef1ef5fc67d4adecbe`.
+Whole-source verification and hosted Fast Checks both reproduce 16 failures
+in an older synthetic fixture producer that lacks the new volume carriers.
+The fixture producer now uses explicit synthetic observations through the
+real delta/merge helpers; the independent Python test recomputes their disjoint
+components and corrupts a subtotal to require rejection. This repair does not
+substitute synthetic evidence for the separately passing live matrix.

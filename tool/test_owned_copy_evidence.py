@@ -40,6 +40,25 @@ class OwnedCopyEvidenceTest(unittest.TestCase):
                 report = self.report(fixture)
                 self.assertEqual(compare._validate_evidence(report, label="synthetic"), [])
 
+    def test_dart_volume_components_are_disjoint_and_independently_verified(self):
+        for fixture in self.fixtures:
+            with self.subTest(fixture['name']):
+                report = self.report(fixture)
+                volume = report['copy_metrics']['encoded_wamp_volume']
+                native = report['client_impl'] == 'native'
+                expected = {'client_dart': 0 if native else 31, 'router_dart': 0,
+                            'client_native': 41 if native else 0, 'router_native': 71}
+                self.assertEqual(volume['components'], expected)
+                self.assertEqual(volume['accepted_bytes'], sum(expected.values()))
+                self.assertEqual(compare._encoded_wamp_volume_findings(volume, 'synthetic'), [])
+                copied = report['copy_metrics']['e2ee_copy_bytes']
+                transcoded = report['copy_metrics']['transcode_copy_bytes']
+                volume['components']['client_dart'] += 1
+                self.assertTrue(compare._encoded_wamp_volume_findings(volume, 'synthetic'))
+                self.assertTrue(compare._validate_evidence(report, label='synthetic'))
+                self.assertEqual(report['copy_metrics']['e2ee_copy_bytes'], copied)
+                self.assertEqual(report['copy_metrics']['transcode_copy_bytes'], transcoded)
+
     def test_every_byte_counter_and_metadata_requires_integer_observation(self):
         groups = (
             (("dart_owned_buffer_copy_breakdown", "client"), compare.OWNED_DART_COPY_FIELDS),

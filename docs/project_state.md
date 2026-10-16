@@ -6,6 +6,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Encoded-volume CI repair (2026-10-16): source `1b751b72` passes all 120
+live copy/encoded-volume cases, with 3,108 unchanged inputs and independent
+component recomputation. Its full local verification and hosted Fast Checks
+reproduce 16 synthetic fixture failures: the older fixture producer emitted
+unmeasured encoded-volume observations. The producer now supplies explicit
+synthetic disjoint boundary observations through the real delta/merge code, and
+an independent Python test checks and corrupts every resulting combination.
+Current-source verification is pending; all performance budgets remain unchanged.
+The preceding `f2dc00f0` CI run passes every hosted job.
+
 Encoded-volume follow-up (2026-10-16): the `f2dc00f0` checkpoint passes frozen
 full `bin/verify`, with HEAD and all 3,105 inputs unchanged, all 120 audited live
 copy cases and 170 five-platform native consumers. Its 90-row Linux diagnostic
