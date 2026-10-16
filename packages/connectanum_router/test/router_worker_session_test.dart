@@ -253,160 +253,178 @@ void main() {
       expect(workerState.phase, equals(HandshakePhase.aborted));
     });
 
-    test(
-      'handles CANCEL killnowait by interrupting callee and notifying caller',
-      () async {
-        final bossMessages = <Map<String, Object?>>[];
-        final bossPort = ReceivePort()
-          ..listen((dynamic message) {
-            if (message is Map<String, Object?>) {
-              bossMessages.add(message);
+    for (final mode in ['skip', 'killnowait']) {
+      for (final responseKind in ['YIELD', 'progressive YIELD', 'ERROR']) {
+        test(
+          'handles CANCEL $mode and discards late $responseKind',
+          () async {
+            final bossMessages = <Map<String, Object?>>[];
+            final bossPort = ReceivePort()
+              ..listen((dynamic message) {
+                if (message is Map<String, Object?>) {
+                  bossMessages.add(message);
+                }
+              });
+            addTearDown(bossPort.close);
+
+            final listener = _buildListener();
+            final callerState =
+                createWorkerStateForTest(
+                      listener: listener,
+                      listenerSettings: routerSettings.listeners.first,
+                    )
+                    as WorkerConnectionState;
+            callerState
+              ..serializer = NativeMessageSerializer.json
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 761;
+            final calleeState =
+                createWorkerStateForTest(
+                      listener: listener,
+                      listenerSettings: routerSettings.listeners.first,
+                    )
+                    as WorkerConnectionState;
+            calleeState
+              ..serializer = NativeMessageSerializer.json
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 762;
+
+            _openSession(
+              stateStore,
+              sessionId: 761,
+              listener: listener,
+              connectionId: 121,
+            );
+            _openSession(
+              stateStore,
+              sessionId: 762,
+              listener: listener,
+              connectionId: 122,
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            final registerReply = ReceivePort();
+            stateStore.commandPort.send(
+              ProcedureRegisterCommand(
+                realmUri: 'realm1',
+                sessionId: 762,
+                procedure: 'com.example.cancelable',
+                details: const {},
+                replyPort: registerReply.sendPort,
+              ),
+            );
+            await registerReply.first;
+            registerReply.close();
+
+            final realmContexts = RealmContextCache(
+              statePort: stateStore.commandPort,
+            );
+            final call = call_msg.Call(9701, 'com.example.cancelable');
+
+            await handleSessionMessageForTest(
+              bossPort: bossPort.sendPort,
+              statePort: stateStore.commandPort,
+              realmContexts: realmContexts,
+              state: callerState,
+              message: call,
+              connectionId: 121,
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            final invocationForward = _extractForwardMessages(bossMessages);
+            expect(invocationForward, hasLength(1));
+            final invocationEnvelope = invocationForward.single;
+            expect(invocationEnvelope['connectionId'], equals(122));
+            final invocation =
+                invocationEnvelope['message'] as invocation_msg.Invocation;
+            final invocationId = invocation.requestId;
+            bossMessages.clear();
+
+            final cancelOptions = cancel_msg.CancelOptions()..mode = mode;
+            final cancel = cancel_msg.Cancel(9701, options: cancelOptions);
+
+            await handleSessionMessageForTest(
+              bossPort: bossPort.sendPort,
+              statePort: stateStore.commandPort,
+              realmContexts: realmContexts,
+              state: callerState,
+              message: cancel,
+              connectionId: 121,
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            final interruptForward = _extractForwardMessages(bossMessages);
+            expect(interruptForward, hasLength(mode == 'skip' ? 0 : 1));
+            if (mode != 'skip') {
+              final interruptEnvelope = interruptForward.single;
+              expect(interruptEnvelope['connectionId'], equals(122));
+              final interrupt =
+                  interruptEnvelope['message'] as interrupt_msg.Interrupt;
+              expect(interrupt.requestId, equals(invocationId));
+              expect(interrupt.options?.mode, equals(mode));
             }
-          });
-        addTearDown(bossPort.close);
 
-        final listener = _buildListener();
-        final callerState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        callerState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 761;
-        final calleeState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        calleeState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 762;
+            final workerSends = _collectWorkerSends(bossMessages);
+            expect(workerSends, hasLength(1));
+            final cancelFrame =
+                jsonDecode(
+                      utf8.decode(workerSends.single['payload'] as Uint8List),
+                    )
+                    as List<dynamic>;
+            expect(cancelFrame.first, equals(MessageTypes.codeError));
+            expect(cancelFrame[1], equals(MessageTypes.codeCall));
+            expect(cancelFrame[2], equals(9701));
+            expect(
+              cancelFrame[4],
+              equals(error_msg.Error.errorInvocationCanceled),
+            );
 
-        _openSession(
-          stateStore,
-          sessionId: 761,
-          listener: listener,
-          connectionId: 121,
+            final remainingInvocation = await realmContexts
+                .contextFor('realm1')
+                .getInvocation(invocationId);
+            expect(remainingInvocation, isNull);
+
+            bossMessages.clear();
+            final lateResponse = responseKind == 'ERROR'
+                ? error_msg.Error(
+                    MessageTypes.codeInvocation,
+                    invocationId,
+                    const {},
+                    error_msg.Error.errorInvocationCanceled,
+                  )
+                : yield_msg.Yield(
+                    invocationId,
+                    options: yield_msg.YieldOptions(
+                      progress: responseKind == 'progressive YIELD',
+                    ),
+                  );
+
+            await handleSessionMessageForTest(
+              bossPort: bossPort.sendPort,
+              statePort: stateStore.commandPort,
+              realmContexts: realmContexts,
+              state: calleeState,
+              message: lateResponse,
+              connectionId: 122,
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            expect(_collectWorkerSends(bossMessages), isEmpty);
+            expect(_extractForwardMessages(bossMessages), isEmpty);
+            expect(
+              await realmContexts
+                  .contextFor('realm1')
+                  .getInvocation(invocationId),
+              isNull,
+            );
+          },
         );
-        _openSession(
-          stateStore,
-          sessionId: 762,
-          listener: listener,
-          connectionId: 122,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final registerReply = ReceivePort();
-        stateStore.commandPort.send(
-          ProcedureRegisterCommand(
-            realmUri: 'realm1',
-            sessionId: 762,
-            procedure: 'com.example.cancelable',
-            details: const {},
-            replyPort: registerReply.sendPort,
-          ),
-        );
-        await registerReply.first;
-        registerReply.close();
-
-        final realmContexts = RealmContextCache(
-          statePort: stateStore.commandPort,
-        );
-        final call = call_msg.Call(9701, 'com.example.cancelable');
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: callerState,
-          message: call,
-          connectionId: 121,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final invocationForward = _extractForwardMessages(bossMessages);
-        expect(invocationForward, hasLength(1));
-        final invocationEnvelope = invocationForward.single;
-        expect(invocationEnvelope['connectionId'], equals(122));
-        final invocation =
-            invocationEnvelope['message'] as invocation_msg.Invocation;
-        final invocationId = invocation.requestId;
-        bossMessages.clear();
-
-        final cancelOptions = cancel_msg.CancelOptions()
-          ..mode = cancel_msg.CancelOptions.modeKillNoWait;
-        final cancel = cancel_msg.Cancel(9701, options: cancelOptions);
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: callerState,
-          message: cancel,
-          connectionId: 121,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final interruptForward = _extractForwardMessages(bossMessages);
-        expect(interruptForward, hasLength(1));
-        final interruptEnvelope = interruptForward.single;
-        expect(interruptEnvelope['connectionId'], equals(122));
-        final interrupt =
-            interruptEnvelope['message'] as interrupt_msg.Interrupt;
-        expect(interrupt.requestId, equals(invocationId));
-        expect(
-          interrupt.options?.mode,
-          equals(cancel_msg.CancelOptions.modeKillNoWait),
-        );
-
-        final workerSends = _collectWorkerSends(bossMessages);
-        expect(workerSends, hasLength(1));
-        final cancelFrame =
-            jsonDecode(utf8.decode(workerSends.single['payload'] as Uint8List))
-                as List<dynamic>;
-        expect(cancelFrame.first, equals(MessageTypes.codeError));
-        expect(cancelFrame[1], equals(MessageTypes.codeCall));
-        expect(cancelFrame[2], equals(9701));
-        expect(cancelFrame[4], equals(error_msg.Error.errorInvocationCanceled));
-
-        final remainingInvocation = await realmContexts
-            .contextFor('realm1')
-            .getInvocation(invocationId);
-        expect(remainingInvocation, isNull);
-
-        bossMessages.clear();
-        final lateYield = yield_msg.Yield(invocationId);
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: calleeState,
-          message: lateYield,
-          connectionId: 122,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final calleeError = _collectWorkerSends(bossMessages);
-        expect(calleeError, hasLength(1));
-        final calleeFrame =
-            jsonDecode(utf8.decode(calleeError.single['payload'] as Uint8List))
-                as List<dynamic>;
-        expect(calleeFrame.first, equals(MessageTypes.codeError));
-        expect(calleeFrame[1], equals(MessageTypes.codeInvocation));
-        expect(calleeFrame[2], equals(invocationId));
-        expect(calleeFrame[4], equals(wamp_core.Error.noSuchInvocation));
-      },
-    );
+      }
+    }
 
     test(
       'rejects unsupported CANCEL killall without interrupting callee',
@@ -2415,199 +2433,233 @@ void main() {
       expect(released, equals([140]));
     });
 
-    test('returns no_such_invocation when YIELD completion fails', () async {
-      final bossMessages = <Map<String, Object?>>[];
-      final bossPort = ReceivePort()
-        ..listen((dynamic message) {
-          if (message is Map<String, Object?>) {
-            bossMessages.add(message);
-          }
-        });
-      addTearDown(bossPort.close);
+    for (final result in [
+      'store error',
+      'completed elsewhere',
+      'cancelled progressive',
+    ]) {
+      test(
+        result == 'store error'
+            ? 'returns no_such_invocation when YIELD completion fails'
+            : 'discards late YIELD when cancellation wins $result',
+        () async {
+          final bossMessages = <Map<String, Object?>>[];
+          final bossPort = ReceivePort()
+            ..listen((dynamic message) {
+              if (message is Map<String, Object?>) {
+                bossMessages.add(message);
+              }
+            });
+          addTearDown(bossPort.close);
 
-      final calleeState =
-          createWorkerStateForTest(
-                listener: _buildListener(),
-                listenerSettings: routerSettings.listeners.first,
-              )
-              as WorkerConnectionState;
-      calleeState
-        ..serializer = NativeMessageSerializer.json
-        ..phase = HandshakePhase.open
-        ..realmUri = 'realm1'
-        ..realmSettings = routerSettings.realms.first
-        ..sessionId = 9301;
+          final calleeState =
+              createWorkerStateForTest(
+                    listener: _buildListener(),
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState;
+          calleeState
+            ..serializer = NativeMessageSerializer.json
+            ..phase = HandshakePhase.open
+            ..realmUri = 'realm1'
+            ..realmSettings = routerSettings.realms.first
+            ..sessionId = 9301;
 
-      final snapshot = RealmSnapshot(
-        realmUri: 'realm1',
-        version: 1,
-        sessions: [
-          SessionInfo(
-            id: 9301,
-            authId: null,
-            authRole: null,
-            roles: const {},
-            workerId: 1,
+          final snapshot = RealmSnapshot(
+            realmUri: 'realm1',
+            version: 1,
+            sessions: [
+              SessionInfo(
+                id: 9301,
+                authId: null,
+                authRole: null,
+                roles: const {},
+                workerId: 1,
+                connectionId: 411,
+                lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+              SessionInfo(
+                id: 9302,
+                authId: null,
+                authRole: null,
+                roles: const {},
+                workerId: 1,
+                connectionId: 412,
+                lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+            ],
+            subscriptions: const [],
+            registrations: const [],
+          );
+
+          final context = _StateErrorRealmContext(
+            realmUri: 'realm1',
+            statePort: stateStore.commandPort,
+            snapshot: snapshot,
+            invocationId: 12001,
+            registrationId: 901,
+            callerRequestId: 12002,
+            callerSessionId: 9302,
+            calleeSessionId: 9301,
+            calleeConnectionId: 411,
+            allowProgress: result == 'cancelled progressive',
+            completeThrows: result == 'store error',
+            completeReturnsNull: result == 'completed elsewhere',
+            touchReturnsFalse: result == 'cancelled progressive',
+            completeFailureMessage: 'completion failure',
+          );
+
+          final realmContexts = _StaticRealmContextCache(
+            statePort: stateStore.commandPort,
+            overrides: {'realm1': context},
+          );
+
+          final yieldMessage = yield_msg.Yield(
+            12001,
+            arguments: const ['payload'],
+            options: yield_msg.YieldOptions(
+              progress: result == 'cancelled progressive',
+            ),
+          );
+
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: calleeState,
+            message: yieldMessage,
             connectionId: 411,
-            lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
-          SessionInfo(
-            id: 9302,
-            authId: null,
-            authRole: null,
-            roles: const {},
-            workerId: 1,
-            connectionId: 412,
-            lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
-        ],
-        subscriptions: const [],
-        registrations: const [],
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          if (result != 'store error') {
+            expect(_collectWorkerSends(bossMessages), isEmpty);
+            expect(_extractForwardMessages(bossMessages), isEmpty);
+            return;
+          }
+          final workerSend = _extractWorkerSend(bossMessages);
+          final payload = workerSend['payload'] as Uint8List;
+          final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+          expect(frame.first, equals(MessageTypes.codeError));
+          expect(frame[1], equals(MessageTypes.codeInvocation));
+          expect(frame[2], equals(12001));
+          expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
+          final details = frame[3] as Map<String, Object?>;
+          expect(details['message'], contains('completion failure'));
+        },
       );
+    }
 
-      final context = _StateErrorRealmContext(
-        realmUri: 'realm1',
-        statePort: stateStore.commandPort,
-        snapshot: snapshot,
-        invocationId: 12001,
-        registrationId: 901,
-        callerRequestId: 12002,
-        callerSessionId: 9302,
-        calleeSessionId: 9301,
-        calleeConnectionId: 411,
-        allowProgress: false,
-        completeThrows: true,
-        completeFailureMessage: 'completion failure',
+    for (final completedElsewhere in [false, true]) {
+      test(
+        completedElsewhere
+            ? 'discards late ERROR when cancellation wins completion'
+            : 'returns no_such_invocation when invocation ERROR completion fails',
+        () async {
+          final bossMessages = <Map<String, Object?>>[];
+          final bossPort = ReceivePort()
+            ..listen((dynamic message) {
+              if (message is Map<String, Object?>) {
+                bossMessages.add(message);
+              }
+            });
+          addTearDown(bossPort.close);
+
+          final calleeState =
+              createWorkerStateForTest(
+                    listener: _buildListener(),
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState;
+          calleeState
+            ..serializer = NativeMessageSerializer.json
+            ..phase = HandshakePhase.open
+            ..realmUri = 'realm1'
+            ..realmSettings = routerSettings.realms.first
+            ..sessionId = 9401;
+
+          final snapshot = RealmSnapshot(
+            realmUri: 'realm1',
+            version: 1,
+            sessions: [
+              SessionInfo(
+                id: 9401,
+                authId: null,
+                authRole: null,
+                roles: const {},
+                workerId: 1,
+                connectionId: 421,
+                lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+              SessionInfo(
+                id: 9402,
+                authId: null,
+                authRole: null,
+                roles: const {},
+                workerId: 1,
+                connectionId: 422,
+                lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+            ],
+            subscriptions: const [],
+            registrations: const [],
+          );
+
+          final context = _StateErrorRealmContext(
+            realmUri: 'realm1',
+            statePort: stateStore.commandPort,
+            snapshot: snapshot,
+            invocationId: 13001,
+            registrationId: 902,
+            callerRequestId: 13002,
+            callerSessionId: 9402,
+            calleeSessionId: 9401,
+            calleeConnectionId: 421,
+            allowProgress: false,
+            completeThrows: !completedElsewhere,
+            completeReturnsNull: completedElsewhere,
+            completeFailureMessage: 'error completion failure',
+          );
+
+          final realmContexts = _StaticRealmContextCache(
+            statePort: stateStore.commandPort,
+            overrides: {'realm1': context},
+          );
+
+          final invocationError = error_msg.Error(
+            MessageTypes.codeInvocation,
+            13001,
+            const {},
+            'com.example.failure',
+          );
+
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: calleeState,
+            message: invocationError,
+            connectionId: 421,
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          if (completedElsewhere) {
+            expect(_collectWorkerSends(bossMessages), isEmpty);
+            expect(_extractForwardMessages(bossMessages), isEmpty);
+            return;
+          }
+          final workerSend = _extractWorkerSend(bossMessages);
+          final payload = workerSend['payload'] as Uint8List;
+          final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+          expect(frame.first, equals(MessageTypes.codeError));
+          expect(frame[1], equals(MessageTypes.codeInvocation));
+          expect(frame[2], equals(13001));
+          expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
+          final details = frame[3] as Map<String, Object?>;
+          expect(details['message'], contains('error completion failure'));
+        },
       );
-
-      final realmContexts = _StaticRealmContextCache(
-        statePort: stateStore.commandPort,
-        overrides: {'realm1': context},
-      );
-
-      final yieldMessage = yield_msg.Yield(12001, arguments: const ['payload']);
-
-      await handleSessionMessageForTest(
-        bossPort: bossPort.sendPort,
-        statePort: stateStore.commandPort,
-        realmContexts: realmContexts,
-        state: calleeState,
-        message: yieldMessage,
-        connectionId: 411,
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      final workerSend = _extractWorkerSend(bossMessages);
-      final payload = workerSend['payload'] as Uint8List;
-      final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
-      expect(frame.first, equals(MessageTypes.codeError));
-      expect(frame[1], equals(MessageTypes.codeInvocation));
-      expect(frame[2], equals(12001));
-      expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
-      final details = frame[3] as Map<String, Object?>;
-      expect(details['message'], contains('completion failure'));
-    });
-
-    test(
-      'returns no_such_invocation when invocation ERROR completion fails',
-      () async {
-        final bossMessages = <Map<String, Object?>>[];
-        final bossPort = ReceivePort()
-          ..listen((dynamic message) {
-            if (message is Map<String, Object?>) {
-              bossMessages.add(message);
-            }
-          });
-        addTearDown(bossPort.close);
-
-        final calleeState =
-            createWorkerStateForTest(
-                  listener: _buildListener(),
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        calleeState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 9401;
-
-        final snapshot = RealmSnapshot(
-          realmUri: 'realm1',
-          version: 1,
-          sessions: [
-            SessionInfo(
-              id: 9401,
-              authId: null,
-              authRole: null,
-              roles: const {},
-              workerId: 1,
-              connectionId: 421,
-              lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
-            ),
-            SessionInfo(
-              id: 9402,
-              authId: null,
-              authRole: null,
-              roles: const {},
-              workerId: 1,
-              connectionId: 422,
-              lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
-            ),
-          ],
-          subscriptions: const [],
-          registrations: const [],
-        );
-
-        final context = _StateErrorRealmContext(
-          realmUri: 'realm1',
-          statePort: stateStore.commandPort,
-          snapshot: snapshot,
-          invocationId: 13001,
-          registrationId: 902,
-          callerRequestId: 13002,
-          callerSessionId: 9402,
-          calleeSessionId: 9401,
-          calleeConnectionId: 421,
-          allowProgress: false,
-          completeThrows: true,
-          completeFailureMessage: 'error completion failure',
-        );
-
-        final realmContexts = _StaticRealmContextCache(
-          statePort: stateStore.commandPort,
-          overrides: {'realm1': context},
-        );
-
-        final invocationError = error_msg.Error(
-          MessageTypes.codeInvocation,
-          13001,
-          const {},
-          'com.example.failure',
-        );
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: calleeState,
-          message: invocationError,
-          connectionId: 421,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final workerSend = _extractWorkerSend(bossMessages);
-        final payload = workerSend['payload'] as Uint8List;
-        final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
-        expect(frame.first, equals(MessageTypes.codeError));
-        expect(frame[1], equals(MessageTypes.codeInvocation));
-        expect(frame[2], equals(13001));
-        expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
-        final details = frame[3] as Map<String, Object?>;
-        expect(details['message'], contains('error completion failure'));
-      },
-    );
+    }
 
     test(
       'releases unsent publish handles when native boss sends fail',
@@ -10204,6 +10256,8 @@ class _StateErrorRealmContext extends RealmContext {
     this.cancelThrows = false,
     this.cancelFailureMessage = 'cancel failure',
     this.completeThrows = false,
+    this.completeReturnsNull = false,
+    this.touchReturnsFalse = false,
     this.completeFailureMessage = 'completion failure',
   });
 
@@ -10218,6 +10272,8 @@ class _StateErrorRealmContext extends RealmContext {
   final bool cancelThrows;
   final String cancelFailureMessage;
   final bool completeThrows;
+  final bool completeReturnsNull;
+  final bool touchReturnsFalse;
   final String completeFailureMessage;
 
   PendingInvocation _buildInvocation() => PendingInvocation(
@@ -10268,7 +10324,14 @@ class _StateErrorRealmContext extends RealmContext {
   }
 
   @override
+  Future<bool> touchInvocation(int invocationId) {
+    if (touchReturnsFalse) return Future.value(false);
+    return super.touchInvocation(invocationId);
+  }
+
+  @override
   Future<PendingInvocation?> completeInvocation(int invocationId) {
+    if (completeReturnsNull) return Future.value(null);
     if (completeThrows) {
       return Future<PendingInvocation?>.error(
         StateError(completeFailureMessage),

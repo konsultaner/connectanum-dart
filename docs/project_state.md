@@ -18,15 +18,21 @@ and every RSS endpoint, but still fails parity: CPU ratios 1.0057 / 1.0185 /
 CPU profiling succeeds on a second unchanged-source attempt; the first attempt's
 CBOR `perf record` failure and partial data remain retained explicitly.
 
-Current blockers on `4dab389f`: hosted Fast Checks requires the newly direct
-native-runtime profile regression in the mutation target inventory. Its existing
-fail-first guard reproduces the omission; the target now includes it without
-changing sources, budgets or isolation. The short live protocol batch completes
-180 rows but one no-PPT WebSocket cancellation row records one rejected router
-submission, making its volume observation explicitly unavailable. This row does
-not use the new native typed-send path. Cancellation cleanup is under investigation;
-remaining live batches and full verification have not run, and the timing run was
-cancelled before acceptance. No failure or copy gate is waived.
+Current cancellation repair (2026-10-16): pre-change `bin/test-fast` passes on
+`c15f2185`; the corrected native mutation inventory passes all 93 tool tests and
+hosted Fast Checks. A real workload-sequence probe also reproduces the rejected
+router send with CBOR. A temporary, restored diagnostic captures the rejected
+FlatBuffers frame: `ERROR(INVOCATION, 52, {}, wamp.error.no_such_invocation)` after
+callee close. WAMP requires late non-waiting cancellation responses to be ignored.
+The repair discards removed-invocation responses and cancellation races during
+completion/progressive update, without retaining cancelled-call state. Nine
+fail-first assertions now pass, alongside two existing store-error controls;
+all 109 session tests pass with default and enabled native forwarding. Analysis
+passes with the same 30 existing infos. The rejected-volume gate is unchanged.
+See [the checked research](research/2026-10-16-wamp-late-cancellation-responses.md).
+Renewed complete live accounting and resulting-source full/hosted verification
+remain required. A strict Linux timing diagnostic is running on `c15f2185`;
+no new performance acceptance or milestone closure is claimed.
 
 Active native candidate (2026-10-16): a fail-first typed-send regression observes
 172 native control-string copy bytes. The private canonical Call/Publish path now
@@ -46,7 +52,9 @@ not a historical binary or production artifact. A balanced local preparation-onl
 probe measures 8.24 to 4.18 us; it excludes send/network/session work and is not
 macro parity. Resulting-source full verification, renewed live accounting, hosted
 CI and strict timing remain required. Production consumers now require 14 first
-profile cases (190 across five platforms); fresh evidence is still pending.
+profile cases: all 190 pass on `4dab389f` across the five packaged platforms,
+with zero skips and independently matched log/archive/manifest/library hashes.
+Resulting-cancellation-source evidence remains pending.
 
 RawSocket prefix candidate (2026-10-16): frozen `bin/test-fast` passes on
 `2524d89b` with all 3,115 inputs unchanged. A focused fail-first regression proves

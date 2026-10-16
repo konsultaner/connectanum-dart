@@ -2375,13 +2375,8 @@ Future<void> _handleYield({
     final context = realmContexts.contextFor(state.realmUri!);
     final invocation = await context.getInvocation(invocationId);
     if (invocation == null) {
-      await _sendInvocationErrorToCallee(
-        bossPort: bossPort,
-        state: state,
-        connectionId: connectionId,
-        invocationId: invocationId,
-        reason: _wampErrorNoSuchInvocation,
-      );
+      // Non-waiting cancellation and caller teardown remove the invocation
+      // immediately. WAMP requires their late callee responses to be discarded.
       return;
     }
     if (invocation.calleeSessionId != state.sessionId) {
@@ -2424,23 +2419,11 @@ Future<void> _handleYield({
 
     if (isProgress) {
       if (!await context.touchInvocation(invocationId)) {
-        await _sendInvocationErrorToCallee(
-          bossPort: bossPort,
-          state: state,
-          connectionId: connectionId,
-          invocationId: invocationId,
-          reason: _wampErrorNoSuchInvocation,
-        );
+        // The invocation may have been cancelled since the lookup.
         return;
       }
     } else if (await context.completeInvocation(invocationId) == null) {
-      await _sendInvocationErrorToCallee(
-        bossPort: bossPort,
-        state: state,
-        connectionId: connectionId,
-        invocationId: invocationId,
-        reason: _wampErrorNoSuchInvocation,
-      );
+      // Cancellation can win while awaiting completion after the lookup.
       return;
     }
 
@@ -2595,13 +2578,8 @@ Future<void> _handleInvocationError({
     final context = realmContexts.contextFor(state.realmUri!);
     final invocation = await context.getInvocation(invocationId);
     if (invocation == null) {
-      await _sendInvocationErrorToCallee(
-        bossPort: bossPort,
-        state: state,
-        connectionId: connectionId,
-        invocationId: invocationId,
-        reason: _wampErrorNoSuchInvocation,
-      );
+      // Non-waiting cancellation and caller teardown remove the invocation
+      // immediately. WAMP requires their late callee responses to be discarded.
       return;
     }
     if (invocation.calleeSessionId != state.sessionId) {
@@ -2617,13 +2595,7 @@ Future<void> _handleInvocationError({
     }
 
     if (await context.completeInvocation(invocationId) == null) {
-      await _sendInvocationErrorToCallee(
-        bossPort: bossPort,
-        state: state,
-        connectionId: connectionId,
-        invocationId: invocationId,
-        reason: _wampErrorNoSuchInvocation,
-      );
+      // Cancellation can win while awaiting completion after the lookup.
       return;
     }
 
