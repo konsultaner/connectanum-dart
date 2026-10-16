@@ -15,8 +15,13 @@ candidate removes that repeated internal work, keeps all caller-supplied-frame
 validation and rechecks live connection/session state after lazy model accessors.
 CALL/PUBLISH/YIELD maps retain null/false/zero/custom precedence and mutation
 semantics. All 3,386 serializer VM and 110 native ownership/profile/lifetime cases pass;
-all 154 mutation proofs and focused analysis pass. Source-frozen final
-verification and measured candidate attribution are pending. See [measured
+all 154 mutation proofs and focused analysis pass. Fresh source-frozen
+attribution on `f2b577ff` reduces selected FlatBuffers client objects by 23.6%
+and router-worker objects by 2.6%; this is not byte-allocation or timing parity.
+Frozen full verification catches one additional WebSocket wrapper-spy assertion;
+its actual native submission/owner checks already pass. Replacing that spy with
+the existing native observer passes all 22 WebSocket network cases. Fresh full
+verification remains pending; failed evidence is retained. See [measured
 metadata work](research/2026-10-16-flatbuffers-metadata-projection.md).
 
 Latest full verified source remains `8f6f86f5` (frozen `bin/verify`, both browser

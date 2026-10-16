@@ -81,3 +81,29 @@ explicit null YIELD progress and custom override precedence both predate this
 patch; null-coalescing throw does not allocate on a successful lookup, and schema
 tables are generated constants. The suggested synchronous reentrancy risk is
 addressed with the live-connection/phase checks and regression test.
+
+## Candidate attribution and verification follow-up
+
+On `f2b577ff`, the exact same warmed 100-operation trace exits 0 with HEAD and all
+3,113 source inputs unchanged. Selected FlatBuffers client allocations fall from
+50,583 to 38,665 (23.6%); the active router worker falls from 59,052 to 57,538
+(2.6%). MessagePack client counts are 31,588 / 31,370 and router-worker counts
+37,987 / 37,987. Small incidental setup differences are retained. This is selected
+object attribution, not allocated-byte volume, CPU, or macro acceptance.
+
+The frozen full verification on `f2b577ff` fails one WebSocket test after its
+actual native submission/retained-byte assertions pass: a second test-only public
+wrapper spy still expects interception of the removed internal round trip.
+Source and all 3,113 inputs remain unchanged. The fixture now relies on its
+existing native submission observer and independent peer result/codes; all 22
+WebSocket network cases pass. Public caller-supplied frame tests remain intact.
+The failed full run is not accepted; resulting-source full verification is needed.
+
+The focused GLM advice was also checked against source. Its claimed send-before-
+profile order is reversed: `prepareOutgoing` runs before `nativeBuffers.sendFrame`,
+and `_commitSend` only assigns state afterward. On the actual native path, close
+clears the connection ID synchronously and `_finishOpen` awaits
+`openNativeConnection` before assigning another ID; a synchronous model accessor
+cannot complete close/reopen inside that send stack. The explicit close-loader
+regression covers the real reentrancy path. Advisory output and source dispositions
+are retained; no unsupported finding is presented as a verified defect.
