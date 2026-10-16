@@ -56,18 +56,22 @@ class ProfileSelectionTests(unittest.TestCase):
             'rpc_rawsocket_clear_native_pre_encoded_span': ('native', 'pre_encoded_span'),
         }
         self.assertEqual(set(profiler.PROFILE_CASES), set(expected))
-        for case_id, (implementation, construction) in expected.items():
-            with self.subTest(case=case_id), tempfile.TemporaryDirectory() as directory:
+        for case_id, (implementation, construction), mode in [(key, value, mode) for key, value in expected.items() for mode in ('none', 'complete', 'missing', 'non-linux')]:
+            native = mode != 'none'
+            requested = native and mode != 'non-linux'
+            with self.subTest(case=case_id, symbols=mode), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / 'profile output'
                 library = Path(directory) / 'native library.so'
                 library.write_bytes(b'unit-test fixture, never executed')
                 args = profiler.parse_args(['--output', str(output), '--native-lib', str(library),
-                                            '--case', case_id, '--dart', 'unit-test-dart'])
+                                            '--case', case_id, '--dart', 'unit-test-dart', *(['--perf', 'unit-test-perf'] if native else [])])
                 target = {'client_impl': implementation, 'payload_construction': construction}
                 warmups = []
                 probes = []
 
                 def launch(command, **kwargs):
+                    self.assertEqual('--generate-perf-events-symbols' in command, requested)
+
                     Path(kwargs['env']['CONNECTANUM_BENCH_PROFILE_WORKER_URI']).write_text(
                         'http://127.0.0.1:2/test/')
                     return SimpleNamespace(
@@ -86,24 +90,32 @@ class ProfileSelectionTests(unittest.TestCase):
                     dart_args = command[3:]
                     self.assertEqual(len(dart_args), 6)
                     self.assertEqual(json.loads(dart_args[5]), target)
-                    self.assertEqual(dart_args[4], '')  # native perf remains explicitly unmeasured
+                    self.assertEqual(dart_args[4], 'unit-test-perf' if native else '')
                     self.assertEqual(dart_args[3], str(output.resolve()))
                     self.assertTrue((output / 'probe.dart').is_file())
+                    if mode == 'complete':
+                        for codec in ('cbor', 'msgpack', 'flatbuffers'):
+                            (output / f'{codec}-router.perf-map').write_text('1000 10 fixture symbol; never real samples\n')
+                            (output / f'{codec}-router-perf-symbols.json').write_text(json.dumps({
+                                'pid': 12345, 'source': '/tmp/perf-12345.map', 'status': 'retained'}))
                     return SimpleNamespace(returncode=0)
 
                 def checked(command, **kwargs):
                     if command == ['unit-test-dart', '--version']:
                         return 'Dart version fixture; not a real profile'
+                    if command == ['unit-test-perf', '--version']:
+                        return 'perf fixture, never executed'
                     return subprocess.check_output(command, **kwargs)
 
                 commands = SimpleNamespace(Popen=launch, run=probe, check_output=checked,
                                            PIPE=subprocess.PIPE, STDOUT=subprocess.STDOUT,
                                            TimeoutExpired=subprocess.TimeoutExpired)
                 with mock.patch.object(profiler, 'subprocess', commands), \
+                        mock.patch.object(profiler.platform, 'system', return_value='Darwin' if mode == 'non-linux' else 'Linux'), \
                         mock.patch.object(profiler.urllib.request, 'urlopen', post), \
                         mock.patch.object(profiler.campaign, 'interfering_jobs', return_value=[]), \
                         mock.patch.object(profiler.campaign, 'stop_process_group', return_value=True):
-                    self.assertEqual(profiler.profile(args), 0)
+                    self.assertEqual(profiler.profile(args), 1 if mode == 'missing' else 0)
                 self.assertEqual(len(warmups), 1)
                 self.assertEqual(len(probes), 1)
                 self.assertEqual({key: warmups[0][key] for key in target}, target)
@@ -114,6 +126,72 @@ class ProfileSelectionTests(unittest.TestCase):
                 self.assertEqual(audit['kind'], 'cpu_profile_only_never_acceptance')
                 self.assertTrue(audit['inputs_unchanged'])
                 self.assertTrue(audit['process_group_stopped'])
+                self.assertEqual(audit['router_perf_symbols']['requested'], requested)
+                self.assertEqual(audit['router_perf_symbols']['status'], {'none':'not_requested', 'non-linux':'not_requested', 'complete':'retained', 'missing':'incomplete'}[mode])
+                self.assertEqual(len(audit['router_perf_symbols']['maps']), 3 if mode == 'complete' else 0)
+                self.assertEqual(audit['probe_exit'], 0)
+                self.assertEqual(bool(audit['router_perf_symbols']['findings']), mode == 'missing')
+
+
+class RouterSymbolMapTests(unittest.TestCase):
+    def fixture(self, output):
+        for codec in ('cbor', 'msgpack', 'flatbuffers'):
+            (output / f'{codec}-router.perf-map').write_text('1000 10 *fixture symbol\n2000 20 plain fixture\n')
+            (output / f'{codec}-router-perf-symbols.json').write_text(json.dumps({
+                'pid': 12345, 'source': '/tmp/perf-12345.map', 'status': 'retained'}))
+
+    def test_complete_maps_keep_pid_and_hash_attribution(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            self.fixture(output)
+            result = profiler.router_symbol_map_audit(output, 12345, True)
+            self.assertEqual(result['status'], 'retained')
+            self.assertEqual(result['findings'], [])
+            self.assertEqual({item['pid'] for item in result['maps']}, {12345})
+            self.assertEqual({item['entries'] for item in result['maps']}, {2})
+            self.assertTrue(all(len(item['sha256']) == 64 for item in result['maps']))
+            self.assertEqual(result['client_jit_symbols'], 'not_requested')
+
+    def test_bad_maps_remain_incomplete(self):
+        for defect in ['missing map', 'missing attribution', 'empty', 'foreign PID', 'foreign source',
+                       'invalid JSON', 'non-object', 'malformed record', 'zero address', 'negative size',
+                       'nul name', 'invalid UTF8']:
+            with self.subTest(defect=defect), tempfile.TemporaryDirectory() as folder:
+                output = Path(folder)
+                self.fixture(output)
+                path = output / 'cbor-router.perf-map'
+                meta = output / 'cbor-router-perf-symbols.json'
+                if defect == 'missing map': path.unlink()
+                elif defect == 'missing attribution': meta.unlink()
+                elif defect == 'empty': path.write_bytes(b'')
+                elif defect == 'foreign PID': meta.write_text(json.dumps({'pid': 9, 'source': '/tmp/perf-9.map', 'status': 'retained'}))
+                elif defect == 'foreign source': meta.write_text(json.dumps({'pid': 12345, 'source': '/tmp/perf-9.map', 'status': 'retained'}))
+                elif defect == 'invalid JSON': meta.write_text('{')
+                elif defect == 'non-object': meta.write_text('[]')
+                elif defect == 'malformed record': path.write_text('1000 10\n')
+                elif defect == 'zero address': path.write_text('0 10 zero\n')
+                elif defect == 'negative size': path.write_text('1000 -1 negative\n')
+                elif defect == 'nul name': path.write_bytes(b'1000 10 bad\x00name\n')
+                elif defect == 'invalid UTF8': path.write_bytes(b'1000 10 \xff\n')
+                result = profiler.router_symbol_map_audit(output, 12345, True)
+                self.assertEqual(result['status'], 'incomplete')
+                self.assertTrue(result['findings'])
+                self.assertEqual(len(result['maps']), 2)
+
+    def test_no_perf_does_not_read_maps(self):
+        result = profiler.router_symbol_map_audit(Path('/not/a/real/profile'), 12345, False)
+        self.assertEqual(result['status'], 'not_requested')
+        self.assertEqual(result['findings'], [])
+
+    def test_reused_jit_addresses_are_explicit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            self.fixture(output)
+            with (output / 'cbor-router.perf-map').open('a') as stream:
+                stream.write('1000 10 replacement fixture\n')
+            result = profiler.router_symbol_map_audit(output, 12345, True)
+            self.assertEqual(result['status'], 'retained')
+            self.assertEqual(result['maps'][0]['ambiguous_start_addresses'], 1)
 
 
 if __name__ == '__main__':

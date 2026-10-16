@@ -11,6 +11,14 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+CPU diagnosis follow-up: Linux native profiles now request standard Dart router
+JIT maps, retain PID/hash attribution and separate router/client perf reports.
+Nine tool tests cover startup/probe configuration and missing/corrupt/foreign
+maps; generated Dart analysis has no errors. Profiles remain diagnostic and
+cannot waive canonical parity. Hosted validation is pending. Eager native
+FlatBuffers dictionary retention (decode/project/snapshot) is a concrete next
+cost to profile before changing metadata semantics.
+
 Current native eligibility repair (2026-10-16): marker-only PPT borrowing can
 lose the scheme when raw null PPT fields become indistinguishable from absence
 in typed Dart options. Rust and real anonymous/ticket CBOR wire reproducers fail

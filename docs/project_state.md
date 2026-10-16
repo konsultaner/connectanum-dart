@@ -6,6 +6,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+CPU diagnosis follow-up: Linux native profiles now request standard Dart router
+JIT maps, retain PID/hash attribution and separate router/client perf reports.
+Nine tool tests cover startup/probe configuration and missing/corrupt/foreign
+maps; generated Dart analysis has no errors. Profiles remain diagnostic and
+cannot waive canonical parity. Hosted validation is pending. Eager native
+FlatBuffers dictionary retention (decode/project/snapshot) is a concrete next
+cost to profile before changing metadata semantics.
+
 Current native eligibility repair (2026-10-16): marker-only PPT borrowing can
 lose the scheme when raw null PPT fields become indistinguishable from absence
 in typed Dart options. Rust and real anonymous/ticket CBOR wire reproducers fail

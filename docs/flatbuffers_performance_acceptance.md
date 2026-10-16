@@ -447,3 +447,10 @@ the requested configuration. Raw CPU samples and the sampling-window checks
 remain required evidence. The mocked orchestration tests verify configuration
 attribution only. Profiling changes execution and never establishes performance
 acceptance; the full paired campaign, policy and copy gates are unchanged.
+
+
+On Linux, optional native CPU profiles now enable standard router JIT symbols,
+retain PID-attributed map snapshots and produce separate router/client reports.
+Client JIT addresses may remain unresolved. Missing or invalid router maps fail
+the profiling run. See the [profiling evidence contract](research/2026-10-16-linux-router-perf-symbols.md).
+This diagnostic never supplies primary performance acceptance.
