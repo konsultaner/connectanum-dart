@@ -58,3 +58,39 @@ Analysis and the existing mutation-inventory preflight pass. Local bounded
 GLM review reports no confirmed arithmetic/ownership defect. These are
 correctness checks, not performance acceptance. All original primary cases,
 durations, samples, repetitions, coverage floors and metric budgets remain.
+
+
+## Renewed copy proof and measured allocation bottleneck
+
+Source `d12196ce` passes 120 real HTTP E2EE/transcode cases with all 3,096
+source inputs and HEAD unchanged. An independent replay checks each disjoint
+owned-copy total and all three clean process exits. Production native consumers
+pass 170 cases on five platforms with zero skips and independently audited log
+hashes. All 180 stock-SDK allocation observations in its 90-row local diagnostic
+validate. It still fails: throughput ratios are 0.9518 / 0.9887 / 0.9740 and
+allocation ratios 1.0384 / 1.1694 / 1.0535. No result is discarded or accepted as
+parity. Full verification reaches Rust, client/core/benchmark VM and router
+checks, then fails one unchanged FastCGI fixture: an intentional oversized-output
+rejection can reset the upstream socket instead of delivering EOF. The fixture
+now allows only reset/broken-pipe for that one rejecting case; its actual HTTP
+502, response-too-large reason and event checks remain. All 29 focused FastCGI
+checks pass. Whole-source verification must run again.
+
+Allocation traces identify small CBOR metadata encoding as the next bottleneck.
+A representative four-field dictionary allocates 8,910 / 8,864 managed bytes per
+encode in two stock-SDK heap/GC volume observations. A narrow direct encoder for
+at most 23 ASCII scalar entries (strings, bool/null and uint32/nint32 integers)
+reduces that to 669 / 641 bytes through the public codec. Every other value,
+oversized input, dictionary size and construction rule retains the existing
+complete encoder. It creates encoded scalar bytes directly; no existing payload
+buffer is copied by that shortcut. Byte-vector copy observation is unchanged.
+Independent 3,055-case VM/JavaScript reference probes preserve exact pinned CBOR
+bytes. New tests retain prefix/integer/dictionary boundaries, Unicode/complex
+fallbacks, inclusive budgets, key validation and insertion order. These are
+component allocation and correctness results, not end-to-end parity acceptance.
+
+The hosted workflow adds an explicit three-case Linux diagnostic at the same
+3 warmups, 7 paired repetitions, 10-second windows and 1,000 minimum samples.
+This obtains CPU/RSS observations before another long primary campaign. It is
+always labelled diagnostic and fails primary acceptance by design. The complete
+48-case / 1,440-row primary inventory, policy and all numeric gates are unchanged.

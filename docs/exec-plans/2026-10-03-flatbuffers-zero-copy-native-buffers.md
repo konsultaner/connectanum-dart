@@ -11,6 +11,20 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Current checkpoint (2026-10-16): `d12196ce` passes renewed 120-case owned
+E2EE/transcode proof with 3,096 inputs unchanged and all 170 audited five-platform
+production consumer checks. Its 90-row diagnostic still fails (throughput
+0.9518 / 0.9887 / 0.9740; allocation 1.0384 / 1.1694 / 1.0535), with every raw
+allocation observation valid. Full verification finds one existing FastCGI
+stdout-limit fixture race; a narrow test-only reset allowance fixes all 29
+focused cases while preserving HTTP status/reason/event/closure assertions.
+The next candidate removes CBOR wrapper/hash/UTF-8 staging for small ASCII
+scalar metadata while preserving exact wire bytes and all fallback/budget rules.
+A component probe drops allocation from about 8,900 to 650 bytes per dictionary.
+Whole-source verification and end-to-end performance remain pending. A separate
+hosted 90-row Linux diagnostic retains the primary durations/samples/repetitions;
+it never establishes primary acceptance. #103 remains open; no release is made.
+
 Current performance work (2026-10-16): all hosted CI checks pass at
 `63a802f7`, including the complete VM coverage policy with no findings and
 benchmark coverage 98.74% (3,846/3,895). Frozen local `bin/verify`, package

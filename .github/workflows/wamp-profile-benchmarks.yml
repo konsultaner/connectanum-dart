@@ -19,13 +19,14 @@ on:
   workflow_dispatch:
     inputs:
       campaign:
-        description: Canonical profile gates or the full paired FlatBuffers campaign
+        description: Canonical profile gates, full paired FlatBuffers campaign or a Linux diagnostic
         required: true
         default: profiles
         type: choice
         options:
           - profiles
           - flatbuffers_primary
+          - flatbuffers_diagnostic
       router_worker_counts:
         description: Router worker counts passed to the bench orchestrator
         required: false
@@ -51,7 +52,7 @@ env:
 jobs:
   linux-wamp-profile:
     name: Linux WAMP profile gates
-    if: github.event_name != 'workflow_dispatch' || inputs.campaign != 'flatbuffers_primary'
+    if: github.event_name != 'workflow_dispatch' || inputs.campaign == 'profiles'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -87,12 +88,12 @@ jobs:
           if-no-files-found: error
 
   linux-flatbuffers-primary:
-    name: Full paired FlatBuffers campaign
-    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_primary'
+    name: ${{ inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic' }}
+    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic')
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     concurrency:
-      group: wamp-flatbuffers-primary
+      group: wamp-${{ inputs.campaign == 'flatbuffers_primary' && 'flatbuffers-primary' || 'flatbuffers-diagnostic' }}
       cancel-in-progress: false
 
     steps:
@@ -145,15 +146,27 @@ jobs:
           git diff --exit-code
           test -z "$(git status --porcelain)"
 
-      - name: Run all 1440 paired rows with the unchanged policy
+      - name: Run paired rows with the unchanged policy
+        env:
+          INPUT_CAMPAIGN: ${{ inputs.campaign }}
         run: |
           set -euo pipefail
+          diagnostic_args=()
+          if [[ "$INPUT_CAMPAIGN" == flatbuffers_diagnostic ]]; then
+            diagnostic_args=(
+              --diagnostic
+              --case rpc_rawsocket_clear_dart_values
+              --case rpc_rawsocket_clear_native_native_buffer
+              --case rpc_rawsocket_clear_native_pre_encoded_span
+            )
+          fi
           python3 tool/run_wamp_serializer_campaign.py \
             --output out/wamp-flatbuffers-primary/campaign \
             --driver out/wamp-flatbuffers-primary/setup/http_stream \
             --native-lib out/wamp-flatbuffers-primary/setup/libct_ffi.so \
             --runner-image "github-hosted/${ImageOS:?}/${ImageVersion:?}" \
             --warmups 3 --repetitions 7 --duration-ms 10000 --samples 1000 \
+            "${diagnostic_args[@]}" \
             --concurrency 1 --in-flight 1 --router-workers 1 --native-threads 1 \
             --workload-timeout-ms 300000 --campaign-timeout-seconds 19800 \
             2>&1 | tee out/wamp-flatbuffers-primary/campaign.log
@@ -165,7 +178,7 @@ jobs:
           import json
           from pathlib import Path
           root = Path('out/wamp-flatbuffers-primary/campaign')
-          print('## Full paired FlatBuffers campaign\n')
+          print('## Paired FlatBuffers campaign\n')
           manifest = root / 'manifest.json'
           if not manifest.exists():
               print('Campaign did not start. Setup logs are retained in the artifact.')
@@ -173,7 +186,10 @@ jobs:
               data = json.loads(manifest.read_text())
               runs = data['warmup_runs'] + data['measured_runs']
               rows = sum(run['rows_completed'] for run in runs)
-              print(f"Completed rows: {rows}/1440. Execution: {data['execution']['status']}.\n")
+              expected = sum(len(run['order']) for run in runs)
+              print(f"Mode: {data['metadata']['campaign_kind']}. Completed rows: {rows}/{expected}. Execution: {data['execution']['status']}.\n")
+              if data['metadata']['campaign_kind'] == 'diagnostic':
+                  print('Diagnostic subsets never establish primary acceptance.\n')
               result = root / 'comparison.json'
               if result.exists():
                   report = json.loads(result.read_text())
@@ -185,7 +201,7 @@ jobs:
                       print('\nAll remaining findings are retained in comparison.json and comparison.md.')
               else:
                   print('Acceptance is unproven; no comparison report was produced.')
-          print('\nThe full matrix, source/artifact hashes, resolved locks, raw reports and failure logs are retained.')
+          print('\nThe scheduled matrix, source/artifact hashes, resolved locks, raw reports and failure logs are retained.')
           PY
 
       - name: Upload full campaign evidence even after failure
