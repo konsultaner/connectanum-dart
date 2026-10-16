@@ -11,6 +11,17 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Current borrowed-lookup candidate (2026-10-17): small native FlatBuffers
+metadata dictionaries now borrow lookup keys instead of allocating a temporary
+serde string per projected schema field. A fail-first counter regression,
+threshold/Unicode/value-identity differentials and all 389 core tests pass.
+Larger maps retain their existing lookup and actual copy accounting; no counter
+or acceptance condition is disabled. The preceding `6d9810ae` terminal-vector
+source completes all 300 short rows, 120 accounting cases and 36 progressive
+combinations with all 3,125 inputs unchanged; its strict Linux diagnostic is
+still running. See the checked borrowed-lookup research. Resulting-source full
+verification, production proofs and performance remain pending.
+
 Current native envelope candidate (2026-10-17): source `b2fb8b63` passes
 frozen full `bin/verify`, 300 short supplemental rows, 120 accounting cases and
 36 progressive combinations with all 3,124 inputs unchanged. Its strict Linux

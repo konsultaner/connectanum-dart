@@ -6,6 +6,17 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Current borrowed-lookup candidate (2026-10-17): small native FlatBuffers
+metadata dictionaries now borrow lookup keys instead of allocating a temporary
+serde string per projected schema field. A fail-first counter regression,
+threshold/Unicode/value-identity differentials and all 389 core tests pass.
+Larger maps retain their existing lookup and actual copy accounting; no counter
+or acceptance condition is disabled. The preceding `6d9810ae` terminal-vector
+source completes all 300 short rows, 120 accounting cases and 36 progressive
+combinations with all 3,125 inputs unchanged; its strict Linux diagnostic is
+still running. See the checked borrowed-lookup research. Resulting-source full
+verification, production proofs and performance remain pending.
+
 Current native envelope candidate (2026-10-17): source `b2fb8b63` passes
 frozen full `bin/verify`, 300 short supplemental rows, 120 accounting cases and
 36 progressive combinations with all 3,124 inputs unchanged. Its strict Linux
