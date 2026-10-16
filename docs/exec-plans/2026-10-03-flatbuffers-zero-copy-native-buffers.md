@@ -11,6 +11,18 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Progressive-result coverage (2026-10-16): the supplemental inventory is now
+version `flatbuffers_extensions_v2`, with 50 cases (1,500 full campaign rows).
+The four progressive RPC cases retain three CALL chunks and now validate two
+progressive RESULTs plus a terminal result. Eight added encrypted cases exercise
+both ciphers, Dart/native clients and mixed CBOR peers. A frozen-input short live
+proof passes all 36 codec combinations; independent arithmetic reconciles 24 E2EE,
+16 active transcode, 12 native-crypto paths and every encoded WAMP-volume total.
+All 92 focused Dart and 65 comparison/campaign cases pass; analysis is clean.
+The preceding packed-reply commit `01300605` separately passes all 120 renewed
+copy cases with 3,113 unchanged inputs. New-source full verification, hosted CI,
+full campaigns and actual primary parity remain required. No budget changes.
+
 Current packed-reply correction (2026-10-16): full frozen `bin/verify` on
 `84fe0f29` passes with all 3,113 inputs unchanged; its renewed 120 live accounting
 cases independently reconcile Connectanum E2EE, transcode and encoded WAMP volume

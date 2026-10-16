@@ -226,10 +226,10 @@ with (root / 'driver-results.jsonl').open('wb') as stream:
             self.assertEqual(campaign.main(self.cli_args(output) + ['--extension-diagnostics']), 0)
         manifest = json.loads((output / 'manifest.json').read_text())
         self.assertEqual(manifest['metadata']['campaign_kind'], 'extension_diagnostic')
-        self.assertEqual(manifest['metadata']['diagnostic_inventory'], 'flatbuffers_extensions_v1')
+        self.assertEqual(manifest['metadata']['diagnostic_inventory'], 'flatbuffers_extensions_v2')
         self.assertEqual(manifest['cases'], campaign.extensions.extension_cases())
         self.assertEqual(manifest['execution']['status'], 'planned')
-        self.assertEqual(sum(len(r['order']) for r in manifest['warmup_runs'] + manifest['measured_runs']), 1260)
+        self.assertEqual(sum(len(r['order']) for r in manifest['warmup_runs'] + manifest['measured_runs']), 1500)
 
     def test_cpu_profiler_refuses_competing_build_before_launch(self):
         import profile_wamp_serializers as profiler
@@ -349,13 +349,13 @@ with (root / 'driver-results.jsonl').open('wb') as stream:
 
 
 class ExtensionCampaignTest(unittest.TestCase):
-    def test_declared_42_case_inventory_and_payload_profiles(self):
+    def test_declared_50_case_inventory_and_payload_profiles(self):
         from collections import Counter
         cases = campaign.extensions.extension_cases()
-        self.assertEqual(len({c['id'] for c in cases}), 42)
+        self.assertEqual(len({c['id'] for c in cases}), 50)
         self.assertEqual(Counter(c['group'] for c in cases), {
             'small_control': 8, 'payload_sizes': 12, 'fanout8': 2, 'progressive': 4,
-            'mixed_serializers': 6, 'encrypted_ppt': 8, 'fragmented_masked_websocket': 2,
+            'mixed_serializers': 6, 'encrypted_ppt': 8, 'fragmented_masked_websocket': 2, 'encrypted_progressive_results': 8,
         })
         for case in cases:
             f = case['fields']
@@ -363,15 +363,15 @@ class ExtensionCampaignTest(unittest.TestCase):
                 self.assertEqual(case['payload_profile'], 'wamp_envelope_cbor_args')
                 self.assertNotIn('ppt_scheme', f)
                 self.assertNotIn('payload_construction', f)
-            if case['group'] == 'encrypted_ppt':
+            if case['group'] in ('encrypted_ppt', 'encrypted_progressive_results'):
                 self.assertEqual(f['ppt_scheme'], 'wamp')
                 self.assertEqual(case['payload_profile'], f"encrypted_ppt_{f['ppt_serializer']}")
         sizes = [c for c in cases if c['group'] == 'payload_sizes']
         self.assertEqual({c['fields']['request_bytes'] for c in sizes}, {10240, 102400, 1048576})
         self.assertEqual(len([c for c in cases if c.get('zero_copy_codecs')]), 16)
         runs = campaign.schedule(cases, 3, 7, 42)
-        self.assertEqual(sum(len(r['order']) for r in runs), 1260)
-        self.assertEqual({len(r['order']) for r in runs}, {126})
+        self.assertEqual(sum(len(r['order']) for r in runs), 1500)
+        self.assertEqual({len(r['order']) for r in runs}, {150})
 
     def test_toml_uses_real_sizes_control_operations_and_encrypted_profiles(self):
         cases = campaign.extensions.extension_cases()
@@ -382,7 +382,7 @@ class ExtensionCampaignTest(unittest.TestCase):
             campaign.write_scenarios(root, cases, runs, 10000, 1000, 1, 1)
             for path in (root / 'scenarios').glob('*.toml'):
                 rows = tomllib.loads(path.read_text())['workloads']
-                self.assertEqual(len(rows), 126)
+                self.assertEqual(len(rows), 150)
                 for row in rows:
                     case, codec = by_name[row['name']]
                     self.assertEqual(row['protocol'], f"wamp_{case['transport']}_{case['mode']}")
@@ -392,9 +392,9 @@ class ExtensionCampaignTest(unittest.TestCase):
                     self.assertEqual(row['minimum_duration_ms'], 10000)
                     if case['payload_profile'] == 'typed':
                         self.assertEqual(row['ppt_serializer'], codec)
-                    elif case['group'] == 'encrypted_ppt':
+                    elif case['group'] in ('encrypted_ppt', 'encrypted_progressive_results'):
                         self.assertEqual(row['ppt_serializer'], case['fields']['ppt_serializer'])
-                        self.assertEqual(row.get('peer_serializer'), codec, 'Encrypted RPC requires a matching provider on its application callee')
+                        self.assertEqual(row.get('peer_serializer'), codec if case['group'] == 'encrypted_ppt' else 'cbor')
                     else:
                         self.assertNotIn('ppt_serializer', row)
                         self.assertNotIn('ppt_scheme', row)
@@ -416,7 +416,9 @@ class ExtensionCampaignTest(unittest.TestCase):
                 report = {'protocol': f"wamp_{case['transport']}_{case['mode']}",
                           'client_impl': case['client_impl'], 'concurrency': 1,
                           'wamp_configuration': actual,
-                          'copy_metrics': {'websocket_mask_copy_bytes': 123}}
+                          'copy_metrics': {'websocket_mask_copy_bytes': 123},
+                          'samples': [{'request_bytes': fields['request_bytes'] * 3,
+                                       'response_bytes': fields['request_bytes'] * 3}]}
                 check = campaign.extensions.configuration_findings
                 self.assertEqual(check(report, case, codec, label='fixture'), [])
                 for key in actual:
@@ -425,6 +427,12 @@ class ExtensionCampaignTest(unittest.TestCase):
                     self.assertTrue(check(bad, case, codec, label='corrupted'), key)
                     del bad['wamp_configuration'][key]
                     self.assertTrue(check(bad, case, codec, label='missing'), key)
+                if case['mode'] == 'progressive_rpc':
+                    for key in ('request_bytes', 'response_bytes'):
+                        for value in (None, True, 0, fields['request_bytes']):
+                            bad = json.loads(json.dumps(report))
+                            bad['samples'][0][key] = value
+                            self.assertTrue(check(bad, case, codec, label='missing stream'), key)
                 if fields.get('websocket_fragment_size'):
                     for value in (None, 0, False, -1):
                         report['copy_metrics']['websocket_mask_copy_bytes'] = value

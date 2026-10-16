@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Any
 
-INVENTORY = 'flatbuffers_extensions_v1'
+INVENTORY = 'flatbuffers_extensions_v2'
 CODECS = ('cbor', 'msgpack', 'flatbuffers')
 
 
@@ -47,7 +47,13 @@ def extension_cases() -> list[dict[str, Any]]:
                     ppt_scheme='wamp', ppt_serializer=serializer, ppt_cipher=cipher, ppt_keyid='bench-key')
     for secure in (False, True):
         add('fragmented_masked_websocket', 'rpc', 'websocket', secure, websocket_fragment_size=1024)
-    assert len(cases) == 42
+    for transport, secure in transports:
+        for client in ('dart', 'native'):
+            for cipher in ('xsalsa20poly1305', 'aes256gcm'):
+                add('encrypted_progressive_results', 'progressive_rpc', transport, secure,
+                    client, 10240, typed=False, ppt_scheme='wamp', ppt_serializer='cbor',
+                    ppt_cipher=cipher, ppt_keyid='bench-key', peer_serializer='cbor')
+    assert len(cases) == 50
     return cases
 
 
@@ -80,6 +86,13 @@ def configuration_findings(report, case, codec, *, label):
                        'client_impl': case['client_impl'], 'concurrency': 1}.items():
         if type(report.get(key)) is not type(value) or report.get(key) != value:
             findings.append(f'{label}: reported {key} does not match the declared extension')
+    if case['mode'] == 'progressive_rpc':
+        samples = report.get('samples')
+        if not isinstance(samples, list) or not samples or any(
+            not isinstance(sample, dict) or any(
+                type(sample.get(key)) is not int or sample[key] != fields['request_bytes'] * 3
+                for key in ('request_bytes', 'response_bytes')) for sample in samples):
+            findings.append(f'{label}: progressive samples must include three input chunks and three verified results')
     if fields.get('websocket_fragment_size'):
         mask = report.get('copy_metrics', {}).get('websocket_mask_copy_bytes')
         if type(mask) is not int or mask <= 0:

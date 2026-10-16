@@ -1062,6 +1062,16 @@ class WampWorkloadRunner {
             return;
           }
           chunksByInvocation.remove(invocation.requestId);
+          respondEchoLazyInvocation(
+            invocation,
+            logger: _logger,
+            progress: true,
+          );
+          respondEchoLazyInvocation(
+            invocation,
+            logger: _logger,
+            progress: true,
+          );
           respondEchoLazyInvocation(invocation, logger: _logger);
         },
         scenario: peerScenario,
@@ -1144,15 +1154,31 @@ class WampWorkloadRunner {
     final call = session.startProgressiveCall(
       procedure,
       arguments: [payload],
-      options: _buildCallOptions(scenario),
+      options: _buildCallOptions(scenario, receiveProgress: true),
     );
     call.sendChunk(arguments: [payload]);
     call.finish(arguments: [payload]);
     try {
-      await call.results.single.timeout(
+      final results = await call.results.toList().timeout(
         _eventTimeout,
         onTimeout: () => throw TimeoutException('progressive_rpc_timeout'),
       );
+      if (results.length != 3) {
+        throw StateError(
+          'expected 3 progressive results, got ${results.length}',
+        );
+      }
+      for (var index = 0; index < results.length; index++) {
+        final result = results[index];
+        final arguments = result.arguments;
+        if (result.isProgressive() != (index < 2) ||
+            arguments == null ||
+            arguments.length != 1 ||
+            arguments.single != payload ||
+            (result.argumentsKeywords?.isNotEmpty ?? false)) {
+          throw StateError('invalid progressive result at index $index');
+        }
+      }
     } on wamp_core.Error catch (error) {
       throw StateError(
         'progressive RPC failed with ${error.error} '
@@ -1165,7 +1191,7 @@ class WampWorkloadRunner {
       iteration: iteration,
       latencyMs: latencyMs,
       requestBytes: scenario.payloadBytes * 3,
-      responseBytes: scenario.payloadBytes,
+      responseBytes: scenario.payloadBytes * 3,
     );
   }
 
@@ -2344,12 +2370,14 @@ class WampWorkloadRunner {
   wamp_core.CallOptions? _buildCallOptions(
     WampScenario scenario, {
     int? timeout,
+    bool receiveProgress = false,
   }) {
-    if (scenario.pptScheme == null && timeout == null) {
+    if (scenario.pptScheme == null && timeout == null && !receiveProgress) {
       return null;
     }
     return wamp_core.CallOptions(
       timeout: timeout,
+      receiveProgress: receiveProgress ? true : null,
       pptScheme: scenario.pptScheme,
       pptSerializer: _resolvePptSerializer(scenario),
       pptCipher: scenario.pptCipher,

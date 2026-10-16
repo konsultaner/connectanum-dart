@@ -386,9 +386,9 @@ class WampSerializerCompareTest(unittest.TestCase):
         manifest = copy.deepcopy(self.manifest)
         manifest['metadata']['campaign_kind'] = 'extension_diagnostic'
         manifest['cases'] = compare.extensions.extension_cases()
-        self.assertFalse(any('42-case' in f for f in compare._campaign_findings(manifest)))
+        self.assertFalse(any('50-case' in f for f in compare._campaign_findings(manifest)))
         manifest['cases'][-1] = copy.deepcopy(manifest['cases'][0])
-        self.assertTrue(any('42-case' in f for f in compare._campaign_findings(manifest)))
+        self.assertTrue(any('50-case' in f for f in compare._campaign_findings(manifest)))
 
     def test_encoded_volume_is_distinct_from_application_bytes(self):
         result = compare.evaluate_campaign(self.manifest, self.root, self.policy)

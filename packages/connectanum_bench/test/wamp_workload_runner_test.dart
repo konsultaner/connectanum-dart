@@ -583,29 +583,44 @@ void main() {
       expect(releases, 1);
     });
 
-    test('warms up three-chunk progressive RPC workloads', () async {
-      final broker = _FakeWampBroker();
-      final runner = WampWorkloadRunner(
-        sessionFactory: (_) async => _FakeWampSession(broker),
-        logger: Logger.detached('progressive_rpc_test'),
-        eventTimeout: const Duration(seconds: 1),
-      );
-      final samples = await runner.run(
-        WampScenario(
-          transport: WampTransport.rawsocket,
-          serializer: WampSerializer.json,
-          mode: WampMode.progressiveRpc,
-          uri: 'bench.progressive',
-          iterations: 2,
-          concurrency: 1,
-          payloadBytes: 16,
-        ),
-      );
+    test(
+      'warms up three-chunk RPC input and three-result output streams',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: Logger.detached('progressive_rpc_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.json,
+            mode: WampMode.progressiveRpc,
+            uri: 'bench.progressive',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 16,
+          ),
+        );
 
-      expect(samples, hasLength(2));
-      expect(samples.every((sample) => sample.requestBytes == 48), isTrue);
-      expect(broker.callCounts['bench.progressive.worker.0'], 3);
-    });
+        expect(samples, hasLength(2));
+        expect(samples.every((sample) => sample.requestBytes == 48), isTrue);
+        expect(samples.every((sample) => sample.responseBytes == 48), isTrue);
+        expect(broker.progressiveReplyFlags, [
+          true,
+          true,
+          false,
+          true,
+          true,
+          false,
+          true,
+          true,
+          false,
+        ]);
+        expect(broker.callCounts['bench.progressive.worker.0'], 3);
+      },
+    );
 
     test('executes timeout RPC workloads only for timeout errors', () async {
       final broker = _FakeWampBroker();
@@ -1850,6 +1865,7 @@ wamp_core.LazyEventPayload _bufferEvent(int worker, {int? iteration}) =>
     ).toLazyEventPayload();
 
 class _FakeWampBroker {
+  final progressiveReplyFlags = <bool>[];
   _FakeWampBroker({
     this.dropMetadata = false,
     this.callDelay = Duration.zero,
@@ -2583,7 +2599,7 @@ class _FakeWampSession implements WampSession, WampFileSession {
         requestId: requestId,
         registrationId: 1,
         progress: progress,
-        receiveProgress: false,
+        receiveProgress: options?.receiveProgress ?? false,
         payload: wamp_core.LazyMessagePayload.materialized(
           arguments: chunkArguments,
         ),
@@ -2597,21 +2613,23 @@ class _FakeWampSession implements WampSession, WampFileSession {
               String? errorUri,
               wamp_core.YieldOptions? options,
             }) {
-              responseClosed = true;
+              final progressive = options?.progress == true;
+              responseClosed = isError || !progressive;
+              _broker.progressiveReplyFlags.add(progressive);
               if (isError) {
                 controller.addError(StateError(errorUri ?? 'unknown'));
               } else {
                 controller.add(
                   wamp_core.Result(
                     requestId,
-                    wamp_core.ResultDetails(progress: false),
+                    wamp_core.ResultDetails(progress: progressive),
                     arguments: lazyPayload?.arguments ?? arguments,
                     argumentsKeywords:
                         lazyPayload?.argumentsKeywords ?? argumentsKeywords,
                   ),
                 );
               }
-              unawaited(controller.close());
+              if (responseClosed) unawaited(controller.close());
             },
       );
       Future.sync(() => handler(invocation)).catchError(controller.addError);

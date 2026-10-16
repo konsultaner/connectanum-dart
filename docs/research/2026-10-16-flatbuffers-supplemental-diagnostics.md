@@ -11,22 +11,23 @@ or observing a nonzero count fails the comparison.
 
 ## Supplemental inventory
 
-`flatbuffers_extensions_v1` contains 42 cases, each paired across CBOR,
-MessagePack and FlatBuffers: 1,260 total rows with the same run minima.
+`flatbuffers_extensions_v2` contains 50 cases, each paired across CBOR,
+MessagePack and FlatBuffers: 1,500 total rows with the same run minima.
 
 | Group | Cases | Coverage |
 |---|---:|---|
 | Small control operations | 8 | Publish acknowledgement, subscribe, register and cancellation; RawSocket clear and WebSocket TLS |
 | Payload sizes | 12 | 10 KiB, 100 KiB and 1 MiB; Dart/native clients on both representative transports |
 | Fan-out | 2 | Eight native subscribers on both representative transports |
-| Progressive RPC | 4 | Dart/native clients on both representative transports |
+| Progressive RPC | 4 | Three CALL chunks and three verified RESULTs; Dart/native clients on both representative transports |
 | Mixed codecs | 6 | JSON/MessagePack/CBOR peers on both representative transports |
 | Encrypted PPT | 8 | XSalsa20-Poly1305/AES-256-GCM; CBOR/FlatBuffers PPT on both representative transports |
 | Fragmented WebSocket | 2 | Native masked 1,024-byte fragments with cleartext/TLS |
+| Encrypted progressive results | 8 | Both ciphers and Dart/native clients; three CALL chunks and three RESULTs; CBOR peers on both transports |
 
 Control and progressive rows use the ordinary envelope/CBOR-argument path;
 unsupported typed progressive payloads are not substituted or silently omitted.
-Encrypted rows explicitly label the encrypted PPT serializer and create a matching application callee for each envelope codec. The control echo handler has no encryption provider and is not a valid encrypted application endpoint. Other rows use
+Encrypted ordinary RPC rows explicitly label the PPT serializer and create an application callee matching the envelope codec. Encrypted progressive rows use a CBOR application peer, exercising both homogeneous and mixed outer serializers. The control echo handler has no encryption provider and is not a valid encrypted application endpoint. Other rows use
 the typed benchmark payload with the codec's matching PPT serializer. Human
 reports retain these configurations, all per-codec resource/copy observations,
 and actual accepted serialized bytes per operation, separately from logical
@@ -133,3 +134,29 @@ library and process-group checks pass, with no interfering jobs. The diagnostic
 operation window is now 30 seconds, retaining the same actual-window check and
 five-second perf capture. This changes no primary or supplemental acceptance
 minimum, repetition or numerical budget. A fresh Linux capture is required.
+
+## Progressive result-stream coverage (inventory v2)
+
+The original four progressive rows only sent three CALL chunks and consumed a
+single result. Inventory v2 keeps that input coverage and now requires two
+progressive results followed by one terminal result. Every result must contain
+exactly the echoed payload and the expected progress flag, with no unexpected
+keywords. Latency ends after the terminal reply; sample response volume includes
+all three payloads. The comparison independently rejects sample request/response
+volumes that omit any of the three chunks or results. Version v1 reports cannot
+substitute for this inventory. No primary case or numeric budget changes.
+
+Eight additional cases combine result streams with both supported ciphers,
+Dart/native clients, representative transports and a CBOR application peer. The
+current 36-codec-combination live correctness proof completes with 72 measured
+operations: 24 encrypted paths, 16 active mixed transcodes and 12 native-crypto
+paths. Independent summation reconciles all disjoint copy components and accepted
+WAMP-volume totals. All source inputs remain unchanged during the proof; the
+candidate is explicitly recorded as dirty, not misidentified as committed HEAD.
+These short observations establish correctness only. Full source-frozen
+verification and the complete Linux supplemental campaign remain required.
+
+The new three-result regression fails on the preceding implementation. All 92
+focused Dart cases and 65 campaign/comparison cases pass after the change;
+analysis reports no issues. Additional rejection tests cover missing/extra
+results, incorrect progress flags, corrupted payloads and unexpected keywords.

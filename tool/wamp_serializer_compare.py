@@ -149,7 +149,7 @@ def _campaign_findings(manifest: dict[str, Any]) -> list[str]:
         if metadata.get("diagnostic_inventory") != extensions.INVENTORY:
             findings.append("extension diagnostics require the declared inventory revision")
         if manifest.get("cases") != extensions.extension_cases():
-            findings.append("extension diagnostics must contain the exact declared 42-case inventory")
+            findings.append("extension diagnostics must contain the exact declared 50-case inventory")
     if kind in ("primary", "extension_diagnostic"):
         for key in ("router_config_sha256", "policy_sha256"):
             if not isinstance(metadata.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", metadata[key]):

@@ -374,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--campaign-timeout-seconds", type=float)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--diagnostic", action="store_true", help="Allow short/subset/dirty-tree runs; never acceptance evidence")
-    parser.add_argument("--extension-diagnostics", action="store_true", help="Declared 42-case supplemental inventory; requires --diagnostic; never primary acceptance")
+    parser.add_argument("--extension-diagnostics", action="store_true", help="Declared 50-case supplemental inventory; requires --diagnostic; never primary acceptance")
     parser.add_argument("--case", action="append", default=[], help="Exact case ID; requires --diagnostic")
     args = parser.parse_args(argv)
     output = args.output.resolve()
