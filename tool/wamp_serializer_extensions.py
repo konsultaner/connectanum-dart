@@ -4,6 +4,7 @@ from typing import Any
 
 INVENTORY = 'flatbuffers_extensions_v2'
 CODECS = ('cbor', 'msgpack', 'flatbuffers')
+SHARDS = ('protocol', 'payload_sizes', 'encrypted_progressive_results')
 
 
 def extension_cases() -> list[dict[str, Any]]:
@@ -64,6 +65,16 @@ def workload_fields(case: dict[str, Any], codec: str) -> dict[str, Any]:
     if case.get('peer_serializer_mode') == 'match_envelope':
         fields['peer_serializer'] = codec
     return fields
+
+
+def cases_for_shard(shard: str) -> list[dict[str, Any]]:
+    """Keep every case's codecs/repetitions together; never partition by position."""
+    if not isinstance(shard, str) or shard not in SHARDS:
+        raise ValueError('unknown supplemental case shard')
+    separate = ('payload_sizes', 'encrypted_progressive_results')
+    return [case for case in extension_cases()
+            if (case['group'] not in separate if shard == 'protocol'
+                else case['group'] == shard)]
 
 
 def configuration_findings(report, case, codec, *, label):

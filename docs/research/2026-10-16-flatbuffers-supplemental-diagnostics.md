@@ -160,3 +160,70 @@ The new three-result regression fails on the preceding implementation. All 92
 focused Dart cases and 65 campaign/comparison cases pass after the change;
 analysis reports no issues. Additional rejection tests cover missing/extra
 results, incorrect progress flags, corrupted payloads and unexpected keywords.
+
+## Hosted case batches and complete-report validation
+
+[GitHub documents a six-hour limit for hosted jobs](https://docs.github.com/en/actions/reference/limits)
+(checked 2026-10-16). The superseded single-job run completes 137 unique first-pass
+rows before cancellation, recording 2,117 seconds of actual sample windows.
+Dart AES-GCM progressive cases require 118–123 seconds for 1,000 samples; the
+largest payload case requires 62 seconds. Those observed costs put the full
+1,500-row inventory at risk of the existing 19,800-second campaign deadline.
+The incomplete run is retained as runtime evidence only: its execution remains
+unfinished and its post-cancellation input proof is unavailable.
+
+The workflow therefore partitions cases into three fixed semantic batches,
+without changing inventory v2 or its operations:
+
+| Batch | Cases | Full rows |
+|---|---:|---:|
+| Protocol, control, fan-out, mixed codecs and ordinary encrypted PPT | 30 | 900 |
+| Payload sizes | 12 | 360 |
+| Encrypted progressive results | 8 | 240 |
+
+Every case keeps all three codecs, three warmups and seven paired measurements
+on one controlled Linux runner. Every workload still requires at least ten
+seconds and 1,000 actual samples. Each batch retains the existing stable client
+and server PIDs, teardown, no-overlap, input, configuration, allocation, copy and
+encoded-volume guards. The primary 48-case campaign and every numeric budget
+remain unchanged. Case membership follows canonical identities and group
+semantics, not list positions. The unsharded full CLI remains supported.
+
+`--extension-shard` requires supplemental diagnostic mode and rejects individual
+case selection. A valid batch produces `diagnostic_shard_complete`, never full
+`diagnostic_complete` or primary acceptance. Removing its scope marker makes the
+partial inventory fail the original full-inventory check. Primary campaigns
+reject supplemental scope markers.
+
+`tool/merge_wamp_extension_campaigns.py` re-evaluates each batch's original raw
+reports with the unchanged checked-in policy. It verifies retained policy,
+router configuration, every lockfile, driver/native binary and scenario hashes;
+all batches must share the full source revision, input identity and toolchains.
+It also compares the stored comparison to raw recomputation, checks exact
+original-driver/per-pass equality and counts every case/codec/pass. Missing,
+duplicate, cancelled, incomplete or corrupted evidence cannot complete the
+inventory. CI matrix success is independently required even if all raw reports
+happen to be available.
+
+Results remain per case. Each batch's CPU model, platform, PIDs, artifact name,
+workflow attempt and raw hashes are retained. Absolute costs across different
+runners are explicitly `not_comparable`; no cross-case numeric pooling is done.
+Canonical reordering preserves the original per-case observations and ratios.
+The aggregate can produce full `diagnostic_complete` only for the exhaustive
+inventory, and always retains `primary_acceptance_eligible: false`.
+
+Retries select the newest whole artifact for each named batch within the same
+workflow run. A previously completed atomic batch may be reused when another
+batch is retried. Individual samples from different attempts are never spliced;
+a newer expired or incomplete artifact cannot fall back to an older success.
+All original artifacts remain retained. Explicit attempts and artifact names in
+the aggregate make that provenance visible.
+
+Focused tests use a deliberately small synthetic declaration but the real
+1,000-sample floors, unchanged policy, raw evaluator, hashes and aggregation
+checks. Separate tests require the exact real 50-case / 1,500-row partition.
+Fault injections cover missing/duplicate batches, source/scope changes, input and
+binary corruption, low samples, PID changes, unknown copy boundaries, forged
+conclusions, mismatched driver rows and compensating codec omissions/duplicates.
+These fixtures are never performance evidence. Real complete hosted batches
+remain required after a credible primary candidate is established.

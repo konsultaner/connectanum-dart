@@ -95,6 +95,8 @@ def _campaign_findings(manifest: dict[str, Any]) -> list[str]:
     if metadata.get("working_tree_clean") is not True:
         findings.append("metadata must affirm a clean working tree")
     kind = metadata.get("campaign_kind")
+    if "diagnostic_shard" in metadata and kind != "extension_diagnostic":
+        findings.append("supplemental shard scope requires extension_diagnostic")
     if kind == "diagnostic":
         findings.append("diagnostic campaigns cannot establish primary acceptance")
     elif kind is not None and kind not in ("primary", "extension_diagnostic"):
@@ -148,7 +150,14 @@ def _campaign_findings(manifest: dict[str, Any]) -> list[str]:
     if kind == "extension_diagnostic":
         if metadata.get("diagnostic_inventory") != extensions.INVENTORY:
             findings.append("extension diagnostics require the declared inventory revision")
-        if manifest.get("cases") != extensions.extension_cases():
+        if "diagnostic_shard" in metadata:
+            try:
+                expected_cases = extensions.cases_for_shard(metadata["diagnostic_shard"])
+            except ValueError:
+                expected_cases = None
+            if expected_cases is None or manifest.get("cases") != expected_cases:
+                findings.append("extension shard must contain its exact declared case inventory")
+        elif manifest.get("cases") != extensions.extension_cases():
             findings.append("extension diagnostics must contain the exact declared 50-case inventory")
     if kind in ("primary", "extension_diagnostic"):
         for key in ("router_config_sha256", "policy_sha256"):
@@ -1203,7 +1212,10 @@ def evaluate_campaign(
 
     return {
         "schema_version": 1,
-        "status": ("diagnostic_complete" if supplemental else "passed") if not findings else "failed",
+        "status": (("diagnostic_shard_complete" if "diagnostic_shard" in metadata else "diagnostic_complete")
+                   if supplemental else "passed") if not findings else "failed",
+        **({"diagnostic_shard": metadata["diagnostic_shard"]}
+           if supplemental and "diagnostic_shard" in metadata else {}),
         "primary_acceptance_eligible": isinstance(metadata, dict) and metadata.get("campaign_kind") == "primary",
         "performance_findings": performance_findings,
         "policy": policy,
@@ -1240,6 +1252,9 @@ def render_markdown(result: dict[str, Any]) -> str:
         "Unmeasured dependency internals: " + (", ".join(sorted(dependencies)) or "none reported") + ".",
         "",
     ]
+    if result.get("diagnostic_shard"):
+        lines.extend(["", f"Supplemental batch: `{result['diagnostic_shard']}`. "
+                      "This is not a complete inventory report; all case batches must validate before merging.", ""])
     if result.get("primary_acceptance_eligible") is False and any(c.get("diagnostic_configuration") for c in result["cases"]):
         lines.extend(["", "## Supplemental configurations", "",
                       "| Case | Payload profile | Mode | Transport/TLS | Client | Application bytes | Peers | Peer serializer | PPT serializer/cipher | Fragment bytes |",

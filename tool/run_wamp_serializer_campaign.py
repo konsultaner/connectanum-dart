@@ -154,6 +154,7 @@ def metadata(root: Path, args: argparse.Namespace, scenario_hash: str) -> dict[s
     return {
         "campaign_kind": "extension_diagnostic" if args.extension_diagnostics else "diagnostic" if args.diagnostic else "primary",
         **({"diagnostic_inventory": extensions.INVENTORY} if args.extension_diagnostics else {}),
+        **({"diagnostic_shard": args.extension_shard} if getattr(args, "extension_shard", None) else {}),
         "source_revision": command_output(["git", "rev-parse", "HEAD"], root),
         "working_tree_clean": not command_output(["git", "status", "--porcelain"], root),
         "scenario_sha256": scenario_hash,
@@ -375,6 +376,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--diagnostic", action="store_true", help="Allow short/subset/dirty-tree runs; never acceptance evidence")
     parser.add_argument("--extension-diagnostics", action="store_true", help="Declared 50-case supplemental inventory; requires --diagnostic; never primary acceptance")
+    parser.add_argument("--extension-shard", choices=extensions.SHARDS,
+                        help="One complete supplemental case batch; requires --extension-diagnostics; never full acceptance")
     parser.add_argument("--case", action="append", default=[], help="Exact case ID; requires --diagnostic")
     args = parser.parse_args(argv)
     output = args.output.resolve()
@@ -390,11 +393,15 @@ def main(argv: list[str] | None = None) -> int:
             raise compare.CampaignError("seed must be nonzero and campaign deadline must be positive")
         if args.extension_diagnostics and not args.diagnostic:
             raise compare.CampaignError("extension diagnostics require --diagnostic")
+        if args.extension_shard and (not args.extension_diagnostics or args.case):
+            raise compare.CampaignError("supplemental shards require --extension-diagnostics and cannot select individual cases")
         if args.extension_diagnostics and any(getattr(args, key) != 1 for key in ("concurrency", "in_flight", "router_workers", "native_threads")):
             raise compare.CampaignError("declared extensions require one session/in-flight/router worker/native thread")
         if args.extension_diagnostics and sha256(args.policy) != sha256(POLICY):
             raise compare.CampaignError("extension diagnostics require the unchanged checked-in policy")
         cases = extensions.extension_cases() if args.extension_diagnostics else primary_cases()
+        if args.extension_shard:
+            cases = extensions.cases_for_shard(args.extension_shard)
         if args.case:
             if not args.diagnostic or not set(args.case) <= {case["id"] for case in cases}:
                 raise compare.CampaignError("case selection requires --diagnostic and exact declared case IDs")
@@ -450,6 +457,10 @@ def main(argv: list[str] | None = None) -> int:
             execute(output, manifest, runs, command, ROOT, timeout)
             after = metadata(ROOT, args, scenario_directory_hash(output / "scenarios"))
             keys = ("source_revision", "working_tree_clean", "scenario_sha256", "lockfiles_sha256", "artifacts_sha256", "router_config_sha256", "policy_sha256")
+            if args.extension_diagnostics:
+                keys += ("diagnostic_inventory",)
+            if args.extension_shard:
+                keys += ("diagnostic_shard",)
             manifest["metadata"]["inputs_unchanged"] = all(after[key] == manifest["metadata"][key] for key in keys)
             manifest["metadata"]["system_state_after"] = system_state()
             write_manifest(output, manifest)
@@ -457,7 +468,7 @@ def main(argv: list[str] | None = None) -> int:
             (output / "comparison.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
             (output / "comparison.md").write_text(compare.render_markdown(result))
             print(f"Comparison {result['status']}: {output / 'comparison.md'}")
-            return 0 if result["status"] in ("passed", "diagnostic_complete") else 1
+            return 0 if result["status"] in ("passed", "diagnostic_complete", "diagnostic_shard_complete") else 1
     except (OSError, ValueError, KeyError, subprocess.SubprocessError, KeyboardInterrupt) as error:
         if manifest is not None:
             (output / "comparison-error.txt").write_text(f"Campaign incomplete or invalid: {error}\n")

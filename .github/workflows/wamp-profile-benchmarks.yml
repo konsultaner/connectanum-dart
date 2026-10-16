@@ -90,12 +90,16 @@ jobs:
           if-no-files-found: error
 
   linux-flatbuffers-primary:
-    name: ${{ inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic' }}
+    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic') }}
     if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions')
     runs-on: ubuntu-24.04
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.campaign == 'flatbuffers_extensions' && '["protocol","payload_sizes","encrypted_progressive_results"]' || '["all"]') }}
     concurrency:
-      group: wamp-${{ inputs.campaign == 'flatbuffers_primary' && 'flatbuffers-primary' || 'flatbuffers-diagnostic' }}
+      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}', matrix.shard) || (inputs.campaign == 'flatbuffers_primary' && 'flatbuffers-primary' || 'flatbuffers-diagnostic') }}
       cancel-in-progress: false
 
     steps:
@@ -151,6 +155,7 @@ jobs:
       - name: Run paired rows with the unchanged policy
         env:
           INPUT_CAMPAIGN: ${{ inputs.campaign }}
+          INPUT_EXTENSION_SHARD: ${{ matrix.shard }}
         run: |
           set -euo pipefail
           diagnostic_args=()
@@ -163,7 +168,7 @@ jobs:
             )
           fi
           if [[ "$INPUT_CAMPAIGN" == flatbuffers_extensions ]]; then
-            diagnostic_args=(--diagnostic --extension-diagnostics)
+            diagnostic_args=(--diagnostic --extension-diagnostics --extension-shard "$INPUT_EXTENSION_SHARD")
           fi
           python3 tool/run_wamp_serializer_campaign.py \
             --output out/wamp-flatbuffers-primary/campaign \
@@ -215,8 +220,63 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: wamp-flatbuffers-primary-${{ github.sha }}-${{ github.run_attempt }}
+          name: wamp-flatbuffers-primary-${{ github.sha }}-${{ github.run_attempt }}${{ matrix.shard != 'all' && format('-{0}', matrix.shard) || '' }}
           path: out/wamp-flatbuffers-primary
+          if-no-files-found: error
+          retention-days: 30
+
+  merge-flatbuffers-extensions:
+    name: Complete supplemental FlatBuffers report
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_extensions'
+    needs: linux-flatbuffers-primary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select latest atomic case-batch artifacts from this run
+        id: batches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_REPOSITORY: ${{ github.repository }}
+          INPUT_RUN_ID: ${{ github.run_id }}
+          INPUT_SOURCE: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          gh api --paginate --slurp "repos/$INPUT_REPOSITORY/actions/runs/$INPUT_RUN_ID/artifacts" > out/extension-artifacts.json
+          python3 tool/merge_wamp_extension_campaigns.py select-artifacts \
+            --metadata out/extension-artifacts.json --source "$INPUT_SOURCE" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ steps.batches.outputs.artifact_ids }}
+          path: out/extension-case-batches
+          merge-multiple: false
+      - name: Recompute the complete supplemental inventory
+        env:
+          INPUT_SOURCE: ${{ github.sha }}
+          INPUT_JOBS_RESULT: ${{ needs.linux-flatbuffers-primary.result }}
+        run: |
+          python3 tool/merge_wamp_extension_campaigns.py merge \
+            --root out/extension-case-batches --source "$INPUT_SOURCE" \
+            --jobs-result "$INPUT_JOBS_RESULT" --output out/flatbuffers-extensions
+      - name: Publish complete scope and validation summary
+        if: always()
+        run: |
+          if [[ -f out/flatbuffers-extensions/comparison.md ]]; then
+            cat out/flatbuffers-extensions/comparison.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Supplemental inventory is incomplete. Case-batch artifacts and aggregation logs retain the failure.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wamp-flatbuffers-extensions-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            out/flatbuffers-extensions
+            out/extension-artifacts.json
           if-no-files-found: error
           retention-days: 30
 

@@ -390,6 +390,20 @@ class WampSerializerCompareTest(unittest.TestCase):
         manifest['cases'][-1] = copy.deepcopy(manifest['cases'][0])
         self.assertTrue(any('50-case' in f for f in compare._campaign_findings(manifest)))
 
+    def test_extension_shard_scope_cannot_masquerade_as_complete_inventory(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest['metadata']['campaign_kind'] = 'extension_diagnostic'
+        manifest['metadata']['diagnostic_inventory'] = compare.extensions.INVENTORY
+        manifest['metadata']['diagnostic_shard'] = 'protocol'
+        manifest['cases'] = compare.extensions.cases_for_shard('protocol')
+        self.assertFalse(any('inventory' in finding or 'shard' in finding for finding in compare._campaign_findings(manifest)))
+        del manifest['metadata']['diagnostic_shard']
+        self.assertTrue(any('50-case inventory' in finding for finding in compare._campaign_findings(manifest)))
+        manifest['metadata']['diagnostic_shard'] = 'payload_sizes'
+        self.assertTrue(any('inventory' in finding for finding in compare._campaign_findings(manifest)))
+        manifest['metadata']['campaign_kind'] = 'primary'
+        self.assertTrue(any('shard' in finding for finding in compare._campaign_findings(manifest)))
+
     def test_encoded_volume_is_distinct_from_application_bytes(self):
         result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
         self.assertEqual(result['status'], 'passed', result['findings'])

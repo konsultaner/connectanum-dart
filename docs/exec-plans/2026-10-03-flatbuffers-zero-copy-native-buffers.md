@@ -11,6 +11,26 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Current verification (2026-10-16): source `edf3feda` passes frozen full
+`bin/verify` with all 3,113 inputs unchanged, renewed 120-case accounting and
+36 progressive codec combinations with independent copy/volume recomputation,
+and 180 audited five-platform production consumers with zero skips. Hosted CI
+passes all 38 jobs on that source. Its strict
+90-row Linux diagnostic validates all 180 allocation observations and every RSS
+endpoint. Allocation and GC gates pass for all three construction modes. CPU
+still fails at 1.03886 / 1.03192 / 1.02334; several latency/RSS/throughput gates
+also fail. Actual parity and full campaigns remain blockers; no budget is waived.
+
+The active CI change keeps all 50 supplemental cases / 1,500 rows but distributes
+complete cases over three controlled Linux jobs (30 protocol, 12 size, 8 encrypted
+progressive cases). Recorded two-minute workloads make the six-hour hosted job
+limit a real scheduling risk. Every case retains all codecs, three warmups,
+seven measurements and existing floors/guards. A strict raw-evidence merger
+requires all batches and records per-batch hardware/PIDs/attempts without pooling
+absolute costs. Primary acceptance remains separate. All 78 focused cases, the complete
+`bin/test-tooling` chain and actionlint workflow checks pass. Resulting-source
+full verification, live batch proof and hosted publication remain pending.
+
 Native composition candidate (2026-10-16): frozen `bin/test-fast` passes on
 `7452ab61` with all 3,113 inputs unchanged. That checkpoint also passes renewed
 120-case copy accounting, 36 progressive codec combinations and 180 independently
