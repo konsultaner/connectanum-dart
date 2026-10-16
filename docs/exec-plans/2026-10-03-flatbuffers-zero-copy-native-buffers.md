@@ -34,8 +34,17 @@ rejection. Supplemental costs are reported separately and cannot certify primary
 parity; missing evidence and substituted policies fail. The corrected 42-case
 short run completes 252 rows with stable PIDs and all 3,111 inputs unchanged: 48 encrypted/native-crypto, 28 active transcode, 32
 zero-copy and 252 encoded-volume checks pass. It is correctness evidence only.
-Current-source full verification and hosted checks remain pending. CPU/allocation
-parity and the full primary/supplemental campaigns still block #103 and milestone closure.
+Source `8f6f86f5` now passes frozen full `bin/verify`, including both browser
+compilers, with HEAD and all 3,112 inputs unchanged. Follow-up CI fixes make the
+preparation fixture self-contained and remove unavailable ripgrep from profiling
+setup; corrected hosted Fast Checks pass. The native CPU capture itself succeeds,
+while root-owned perf-file upload and one 0.75-second sampling-window overrun
+require the checked-in ownership step and a 30-second diagnostic operation window.
+The timing guard and all primary benchmark settings remain intact. Intermediate
+full CI runs were retired after their useful checks to free profiling runners;
+full hosted acceptance remains required on the final performance candidate.
+CPU/allocation parity and the full primary/supplemental campaigns still block
+#103 and milestone closure.
 See [supplemental diagnostic plan](../research/2026-10-16-flatbuffers-supplemental-diagnostics.md).
 
 Encoded-volume CI repair (2026-10-16): source `1b751b72` passes all 120

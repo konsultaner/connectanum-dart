@@ -59,7 +59,7 @@ Future<void> main(List<String> args) async {
         await entry.value.setFlag('profiler', 'true');
       }
       if (pids.values.toSet().length != 2) throw StateError('Client/router profiling PIDs must differ');
-      final pending = run(codec, 15000, 'profiled');
+      final pending = run(codec, 30000, 'profiled');
       pending.ignore();
       await Future<void>.delayed(const Duration(seconds: 3));
       final starts = <String, int>{};

@@ -113,3 +113,23 @@ copy-evidence cases. Static analysis has only the existing informational lints;
 all 154 equivalent-mutation proofs validate. The final local profiler smoke
 checks that all three sampling intervals fit entirely inside real operation
 windows, native/source hashes remain unchanged, and the process group stops.
+
+## Resulting-source verification and Linux capture setup
+
+Source `8f6f86f5` passes frozen full `bin/verify`, including JavaScript and
+WebAssembly, with all 3,112 inputs unchanged. The only later application-test
+change gives the preparation unit an explicit synthetic metadata root and three
+lockfiles; it no longer depends on an ignored local native/bench/Cargo.lock.
+All 22 campaign/profiler-guard cases and the corrected hosted Fast Checks pass.
+
+Linux setup uses Python executable discovery because the hosted runner does not
+have ripgrep. Perf files are returned to the runner's ownership before upload;
+the first successful capture's upload failed because root-created files were
+unreadable by the artifact action. The renewed upload retains all failed evidence.
+
+The next capture correctly fails its sampling-window guard: collection ends
+0.7507 seconds after the 15-second observed MessagePack operation window. Source,
+library and process-group checks pass, with no interfering jobs. The diagnostic
+operation window is now 30 seconds, retaining the same actual-window check and
+five-second perf capture. This changes no primary or supplemental acceptance
+minimum, repetition or numerical budget. A fresh Linux capture is required.
