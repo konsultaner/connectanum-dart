@@ -3602,6 +3602,57 @@ async fn resolve_deferred_segment(mut frame: OutboundFrame) -> Result<OutboundFr
     Ok(frame)
 }
 
+// Preserve the original Bytes owners through bounded scatter/gather writes.
+// Descriptors stay on the stack; no header or payload buffer is coalesced.
+// Consume the prefix before file/suffix processing so ownership does not span
+// a following potentially long-running file transfer.
+async fn write_rawsocket_buffers<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    header: &[u8],
+    segments: Vec<Bytes>,
+) -> io::Result<()> {
+    if !writer.is_write_vectored() {
+        writer.write_all(header).await?;
+        for segment in segments {
+            if !segment.is_empty() {
+                writer.write_all(&segment).await?;
+            }
+        }
+        return Ok(());
+    }
+    let mut chunks = std::iter::once(header)
+        .chain(segments.iter().map(|segment| segment.as_ref()))
+        .filter(|bytes| !bytes.is_empty());
+    while let Some(first) = chunks.next() {
+        let mut batch: [io::IoSlice<'_>; 16] = std::array::from_fn(|_| io::IoSlice::new(&[]));
+        batch[0] = io::IoSlice::new(first);
+        let mut count = 1;
+        for slot in &mut batch[1..] {
+            let Some(chunk) = chunks.next() else { break };
+            *slot = io::IoSlice::new(chunk);
+            count += 1;
+        }
+        let mut remaining = &mut batch[..count];
+        while !remaining.is_empty() {
+            let written = match writer.write_vectored(remaining).await {
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {
+                    tokio::task::yield_now().await;
+                    continue;
+                }
+                result => result?,
+            };
+            if written == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "failed to write RawSocket frame",
+                ));
+            }
+            io::IoSlice::advance_slices(&mut remaining, written);
+        }
+    }
+    Ok(())
+}
+
 fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
@@ -3615,7 +3666,7 @@ fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
         let upgraded_protocol = max_message_size_exponent > 24;
         let mut file_scratch = Vec::new();
         let mut encoded_file_scratch = Vec::new();
-        'writer: while let Some(frame) = rx.recv().await {
+        while let Some(frame) = rx.recv().await {
             let mut frame = match resolve_deferred_segment(frame).await {
                 Ok(frame) => frame,
                 Err(err) => {
@@ -3650,29 +3701,16 @@ fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
                     }
                 };
 
-            if let Err(err) = writer.write_all(header.as_bytes()).await {
+            if let Err(err) =
+                write_rawsocket_buffers(&mut writer, header.as_bytes(), frame.segments).await
+            {
                 if err.kind() != io::ErrorKind::BrokenPipe {
                     eprintln!(
-                        "connection {:?} failed to write frame header: {}",
+                        "connection {:?} failed to write frame: {}",
                         connection_id, err
                     );
                 }
                 break;
-            }
-
-            for segment in frame.segments {
-                if segment.is_empty() {
-                    continue;
-                }
-                if let Err(err) = writer.write_all(&segment).await {
-                    if err.kind() != io::ErrorKind::BrokenPipe {
-                        eprintln!(
-                            "connection {:?} failed to write frame payload: {}",
-                            connection_id, err
-                        );
-                    }
-                    break 'writer;
-                }
             }
 
             if let Some(segment) = frame.file_segment {
@@ -3702,19 +3740,15 @@ fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
                 }
             }
 
-            for segment in frame.suffix_segments {
-                if segment.is_empty() {
-                    continue;
+            if let Err(err) = write_rawsocket_buffers(&mut writer, &[], frame.suffix_segments).await
+            {
+                if !is_benign_socket_shutdown(err.kind()) {
+                    eprintln!(
+                        "connection {:?} failed to write frame suffix: {}",
+                        connection_id, err
+                    );
                 }
-                if let Err(err) = writer.write_all(&segment).await {
-                    if !is_benign_socket_shutdown(err.kind()) {
-                        eprintln!(
-                            "connection {:?} failed to write frame suffix: {}",
-                            connection_id, err
-                        );
-                    }
-                    break 'writer;
-                }
+                break;
             }
             if let Err(err) = writer.flush().await {
                 if !is_benign_socket_shutdown(err.kind()) {

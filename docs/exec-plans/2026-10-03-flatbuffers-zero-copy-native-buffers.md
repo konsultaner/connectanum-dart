@@ -11,6 +11,17 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Native RawSocket candidate (2026-10-16): `ef9895e9` passes frozen full
+`bin/verify` and all 120 renewed copy/encoded-volume cases, with HEAD and 3,108
+inputs unchanged. Hosted Fast Checks are green; remaining CI is running.
+The preceding native source passes 170 audited five-platform consumers.
+A real-writer fail-first case finds three scalar writes for header/two spans.
+Bounded stack scatter/gather now uses one vectored call and retains the exact
+span addresses. All 54 RawSocket / seven receipt cases and the full 383 core /
+311 FFI Rust library cases and 445 Dart native cases pass. Full verification,
+live ownership proof and Linux timing remain pending. No parity is claimed.
+See [scatter/gather evidence](../research/2026-10-16-native-rawsocket-vectored-writes.md).
+
 Encoded-volume CI repair (2026-10-16): source `1b751b72` passes all 120
 live copy/encoded-volume cases, with 3,108 unchanged inputs and independent
 component recomputation. Its full local verification and hosted Fast Checks

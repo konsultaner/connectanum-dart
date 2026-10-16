@@ -306,3 +306,363 @@ async fn rawsocket_writer_file_truncation_closes_without_suffix_or_next_frame() 
     )));
     assert_eq!(fixture.finish().await, [0, 0, 0, 7, b'[']);
 }
+
+#[derive(Clone, Default)]
+struct RawWriteTrace {
+    wire: Vec<u8>,
+    scalar_calls: usize,
+    vectors: Vec<Vec<(usize, usize)>>,
+}
+
+#[derive(Clone, Default)]
+struct RawRecordingWriter(Arc<Mutex<RawWriteTrace>>);
+
+impl AsyncWrite for RawRecordingWriter {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+        bytes: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let mut trace = self.0.lock().unwrap();
+        trace.scalar_calls += 1;
+        trace.wire.extend_from_slice(bytes);
+        Poll::Ready(Ok(bytes.len()))
+    }
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+        slices: &[io::IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        let mut trace = self.0.lock().unwrap();
+        trace.vectors.push(
+            slices
+                .iter()
+                .map(|b| (b.as_ptr() as usize, b.len()))
+                .collect(),
+        );
+        let mut count = 0;
+        for slice in slices {
+            trace.wire.extend_from_slice(slice);
+            count += slice.len();
+        }
+        Poll::Ready(Ok(count))
+    }
+    fn is_write_vectored(&self) -> bool {
+        true
+    }
+    fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+#[tokio::test]
+async fn rawsocket_actual_writer_batches_header_and_borrowed_segments() {
+    for upgraded in [false, true] {
+        let recorder = RawRecordingWriter::default();
+        let observed = recorder.clone();
+        let (sender, receiver) = mpsc::channel(1);
+        let (closed, mut closes) = mpsc::unbounded_channel();
+        let _task = spawn_connection_writer(
+            tokio::runtime::Handle::current(),
+            ConnectionId(153),
+            recorder,
+            None,
+            if upgraded { 28 } else { 24 },
+            receiver,
+            closed,
+        );
+        let source = Bytes::from(vec![99, 99, b'a', b'b', b'c', b'd', b'e', 99]);
+        let first = source.slice(2..5);
+        let second = source.slice(5..7);
+        let pointers = [
+            (first.as_ptr() as usize, first.len()),
+            (second.as_ptr() as usize, second.len()),
+        ];
+        let (frame, receipt) =
+            OutboundFrame::message_segments(vec![first, Bytes::new(), second]).tracked();
+        sender.try_send(frame).unwrap();
+        assert_eq!(
+            time::timeout(Duration::from_secs(2), receipt.wait())
+                .await
+                .unwrap(),
+            WriteOutcome::Written
+        );
+        drop(sender);
+        assert_eq!(
+            time::timeout(Duration::from_secs(2), closes.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::WriterClosed)
+        );
+        let trace = observed.0.lock().unwrap().clone();
+        assert_eq!(trace.wire, wire(0, b"abcde", upgraded));
+        assert_eq!(
+            trace.vectors.len(),
+            1,
+            "segmented frame used {} scalar writes and {} vectored writes",
+            trace.scalar_calls,
+            trace.vectors.len()
+        );
+        assert_eq!(trace.scalar_calls, 0);
+        assert_eq!(trace.vectors[0][0].1, if upgraded { 5 } else { 4 });
+        assert_eq!(trace.vectors[0][1..], pointers);
+    }
+}
+
+#[cfg(test)]
+mod vectored_buffer_regressions {
+    use super::super::*;
+    use std::{
+        pin::Pin,
+        task::{Context, Poll},
+    };
+    struct Writer {
+        wire: Vec<u8>,
+        vectors: Vec<Vec<(usize, usize)>>,
+        scalars: usize,
+        vectored: bool,
+        limit: usize,
+        pending: bool,
+        interrupted: bool,
+        stop: Option<(usize, io::ErrorKind)>,
+    }
+    impl Writer {
+        fn new(vectored: bool, limit: usize) -> Self {
+            Self {
+                wire: vec![],
+                vectors: vec![],
+                scalars: 0,
+                vectored,
+                limit,
+                pending: false,
+                interrupted: false,
+                stop: None,
+            }
+        }
+        fn accept(
+            &mut self,
+            cx: &Context<'_>,
+            slices: &[io::IoSlice<'_>],
+        ) -> Poll<io::Result<usize>> {
+            if self.pending {
+                self.pending = false;
+                cx.waker().wake_by_ref();
+                return Poll::Pending;
+            }
+            if self.interrupted {
+                self.interrupted = false;
+                return Poll::Ready(Err(io::ErrorKind::Interrupted.into()));
+            }
+            let mut budget = self.limit;
+            if let Some((after, kind)) = self.stop {
+                if self.wire.len() >= after {
+                    return Poll::Ready(if kind == io::ErrorKind::WriteZero {
+                        Ok(0)
+                    } else {
+                        Err(kind.into())
+                    });
+                }
+                budget = budget.min(after - self.wire.len());
+            }
+            let mut accepted = 0;
+            for bytes in slices {
+                let n = bytes.len().min(budget);
+                self.wire.extend_from_slice(&bytes[..n]);
+                accepted += n;
+                budget -= n;
+                if budget == 0 {
+                    break;
+                }
+            }
+            Poll::Ready(Ok(accepted))
+        }
+    }
+    impl AsyncWrite for Writer {
+        fn poll_write(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            bytes: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            self.scalars += 1;
+            self.accept(cx, &[io::IoSlice::new(bytes)])
+        }
+        fn poll_write_vectored(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            bytes: &[io::IoSlice<'_>],
+        ) -> Poll<io::Result<usize>> {
+            self.vectors.push(
+                bytes
+                    .iter()
+                    .map(|b| (b.as_ptr() as usize, b.len()))
+                    .collect(),
+            );
+            self.accept(cx, bytes)
+        }
+        fn is_write_vectored(&self) -> bool {
+            self.vectored
+        }
+        fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+        fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+    #[tokio::test]
+    async fn partial_vectored_and_scalar_writes_match_independent_wire_for_all_batch_edges() {
+        for n in [0, 1, 14, 15, 16, 17, 31, 32, 33, 64] {
+            for limit in [1, 2, 3, 7, 31, usize::MAX] {
+                for vectored in [false, true] {
+                    let header = [0, 1, 2, 3, 4];
+                    let segments: Vec<_> = (0..n)
+                        .flat_map(|i| {
+                            [
+                                Bytes::new(),
+                                Bytes::from(vec![i as u8; i % 13 + 2]).slice(1..),
+                                Bytes::new(),
+                            ]
+                        })
+                        .collect();
+                    let expected: Vec<_> = header
+                        .iter()
+                        .chain(segments.iter().flat_map(|b| b.iter()))
+                        .copied()
+                        .collect();
+                    let mut writer = Writer::new(vectored, limit);
+                    writer.pending = true;
+                    writer.interrupted = vectored;
+                    write_rawsocket_buffers(&mut writer, &header, segments.to_vec())
+                        .await
+                        .unwrap();
+                    assert_eq!(
+                        writer.wire, expected,
+                        "n={n} limit={limit} vectored={vectored}"
+                    );
+                    if vectored {
+                        assert_eq!(writer.scalars, 0);
+                        assert!(writer
+                            .vectors
+                            .iter()
+                            .all(|v| v.len() <= 16 && v.iter().all(|x| x.1 > 0)));
+                    } else {
+                        assert!(writer.vectors.is_empty());
+                    }
+                }
+            }
+        }
+    }
+    #[tokio::test]
+    async fn vectored_boundary_borrows_original_pointer_and_writes_once() {
+        let header = [0, 0, 0, 5];
+        let base = Bytes::from(vec![99, 99, 1, 2, 3, 4, 5, 99]);
+        let a = base.slice(2..5);
+        let b = base.slice(5..7);
+        let mut writer = Writer::new(true, usize::MAX);
+        write_rawsocket_buffers(
+            &mut writer,
+            &header,
+            vec![a.clone(), Bytes::new(), b.clone()],
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            writer.vectors,
+            vec![vec![
+                (header.as_ptr() as usize, 4),
+                (a.as_ptr() as usize, 3),
+                (b.as_ptr() as usize, 2)
+            ]]
+        );
+        assert_eq!(writer.scalars, 0);
+        assert_eq!(writer.wire, [0, 0, 0, 5, 1, 2, 3, 4, 5]);
+    }
+    #[tokio::test]
+    async fn write_zero_and_error_retain_only_the_exact_written_prefix() {
+        let header = [1, 2, 3, 4];
+        let segments = [Bytes::from_static(b"abc"), Bytes::from_static(b"defghi")];
+        let expected: Vec<_> = header.iter().chain(b"abcdefghi").copied().collect();
+        for vectored in [false, true] {
+            for after in 0..expected.len() {
+                for kind in [io::ErrorKind::WriteZero, io::ErrorKind::BrokenPipe] {
+                    let mut writer = Writer::new(vectored, 2);
+                    writer.stop = Some((after, kind));
+                    assert_eq!(
+                        write_rawsocket_buffers(&mut writer, &header, segments.to_vec())
+                            .await
+                            .unwrap_err()
+                            .kind(),
+                        kind
+                    );
+                    assert_eq!(writer.wire, expected[..after]);
+                }
+            }
+        }
+    }
+    #[tokio::test]
+    async fn complete_batches_use_the_minimum_bounded_number_of_calls() {
+        for n in [0usize, 1, 14, 15, 16, 17, 30, 31, 32, 33, 64, 1025] {
+            let parts = vec![Bytes::from_static(b"a"); n];
+            let mut writer = Writer::new(true, usize::MAX);
+            write_rawsocket_buffers(&mut writer, b"HEAD", parts)
+                .await
+                .unwrap();
+            assert_eq!(writer.vectors.len(), (n + 1).div_ceil(16));
+            assert_eq!(writer.wire.len(), 4 + n);
+        }
+    }
+
+    #[tokio::test]
+    async fn repeated_interrupts_yield_and_cancellation_releases_the_owner() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        struct Owner {
+            bytes: Box<[u8]>,
+            dropped: Arc<AtomicUsize>,
+        }
+        impl AsRef<[u8]> for Owner {
+            fn as_ref(&self) -> &[u8] {
+                &self.bytes
+            }
+        }
+        impl Drop for Owner {
+            fn drop(&mut self) {
+                self.dropped.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        let dropped = Arc::new(AtomicUsize::new(0));
+        let body = Bytes::from_owner(Owner {
+            bytes: Box::new([1, 2, 3, 4]),
+            dropped: dropped.clone(),
+        });
+        let task = tokio::spawn(async move {
+            let mut writer = Writer::new(true, usize::MAX);
+            writer.stop = Some((0, io::ErrorKind::Interrupted));
+            write_rawsocket_buffers(&mut writer, b"HEAD", vec![body]).await
+        });
+        tokio::task::yield_now().await;
+        tokio::task::yield_now().await;
+        assert!(!task.is_finished());
+        assert_eq!(dropped.load(Ordering::SeqCst), 0);
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert_eq!(dropped.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn no_header_or_payload_means_no_write_call() {
+        for vectored in [false, true] {
+            let mut writer = Writer::new(vectored, usize::MAX);
+            write_rawsocket_buffers(&mut writer, &[], vec![Bytes::new(), Bytes::new()])
+                .await
+                .unwrap();
+            assert_eq!(writer.scalars, 0);
+            assert!(writer.vectors.is_empty());
+        }
+    }
+}
