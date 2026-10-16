@@ -78,7 +78,9 @@ class MergeEvidenceTest(unittest.TestCase):
         for name in merger.LOCKFILES:
             path = inputs / name
             path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(repo / name, path)
+            # Unit evidence must not depend on ignored, locally generated locks.
+            # Production verification still hashes every retained real lockfile.
+            path.write_text(f'# synthetic test evidence for {name}\n')
             locks[name] = merger.campaign.sha256(path)
         shutil.copyfile(merger.campaign.POLICY, inputs / 'policy.json')
         (inputs / 'router_config.json').write_text('{"synthetic":true}\n')

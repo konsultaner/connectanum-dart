@@ -227,3 +227,20 @@ binary corruption, low samples, PID changes, unknown copy boundaries, forged
 conclusions, mismatched driver rows and compensating codec omissions/duplicates.
 These fixtures are never performance evidence. Real complete hosted batches
 remain required after a credible primary candidate is established.
+
+
+### Live batching and clean-checkout fixture proof
+
+Source `8b92306c` passes all 300 short rows across 30/12/8 complete case batches.
+All 3,115 source inputs and the production library remain unchanged; per-batch
+client/server PIDs remain distinct and stable. Independent checks reconcile all
+300 encoded-volume observations, 96 E2EE paths, 60 active transcodes, 72 native
+crypto paths and 32 zero-avoidable-payload-copy rows. These deliberately short
+50ms/two-sample, one-warmup/one-measurement macOS runs are correctness evidence.
+Every child is rejected by the unchanged strict acceptance policy.
+
+Fresh hosted Fast Checks exposed a synthetic unit fixture reading ignored local
+Cargo lockfiles. A fresh archive reproduces the missing-file exception. Creating
+explicit synthetic test locks removes that ambient dependency; all ten merger
+cases then pass in the same archive without generated lockfiles. Actual campaign
+lockfile retention, hashing and rejection tests remain unchanged.

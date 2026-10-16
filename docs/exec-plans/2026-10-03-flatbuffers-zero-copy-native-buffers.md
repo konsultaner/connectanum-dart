@@ -31,6 +31,20 @@ absolute costs. Primary acceptance remains separate. All 78 focused cases, the c
 `bin/test-tooling` chain and actionlint workflow checks pass. Resulting-source
 full verification, live batch proof and hosted publication remain pending.
 
+Live batching proof on `8b92306c` completes all 50 cases / 300 short rows,
+with stable processes in each batch and all 3,115 inputs unchanged. Independent
+checks reconcile 96 E2EE, 60 active transcode, 72 native-crypto and 300 encoded
+WAMP-volume observations; all 32 eligible rows retain zero avoidable payload
+copies. The strict policy rejects these short runs as required. A local Dart-values
+CPU profile passes source/library/window audits; native CPU and interference
+observation remain unmeasured on macOS. Neither result establishes parity.
+
+Hosted Fast Checks on `8b92306c` reproduces a synthetic merger fixture depending
+on an ignored Cargo lockfile. A clean-archive regression confirms the failure;
+synthetic fixture locks now replace local files, and all ten merger tests pass
+in a clean archive with no generated locks. Production hash verification is
+unchanged. Resulting-source CI and full local verification remain required.
+
 Native composition candidate (2026-10-16): frozen `bin/test-fast` passes on
 `7452ab61` with all 3,113 inputs unchanged. That checkpoint also passes renewed
 120-case copy accounting, 36 progressive codec combinations and 180 independently
