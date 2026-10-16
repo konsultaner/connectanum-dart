@@ -1348,6 +1348,23 @@ class NativeClientRuntime {
     }
   }
 
+  /// Independent serialized-volume carriers alongside the unchanged codec map.
+  /// Older libraries remain usable, without advertising absent observations.
+  Map<String, int>? boundaryCodecCopyMetricsSnapshot() {
+    final copies = codecCopyMetricsSnapshot();
+    if (copies == null) return null;
+    return {
+      ...copies,
+      if (_bindings.ctEncodedWampBytesAccepted != null &&
+          _bindings.ctEncodedWampSendRejections != null) ...{
+        'encoded_wamp_volume_version': 1,
+        'encoded_wamp_bytes_accepted': _bindings.ctEncodedWampBytesAccepted!(),
+        'encoded_wamp_send_rejections':
+            _bindings.ctEncodedWampSendRejections!(),
+      },
+    };
+  }
+
   /// Cumulative explicit native codec buffer operations, or unavailable.
   Map<String, int>? codecCopyMetricsSnapshot() {
     final snapshot = _bindings.ctCodecCopyMetricsSnapshot;

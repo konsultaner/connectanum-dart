@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
 import 'package:connectanum_core/connectanum_core.dart' hide Invocation;
 import 'package:connectanum_core/src/serializer/json/serializer.dart'
@@ -448,6 +449,8 @@ void main() {
         transport.receive().listen((_) {});
         await transport.onReady;
 
+        OwnedCopyMetrics.enable();
+        final volumeBefore = OwnedCopyMetrics.boundarySnapshot()!;
         transport.send(Hello('bench.realm', Details.forHello()));
         await frameCompleter.future;
 
@@ -459,6 +462,16 @@ void main() {
           transport.headerLength,
         );
         expect(payloadLength, frame.length - transport.headerLength);
+        final volumeAfter = OwnedCopyMetrics.boundarySnapshot()!;
+        expect(
+          volumeAfter['encoded_wamp_bytes_accepted']! -
+              volumeBefore['encoded_wamp_bytes_accepted']!,
+          payloadLength,
+        );
+        expect(
+          volumeAfter['encoded_wamp_send_rejections'],
+          volumeBefore['encoded_wamp_send_rejections'],
+        );
 
         await transport.close();
         await server.close();
@@ -690,6 +703,8 @@ void main() {
         List<int>.generate(256 * 1024, (index) => index & 0xff),
       );
 
+      OwnedCopyMetrics.enable();
+      final volumeBefore = OwnedCopyMetrics.boundarySnapshot()!;
       transport.send(
         Call(11, 'bench.rpc.echo', arguments: <dynamic>[payload]),
       );
@@ -700,6 +715,16 @@ void main() {
       expect(rawFrame.first, SocketHelper.messageWamp);
       final encodedLength = SocketHelper.getPayloadLength(rawFrame, 4);
       expect(rawFrame, hasLength(4 + encodedLength));
+      final volumeAfter = OwnedCopyMetrics.boundarySnapshot()!;
+      expect(
+        volumeAfter['encoded_wamp_bytes_accepted']! -
+            volumeBefore['encoded_wamp_bytes_accepted']!,
+        encodedLength,
+      );
+      expect(
+        volumeAfter['encoded_wamp_send_rejections'],
+        volumeBefore['encoded_wamp_send_rejections'],
+      );
       final call =
           serializer.deserialize(
                 Uint8List.sublistView(rawFrame, 4, rawFrame.length),

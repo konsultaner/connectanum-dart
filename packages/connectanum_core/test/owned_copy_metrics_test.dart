@@ -43,10 +43,83 @@ void main() {
 
   setUpAll(() {
     expect(OwnedCopyMetrics.snapshot(), isNull);
+    expect(OwnedCopyMetrics.boundarySnapshot(), isNull);
+    OwnedCopyMetrics.recordEncodedWampSubmission(Object());
+    OwnedCopyMetrics.recordEncodedWampSubmissionLength(-1);
+    OwnedCopyMetrics.recordRejectedWampSubmission();
+    expect(OwnedCopyMetrics.boundarySnapshot(), isNull);
     expect(OwnedCopyMetrics.copyBytes([1, 2]), [1, 2]);
     expect(OwnedCopyMetrics.snapshot(), isNull);
     OwnedCopyMetrics.enable();
   });
+
+  test(
+    'encoded volume counts every UTF-16 scalar and malformed surrogate as UTF-8',
+    () {
+      final before = OwnedCopyMetrics.boundarySnapshot()!;
+      final copies = OwnedCopyMetrics.snapshot();
+      var expected = 0;
+      for (var unit = 0; unit <= 0xffff; unit++) {
+        final text = String.fromCharCodes([unit]);
+        expected += utf8.encode(text).length;
+        OwnedCopyMetrics.recordEncodedWampSubmission(text);
+      }
+      for (final low in [0xdc00, 0xddff, 0xdfff]) {
+        for (final high in [0xd800, 0xd9ff, 0xdbff]) {
+          for (final units in [
+            [65, high, low, 0x7ff, 0x800],
+            [high, high, low, low, 65],
+            [low, high],
+          ]) {
+            final text = String.fromCharCodes(units);
+            expected += utf8.encode(text).length;
+            OwnedCopyMetrics.recordEncodedWampSubmission(text);
+          }
+        }
+      }
+      OwnedCopyMetrics.withoutRecording(() {
+        OwnedCopyMetrics.recordEncodedWampSubmission(
+          Uint8List(17).asUnmodifiableView(),
+        );
+        OwnedCopyMetrics.recordEncodedWampSubmissionLength(23);
+        OwnedCopyMetrics.recordEncodedWampSubmission('');
+        OwnedCopyMetrics.recordEncodedWampSubmission(<int>[]);
+      });
+      final after = OwnedCopyMetrics.boundarySnapshot()!;
+      expect(after['encoded_wamp_volume_version'], 1);
+      expect(
+        after['encoded_wamp_bytes_accepted']! -
+            before['encoded_wamp_bytes_accepted']!,
+        expected + 40,
+      );
+      expect(OwnedCopyMetrics.snapshot(), copies);
+    },
+  );
+
+  test(
+    'submission rejections and malformed lengths never invent accepted bytes',
+    () {
+      final before = OwnedCopyMetrics.boundarySnapshot()!;
+      expect(
+        () => OwnedCopyMetrics.recordEncodedWampSubmissionLength(-1),
+        throwsArgumentError,
+      );
+      expect(
+        () => OwnedCopyMetrics.recordEncodedWampSubmission(Object()),
+        throwsArgumentError,
+      );
+      OwnedCopyMetrics.recordRejectedWampSubmission();
+      final after = OwnedCopyMetrics.boundarySnapshot()!;
+      expect(
+        after['encoded_wamp_bytes_accepted'],
+        before['encoded_wamp_bytes_accepted'],
+      );
+      expect(
+        after['encoded_wamp_send_rejections'],
+        before['encoded_wamp_send_rejections']! + 1,
+      );
+    },
+  );
 
   test('clone records exact logical bytes and keeps independent storage', () {
     final input = Uint8List.fromList([1, 2, 3]);

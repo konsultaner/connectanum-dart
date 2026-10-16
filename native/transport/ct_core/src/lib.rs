@@ -2757,26 +2757,34 @@ impl ListenerRegistry {
         connection_id: ConnectionId,
         frame: OutboundFrame,
     ) -> Result<(), Error> {
-        let connections = self
-            .connections
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        let entry = connections
-            .get(&connection_id)
-            .ok_or(Error::ConnectionNotFound(connection_id))?;
-        match &entry.record {
-            ConnectionRecord::RawSocket { send_tx, .. }
-            | ConnectionRecord::WebSocket { send_tx, .. }
-                if cfg!(any(unix, windows)) =>
-            {
-                match send_tx.try_send(frame) {
-                    Ok(()) => Ok(()),
-                    Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
-                    Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
+        let frame_type = frame.frame_type;
+        let payload_len = frame.payload_len;
+        let result = (|| {
+            let connections = self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            let entry = connections
+                .get(&connection_id)
+                .ok_or(Error::ConnectionNotFound(connection_id))?;
+            match &entry.record {
+                ConnectionRecord::RawSocket { send_tx, .. }
+                | ConnectionRecord::WebSocket { send_tx, .. }
+                    if cfg!(any(unix, windows)) =>
+                {
+                    match send_tx.try_send(frame) {
+                        Ok(()) => Ok(()),
+                        Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
+                        Err(TrySendError::Closed(_)) => {
+                            Err(Error::ConnectionNotFound(connection_id))
+                        }
+                    }
                 }
+                _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
             }
-            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
-        }
+        })();
+        observe_encoded_wamp_submission(frame_type, payload_len, result.is_ok());
+        result
     }
 
     fn enqueue_file_frame(
@@ -2784,26 +2792,32 @@ impl ListenerRegistry {
         connection_id: ConnectionId,
         frame: OutboundFrame,
     ) -> Result<(), Error> {
-        let connections = self
-            .connections
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        let entry = connections
-            .get(&connection_id)
-            .ok_or(Error::ConnectionNotFound(connection_id))?;
-        match &entry.record {
-            ConnectionRecord::RawSocket {
-                supports_file_segments: true,
-                send_tx,
-                ..
+        let frame_type = frame.frame_type;
+        let payload_len = frame.payload_len;
+        let result = (|| {
+            let connections = self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            let entry = connections
+                .get(&connection_id)
+                .ok_or(Error::ConnectionNotFound(connection_id))?;
+            match &entry.record {
+                ConnectionRecord::RawSocket {
+                    supports_file_segments: true,
+                    send_tx,
+                    ..
+                }
+                | ConnectionRecord::WebSocket { send_tx, .. } => match send_tx.try_send(frame) {
+                    Ok(()) => Ok(()),
+                    Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
+                    Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
+                },
+                _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
             }
-            | ConnectionRecord::WebSocket { send_tx, .. } => match send_tx.try_send(frame) {
-                Ok(()) => Ok(()),
-                Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
-                Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
-            },
-            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
-        }
+        })();
+        observe_encoded_wamp_submission(frame_type, payload_len, result.is_ok());
+        result
     }
 
     fn take_websocket_handshake(
@@ -3298,6 +3312,30 @@ impl FileSegmentEncoding {
                 .checked_add(2)
                 .map(|value| value / 3)
                 .and_then(|groups| groups.checked_mul(4)),
+        }
+    }
+}
+
+static ENCODED_WAMP_ACCEPTED_BYTES: AtomicU64 = AtomicU64::new(0);
+static ENCODED_WAMP_REJECTED_SUBMISSIONS: AtomicU64 = AtomicU64::new(0);
+
+/// Process-wide serialized message volume at the RawSocket/WebSocket send queue.
+/// Headers, protocol controls, barriers and TLS records are excluded. Deferred
+/// and file messages contribute their validated advertised encoded payload size.
+pub fn encoded_wamp_accepted_bytes() -> u64 {
+    ENCODED_WAMP_ACCEPTED_BYTES.load(Ordering::Relaxed)
+}
+
+pub fn encoded_wamp_rejected_submissions() -> u64 {
+    ENCODED_WAMP_REJECTED_SUBMISSIONS.load(Ordering::Relaxed)
+}
+
+fn observe_encoded_wamp_submission(frame_type: u8, payload_len: usize, accepted: bool) {
+    if frame_type == 0 {
+        if accepted {
+            ENCODED_WAMP_ACCEPTED_BYTES.fetch_add(payload_len as u64, Ordering::Relaxed);
+        } else {
+            ENCODED_WAMP_REJECTED_SUBMISSIONS.fetch_add(1, Ordering::Relaxed);
         }
     }
 }
@@ -9149,7 +9187,7 @@ mod tests {
         let _ = frame_tx;
 
         let (send_tx, send_rx) = mpsc::channel(1);
-        let _send_rx = send_rx;
+        let mut send_rx = send_rx;
 
         send_tx
             .try_send(OutboundFrame::message(Bytes::from_static(b"one")))
@@ -9203,6 +9241,8 @@ mod tests {
             },
         );
 
+        let accepted_before = encoded_wamp_accepted_bytes();
+        let rejected_before = encoded_wamp_rejected_submissions();
         let prepared = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let prepared_by_closure = Arc::clone(&prepared);
         let deferred = OutboundFrame::message_deferred_segment(Bytes::new(), 3, move || {
@@ -9215,6 +9255,76 @@ mod tests {
             other => panic!("expected SendQueueFull, got {other:?}"),
         }
         assert!(!prepared.load(Ordering::SeqCst));
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before);
+        assert_eq!(encoded_wamp_rejected_submissions(), rejected_before + 1);
+        send_rx.try_recv().unwrap();
+        registry
+            .enqueue_frame(
+                connection_id,
+                OutboundFrame::control(1, Bytes::from_static(b"ping")),
+            )
+            .unwrap();
+        send_rx.try_recv().unwrap();
+        registry
+            .enqueue_frame(connection_id, OutboundFrame::barrier())
+            .unwrap();
+        send_rx.try_recv().unwrap();
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before);
+        let segments = vec![
+            Bytes::from_static(b"abc"),
+            Bytes::new(),
+            Bytes::from_static(b"defgh"),
+        ];
+        registry
+            .enqueue_frame(connection_id, OutboundFrame::message_segments(segments))
+            .unwrap();
+        send_rx.try_recv().unwrap();
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before + 8);
+        assert!(matches!(
+            registry.enqueue_file_frame(
+                connection_id,
+                OutboundFrame::message(Bytes::from_static(b"bad"))
+            ),
+            Err(Error::UnsupportedProtocol(..))
+        ));
+        {
+            let mut entries = registry.connections.lock().unwrap();
+            if let ConnectionRecord::RawSocket {
+                supports_file_segments,
+                ..
+            } = &mut entries.get_mut(&connection_id).unwrap().record
+            {
+                *supports_file_segments = true;
+            } else {
+                panic!("expected RawSocket");
+            }
+        }
+        let deferred = OutboundFrame::message_deferred_segment_with_suffix(
+            Bytes::from_static(b"ab"),
+            3,
+            Bytes::from_static(b"cd"),
+            || panic!("acceptance must not execute deferred work"),
+        )
+        .unwrap();
+        registry
+            .enqueue_file_frame(connection_id, deferred)
+            .unwrap();
+        send_rx.try_recv().unwrap();
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before + 15);
+        assert!(matches!(
+            registry.enqueue_frame(ConnectionId(999), OutboundFrame::message(Bytes::new())),
+            Err(Error::ConnectionNotFound(..))
+        ));
+        drop(send_rx);
+        assert!(matches!(
+            registry.enqueue_frame(
+                connection_id,
+                OutboundFrame::message(Bytes::from_static(b"closed"))
+            ),
+            Err(Error::ConnectionNotFound(..))
+        ));
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before + 15);
+        assert_eq!(encoded_wamp_rejected_submissions(), rejected_before + 4);
     }
 
     #[test]

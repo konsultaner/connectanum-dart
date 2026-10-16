@@ -1,3 +1,4 @@
+import 'encoded_wamp_volume.dart';
 // Benchmark-only observations of the core's byte-buffer boundaries.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
@@ -151,6 +152,12 @@ Map<String, Object?> mergeOwnedPipelineCopyMetrics(
   final dart = _map(input['dart_owned_buffer_copy_breakdown']);
   final codec = _map(input['native_codec_copy_breakdown']);
   final raw = _map(input['raw_frame_copy_breakdown']);
+  result['encoded_wamp_volume'] = mergeEncodedWampVolumes({
+    'client_dart': _map(dart?['client'])?['encoded_wamp_volume'],
+    'router_dart': _map(dart?['router'])?['encoded_wamp_volume'],
+    'client_native': _map(codec?['client'])?['encoded_wamp_volume'],
+    'router_native': _map(codec?['router'])?['encoded_wamp_volume'],
+  });
   observe('client_dart', () => _dartComponent(dart?['client'], 'client.dart'));
   observe('router_dart', () => _routerDart(dart?['router']));
   observe(

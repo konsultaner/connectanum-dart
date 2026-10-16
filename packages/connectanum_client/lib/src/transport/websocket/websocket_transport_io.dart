@@ -4,6 +4,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/json_serializer.dart' as serializer_json;
 import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
@@ -231,6 +233,15 @@ class WebSocketTransport extends AbstractTransport {
   }
 
   void _sendMessage(AbstractMessage message) {
+    try {
+      _submitMessage(message);
+    } on Object {
+      OwnedCopyMetrics.recordRejectedWampSubmission();
+      rethrow;
+    }
+  }
+
+  void _submitMessage(AbstractMessage message) {
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null && fragments.isNotEmpty) {
       // dart:io accepts only complete WebSocket messages, not frame segments.
@@ -253,19 +264,23 @@ class WebSocketTransport extends AbstractTransport {
       } else {
         _socket!.add(serializedMessage);
       }
+      OwnedCopyMetrics.recordEncodedWampSubmission(serializedMessage);
       return;
     }
     _sendSerializedMessage(message);
   }
 
   void _sendSerializedMessage(AbstractMessage message) {
+    final Object serializedMessage =
+        _serializerType == WebSocketSerialization.serializationJson
+        ? utf8.encoder.convert(_serializer.serialize(message))
+        : _serializer.serialize(message);
     if (_serializerType == WebSocketSerialization.serializationJson) {
-      _socket!.addUtf8Text(
-        utf8.encoder.convert(_serializer.serialize(message)),
-      );
+      _socket!.addUtf8Text(serializedMessage as List<int>);
     } else {
-      _socket!.add(_serializer.serialize(message));
+      _socket!.add(serializedMessage);
     }
+    OwnedCopyMetrics.recordEncodedWampSubmission(serializedMessage);
   }
 
   /// This method return a [Stream] that streams all incoming messages as unserialized

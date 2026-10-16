@@ -5,6 +5,8 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
@@ -631,6 +633,15 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
   }
 
   void _sendMessage(AbstractMessage message) {
+    try {
+      _submitMessage(message);
+    } on Object {
+      OwnedCopyMetrics.recordRejectedWampSubmission();
+      rethrow;
+    }
+  }
+
+  void _submitMessage(AbstractMessage message) {
     final fragments = _handshakeCompleter.isCompleted
         ? _serializer.serializeFragments(message)
         : null;
@@ -653,9 +664,11 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
             _send0(fragment, anchor: message);
           }
         }
+        OwnedCopyMetrics.recordEncodedWampSubmissionLength(payloadLength);
         return;
       }
       _send0(_buildWampFrameFragments(fragments, payloadLength));
+      OwnedCopyMetrics.recordEncodedWampSubmissionLength(payloadLength);
       return;
     }
     var serializedMessage = _serializer.serialize(message);
@@ -719,6 +732,7 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     } else {
       _send0(_buildWampFrame(serializedMessage as List<int>));
     }
+    OwnedCopyMetrics.recordEncodedWampSubmission(serializedMessage);
   }
 
   void _send0(List<int> data, {Object? anchor}) {

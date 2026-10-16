@@ -79,6 +79,16 @@ class WampSerializerCompareTest(unittest.TestCase):
             },
             "copy_metrics": {
                 "measurement_scope": compare.COPY_MEASUREMENT_SCOPE,
+                "encoded_wamp_volume": {
+                    "status": "measured",
+                    "measurement_scope": compare.ENCODED_WAMP_VOLUME_SCOPE,
+                    "accepted_bytes": 4000,
+                    "known_accepted_bytes": 4000,
+                    "components": {"client_dart": 1000, "router_dart": 0,
+                                   "client_native": 0, "router_native": 3000},
+                    "unknown_boundaries": [], "rejected_submissions": 0,
+                    "excludes": ["RawSocket/WebSocket framing", "TLS records", "network packet headers"],
+                },
                 "optimized_payload_copy_bytes": 0 if codec == "flatbuffers" else 512,
                 "builder_input_copy_bytes": 0,
                 "builder_growth_copy_bytes": 0,
@@ -296,6 +306,40 @@ class WampSerializerCompareTest(unittest.TestCase):
             "warmup_runs": warmups,
             "measured_runs": measured,
         }
+
+    def test_encoded_volume_is_distinct_from_application_bytes(self):
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        self.assertEqual(result['status'], 'passed', result['findings'])
+        evidence = result['cases'][0]['evidence']['flatbuffers'][0]
+        self.assertNotIn('wire_bytes', evidence)
+        self.assertEqual(evidence['encoded_wamp_volume']['accepted_bytes'], 4000)
+        self.assertNotEqual(sum(evidence['application_bytes'].values()), 4000)
+
+    def test_encoded_volume_rejects_incomplete_or_forged_observations(self):
+        valid = self._report('test', 'flatbuffers', 1)['copy_metrics']['encoded_wamp_volume']
+        mutations = [
+            lambda x: x.pop('components'),
+            lambda x: x['components'].pop('client_dart'),
+            lambda x: x['components'].update(client_dart=True),
+            lambda x: x['components'].update(client_dart=1.0),
+            lambda x: x['components'].update(client_dart=-1),
+            lambda x: x['components'].update(client_dart=9007199254740992),
+            lambda x: x.update(accepted_bytes=4000.0),
+            lambda x: x.update(accepted_bytes=3999),
+            lambda x: x.update(known_accepted_bytes=3999),
+            lambda x: x.update(rejected_submissions=0.0),
+            lambda x: x.update(rejected_submissions=1),
+            lambda x: x.update(unknown_boundaries=['missing worker']),
+            lambda x: x.update(excludes=[]),
+            lambda x: x.update(measurement_scope='logical_application_bytes'),
+        ]
+        for mutate in mutations:
+            with self.subTest(mutation=mutate):
+                bad = copy.deepcopy(valid)
+                mutate(bad)
+                self.assertTrue(compare._encoded_wamp_volume_findings(bad, 'test'))
+        for missing in [None, [], {}, {'status': 'not_measured'}]:
+            self.assertTrue(compare._encoded_wamp_volume_findings(missing, 'test'))
 
     def test_accepts_paired_parity_and_zero_copy_evidence(self) -> None:
         result = compare.evaluate_campaign(self.manifest, self.root, self.policy)

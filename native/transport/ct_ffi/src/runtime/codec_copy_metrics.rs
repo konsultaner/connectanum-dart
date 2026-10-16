@@ -42,6 +42,17 @@ pub extern "C" fn ct_codec_copy_metrics_snapshot(out: *mut CtCodecCopyMetricsInf
     }
     SUCCESS
 }
+/// Additive scalar observations: no extension of the six-u64 copy ABI.
+#[no_mangle]
+pub extern "C" fn ct_wamp_encoded_bytes_accepted_total_v1() -> u64 {
+    ct_core::encoded_wamp_accepted_bytes()
+}
+
+#[no_mangle]
+pub extern "C" fn ct_wamp_encoded_send_rejections_total_v1() -> u64 {
+    ct_core::encoded_wamp_rejected_submissions()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

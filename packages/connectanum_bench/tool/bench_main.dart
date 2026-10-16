@@ -736,7 +736,7 @@ class _BenchControlRegistry {
       final ownedCopiesBefore = await binding.collectOwnedBufferCopies();
       final codecBefore = binding.runtime is NativeTransportRuntime
           ? (binding.runtime as NativeTransportRuntime)
-                .codecCopyMetricsSnapshot()
+                .boundaryCodecCopyMetricsSnapshot()
           : null;
       final rawFrameMetricsBefore = _routerRawFrameCopyMetrics(binding.runtime);
       final routerCopyMetricsBefore = _routerTransportCopyMetrics(
@@ -801,7 +801,7 @@ class _BenchControlRegistry {
           codecBefore,
           binding.runtime is NativeTransportRuntime
               ? (binding.runtime as NativeTransportRuntime)
-                    .codecCopyMetricsSnapshot()
+                    .boundaryCodecCopyMetricsSnapshot()
               : null,
         ),
       };

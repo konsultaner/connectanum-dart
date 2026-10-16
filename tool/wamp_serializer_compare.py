@@ -551,6 +551,7 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
         return missing + [f"{label}: missing copy_metrics"]
     if copy_metrics.get("measurement_scope") != COPY_MEASUREMENT_SCOPE:
         missing.append(f"{label}: missing or unsupported copy measurement scope")
+    missing.extend(_encoded_wamp_volume_findings(copy_metrics.get("encoded_wamp_volume"), label))
     config = report.get("wamp_configuration")
     config = config if isinstance(config, dict) else {}
     if not isinstance(config.get("secure_transport"), bool):
@@ -670,6 +671,40 @@ def _validate_evidence(report: dict[str, Any], *, label: str) -> list[str]:
     if mixed and isinstance(transcode_copy_bytes, (int, float)) and not isinstance(transcode_copy_bytes, bool):
         missing.extend(_owned_pipeline_findings(report, 'transcode', label=label))
     return missing
+
+
+ENCODED_WAMP_VOLUME_SCOPE = 'accepted_wamp_message_bytes_v1'
+ENCODED_WAMP_VOLUME_COMPONENTS = {
+    'client_dart', 'router_dart', 'client_native', 'router_native',
+}
+
+
+def _encoded_wamp_volume_findings(value: Any, label: str) -> list[str]:
+    prefix = f'{label}: encoded WAMP volume'
+    if not isinstance(value, dict) or value.get('status') != 'measured':
+        return [f'{prefix} is unavailable']
+    errors = []
+    if value.get('measurement_scope') != ENCODED_WAMP_VOLUME_SCOPE:
+        errors.append(f'{prefix} has an unsupported scope')
+    components = value.get('components')
+    if (not isinstance(components, dict) or
+            set(components) != ENCODED_WAMP_VOLUME_COMPONENTS or
+            any(type(v) is not int or not 0 <= v <= 9007199254740991
+                for v in components.values())):
+        errors.append(f'{prefix} has missing or invalid components')
+    elif (type(value.get('accepted_bytes')) is not int or
+            not 0 < value['accepted_bytes'] <= 9007199254740991 or
+            sum(components.values()) != value['accepted_bytes'] or
+            type(value.get('known_accepted_bytes')) is not int or
+            value['known_accepted_bytes'] != value['accepted_bytes']):
+        errors.append(f'{prefix} total disagrees with its components')
+    if value.get('unknown_boundaries') != []:
+        errors.append(f'{prefix} has unknown boundaries')
+    if type(value.get('rejected_submissions')) is not int or value['rejected_submissions'] != 0:
+        errors.append(f'{prefix} includes rejected submissions')
+    if value.get('excludes') != ['RawSocket/WebSocket framing', 'TLS records', 'network packet headers']:
+        errors.append(f'{prefix} must retain its transport exclusions')
+    return errors
 
 
 def _configuration_findings(report: dict[str, Any], case: dict[str, Any], codec: str,
@@ -1010,10 +1045,11 @@ def evaluate_campaign(
                         "repetition": index + 1,
                         "data_window_elapsed_ms": summary["data_window_elapsed_ms"],
                         "sample_count": int(summary["sample_count"]),
-                        "wire_bytes": {
+                        "application_bytes": {
                             "request": int(summary["request_bytes_total"]),
                             "response": int(summary["response_bytes_total"]),
                         },
+                        "encoded_wamp_volume": report["copy_metrics"].get("encoded_wamp_volume") if isinstance(report.get("copy_metrics"), dict) else None,
                         "latency_ms": {
                             "p50": summary["latency_p50_ms"],
                             "p95": summary["latency_p95_ms"],

@@ -6,6 +6,26 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Encoded-volume follow-up (2026-10-16): the `f2dc00f0` checkpoint passes frozen
+full `bin/verify`, with HEAD and all 3,105 inputs unchanged, all 120 audited live
+copy cases and 170 five-platform native consumers. Its 90-row Linux diagnostic
+still fails CPU (1.094–1.118) and native-buffer allocation (1.05324), among other
+gates. All 180 allocation observations validate; two warmup lifetime RSS
+endpoints remain unavailable and are retained explicitly. Measured endpoints
+are valid. The quiet CPU profile also retains all 3,105 inputs unchanged.
+
+The active change repairs `wire_bytes`, which actually contained application
+bytes, and adds separate actual serialized WAMP message-volume accounting at
+Dart/native send acceptance. No volume counter enters a copy total; optional
+native symbols preserve the existing 48-byte ABI. All budgets and inventories
+stay unchanged. Focused checks pass: 825 ownership/volume cases, 37 comparison
+cases, 85 VM transport cases, 122 native ABI/provider/runtime cases, both browser
+compilers and the older-native-library fallback. All 154 mutation proofs validate.
+Resulting-source full verification and live encoded-volume proof remain pending.
+Extension diagnostics and credible primary parity remain required; no issue,
+milestone or release is closed.
+See [encoded-volume evidence](research/2026-10-16-encoded-wamp-volume.md).
+
 Current candidate (2026-10-16): a pinned, licensed SDK-derived VM builder
 bulk-copies typed byte vectors through the standard Builder API. Web retains the
 SDK backend after a read-only alias regression. Bool staging is eliminated and

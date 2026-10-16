@@ -460,6 +460,8 @@ typedef CtRawFrameCopyMetricsSnapshotNative =
 typedef CtRawFrameCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtRawFrameCopyMetricsInfo>);
 
+typedef CtEncodedWampVolumeNative = ffi.Uint64 Function();
+typedef CtEncodedWampVolumeDart = int Function();
 typedef CtCodecCopyMetricsVersionNative = ffi.Uint32 Function();
 typedef CtCodecCopyMetricsVersionDart = int Function();
 typedef CtCodecCopyMetricsSnapshotNative =
@@ -1630,6 +1632,18 @@ class CtFfiBindings {
               CtCodecCopyMetricsVersionDart
             >('ct_codec_copy_metrics_coverage_version'),
       ),
+      ctEncodedWampBytesAccepted = _tryLookup(
+        () => library
+            .lookupFunction<CtEncodedWampVolumeNative, CtEncodedWampVolumeDart>(
+              'ct_wamp_encoded_bytes_accepted_total_v1',
+            ),
+      ),
+      ctEncodedWampSendRejections = _tryLookup(
+        () => library
+            .lookupFunction<CtEncodedWampVolumeNative, CtEncodedWampVolumeDart>(
+              'ct_wamp_encoded_send_rejections_total_v1',
+            ),
+      ),
       ctCodecCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1811,6 +1825,8 @@ class CtFfiBindings {
   final CtRawFrameCopyMetricsSnapshotDart? ctRawFrameCopyMetricsSnapshot;
   final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsVersion;
   final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsCoverageVersion;
+  final CtEncodedWampVolumeDart? ctEncodedWampBytesAccepted;
+  final CtEncodedWampVolumeDart? ctEncodedWampSendRejections;
   final CtCodecCopyMetricsSnapshotDart? ctCodecCopyMetricsSnapshot;
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;

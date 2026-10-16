@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:connectanum_bench/src/encoded_wamp_volume.dart';
 import 'package:connectanum_bench/src/codec_copy_metrics.dart';
 import 'package:connectanum_bench/src/owned_copy_metrics.dart';
 import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
@@ -9,6 +10,55 @@ import 'package:connectanum_bench/src/owned_pipeline_copy_metrics.dart';
 import 'support/owned_copy_fixtures.dart';
 
 void main() {
+  test(
+    'encoded message volume is independent of E2EE and transcode copy totals',
+    () {
+      final scenario = ownedCopyScenario();
+      final input = ownedCopyFixture(scenario);
+      final before = mergeOwnedPipelineCopyMetrics(input, scenario: scenario);
+      final boundaries = [
+        ['dart_owned_buffer_copy_breakdown', 'client'],
+        ['dart_owned_buffer_copy_breakdown', 'router'],
+        ['native_codec_copy_breakdown', 'client'],
+        ['native_codec_copy_breakdown', 'router'],
+      ];
+      for (var i = 0; i < boundaries.length; i++) {
+        copyMetricMapAt(input, boundaries[i])['encoded_wamp_volume'] = {
+          'status': 'measured',
+          'measurement_scope': encodedWampVolumeScope,
+          'accepted_bytes': (i + 1) * 11,
+          'rejected_submissions': 0,
+        };
+      }
+      final measured = mergeOwnedPipelineCopyMetrics(input, scenario: scenario);
+      final volume = measured['encoded_wamp_volume'] as Map;
+      expect(volume['status'], 'measured');
+      expect(volume['accepted_bytes'], 110);
+      expect(volume['components'], {
+        'client_dart': 11,
+        'router_dart': 22,
+        'client_native': 33,
+        'router_native': 44,
+      });
+      for (final field in ['e2ee_copy_bytes', 'transcode_copy_bytes']) {
+        expect(measured[field], before[field]);
+      }
+      copyMetricMapAt(input, boundaries.last).remove('encoded_wamp_volume');
+      final incomplete = mergeOwnedPipelineCopyMetrics(
+        input,
+        scenario: scenario,
+      );
+      expect(
+        (incomplete['encoded_wamp_volume'] as Map)['status'],
+        'not_measured',
+      );
+      expect(
+        incomplete['transcode_copy_bytes'],
+        before['transcode_copy_bytes'],
+      );
+    },
+  );
+
   test(
     'Dart transport retains supporting native codec/hash copy observations',
     () {
