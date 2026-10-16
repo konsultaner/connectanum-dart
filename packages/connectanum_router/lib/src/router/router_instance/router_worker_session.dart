@@ -2218,15 +2218,18 @@ Future<bool> _sendInternalInvocationResult({
                 pptCipher == null &&
                 pptKeyId == null &&
                 (details == null || details.isEmpty)) ||
-            (retainedNativeMessage?.supportsPlaintextPptHandoff == true &&
-                _matchesPlaintextPptHeaders(
+            (_matchesPlaintextPptHeaders(
                   retainedNativeMessage?.pptHeaders,
                   pptScheme: pptScheme,
                   pptSerializer: pptSerializer,
                   pptCipher: pptCipher,
                   pptKeyId: pptKeyId,
                   details: details,
-                )))) {
+                ) &&
+                retainedNativeMessage?.canBorrowPlaintextPptPayload(
+                      retainedNativeHandle,
+                    ) ==
+                    true))) {
       bossPort.send({
         'type': 'worker_forward_native_internal_result',
         'connectionId': callerConnectionId,

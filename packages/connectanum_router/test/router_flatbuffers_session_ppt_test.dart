@@ -299,9 +299,8 @@ void main() {
   final supportsPptHandoff =
       library != null &&
       CtFfiBindings(
-            ffi.DynamicLibrary.open(library),
-          ).ctInternalPptHandoffVersion?.call() ==
-          1;
+        ffi.DynamicLibrary.open(library),
+      ).supportsPlaintextPptHandoff;
   for (final serializer in ['flatbuffers', 'cbor', 'msgpack']) {
     for (final scenario in [
       'unchanged',

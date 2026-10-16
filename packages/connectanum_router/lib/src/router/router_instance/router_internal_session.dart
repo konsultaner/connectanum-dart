@@ -1176,8 +1176,7 @@ Object? _buildTransferredNativeCallPayload({
   final argumentsKeywordsBytes = message.debugEncodedArgumentsKeywordsBytes;
   final opaque = message.transparentBinaryPayload;
   if (hasPpt) {
-    if (!incomingMessage.supportsPlaintextPptHandoff ||
-        incomingMessage.pptHeaders != headers ||
+    if (incomingMessage.pptHeaders != headers ||
         !_matchesPlaintextPptHeaders(
           headers,
           pptScheme: headers.scheme,
@@ -1186,7 +1185,8 @@ Object? _buildTransferredNativeCallPayload({
           pptKeyId: headers.keyId,
         ) ||
         argumentsKeywordsBytes != null ||
-        message.wireArgumentsKeywords != null) {
+        message.wireArgumentsKeywords != null ||
+        !incomingMessage.canBorrowPlaintextPptPayload(retainedHandle)) {
       return null;
     }
     if (opaque != null) {

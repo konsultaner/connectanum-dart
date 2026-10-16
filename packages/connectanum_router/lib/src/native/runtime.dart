@@ -1633,12 +1633,12 @@ class NativeIncomingMessage {
     int Function(int handle)? takeOverride,
     int Function(int handle)? retainOverride,
     void Function(int handle)? releaseOverride,
-    bool? supportsPlaintextPptHandoff,
+    bool? testPlaintextPptHandoff,
   }) : _bindings = bindings,
        _takeOverride = takeOverride,
        _retainOverride = retainOverride,
        _releaseOverride = releaseOverride,
-       _supportsPlaintextPptHandoff = supportsPlaintextPptHandoff,
+       _testPlaintextPptHandoff = testPlaintextPptHandoff,
        pptHeaders = _nativeCallPptHeaders(message),
        transparentPayloadBytes = message is AbstractMessageWithPayload
            ? message.transparentBinaryPayload
@@ -1671,6 +1671,7 @@ class NativeIncomingMessage {
     return instance;
   }
 
+  @visibleForTesting
   factory NativeIncomingMessage.test({
     required NativeMessageSerializer serializer,
     required AbstractMessage message,
@@ -1693,7 +1694,7 @@ class NativeIncomingMessage {
       argumentsKeywordsAddress: argumentsKeywordsBytes == null ? 0 : 1,
       handle: handle,
       bindings: null,
-      supportsPlaintextPptHandoff: supportsPlaintextPptHandoff,
+      testPlaintextPptHandoff: supportsPlaintextPptHandoff,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
       takeOverride: onTake ?? (handle > 0 ? (_) => handle : null),
@@ -1718,14 +1719,27 @@ class NativeIncomingMessage {
   final int Function(int handle)? _retainOverride;
   final void Function(int handle)? _releaseOverride;
 
-  final bool? _supportsPlaintextPptHandoff;
+  // Fake messages have no native binding; only the test factory supplies this.
+  final bool? _testPlaintextPptHandoff;
   final NativeCallPptHeaders? pptHeaders;
   final Uint8List? transparentPayloadBytes;
 
   /// Older libraries must use the ordinary, copying PPT handoff.
   bool get supportsPlaintextPptHandoff =>
-      _supportsPlaintextPptHandoff ??
-      (_bindings?.supportsPlaintextPptHandoff ?? false);
+      _bindings?.supportsPlaintextPptHandoff ??
+      _testPlaintextPptHandoff ??
+      false;
+
+  /// Checks the original native contract, including fields whose explicit null
+  /// presence cannot be represented by the Dart PPT options model. The held
+  /// alias remains valid independently of this incoming routing reference.
+  bool canBorrowPlaintextPptPayload(int retainedHandle) {
+    if (retainedHandle <= 0) return false;
+    final bindings = _bindings;
+    if (bindings == null) return _testPlaintextPptHandoff ?? false;
+    return bindings.supportsPlaintextPptHandoff &&
+        bindings.ctInternalPptHandoffEligibleV1!(retainedHandle) == 1;
+  }
 
   bool get hasNativeHandle => handle > 0;
 

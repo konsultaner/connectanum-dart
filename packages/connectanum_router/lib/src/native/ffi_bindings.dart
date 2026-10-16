@@ -453,6 +453,9 @@ typedef CtTokioRustlsCopyMetricsSnapshotNative =
 typedef CtTokioRustlsCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<ffi.Uint64>);
 
+typedef CtInternalPptHandoffEligibleNative = ffi.Int32 Function(ffi.Int64);
+typedef CtInternalPptHandoffEligibleDart = int Function(int);
+
 typedef CtInternalPptHandoffVersionNative = ffi.Uint32 Function();
 typedef CtInternalPptHandoffVersionDart = int Function();
 
@@ -1251,6 +1254,13 @@ class CtFfiBindings {
                   );
               return (int a0) => call(checkedLegacyMessageHandle(a0));
             })(),
+      ctInternalPptHandoffEligibleV1 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtInternalPptHandoffEligibleNative,
+              CtInternalPptHandoffEligibleDart
+            >('ct_internal_ppt_handoff_eligible_v1_wide'),
+      ),
       ctInternalPptHandoffVersion = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1783,9 +1793,12 @@ class CtFfiBindings {
   final CtMessagePeekDart ctMessagePeek;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
+  final CtInternalPptHandoffEligibleDart? ctInternalPptHandoffEligibleV1;
   final CtInternalPptHandoffVersionDart? ctInternalPptHandoffVersion;
   late final bool supportsPlaintextPptHandoff =
-      ctInternalPptHandoffVersion?.call() == 1;
+      messageHandleAbi == NativeMessageHandleAbi.wide &&
+      ctInternalPptHandoffEligibleV1 != null &&
+      ctInternalPptHandoffVersion?.call() == 2;
   final CtMessageCanForwardToV1Dart? ctMessageCanForwardToV1;
   final CtMessageCanForwardToV1Dart? ctMessageCanForwardToConnectionV1;
   final CtForwardPublishEventDart ctForwardPublishEvent;

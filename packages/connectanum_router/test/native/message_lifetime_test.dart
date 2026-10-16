@@ -46,6 +46,74 @@ void main() {
     );
   }, skip: path == null ? 'Native library unavailable' : null);
 
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.messagePack,
+  ]) {
+    for (final nullableField in [
+      null,
+      'ppt_serializer',
+      'ppt_cipher',
+      'ppt_keyid',
+    ]) {
+      test(
+        'internal PPT eligibility checks original ${serializer.name} $nullableField',
+        () {
+          final runtime = NativeTransportRuntime(libraryPath: path)..start();
+          addTearDown(() {
+            runtime.shutdown();
+            runtime.dispose();
+          });
+          final wire = <Object?>[
+            48,
+            123,
+            <String, Object?>{
+              'ppt_scheme': 'x_echo',
+              'ppt_serializer': 'cbor',
+              ?nullableField: null,
+            },
+            'com.example.ppt',
+            <Object?>[
+              Uint8List.fromList([0x81, 1]),
+            ],
+          ];
+          final frame = serializer == NativeMessageSerializer.cbor
+              ? Uint8List.fromList(cbor.cbor.encode(cbor.CborValue(wire)))
+              : msgpack.serialize(wire);
+          final handle = runtime.enqueueTestMessage(
+            connectionId: 9719,
+            serializer: serializer,
+            frame: frame,
+          );
+          final incoming = NativeMessageHandleDecoder(
+            libraryPath: path,
+          ).materialize(handle);
+          expect(incoming.supportsPlaintextPptHandoff, isTrue);
+          final options = (incoming.message as Call).options!;
+          if (nullableField == 'ppt_serializer') {
+            expect(options.pptSerializer, isNull);
+          }
+          expect(options.pptCipher, isNull);
+          expect(options.pptKeyId, isNull);
+          final held = incoming.retainHandle();
+          expect(held, greaterThan(0));
+          incoming.dispose();
+          try {
+            expect(
+              incoming.canBorrowPlaintextPptPayload(held),
+              nullableField == null,
+            );
+            expect(incoming.canBorrowPlaintextPptPayload(0), isFalse);
+          } finally {
+            incoming.releaseRetainedHandle(held);
+          }
+          expect(incoming.canBorrowPlaintextPptPayload(held), isFalse);
+        },
+        skip: path == null ? 'Native library unavailable' : false,
+      );
+    }
+  }
+
   for (final throws in [false, true]) {
     test('metadata copy holds a temporary owner and releases it '
         '${throws ? 'on callback failure' : 'on return'}', () {

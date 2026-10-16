@@ -11,6 +11,29 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Current native eligibility repair (2026-10-16): marker-only PPT borrowing can
+lose the scheme when raw null PPT fields become indistinguishable from absence
+in typed Dart options. Rust and real anonymous/ticket CBOR wire reproducers fail
+before the repair. Capability version 2 now requires a positive per-message
+native query on the held alias at lending and forwarding; ambiguous metadata
+uses the existing copying path. Older marker-only bindings reject version 2 as
+well. All 69 lifetime tests (eight new native binding cases), 110 worker tests,
+22 native predicate combinations plus invalid/non-CALL/released aliases and the
+two production consumers pass. Five native-library variants and older Dart
+bindings have live compatibility coverage. See the checked native eligibility
+research. Final resulting-source full/hosted verification is still required.
+
+The preceding `4738c452` source passes frozen full `bin/verify` with all 3,118
+inputs unchanged, all 190 production consumers across five platforms, 300 short
+supplemental rows, 120 accounting cases and 36 progressive combinations. The
+copy-boundary comparison across nine payload-size cases removes the three large
+router copies for all binary codecs; it does not establish speed improvement.
+The strict Linux diagnostic validates 90 rows, 180 allocation observations and
+all RSS endpoints, but fails parity: CPU ratios 1.0290 / 1.0086 / 0.9974, with
+additional latency/allocation/GC/RSS failures. All gates remain unchanged. Its
+hosted CI is still completing without a known failure. No milestone closure or
+performance acceptance is claimed for that preceding, marker-only source.
+
 Current internal PPT candidate (2026-10-16): a fail-first regression observes
 an argument-byte array crossing the internal CALL handoff for unchanged plaintext
 PPT. The candidate allows retained native handoff for exact original body identity
