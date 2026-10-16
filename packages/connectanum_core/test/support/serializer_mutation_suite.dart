@@ -23,6 +23,8 @@ import '../serializer/flatbuffers_frame_test.dart' as flatbuffers_frame;
 import '../serializer/flatbuffers_fragments_test.dart' as flatbuffers_fragments;
 import '../serializer/flatbuffers_message_reader_test.dart'
     as flatbuffers_message_reader;
+import '../serializer/flatbuffers_metadata_encoding_test.dart'
+    as flatbuffers_metadata_encoding;
 import '../serializer/flatbuffers_metadata_roundtrip_test.dart'
     as flatbuffers_metadata_roundtrip;
 import '../serializer/flatbuffers_metadata_access_test.dart'
@@ -73,6 +75,7 @@ void main() {
   group('FlatBuffers frame', flatbuffers_frame.main);
   group('flatbuffers fragments', flatbuffers_fragments.main);
   group('FlatBuffers message reader', flatbuffers_message_reader.main);
+  group('FlatBuffers metadata encoding', flatbuffers_metadata_encoding.main);
   group('FlatBuffers metadata roundtrip', flatbuffers_metadata_roundtrip.main);
   group('FlatBuffers metadata access', flatbuffers_metadata_access.main);
   group('FlatBuffers session profile', flatbuffers_session_profile.main);

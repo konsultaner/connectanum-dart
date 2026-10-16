@@ -6,6 +6,24 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
+Verification/measurement repair (2026-10-16): `188d33cd` passes all
+120 renewed HTTP copy cases with all 3,097 inputs unchanged. Its local diagnostic
+still fails: throughput 0.9827 / 1.0156 / 0.9838; allocation
+0.9758 / 1.0884 / 0.9853. Every observation remains retained. Frozen full
+verification fails five inventory assertions because the new metadata encoding
+test was absent from four serializer mutation support lists and their shared
+wrapper. The test is now added everywhere, preserving every prior source/test
+and floor; all 87 verification-script checks and 154 mutation proofs pass.
+Resulting-source full verification remains required.
+
+The preceding `249e0c8a` Linux 90-row/10-second diagnostic completes with full
+resource observations but fails all CPU gates (1.30–1.41), several resource and
+latency gates, stale child max-RSS versus later live-RSS checks, and one sample
+window just below 10 seconds. No gate is loosened. Current-head Linux diagnostic
+is running. Obsolete full campaigns are cancelled with artifacts retained;
+a fresh primary must follow measurement repairs and credible diagnostic parity.
+The next work repairs RSS/time boundary capture, then profiles actual CPU cost.
+
 Latest performance candidate (2026-10-16): source `249e0c8a` passes the
 renewed 120-case copy matrix with 3,097 inputs unchanged. The short diagnostic
 improves native-buffer throughput to 1.0170 and p95/p99 to 0.9625 / 0.9927,
