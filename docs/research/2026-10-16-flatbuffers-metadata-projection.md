@@ -212,3 +212,34 @@ Dispositions are retained in `retained-wire-compose-review-dispositions.json`.
 RSS classification correction: the diagnostic has 27 warmup rows, not nine.
 Missing lifetime readings at rows 3 and 13 are both warmup. All measured lifetime
 and sampled readings are present; the original failing numeric gates are unchanged.
+
+
+## Bound small leading RawSocket fragments
+
+A local stock-SDK Dart-values profile on `8b92306c` passes source, library and
+operation-window audits. FlatBuffers client attribution includes 66/1,708 samples
+in `_send0`, compared with 35/1,652 MessagePack samples. These are CPU samples,
+not call counts or comparable per-operation costs; macOS native sampling and
+interference detection remain unmeasured. A separate fail-first controlled-socket
+regression demonstrates three CBOR/MessagePack submissions and four FlatBuffers
+submissions for a large opaque body, instead of a prefix plus body.
+
+The candidate batches only a leading run of fragments up to 1,024 bytes each,
+with a total prefix cap of 4,096 bytes including the actual negotiated four- or
+five-byte RawSocket header. It never splits a fragment at the cap. The independent
+prefix adds small, explicitly measured header/coalescing copies; every remaining
+fragment keeps the existing `_send0` ownership anchor and bounded native-view
+behavior. Large payload buffers remain borrowed. The optimization applies to all
+fragment-capable serializers and changes no benchmark validation or gate.
+
+All 93 socket cases pass, including 14 prefix boundary/error cases. They verify
+wire equality, exact copy counts, retained body/subview pointers, original buffer
+contents, prefix independence after source mutation, whole-fragment cap handling,
+empty fragments, both header formats and copy totals after forced socket failure.
+The Linux libc-pointer probe retains body-pointer, backpressure and EINTR checks;
+its expected counters now reflect performed prefix/header copies rather than the
+previous separate metadata input copy. Hosted execution remains required. A first
+extra error-fixture compile attempt used a name inherited by Socket; renaming the
+fixture field resolves it. Local review claims of cap overflow and missed copies
+on socket failure are contradicted by the guarded increment and copy-before-send
+ordering, with explicit passing regressions. Macro parity remains unestablished.

@@ -11,6 +11,18 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+RawSocket prefix candidate (2026-10-16): frozen `bin/test-fast` passes on
+`2524d89b` with all 3,115 inputs unchanged. A focused fail-first regression proves
+large FlatBuffers/CBOR/MessagePack frames submit their small fragments separately.
+The candidate copies a bounded leading prefix (at most 4 KiB including the actual
+four/five-byte header), records every performed header/coalescing copy and retains
+all remaining fragments with their owner anchors. All 93 socket tests pass,
+including exact wire bytes, full and bounded native bodies, cap boundaries,
+independent prefix storage and failed-submission accounting. Review claims were
+checked against source and these regressions. No benchmark verification, policy
+or native transport changes. Resulting-source full verification, Linux pointer
+probes, renewed live accounting and strict parity remain required.
+
 Current verification (2026-10-16): source `edf3feda` passes frozen full
 `bin/verify` with all 3,113 inputs unchanged, renewed 120-case accounting and
 36 progressive codec combinations with independent copy/volume recomputation,
