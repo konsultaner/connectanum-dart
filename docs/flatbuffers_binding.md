@@ -581,6 +581,26 @@ the separate INVOCATION single-binary-argument API; consumers must check the fla
 before choosing a selector. An absent or empty export has no owner, consistently
 with the existing byte-view ABI; flag 8 distinguishes present-empty from absent.
 
+The optional `ct_internal_ppt_handoff_version()` returns 1 when retained CALL
+payload views and result-from-CALL forwarding preserve an opaque PPT body and
+its `ppt_scheme`, `ppt_serializer`, `ppt_cipher` and `ppt_keyid` fields. Dart
+caches the capability per library binding; missing or unknown versions use the
+ordinary copying internal handoff. No C structure layout or remote negotiation
+changes. The optimization applies to CBOR, MessagePack and FlatBuffers.
+
+An internal plaintext reply may reuse the CALL loan only when its actual wire
+body is the original byte object and its PPT headers match an immutable snapshot
+of the received CALL. An opaque FlatBuffers body may be returned as the same
+single binary PPT argument. Replaced bodies, altered or removed headers, custom
+result details, active progressive replies, encryption and the reserved `wamp`
+scheme retain the ordinary path. A final unchanged reply after progress may
+reuse the loan. CALL-only options are not copied to RESULT details. Worker and
+callee each validate the contract; only primitive handle metadata crosses the
+isolate boundary. Independently owned read-only body views may outlive the
+routing handle, internal session and runtime; they never acquire ownership of
+foreign database memory. The boss releases a transferred loan on success or
+failure; cancellation follows the existing retained-CALL cleanup contract.
+
 Both Dart materializers and the payload-only CALL reader preserve opaque bytes
 separately from encoded CBOR args/kwargs. The session wrapper and final model
 reject contradictory presence metadata. Native receive views are read-only,

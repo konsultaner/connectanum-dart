@@ -11,6 +11,32 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
+Current internal PPT candidate (2026-10-16): a fail-first regression observes
+an argument-byte array crossing the internal CALL handoff for unchanged plaintext
+PPT. The candidate allows retained native handoff for exact original body identity
+and immutable original PPT headers, with a cached optional native version marker.
+Missing/unknown markers, changed/removed input or reply headers, replacements,
+custom details, active progress, encryption and reserved `wamp` payloads fall back.
+Both removed-header guards have independent fail-first/restoration proofs. All
+110 worker tests, 18 new-library live cases, 18 old-library fallback cases and the
+two production consumers (empty/3/65,536-byte opaque internal bodies, anonymous
+and ticket) pass. Final unchanged replies after progress may reuse their loan.
+Copied-but-equal reply bytes also fall back. The local companion review found
+and prompted the stripped-input-header guard; a final bounded GLM judgment finds
+no guard blocker. Baseline `bin/test-fast` passes. Live accounting and timing for
+this candidate are still pending.
+
+Baseline verification correction: hosted `895ff3d9` CI is now fully green, as are
+its five native artifact platforms. Local `ce897f98` full verification hit native
+receive-worker exits while a separate `bin/test-fast` overlapped the full suite.
+That failed attempt is retained with all 3,118 inputs unchanged; no cause or pass
+is claimed before a serial rerun. The three profiler-path assertions are fixed.
+The `4b840309` strict Linux diagnostic completes 90 rows/180 valid allocation
+observations but fails CPU parity at 1.0250 / 1.0131 / 1.0129 plus other gates.
+Three lifetime-RSS observations (one warmup, two measured) remain unavailable;
+reading final fields together does not remove that historical-peak contradiction.
+All unavailable evidence still blocks acceptance. No gate or budget is changed.
+
 Verified prefix checkpoint (2026-10-16): source `792cd99d` passes full frozen
 `bin/verify` with all 3,115 inputs unchanged, all 38 hosted CI jobs and 180 audited
 production consumers across five platforms, with zero skips and independently
@@ -41,7 +67,7 @@ passes with all 3,116 inputs unchanged. All 190 production consumers across
 five platforms pass with zero skips and independently matched library/archive/
 manifest/log hashes. macOS Intel first failed SDK download DNS resolution;
 its unchanged-source retry passes, with the original failure retained. Hosted
-CI completion is still being checked. The strict `c15f2185` Linux diagnostic completes all 90 rows and
+CI passes all 38 jobs. The strict `c15f2185` Linux diagnostic completes all 90 rows and
 validates 180 allocation observations, but CPU ratios 1.0867 / 1.0254 / 1.0216
 and other throughput/latency/GC/RSS gates fail. One lifetime-RSS observation is
 explicitly unavailable. No performance acceptance or milestone closure is claimed.

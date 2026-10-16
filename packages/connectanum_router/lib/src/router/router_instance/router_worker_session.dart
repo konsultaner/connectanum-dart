@@ -2212,11 +2212,21 @@ Future<bool> _sendInternalInvocationResult({
     if (retainedNativeHandle > 0 &&
         receivedNativeHandle == retainedNativeHandle &&
         !progress &&
-        pptScheme == null &&
-        pptSerializer == null &&
-        pptCipher == null &&
-        pptKeyId == null &&
-        (details == null || details.isEmpty)) {
+        ((retainedNativeMessage?.pptHeaders == null &&
+                pptScheme == null &&
+                pptSerializer == null &&
+                pptCipher == null &&
+                pptKeyId == null &&
+                (details == null || details.isEmpty)) ||
+            (retainedNativeMessage?.supportsPlaintextPptHandoff == true &&
+                _matchesPlaintextPptHeaders(
+                  retainedNativeMessage?.pptHeaders,
+                  pptScheme: pptScheme,
+                  pptSerializer: pptSerializer,
+                  pptCipher: pptCipher,
+                  pptKeyId: pptKeyId,
+                  details: details,
+                )))) {
       bossPort.send({
         'type': 'worker_forward_native_internal_result',
         'connectionId': callerConnectionId,

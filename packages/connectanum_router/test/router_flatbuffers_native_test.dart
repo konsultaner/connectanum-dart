@@ -318,6 +318,75 @@ void main() {
           expect(opaqueResult.callRequestId, 7);
           expect(opaqueResult.transparentBinaryPayload, binary);
           expect(opaqueResult.details.pptSerializer, 'flatbuffers');
+          step = 'internal retained PPT';
+          final internal = await binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          try {
+            final registered = await internal.register('com.profile.internal');
+            Uint8List? retained;
+            registered.onLazyInvokePayload((invocation) {
+              retained = invocation.packedPayloadBytes;
+              invocation.respondWith(
+                lazyPayload: invocation.payload,
+                options: core.YieldOptions(
+                  pptScheme: 'opaque',
+                  pptSerializer: 'flatbuffers',
+                ),
+              );
+            });
+            for (final length in [0, 3, 65536]) {
+              final body = Uint8List.fromList(
+                List<int>.generate(length, (index) => index % 251),
+              );
+              final before = events
+                  .where(
+                    (event) =>
+                        event is Map &&
+                        event['type'] ==
+                            'worker_forward_native_internal_result',
+                  )
+                  .length;
+              await caller.send(
+                core.Call(
+                  90 + length,
+                  'com.profile.internal',
+                  options: core.CallOptions(
+                    pptScheme: 'opaque',
+                    pptSerializer: 'flatbuffers',
+                    custom: {'call_only': true},
+                  ),
+                )..transparentBinaryPayload = body,
+              );
+              final result = await caller.next() as core.Result;
+              expect(result.callRequestId, 90 + length);
+              expect(result.transparentBinaryPayload, orderedEquals(body));
+              expect(result.details.pptScheme, 'opaque');
+              expect(result.details.pptSerializer, 'flatbuffers');
+              expect(result.details.custom.containsKey('call_only'), isFalse);
+              expect(
+                events.where(
+                  (event) =>
+                      event is Map &&
+                      event['type'] == 'worker_forward_native_internal_result',
+                ),
+                hasLength(before + 1),
+              );
+              expect(retained, orderedEquals(body));
+              if (length > 0) {
+                expect(() => retained![0] = 0, throwsUnsupportedError);
+              }
+            }
+            await internal.close();
+            expect(
+              retained,
+              orderedEquals(List<int>.generate(65536, (index) => index % 251)),
+              reason:
+                  'borrowed body survives routing handle and internal session retirement',
+            );
+          } finally {
+            await internal.close();
+          }
           step = 'subscription';
           await callee.send(core.Subscribe(3, 'com.profile.events'));
           expect(await callee.next(), isA<core.Subscribed>());

@@ -5,7 +5,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_message_bytes.dart';
-import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
+import 'package:connectanum_core/connectanum_core.dart'
+    show AbstractMessage, AbstractMessageWithPayload, Call;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
@@ -1592,6 +1593,31 @@ class _NativeMessageMetadata {
   bool hasFlag(int flag) => (flags & flag) != 0;
 }
 
+/// Immutable header snapshot taken before application code can mutate a CALL.
+typedef NativeCallPptHeaders = ({
+  String? scheme,
+  String? serializer,
+  String? cipher,
+  String? keyId,
+});
+
+NativeCallPptHeaders? _nativeCallPptHeaders(AbstractMessage message) {
+  if (message is! Call) return null;
+  final options = message.options;
+  if (options?.pptScheme == null &&
+      options?.pptSerializer == null &&
+      options?.pptCipher == null &&
+      options?.pptKeyId == null) {
+    return null;
+  }
+  return (
+    scheme: options?.pptScheme,
+    serializer: options?.pptSerializer,
+    cipher: options?.pptCipher,
+    keyId: options?.pptKeyId,
+  );
+}
+
 class NativeIncomingMessage {
   NativeIncomingMessage._({
     required this.serializer,
@@ -1607,10 +1633,16 @@ class NativeIncomingMessage {
     int Function(int handle)? takeOverride,
     int Function(int handle)? retainOverride,
     void Function(int handle)? releaseOverride,
+    bool? supportsPlaintextPptHandoff,
   }) : _bindings = bindings,
        _takeOverride = takeOverride,
        _retainOverride = retainOverride,
-       _releaseOverride = releaseOverride;
+       _releaseOverride = releaseOverride,
+       _supportsPlaintextPptHandoff = supportsPlaintextPptHandoff,
+       pptHeaders = _nativeCallPptHeaders(message),
+       transparentPayloadBytes = message is AbstractMessageWithPayload
+           ? message.transparentBinaryPayload
+           : null;
 
   factory NativeIncomingMessage.synthetic({
     required NativeMessageSerializer serializer,
@@ -1643,6 +1675,7 @@ class NativeIncomingMessage {
     required NativeMessageSerializer serializer,
     required AbstractMessage message,
     required int handle,
+    bool supportsPlaintextPptHandoff = false,
     Uint8List? bytes,
     Uint8List? argumentsBytes,
     Uint8List? argumentsKeywordsBytes,
@@ -1660,6 +1693,7 @@ class NativeIncomingMessage {
       argumentsKeywordsAddress: argumentsKeywordsBytes == null ? 0 : 1,
       handle: handle,
       bindings: null,
+      supportsPlaintextPptHandoff: supportsPlaintextPptHandoff,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
       takeOverride: onTake ?? (handle > 0 ? (_) => handle : null),
@@ -1683,6 +1717,15 @@ class NativeIncomingMessage {
   int Function(int handle)? _takeOverride;
   final int Function(int handle)? _retainOverride;
   final void Function(int handle)? _releaseOverride;
+
+  final bool? _supportsPlaintextPptHandoff;
+  final NativeCallPptHeaders? pptHeaders;
+  final Uint8List? transparentPayloadBytes;
+
+  /// Older libraries must use the ordinary, copying PPT handoff.
+  bool get supportsPlaintextPptHandoff =>
+      _supportsPlaintextPptHandoff ??
+      (_bindings?.supportsPlaintextPptHandoff ?? false);
 
   bool get hasNativeHandle => handle > 0;
 
