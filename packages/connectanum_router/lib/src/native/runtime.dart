@@ -5,7 +5,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_message_bytes.dart';
-import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
+import 'package:connectanum_core/connectanum_core.dart'
+    show AbstractMessage, AbstractMessageWithPayload, Call;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
@@ -1592,6 +1593,31 @@ class _NativeMessageMetadata {
   bool hasFlag(int flag) => (flags & flag) != 0;
 }
 
+/// Immutable header snapshot taken before application code can mutate a CALL.
+typedef NativeCallPptHeaders = ({
+  String? scheme,
+  String? serializer,
+  String? cipher,
+  String? keyId,
+});
+
+NativeCallPptHeaders? _nativeCallPptHeaders(AbstractMessage message) {
+  if (message is! Call) return null;
+  final options = message.options;
+  if (options?.pptScheme == null &&
+      options?.pptSerializer == null &&
+      options?.pptCipher == null &&
+      options?.pptKeyId == null) {
+    return null;
+  }
+  return (
+    scheme: options?.pptScheme,
+    serializer: options?.pptSerializer,
+    cipher: options?.pptCipher,
+    keyId: options?.pptKeyId,
+  );
+}
+
 class NativeIncomingMessage {
   NativeIncomingMessage._({
     required this.serializer,
@@ -1607,10 +1633,16 @@ class NativeIncomingMessage {
     int Function(int handle)? takeOverride,
     int Function(int handle)? retainOverride,
     void Function(int handle)? releaseOverride,
+    bool? testPlaintextPptHandoff,
   }) : _bindings = bindings,
        _takeOverride = takeOverride,
        _retainOverride = retainOverride,
-       _releaseOverride = releaseOverride;
+       _releaseOverride = releaseOverride,
+       _testPlaintextPptHandoff = testPlaintextPptHandoff,
+       pptHeaders = _nativeCallPptHeaders(message),
+       transparentPayloadBytes = message is AbstractMessageWithPayload
+           ? message.transparentBinaryPayload
+           : null;
 
   factory NativeIncomingMessage.synthetic({
     required NativeMessageSerializer serializer,
@@ -1639,10 +1671,12 @@ class NativeIncomingMessage {
     return instance;
   }
 
+  @visibleForTesting
   factory NativeIncomingMessage.test({
     required NativeMessageSerializer serializer,
     required AbstractMessage message,
     required int handle,
+    bool supportsPlaintextPptHandoff = false,
     Uint8List? bytes,
     Uint8List? argumentsBytes,
     Uint8List? argumentsKeywordsBytes,
@@ -1660,6 +1694,7 @@ class NativeIncomingMessage {
       argumentsKeywordsAddress: argumentsKeywordsBytes == null ? 0 : 1,
       handle: handle,
       bindings: null,
+      testPlaintextPptHandoff: supportsPlaintextPptHandoff,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
       takeOverride: onTake ?? (handle > 0 ? (_) => handle : null),
@@ -1683,6 +1718,28 @@ class NativeIncomingMessage {
   int Function(int handle)? _takeOverride;
   final int Function(int handle)? _retainOverride;
   final void Function(int handle)? _releaseOverride;
+
+  // Fake messages have no native binding; only the test factory supplies this.
+  final bool? _testPlaintextPptHandoff;
+  final NativeCallPptHeaders? pptHeaders;
+  final Uint8List? transparentPayloadBytes;
+
+  /// Older libraries must use the ordinary, copying PPT handoff.
+  bool get supportsPlaintextPptHandoff =>
+      _bindings?.supportsPlaintextPptHandoff ??
+      _testPlaintextPptHandoff ??
+      false;
+
+  /// Checks the original native contract, including fields whose explicit null
+  /// presence cannot be represented by the Dart PPT options model. The held
+  /// alias remains valid independently of this incoming routing reference.
+  bool canBorrowPlaintextPptPayload(int retainedHandle) {
+    if (retainedHandle <= 0) return false;
+    final bindings = _bindings;
+    if (bindings == null) return _testPlaintextPptHandoff ?? false;
+    return bindings.supportsPlaintextPptHandoff &&
+        bindings.ctInternalPptHandoffEligibleV1!(retainedHandle) == 1;
+  }
 
   bool get hasNativeHandle => handle > 0;
 
@@ -2050,10 +2107,10 @@ _NativeMessageMetadata _metadataFromFfi(
 }
 
 String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
-  if (len <= 0 || ptr.address == 0) {
+  if (ptr == ffi.nullptr) {
     return null;
   }
-  return String.fromCharCodes(ptr.asTypedList(len));
+  return utf8.decode(ptr.asTypedList(len));
 }
 
 String _buildNativeErrorMessage(int code, String context) {
@@ -3753,6 +3810,23 @@ class NativeTransportRuntime
     } finally {
       calloc.free(info);
     }
+  }
+
+  /// Independent serialized-volume carriers alongside the unchanged codec map.
+  /// Older libraries remain usable, without advertising absent observations.
+  Map<String, int>? boundaryCodecCopyMetricsSnapshot() {
+    final copies = codecCopyMetricsSnapshot();
+    if (copies == null) return null;
+    return {
+      ...copies,
+      if (_bindings.ctEncodedWampBytesAccepted != null &&
+          _bindings.ctEncodedWampSendRejections != null) ...{
+        'encoded_wamp_volume_version': 1,
+        'encoded_wamp_bytes_accepted': _bindings.ctEncodedWampBytesAccepted!(),
+        'encoded_wamp_send_rejections':
+            _bindings.ctEncodedWampSendRejections!(),
+      },
+    };
   }
 
   /// Cumulative explicit native codec buffer operations, or unavailable.

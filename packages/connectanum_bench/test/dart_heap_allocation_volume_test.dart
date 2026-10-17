@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:connectanum_bench/src/dart_heap_allocation_volume.dart';
 import 'package:test/test.dart';
 
@@ -36,6 +38,31 @@ Map<String, dynamic> collection({String name = 'CollectNewGeneration'}) => {
 };
 
 void main() {
+  test(
+    'failed allocation evidence retains counters without becoming measured',
+    () {
+      final result = dartHeapAllocationVolume(snapshot(), snapshot(end: true), []);
+      expect(result['status'], 'not_measured');
+      expect(result.containsKey('estimated_bytes'), isFalse);
+      final evidence = result['diagnostic_evidence'] as Map;
+      expect((evidence['expected_collections'] as Map)[group], {
+        'young': 1,
+        'old': 0,
+      });
+      expect((evidence['observed_collections'] as Map)[group], {
+        'young': 0,
+        'old': 0,
+      });
+      expect(evidence['gc_observations'], isEmpty);
+      expect(((evidence['start_snapshot'] as Map)['groups'] as Map)[group], {
+        'used_bytes': 1000000,
+        'young_collections': 2,
+        'old_collections': 4,
+      });
+      expect(jsonDecode(jsonEncode(result)), result);
+    },
+  );
+
   test('KB conversion and cross-group heap sums cannot overflow', () {
     final oversized = collection();
     (oversized['args'] as Map)['Before.New.Used (kB)'] = 8796093022208;

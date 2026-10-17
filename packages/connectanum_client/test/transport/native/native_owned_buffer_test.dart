@@ -29,6 +29,66 @@ void main() {
     allocator = NativeBufferAllocator.instance();
   });
 
+  test(
+    'typed word writes detach from native source and preserve copy ownership',
+    () {
+      OwnedCopyMetrics.enable();
+      for (final length in [256, 257, 258, 259, 4096, 4097, 65536, 65537]) {
+        for (final capacity in [8, length + 128]) {
+          final bytes = Uint8List.fromList(
+            List.generate(length, (i) => (i * 29) & 255),
+          );
+          final sourceBuilder = allocator.allocate(length);
+          sourceBuilder.writeBytes(0, bytes);
+          final source = sourceBuilder.freeze();
+          final builder = allocator.flatBuffers(initialSize: capacity);
+          try {
+            final before = OwnedCopyMetrics.snapshot()!;
+            final vector = builder.writeListUint8(
+              source.bytes.asUnmodifiableView(),
+            );
+            source.dispose();
+            builder.finish(vector, 'BYTS');
+            final frozen = builder.freeze();
+            try {
+              final sdk = fb.Builder(initialSize: (capacity + 7) & ~7);
+              sdk.finish(sdk.writeListUint8(bytes), 'BYTS');
+              expect(frozen.bytes, sdk.buffer);
+              expect(frozen.inputCopiedBytes, length);
+              final after = OwnedCopyMetrics.snapshot()!;
+              expect(
+                after['flatbuffer_vector_copy_bytes']! -
+                    before['flatbuffer_vector_copy_bytes']!,
+                length,
+              );
+              expect(
+                after['flatbuffer_growth_copy_bytes']! -
+                    before['flatbuffer_growth_copy_bytes']!,
+                builder.growthCopiedBytes,
+              );
+              expect(
+                after['unmeasured_copy_operations'],
+                before['unmeasured_copy_operations'],
+              );
+              expect(
+                after['failed_copy_operations'],
+                before['failed_copy_operations'],
+              );
+              expect(() => builder.writeListUint8(bytes), throwsStateError);
+            } finally {
+              frozen.dispose();
+            }
+          } finally {
+            source.dispose();
+            sourceBuilder.dispose();
+            builder.dispose();
+          }
+          expect(() => builder.writeListUint8(bytes), throwsStateError);
+        }
+      }
+    },
+  );
+
   test('native message vectors contribute once through the shared writer', () {
     OwnedCopyMetrics.enable();
     final before = OwnedCopyMetrics.snapshot()!;

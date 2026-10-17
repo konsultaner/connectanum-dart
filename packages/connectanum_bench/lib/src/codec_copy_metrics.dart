@@ -1,3 +1,5 @@
+import 'encoded_wamp_volume.dart';
+
 const codecCopyMetricFields = [
   'vector_copy_bytes',
   'string_copy_bytes',
@@ -37,6 +39,7 @@ Map<String, Object?> codecCopyMetricsDelta(
   return {
     'status': 'measured',
     'coverage_version': 1,
+    'encoded_wamp_volume': encodedWampVolumeDelta(before, after),
     ...delta,
     'known_copy_bytes': codecCopyMetricFields.fold<int>(
       0,

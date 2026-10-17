@@ -255,11 +255,21 @@ class WampWorkloadRunner {
         'must be positive',
       );
     }
-    if (scenario.mode != WampMode.rpc && scenario.mode != WampMode.pubsub) {
+    final supported = switch (scenario.mode) {
+      WampMode.rpc ||
+      WampMode.pubsub ||
+      WampMode.progressiveRpc ||
+      WampMode.publishAck ||
+      WampMode.subscribeCycle ||
+      WampMode.registerCycle ||
+      WampMode.cancelCycle => true,
+      _ => false,
+    };
+    if (!supported) {
       throw ArgumentError.value(
         scenario.mode,
         'mode',
-        'minimum duration is supported for RPC and pub/sub workloads only',
+        'minimum duration is supported for RPC, pub/sub, progressive RPC and control cycles only',
       );
     }
   }
@@ -1052,6 +1062,16 @@ class WampWorkloadRunner {
             return;
           }
           chunksByInvocation.remove(invocation.requestId);
+          respondEchoLazyInvocation(
+            invocation,
+            logger: _logger,
+            progress: true,
+          );
+          respondEchoLazyInvocation(
+            invocation,
+            logger: _logger,
+            progress: true,
+          );
           respondEchoLazyInvocation(invocation, logger: _logger);
         },
         scenario: peerScenario,
@@ -1134,15 +1154,31 @@ class WampWorkloadRunner {
     final call = session.startProgressiveCall(
       procedure,
       arguments: [payload],
-      options: _buildCallOptions(scenario),
+      options: _buildCallOptions(scenario, receiveProgress: true),
     );
     call.sendChunk(arguments: [payload]);
     call.finish(arguments: [payload]);
     try {
-      await call.results.single.timeout(
+      final results = await call.results.toList().timeout(
         _eventTimeout,
         onTimeout: () => throw TimeoutException('progressive_rpc_timeout'),
       );
+      if (results.length != 3) {
+        throw StateError(
+          'expected 3 progressive results, got ${results.length}',
+        );
+      }
+      for (var index = 0; index < results.length; index++) {
+        final result = results[index];
+        final arguments = result.arguments;
+        if (result.isProgressive() != (index < 2) ||
+            arguments == null ||
+            arguments.length != 1 ||
+            arguments.single != payload ||
+            (result.argumentsKeywords?.isNotEmpty ?? false)) {
+          throw StateError('invalid progressive result at index $index');
+        }
+      }
     } on wamp_core.Error catch (error) {
       throw StateError(
         'progressive RPC failed with ${error.error} '
@@ -1155,7 +1191,7 @@ class WampWorkloadRunner {
       iteration: iteration,
       latencyMs: latencyMs,
       requestBytes: scenario.payloadBytes * 3,
-      responseBytes: scenario.payloadBytes,
+      responseBytes: scenario.payloadBytes * 3,
     );
   }
 
@@ -2021,9 +2057,15 @@ class WampWorkloadRunner {
         ? maxInFlight.clamp(1, iterations)
         : maxInFlight;
     var nextIteration = 0;
+    int? sampleWindowStartUs;
+    int? sampleWindowEndUs;
     bool shouldScheduleNext() =>
         nextIteration < iterations ||
-        (minimumDuration != null && timer.elapsed < minimumDuration);
+        (minimumDuration != null &&
+            (timer.elapsed < minimumDuration ||
+                sampleWindowStartUs == null ||
+                sampleWindowEndUs! - sampleWindowStartUs <
+                    minimumDuration.inMicroseconds));
     while (shouldScheduleNext() || pending.isNotEmpty) {
       while (shouldScheduleNext() && pending.length < boundedInFlight) {
         final iteration = nextIteration;
@@ -2040,7 +2082,21 @@ class WampWorkloadRunner {
       }
       final completed = await Future.any(pending.map((entry) => entry.future));
       pending.removeWhere((entry) => entry.iteration == completed.iteration);
-      samples.add(completed.sample);
+      final sample = completed.sample;
+      if (minimumDuration != null) {
+        final start = sample.startedAtUs;
+        final end = sample.completedAtUs;
+        if (start == null || end == null || end < start) {
+          throw StateError('Duration workloads require valid sample timing');
+        }
+        if (sampleWindowStartUs == null || start < sampleWindowStartUs) {
+          sampleWindowStartUs = start;
+        }
+        if (sampleWindowEndUs == null || end > sampleWindowEndUs) {
+          sampleWindowEndUs = end;
+        }
+      }
+      samples.add(sample);
     }
     return samples;
   }
@@ -2314,12 +2370,14 @@ class WampWorkloadRunner {
   wamp_core.CallOptions? _buildCallOptions(
     WampScenario scenario, {
     int? timeout,
+    bool receiveProgress = false,
   }) {
-    if (scenario.pptScheme == null && timeout == null) {
+    if (scenario.pptScheme == null && timeout == null && !receiveProgress) {
       return null;
     }
     return wamp_core.CallOptions(
       timeout: timeout,
+      receiveProgress: receiveProgress ? true : null,
       pptScheme: scenario.pptScheme,
       pptSerializer: _resolvePptSerializer(scenario),
       pptCipher: scenario.pptCipher,

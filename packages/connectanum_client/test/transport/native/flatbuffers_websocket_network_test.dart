@@ -392,7 +392,7 @@ void _nativePptSessionTest(String library) {
     'native FlatBuffers WebSocket Session retains a typed PPT frame after caller disposal',
     () async {
       final peer = await _Peer.start(false, 'ppt-echo');
-      final channel = _FrameCountingNativeWebSocketTransport(peer, library);
+      final channel = _transport(peer, library);
       NativeOwnedBuffer? earlyOwner;
       NativeOwnedBuffer? typedOwner;
       Session? session;
@@ -415,7 +415,6 @@ void _nativePptSessionTest(String library) {
           ),
         )..retainLazyPayload(earlyOwner.asFlatBuffersPptPayload());
         expect(() => channel.send(earlyCall), throwsStateError);
-        expect(channel.nativeFrameSends, 0);
         expect(
           nativeFlatBufferPptSubmissionSnapshot(earlyOwner).submissions,
           0,
@@ -447,7 +446,6 @@ void _nativePptSessionTest(String library) {
           submissions: 1,
           reusedBytes: measuredTypedOwner.length,
         ));
-        expect(channel.nativeFrameSends, 1);
         expect(result.arguments, [expected]);
         await session.close();
         await session.onGoodbye.timeout(_deadline);
@@ -621,30 +619,6 @@ class _GatedTransport extends native.NativeWebSocketTransport {
     }
     await gate.future;
     return id ?? await super.openNativeConnection(pingInterval);
-  }
-}
-
-class _FrameCountingNativeWebSocketTransport
-    extends native.NativeWebSocketTransport {
-  _FrameCountingNativeWebSocketTransport(_Peer peer, String library)
-    : super(
-        'ws://127.0.0.1:${peer.port}/ws',
-        flat.Serializer(),
-        'wamp.2.flatbuffers',
-        null,
-        false,
-        library,
-      );
-
-  int nativeFrameSends = 0;
-
-  @override
-  void sendNativeFrame(
-    NativeFlatBufferFrame frame, {
-    bool transfer = false,
-  }) {
-    nativeFrameSends++;
-    super.sendNativeFrame(frame, transfer: transfer);
   }
 }
 

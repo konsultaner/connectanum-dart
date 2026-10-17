@@ -5,6 +5,8 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
@@ -20,6 +22,8 @@ import '../native/external_byte_buffer.dart';
 class SocketTransport extends AbstractTransport implements DrainableTransport {
   static final _logger = Logger('Connectanum.SocketTransport');
   static const _segmentedSendThreshold = nativeCanonicalBase64Threshold;
+  static const _smallSendFragmentLimit = 1024;
+  static const _sendPrefixLimit = 4096;
   static const _nativeInboundFrameThreshold = 64 * 1024;
 
   late bool _ssl;
@@ -631,6 +635,15 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
   }
 
   void _sendMessage(AbstractMessage message) {
+    try {
+      _submitMessage(message);
+    } on Object {
+      OwnedCopyMetrics.recordRejectedWampSubmission();
+      rethrow;
+    }
+  }
+
+  void _submitMessage(AbstractMessage message) {
     final fragments = _handshakeCompleter.isCompleted
         ? _serializer.serializeFragments(message)
         : null;
@@ -641,21 +654,53 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
       }
       if (payloadLength >= _segmentedSendThreshold) {
         _checkOutgoingPayloadLength(payloadLength);
-        _send0(
-          SocketHelper.buildMessageHeader(
-            SocketHelper.messageWamp,
-            payloadLength,
-            isUpgradedProtocol,
-          ),
+        final header = SocketHelper.buildMessageHeader(
+          SocketHelper.messageWamp,
+          payloadLength,
+          isUpgradedProtocol,
         );
+        // Batch small leading fragments so each does not enter the SDK sink
+        // separately. The bounded prefix is copied; large payloads stay borrowed.
+        var prefixEnd = 0;
+        var prefixLength = header.length;
         for (final fragment in fragments) {
+          if (fragment.length > _smallSendFragmentLimit ||
+              prefixLength + fragment.length > _sendPrefixLimit) {
+            break;
+          }
+          prefixEnd++;
+          prefixLength += fragment.length;
+        }
+        if (prefixLength == header.length) {
+          _send0(header);
+        } else {
+          final prefix = Uint8List(prefixLength);
+          prefix.setRange(0, header.length, header);
+          DartTransportCopyMetrics.recordRawSocketFrameHeaderCopy(
+            header.length,
+          );
+          var offset = header.length;
+          for (var index = 0; index < prefixEnd; index++) {
+            final fragment = fragments[index];
+            prefix.setRange(offset, offset + fragment.length, fragment);
+            DartTransportCopyMetrics.recordRawSocketFragmentCoalesceCopy(
+              fragment.length,
+            );
+            offset += fragment.length;
+          }
+          _send0(prefix);
+        }
+        for (var index = prefixEnd; index < fragments.length; index++) {
+          final fragment = fragments[index];
           if (fragment.isNotEmpty) {
             _send0(fragment, anchor: message);
           }
         }
+        OwnedCopyMetrics.recordEncodedWampSubmissionLength(payloadLength);
         return;
       }
       _send0(_buildWampFrameFragments(fragments, payloadLength));
+      OwnedCopyMetrics.recordEncodedWampSubmissionLength(payloadLength);
       return;
     }
     var serializedMessage = _serializer.serialize(message);
@@ -719,6 +764,7 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     } else {
       _send0(_buildWampFrame(serializedMessage as List<int>));
     }
+    OwnedCopyMetrics.recordEncodedWampSubmission(serializedMessage);
   }
 
   void _send0(List<int> data, {Object? anchor}) {

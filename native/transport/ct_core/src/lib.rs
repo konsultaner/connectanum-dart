@@ -2757,26 +2757,34 @@ impl ListenerRegistry {
         connection_id: ConnectionId,
         frame: OutboundFrame,
     ) -> Result<(), Error> {
-        let connections = self
-            .connections
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        let entry = connections
-            .get(&connection_id)
-            .ok_or(Error::ConnectionNotFound(connection_id))?;
-        match &entry.record {
-            ConnectionRecord::RawSocket { send_tx, .. }
-            | ConnectionRecord::WebSocket { send_tx, .. }
-                if cfg!(any(unix, windows)) =>
-            {
-                match send_tx.try_send(frame) {
-                    Ok(()) => Ok(()),
-                    Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
-                    Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
+        let frame_type = frame.frame_type;
+        let payload_len = frame.payload_len;
+        let result = (|| {
+            let connections = self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            let entry = connections
+                .get(&connection_id)
+                .ok_or(Error::ConnectionNotFound(connection_id))?;
+            match &entry.record {
+                ConnectionRecord::RawSocket { send_tx, .. }
+                | ConnectionRecord::WebSocket { send_tx, .. }
+                    if cfg!(any(unix, windows)) =>
+                {
+                    match send_tx.try_send(frame) {
+                        Ok(()) => Ok(()),
+                        Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
+                        Err(TrySendError::Closed(_)) => {
+                            Err(Error::ConnectionNotFound(connection_id))
+                        }
+                    }
                 }
+                _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
             }
-            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
-        }
+        })();
+        observe_encoded_wamp_submission(frame_type, payload_len, result.is_ok());
+        result
     }
 
     fn enqueue_file_frame(
@@ -2784,26 +2792,32 @@ impl ListenerRegistry {
         connection_id: ConnectionId,
         frame: OutboundFrame,
     ) -> Result<(), Error> {
-        let connections = self
-            .connections
-            .lock()
-            .unwrap_or_else(|poison| poison.into_inner());
-        let entry = connections
-            .get(&connection_id)
-            .ok_or(Error::ConnectionNotFound(connection_id))?;
-        match &entry.record {
-            ConnectionRecord::RawSocket {
-                supports_file_segments: true,
-                send_tx,
-                ..
+        let frame_type = frame.frame_type;
+        let payload_len = frame.payload_len;
+        let result = (|| {
+            let connections = self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            let entry = connections
+                .get(&connection_id)
+                .ok_or(Error::ConnectionNotFound(connection_id))?;
+            match &entry.record {
+                ConnectionRecord::RawSocket {
+                    supports_file_segments: true,
+                    send_tx,
+                    ..
+                }
+                | ConnectionRecord::WebSocket { send_tx, .. } => match send_tx.try_send(frame) {
+                    Ok(()) => Ok(()),
+                    Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
+                    Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
+                },
+                _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
             }
-            | ConnectionRecord::WebSocket { send_tx, .. } => match send_tx.try_send(frame) {
-                Ok(()) => Ok(()),
-                Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
-                Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
-            },
-            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
-        }
+        })();
+        observe_encoded_wamp_submission(frame_type, payload_len, result.is_ok());
+        result
     }
 
     fn take_websocket_handshake(
@@ -3302,6 +3316,30 @@ impl FileSegmentEncoding {
     }
 }
 
+static ENCODED_WAMP_ACCEPTED_BYTES: AtomicU64 = AtomicU64::new(0);
+static ENCODED_WAMP_REJECTED_SUBMISSIONS: AtomicU64 = AtomicU64::new(0);
+
+/// Process-wide serialized message volume at the RawSocket/WebSocket send queue.
+/// Headers, protocol controls, barriers and TLS records are excluded. Deferred
+/// and file messages contribute their validated advertised encoded payload size.
+pub fn encoded_wamp_accepted_bytes() -> u64 {
+    ENCODED_WAMP_ACCEPTED_BYTES.load(Ordering::Relaxed)
+}
+
+pub fn encoded_wamp_rejected_submissions() -> u64 {
+    ENCODED_WAMP_REJECTED_SUBMISSIONS.load(Ordering::Relaxed)
+}
+
+fn observe_encoded_wamp_submission(frame_type: u8, payload_len: usize, accepted: bool) {
+    if frame_type == 0 {
+        if accepted {
+            ENCODED_WAMP_ACCEPTED_BYTES.fetch_add(payload_len as u64, Ordering::Relaxed);
+        } else {
+            ENCODED_WAMP_REJECTED_SUBMISSIONS.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
 struct OutboundFrame {
     frame_type: u8,
     payload_len: usize,
@@ -3564,6 +3602,57 @@ async fn resolve_deferred_segment(mut frame: OutboundFrame) -> Result<OutboundFr
     Ok(frame)
 }
 
+// Preserve the original Bytes owners through bounded scatter/gather writes.
+// Descriptors stay on the stack; no header or payload buffer is coalesced.
+// Consume the prefix before file/suffix processing so ownership does not span
+// a following potentially long-running file transfer.
+async fn write_rawsocket_buffers<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    header: &[u8],
+    segments: Vec<Bytes>,
+) -> io::Result<()> {
+    if !writer.is_write_vectored() {
+        writer.write_all(header).await?;
+        for segment in segments {
+            if !segment.is_empty() {
+                writer.write_all(&segment).await?;
+            }
+        }
+        return Ok(());
+    }
+    let mut chunks = std::iter::once(header)
+        .chain(segments.iter().map(|segment| segment.as_ref()))
+        .filter(|bytes| !bytes.is_empty());
+    while let Some(first) = chunks.next() {
+        let mut batch: [io::IoSlice<'_>; 16] = std::array::from_fn(|_| io::IoSlice::new(&[]));
+        batch[0] = io::IoSlice::new(first);
+        let mut count = 1;
+        for slot in &mut batch[1..] {
+            let Some(chunk) = chunks.next() else { break };
+            *slot = io::IoSlice::new(chunk);
+            count += 1;
+        }
+        let mut remaining = &mut batch[..count];
+        while !remaining.is_empty() {
+            let written = match writer.write_vectored(remaining).await {
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {
+                    tokio::task::yield_now().await;
+                    continue;
+                }
+                result => result?,
+            };
+            if written == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "failed to write RawSocket frame",
+                ));
+            }
+            io::IoSlice::advance_slices(&mut remaining, written);
+        }
+    }
+    Ok(())
+}
+
 fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
@@ -3577,7 +3666,7 @@ fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
         let upgraded_protocol = max_message_size_exponent > 24;
         let mut file_scratch = Vec::new();
         let mut encoded_file_scratch = Vec::new();
-        'writer: while let Some(frame) = rx.recv().await {
+        while let Some(frame) = rx.recv().await {
             let mut frame = match resolve_deferred_segment(frame).await {
                 Ok(frame) => frame,
                 Err(err) => {
@@ -3612,29 +3701,16 @@ fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
                     }
                 };
 
-            if let Err(err) = writer.write_all(header.as_bytes()).await {
+            if let Err(err) =
+                write_rawsocket_buffers(&mut writer, header.as_bytes(), frame.segments).await
+            {
                 if err.kind() != io::ErrorKind::BrokenPipe {
                     eprintln!(
-                        "connection {:?} failed to write frame header: {}",
+                        "connection {:?} failed to write frame: {}",
                         connection_id, err
                     );
                 }
                 break;
-            }
-
-            for segment in frame.segments {
-                if segment.is_empty() {
-                    continue;
-                }
-                if let Err(err) = writer.write_all(&segment).await {
-                    if err.kind() != io::ErrorKind::BrokenPipe {
-                        eprintln!(
-                            "connection {:?} failed to write frame payload: {}",
-                            connection_id, err
-                        );
-                    }
-                    break 'writer;
-                }
             }
 
             if let Some(segment) = frame.file_segment {
@@ -3664,19 +3740,15 @@ fn spawn_connection_writer<W: AsyncWrite + Unpin + Send + 'static>(
                 }
             }
 
-            for segment in frame.suffix_segments {
-                if segment.is_empty() {
-                    continue;
+            if let Err(err) = write_rawsocket_buffers(&mut writer, &[], frame.suffix_segments).await
+            {
+                if !is_benign_socket_shutdown(err.kind()) {
+                    eprintln!(
+                        "connection {:?} failed to write frame suffix: {}",
+                        connection_id, err
+                    );
                 }
-                if let Err(err) = writer.write_all(&segment).await {
-                    if !is_benign_socket_shutdown(err.kind()) {
-                        eprintln!(
-                            "connection {:?} failed to write frame suffix: {}",
-                            connection_id, err
-                        );
-                    }
-                    break 'writer;
-                }
+                break;
             }
             if let Err(err) = writer.flush().await {
                 if !is_benign_socket_shutdown(err.kind()) {
@@ -9149,7 +9221,7 @@ mod tests {
         let _ = frame_tx;
 
         let (send_tx, send_rx) = mpsc::channel(1);
-        let _send_rx = send_rx;
+        let mut send_rx = send_rx;
 
         send_tx
             .try_send(OutboundFrame::message(Bytes::from_static(b"one")))
@@ -9203,6 +9275,8 @@ mod tests {
             },
         );
 
+        let accepted_before = encoded_wamp_accepted_bytes();
+        let rejected_before = encoded_wamp_rejected_submissions();
         let prepared = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let prepared_by_closure = Arc::clone(&prepared);
         let deferred = OutboundFrame::message_deferred_segment(Bytes::new(), 3, move || {
@@ -9215,6 +9289,76 @@ mod tests {
             other => panic!("expected SendQueueFull, got {other:?}"),
         }
         assert!(!prepared.load(Ordering::SeqCst));
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before);
+        assert_eq!(encoded_wamp_rejected_submissions(), rejected_before + 1);
+        send_rx.try_recv().unwrap();
+        registry
+            .enqueue_frame(
+                connection_id,
+                OutboundFrame::control(1, Bytes::from_static(b"ping")),
+            )
+            .unwrap();
+        send_rx.try_recv().unwrap();
+        registry
+            .enqueue_frame(connection_id, OutboundFrame::barrier())
+            .unwrap();
+        send_rx.try_recv().unwrap();
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before);
+        let segments = vec![
+            Bytes::from_static(b"abc"),
+            Bytes::new(),
+            Bytes::from_static(b"defgh"),
+        ];
+        registry
+            .enqueue_frame(connection_id, OutboundFrame::message_segments(segments))
+            .unwrap();
+        send_rx.try_recv().unwrap();
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before + 8);
+        assert!(matches!(
+            registry.enqueue_file_frame(
+                connection_id,
+                OutboundFrame::message(Bytes::from_static(b"bad"))
+            ),
+            Err(Error::UnsupportedProtocol(..))
+        ));
+        {
+            let mut entries = registry.connections.lock().unwrap();
+            if let ConnectionRecord::RawSocket {
+                supports_file_segments,
+                ..
+            } = &mut entries.get_mut(&connection_id).unwrap().record
+            {
+                *supports_file_segments = true;
+            } else {
+                panic!("expected RawSocket");
+            }
+        }
+        let deferred = OutboundFrame::message_deferred_segment_with_suffix(
+            Bytes::from_static(b"ab"),
+            3,
+            Bytes::from_static(b"cd"),
+            || panic!("acceptance must not execute deferred work"),
+        )
+        .unwrap();
+        registry
+            .enqueue_file_frame(connection_id, deferred)
+            .unwrap();
+        send_rx.try_recv().unwrap();
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before + 15);
+        assert!(matches!(
+            registry.enqueue_frame(ConnectionId(999), OutboundFrame::message(Bytes::new())),
+            Err(Error::ConnectionNotFound(..))
+        ));
+        drop(send_rx);
+        assert!(matches!(
+            registry.enqueue_frame(
+                connection_id,
+                OutboundFrame::message(Bytes::from_static(b"closed"))
+            ),
+            Err(Error::ConnectionNotFound(..))
+        ));
+        assert_eq!(encoded_wamp_accepted_bytes(), accepted_before + 15);
+        assert_eq!(encoded_wamp_rejected_submissions(), rejected_before + 4);
     }
 
     #[test]

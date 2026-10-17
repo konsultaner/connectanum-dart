@@ -10,6 +10,30 @@ void main() {
     'bin/worker',
     'worker:with/slashes',
   ]) {
+    test(
+      'process metrics retain unavailable RSS without losing allocation evidence',
+      () {
+        final metrics = NativeWampWorkerProcessMetrics.fromJson({
+          'pid': 42,
+          'rss_before_bytes': 1,
+          'current_rss_bytes': null,
+          'max_rss_bytes': null,
+          'rss_lifetime_max_read_attempts_bytes': [4096, 4096, null],
+          'allocated_bytes_delta': 8192,
+          'cpu_user_us_delta': 123,
+        });
+        expect(metrics.toJson()['current_rss_bytes'], isNull);
+        expect(metrics.toJson()['max_rss_bytes'], isNull);
+        expect(metrics.toJson()['rss_lifetime_max_read_attempts_bytes'], [
+          4096,
+          4096,
+          null,
+        ]);
+        expect(metrics.allocatedBytesDelta, 8192);
+        expect(metrics.cpuUserUsDelta, 123);
+      },
+    );
+
     test('native worker normalizes relative file entrypoint $entrypoint', () {
       final worker = NativeWampWorker(
         realmUri: 'bench.control',
@@ -148,6 +172,83 @@ IFS= read -r stop || true
   );
 
   test(
+    'source worker retains high-GC allocation windows across reuse',
+    () async {
+      final temp = await Directory.systemTemp.createTemp(
+        'connectanum_high_gc_',
+      );
+      addTearDown(() => temp.delete(recursive: true));
+      final script = File('${temp.path}/worker.dart');
+      await script.writeAsString(r'''
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+List<Uint8List> retained = [];
+Future<void> main() async {
+  stdout.writeln('READY');
+  var window = 0;
+  await for (final line in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
+    if (line == 'STOP') break;
+    final count = window++ == 0 ? 32768 : 1024;
+    retained = List.generate(8, (_) => Uint8List(1024 * 1024));
+    var checksum = 0;
+    for (var i = 0; i < count; i++) {
+      final buffer = Uint8List(1024 * 1024);
+      buffer[0] = i & 255;
+      retained[i % retained.length] = buffer;
+      checksum += buffer[0];
+    }
+    if (checksum != count * 255 ~/ 2) throw StateError('allocation skipped');
+    stdout.writeln(jsonEncode({
+      'samples': [], 'file_segment_metrics': {},
+      'process_metrics': {'pid': pid, 'rss_before_bytes': ProcessInfo.currentRss,
+        'current_rss_bytes': ProcessInfo.currentRss, 'max_rss_bytes': ProcessInfo.maxRss},
+    }));
+  }
+}
+''');
+      final worker = NativeWampWorker(
+        realmUri: 'bench.control',
+        wampTargets: const {},
+        nativeLibraryPath: '${temp.path}/unused',
+        workerScriptPath: script.path,
+        enableVmMetrics: true,
+        reuseSuccessfulWorkers: true,
+      );
+      addTearDown(worker.close);
+      int? observedPid;
+      for (final count in [32768, 1024]) {
+        final result = await worker.runWithMetrics(
+          WampScenario.fromJson({
+            'transport': 'rawsocket',
+            'client_impl': 'native',
+            'mode': 'rpc',
+            'uri': 'bench.rpc.echo',
+          }),
+        );
+        final metrics = result.processMetrics!;
+        observedPid ??= metrics.pid;
+        expect(metrics.pid, observedPid);
+        final evidence = metrics.allocationMeasurement!;
+        expect(evidence['status'], 'measured', reason: '${evidence['reason']}');
+        expect(evidence['timeline_recorder'], 'Endless');
+        final estimate = evidence['estimated_bytes'] as int;
+        final error = evidence['rounding_error_bound_bytes'] as int;
+        final known = (count + 8) * 1024 * 1024;
+        expect(estimate + error, greaterThanOrEqualTo(known));
+        expect(estimate - error, lessThan(known + 64 * 1024 * 1024));
+        expect(
+          (evidence['young_gc_events'] as int) +
+              (evidence['old_gc_events'] as int),
+          metrics.gcCountDelta,
+        );
+      }
+    },
+    skip: Platform.isWindows,
+  );
+
+  test(
     'source worker exposes allocation, GC, CPU, and sampled RSS metrics',
     () async {
       final tempDirectory = await Directory.systemTemp.createTemp(
@@ -164,6 +265,7 @@ Future<void> main() async {
   await stdout.flush();
   await for (final line in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
     if (line == 'STOP') break;
+    final earlyMaximum = ProcessInfo.maxRss;
     final retained = <List<int>>[];
     for (var i = 0; i < 80; i++) {
       retained.add(List<int>.filled(128 * 1024, i));
@@ -176,7 +278,7 @@ Future<void> main() async {
         'pid': pid,
         'rss_before_bytes': ProcessInfo.currentRss,
         'current_rss_bytes': ProcessInfo.currentRss,
-        'max_rss_bytes': ProcessInfo.maxRss,
+        'max_rss_bytes': earlyMaximum,
       },
     }));
     await stdout.flush();
@@ -211,6 +313,14 @@ Future<void> main() async {
         expect(metrics.cpuUserUsDelta, isNotNull);
         expect(metrics.cpuSystemUsDelta, isNotNull);
         expect(metrics.peakRssDuringBytes, greaterThan(0));
+        expect(
+          metrics.maxRssBytes,
+          greaterThanOrEqualTo(metrics.currentRssBytes!),
+        );
+        expect(
+          metrics.maxRssBytes,
+          greaterThanOrEqualTo(metrics.peakRssDuringBytes!),
+        );
       }
     },
     skip: Platform.isWindows

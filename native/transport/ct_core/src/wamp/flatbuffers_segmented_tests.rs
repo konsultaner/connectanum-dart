@@ -12,6 +12,14 @@ fn guarded(bytes: Vec<u8>) -> Bytes {
 
 fn assert_segments(message: WampMessage, payload: Payload) {
     let segments = encode_flatbuffers_message_segments(&message).unwrap();
+    let vectors = [&payload.args, &payload.kwargs, &payload.transparent]
+        .into_iter()
+        .flatten()
+        .count();
+    assert_eq!(
+        segments.len(),
+        if vectors == 1 { 2 } else { 1 + 2 * vectors }
+    );
     for bytes in [&payload.args, &payload.kwargs, &payload.transparent]
         .into_iter()
         .flatten()
@@ -188,6 +196,50 @@ fn composed_flatbuffers_frames_cover_all_public_models_with_the_generated_verifi
             _ => Payload::default(),
         };
         let control = encode_flatbuffers_message(&control_message).unwrap();
+        let mut too_deep = vec![0x81; 66];
+        too_deep.push(0);
+        for invalid in [
+            Payload {
+                args: Some(Bytes::from_static(&[0xa0])),
+                ..Default::default()
+            },
+            Payload {
+                kwargs: Some(Bytes::from_static(&[0x80])),
+                ..Default::default()
+            },
+            Payload {
+                args: Some(Bytes::from_static(&[0x80])),
+                transparent: Some(Bytes::new()),
+                ..Default::default()
+            },
+            Payload {
+                args: Some(Bytes::from(too_deep)),
+                ..Default::default()
+            },
+        ] {
+            assert!(compose_flatbuffers_message_segments(control.clone(), invalid).is_err());
+        }
+        // These capabilities come from the pinned public message fixtures,
+        // independently of the composer's enum match.
+        let code = case["message"][0].as_u64().unwrap();
+        if ![3, 6, 8, 16, 36, 48, 50, 68, 70].contains(&code) {
+            for forbidden in [
+                Payload {
+                    args: Some(Bytes::from_static(&[0x80])),
+                    ..Default::default()
+                },
+                Payload {
+                    kwargs: Some(Bytes::from_static(&[0xa0])),
+                    ..Default::default()
+                },
+                Payload {
+                    transparent: Some(Bytes::new()),
+                    ..Default::default()
+                },
+            ] {
+                assert!(compose_flatbuffers_message_segments(control.clone(), forbidden).is_err());
+            }
+        }
         let segments = compose_flatbuffers_message_segments(control, payload.clone()).unwrap();
         for bytes in [&payload.args, &payload.kwargs, &payload.transparent]
             .into_iter()
@@ -275,4 +327,153 @@ fn segmented_parser_counts_only_bytes_actually_read() {
         after.parser_read_copy_bytes_total - before.parser_read_copy_bytes_total,
         5
     );
+}
+
+#[test]
+fn composition_preserves_validated_metadata_bytes_without_reencoding() {
+    use super::flatbuffers_generated::wamp::proto as generated;
+    use flatbuffers::FlatBufferBuilder;
+    // Valid custom metadata deliberately keeps z before a. Re-encoding a
+    // dictionary sorts the keys and needlessly changes these verified bytes.
+    let metadata = [0xa2, 0x61, b'z', 1, 0x61, b'a', 2];
+    let mut builder = FlatBufferBuilder::new();
+    let procedure = builder.create_string("com.echo");
+    let encoded_metadata = builder.create_vector(&metadata);
+    let call = generated::Call::create(
+        &mut builder,
+        &generated::CallArgs {
+            request: 7,
+            procedure: Some(procedure),
+            ..Default::default()
+        },
+    );
+    let root = generated::Message::create(
+        &mut builder,
+        &generated::MessageArgs {
+            msg_type: generated::AnyMessage::Call,
+            msg: Some(call.as_union_value()),
+            metadata: Some(encoded_metadata),
+        },
+    );
+    generated::finish_message_buffer(&mut builder, root);
+    let control = Bytes::copy_from_slice(builder.finished_data());
+    let args = guarded(vec![0x81, 0x01]);
+    let segments = compose_flatbuffers_message_segments(
+        control,
+        Payload {
+            args: Some(args.clone()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        segments
+            .iter()
+            .filter(|part| part.as_ptr() == args.as_ptr() && part.len() == args.len())
+            .count(),
+        1
+    );
+    drop(args);
+    let wire = segments
+        .iter()
+        .flat_map(|part| part.iter().copied())
+        .collect::<Vec<_>>();
+    let decoded = generated::root_as_message(&wire).unwrap();
+    assert_eq!(
+        decoded.metadata().unwrap().iter().collect::<Vec<_>>(),
+        metadata
+    );
+    let parsed =
+        parse_message(crate::rawsocket::Serializer::Flatbuffers, Bytes::from(wire)).unwrap();
+    match parsed.message {
+        WampMessage::Call {
+            request_id,
+            procedure,
+            payload,
+            options,
+        } => {
+            assert_eq!(request_id, 7);
+            assert_eq!(procedure, "com.echo");
+            assert_eq!(payload.args.unwrap().as_ref(), &[0x81, 0x01]);
+            assert_eq!(options.len(), 2);
+        }
+        _ => panic!("expected CALL"),
+    }
+}
+
+#[test]
+fn flatbuffers_single_application_vector_uses_only_envelope_and_original_owner() {
+    for request_id in [0, 1, 9_007_199_254_740_992] {
+        for length in (0..40).chain([128 * 1024]) {
+            for kind in 0..3 {
+                let bytes = guarded(match kind {
+                    0 => serde_cbor::to_vec(&Value::Seq(vec![Value::Bytes(vec![0x5a; length])]))
+                        .unwrap(),
+                    1 => serde_cbor::to_vec(&Value::Map(ValueMap::from([(
+                        Value::String("value".into()),
+                        Value::Bytes(vec![0x5a; length]),
+                    )])))
+                    .unwrap(),
+                    _ => vec![0x5a; length],
+                });
+                let mut payload = Payload::default();
+                *match kind {
+                    0 => &mut payload.args,
+                    1 => &mut payload.kwargs,
+                    _ => &mut payload.transparent,
+                } = Some(bytes.clone());
+                // Force several builder reallocations after the placeholder.
+                let details = ValueMap::from([(
+                    Value::String("vendor".into()),
+                    Value::String("x".repeat(4096)),
+                )]);
+                let message = WampMessage::Result {
+                    request_id,
+                    details,
+                    payload: payload.clone(),
+                };
+                let segments = encode_flatbuffers_message_segments(&message).unwrap();
+                assert_eq!(
+                    segments.len(),
+                    2,
+                    "one vector needs only its envelope and original owner"
+                );
+                assert_eq!(segments[1].as_ptr(), bytes.as_ptr());
+                assert_eq!(segments[1].len(), bytes.len());
+                let header = &segments[0];
+                assert_eq!(
+                    u32::from_le_bytes(header[header.len() - 4..].try_into().unwrap()) as usize,
+                    bytes.len()
+                );
+                assert_segments(message, payload);
+                drop(bytes);
+                let wire = segments
+                    .iter()
+                    .flat_map(|part| part.iter().copied())
+                    .collect::<Vec<_>>();
+                super::flatbuffers_generated::wamp::proto::root_as_message(&wire).unwrap();
+                parse_message(crate::rawsocket::Serializer::Flatbuffers, Bytes::from(wire))
+                    .unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn flatbuffers_two_application_vectors_keep_independent_headers_and_owners() {
+    let payload = Payload {
+        args: Some(guarded(vec![0x81, 0x01])),
+        kwargs: Some(guarded(vec![0xa0])),
+        transparent: None,
+    };
+    let message = WampMessage::Result {
+        request_id: 1,
+        details: ValueMap::new(),
+        payload: payload.clone(),
+    };
+    assert_eq!(
+        encode_flatbuffers_message_segments(&message).unwrap().len(),
+        5
+    );
+    assert_segments(message, payload);
 }

@@ -9,6 +9,7 @@ struct GateState {
     flushing: bool,
     fail_write: bool,
     fail_flush: bool,
+    vectored: bool,
     waiter: Option<Waker>,
 }
 
@@ -42,6 +43,21 @@ impl Gate {
 }
 
 impl AsyncWrite for Gate {
+    fn is_write_vectored(&self) -> bool {
+        self.0.lock().unwrap().vectored
+    }
+
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buffers: &[io::IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        match buffers.iter().find(|buffer| !buffer.is_empty()) {
+            Some(buffer) => self.poll_write(cx, buffer),
+            None => Poll::Ready(Ok(0)),
+        }
+    }
+
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -110,6 +126,53 @@ async fn outcome(receipt: WriteReceipt) -> WriteOutcome {
     time::timeout(Duration::from_secs(3), receipt.wait())
         .await
         .unwrap()
+}
+
+#[tokio::test]
+async fn vectored_prefix_keeps_its_owner_until_written_and_receipt_until_flush() {
+    use std::sync::atomic::AtomicUsize;
+
+    struct Owner {
+        bytes: [u8; 3],
+        drops: Arc<AtomicUsize>,
+    }
+    impl AsRef<[u8]> for Owner {
+        fn as_ref(&self) -> &[u8] {
+            &self.bytes
+        }
+    }
+    impl Drop for Owner {
+        fn drop(&mut self) {
+            self.drops.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let drops = Arc::new(AtomicUsize::new(0));
+    let body = Bytes::from_owner(Owner {
+        bytes: *b"ABC",
+        drops: drops.clone(),
+    });
+    let gate = Gate::default();
+    gate.change(|state| {
+        state.vectored = true;
+        state.write_budget = 1;
+    });
+    let (sender, receiver) = mpsc::channel(1);
+    let task = writer(false, gate.clone(), receiver);
+    let (frame, receipt) =
+        OutboundFrame::message_segments(vec![body, Bytes::new(), Bytes::from_static(b"DEF")])
+            .tracked();
+    sender.try_send(frame).unwrap();
+    gate.until(|state| state.wire.len() == 1).await;
+    assert_eq!(receipt.outcome(), WriteOutcome::Pending);
+    assert_eq!(drops.load(Ordering::SeqCst), 0);
+    gate.change(|state| state.write_budget = usize::MAX);
+    gate.until(|state| state.flushing).await;
+    assert_eq!(gate.0.lock().unwrap().wire, b"\x00\x00\x00\x06ABCDEF");
+    assert_eq!(drops.load(Ordering::SeqCst), 1);
+    assert_eq!(receipt.outcome(), WriteOutcome::Pending);
+    gate.change(|state| state.flush_budget = 1);
+    assert_eq!(outcome(receipt).await, WriteOutcome::Written);
+    task.abort();
 }
 
 #[tokio::test]

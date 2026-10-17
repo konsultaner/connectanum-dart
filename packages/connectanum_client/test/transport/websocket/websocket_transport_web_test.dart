@@ -2,6 +2,9 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
+import 'package:connectanum_core/json_serializer.dart' as json_serializer;
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
 import 'websocket_test_observer.dart';
 
@@ -139,7 +142,20 @@ void main() {
         });
 
         await _expectStartup(jsonCompleter.future, startupFailure.future);
-        transportJSON!.send(Hello('my.realm', Details.forHello()));
+        OwnedCopyMetrics.enable();
+        final volumeBefore = OwnedCopyMetrics.boundarySnapshot()!;
+        final hello = Hello('my.realm', Details.forHello());
+        transportJSON!.send(hello);
+        final volumeAfter = OwnedCopyMetrics.boundarySnapshot()!;
+        expect(
+          volumeAfter['encoded_wamp_bytes_accepted']! -
+              volumeBefore['encoded_wamp_bytes_accepted']!,
+          utf8.encode(json_serializer.Serializer().serialize(hello)).length,
+        );
+        expect(
+          volumeAfter['encoded_wamp_send_rejections'],
+          volumeBefore['encoded_wamp_send_rejections'],
+        );
         var welcome = await transportJSON!.receive().first;
         expect(welcome, isA<Welcome>());
 

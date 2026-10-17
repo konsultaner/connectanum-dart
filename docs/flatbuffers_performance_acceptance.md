@@ -432,3 +432,25 @@ of rounding uncertainty. Evidence is numeric only when that bound is at most
 compares candidate upper bounds against baseline lower bounds. Existing
 allocation budgets, samples, durations and case inventories are unchanged.
 See [source audit and validation](research/2026-10-15-dart-allocation-volume-research.md).
+
+## CPU profiling diagnostics
+
+`tool/profile_wamp_serializers.py --case` selects one of the three canonical
+diagnostic cases: `rpc_rawsocket_clear_dart_values`,
+`rpc_rawsocket_clear_native_native_buffer` (the unchanged default), or
+`rpc_rawsocket_clear_native_pre_encoded_span`. The workflow's
+`flatbuffers_profile` campaign exposes the same choice through `profile_case`.
+
+Startup warmup and all three codecs use that selection. Retained initial and
+per-codec request JSON, the generated Dart probe, and `source-audit.json` record
+the requested configuration. Raw CPU samples and the sampling-window checks
+remain required evidence. The mocked orchestration tests verify configuration
+attribution only. Profiling changes execution and never establishes performance
+acceptance; the full paired campaign, policy and copy gates are unchanged.
+
+
+On Linux, optional native CPU profiles now enable standard router JIT symbols,
+retain PID-attributed map snapshots and produce separate router/client reports.
+Client JIT addresses may remain unresolved. Missing or invalid router maps fail
+the profiling run. See the [profiling evidence contract](research/2026-10-16-linux-router-perf-symbols.md).
+This diagnostic never supplies primary performance acceptance.

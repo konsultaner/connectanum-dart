@@ -3,9 +3,15 @@ use super::{
     ParsedMessage, Payload, RawFrame, Serializer, ValueMap, WampMessage,
 };
 use serde_value::Value as CborValue;
+use std::sync::Arc;
 use wire::{Fields, Value};
 
 pub(super) fn parse(raw: RawFrame) -> Result<ParsedMessage, ParseError> {
+    parse_with_fields(raw).map(|(parsed, _)| parsed)
+}
+
+/// Retain the wire fields after the same complete validation used by `parse`.
+pub(super) fn parse_with_fields(raw: RawFrame) -> Result<(ParsedMessage, Arc<Fields>), ParseError> {
     if raw.len() > wire::MAX_BYTES {
         return Err(wire::invalid("byte limit"));
     }
@@ -217,12 +223,15 @@ pub(super) fn parse(raw: RawFrame) -> Result<ParsedMessage, ParseError> {
         },
         _ => return Err(wire::invalid("unsupported message type")),
     };
-    Ok(ParsedMessage {
-        message,
-        raw: RawFrame::Contiguous(bytes),
-        serializer: Serializer::Flatbuffers,
-        encoded_metadata,
-    })
+    Ok((
+        ParsedMessage {
+            message,
+            raw: RawFrame::Contiguous(bytes),
+            serializer: Serializer::Flatbuffers,
+            encoded_metadata,
+        },
+        fields,
+    ))
 }
 fn integer(fields: &Fields, key: &'static str) -> Result<u64, ParseError> {
     match fields.get(key) {

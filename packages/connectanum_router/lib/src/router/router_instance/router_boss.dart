@@ -1740,7 +1740,7 @@ class _RouterBoss {
     return {
       'status': 'measured',
       'boss_generation': _copyObserverGeneration,
-      'main_isolate': OwnedCopyMetrics.snapshot(),
+      'main_isolate': OwnedCopyMetrics.boundarySnapshot(),
       'workers': {
         for (var i = 0; i < workers.length; i++) '${workers[i].id}': values[i],
       },

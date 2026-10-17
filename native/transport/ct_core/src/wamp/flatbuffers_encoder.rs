@@ -21,11 +21,11 @@ pub fn encode(message: &WampMessage) -> Result<Bytes, ParseError> {
 /// application spans. Ordinary spans are CBOR containers; transparent spans
 /// are uninterpreted. No application span is copied or materialized.
 pub fn compose_segments(control: Bytes, supplied: Payload) -> Result<Vec<Bytes>, ParseError> {
-    let mut message =
-        super::parse_message(super::Serializer::Flatbuffers, control.clone())?.message;
+    let (parsed, mut fields) =
+        super::flatbuffers_codec::parse_with_fields(super::RawFrame::Contiguous(control.clone()))?;
     let supplied_present =
         supplied.args.is_some() || supplied.kwargs.is_some() || supplied.transparent.is_some();
-    let target = match &mut message {
+    let target = match &parsed.message {
         WampMessage::Abort { payload, .. }
         | WampMessage::Goodbye { payload, .. }
         | WampMessage::Error { payload, .. }
@@ -52,16 +52,36 @@ pub fn compose_segments(control: Bytes, supplied: Payload) -> Result<Vec<Bytes>,
                 "opaque control conflicts with ordinary payload",
             ));
         }
-        if supplied_present {
-            *target = supplied;
-        }
     } else if supplied_present {
         return Err(wire::invalid("message has no application payload"));
     }
     if !supplied_present {
         return Ok(vec![control]);
     }
-    encode_segments(&message)
+    // The original controls, typed projections and encoded metadata have all
+    // passed the ordinary parser. Only the application slots change here, so
+    // retain that validated metadata instead of projecting and encoding it a
+    // second time. Newly supplied application containers still need validation.
+    super::validate_flatbuffers_payload(&supplied)?;
+    let root = Arc::make_mut(&mut fields);
+    let Some(Value::Table(body)) = root.get_mut("msg") else {
+        return Err(wire::invalid("message table"));
+    };
+    // Borrow the Arc in place: cloning it out would force make_mut to clone
+    // the body even though composition owns the validated field tree.
+    let body = Arc::make_mut(body);
+    for (key, bytes) in [
+        ("args", supplied.args),
+        ("kwargs", supplied.kwargs),
+        ("payload", supplied.transparent),
+    ] {
+        if let Some(bytes) = bytes {
+            body.insert(key, Value::Bytes(bytes));
+        } else {
+            body.remove(key);
+        }
+    }
+    flatbuffers_writer::write_segments(&fields)
 }
 
 fn fields(message: &WampMessage) -> Result<Fields, ParseError> {

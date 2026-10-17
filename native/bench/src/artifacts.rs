@@ -2872,10 +2872,16 @@ pub fn render_prometheus_metrics(
         ));
         if let Some(metrics) = &summary.client_process_metrics {
             for (kind, value) in [
-                ("before", metrics.rss_before_bytes),
+                ("before", Some(metrics.rss_before_bytes)),
                 ("current", metrics.current_rss_bytes),
+                // Preserve the legacy lifetime-peak series for consumers.
                 ("peak", metrics.max_rss_bytes),
-            ] {
+                ("max_observed", metrics.max_rss_bytes),
+                ("sampled_peak_during", metrics.peak_rss_during_bytes),
+            ]
+            .into_iter()
+            .filter_map(|(kind, value)| value.map(|bytes| (kind, bytes)))
+            {
                 output.push_str(&format!(
                     "connectanum_bench_artifact_workload_client_process_rss_bytes{} {}\n",
                     format_labels_with_extra(&base_labels, &[("kind", kind)]),
@@ -2885,14 +2891,17 @@ pub fn render_prometheus_metrics(
         }
         if let Some(metrics) = &summary.server_process_metrics {
             let mut observations = vec![
-                ("before", metrics.rss_before_bytes),
+                ("before", Some(metrics.rss_before_bytes)),
                 ("current", metrics.current_rss_bytes),
                 ("max_observed", metrics.max_rss_bytes),
             ];
             if let Some(peak) = metrics.peak_rss_during_bytes {
-                observations.push(("sampled_peak_during", peak));
+                observations.push(("sampled_peak_during", Some(peak)));
             }
-            for (kind, value) in observations {
+            for (kind, value) in observations
+                .into_iter()
+                .filter_map(|(kind, value)| value.map(|bytes| (kind, bytes)))
+            {
                 output.push_str(&format!(
                     "connectanum_bench_artifact_workload_server_process_rss_bytes{} {}\n",
                     format_labels_with_extra(&base_labels, &[("kind", kind)]),
@@ -4501,13 +4510,44 @@ mod tests {
     }
 
     #[test]
+    fn prometheus_does_not_invent_unavailable_rss_endpoints() {
+        let mut report = sample_report();
+        let metrics = serde_json::from_value::<crate::report::ClientProcessMetrics>(json!({
+            "pid": 42, "rss_before_bytes": 1024,
+            "current_rss_bytes": null, "max_rss_bytes": null,
+            "allocated_bytes_delta": 8192
+        }))
+        .unwrap();
+        report.client_process_metrics = Some(metrics.clone());
+        report.server_process_metrics = Some(metrics);
+        let summary = summarize_report(&report);
+        assert_eq!(
+            summary
+                .client_process_metrics
+                .as_ref()
+                .unwrap()
+                .allocated_bytes_delta,
+            Some(8192)
+        );
+        let text = render_prometheus_metrics("bench_results.jsonl", &[summary]);
+        let rss_lines: Vec<_> = text
+            .lines()
+            .filter(|line| line.contains("_process_rss_bytes{"))
+            .collect();
+        assert_eq!(rss_lines.len(), 2);
+        assert!(rss_lines
+            .iter()
+            .all(|line| line.contains("kind=\"before\"") && line.ends_with(" 1024")));
+    }
+
+    #[test]
     fn render_prometheus_metrics_contains_expected_series() {
         let mut report = sample_report();
         report.client_process_metrics = Some(crate::report::ClientProcessMetrics {
             pid: 42,
             rss_before_bytes: 67_108_864,
-            current_rss_bytes: 536_870_912,
-            max_rss_bytes: 805_306_368,
+            current_rss_bytes: Some(536_870_912),
+            max_rss_bytes: Some(805_306_368),
             cpu_user_us_delta: Some(10),
             cpu_system_us_delta: Some(4),
             allocated_bytes_delta: Some(4096),
@@ -4515,12 +4555,13 @@ mod tests {
             gc_count_delta: Some(1),
             gc_pause_us_delta: Some(250),
             peak_rss_during_bytes: Some(805_306_368),
+            rss_lifetime_max_read_attempts_bytes: None,
         });
         report.server_process_metrics = Some(crate::report::ClientProcessMetrics {
             pid: 43,
             rss_before_bytes: 134_217_728,
-            current_rss_bytes: 201_326_592,
-            max_rss_bytes: 268_435_456,
+            current_rss_bytes: Some(201_326_592),
+            max_rss_bytes: Some(268_435_456),
             cpu_user_us_delta: Some(20),
             cpu_system_us_delta: Some(8),
             allocated_bytes_delta: Some(8192),
@@ -4528,6 +4569,7 @@ mod tests {
             gc_count_delta: Some(2),
             gc_pause_us_delta: Some(500),
             peak_rss_during_bytes: Some(234_881_024),
+            rss_lifetime_max_read_attempts_bytes: None,
         });
         report.metrics_before["metrics"]["transport"]["rawsocket_zero_copy_calls_total"] =
             json!(10);
@@ -4600,8 +4642,8 @@ mod tests {
         let expected = crate::report::ClientProcessMetrics {
             pid: 42,
             rss_before_bytes: 67_108_864,
-            current_rss_bytes: 536_870_912,
-            max_rss_bytes: 805_306_368,
+            current_rss_bytes: Some(536_870_912),
+            max_rss_bytes: Some(805_306_368),
             cpu_user_us_delta: Some(10),
             cpu_system_us_delta: Some(4),
             allocated_bytes_delta: Some(4096),
@@ -4609,13 +4651,14 @@ mod tests {
             gc_count_delta: Some(1),
             gc_pause_us_delta: Some(250),
             peak_rss_during_bytes: Some(805_306_368),
+            rss_lifetime_max_read_attempts_bytes: None,
         };
         report.client_process_metrics = Some(expected.clone());
         let server_expected = crate::report::ClientProcessMetrics {
             pid: 43,
             rss_before_bytes: 134_217_728,
-            current_rss_bytes: 201_326_592,
-            max_rss_bytes: 268_435_456,
+            current_rss_bytes: Some(201_326_592),
+            max_rss_bytes: Some(268_435_456),
             cpu_user_us_delta: Some(20),
             cpu_system_us_delta: Some(8),
             allocated_bytes_delta: Some(8192),
@@ -4623,6 +4666,7 @@ mod tests {
             gc_count_delta: Some(2),
             gc_pause_us_delta: Some(500),
             peak_rss_during_bytes: Some(234_881_024),
+            rss_lifetime_max_read_attempts_bytes: None,
         };
         report.server_process_metrics = Some(server_expected.clone());
 

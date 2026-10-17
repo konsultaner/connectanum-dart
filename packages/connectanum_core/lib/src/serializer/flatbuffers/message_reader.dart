@@ -9,12 +9,28 @@ import 'package:typed_data/typed_buffers.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/src/serializer/limits.dart';
 import 'frame.dart';
+import 'message_projection.dart';
+
+/// Internal outgoing profile reader. Calls and publications are used only for
+/// their kind; their dictionaries are not retained for later model edits.
+/// Other messages preserve the metadata needed for capability negotiation.
+AbstractMessage readWampFlatBufferProfileMessage(Uint8List bytes) =>
+    _readMessageChecked(bytes, retainApplicationMetadata: false);
 
 /// Reconstruct models from a validated extended frame. This internal stage
 /// deliberately rejects unacknowledged legacy dictionary placeholders.
-AbstractMessage readWampFlatBufferMessage(Uint8List bytes) {
+AbstractMessage readWampFlatBufferMessage(Uint8List bytes) =>
+    _readMessageChecked(bytes, retainApplicationMetadata: true);
+
+AbstractMessage _readMessageChecked(
+  Uint8List bytes, {
+  required bool retainApplicationMetadata,
+}) {
   try {
-    return _readMessage(bytes);
+    return _readMessage(
+      bytes,
+      retainApplicationMetadata: retainApplicationMetadata,
+    );
   } on TypeError {
     throw const FormatException('Invalid FlatBuffers model dictionary type');
   } on ArgumentError {
@@ -24,7 +40,10 @@ AbstractMessage readWampFlatBufferMessage(Uint8List bytes) {
   }
 }
 
-AbstractMessage _readMessage(Uint8List bytes) {
+AbstractMessage _readMessage(
+  Uint8List bytes, {
+  required bool retainApplicationMetadata,
+}) {
   final frame = readWampFlatBufferFrame(bytes);
   if (frame.name == 'EventReceived') {
     throw UnsupportedError('No public WAMP model for EventReceived');
@@ -32,13 +51,13 @@ AbstractMessage _readMessage(Uint8List bytes) {
   final fields = frame.fields;
   final map = frame.dictionary;
   if (map == null &&
-      !{
+      !(const {
         'Published',
         'Subscribed',
         'Unsubscribe',
         'Registered',
         'Unregister',
-      }.contains(frame.name)) {
+      }).contains(frame.name)) {
     throw const FormatException('Extended FlatBuffers metadata is required');
   }
   final dictionary = Map<String, dynamic>.from(map ?? const {});
@@ -163,7 +182,12 @@ AbstractMessage _readMessage(Uint8List bytes) {
       ),
     );
   }
-  retainWampFlatBufferDictionary(message, frame.bytes, frame.dictionary);
+  if (retainApplicationMetadata || (message is! Call && message is! Publish)) {
+    retainWampFlatBufferDictionary(message, frame.bytes, frame.dictionary);
+  } else {
+    // Preserve projection checks; only snapshots and assignment observers go.
+    projectWampFlatBufferMessage(message, retainMetadata: false);
+  }
   return message;
 }
 

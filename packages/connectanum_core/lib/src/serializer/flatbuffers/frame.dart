@@ -64,7 +64,7 @@ FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
   final frame = FlatBufferFrame(bytes, name, body, dictionary);
   if (name == 'Challenge') frame.challengeMethod;
   if (name == 'Error' &&
-      !{16, 32, 34, 48, 64, 66, 68}.contains(body['request_type'])) {
+      !(const {16, 32, 34, 48, 64, 66, 68}).contains(body['request_type'])) {
     throw const FormatException('Unsupported ERROR request type');
   }
   if (name == 'Heartbeat') {
@@ -114,29 +114,31 @@ void _agree(
   Map<String, Object?> expected,
   Map<String, dynamic> dictionary,
 ) {
-  final ignored =
-      switch (name) {
-        'Hello' => {'realm'},
-        'Authenticate' => {'signature'},
-        'Abort' || 'Goodbye' => {'reason'},
-        'Error' => {'request_type', 'error'},
-        'Publish' || 'Subscribe' => {'topic'},
-        'Event' => {'subscription', 'publication'},
-        'Call' || 'Register' => {'procedure'},
-        'Invocation' => {'registration'},
-        _ => <String>{},
-      }..addAll({
-        'session',
-        'request',
-        'args',
-        'kwargs',
-        'payload',
-        'method',
-        'method_name',
-      });
+  final ignored = switch (name) {
+    'Hello' => const {'realm'},
+    'Authenticate' => const {'signature'},
+    'Abort' || 'Goodbye' => const {'reason'},
+    'Error' => const {'request_type', 'error'},
+    'Publish' || 'Subscribe' => const {'topic'},
+    'Event' => const {'subscription', 'publication'},
+    'Call' || 'Register' => const {'procedure'},
+    'Invocation' => const {'registration'},
+    _ => const <String>{},
+  };
   final spec = wampValidationTables.singleWhere((table) => table.name == name);
   for (final field in spec.fields) {
-    if (ignored.contains(field.name)) continue;
+    if (ignored.contains(field.name) ||
+        (const {
+          'session',
+          'request',
+          'args',
+          'kwargs',
+          'payload',
+          'method',
+          'method_name',
+        }).contains(field.name)) {
+      continue;
+    }
     final value = actual[field.name];
     final target = expected[field.name];
     if (field.kind == FlatBufferFieldKind.table &&

@@ -45,6 +45,7 @@ class Serializer extends AbstractSerializer {
   /// Concatenate the fragments in order; each fragment is part of that frame.
   /// Keep their backing owners and contents valid until transmission completes.
   /// Ordinary Dart arguments still require CBOR encoding before composition.
+  /// Typed FlatBuffers PPT bytes can be retained after a small CBOR prefix.
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is! AbstractMessageWithPayload) return null;
@@ -80,6 +81,30 @@ class Serializer extends AbstractSerializer {
       message,
       encodedDictionary,
       decodeFlatBufferMetadata(encodedDictionary),
+    );
+  }
+
+  /// Retain immutable, owner-backed native metadata for a forwarding path.
+  /// Validation is immediate. Untagged dictionaries defer decoding/snapshots
+  /// until a Dart resend; tagged dictionaries keep eager semantic decoding.
+  /// [initialMessage] must reconstruct the original control fields without
+  /// payloads or retained metadata, independently of later edits to [message].
+  /// The native bytes must remain unchanged while the message is alive. A
+  /// successful call replaces prior retained metadata; invalid bytes leave it
+  /// unchanged. The factory must not re-enter retention on this message.
+  void retainNativeMetadata(
+    AbstractMessage message,
+    Uint8List encodedDictionary,
+    AbstractMessage Function() initialMessage,
+  ) {
+    if (!validateDeferredFlatBufferMetadata(encodedDictionary)) {
+      retainMetadata(message, encodedDictionary);
+      return;
+    }
+    retainNativeWampFlatBufferDictionary(
+      message,
+      encodedDictionary,
+      initialMessage,
     );
   }
 

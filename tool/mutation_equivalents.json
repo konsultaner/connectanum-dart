@@ -1,19 +1,19 @@
 {
   "client-websocket-web": {
-    "4041a945c7e508d50bcf": {
-      "sourceHash": "2e7eababb369d13e39c0a0b38c9cd873e49ff940132ab701ddbdd43099e5f625",
+    "b69a0b770445a547f284": {
+      "sourceHash": "7c4c7f8a3d01261eb8cf15f26c3e07db7a2dfc800681f50b0c69507297be043e",
       "reason": "Changes only the generic browser constructor's allowInsecureCertificates default from false to true. That optional parameter is never read, stored, captured, or passed to the browser WebSocket API in this implementation. TLS validation remains browser-owned for either value; URL, serializer, messages, and lifecycle behavior are unchanged. This proof is browser-only and does not apply to the native/IO constructor."
     },
-    "54d534a5ba021b984b15": {
-      "sourceHash": "2e7eababb369d13e39c0a0b38c9cd873e49ff940132ab701ddbdd43099e5f625",
+    "8d9cc19610da591e1f61": {
+      "sourceHash": "7c4c7f8a3d01261eb8cf15f26c3e07db7a2dfc800681f50b0c69507297be043e",
       "reason": "Changes only withJsonSerializer's omitted allowInsecureCertificates argument. The factory passes that value directly to the generic browser constructor's unused parameter; neither the JSON serializer nor browser WebSocket creation receives it. Explicit argument calls are unchanged and omitted-argument calls retain the same browser TLS validation and observable transport behavior."
     },
-    "8205c6e669e57a2923c2": {
-      "sourceHash": "2e7eababb369d13e39c0a0b38c9cd873e49ff940132ab701ddbdd43099e5f625",
+    "858b951f6d14168de9e5": {
+      "sourceHash": "7c4c7f8a3d01261eb8cf15f26c3e07db7a2dfc800681f50b0c69507297be043e",
       "reason": "Changes only withMsgpackSerializer's omitted allowInsecureCertificates argument. Its sole use forwards the value to the generic browser constructor, which does not read, store, capture, or forward it. The MessagePack serializer and browser-owned TLS checks are unaffected, as are explicit-argument calls and all send/receive/lifecycle effects. This is not a waiver for IO certificate validation."
     },
-    "7cb0a33c95e5994e2fe8": {
-      "sourceHash": "2e7eababb369d13e39c0a0b38c9cd873e49ff940132ab701ddbdd43099e5f625",
+    "66efbbf872af08266fa6": {
+      "sourceHash": "7c4c7f8a3d01261eb8cf15f26c3e07db7a2dfc800681f50b0c69507297be043e",
       "reason": "Changes only withCborSerializer's omitted allowInsecureCertificates argument. The value flows solely into the unused generic browser constructor parameter, never into CBOR encoding or the browser WebSocket API. Browser certificate enforcement, explicit-argument behavior, and all transport effects are identical. The corresponding native/IO option is outside this equivalence proof."
     }
   },

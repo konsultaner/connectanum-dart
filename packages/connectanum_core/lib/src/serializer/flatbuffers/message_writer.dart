@@ -28,6 +28,7 @@ int writeWampFlatBufferMessage(
       argumentsKeywordsVector: argumentsKeywordsVector,
       payloadVector: payloadVector,
       includeApplicationPayload: includeApplicationPayload,
+      fragmentBinaryArguments: deferredVectors != null,
     ),
     builder,
     deferredVectors: deferredVectors,
@@ -41,6 +42,7 @@ Map<String, Object?> prepareWampFlatBufferMessage(
   FlatBufferByteVectorReference? argumentsKeywordsVector,
   FlatBufferByteVectorReference? payloadVector,
   bool includeApplicationPayload = true,
+  bool fragmentBinaryArguments = false,
 }) {
   final projection = projectWampFlatBufferMessage(message);
   final fields = projection.fields;
@@ -77,21 +79,52 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       body['payload'] = payload;
       return fields;
     }
+    Map<String, dynamic>? wireKeywords;
+    var readKeywords = false;
     if (argumentsVector != null) {
       body['args'] = argumentsVector;
     } else if (lazy.encoding == LazyPayloadEncoding.cbor &&
         lazy.argumentsBytes != null) {
       body['args'] = lazy.argumentsBytes;
-    } else if (message.wireArguments != null) {
-      body['args'] = encodeWampFlatBufferCbor(message.wireArguments);
+    } else {
+      final arguments = message.wireArguments;
+      if (arguments != null) {
+        final dictionary = projection.dictionary;
+        final scheme = dictionary?['ppt_scheme'];
+        if (fragmentBinaryArguments &&
+            argumentsKeywordsVector == null &&
+            lazy.argumentsKeywordsBytes == null &&
+            arguments.length == 1 &&
+            arguments.single is Uint8List &&
+            scheme is String &&
+            scheme.isNotEmpty &&
+            scheme != 'wamp' &&
+            dictionary?['ppt_serializer'] == 'flatbuffers' &&
+            dictionary?['ppt_cipher'] == null &&
+            dictionary?['ppt_keyid'] == null) {
+          wireKeywords = message.wireArgumentsKeywords;
+          readKeywords = true;
+          if (wireKeywords == null) {
+            final bytes = arguments.single as Uint8List;
+            body['args'] = FlatBufferByteVectorParts([
+              _cborBinaryArgumentPrefix(bytes.length),
+              bytes,
+            ]);
+          }
+        }
+        body['args'] ??= encodeWampFlatBufferCbor(arguments);
+      }
     }
     if (argumentsKeywordsVector != null) {
       body['kwargs'] = argumentsKeywordsVector;
     } else if (lazy.encoding == LazyPayloadEncoding.cbor &&
         lazy.argumentsKeywordsBytes != null) {
       body['kwargs'] = lazy.argumentsKeywordsBytes;
-    } else if (message.wireArgumentsKeywords != null) {
-      body['kwargs'] = encodeWampFlatBufferCbor(message.wireArgumentsKeywords);
+    } else {
+      final keywords = readKeywords
+          ? wireKeywords
+          : message.wireArgumentsKeywords;
+      if (keywords != null) body['kwargs'] = encodeWampFlatBufferCbor(keywords);
     }
   } else if (argumentsVector != null ||
       argumentsKeywordsVector != null ||
@@ -109,4 +142,20 @@ Map<String, Object?> prepareWampFlatBufferMessage(
     );
   }
   return fields;
+}
+
+Uint8List _cborBinaryArgumentPrefix(int length) {
+  if (length > 67108864) {
+    throw ArgumentError('Typed FlatBuffers PPT payload exceeds the byte limit');
+  }
+  if (length < 24) return Uint8List.fromList([0x81, 0x40 | length]);
+  if (length <= 255) return Uint8List.fromList([0x81, 0x58, length]);
+  if (length <= 65535) {
+    return Uint8List.fromList([0x81, 0x59, length >> 8, length & 255]);
+  }
+  final prefix = Uint8List(6)
+    ..[0] = 0x81
+    ..[1] = 0x5a;
+  ByteData.sublistView(prefix).setUint32(2, length, Endian.big);
+  return prefix;
 }

@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -15,6 +16,7 @@ import 'package:connectanum_client/src/transport/native/flatbuffers_payload_anch
         observeNativeFlatBufferPptSubmissions;
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
     show NativeRawSocketTransport;
+import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
@@ -42,6 +44,192 @@ void main() {
     peer.port,
     flat.Serializer(),
     SocketHelper.serializationFlatBuffers,
+  );
+
+  test(
+    'typed native submission does not reparse canonical control strings',
+    () async {
+      const isolation = 'CONNECTANUM_TEST_NATIVE_CONTROL_COPY_ISOLATED';
+      if (Platform.environment[isolation] != '1') {
+        // Native codec counters are process-wide. Other test-file isolates
+        // must not contribute copies to this synchronous submission window.
+        final entry = await Isolate.resolvePackageUri(
+          Uri.parse('package:connectanum_client/connectanum.dart'),
+        );
+        final packageRoot = entry!.resolve('../');
+        final child = await Process.run(
+          Platform.resolvedExecutable,
+          [
+            'test',
+            packageRoot
+                .resolve('test/transport/native/flatbuffers_profile_test.dart')
+                .toFilePath(),
+            '--name',
+            '^typed native submission does not reparse canonical control strings\$',
+            '--reporter',
+            'json',
+          ],
+          workingDirectory: packageRoot.toFilePath(),
+          environment: {
+            ...Platform.environment,
+            isolation: '1',
+            'CONNECTANUM_SKIP_NATIVE_BUILD': '1',
+          },
+        );
+        expect(child.exitCode, 0, reason: '${child.stdout}\n${child.stderr}');
+        final events = (child.stdout as String)
+            .split('\n')
+            .where((line) => line.startsWith('{'))
+            .map((line) => jsonDecode(line) as Map<String, dynamic>)
+            .toList();
+        expect(
+          events.where(
+            (event) =>
+                event['type'] == 'testDone' &&
+                event['hidden'] != true &&
+                event['skipped'] != true &&
+                event['result'] == 'success',
+          ),
+          hasLength(1),
+        );
+        expect(
+          events.any(
+            (event) => event['type'] == 'done' && event['success'] == true,
+          ),
+          true,
+        );
+        return;
+      }
+      final peer = await _Peer.start('ppt-echo');
+      final client = transport(peer);
+      NativeOwnedBuffer? owner;
+      StreamIterator<AbstractMessage?>? messages;
+      try {
+        messages = StreamIterator<AbstractMessage?>(await _open(client));
+        client.send(Hello('realm', Details.forHello()));
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          true,
+        );
+        expect(messages.current, isA<Welcome>());
+        owner = _typedEntity(client.nativeBuffers, 51);
+        final expected = owner.bytes.toList(growable: false);
+        observeNativeFlatBufferPptSubmissions(owner);
+        final call = Call(
+          7,
+          'com.entity.read',
+          options: CallOptions(
+            pptScheme: 'x_flatbuffers',
+            pptSerializer: 'flatbuffers',
+          ),
+        )..retainLazyPayload(owner.asFlatBuffersPptPayload());
+        final runtime = NativeClientRuntime.instance();
+        final before = runtime.codecCopyMetricsSnapshot()!;
+        client.send(call);
+        // The peer runs on this isolate and cannot reply until we yield. This
+        // window measures only synchronous submission, excluding inbound parsing.
+        final after = runtime.codecCopyMetricsSnapshot()!;
+        final controlStringCopies =
+            after['string_copy_bytes']! - before['string_copy_bytes']!;
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          true,
+        );
+        final result = messages.current as Result;
+        expect(result.callRequestId, 7);
+        expect(
+          result.toLazyPayload().packedPayloadBytes ??
+              result.transparentBinaryPayload,
+          orderedEquals(expected),
+        );
+        expect(owner.isDisposed, false);
+        expect(nativeFlatBufferPptSubmissionSnapshot(owner), (
+          submissions: 1,
+          reusedBytes: owner.length,
+        ));
+        final fallbackFixture =
+            Platform.environment['CONNECTANUM_TEST_EXPECT_SEGMENT_FALLBACK'] ==
+            '1';
+        expect(client.nativeBuffers.supportsSegmentedBuffers, !fallbackFixture);
+        expect(
+          controlStringCopies,
+          fallbackFixture ? greaterThan(0) : equals(0),
+          reason: fallbackFixture
+              ? 'the missing optional ABI must use validated frame composition'
+              : 'canonical controls should use retained encoded spans',
+        );
+        client.send(Goodbye(null, 'wamp.close.normal'));
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          true,
+        );
+        expect(messages.current, isA<Goodbye>());
+        expect(await peer.close(), [1, 48, 6]);
+      } finally {
+        await messages?.cancel();
+        owner?.dispose();
+        await client.close();
+        await peer.dispose();
+      }
+    },
+  );
+
+  test(
+    'typed native prefix preserves full-frame bounds without consuming its owner',
+    () async {
+      final peer = await _Peer.start('anonymous');
+      final client = transport(peer);
+      StreamIterator<AbstractMessage?>? messages;
+      try {
+        messages = StreamIterator<AbstractMessage?>(await _open(client));
+        client.send(Hello('realm', Details.forHello()));
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          true,
+        );
+        expect(messages.current, isA<Welcome>());
+        for (final length in [64 * 1024 * 1024, 64 * 1024 * 1024 + 1]) {
+          final builder = client.nativeBuffers.allocate(length);
+          late NativeOwnedBuffer owner;
+          try {
+            owner = builder.freeze();
+          } finally {
+            builder.dispose();
+          }
+          try {
+            observeNativeFlatBufferPptSubmissions(owner);
+            final call = Call(
+              7,
+              'com.entity.read',
+              options: CallOptions(
+                pptScheme: 'x_flatbuffers',
+                pptSerializer: 'flatbuffers',
+              ),
+            )..retainLazyPayload(owner.asFlatBuffersPptPayload());
+            expect(
+              () => client.send(call),
+              throwsA(isA<NativeBufferException>()),
+            );
+            expect(owner.isDisposed, false);
+            expect(owner.length, length);
+            expect(nativeFlatBufferPptSubmissionSnapshot(owner).submissions, 0);
+          } finally {
+            owner.dispose();
+          }
+        }
+        client.send(Goodbye(null, 'wamp.close.normal'));
+        expect(
+          await messages.moveNext().timeout(const Duration(seconds: 5)),
+          true,
+        );
+        expect(messages.current, isA<Goodbye>());
+        expect(await peer.close(), [1, 6]);
+      } finally {
+        await messages?.cancel();
+        await client.close();
+        await peer.dispose();
+      }
+    },
   );
 
   test(
@@ -106,7 +294,7 @@ void main() {
     'native typed PPT cannot bypass the session profile state check',
     () async {
       final peer = await _Peer.start('anonymous');
-      final client = _FrameCountingNativeRawSocketTransport(peer);
+      final client = transport(peer);
       NativeOwnedBuffer? owner;
       try {
         await client.open();
@@ -123,7 +311,6 @@ void main() {
         )..retainLazyPayload(owner.asFlatBuffersPptPayload());
 
         expect(() => client.send(call), throwsStateError);
-        expect(client.nativeFrameSends, 0);
         expect(nativeFlatBufferPptSubmissionSnapshot(owner).submissions, 0);
         expect(owner.isDisposed, isFalse);
       } finally {
@@ -135,10 +322,113 @@ void main() {
   );
 
   test(
+    'typed native send rejects invalid metadata without consuming its owner',
+    () async {
+      final peer = await _Peer.start('ppt-echo');
+      final client = transport(peer);
+      NativeOwnedBuffer? owner;
+      try {
+        await client.open();
+        await client.onReady.timeout(const Duration(seconds: 5));
+        final session = await Session.start('realm', client);
+        owner = _typedEntity(client.nativeBuffers, 51);
+        observeNativeFlatBufferPptSubmissions(owner);
+        final bytes = owner.bytes.toList(growable: false);
+        for (final custom in <Map<String, dynamic>>[
+          {'receive_progress': 'yes'},
+          {
+            'forward_for': [false],
+          },
+          {'_unsupported': Object()},
+        ]) {
+          final invalid = Call(
+            1,
+            'com.entity.read',
+            options: CallOptions(
+              pptScheme: 'x_flatbuffers',
+              pptSerializer: 'flatbuffers',
+              custom: custom,
+            ),
+          )..retainLazyPayload(owner.asFlatBuffersPptPayload());
+          expect(
+            () => client.send(invalid),
+            custom.containsKey('_unsupported')
+                ? throwsUnsupportedError
+                : throwsArgumentError,
+          );
+          expect(owner.isDisposed, isFalse);
+          expect(owner.bytes, bytes);
+          expect(nativeFlatBufferPptSubmissionSnapshot(owner).submissions, 0);
+        }
+        final result = await session
+            .callLazyPayload(
+              'com.entity.read',
+              payload: owner.asFlatBuffersPptPayload(),
+              options: CallOptions(
+                pptScheme: 'x_flatbuffers',
+                pptSerializer: 'flatbuffers',
+              ),
+            )
+            .first
+            .timeout(const Duration(seconds: 5));
+        expect(result.arguments, [bytes]);
+        expect(nativeFlatBufferPptSubmissionSnapshot(owner), (
+          submissions: 1,
+          reusedBytes: owner.length,
+        ));
+        await session.close();
+        await session.onGoodbye.timeout(const Duration(seconds: 5));
+        expect(await peer.close(), [1, 48, 6]);
+      } finally {
+        owner?.dispose();
+        await client.close();
+        await peer.dispose();
+      }
+    },
+  );
+
+  test(
+    'typed native send rejects a connection closed by a metadata loader',
+    () async {
+      final peer = await _Peer.start('ppt-echo');
+      final client = transport(peer);
+      NativeOwnedBuffer? owner;
+      Future<void>? closing;
+      try {
+        await client.open();
+        await client.onReady.timeout(const Duration(seconds: 5));
+        await Session.start('realm', client);
+        owner = _typedEntity(client.nativeBuffers, 51);
+        observeNativeFlatBufferPptSubmissions(owner);
+        final options =
+            CallOptions(
+              pptScheme: 'x_flatbuffers',
+              pptSerializer: 'flatbuffers',
+            )..setLazyCustomFieldsLoader(() {
+              closing = client.close();
+              return {};
+            });
+        final call = Call(1, 'com.entity.read', options: options)
+          ..retainLazyPayload(owner.asFlatBuffersPptPayload());
+        expect(() => client.send(call), throwsStateError);
+        await closing;
+        expect(owner.isDisposed, isFalse);
+        expect(nativeFlatBufferPptSubmissionSnapshot(owner).submissions, 0);
+        expect(await peer.close(), [1]);
+      } finally {
+        owner?.dispose();
+        await closing;
+        await client.close();
+        await peer.dispose();
+      }
+    },
+  );
+
+  test(
     'Session sends native-owned typed FlatBuffers PPT as a retained frame',
     () async {
       final peer = await _Peer.start('ppt-echo');
-      final client = _FrameCountingNativeRawSocketTransport(peer);
+      final client = transport(peer);
       NativeOwnedBuffer? typedOwner;
       NativeOwnedBuffer? fallbackOwner;
       try {
@@ -167,7 +457,6 @@ void main() {
           submissions: 1,
           reusedBytes: measuredTypedOwner.length,
         ));
-        expect(client.nativeFrameSends, 1);
         expect(typedResult.arguments, [typedBytes]);
 
         fallbackOwner = _typedEntity(client.nativeBuffers, 52);
@@ -204,7 +493,6 @@ void main() {
           submissions: 1,
           reusedBytes: measuredNestedOwner.length,
         ));
-        expect(client.nativeFrameSends, 2);
         expect(nestedResult.arguments, [nestedBytes]);
 
         fallbackOwner = _typedEntity(client.nativeBuffers, 53);
@@ -226,7 +514,6 @@ void main() {
           submissions: 0,
           reusedBytes: 0,
         ));
-        expect(client.nativeFrameSends, 2);
         expect(fallbackResult.arguments, [fallbackBytes]);
 
         await session.close();
@@ -477,24 +764,6 @@ NativeOwnedBuffer _typedEntity(NativeBufferAllocator allocator, int request) =>
       ),
       initialSize: 128,
     );
-
-class _FrameCountingNativeRawSocketTransport extends NativeRawSocketTransport {
-  _FrameCountingNativeRawSocketTransport(_Peer peer)
-    : super(
-        '127.0.0.1',
-        peer.port,
-        flat.Serializer(),
-        SocketHelper.serializationFlatBuffers,
-      );
-
-  int nativeFrameSends = 0;
-
-  @override
-  void sendNativeFrame(NativeFlatBufferFrame frame, {bool transfer = false}) {
-    nativeFrameSends++;
-    super.sendNativeFrame(frame, transfer: transfer);
-  }
-}
 
 class _Peer {
   _Peer(

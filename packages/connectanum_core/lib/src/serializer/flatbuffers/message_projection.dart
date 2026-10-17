@@ -6,6 +6,15 @@ import 'validation_types.dart';
 import 'wamp_dictionary.dart';
 import 'dictionary_retention.dart';
 
+// The wire schema is fixed. Avoid scanning it and allocating predicates for
+// every projection, including metadata-only native message binding.
+final _messageTags = {
+  for (final tag in wire.AnyMessageTypeId.values) tag.name: tag.value,
+};
+final _messageTables = {
+  for (final table in wampValidationTables) table.name: table,
+};
+
 /// The message envelope and its complete logical WAMP dictionary. Application
 /// byte vectors are supplied separately by the serializer or native builder.
 class FlatBufferMessageProjection {
@@ -61,7 +70,15 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
           'message': message.message!.message,
       };
     case Error():
-      if (!{16, 32, 34, 48, 64, 66, 68}.contains(message.requestTypeId)) {
+      if (!(const {
+        16,
+        32,
+        34,
+        48,
+        64,
+        66,
+        68,
+      }).contains(message.requestTypeId)) {
         throw ArgumentError('Unsupported ERROR request type');
       }
       name = 'Error';
@@ -74,7 +91,7 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
     case Publish():
       name = 'Publish';
       body.addAll({'request': message.requestId, 'topic': message.topic});
-      dictionary = map(WampDictionaryCodec.serializePublish(message.options));
+      dictionary = WampDictionaryCodec.serializePublish(message.options);
     case Published():
       name = 'Published';
       body.addAll({
@@ -120,9 +137,7 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
         'request': message.requestId,
         'procedure': message.procedure,
       });
-      dictionary = map(
-        WampDictionaryCodec.serializeCallOptions(message.options),
-      );
+      dictionary = WampDictionaryCodec.serializeCallOptions(message.options);
     case Cancel():
       name = 'Cancel';
       body['request'] = message.requestId;
@@ -185,9 +200,7 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
     case Yield():
       name = 'Yield';
       body['request'] = message.invocationRequestId;
-      dictionary = map(
-        WampDictionaryCodec.serializeYieldOptions(message.options),
-      );
+      dictionary = WampDictionaryCodec.serializeYieldOptions(message.options);
     case Heartbeat():
       name = 'Heartbeat';
       body.addAll({
@@ -211,11 +224,8 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
   if (dictionary != null && name != 'Heartbeat') {
     body.addAll(projectFlatBufferDictionary(name, dictionary));
   }
-  final tag = wire.AnyMessageTypeId.values.singleWhere(
-    (tag) => tag.name == name,
-  );
   return FlatBufferMessageProjection({
-    'msg_type': tag.value,
+    'msg_type': _messageTags[name]!,
     'msg': body,
   }, dictionary);
 }
@@ -254,22 +264,22 @@ Map<String, Object?> projectFlatBufferDictionary(
   String name,
   Map<String, Object?> dictionary,
 ) {
-  final table = wampValidationTables.singleWhere((table) => table.name == name);
+  final table = _messageTables[name] ?? (throw StateError('No element'));
   final fields = <String, Object?>{};
   final routingFields = switch (name) {
-    'Hello' => {'realm'},
-    'Authenticate' => {'signature'},
-    'Abort' || 'Goodbye' => {'reason'},
-    'Error' => {'request_type', 'error'},
-    'Publish' || 'Subscribe' => {'topic'},
-    'Event' => {'subscription', 'publication'},
-    'Call' || 'Register' => {'procedure'},
-    'Invocation' => {'registration'},
-    _ => <String>{},
+    'Hello' => const {'realm'},
+    'Authenticate' => const {'signature'},
+    'Abort' || 'Goodbye' => const {'reason'},
+    'Error' => const {'request_type', 'error'},
+    'Publish' || 'Subscribe' => const {'topic'},
+    'Event' => const {'subscription', 'publication'},
+    'Call' || 'Register' => const {'procedure'},
+    'Invocation' => const {'registration'},
+    _ => const <String>{},
   };
   for (final field in table.fields) {
     if (routingFields.contains(field.name) ||
-        {
+        (const {
           'session',
           'request',
           'args',
@@ -277,7 +287,7 @@ Map<String, Object?> projectFlatBufferDictionary(
           'payload',
           'method',
           'method_name',
-        }.contains(field.name)) {
+        }).contains(field.name)) {
       continue;
     }
     final value =

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
 import 'package:connectanum_core/src/message/abstract_message_with_payload.dart';
 import 'package:connectanum_core/src/message/call.dart';
@@ -264,11 +265,23 @@ void main() {
           argumentsDecoder: (_) => throw StateError('must stay lazy'),
           encoding: LazyPayloadEncoding.json,
         );
+      OwnedCopyMetrics.enable();
+      final volumeBefore = OwnedCopyMetrics.boundarySnapshot()!;
       transport.send(call);
 
       final message = await received.future.timeout(const Duration(seconds: 1));
       expect(message, isA<String>());
-      expect(jsonDecode(message as String), [
+      final volumeAfter = OwnedCopyMetrics.boundarySnapshot()!;
+      expect(
+        volumeAfter['encoded_wamp_bytes_accepted']! -
+            volumeBefore['encoded_wamp_bytes_accepted']!,
+        utf8.encode(message as String).length,
+      );
+      expect(
+        volumeAfter['encoded_wamp_send_rejections'],
+        volumeBefore['encoded_wamp_send_rejections'],
+      );
+      expect(jsonDecode(message), [
         48,
         42,
         {},
@@ -297,13 +310,25 @@ void main() {
       await transport.open();
 
       final payload = Uint8List.fromList(const [1, 2, 3, 4]);
+      OwnedCopyMetrics.enable();
+      final volumeBefore = OwnedCopyMetrics.boundarySnapshot()!;
       transport.send(
         Call(43, 'bench.rpc.echo', arguments: <dynamic>[payload]),
       );
 
       final message = await received.future.timeout(const Duration(seconds: 1));
       expect(message, isA<Uint8List>());
-      final decoded = msgpack_dart.deserialize(message as Uint8List) as List;
+      final volumeAfter = OwnedCopyMetrics.boundarySnapshot()!;
+      expect(
+        volumeAfter['encoded_wamp_bytes_accepted']! -
+            volumeBefore['encoded_wamp_bytes_accepted']!,
+        (message as Uint8List).length,
+      );
+      expect(
+        volumeAfter['encoded_wamp_send_rejections'],
+        volumeBefore['encoded_wamp_send_rejections'],
+      );
+      final decoded = msgpack_dart.deserialize(message) as List;
       expect(decoded[0], MessageTypes.codeCall);
       expect(decoded[1], 43);
       expect(decoded[3], 'bench.rpc.echo');

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math';
 
 import 'package:cbor/cbor.dart';
 import 'package:test/test.dart';
@@ -8,6 +9,36 @@ import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart
 Uint8List bytes(List<int> values) => Uint8List.fromList(values);
 
 void main() {
+  test('ASCII and Unicode metadata text preserves logical readonly ranges', () {
+    for (final value in ['\u0000ASCII\u007f', 'é€🧪']) {
+      final encoded = bytes(cbor.encode(CborValue({'\u0000\u007f': value})));
+      for (var offset = 0; offset < 8; offset++) {
+        final backing = Uint8List(encoded.length + offset + 7)
+          ..fillRange(0, encoded.length + offset + 7, 255)
+          ..setRange(offset, offset + encoded.length, encoded);
+        final view = Uint8List.sublistView(
+          backing,
+          offset,
+          offset + encoded.length,
+        ).asUnmodifiableView();
+        expect(decodeFlatBufferMetadata(view), {'\u0000\u007f': value});
+      }
+    }
+    expect(
+      decodeFlatBufferMetadata(
+        bytes([0xa1, 0x61, 0x6b, 0x7f, 0x61, 0, 0x61, 127, 0xff]),
+      ),
+      {'k': '\u0000\u007f'},
+    );
+    // UTF-8 code points cannot be split across indefinite text chunks.
+    expect(
+      () => decodeFlatBufferMetadata(
+        bytes([0xa1, 0x61, 0x6b, 0x7f, 0x61, 0xc3, 0x61, 0xa9, 0xff]),
+      ),
+      throwsFormatException,
+    );
+  });
+  _singlePassMetadataCases();
   group('scalar metadata decoding', _scalarMetadataDecodeCases);
   test(
     'decode bounded dictionary preserves binary and portable integer values',
@@ -195,6 +226,57 @@ void main() {
 
   test('application CBOR allows non-string map keys', () {
     validateFlatBufferCbor(bytes([0x81, 0xa1, 1, 0xf6]), rootMajor: 4);
+  });
+}
+
+void _singlePassMetadataCases() {
+  test('scalar dictionaries preserve Unicode keys and reject every prefix', () {
+    final random = Random(142637);
+    for (var index = 0; index < 32; index++) {
+      final expected = <String, dynamic>{
+        'text$index': '🙂 héllo ${random.nextInt(100000)}',
+        'number': random.nextInt(1 << 30),
+        'negative': -random.nextInt(1 << 30),
+        'nil': null,
+        'bool': random.nextBool(),
+        'é': 1,
+        'e\u0301': 2,
+        'A': 3,
+        'Ａ': 4,
+      };
+      final encoded = bytes(cbor.encode(CborValue(expected)));
+      expect(decodeFlatBufferMetadata(encoded), expected);
+      for (var end = 0; end < encoded.length; end++) {
+        expect(
+          () =>
+              decodeFlatBufferMetadata(Uint8List.sublistView(encoded, 0, end)),
+          throwsFormatException,
+          reason: 'map=$index prefix=$end',
+        );
+      }
+    }
+  });
+  test('scalar dictionaries enforce the inclusive metadata byte budget', () {
+    const limit = 1048576;
+    final encoded = Uint8List(limit)
+      ..setRange(0, 4, [0xa1, 0x61, 0x6b, 0x7a])
+      ..fillRange(8, limit, 0x61);
+    ByteData.sublistView(encoded).setUint32(4, limit - 8, Endian.big);
+    final value = decodeFlatBufferMetadata(encoded)['k'] as String;
+    expect(value, hasLength(limit - 8));
+    expect(value.codeUnitAt(0), 0x61);
+    expect(value.codeUnitAt(value.length - 1), 0x61);
+    final oversized = Uint8List(limit + 1)
+      ..setRange(0, limit, encoded)
+      ..[limit] = 0x61;
+    ByteData.sublistView(oversized).setUint32(4, limit - 7, Endian.big);
+    expect(() => decodeFlatBufferMetadata(oversized), throwsFormatException);
+    expect(
+      () => decodeFlatBufferMetadata(
+        Uint8List.sublistView(encoded, 0, limit - 1),
+      ),
+      throwsFormatException,
+    );
   });
 }
 
