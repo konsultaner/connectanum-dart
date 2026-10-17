@@ -56,6 +56,9 @@ Map<String, Object?> dartHeapAllocationVolume(
   DartHeapUsageSnapshot? after,
   List<Map<String, dynamic>> events,
 ) {
+  final expected = <String, (int, int)>{};
+  final observed = <String, (int, int)>{};
+  final observations = <Map<String, Object?>>[];
   try {
     if (before == null || after == null) {
       throw StateError('application heap observations are unavailable');
@@ -72,7 +75,6 @@ Map<String, Object?> dartHeapAllocationVolume(
         )) {
       throw StateError('heap identities or snapshot brackets changed');
     }
-    final expected = <String, (int, int)>{};
     var heapBefore = 0;
     var heapAfter = 0;
     for (final entry in before.groups.entries) {
@@ -89,9 +91,8 @@ Map<String, Object?> dartHeapAllocationVolume(
       if (young < 0 || old < 0) throw StateError('collection counters rewound');
       expected[entry.key] = (young, old);
     }
-    final observed = {for (final group in expected.keys) group: (0, 0)};
+    observed.addAll({for (final group in expected.keys) group: (0, 0)});
     final unique = <String, List<int>>{};
-    final observations = <Map<String, Object?>>[];
     var reclaimed = 0;
     var youngEvents = 0;
     var oldEvents = 0;
@@ -207,9 +208,40 @@ Map<String, Object?> dartHeapAllocationVolume(
       'method': dartHeapAllocationMethod,
       'scope': dartHeapAllocationScope,
       'reason': error.message,
+      // Failed evidence remains unavailable. Preserve the observations needed
+      // to distinguish missing events from occupancy/rounding failures.
+      'diagnostic_evidence': {
+        'start_snapshot': _snapshotEvidence(before),
+        'end_snapshot': _snapshotEvidence(after),
+        'expected_collections': {
+          for (final entry in expected.entries)
+            entry.key: {'young': entry.value.$1, 'old': entry.value.$2},
+        },
+        'observed_collections': {
+          for (final entry in observed.entries)
+            entry.key: {'young': entry.value.$1, 'old': entry.value.$2},
+        },
+        'gc_observations': observations,
+      },
     };
   }
 }
+
+Map<String, Object?>? _snapshotEvidence(DartHeapUsageSnapshot? snapshot) =>
+    snapshot == null
+    ? null
+    : {
+        'before_us': snapshot.beforeMicros,
+        'after_us': snapshot.afterMicros,
+        'groups': {
+          for (final entry in snapshot.groups.entries)
+            entry.key: {
+              'used_bytes': entry.value.usedBytes,
+              'young_collections': entry.value.youngCollections,
+              'old_collections': entry.value.oldCollections,
+            },
+        },
+      };
 
 /// Retry only a heap snapshot crossed by GC, never the benchmark workload.
 /// A later end snapshot retains every collection since the original start.

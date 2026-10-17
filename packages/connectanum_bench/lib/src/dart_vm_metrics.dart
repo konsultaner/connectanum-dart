@@ -34,6 +34,7 @@ class DartVmMetricsCollector implements DartVmMetricsObserver {
   late final StreamSubscription<Event> _gcSubscription;
   int _gcEventGeneration = 0;
   bool _timelineAvailable = false;
+  String? _timelineRecorderName;
   String? _observedSdk;
 
   static Future<DartVmMetricsCollector> connect({
@@ -73,6 +74,10 @@ class DartVmMetricsCollector implements DartVmMetricsObserver {
 
   @override
   Future<DartVmMetricsWindow> beginWindow() async {
+    // These observers own dedicated benchmark VMs. The endless recorder keeps
+    // high-GC windows complete; discard prior windows before any start snapshot
+    // so its native storage stays bounded to the current window.
+    if (_timelineAvailable) await _service.clearVMTimeline();
     final isolates = (await _service.getVM()).isolates ?? const <IsolateRef>[];
     final isolateIds = selectDartVmMetricIsolateIds(
       isolates,
@@ -149,6 +154,7 @@ class DartVmMetricsCollector implements DartVmMetricsObserver {
     );
     allocation.addAll({
       'sdk_version': _observedSdk,
+      'timeline_recorder': _timelineRecorderName,
       'observed_pid': _pid,
       'observer_pid': pid,
       'capture_strategy': pid == _pid ? 'self_observed' : 'external_process',
@@ -190,11 +196,9 @@ class DartVmMetricsCollector implements DartVmMetricsObserver {
       if (!streams.contains('GC')) {
         await _service.setVMTimelineFlags([...streams, 'GC']);
       }
-      _timelineAvailable =
-          (await _service.getVMTimelineFlags()).recordedStreams?.contains(
-            'GC',
-          ) ==
-          true;
+      final active = await _service.getVMTimelineFlags();
+      _timelineRecorderName = active.recorderName;
+      _timelineAvailable = active.recordedStreams?.contains('GC') == true;
     } on RPCError {
       _timelineAvailable = false;
     }

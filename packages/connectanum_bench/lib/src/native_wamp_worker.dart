@@ -332,6 +332,7 @@ class NativeWampWorker {
       usesDirectExecutable ? workerScriptPath : dartExecutable,
       [
         if (enableVmMetrics) '--timeline_streams=GC',
+        if (enableVmMetrics) '--timeline_recorder=endless',
         if (enableVmMetrics) '--observe=0/127.0.0.1',
         if (enableVmMetrics) '--no-pause-isolates-on-exit',
         if (_usesPackageExecutable) 'run',

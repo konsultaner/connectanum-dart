@@ -514,6 +514,7 @@ fn run_bench_suite(
     if args.collect_wamp_vm_metrics {
         command
             .arg("--timeline_streams=GC")
+            .arg("--timeline_recorder=endless")
             .arg("--observe=0/127.0.0.1")
             .arg("--no-pause-isolates-on-exit");
     }

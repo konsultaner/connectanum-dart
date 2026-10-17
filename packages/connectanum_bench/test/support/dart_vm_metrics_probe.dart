@@ -65,6 +65,23 @@ Future<void> main() async {
         peakRssBytes: rssBytes,
       ),
     );
+    final historyObserver = await vmServiceConnectUri(
+      serviceUri.replace(scheme: 'ws').resolve('ws').toString(),
+    );
+    var previousTimelineCleared = false;
+    try {
+      final cutoff = (await historyObserver.getVMTimelineMicros()).timestamp!;
+      await collector.beginWindow();
+      final timeline = await historyObserver.getVMTimeline();
+      previousTimelineCleared = timeline.traceEvents!.every((event) {
+        final json = event.toJson();
+        if (json['cat'] != 'GC') return true;
+        final timestamp = json['ts'];
+        return timestamp is int && timestamp >= cutoff;
+      });
+    } finally {
+      await historyObserver.dispose();
+    }
     final missingMetadata = await collector.endWindow(
       DartVmMetricsWindow(
         cpuUserTicks: null,
@@ -105,6 +122,7 @@ Future<void> main() async {
         'pid_mismatch_rejected': mismatchRejected,
         'observer_crash_propagated': crashPropagated,
         'close_idempotent': idempotentClose,
+        'previous_timeline_cleared': previousTimelineCleared,
         'known_payload_allocation_bytes': 80 * 1024 * 1024,
         'missing_metadata_allocated_bytes': missingMetadata.allocatedBytes,
         'missing_metadata_gc_count': missingMetadata.gcCount,

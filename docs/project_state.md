@@ -6,21 +6,25 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 
-Current verification follow-up (2026-10-17): `b8e2a0ac` passes frozen
-full `bin/verify`, 300 short rows, 120 accounting cases, 36 progressive
-combinations and 190 production consumers on five platforms, with all 3,126
-inputs unchanged and independent hashes checked. Its strict diagnostic still
-fails parity. Complete primary run 38982148476 and supplemental run 38982150588
-are in progress; payload_sizes stops at 192/360 rows on a WebSocket 1 MiB
-workload HTTP timeout (`ext_18_payload_sizes_flatbuffers`), under investigation.
-The full CI router mutation gate fails 94.5904% vs unchanged 95%. New boundary
-assertions kill four exact survivors and pass restored-source tests; the full
-resulting-source gate remains required. No budget, scope or workload is waived.
-See the checked router mutation-boundary research. Further performance changes
-wait for CI and this runtime blocker. The native router UTF-8/empty-string repair now passes the complete 185-case
-metadata suite after 40 fail-first reproductions; focused analysis is clean.
-See the checked UTF-8 research. Full resulting-source verification and the
-complete mutation gate remain pending.
+Current verification follow-up (2026-10-17): `5600f1f7` passes every hosted CI
+job and the full local fast suite. The complete router binding mutation gate
+passes 95.2087% over all 816 mutations with exact restored source and no exclusions.
+Its native UTF-8/empty-string repair passes 185 metadata cases after 40 fail-first
+reproductions. The preceding `b8e2a0ac` passes frozen full `bin/verify`, 300 short
+rows, 120 accounting cases, 36 progressive combinations and 190 production
+consumers on five platforms, with all 3,126 inputs unchanged. Its strict diagnostic
+still fails parity. Complete primary 38982148476 and supplemental 38982150588 are
+in progress; payload_sizes stops at 192/360 rows on a 1 MiB TLS WebSocket timeout.
+All 30 focused local rows complete without that timeout but reproduce missing
+client GC timelines. A standard-SDK probe confirms ring-buffer event loss.
+Benchmark VMs now request an endless recorder cleared before each window;
+failed evidence retains diagnostic observations while staying unavailable.
+Both fail-first regressions, 85 focused Dart cases, analysis and 139 driver tests
+pass. See the checked high-GC timeline research. Full resulting-source verify,
+renewed large-payload evidence and unchanged complete performance acceptance
+remain required. The timeout and separate precision failures remain blockers.
+No budget, workload, copy requirement or dependency scope is waived. PR #132
+remains draft for unmet parity; #130 still requires independent review.
 
 Current native envelope candidate (2026-10-17): source `b2fb8b63` passes
 frozen full `bin/verify`, 300 short supplemental rows, 120 accounting cases and

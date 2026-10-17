@@ -419,6 +419,7 @@ void main() {
       [
         '--packages=${packageConfig.path}',
         '--timeline_streams=GC',
+        '--timeline_recorder=endless',
         '--observe=0/127.0.0.1',
         '--no-pause-isolates-on-exit',
         probeScript.path,
@@ -470,6 +471,7 @@ void main() {
       expect(result['pid_mismatch_rejected'], isTrue);
       expect(result['observer_crash_propagated'], isTrue);
       expect(result['close_idempotent'], isTrue);
+      expect(result['previous_timeline_cleared'], isTrue);
       expect(result['gc_count_delta'], greaterThan(0));
       expect(result['gc_pause_us_delta'], greaterThan(0));
       expect(result['missing_metadata_allocated_bytes'], isNull);
