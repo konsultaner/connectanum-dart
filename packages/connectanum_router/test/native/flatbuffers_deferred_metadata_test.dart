@@ -243,6 +243,101 @@ void main() {
       }
     });
   }
+  test('verified metadata binding does not read an unavailable raw frame', () {
+    late AbstractMessage value;
+    expect(
+      () => value = bindMessage(
+        NativeMessageSerializer.flatbuffers,
+        Uint8List.fromList([0xff]),
+        metadataMessageCode: 48,
+        metadataPrimaryId: 17,
+        metadataFlags: 17,
+        metadataDetailsBytes: dictionary(ppt),
+        metadataStringA: 'com.target',
+        metadataStringB: 'x_test',
+        metadataStringC: 'flatbuffers',
+      ),
+      returnsNormally,
+    );
+    expect(value, isA<Call>());
+    expect((value as Call).requestId, 17);
+    expect((value as Call).procedure, 'com.target');
+  });
+  test('known CALL metadata keeps DEL in the allocation-free ASCII range', () {
+    for (final field in ['ppt_scheme', 'ppt_serializer']) {
+      final values = {...ppt, field: 'x_'};
+      final value = rawCall(
+        dictionary(values),
+        scheme: values['ppt_scheme']!,
+        serializer: values['ppt_serializer']!,
+      );
+      expect(
+        (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+        isFalse,
+      );
+      expect(codec.metadataFor(value), values);
+    }
+  });
+  test('known CALL metadata accepts a final two-byte zero text length', () {
+    List<int> text(String value) => cbor.cbor.encode(cbor.CborValue(value));
+    for (final last in ['ppt_scheme', 'ppt_serializer']) {
+      final first = last == 'ppt_scheme' ? 'ppt_serializer' : 'ppt_scheme';
+      final values = {...ppt, last: ''};
+      final bytes = Uint8List.fromList([
+        0xa2,
+        ...text(first),
+        ...text(values[first]!),
+        ...text(last),
+        0x79,
+        0,
+        0,
+      ]);
+      final value = rawCall(
+        bytes,
+        scheme: values['ppt_scheme']!,
+        serializer: values['ppt_serializer']!,
+      );
+      expect(
+        (value.options!.custom as LazyStringKeyMap).hasPendingLoader,
+        isFalse,
+      );
+      expect(codec.metadataFor(value), values);
+    }
+  });
+  test('known CALL metadata rejects binary keys with matching text bytes', () {
+    List<int> text(String value) => cbor.cbor.encode(cbor.CborValue(value));
+    for (final invalid in ['ppt_scheme', 'ppt_serializer']) {
+      final bytes = <int>[0xa2];
+      for (final entry in ppt.entries) {
+        final key = text(entry.key);
+        if (entry.key == invalid) key[0] -= 0x20;
+        bytes.addAll([...key, ...text(entry.value)]);
+      }
+      expect(() => rawCall(Uint8List.fromList(bytes)), throwsFormatException);
+    }
+  });
+  test(
+    'known CALL metadata rejects unsupported lengths with matching data',
+    () {
+      List<int> text(String value) => cbor.cbor.encode(cbor.CborValue(value));
+      for (final additional in [26, 27, 28, 29, 30, 31]) {
+        final scheme = 'x' * additional;
+        final bytes = Uint8List.fromList([
+          0xa2,
+          ...text('ppt_scheme'),
+          0x60 | additional,
+          ...scheme.codeUnits,
+          ...text('ppt_serializer'),
+          ...text('flatbuffers'),
+        ]);
+        expect(
+          () => rawCall(bytes, scheme: scheme),
+          throwsFormatException,
+          reason: 'additional $additional',
+        );
+      }
+    },
+  );
   test('known CALL metadata supports either key order and ASCII widths', () {
     for (final length in [0, 1, 23, 24, 25, 255, 256, 65535, 65536]) {
       final scheme = 'a' * length;

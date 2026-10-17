@@ -11,16 +11,19 @@ Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), 
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
 
-Current borrowed-lookup candidate (2026-10-17): small native FlatBuffers
-metadata dictionaries now borrow lookup keys instead of allocating a temporary
-serde string per projected schema field. A fail-first counter regression,
-threshold/Unicode/value-identity differentials and all 389 core tests pass.
-Larger maps retain their existing lookup and actual copy accounting; no counter
-or acceptance condition is disabled. The preceding `6d9810ae` terminal-vector
-source completes all 300 short rows, 120 accounting cases and 36 progressive
-combinations with all 3,125 inputs unchanged; its strict Linux diagnostic is
-still running. See the checked borrowed-lookup research. Resulting-source full
-verification, production proofs and performance remain pending.
+Current verification follow-up (2026-10-17): `b8e2a0ac` passes frozen
+full `bin/verify`, 300 short rows, 120 accounting cases, 36 progressive
+combinations and 190 production consumers on five platforms, with all 3,126
+inputs unchanged and independent hashes checked. Its strict diagnostic still
+fails parity. Complete primary run 38982148476 and supplemental run 38982150588
+are in progress; payload_sizes stops at 192/360 rows on a WebSocket 1 MiB
+workload HTTP timeout (`ext_18_payload_sizes_flatbuffers`), under investigation.
+The full CI router mutation gate fails 94.5904% vs unchanged 95%. New boundary
+assertions kill four exact survivors and pass restored-source tests; the full
+resulting-source gate remains required. No budget, scope or workload is waived.
+See the checked router mutation-boundary research. Further performance changes
+wait for CI and this runtime blocker. A native router UTF-8/empty-string bug
+is separately reproduced and its repair is being verified.
 
 Current native envelope candidate (2026-10-17): source `b2fb8b63` passes
 frozen full `bin/verify`, 300 short supplemental rows, 120 accounting cases and
