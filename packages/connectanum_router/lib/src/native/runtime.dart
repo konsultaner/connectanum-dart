@@ -2107,10 +2107,10 @@ _NativeMessageMetadata _metadataFromFfi(
 }
 
 String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
-  if (len <= 0 || ptr.address == 0) {
+  if (ptr == ffi.nullptr) {
     return null;
   }
-  return String.fromCharCodes(ptr.asTypedList(len));
+  return utf8.decode(ptr.asTypedList(len));
 }
 
 String _buildNativeErrorMessage(int code, String context) {

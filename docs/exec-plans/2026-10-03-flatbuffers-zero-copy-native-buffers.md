@@ -22,8 +22,10 @@ The full CI router mutation gate fails 94.5904% vs unchanged 95%. New boundary
 assertions kill four exact survivors and pass restored-source tests; the full
 resulting-source gate remains required. No budget, scope or workload is waived.
 See the checked router mutation-boundary research. Further performance changes
-wait for CI and this runtime blocker. A native router UTF-8/empty-string bug
-is separately reproduced and its repair is being verified.
+wait for CI and this runtime blocker. The native router UTF-8/empty-string repair now passes the complete 185-case
+metadata suite after 40 fail-first reproductions; focused analysis is clean.
+See the checked UTF-8 research. Full resulting-source verification and the
+complete mutation gate remain pending.
 
 Current native envelope candidate (2026-10-17): source `b2fb8b63` passes
 frozen full `bin/verify`, 300 short supplemental rows, 120 accounting cases and
