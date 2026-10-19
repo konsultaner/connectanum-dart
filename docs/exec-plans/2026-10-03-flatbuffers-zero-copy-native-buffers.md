@@ -25,6 +25,8 @@ runs on `codex/objectbox-c-adapter`, based on released master `73d840c9`.
   All 32 adapter tests pass on hosted Linux/macOS/Windows. Initial full verify
   reveals an obsolete seven-package release-order fixture; update its exact
   order to eight packages and retain all dependency assertions. Its 23 tests pass.
+  Add the new helper to the canonical-flow mock, retaining one local invocation
+  and coverage ownership in CI. Its 14 execution tests pass.
 - [ ] Complete local review, canonical `bin/verify`, strict archive inspection
   and an independent consumer using hosted dependencies.
 - [ ] Publish the ready archive and verify the hosted version plus fresh install.

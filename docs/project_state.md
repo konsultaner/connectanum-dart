@@ -24,8 +24,10 @@ passes, and the standalone package passes analysis and 32 tests using hosted
 Dart dependencies and the released native runtime. Initial full `bin/verify`
 stops at the old seven-package release-order test fixture, also failing Fast
 Checks. The fixture now includes the adapter and both actual dependency edges;
-all 23 release-tool tests pass. Full verification/hosted CI are being rerun before
-publication. Initial failed fixtures and lifetime/alignment repros are retained.
+all 23 release-tool tests pass. A second fixture in the canonical-flow harness
+needs the adapter helper stub. It now asserts one local adapter invocation and
+no duplicate invocation outside CI coverage; all 14 CI execution tests pass.
+Full verification/hosted CI are being rerun before publication. Initial failed fixtures and lifetime/alignment repros are retained.
 No FlatBuffers performance gate or unfinished milestone issue is waived.
 
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #102 and #104 are also closed; #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.

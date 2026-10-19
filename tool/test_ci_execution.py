@@ -245,7 +245,7 @@ run_command_with_timeout() { shift 2; "$@"; }
                 common += name + '() { log ' + name + '; }\n'
             (root / 'bin/common.sh').write_text(common)
             for name in ('test-native-coverage-tools', 'test-native-mutation-tools',
-                         'test-tooling', 'test-coverage'):
+                         'test-tooling', 'test-coverage', 'test-objectbox-adapter'):
                 path = root / 'bin' / name
                 path.write_text('#!/bin/bash\nprintf "%s\\n" "' + name + '" >> "$TASK_LOG"\n'
                                 + '[[ "$TASK_FAILED" != "' + name + '" ]] || exit 73\n')
@@ -264,6 +264,7 @@ run_command_with_timeout() { shift 2; "$@"; }
         result, calls, consumers = self.execute(True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(calls.count('test-coverage'), 1)
+        self.assertNotIn('test-objectbox-adapter', calls)  # included in coverage
         self.assertNotIn('test-tooling', calls)  # protected Fast Checks owns these
         self.assertFalse(any(line.startswith('dart test ') for line in calls))
         self.assertTrue(any('--features ffi-test -- --test-threads=1' in line for line in calls))
@@ -278,6 +279,7 @@ run_command_with_timeout() { shift 2; "$@"; }
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn('test-coverage', calls)
         self.assertEqual(calls.count('test-tooling'), 1)
+        self.assertEqual(calls.count('test-objectbox-adapter'), 1)
         for package in ('connectanum_core', 'connectanum_mcp', 'connectanum'):
             self.assertIn(f'dart test packages/{package}/test', calls)
         self.assertTrue(any('-p chrome' in line for line in calls))
