@@ -214,3 +214,13 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
   copy boundaries and the separate ObjectBox adapter contract. Full/mixed routing,
   typed E2EE, platform/consumer and performance acceptance remain in
   `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`.
+
+## ObjectBox adapter package
+
+`packages/connectanum_objectbox_adapter` contains the VM-only ObjectBox C API
+adapter for already encoded entity FlatBuffers. It validates the registered
+entity layout and schema fingerprint, retains compatible native receive spans,
+counts staging and owned read snapshots, and keeps ObjectBox ownership outside
+core/client/router. It publishes as a separate package and uses the application's
+existing ObjectBox Store and native engine. The adapter does not synchronize
+relations or expose database memory across asynchronous work.

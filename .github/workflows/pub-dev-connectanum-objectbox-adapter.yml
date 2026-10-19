@@ -1,0 +1,32 @@
+name: Publish connectanum_objectbox_adapter to pub.dev
+
+on:
+  push:
+    tags:
+      - 'connectanum_objectbox_adapter-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+      - name: Validate package tag and archive
+        run: |
+          bin/validate-dart-package-publish-tag \
+            connectanum_objectbox_adapter packages/connectanum_objectbox_adapter
+          bin/dart-package-publish-dry-run --strict-release-ready \
+            --show-release-plan connectanum_objectbox_adapter
+  publish:
+    needs: validate
+    permissions:
+      contents: read
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      working-directory: packages/connectanum_objectbox_adapter
+      environment: pub.dev

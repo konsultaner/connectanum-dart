@@ -1,9 +1,29 @@
 # Project State
 
-Last updated: 2026-10-09.
+Last updated: 2026-10-19.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+
+Current requested delivery: build and publish the separate
+`connectanum_objectbox_adapter` package using the ObjectBox C API. This branch
+starts from released master `73d840c9`; the unrelated performance branch and
+primary mutation-runner checkout are preserved. The new package follows the
+existing `3.0.0-beta.8` workspace version and uses already published SDKs.
+Publication is explicitly authorized by the user; no package is published yet.
+Fresh pristine-master `bin/test-fast` passes. Integrated analysis and all 32 tests
+pass using actual ObjectBox 5.3.2 and the published Connectanum beta.8 native
+runtime. FlatBuffers/CBOR/MessagePack receive-to-database writes use zero
+additional adapter body copies. Modified supplied bytes and expired routing
+handles safely fall back to counted copies. C reads pass all eight physical
+pointer offsets, including Dart-builder 64-bit vectors at four-byte offsets.
+The initial adapter coverage floor is 96.19% (354/368 measured lines); existing
+package floors remain unchanged. Database reads return owned snapshots.
+Local native-lifetime review is checked against the pinned SDK source. Hosted
+three-platform CI, full `bin/verify`, archive review and live pub.dev confirmation
+remain open. Initial failed fixtures and lifetime/alignment repros are retained.
+No FlatBuffers performance gate or unfinished milestone issue is waived.
+
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #102 and #104 are also closed; #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
 The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one
