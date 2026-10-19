@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import tempfile
@@ -25,6 +26,12 @@ BENCH_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_bench" / "CHANGELOG.md"
 )
 BENCH_README = REPO_ROOT / "packages" / "connectanum_bench" / "README.md"
+MQTT_BENCHMARK_REPORT = (
+    REPO_ROOT
+    / "docs"
+    / "benchmarks"
+    / "mqtt-hosted-intel-58016dc8-2026-10-16.json"
+)
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
 EXPECTED_PACKAGE_VERSION = "3.0.0-beta.8"
@@ -79,13 +86,26 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
 
     def test_bench_readme_publishes_current_result_snapshot(self) -> None:
         readme = BENCH_README.read_text(encoding="utf-8")
+        mqtt_report = json.loads(MQTT_BENCHMARK_REPORT.read_text(encoding="utf-8"))
+        mqtt_table = readme.split("## MQTT publish and subscribe", 1)[1].split(
+            "## WAMP throughput", 1
+        )[0]
+        profile_rows = [
+            line
+            for line in mqtt_table.splitlines()
+            if line.startswith(("| Dart |", "| Native |"))
+        ]
 
+        self.assertEqual(len(profile_rows), len(mqtt_report["profiles"]))
+        self.assertEqual(sum("Delivery pass" in row for row in profile_rows), 4)
+        self.assertEqual(sum("CPU cap missed" in row for row in profile_rows), 1)
+        self.assertIn("mqtt-hosted-intel-58016dc8-2026-10-16.json", mqtt_table)
         self.assertIn(
-            "78-workload production-gate snapshot below covers JSON, MessagePack and",
-            readme,
+            f'{mqtt_report["totalExactDeliveries"]:,} expected and received',
+            mqtt_table,
         )
-        self.assertIn("does not count toward milestone issue #103 or establish", readme)
-        self.assertIn("sustained data-window / full-lifecycle throughput", readme)
+        self.assertIn("No benchmark yet; the live gateway is pending", mqtt_table)
+        self.assertIn("sustained / full-lifecycle throughput", readme)
         self.assertIn("| Transport and path | JSON (Gbit/s) |", readme)
         self.assertIn("### 64 MiB file transfer", readme)
         self.assertIn("### Large RPC frames", readme)

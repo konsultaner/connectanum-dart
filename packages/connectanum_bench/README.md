@@ -1,120 +1,62 @@
 # connectanum_bench
 
-`connectanum_bench` contains the Dart-side benchmark harness for the
-Connectanum router.
+Connectanum benchmark results for MQTT publish/subscribe and WAMP transports.
+The package runs the WAMP and HTTP workloads; the MQTT runner lives under
+`packages/connectanum_router/benchmark/`.
 
-It is used together with the Rust orchestrator under
-[`native/bench`](https://github.com/konsultaner/connectanum-dart/tree/master/native/bench)
-to run:
+## MQTT publish and subscribe
 
-- HTTP/1.1, HTTP/2, and HTTP/3 workloads
-- RawSocket and WebSocket WAMP workloads
-- auth, authz, and transport comparison scenarios
-- router metrics capture through the bench control endpoints
+This table contains every QoS 0 profile from one [GitHub Actions run](https://github.com/konsultaner/connectanum-dart/actions/runs/38816345739/job/116703874967)
+on Ubuntu 24.04 and Intel Xeon Platinum 8573C, compared with Mosquitto 2.0.18.
+C / M means Connectanum / Mosquitto. Higher delivered rate is better; lower
+latency and broker CPU ratios are better. Peak RSS is Connectanum broker memory.
+Workload counts are publications per run; fan-out rates count deliveries to all
+subscribers. WS means WebSocket and WSS means secure WebSocket. Smoke rows check
+delivery and have no numeric performance gate.
 
-This package is an internal workspace tool, not an end-user runtime package.
+| Broker | MQTT / link | Workload | Delivered/s C / M | Rate × | p95 / p99 C/M × | Broker CPU C/M × | Peak RSS | Result |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Dart | 5 / TCP | 128 B, 2k, single smoke | 131,087 / 123,908 | 1.058 | 1.105 / 1.106 | 1.000 | 10.3 MiB | Delivery pass |
+| Dart | 5 / TCP | 128 B, 200k, single | 150,256 / 120,204 | 1.250 | 1.357 / 1.316 | 1.268 | 11.0 MiB | Pass |
+| Dart | 3.1.1 / TCP | 128 B, 200k, single | 149,874 / 114,030 | 1.314 | 1.331 / 1.403 | 1.292 | 10.7 MiB | Pass |
+| Dart | 5 / TCP | 128 B, 200k, batch 512 | 560,320 / 50,061 | 11.193 | 0.025 / 0.028 | 0.117 | 18.1 MiB | Pass |
+| Dart | 5 / TCP | 128 B, 50k, 4 subscribers, batch 128 | 851,238 / 183,194 | 4.647 | 0.230 / 0.247 | 0.105 | 10.6 MiB | Pass |
+| Native | 5 / TCP | 128 B, 2k, single smoke | 183,756 / 146,843 | 1.251 | 0.897 / 0.898 | 1.000 | 31.6 MiB | Delivery pass |
+| Native | 5 / TCP | 128 B, 200k, single | 151,508 / 110,233 | 1.374 | 1.174 / 1.107 | 1.488 | 36.1 MiB | Pass |
+| Native | 3.1.1 / TCP | 128 B, 200k, single | 152,374 / 122,126 | 1.248 | 1.160 / 1.045 | 1.472 | 36.4 MiB | Pass |
+| Native | 5 / TCP | 1 KiB, 100k, single | 102,876 / 9,036 | 11.385 | 0.052 / 0.059 | 1.420 | 40.7 MiB | Pass |
+| Native | 5 / TCP | 64 KiB, 5k, single | 4,148 / 4,691 | 0.884 | 1.229 / 1.220 | **4.294** | 55.1 MiB | **CPU cap missed** |
+| Native | 5 / TCP | 128 B, 200k, batch 512 | 513,632 / 50,250 | 10.222 | 0.026 / 0.030 | 0.156 | 28.6 MiB | Pass |
+| Native | 5 / TCP | 128 B, 50k, 4 subscribers, batch 128 | 742,267 / 184,738 | 4.018 | 0.282 / 0.284 | 0.174 | 22.0 MiB | Pass |
+| Native | 5 / TLS | 128 B, 200k, single | 238,548 / 23,219 | 10.274 | 0.089 / 0.082 | 0.680 | 24.2 MiB | Pass |
+| Native | 3.1.1 / TLS | 128 B, 200k, single | 243,986 / 22,843 | 10.681 | 0.085 / 0.042 | 0.646 | 23.9 MiB | Pass |
+| Native | 5 / WS | 128 B, 200k, single | 72,010 / 80,820 | 0.891 | 1.147 / 1.177 | 1.632 | 23.2 MiB | Pass |
+| Native | 3.1.1 / WS | 128 B, 200k, single | 72,490 / 79,645 | 0.910 | 1.123 / 1.172 | 1.610 | 23.4 MiB | Pass |
+| Native | 5 / WSS | 128 B, 2k, single smoke | 83,833 / 19,934 | 4.206 | 0.258 / 0.275 | 0.667 | 22.9 MiB | Delivery pass |
+| Native | 5 / WSS | 128 B, 200k, batch 64 | 104,604 / 20,995 | 4.982 | 0.238 / 0.232 | 0.376 | 23.2 MiB | Pass |
+| Native | 3.1.1 / WSS | 128 B, 2k, single smoke | 62,800 / 19,070 | 3.293 | 0.380 / 0.416 | 1.000 | 23.4 MiB | Delivery pass |
+| Native | 3.1.1 / WSS | 128 B, 200k, single | 161,857 / 22,112 | 7.320 | 0.132 / 0.130 | 0.529 | 23.7 MiB | Pass |
 
-## MQTT benchmark results
+| Check | Result |
+| --- | --- |
+| Direct MQTT delivery | 29,114,000 expected and received across 192 benchmark samples; zero duplicates |
+| Profile results | 19 of 20 passed: 15 of 16 performance profiles and all 4 delivery-only smoke profiles |
+| Open performance limit | The 64 KiB TCP broker CPU ratio was 4.294× against a 4.0× cap |
+| MQTT ↔ WAMP translation | No benchmark yet; the live gateway is pending |
+| Typed FlatBuffers parity | No accepted performance result yet |
 
-The MQTT QoS 0 benchmark executables live under
-`packages/connectanum_router/benchmark/`. The root
-`tool/run_mqtt_benchmark_gate.py` orchestrator runs them through the
-[GitHub Actions gate](../../.github/workflows/dart.yml), alongside this
-WAMP/HTTP benchmark package. The
-[October 2026 hosted checkpoint](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md)
-on Ubuntu 24.04 and Intel Xeon Platinum 8573C compared Connectanum with
-Mosquitto 2.0.18 across MQTT 5/3.1.1, TCP/TLS/WS/WSS, 128 B–64 KiB payloads,
-batching, and fan-out. In those finite runs, all 192 matched samples received
-the 29,114,000 expected deliveries without duplicates. Nineteen of twenty
-profile gates passed; the MQTT 5 TCP 64 KiB broker CPU ratio was **4.294×**
-against a **4.0×** cap, with 55.1 MiB peak broker RSS, so that CI gate is red.
-For representative throughput and CPU numbers, see the
-[router package README](../connectanum_router/README.md#mqtt-qos-0-benchmark-checkpoint);
-the [checked-in raw rows](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
-contain every profile. WAMP↔MQTT translation throughput and memory have not
-been measured because the live gateway is still pending.
+The [benchmark report](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md)
+and [raw results](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
+include the workload settings, limits, and runner details. These results describe
+this measured run; QoS 0 does not guarantee delivery in every deployment.
 
-## Typed FlatBuffers workload fixture
+## WAMP throughput
 
-`schemas/bench_payload/workload_payload.fbs` defines an application payload with
-worker and iteration identity plus a deterministic binary body. Its checked-in
-Dart reader/object builder is generated with the compiler version pinned in
-`schemas/wamp_flatbuffers/manifest.json`:
-
-```bash
-python3 tool/fetch_flatc.py --output /tmp/connectanum-flatc
-python3 tool/generate_bench_flatbuffers.py \
-  --flatc /tmp/connectanum-flatc/flatc
-python3 tool/generate_bench_flatbuffers.py \
-  --flatc /tmp/connectanum-flatc/flatc --check
-```
-
-The fixture codec checks exact identity and body contents and can build the same
-payload in Dart or directly in native-owned storage. These are correctness and
-construction primitives; they do not establish typed-payload performance parity.
-
-Typed RPC and pub/sub workloads can compare the `values`, `native_buffer`, and
-`pre_encoded_span` construction groups. For example:
-
-```toml
-[[workloads]]
-name = "rawsocket_rpc_flatbuffers_native_buffer"
-protocol = "wamp_rawsocket_rpc"
-client_impl = "dart"
-serializer = "cbor" # WAMP envelope serializer
-path = "bench.rpc.echo"
-iterations = 1000
-concurrency = 1
-request_bytes = 65536
-ppt_scheme = "x_connectanum_bench_typed"
-ppt_serializer = "flatbuffers"
-payload_construction = "native_buffer"
-```
-
-`values` constructs the application value in Dart. `native_buffer` builds a
-FlatBuffer in native-owned memory; for CBOR/MessagePack PPT it stores the binary
-body in native-owned memory before ordinary PPT serialization.
-`pre_encoded_span` serializes the PPT value first, copies those bytes into a
-frozen native owner, and submits that owner through the lazy packed-payload path.
-The runner retains the owner through the RPC result or all matching pub/sub
-deliveries, validates the body and identity, then disposes it.
-
-For a native caller using a FlatBuffers WAMP envelope and typed FlatBuffers PPT,
-the `native_buffer` and `pre_encoded_span` groups use
-`NativeOwnedBuffer.asFlatBuffersPptPayload()`. Session rebuilds only the WAMP
-control envelope and retains the exact application payload span in the native
-frame. The matching integration test verifies the same view and owner reach the
-Session path and stay live through the response. Dart callers, other WAMP
-envelopes, CBOR/MessagePack PPT and unsupported payload shapes use the ordinary
-serializer path. Later WebSocket masking, TLS, encryption, transcoding or
-coalescing can still copy, so this path does not claim end-to-end zero-copy.
-
-`latency_ms` includes payload preparation and the complete request/result or
-publish/delivery path. `payload_preparation_us` is a separate construction timing;
-for `values` and `native_buffer` with dynamic CBOR/MessagePack PPT, the later PPT
-serialization is outside that field but remains inside `latency_ms`. The
-`native_builder_*_copied_bytes` counters cover builder input and growth only,
-not all codec, transport, security or receive copies. Correctness coverage
-includes an 18-case RawSocket matrix with the Dart caller and CBOR WAMP envelope
-across RPC/pub/sub, all three PPT codecs and construction groups. A separate
-12-case matrix covers typed FlatBuffers PPT across RawSocket/WebSocket,
-Dart/native callers and outer serializers, without the runner construction
-groups. A further 12-case live runner matrix covers native RawSocket RPC/pub-sub
-with FlatBuffers WAMP envelopes, all three PPT serializers, and
-`native_buffer`/`pre_encoded_span`; each case validates two iterations. These
-matrices establish correctness and ownership only, not performance. Typed runner
-groups still lack WebSocket and TLS coverage. See the
-[acceptance contract](../../docs/flatbuffers_performance_acceptance.md) before
-claiming parity.
-
-## Existing baseline results (2026-08-24)
-
-The 78-workload production-gate snapshot below covers JSON, MessagePack and
-CBOR, without FlatBuffers. It remains regression evidence for those existing
-paths only and does not count toward milestone issue #103 or establish
-FlatBuffers parity. Each cell reports
-**sustained data-window / full-lifecycle throughput** in Gbit/s; lifecycle
-throughput includes connection, session, routing, and teardown costs.
+These tables show a local benchmark snapshot for JSON, MessagePack, and CBOR.
+Each cell gives **sustained / full-lifecycle throughput** in Gbit/s. The snapshot
+was recorded on 2026-08-24; the [WAMP benchmark contract](../../docs/wamp_profile_benchmarks.md)
+contains the test setup and limits. FlatBuffers performance parity is still
+pending.
 
 ### 64 MiB file transfer
 
@@ -131,9 +73,7 @@ throughput includes connection, session, routing, and teardown costs.
 | Native WebSocket + E2EE | 8.516 / 8.142 | 20.891 / 18.921 | 19.218 / 17.424 |
 | Native WebSocket TLS + E2EE | 8.329 / 7.932 | 17.339 / 15.704 | 15.701 / 14.413 |
 
-The file scenario uses 64 MiB files and 4 MiB binary chunks. Clear RawSocket
-MessagePack and CBOR can preserve file identity through kernel `sendfile`;
-JSON, TLS, WebSocket masking, and E2EE use bounded copy-minimized transforms.
+Files use 4 MiB chunks.
 
 ### Large RPC frames
 
@@ -148,8 +88,7 @@ JSON, TLS, WebSocket masking, and E2EE use bounded copy-minimized transforms.
 | Dart RawSocket TLS reference[^dart-tls] | 0.741 / 0.678 | 0.989 / 0.896 | 0.987 / 0.858 |
 | Dart WebSocket TLS reference[^dart-tls] | 0.717 / 0.706 | 0.934 / 0.917 | 0.929 / 0.906 |
 
-RawSocket frames are 64 MiB and WebSocket frames are 8 MiB. Native TLS and
-WebSocket TLS are the production secure paths.
+RawSocket frames are 64 MiB; WebSocket frames are 8 MiB.
 
 ### WebSocket fragmentation and Pub/Sub
 
@@ -164,54 +103,23 @@ WebSocket TLS are the production secure paths.
 | WebSocket TLS Pub/Sub, contiguous | 3.472 / 3.208 | 4.715 / 4.265 | 2.725 / 2.540 |
 | WebSocket TLS Pub/Sub, 4 KiB fragments | 3.635 / 3.363 | 4.620 / 4.215 | 2.517 / 2.355 |
 
-Fragmentation workloads use 4 MiB payloads, 4 KiB continuation frames, and
-four concurrent in-flight messages. The snapshot is the local completion
-artifact from 2026-08-24; the latest
-[hosted profile run](https://github.com/konsultaner/connectanum-dart/actions/runs/29580331118)
-passes its progressive invocation, call-timeout, Meta API, transport-counter,
-and performance policies. Results describe the measured configuration, not a
-cross-project comparison or a substitute for workload-specific load testing.
+Fragmented rows use 4 MiB payloads split into 4 KiB frames with four messages
+in flight. The [hosted WAMP profile run](https://github.com/konsultaner/connectanum-dart/actions/runs/29580331118)
+passed its performance policies. These measurements are workload-specific.
 
-See the
-[benchmark contract](https://github.com/konsultaner/connectanum-dart/blob/master/docs/wamp_profile_benchmarks.md)
-for reproduction commands, budgets, and limitations, and the checked-in
-scenarios for
-[file transfer](https://github.com/konsultaner/connectanum-dart/blob/master/native/bench/scenarios/wamp_file_transfer_throughput.toml),
-[large frames](https://github.com/konsultaner/connectanum-dart/blob/master/native/bench/scenarios/wamp_large_transport_frames_heavy.toml),
-and
-[WebSocket fragmentation](https://github.com/konsultaner/connectanum-dart/blob/master/native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml).
+[^dart-tls]: Dart TLS rows are reference measurements; native TLS is the production secure path.
 
-[^dart-tls]: Pure-Dart TLS is constrained by the Dart SDK's asynchronous 8/10 KiB TLS staging and is retained as an explicit reference, not a production-gated secure path.
+## Run and reproduce
 
-## Main Entry Point
-
-The Dart bench runner is exposed as a package executable:
+The package exposes the benchmark service:
 
 ```bash
 dart run connectanum_bench:bench_router_service
 ```
 
-In practice it is usually started by the Rust orchestrator and scenario files
-under `native/bench/scenarios/`. The package also exposes the helper worker as
-`connectanum_bench:wamp_client_worker` so a consumer package can run the same
-WAMP worker path without relying on repo-local `tool/` paths.
-
-Secure WAMP scenarios are selected explicitly with `secure_transport = true`
-in the workload definition; the Dart bench runner keeps separate cleartext and
-TLS listener targets so secure workloads do not silently fall back to the
-cleartext WAMP listener.
-
-When the shipped bench router config includes `oauth` HTTP auth providers, the
-Dart runner also starts a local introspection endpoint for them. That keeps the
-HTTP bearer-provider scenarios self-contained instead of depending on an
-external OAuth service during local or CI bench runs.
-
-The shipped HTTP auth bridge smoke scenario now also covers challenge-response
-login for `ticket`, `wampcra`, and `scram`, so the Rust orchestrator exercises
-both multi-step HTTP auth bridge flows and the separate bearer-provider route
-path from the same checked-in bench config.
-
-## Related Docs
-
-- [Native orchestrator overview](https://github.com/konsultaner/connectanum-dart/tree/master/native/bench)
-- [Connectanum repository overview](https://github.com/konsultaner/connectanum-dart)
+The [native orchestrator](https://github.com/konsultaner/connectanum-dart/tree/master/native/bench)
+and its scenarios run complete WAMP campaigns. The
+[MQTT gate script](../../tool/run_mqtt_benchmark_gate.py) and
+[CI workflow](../../.github/workflows/dart.yml) show the MQTT run setup. For
+typed payload setup and test coverage, see the
+[FlatBuffers acceptance contract](../../docs/flatbuffers_performance_acceptance.md).
