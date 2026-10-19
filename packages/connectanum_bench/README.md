@@ -14,6 +14,26 @@ to run:
 
 This package is an internal workspace tool, not an end-user runtime package.
 
+## MQTT benchmark results
+
+The MQTT QoS 0 benchmark executables live under
+`packages/connectanum_router/benchmark/`. The root
+`tool/run_mqtt_benchmark_gate.py` orchestrator runs them through the
+[GitHub Actions gate](../../.github/workflows/dart.yml), alongside this
+WAMP/HTTP benchmark package. The
+[October 2026 hosted checkpoint](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md)
+on Ubuntu 24.04 and Intel Xeon Platinum 8573C compared Connectanum with
+Mosquitto 2.0.18 across MQTT 5/3.1.1, TCP/TLS/WS/WSS, 128 B–64 KiB payloads,
+batching, and fan-out. In those finite runs, all 192 matched samples received
+the 29,114,000 expected deliveries without duplicates. Nineteen of twenty
+profile gates passed; the MQTT 5 TCP 64 KiB broker CPU ratio was **4.294×**
+against a **4.0×** cap, with 55.1 MiB peak broker RSS, so that CI gate is red.
+For representative throughput and CPU numbers, see the
+[router package README](../connectanum_router/README.md#mqtt-qos-0-benchmark-checkpoint);
+the [checked-in raw rows](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
+contain every profile. WAMP↔MQTT translation throughput and memory have not
+been measured because the live gateway is still pending.
+
 ## Typed FlatBuffers workload fixture
 
 `schemas/bench_payload/workload_payload.fbs` defines an application payload with

@@ -66,6 +66,14 @@ For the native client path on Linux and macOS, use
 the Rust `ct_ffi` runtime through FFI and are intended for higher-throughput
 or lower-allocation deployments.
 
+The opt-in MQTT QoS 0 client API is exported from
+`package:connectanum_client/mqtt.dart`. The linked broker/client benchmark
+compares Connectanum with Mosquitto under MQTT 5/3.1.1 over TCP/TLS/WS/WSS;
+see the [router package results](../connectanum_router/README.md#mqtt-qos-0-benchmark-checkpoint)
+and [raw hosted evidence](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json).
+The linked hosted MQTT gate is red on one 64 KiB broker CPU limit, and no
+WAMP↔MQTT translation result exists yet.
+
 ## Native Runtime Setup
 
 During `dart run` and `dart test`, the build hook can compile `ct_ffi`

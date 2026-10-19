@@ -114,6 +114,37 @@ OpenMetrics also exposes drain counters such as
 `connectanum_router_drain_in_progress` and
 `connectanum_router_last_drain_duration_ms`.
 
+## MQTT QoS 0 Benchmark Checkpoint
+
+The current MQTT broker path supports anonymous loopback QoS 0 pub/sub for
+MQTT 5 and 3.1.1 over TCP, TLS, WebSocket, and secure WebSocket. The
+[October 2026 hosted benchmark](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md)
+compares the native router with Mosquitto 2.0.18 on the same Ubuntu 24.04
+GitHub Actions Intel Xeon Platinum 8573C runner. Each sustained profile uses
+five runs per broker; rates below are median delivered messages per second.
+The CPU ratio compares broker CPU seconds, and peak RSS is the Connectanum
+broker's Linux `VmHWM`.
+
+| QoS 0 workload | Connectanum/s | Mosquitto/s | Throughput ratio | Broker CPU ratio | Peak RSS | Gate |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| MQTT 5 TCP, 128 B, window 512 | 151,508 | 110,233 | 1.374 | 1.488 | 36.1 MiB | Pass |
+| MQTT 3.1.1 TCP, 128 B, window 512 | 152,374 | 122,126 | 1.248 | 1.472 | 36.4 MiB | Pass |
+| MQTT 5 WebSocket, 128 B, window 512 | 72,010 | 80,820 | 0.891 | 1.632 | 23.2 MiB | Pass |
+| MQTT 3.1.1 WebSocket, 128 B, window 512 | 72,490 | 79,645 | 0.910 | 1.610 | 23.4 MiB | Pass |
+| MQTT 5 TCP, 64 KiB, window 32 | 4,148 | 4,691 | 0.884 | **4.294** | 55.1 MiB | **Fail: CPU cap 4.0** |
+| MQTT 5 WSS, 128 B, batch 64 | 104,604 | 20,995 | 4.982 | 0.376 | 23.2 MiB | Pass |
+
+Across these finite runs, all 192 matched samples received the 29,114,000
+expected QoS 0 deliveries without duplicates. Nineteen of twenty profile
+gates passed; the 64 KiB CPU ratio made
+[that MQTT CI job](https://github.com/konsultaner/connectanum-dart/actions/runs/38816345739/job/116703874967)
+red. A previous same-source AMD EPYC 9V74 run passed all twenty, so the
+release performance margin remains open. The [full report and raw
+rows](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
+include p95/p99 latency, broker CPU seconds, peak RSS, inputs, and provenance.
+These are direct MQTT→MQTT measurements; WAMP↔MQTT translation and its memory
+gate have no result yet.
+
 ## Lazy Payload And Forwarding Boundaries
 
 The router keeps payload bytes lazy when the route stays on a supported

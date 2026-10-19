@@ -3,10 +3,14 @@
 Status: active
 Owner: Codex
 Created: 2026-10-14
-Last updated: 2026-10-15
+Last updated: 2026-10-19
 Branch: `codex/mqtt-broker-interoperability` in a separate managed worktree
 Milestone: [GitHub milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2); parent [#109](https://github.com/konsultaner/connectanum-dart/issues/109)
 Baseline: GitHub master `73d840c9`; pre-change `bin/test-fast` passes on 2026-10-14
+
+## Current hosted checkpoint
+
+The [GitHub Actions MQTT run on `58016dc8`](../benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md) passes 19/20 unchanged profiles, all 192 exact rows and 29,114,000 deliveries, Paho/Connectanum integration, and scoped 652/652 MQTT Dart plus 268/268 Python coverage. On Intel Xeon Platinum 8573C, the MQTT 5 TCP 64 KiB broker-CPU ratio is 4.294 versus its 4.0 cap; throughput, latency, and RSS pass. The Full Verify CI job fails that prerequisite. The same production/workflow source passed 20/20 on EPYC 9V74, including a 3.143 ratio for that profile. Package READMEs now surface these measured results and the red gate; raw evidence is checked in. Local `bin/verify` passes at exit 0 after the README update, including Chrome and Dart2Wasm. Keep #127, #131, PR #128 draft, and milestone #2 open, with unchanged budgets. Resolve direct MQTT release margin before claiming readiness; live WAMP↔MQTT translation and its memory gate have no results yet.
 
 ## Goal
 
