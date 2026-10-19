@@ -41,7 +41,11 @@ void main() {
   test(
     'failed allocation evidence retains counters without becoming measured',
     () {
-      final result = dartHeapAllocationVolume(snapshot(), snapshot(end: true), []);
+      final result = dartHeapAllocationVolume(
+        snapshot(),
+        snapshot(end: true),
+        [],
+      );
       expect(result['status'], 'not_measured');
       expect(result.containsKey('estimated_bytes'), isFalse);
       final evidence = result['diagnostic_evidence'] as Map;
