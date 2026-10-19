@@ -21,7 +21,10 @@ runs on `codex/objectbox-c-adapter`, based on released master `73d840c9`.
   snapshots in the first release. No native transaction crosses `await`.
 - [x] Integrate the separate package, public example and explicit copy metrics.
 - [x] Test modified/expired receive ownership and remaining model limits.
-- [ ] Add native-library test setup, cross-platform CI and package publication.
+- [x] Add native-library test setup, cross-platform CI and publication workflow.
+  All 32 adapter tests pass on hosted Linux/macOS/Windows. Initial full verify
+  reveals an obsolete seven-package release-order fixture; update its exact
+  order to eight packages and retain all dependency assertions. Its 23 tests pass.
 - [ ] Complete local review, canonical `bin/verify`, strict archive inspection
   and an independent consumer using hosted dependencies.
 - [ ] Publish the ready archive and verify the hosted version plus fresh install.

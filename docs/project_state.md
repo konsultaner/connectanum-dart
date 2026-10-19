@@ -18,9 +18,14 @@ handles safely fall back to counted copies. C reads pass all eight physical
 pointer offsets, including Dart-builder 64-bit vectors at four-byte offsets.
 The initial adapter coverage floor is 96.19% (354/368 measured lines); existing
 package floors remain unchanged. Database reads return owned snapshots.
-Local native-lifetime review is checked against the pinned SDK source. Hosted
-three-platform CI, full `bin/verify`, archive review and live pub.dev confirmation
-remain open. Initial failed fixtures and lifetime/alignment repros are retained.
+Local native-lifetime review is checked against the tested SDK source. All 32
+adapter tests pass on hosted Linux/macOS/Windows, the hosted archive dry run
+passes, and the standalone package passes analysis and 32 tests using hosted
+Dart dependencies and the released native runtime. Initial full `bin/verify`
+stops at the old seven-package release-order test fixture, also failing Fast
+Checks. The fixture now includes the adapter and both actual dependency edges;
+all 23 release-tool tests pass. Full verification/hosted CI are being rerun before
+publication. Initial failed fixtures and lifetime/alignment repros are retained.
 No FlatBuffers performance gate or unfinished milestone issue is waived.
 
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #102 and #104 are also closed; #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
