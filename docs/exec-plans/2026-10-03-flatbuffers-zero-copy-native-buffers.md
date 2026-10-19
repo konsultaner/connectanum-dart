@@ -27,15 +27,23 @@ runs on `codex/objectbox-c-adapter`, based on released master `73d840c9`.
   order to eight packages and retain all dependency assertions. Its 23 tests pass.
   Add the new helper to the canonical-flow mock, retaining one local invocation
   and coverage ownership in CI. Its 14 execution tests pass.
-- [ ] Complete local review, canonical `bin/verify`, strict archive inspection
+- [x] Complete local review, canonical `bin/verify`, strict archive inspection
   and an independent consumer using hosted dependencies.
-- [ ] Publish the ready archive and verify the hosted version plus fresh install.
+- [x] Publish the ready archive and verify the hosted version plus fresh install.
+  Published `3.0.0-beta.8` at 2026-10-19 13:19:06 UTC. A fresh-cache consumer
+  passes analysis and real C ingestion with zero additional native-input body
+  copies; six downloaded library files and the archive digest match.
+
+Canonical `bin/verify` passes at exit 0 on `ce1d40b5`. Hosted adapter tests
+(32 per OS), Fast Checks and archive validation pass; broader CI remains in
+progress at this checkpoint. Publication/source evidence is recorded in the
+[ObjectBox research](../research/2026-10-19-objectbox-c-adapter.md).
 
 Evidence is under `out/objectbox-adapter-evidence/`. The package's initial version
 is `3.0.0-beta.8`, matching the current synchronized workspace gate. It depends
 on published versions; no client/core version or native ABI is changed. The
-isolated native compatibility module constrains its SDK compatibility bands. C API insertion uses
-caller-owned immutable memory, an independent native receive lease, schema and
+isolated native compatibility module constrains its SDK compatibility bands.
+C API insertion uses caller-owned immutable memory, an independent native receive lease, schema and
 complete byte checks; fallback copies are counted. ObjectBox/SDK internals are
 not included in those counters. See the checked ObjectBox adapter research.
 
