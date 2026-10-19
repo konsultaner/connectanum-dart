@@ -64,3 +64,13 @@ Local evidence is under `out/flatbuffers-milestone-finish/`: `high-gc-ring.json`
 Full resulting-source verification, the renewed 1 MiB case and performance
 acceptance are still required. This repair does not claim throughput parity or
 resolve the independent server precision failures or hosted timeout.
+
+## Completed follow-up on 2026-10-19
+
+The renewed focused `ext_18_payload_sizes` diagnostic on `1a20561d` completes
+all 30 rows with every client and server allocation window measured. No timeout
+or precision failure occurs in this run; it establishes no parity acceptance.
+The resulting-source CI stops before test execution because the format gate
+detects one unformatted test invocation. Missing coverage artifacts are a
+consequence, not a failed coverage ratio. `8f6e753a` formats the invocation and
+the complete 736-file format check passes. Full verification remains required.
