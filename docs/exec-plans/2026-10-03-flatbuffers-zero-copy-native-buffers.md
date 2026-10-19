@@ -17,8 +17,12 @@ job and the full local fast suite. The complete 816-mutation router gate passes
 renewed 30-row 1 MiB TLS WebSocket run completes with all 60 client/server
 allocation windows measured and no timeout. Its CI stops at one unformatted test
 line before coverage tests. `8f6e753a` corrects it; all 736 files pass formatting.
-Full resulting-source verification remains required. Both causal regressions,
-85 focused Dart tests, analysis and 139 driver tests pass. See high-GC research.
+The first full `540ab37f` verification reproduces a synthetic VM fixture missing
+`clearVMTimeline`; that superseded run is failed, not a pass. The fixture now
+handles the RPC, and a new regression proves clear failure aborts measurement.
+All 221 collector/worker lifecycle tests pass, with causal source restoration.
+Fresh full verification and production proofs remain required. The prior 85
+focused Dart cases, analysis and 139 driver tests pass. See high-GC research.
 
 The complete b8 primary campaign finishes all 1,440 rows across 48 cases with
 complete allocation observations. Independent archive/source/binary/policy/

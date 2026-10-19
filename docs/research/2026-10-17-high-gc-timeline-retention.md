@@ -74,3 +74,13 @@ The resulting-source CI stops before test execution because the format gate
 detects one unformatted test invocation. Missing coverage artifacts are a
 consequence, not a failed coverage ratio. `8f6e753a` formats the invocation and
 the complete 736-file format check passes. Full verification remains required.
+
+The first full verification on `540ab37f` subsequently catches a stale synthetic
+VM-service fixture: it does not respond to `clearVMTimeline`, causing an
+unhandled fixture error and timeouts. That failed run is retained and stopped;
+it is not a successful full verification. The fixture now returns the standard
+Success response and identifies its recorder. A separate negative test requires
+an unsupported clear RPC to abort `beginWindow`; removing the production clear
+makes that assertion fail, and exact restoration passes. All 221 collector,
+external-observer, wire and worker lifecycle cases pass. Application code and
+all acceptance thresholds remain unchanged by this fixture repair.
