@@ -12,3 +12,15 @@ int ct_e2ee_copy_metrics_snapshot(void *out) {
   (void)out;
   abort();
 }
+
+// The raw-frame family likewise must reject unknown layouts before writing.
+uint32_t ct_raw_frame_copy_metrics_abi_version(void) { return 2; }
+int ct_raw_frame_copy_metrics_snapshot(void *out) {
+  (void)out;
+  abort();
+}
+
+// A future codec layout must also be rejected before Dart allocates v1 storage.
+uint32_t ct_codec_copy_metrics_abi_version(void) { return CT_CODEC_COVERAGE == 3 ? 2 : 1; }
+uint32_t ct_codec_copy_metrics_coverage_version(void) { return CT_CODEC_COVERAGE; }
+int ct_codec_copy_metrics_snapshot(void *out) { (void)out; abort(); }

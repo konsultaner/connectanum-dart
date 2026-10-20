@@ -233,7 +233,7 @@ impl Reader {
             return Err(invalid("string terminator"));
         }
         let text = std::str::from_utf8(&bytes[..length]).map_err(|_| invalid("UTF-8"))?;
-        let text: Arc<str> = Arc::from(text);
+        let text: Arc<str> = super::codec_copy_metrics::copy_text_arc(text);
         self.strings.insert(offset, text.clone());
         Ok(Value::Text(text))
     }
@@ -281,5 +281,42 @@ impl Reader {
             });
         }
         Ok((height, Value::Vector(output)))
+    }
+}
+
+#[cfg(test)]
+mod copy_tests {
+    use super::*;
+    #[test]
+    fn string_reader_observes_storage_once_and_retains_cached_aliases() {
+        for text in ["", "écho", "routing.name"] {
+            let mut bytes = (text.len() as u32).to_le_bytes().to_vec();
+            bytes.extend_from_slice(text.as_bytes());
+            bytes.push(0);
+            let mut reader = Reader {
+                bytes: Bytes::from(bytes),
+                tables: HashMap::new(),
+                strings: HashMap::new(),
+                string_bytes: 0,
+                elements: 0,
+            };
+            let before = super::super::codec_copy_metrics::observed_on_current_thread();
+            let Value::Text(first) = reader.string(0).unwrap() else {
+                panic!("expected text");
+            };
+            let once = super::super::codec_copy_metrics::observed_on_current_thread();
+            assert_eq!(
+                once.string_copy_bytes_total - before.string_copy_bytes_total,
+                text.len() as u64
+            );
+            let Value::Text(second) = reader.string(0).unwrap() else {
+                panic!("expected text");
+            };
+            assert!(Arc::ptr_eq(&first, &second));
+            assert_eq!(
+                super::super::codec_copy_metrics::observed_on_current_thread(),
+                once
+            );
+        }
     }
 }

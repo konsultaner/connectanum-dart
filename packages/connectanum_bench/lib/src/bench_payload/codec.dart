@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_buffers.dart';
-import 'package:flat_buffers/flat_buffers.dart' as fb;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 
 import 'generated/workload_payload_connectanum.bench_generated.dart' as schema;
 
@@ -29,13 +29,13 @@ abstract final class BenchPayloadCodec {
   }) {
     _checkIdentity(worker, iteration);
     RangeError.checkValueInInterval(length, 0, 64 * 1024 * 1024, 'length');
-    return Uint8List.fromList(
-      List<int>.generate(
-        length,
-        (index) => (index * 31 + worker * 17 + iteration * 29) & 0xff,
-        growable: false,
-      ),
-    );
+    final bytes = Uint8List(length);
+    var value = (worker * 17 + iteration * 29) & 0xff;
+    for (var index = 0; index < length; index++) {
+      bytes[index] = value;
+      value = (value + 31) & 0xff;
+    }
+    return bytes;
   }
 
   static Uint8List encodeDart({
@@ -43,7 +43,10 @@ abstract final class BenchPayloadCodec {
     required int iteration,
     required int bodyBytes,
   }) {
-    final builder = fb.Builder(deduplicateTables: false);
+    final builder = flatbuffers.WampFlatBufferBuilder(
+      initialSize: _initialFlatBufferSize(bodyBytes),
+      deduplicateTables: false,
+    );
     builder.finish(
       schema.WorkloadPayloadObjectBuilder(
         worker: worker,
@@ -60,9 +63,11 @@ abstract final class BenchPayloadCodec {
     required int worker,
     required int iteration,
     required int bodyBytes,
-    int initialSize = 1024,
+    int? initialSize,
   }) {
-    final builder = allocator.flatBuffers(initialSize: initialSize);
+    final builder = allocator.flatBuffers(
+      initialSize: initialSize ?? _initialFlatBufferSize(bodyBytes),
+    );
     try {
       builder.finish(
         schema.WorkloadPayloadObjectBuilder(
@@ -76,6 +81,19 @@ abstract final class BenchPayloadCodec {
     } finally {
       builder.dispose();
     }
+  }
+
+  // The pinned model writes all three slots and needs 40 bytes beyond its
+  // byte vector, padded to the builder's eight-byte alignment. Exact sizing
+  // also produces a whole Dart backing array rather than a partial view.
+  static int _initialFlatBufferSize(int bodyBytes) {
+    RangeError.checkValueInInterval(
+      bodyBytes,
+      0,
+      64 * 1024 * 1024,
+      'bodyBytes',
+    );
+    return ((bodyBytes + 7) & ~7) + 40;
   }
 
   static int _uintWidth(int value, bool cbor) => value <= (cbor ? 23 : 127)

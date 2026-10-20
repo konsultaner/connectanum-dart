@@ -236,7 +236,11 @@ class Invocation extends AbstractMessageWithPayload {
     if (lazyPayload != null && options?.pptScheme != 'wamp') {
       // Keep the source lease with the actual outbound wire view. Packing a
       // reply can reuse spans even when its argument wrapper is different.
-      response.retainLazyPayload(response.toLazyPayload(anchor: lazyPayload));
+      response.retainLazyPayload(
+        packedPayload != null && lazyPayload.hasPackedPayloadBytes
+            ? lazyPayload
+            : response.toLazyPayload(anchor: lazyPayload),
+      );
     }
     _emitResponse(response);
   }

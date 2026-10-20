@@ -12,14 +12,23 @@ import 'package:logging/logging.dart';
 import 'package:connectanum_bench/src/http_stream_handler.dart';
 import 'package:connectanum_bench/src/http_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/dart_vm_metrics.dart';
+import 'package:connectanum_bench/src/dart_vm_metrics_external.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/remote_auth_bench_harness.dart';
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
+import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
+import 'package:connectanum_bench/src/codec_copy_metrics.dart';
+import 'package:connectanum_bench/src/owned_copy_metrics.dart';
+import 'package:connectanum_bench/src/owned_pipeline_copy_metrics.dart';
+// Enable owned copy observation before router worker creation.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
 Future<void> main(List<String> args) async {
+  OwnedCopyMetrics.enable();
   await runZonedGuarded(
     () => _runBenchMain(args),
     (error, stackTrace) {
@@ -129,6 +138,11 @@ void _configureLogging({required bool verbose}) {
       }
     });
 }
+
+Map<String, int>? _routerRawFrameCopyMetrics(NativeRuntime runtime) =>
+    runtime is NativeTransportRuntime
+    ? runtime.rawFrameCopyMetricsSnapshot()
+    : null;
 
 NativeRouterTransportCopyMetrics? _routerTransportCopyMetrics(
   NativeRuntime runtime,
@@ -246,7 +260,7 @@ class _BenchRouterService {
     }
   }
 
-  Future<DartVmMetricsCollector> _connectServerProcessMetricsCollector() async {
+  Future<DartVmMetricsObserver> _connectServerProcessMetricsCollector() async {
     final serviceUri = (await developer.Service.getInfo()).serverUri;
     if (serviceUri == null) {
       throw StateError(
@@ -254,7 +268,7 @@ class _BenchRouterService {
         'launch bench_main with --enable-vm-service',
       );
     }
-    return DartVmMetricsCollector.connect(
+    return ExternalDartVmMetricsCollector.connect(
       serviceUri: serviceUri,
       pid: pid,
       allIsolates: true,
@@ -420,7 +434,7 @@ class _BenchControlRegistry {
   final String nativeLibraryPath;
   final String workerScriptPath;
   final bool enableVmMetrics;
-  final DartVmMetricsCollector? serverProcessMetricsCollector;
+  final DartVmMetricsObserver? serverProcessMetricsCollector;
 
   final _logger = Logger('BenchControlRegistry');
   final List<_BenchRegisteredHandler> _registrations = [];
@@ -719,6 +733,12 @@ class _BenchControlRegistry {
       } catch (_) {
         baselineMetrics = null;
       }
+      final ownedCopiesBefore = await binding.collectOwnedBufferCopies();
+      final codecBefore = binding.runtime is NativeTransportRuntime
+          ? (binding.runtime as NativeTransportRuntime)
+                .codecCopyMetricsSnapshot()
+          : null;
+      final rawFrameMetricsBefore = _routerRawFrameCopyMetrics(binding.runtime);
       final routerCopyMetricsBefore = _routerTransportCopyMetrics(
         binding.runtime,
       );
@@ -751,9 +771,10 @@ class _BenchControlRegistry {
       final samples = result.samples;
       final fileSegmentMetrics = result.fileSegmentMetrics;
       final clientProcessMetrics = result.processMetrics;
-      if (baselineMetrics != null) {
-        await _awaitRouterQuiescence(baselineMetrics);
-      }
+      final quiescent =
+          baselineMetrics != null &&
+          await _awaitRouterQuiescence(baselineMetrics);
+      final ownedCopiesAfter = await binding.collectOwnedBufferCopies();
       final routerCopyMetricsAfter = _routerTransportCopyMetrics(
         binding.runtime,
       );
@@ -763,13 +784,46 @@ class _BenchControlRegistry {
         before: routerCopyMetricsBefore,
         after: routerCopyMetricsAfter,
       );
+      final rawFrameMetrics = rawFrameCopyMetricsDelta(
+        rawFrameMetricsBefore,
+        _routerRawFrameCopyMetrics(binding.runtime),
+      );
+      final previousRawBreakdown = copyMetrics['raw_frame_copy_breakdown'];
+      copyMetrics['raw_frame_copy_breakdown'] = {
+        if (previousRawBreakdown is Map)
+          ...Map<String, Object?>.from(previousRawBreakdown),
+        'router': rawFrameMetrics,
+      };
+      final codecBreakdown = copyMetrics['native_codec_copy_breakdown'];
+      copyMetrics['native_codec_copy_breakdown'] = {
+        if (codecBreakdown is Map) ...Map<String, Object?>.from(codecBreakdown),
+        'router': codecCopyMetricsDelta(
+          codecBefore,
+          binding.runtime is NativeTransportRuntime
+              ? (binding.runtime as NativeTransportRuntime)
+                    .codecCopyMetricsSnapshot()
+              : null,
+        ),
+      };
+      final ownedBreakdown = copyMetrics['dart_owned_buffer_copy_breakdown'];
+      copyMetrics['dart_owned_buffer_copy_breakdown'] = {
+        if (ownedBreakdown is Map) ...Map<String, Object?>.from(ownedBreakdown),
+        'router': routerOwnedBufferCopyMetricsDelta(
+          ownedCopiesBefore,
+          ownedCopiesAfter,
+          quiescent: quiescent,
+        ),
+      };
       final dataWindow = WampSampleWindow.fromSamples(samples);
       context.sendJson(
         body: {
           'samples': samples.map((sample) => sample.toJson()).toList(),
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
-          'copy_metrics': copyMetrics,
+          'copy_metrics': mergeOwnedPipelineCopyMetrics(
+            copyMetrics,
+            scenario: scenario,
+          ),
           'server_process_metrics': serverProcessMetrics,
           if (clientProcessMetrics != null)
             'client_process_metrics': clientProcessMetrics.toJson(),
@@ -799,7 +853,7 @@ class _BenchControlRegistry {
   }
 
   Future<Map<String, Object?>> _serverProcessMetricsJson(
-    DartVmMetricsCollector collector,
+    DartVmMetricsObserver collector,
     DartVmMetricsWindow window, {
     required int rssBeforeBytes,
     required int? currentRssAtWindowEnd,
@@ -824,6 +878,7 @@ class _BenchControlRegistry {
       'cpu_user_us_delta': measured.cpuUserMicros,
       'cpu_system_us_delta': measured.cpuSystemMicros,
       'allocated_bytes_delta': measured.allocatedBytes,
+      'allocation_measurement': measured.allocationMeasurement,
       'gc_count_delta': measured.gcCount,
       'gc_pause_us_delta': measured.gcPauseMicros,
       'peak_rss_during_bytes': measured.peakRssBytes,
@@ -871,7 +926,7 @@ class _BenchControlRegistry {
     return error.toString();
   }
 
-  Future<void> _awaitRouterQuiescence(
+  Future<bool> _awaitRouterQuiescence(
     Object baseline, {
     Duration timeout = const Duration(seconds: 3),
   }) async {
@@ -887,7 +942,7 @@ class _BenchControlRegistry {
           metrics.subscriptionCount <= baselineSnapshot.subscriptionCount &&
           metrics.registrationCount <= baselineSnapshot.registrationCount;
       if (isQuiescent) {
-        return;
+        return true;
       }
       if (DateTime.now().isAfter(deadline)) {
         _logger.warning(
@@ -898,7 +953,7 @@ class _BenchControlRegistry {
           'subscriptions=${metrics.subscriptionCount} '
           'registrations=${metrics.registrationCount}',
         );
-        return;
+        return false;
       }
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }

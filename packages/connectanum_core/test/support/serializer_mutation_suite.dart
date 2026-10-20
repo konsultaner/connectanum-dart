@@ -1,12 +1,17 @@
 import 'package:test/test.dart';
 
 import '../message_lazy_payload_regression_test.dart' as lazy_payload;
+import '../owned_copy_metrics_test.dart' as owned_copies;
 import '../serializer/cbor/serializer_indefinite_test.dart' as cbor_indefinite;
 import '../serializer/cbor/serializer_missing_messages_test.dart'
     as cbor_missing;
 import '../serializer/cbor/serializer_ppt_binary_test.dart' as cbor_ppt;
 import '../serializer/cbor/serializer_test.dart' as cbor_serializer;
 import '../serializer/flatbuffers_binding_test.dart' as flatbuffers_binding;
+import '../serializer/flatbuffers_copy_retention_test.dart'
+    as flatbuffers_copies;
+import '../serializer/flatbuffers_byte_view_test.dart'
+    as flatbuffers_byte_views;
 import '../serializer/flatbuffers_validation_test.dart'
     as flatbuffers_validation;
 import '../serializer/flatbuffers_wire_writer_test.dart' as flatbuffers_writer;
@@ -52,12 +57,15 @@ import '../serializer/serializer_security_limits_test.dart' as limits;
 import '../serializer_challenge_welcome_test.dart' as handshake;
 
 void main() {
+  group('owned buffer copy metrics', owned_copies.main);
   group('lazy payload', lazy_payload.main);
   group('CBOR indefinite', cbor_indefinite.main);
   group('CBOR missing messages', cbor_missing.main);
   group('CBOR PPT binary', cbor_ppt.main);
   group('CBOR serializer', cbor_serializer.main);
   group('FlatBuffers binding', flatbuffers_binding.main);
+  group('FlatBuffers copy retention', flatbuffers_copies.main);
+  group('FlatBuffers byte views', flatbuffers_byte_views.main);
   group('FlatBuffers validation', flatbuffers_validation.main);
   group('FlatBuffers writer', flatbuffers_writer.main);
   group('FlatBuffers message writer', flatbuffers_message_writer.main);

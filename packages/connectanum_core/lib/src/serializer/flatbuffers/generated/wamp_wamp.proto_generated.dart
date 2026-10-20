@@ -4182,16 +4182,16 @@ class Error {
       const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
 
   ///  Positional values for application-defined error details.
-  List<int>? get args =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 12);
+  List<int>? get args => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 12);
 
   ///  Keyword values for application-defined error details.
-  List<int>? get kwargs =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 14);
+  List<int>? get kwargs => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 14);
 
   ///  Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
-  List<int>? get payload =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 16);
+  List<int>? get payload => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 16);
 
   ///  The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
   Pptscheme get pptScheme => Pptscheme.fromValue(
@@ -4829,16 +4829,16 @@ class Publish {
       const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
 
   ///  Positional values for application-defined event payload.
-  List<int>? get args =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 10);
+  List<int>? get args => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 10);
 
   ///  Keyword values for application-defined event payload.
-  List<int>? get kwargs =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 12);
+  List<int>? get kwargs => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 12);
 
   ///  Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
-  List<int>? get payload =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 14);
+  List<int>? get payload => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 14);
 
   ///  The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
   Pptscheme get pptScheme => Pptscheme.fromValue(
@@ -5288,16 +5288,16 @@ class Event {
       const wamp_runtime.WampUint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
 
   ///  Positional values for application-defined event payload.
-  List<int>? get args =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 10);
+  List<int>? get args => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 10);
 
   ///  Keyword values for application-defined event payload.
-  List<int>? get kwargs =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 12);
+  List<int>? get kwargs => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 12);
 
   ///  Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
-  List<int>? get payload =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 14);
+  List<int>? get payload => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 14);
 
   ///  The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
   Pptscheme get pptScheme => Pptscheme.fromValue(
@@ -5697,16 +5697,16 @@ class Call {
       const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
 
   ///  Positional values for application-defined call arguments.
-  List<int>? get args =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 10);
+  List<int>? get args => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 10);
 
   ///  Keyword values for application-defined call arguments.
-  List<int>? get kwargs =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 12);
+  List<int>? get kwargs => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 12);
 
   ///  Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
-  List<int>? get payload =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 14);
+  List<int>? get payload => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 14);
 
   ///  The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
   Pptscheme get pptScheme => Pptscheme.fromValue(
@@ -6103,16 +6103,16 @@ class Result {
       const wamp_runtime.WampUint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
 
   ///  Positional values for application-defined call result.
-  List<int>? get args =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 8);
+  List<int>? get args => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 8);
 
   ///  Keyword values for application-defined call result.
-  List<int>? get kwargs =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 10);
+  List<int>? get kwargs => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 10);
 
   ///  Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
-  List<int>? get payload =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 12);
+  List<int>? get payload => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 12);
 
   ///  The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
   Pptscheme get pptScheme => Pptscheme.fromValue(
@@ -6802,16 +6802,16 @@ class Invocation {
       const wamp_runtime.WampUint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
 
   ///  Positional values for application-defined call arguments.
-  List<int>? get args =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 10);
+  List<int>? get args => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 10);
 
   ///  Keyword values for application-defined call arguments.
-  List<int>? get kwargs =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 12);
+  List<int>? get kwargs => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 12);
 
   ///  Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
-  List<int>? get payload =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 14);
+  List<int>? get payload => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 14);
 
   ///  The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
   Pptscheme get pptScheme => Pptscheme.fromValue(
@@ -7235,16 +7235,16 @@ class Yield {
       const wamp_runtime.WampUint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
 
   ///  Positional values for application-defined invocation result.
-  List<int>? get args =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 8);
+  List<int>? get args => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 8);
 
   ///  Keyword values for application-defined invocation result.
-  List<int>? get kwargs =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 10);
+  List<int>? get kwargs => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 10);
 
   ///  Alternative, transparent payload. If given, ``args`` and ``kwargs`` must be left unset.
-  List<int>? get payload =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 12);
+  List<int>? get payload => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 12);
 
   ///  The specific scheme in use with Payload Passthru (PPT) mode for the application payload.
   Pptscheme get pptScheme => Pptscheme.fromValue(
@@ -7548,8 +7548,8 @@ class Message {
     }
   }
 
-  List<int>? get metadata =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 8);
+  List<int>? get metadata => const wamp_runtime.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 8);
 
   @override
   String toString() {

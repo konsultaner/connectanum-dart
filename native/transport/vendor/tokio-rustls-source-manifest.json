@@ -41,7 +41,7 @@
       "upstream_sha256": "08397ee5ac2ad1cf6f35ab72f3a7f57cacba5d026dcb58a96a2ba8f62314730e"
     },
     "tokio-rustls/src/client.rs": {
-      "sha256": "99c21fc31cd2a7e9b10e6802a41598a3e42bf1b17e6007c4c7f59257e1e77293",
+      "sha256": "1d83da0be46737b13f1dd04914c3c8f67b13de166d4c3e8e3d11670bd4c3e391",
       "upstream_sha256": "99c21fc31cd2a7e9b10e6802a41598a3e42bf1b17e6007c4c7f59257e1e77293"
     },
     "tokio-rustls/src/common/handshake.rs": {
@@ -53,7 +53,7 @@
       "upstream_sha256": "7cc0944f8b864248120594378a3c04594b83c934467319be4147783f365b1e6b"
     },
     "tokio-rustls/src/common/test_stream.rs": {
-      "sha256": "105d8eeb44981f339e8b43de7500ead296b0df4db347b0624f81f715c030b990",
+      "sha256": "f70dd3b13e3dc99b6cc32d17729e09d8e414a7e894101587acda7c8073428b53",
       "upstream_sha256": "7d0de9018053a3169b5280a5cd8ce2869796c082c25a425960db6bb14804d36e"
     },
     "tokio-rustls/src/copy_observer.rs": {
@@ -65,7 +65,7 @@
       "upstream_sha256": "6e434e1c2b43c12ce50cf1d296bbf924c21b47c84414b05b36bd558f11d0d7a1"
     },
     "tokio-rustls/src/server.rs": {
-      "sha256": "c1c3e997c730c0ed0e9825b2043aff241f8e5680e29b7ce57a9a07ce5e483a57",
+      "sha256": "67aed02fc653115113fd1965227dba67e5d7965b0730cd3df804bac67a9de2ab",
       "upstream_sha256": "c1c3e997c730c0ed0e9825b2043aff241f8e5680e29b7ce57a9a07ce5e483a57"
     },
     "tokio-rustls/tests/certs/chain.pem": {
@@ -87,9 +87,11 @@
   },
   "modified_upstream_files": [
     "tokio-rustls/Cargo.toml",
+    "tokio-rustls/src/client.rs",
     "tokio-rustls/src/common/mod.rs",
     "tokio-rustls/src/common/test_stream.rs",
-    "tokio-rustls/src/lib.rs"
+    "tokio-rustls/src/lib.rs",
+    "tokio-rustls/src/server.rs"
   ],
   "package": "tokio-rustls",
   "registry_archive_sha256": "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db",

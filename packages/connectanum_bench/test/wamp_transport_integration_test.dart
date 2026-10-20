@@ -13,12 +13,16 @@ import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
+import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart' as client;
 import 'package:connectanum_client/native_buffers.dart' as native_buffers;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart'
     as native_e2ee;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
+// Observe declared core buffer boundaries across the live router's workers.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
@@ -45,12 +49,135 @@ void main() {
       if (skipReason != null || nativeLib == null) {
         return;
       }
+      OwnedCopyMetrics.enable();
       harness = await _WampTransportHarness.start(nativeLib);
     });
 
     tearDownAll(() async {
       await harness?.close();
     });
+
+    test(
+      'owned router observations include stable fenced worker snapshots',
+      () async {
+        final scenario = WampScenario(
+          transport: WampTransport.rawsocket,
+          clientImplementation: WampClientImplementation.native,
+          serializer: WampSerializer.flatbuffers,
+          peerSerializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 2,
+          concurrency: 1,
+          payloadBytes: 4096,
+          pptScheme: 'x_connectanum_bench_typed',
+          pptSerializer: 'flatbuffers',
+        );
+        await harness!.nativeWorker.runWithMetrics(scenario);
+        final before = await harness!.binding.collectOwnedBufferCopies();
+        expect(before['status'], 'measured', reason: '$before');
+        final result = await harness!.nativeWorker.runWithMetrics(scenario);
+        final after = await harness!.binding.collectOwnedBufferCopies();
+        expect(result.samples, hasLength(2));
+        expect(after['status'], 'measured', reason: '$after');
+        expect(after['boss_generation'], before['boss_generation']);
+        final earlierWorkers = before['workers'] as Map;
+        final laterWorkers = after['workers'] as Map;
+        expect(earlierWorkers, isNotEmpty);
+        expect(laterWorkers.keys, unorderedEquals(earlierWorkers.keys));
+        final pairs = [
+          (before['main_isolate'] as Map, after['main_isolate'] as Map),
+          for (final id in earlierWorkers.keys)
+            (earlierWorkers[id] as Map, laterWorkers[id] as Map),
+        ];
+        for (final (start, end) in pairs) {
+          expect(end.keys, unorderedEquals(start.keys));
+          for (final key in start.keys) {
+            expect(start[key], isA<int>());
+            expect(end[key], greaterThanOrEqualTo(start[key] as int));
+          }
+          expect(
+            end['failed_copy_operations'],
+            start['failed_copy_operations'],
+          );
+        }
+      },
+      skip: skipReason,
+    );
+
+    for (final serializer in [
+      WampSerializer.cbor,
+      WampSerializer.msgpack,
+      WampSerializer.flatbuffers,
+    ]) {
+      test(
+        'native raw-frame observation retains $serializer process scope',
+        () async {
+          final before = harness!.runtime.rawFrameCopyMetricsSnapshot();
+          final result = await harness!.nativeWorker.runWithMetrics(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              clientImplementation: WampClientImplementation.native,
+              serializer: serializer,
+              peerSerializer: serializer,
+              mode: WampMode.rpc,
+              uri: 'bench.rpc.echo',
+              iterations: 2,
+              concurrency: 1,
+              payloadBytes: 65536,
+              payloadConstruction: WampPayloadConstruction.nativeBuffer,
+              pptScheme: 'x_connectanum_bench_typed',
+              pptSerializer: serializer.name,
+            ),
+          );
+          final router = rawFrameCopyMetricsDelta(
+            before,
+            harness!.runtime.rawFrameCopyMetricsSnapshot(),
+          );
+          final client =
+              (result.copyMetrics['raw_frame_copy_breakdown'] as Map)['client']
+                  as Map;
+          expect(result.samples, hasLength(2));
+          final dartCopies =
+              (result.copyMetrics['dart_owned_buffer_copy_breakdown']
+                      as Map)['client']
+                  as Map;
+          expect(dartCopies['status'], 'measured', reason: '$dartCopies');
+          if (serializer == WampSerializer.flatbuffers) {
+            expect(
+              dartCopies['clone_copy_bytes'],
+              lessThan(65536),
+              reason:
+                  'matching packed replies must avoid full model re-encoding and decode clones',
+            );
+          }
+          print(
+            'DART_BUFFER_OBSERVATION ${serializer.name} ${jsonEncode(dartCopies)}',
+          );
+          for (final observed in [client, router]) {
+            expect(observed['status'], 'measured');
+            expect(
+              observed['known_copy_bytes'],
+              (observed['coalescing_copy_bytes'] as int) +
+                  (observed['range_copy_bytes'] as int),
+            );
+            expect(
+              observed['single_segment_contiguous_requests'],
+              greaterThanOrEqualTo(0),
+            );
+            expect(
+              observed['multi_segment_contiguous_requests'],
+              greaterThanOrEqualTo(0),
+            );
+          }
+          print(
+            'RAW_FRAME_OBSERVATION ${jsonEncode({'codec': serializer.name, 'client': client, 'router': router})}',
+          );
+        },
+        skip: skipReason,
+        timeout: const Timeout(Duration(seconds: 45)),
+      );
+    }
 
     for (final transport in WampTransport.values) {
       for (final mode in [WampMode.rpc, WampMode.pubsub]) {
@@ -677,6 +804,38 @@ void main() {
       timeout: const Timeout(Duration(seconds: 45)),
     );
 
+    for (final transport in WampTransport.values) {
+      for (final peer in [WampSerializer.cbor, WampSerializer.flatbuffers]) {
+        for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+          test(
+            'native typed encrypted pubsub verifies decoded $cipher $transport peer=$peer',
+            () async {
+              final samples = await harness!.runNative(
+                WampScenario(
+                  transport: transport,
+                  clientImplementation: WampClientImplementation.native,
+                  serializer: WampSerializer.flatbuffers,
+                  peerSerializer: peer,
+                  mode: WampMode.pubsub,
+                  uri: 'bench.topic.encrypted',
+                  iterations: 2,
+                  concurrency: 1,
+                  payloadBytes: 65536,
+                  pptScheme: 'wamp',
+                  pptSerializer: 'flatbuffers',
+                  pptCipher: cipher,
+                  pptKeyId: 'benchmark-key',
+                ),
+              );
+              expect(samples, hasLength(2));
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
+
     for (final implementation in WampClientImplementation.values) {
       for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
         test(
@@ -715,7 +874,32 @@ void main() {
               'not_measured',
             );
             final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
+            final owned =
+                (result.copyMetrics['dart_owned_buffer_copy_breakdown']
+                        as Map)['client']
+                    as Map;
+            final portableSubset =
+                breakdown['client_worker_isolate_portable_provider'] as Map;
+            final pptSubset =
+                breakdown['client_worker_isolate_ppt_serializer'] as Map;
+            expect(
+              owned['portable_crypto_copy_bytes'],
+              portableSubset.values.cast<int>().fold<int>(0, (a, b) => a + b),
+            );
+            expect(
+              owned['ppt_serializer_copy_bytes'],
+              pptSubset.values.cast<int>().fold<int>(0, (a, b) => a + b),
+            );
+
             expect(breakdown['coverage'], 'known_staging_only');
+            expect(breakdown['client_worker_isolate_ppt_serializer'], {
+              'encode_wrapping_copy_bytes': 0,
+              'decoded_binary_copy_bytes': 0,
+              'coalescing_copy_bytes': 0,
+              'metadata_setup_copy_bytes': 0,
+            });
+            expect(breakdown['client_process_plaintext_framing_copy_bytes'], 0);
+
             expect(
               breakdown['client_process_plaintext_staging_copy_bytes'],
               implementation == WampClientImplementation.native
@@ -729,7 +913,23 @@ void main() {
             final portable =
                 breakdown['client_worker_isolate_portable_provider'] as Map;
             expect(portable['plaintext_wrapping_copy_bytes'], 0);
-            expect(portable['ciphertext_assembly_copy_bytes'], 0);
+            expect(
+              portable['ciphertext_assembly_copy_bytes'],
+              implementation == WampClientImplementation.dart &&
+                      cipher == 'aes256gcm'
+                  ? result.samples.length * 2 * 12
+                  : 0,
+              reason: 'each RPC encrypts a request and a reply nonce',
+            );
+            expect(
+              breakdown['client_process_nonce_tag_copy_bytes'],
+              implementation == WampClientImplementation.native
+                  ? result.samples.length * 2 * 40
+                  : 0,
+              reason:
+                  'each native encrypted leg copies forty nonce/tag bytes '
+                  'across encryption and decryption',
+            );
             expect(portable['ciphertext_coercion_copy_bytes'], 0);
             expect(
               portable['ciphertext_wrapping_copy_bytes'],
@@ -737,6 +937,42 @@ void main() {
                       cipher == 'xsalsa20poly1305'
                   ? greaterThan(0)
                   : 0,
+            );
+          },
+          skip: skipReason,
+          timeout: const Timeout(Duration(seconds: 45)),
+        );
+
+        test(
+          'encrypted CBOR worker $implementation reports $cipher PPT copies',
+          () async {
+            final result = await harness!.nativeWorker.runWithMetrics(
+              WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: implementation,
+                serializer: WampSerializer.flatbuffers,
+                peerSerializer: WampSerializer.flatbuffers,
+                mode: WampMode.rpc,
+                uri: 'bench.rpc.echo',
+                iterations: 2,
+                concurrency: 1,
+                payloadBytes: 1024,
+                pptScheme: 'wamp',
+                pptSerializer: 'cbor',
+                pptCipher: cipher,
+                pptKeyId: 'benchmark-key',
+              ),
+            );
+            expect(result.samples, hasLength(2));
+            final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
+            final ppt =
+                breakdown['client_worker_isolate_ppt_serializer'] as Map;
+            expect(ppt['encode_wrapping_copy_bytes'], greaterThan(0));
+            expect(ppt['coalescing_copy_bytes'], greaterThan(0));
+            expect(ppt['decoded_binary_copy_bytes'], greaterThanOrEqualTo(0));
+            expect(
+              (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
+              'not_measured',
             );
           },
           skip: skipReason,
@@ -807,7 +1043,7 @@ void main() {
     test(
       'native CBOR E2EE file transfer uses native file segments',
       () async {
-        final samples = await harness!.runNative(
+        final result = await harness!.nativeWorker.runWithMetrics(
           WampScenario(
             transport: WampTransport.rawsocket,
             clientImplementation: WampClientImplementation.native,
@@ -826,8 +1062,18 @@ void main() {
           ),
         );
 
+        final samples = result.samples;
         expect(samples, hasLength(1));
         expect(samples.single.requestBytes, 2 * 1024 * 1024);
+        final breakdown = result.copyMetrics['e2ee_copy_breakdown'] as Map;
+        expect(
+          breakdown['client_process_plaintext_framing_copy_bytes'],
+          greaterThan(0),
+        );
+        expect(
+          (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
+          'not_measured',
+        );
       },
       skip: skipReason,
       timeout: const Timeout(Duration(seconds: 45)),

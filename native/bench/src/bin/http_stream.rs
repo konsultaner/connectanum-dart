@@ -6705,6 +6705,28 @@ mod tests {
     }
 
     #[test]
+    fn wamp_process_metrics_retain_raw_allocation_evidence() {
+        let evidence = json!({"status": "measured", "method": "dart_heap_gc_volume_v1",
+            "heap_observations": {"groups/1": {"before_used_bytes": 1024}},
+            "gc_observations": [{"kind": "CollectNewGeneration"}],
+            "observer_pid": 99});
+        for key in ["client_process_metrics", "server_process_metrics"] {
+            let response = json!({key: {"pid": 42, "rss_before_bytes": 1,
+                "current_rss_bytes": 2, "max_rss_bytes": 3,
+                "allocated_bytes_delta": 8192, "allocation_measurement": evidence}});
+            let metrics = if key == "client_process_metrics" {
+                parse_wamp_client_process_metrics(&response)
+            } else {
+                parse_wamp_server_process_metrics(&response)
+            }
+            .unwrap()
+            .unwrap();
+            let retained = serde_json::to_value(&metrics).unwrap();
+            assert_eq!(retained["allocation_measurement"], evidence);
+        }
+    }
+
+    #[test]
     fn wamp_server_process_metrics_preserve_benchmark_service_metrics() {
         let metrics = parse_wamp_server_process_metrics(&json!({
             "server_process_metrics": {

@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
+// Observe explicit key-buffer transfers separately from payload staging.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/native_message_bytes.dart';
@@ -237,6 +240,8 @@ class NativeTransportCopyMetrics {
     this.rustlsDeframerMoveCopyBytesTotal,
     this.rustlsRecordBufferCopyBytesTotal,
     this.rustlsRecordAppendCopyBytesTotal,
+    this.tokioRustlsPlaintextExtractCopyBytesTotal,
+    this.ffiBorrowedSendCopyBytesTotal,
   });
 
   final int dartToNativeCopiedBytesTotal;
@@ -253,6 +258,12 @@ class NativeTransportCopyMetrics {
   final int? rustlsDeframerMoveCopyBytesTotal;
   final int? rustlsRecordBufferCopyBytesTotal;
   final int? rustlsRecordAppendCopyBytesTotal;
+
+  /// Partial Tokio-Rustls plaintext extraction; null for older libraries.
+  final int? tokioRustlsPlaintextExtractCopyBytesTotal;
+
+  /// Actual Rust borrowed-send input copies; null without the optional ABI.
+  final int? ffiBorrowedSendCopyBytesTotal;
 
   NativeTransportCopyMetrics deltaFrom(NativeTransportCopyMetrics before) =>
       NativeTransportCopyMetrics(
@@ -304,6 +315,14 @@ class NativeTransportCopyMetrics {
           rustlsRecordAppendCopyBytesTotal,
           before.rustlsRecordAppendCopyBytesTotal,
         ),
+        tokioRustlsPlaintextExtractCopyBytesTotal: _nullableCounterDelta(
+          tokioRustlsPlaintextExtractCopyBytesTotal,
+          before.tokioRustlsPlaintextExtractCopyBytesTotal,
+        ),
+        ffiBorrowedSendCopyBytesTotal: _nullableCounterDelta(
+          ffiBorrowedSendCopyBytesTotal,
+          before.ffiBorrowedSendCopyBytesTotal,
+        ),
       );
 
   static int _counterDelta(int current, int before) =>
@@ -315,7 +334,7 @@ class NativeTransportCopyMetrics {
 
 /// Bulk crypto staging copies in this process plus this runtime's Dart bridge
 /// and native-provider ciphertext coercion in the current isolate.
-/// Nonce/tag construction and serializer/framing work are excluded. Native
+/// Nonce/tag copies have a separate optional scalar. Serializer work is excluded. Native
 /// counters are null unless the complete optional metrics ABI v1 is available.
 class NativeE2eeCopyMetrics {
   const NativeE2eeCopyMetrics({
@@ -324,6 +343,8 @@ class NativeE2eeCopyMetrics {
     required this.plaintextStagingCopyBytesTotal,
     required this.ciphertextStagingCopyBytesTotal,
     this.ciphertextCoercionCopyBytesTotal = 0,
+    this.nonceTagCopyBytesTotal,
+    this.plaintextFramingCopyBytesTotal,
   });
 
   final int dartToNativeCopiedBytesTotal;
@@ -331,33 +352,46 @@ class NativeE2eeCopyMetrics {
   final int? plaintextStagingCopyBytesTotal;
   final int? ciphertextStagingCopyBytesTotal;
   final int ciphertextCoercionCopyBytesTotal;
+  final int? nonceTagCopyBytesTotal;
 
-  NativeE2eeCopyMetrics deltaFrom(NativeE2eeCopyMetrics before) =>
-      NativeE2eeCopyMetrics(
-        dartToNativeCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
-          dartToNativeCopiedBytesTotal,
-          before.dartToNativeCopiedBytesTotal,
+  /// Explicit CBOR wrapper/header copies; null without the optional scalar.
+  final int? plaintextFramingCopyBytesTotal;
+
+  NativeE2eeCopyMetrics deltaFrom(
+    NativeE2eeCopyMetrics before,
+  ) => NativeE2eeCopyMetrics(
+    dartToNativeCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
+      dartToNativeCopiedBytesTotal,
+      before.dartToNativeCopiedBytesTotal,
+    ),
+    nativeToDartCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
+      nativeToDartCopiedBytesTotal,
+      before.nativeToDartCopiedBytesTotal,
+    ),
+    plaintextStagingCopyBytesTotal:
+        NativeTransportCopyMetrics._nullableCounterDelta(
+          plaintextStagingCopyBytesTotal,
+          before.plaintextStagingCopyBytesTotal,
         ),
-        nativeToDartCopiedBytesTotal: NativeTransportCopyMetrics._counterDelta(
-          nativeToDartCopiedBytesTotal,
-          before.nativeToDartCopiedBytesTotal,
+    ciphertextStagingCopyBytesTotal:
+        NativeTransportCopyMetrics._nullableCounterDelta(
+          ciphertextStagingCopyBytesTotal,
+          before.ciphertextStagingCopyBytesTotal,
         ),
-        plaintextStagingCopyBytesTotal:
-            NativeTransportCopyMetrics._nullableCounterDelta(
-              plaintextStagingCopyBytesTotal,
-              before.plaintextStagingCopyBytesTotal,
-            ),
-        ciphertextStagingCopyBytesTotal:
-            NativeTransportCopyMetrics._nullableCounterDelta(
-              ciphertextStagingCopyBytesTotal,
-              before.ciphertextStagingCopyBytesTotal,
-            ),
-        ciphertextCoercionCopyBytesTotal:
-            NativeTransportCopyMetrics._counterDelta(
-              ciphertextCoercionCopyBytesTotal,
-              before.ciphertextCoercionCopyBytesTotal,
-            ),
-      );
+    nonceTagCopyBytesTotal: NativeTransportCopyMetrics._nullableCounterDelta(
+      nonceTagCopyBytesTotal,
+      before.nonceTagCopyBytesTotal,
+    ),
+    plaintextFramingCopyBytesTotal:
+        NativeTransportCopyMetrics._nullableCounterDelta(
+          plaintextFramingCopyBytesTotal,
+          before.plaintextFramingCopyBytesTotal,
+        ),
+    ciphertextCoercionCopyBytesTotal: NativeTransportCopyMetrics._counterDelta(
+      ciphertextCoercionCopyBytesTotal,
+      before.ciphertextCoercionCopyBytesTotal,
+    ),
+  );
 }
 
 class NativeClientRuntime {
@@ -556,6 +590,7 @@ class NativeClientRuntime {
     final keyPtr = malloc<ffi.Uint8>(key.length);
     try {
       keyPtr.asTypedList(key.length).setAll(0, key);
+      OwnedCopyMetrics.record(OwnedCopyKind.keyMaterial, key.length);
       final result = _bindings.ctE2eeKeyringAddKey(
         keyringHandle,
         keyIdPtr,
@@ -1132,6 +1167,36 @@ class NativeClientRuntime {
     }
   }
 
+  int? _tokioRustlsCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctTokioRustlsCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final copiedBytes = calloc<ffi.Uint64>();
+    try {
+      final result = snapshot(copiedBytes);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot partial Tokio-Rustls copy metrics');
+      }
+      return copiedBytes.value;
+    } finally {
+      calloc.free(copiedBytes);
+    }
+  }
+
+  int? _ffiBorrowedSendCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctFfiBorrowedSendCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final copiedBytes = calloc<ffi.Uint64>();
+    try {
+      final result = snapshot(copiedBytes);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot borrowed FFI send input copy metrics');
+      }
+      return copiedBytes.value;
+    } finally {
+      calloc.free(copiedBytes);
+    }
+  }
+
   _RustlsCopyMetricsSnapshot? _rustlsCopyMetricsSnapshot() {
     final snapshot = _bindings.ctRustlsCopyMetricsSnapshot;
     if (snapshot == null) return null;
@@ -1157,6 +1222,8 @@ class NativeClientRuntime {
 
   NativeTransportCopyMetrics transportCopyMetricsSnapshot() {
     final rustls = _rustlsCopyMetricsSnapshot();
+    final tokioRustls = _tokioRustlsCopyMetricsSnapshot();
+    final ffiBorrowed = _ffiBorrowedSendCopyMetricsSnapshot();
     final snapshotV2 = _bindings.ctTransportCopyMetricsSnapshotV2;
     if (snapshotV2 != null) {
       final info = calloc<CtTransportCopyMetricsInfoV2>();
@@ -1176,6 +1243,8 @@ class NativeClientRuntime {
           rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
           rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
           rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+          tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+          ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
           websocketMaskCopyBytesTotal: value.legacy.websocketMaskCopyBytesTotal,
           websocketCoalesceCopyBytesTotal:
@@ -1200,6 +1269,8 @@ class NativeClientRuntime {
         rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
         rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
         rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+        tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+        ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
         websocketMaskCopyBytesTotal: null,
         websocketCoalesceCopyBytesTotal: null,
@@ -1222,6 +1293,8 @@ class NativeClientRuntime {
         rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
         rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
         rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+        tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+        ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
         websocketMaskCopyBytesTotal: value.websocketMaskCopyBytesTotal,
         websocketCoalesceCopyBytesTotal: value.websocketCoalesceCopyBytesTotal,
@@ -1249,6 +1322,60 @@ class NativeClientRuntime {
     _e2eeCiphertextCoercionCopyBytesTotal += bytes;
   }
 
+  /// Cumulative native parser copies and contiguity requests, or unavailable.
+  Map<String, int>? rawFrameCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctRawFrameCopyMetricsSnapshot;
+    if (_bindings.ctRawFrameCopyMetricsVersion?.call() != 1 ||
+        snapshot == null) {
+      return null;
+    }
+    final info = calloc<CtRawFrameCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot raw-frame copy metrics');
+      }
+      return {
+        'coalescing_copy_bytes': info.ref.coalescingCopyBytesTotal,
+        'range_copy_bytes': info.ref.rangeCopyBytesTotal,
+        'single_segment_contiguous_requests':
+            info.ref.singleSegmentContiguousRequestsTotal,
+        'multi_segment_contiguous_requests':
+            info.ref.multiSegmentContiguousRequestsTotal,
+      };
+    } finally {
+      calloc.free(info);
+    }
+  }
+
+  /// Cumulative explicit native codec buffer operations, or unavailable.
+  Map<String, int>? codecCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctCodecCopyMetricsSnapshot;
+    if (_bindings.ctCodecCopyMetricsVersion?.call() != 1 ||
+        _bindings.ctCodecCopyMetricsCoverageVersion?.call() != 1 ||
+        snapshot == null) {
+      return null;
+    }
+    final info = calloc<CtCodecCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot codec copy metrics');
+      }
+      return {
+        'coverage_version': 1,
+        'vector_copy_bytes': info.ref.vectorCopyBytesTotal,
+        'string_copy_bytes': info.ref.stringCopyBytesTotal,
+        'growth_copy_bytes': info.ref.growthCopyBytesTotal,
+        'parser_read_copy_bytes': info.ref.parserReadCopyBytesTotal,
+        'framing_copy_bytes': info.ref.framingCopyBytesTotal,
+        'key_material_copy_bytes': info.ref.keyMaterialCopyBytesTotal,
+      };
+    } finally {
+      calloc.free(info);
+    }
+  }
+
   NativeE2eeCopyMetrics e2eeCopyMetricsSnapshot() {
     final snapshot = _bindings.ctE2eeCopyMetricsSnapshot;
     int? plaintext;
@@ -1266,7 +1393,41 @@ class NativeClientRuntime {
         calloc.free(info);
       }
     }
+    int? nonceTag;
+    final nonceTagSnapshot = _bindings.ctE2eeNonceTagCopyMetricsSnapshot;
+    if (nonceTagSnapshot != null) {
+      final out = calloc<ffi.Uint64>();
+      try {
+        final result = nonceTagSnapshot(out);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(result, 'snapshot E2EE nonce/tag copy metrics');
+        }
+        nonceTag = out.value;
+      } finally {
+        calloc.free(out);
+      }
+    }
+    int? plaintextFraming;
+    final plaintextFramingSnapshot =
+        _bindings.ctE2eePlaintextFramingCopyMetricsSnapshot;
+    if (plaintextFramingSnapshot != null) {
+      final out = calloc<ffi.Uint64>();
+      try {
+        final result = plaintextFramingSnapshot(out);
+        if (result != NativeTransportErrorCode.success) {
+          _throwForError(
+            result,
+            'snapshot E2EE plaintext framing copy metrics',
+          );
+        }
+        plaintextFraming = out.value;
+      } finally {
+        calloc.free(out);
+      }
+    }
     return NativeE2eeCopyMetrics(
+      nonceTagCopyBytesTotal: nonceTag,
+      plaintextFramingCopyBytesTotal: plaintextFraming,
       dartToNativeCopiedBytesTotal: _e2eeDartToNativeCopiedBytesTotal,
       nativeToDartCopiedBytesTotal: _e2eeNativeToDartCopiedBytesTotal,
       plaintextStagingCopyBytesTotal: plaintext,
@@ -2150,6 +2311,7 @@ class NativeClientRuntime {
       var consumed = false;
       try {
         bytesPtr.asTypedList(bytes.length).setAll(0, bytes);
+        OwnedCopyMetrics.record(OwnedCopyKind.clone, bytes.length);
         consumed = true;
         final result = updateOwnedAsync(
           sha256Handle,
@@ -2170,6 +2332,7 @@ class NativeClientRuntime {
     final bytesPtr = malloc<ffi.Uint8>(bytes.length);
     try {
       bytesPtr.asTypedList(bytes.length).setAll(0, bytes);
+      OwnedCopyMetrics.record(OwnedCopyKind.clone, bytes.length);
       // Older native libraries retain the borrowed-input compatibility path.
       final result = bytes.length >= _asyncSha256MinimumBytes
           ? _bindings.ctSha256UpdateAsync(
@@ -2204,7 +2367,7 @@ class NativeClientRuntime {
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to finalize native SHA-256 state');
       }
-      return Uint8List.fromList(digestPtr.asTypedList(digestLength));
+      return OwnedCopyMetrics.copyBytes(digestPtr.asTypedList(digestLength));
     } finally {
       calloc.free(digestPtr);
     }

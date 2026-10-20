@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 
 import 'package:msgpack_dart/msgpack_dart.dart' as delegate;
@@ -57,7 +58,7 @@ Uint8List _serializeWithout64BitAccessors(Object? value) {
     return delegate.serialize(value);
   }
   if (value is Map) {
-    final builder = BytesBuilder(copy: false)
+    final builder = CopyAwareBytesBuilder()
       ..add(_encodeCollectionHeader(value.length, 0x80, 0xde, 0xdf));
     for (final entry in value.entries) {
       builder
@@ -68,7 +69,7 @@ Uint8List _serializeWithout64BitAccessors(Object? value) {
   }
   if (value is Iterable) {
     final values = value is List ? value : value.toList(growable: false);
-    final builder = BytesBuilder(copy: false)
+    final builder = CopyAwareBytesBuilder()
       ..add(_encodeCollectionHeader(values.length, 0x90, 0xdc, 0xdd));
     for (final item in values) {
       builder.add(serialize(item));
@@ -122,7 +123,7 @@ Uint8List _encodeCollectionHeader(
   int thirtyTwoBitPrefix,
 ) {
   if (length <= 15) {
-    return Uint8List.fromList([fixedPrefix | length]);
+    return OwnedCopyMetrics.copyBytes([fixedPrefix | length]);
   }
   if (length <= 0xffff) {
     final bytes = Uint8List(3)..[0] = sixteenBitPrefix;

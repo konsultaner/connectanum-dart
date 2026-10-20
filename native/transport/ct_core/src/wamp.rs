@@ -14,6 +14,7 @@ mod flatbuffers_conformance_tests;
 #[allow(unused_imports)]
 mod flatbuffers_generated;
 
+mod codec_copy_metrics;
 mod flatbuffers_cbor;
 mod flatbuffers_codec;
 mod flatbuffers_encoder;
@@ -21,6 +22,14 @@ mod flatbuffers_projection;
 mod flatbuffers_schema;
 mod flatbuffers_wire;
 mod flatbuffers_writer;
+pub use codec_copy_metrics::{
+    clone_codec_map, clone_codec_value, codec_copy_metrics_snapshot, copy_codec_string,
+    record_framing_copy, record_key_material_copy, record_vector_copy, CodecCopyMetricsSnapshot,
+};
+mod raw_frame_copy_metrics;
+pub use raw_frame_copy_metrics::{
+    snapshot as raw_frame_copy_metrics_snapshot, RawFrameCopyMetricsSnapshot,
+};
 
 pub use flatbuffers_encoder::compose_segments as compose_flatbuffers_message_segments;
 pub use flatbuffers_encoder::encode as encode_flatbuffers_message;
@@ -277,10 +286,15 @@ impl RawFrame {
     pub fn into_bytes(self) -> Bytes {
         match self {
             RawFrame::Contiguous(bytes) => bytes,
-            RawFrame::Segmented { segments, len } => {
+            RawFrame::Segmented { mut segments, len } => {
+                raw_frame_copy_metrics::record_contiguous_request(segments.len());
+                if let [single] = segments.as_mut_slice() {
+                    return std::mem::take(single);
+                }
                 let mut flattened = Vec::with_capacity(len);
                 for segment in segments {
                     flattened.extend_from_slice(segment.as_ref());
+                    raw_frame_copy_metrics::record_coalescing_copy(segment.len());
                 }
                 Bytes::from(flattened)
             }
@@ -311,7 +325,7 @@ impl RawFrame {
     }
 
     fn slice_or_copy(&self, range: &Range<usize>) -> Result<Bytes, ParseError> {
-        if range.end > self.len() {
+        if range.start > range.end || range.end > self.len() {
             return Err(ParseError::Deserialize(
                 "payload range exceeds message bounds".into(),
             ));
@@ -338,6 +352,7 @@ impl RawFrame {
                     let end = range.end.min(segment_end);
                     if start < end {
                         copied.extend_from_slice(&segment[(start - absolute)..(end - absolute)]);
+                        raw_frame_copy_metrics::record_range_copy(end - start);
                     }
                     if end == range.end {
                         break;
@@ -455,7 +470,7 @@ fn parse_value_parts(
         70 => parse_yield(serializer, rest)?,
         _ => WampMessage::Unknown {
             code,
-            fields: rest.to_vec(),
+            fields: codec_copy_metrics::clone_codec_values(rest),
         },
     };
     Ok(message)
@@ -2076,6 +2091,7 @@ impl Read for SegmentedFrameReader {
             }
             let count = remaining.len().min(buf.len() - written);
             buf[written..written + count].copy_from_slice(&remaining[..count]);
+            codec_copy_metrics::record_parser_read_copy(count);
             written += count;
             self.segment_offset += count;
             if self.segment_offset >= segment.len() {
@@ -2508,7 +2524,7 @@ fn get<'a>(parts: &'a [Value], index: usize, label: &'static str) -> Result<&'a 
 
 fn expect_map(value: &Value, label: &'static str) -> Result<ValueMap, ParseError> {
     match value {
-        Value::Map(map) => Ok(map.clone()),
+        Value::Map(map) => Ok(clone_codec_map(map)),
         Value::Unit => Ok(ValueMap::new()),
         _ => Err(ParseError::ExpectedMap(label)),
     }
@@ -2537,7 +2553,7 @@ fn value_as_u64(value: &Value, label: &'static str) -> Result<u64, ParseError> {
 
 fn expect_string(value: &Value, label: &'static str) -> Result<String, ParseError> {
     match value {
-        Value::String(s) => Ok(s.clone()),
+        Value::String(s) => Ok(copy_codec_string(s)),
         Value::Char(c) => Ok(c.to_string()),
         _ => Err(ParseError::ExpectedString(label)),
     }

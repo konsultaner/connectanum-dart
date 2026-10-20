@@ -960,3 +960,94 @@ fn segmented_reader_respects_empty_reads_partial_reads_and_eof() {
     assert_eq!(reader.read(&mut buffer).assert_success(), 0);
     assert_eq!(buffer, *b"dec");
 }
+
+#[test]
+fn raw_frame_single_segment_contiguity_retains_original_owner_and_range() {
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+    struct Owner {
+        data: Vec<u8>,
+        released: Arc<AtomicUsize>,
+    }
+    impl AsRef<[u8]> for Owner {
+        fn as_ref(&self) -> &[u8] {
+            &self.data
+        }
+    }
+    impl Drop for Owner {
+        fn drop(&mut self) {
+            self.released.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+    let released = Arc::new(AtomicUsize::new(0));
+    let root = Bytes::from_owner(Owner {
+        data: [vec![0xfe, 0xfd], (0_u8..64).collect(), vec![0xfc]].concat(),
+        released: released.clone(),
+    });
+    let logical = root.slice(2..66);
+    let expected_ptr = logical.as_ptr();
+    drop(root);
+    let contiguous = RawFrame::from_segments(vec![logical]).into_bytes();
+    assert_eq!(
+        released.load(Ordering::SeqCst),
+        0,
+        "requesting contiguity must retain a single segment rather than clone it"
+    );
+    assert_eq!(contiguous.as_ptr(), expected_ptr);
+    assert_eq!(contiguous.as_ref(), &(0_u8..64).collect::<Vec<_>>());
+    let derived = contiguous.slice(7..);
+    drop(contiguous);
+    assert_eq!(released.load(Ordering::SeqCst), 0);
+    assert_eq!(derived.as_ref(), &(7_u8..64).collect::<Vec<_>>());
+    drop(derived);
+    assert_eq!(released.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn raw_frame_copy_observations_distinguish_borrowed_and_materialized_ranges() {
+    use super::raw_frame_copy_metrics::observed_on_current_thread as observed;
+    let input =
+        RawFrame::from_segments(vec![Bytes::from_static(b"abc"), Bytes::from_static(b"def")]);
+    let before = observed();
+    assert_eq!(input.slice_or_copy(&(0..2)).assert_success(), b"ab"[..]);
+    assert_eq!(observed(), before);
+    assert_eq!(input.slice_or_copy(&(1..5)).assert_success(), b"bcde"[..]);
+    assert_eq!(
+        observed().range_copy_bytes_total - before.range_copy_bytes_total,
+        4
+    );
+    let before = observed();
+    assert_eq!(input.clone().into_bytes(), b"abcdef"[..]);
+    assert_eq!(
+        observed().coalescing_copy_bytes_total - before.coalescing_copy_bytes_total,
+        6
+    );
+    assert_eq!(
+        observed().multi_segment_contiguous_requests_total
+            - before.multi_segment_contiguous_requests_total,
+        1
+    );
+    let before = observed();
+    for invalid in [3..2, 0..7] {
+        assert!(input.slice_or_copy(&invalid).is_err());
+    }
+    assert_eq!(observed(), before);
+    for length in [0, 1, 64, 65_536] {
+        let bytes = Bytes::from(vec![7_u8; length]);
+        let before = observed();
+        let retained = RawFrame::from_segments(vec![bytes.clone()]).into_bytes();
+        assert_eq!(retained, bytes);
+        assert_eq!(retained.as_ptr(), bytes.as_ptr());
+        assert_eq!(
+            observed().coalescing_copy_bytes_total,
+            before.coalescing_copy_bytes_total
+        );
+        assert_eq!(
+            observed().single_segment_contiguous_requests_total
+                - before.single_segment_contiguous_requests_total,
+            1
+        );
+    }
+}

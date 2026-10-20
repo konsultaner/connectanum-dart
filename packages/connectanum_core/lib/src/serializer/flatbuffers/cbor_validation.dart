@@ -1,3 +1,4 @@
+import '../owned_copy_metrics.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -49,6 +50,8 @@ Map<String, dynamic> decodeFlatBufferMetadata(Uint8List bytes) {
     stringDictionaryKeys: true,
     limits: const FlatBufferCborLimits(maxBytes: 1048576),
   );
+  final scalar = _scalarMetadata(bytes);
+  if (scalar != null) return scalar;
   try {
     return _normalize(cbor.decode(bytes)) as Map<String, dynamic>;
   } on Exception {
@@ -56,10 +59,58 @@ Map<String, dynamic> decodeFlatBufferMetadata(Uint8List bytes) {
   }
 }
 
+// The complete metadata span is validated before this shortcut. Complex values
+// retain the existing CBOR decoder and normalization semantics.
+Map<String, dynamic>? _scalarMetadata(Uint8List bytes) {
+  final reader = _Scanner(
+    bytes,
+    const FlatBufferCborLimits(maxBytes: 1048576),
+    true,
+    false,
+  );
+  final root = reader.byte();
+  final count = root % 32 == 31 ? null : reader.length(root % 32);
+  final result = <String, dynamic>{};
+  var index = 0;
+  while (count == null ? !reader.takeBreak() : index < count) {
+    final keyHeader = reader.byte();
+    final key = reader.string(3, keyHeader % 32, key: true)!;
+    final initial = reader.byte();
+    final major = initial ~/ 32;
+    final info = initial % 32;
+    final Object? value;
+    if (major == 0 || major == 1) {
+      var magnitude = info;
+      if (info >= 24) {
+        magnitude = 0;
+        final maximum = major == 0 ? 9007199254740992 : 9007199254740991;
+        for (var i = 0, width = reader.width(info); i < width; i++) {
+          final byte = reader.byte();
+          if (magnitude > maximum ~/ 256 ||
+              (magnitude == maximum ~/ 256 && byte > maximum % 256)) {
+            return null;
+          }
+          magnitude = magnitude * 256 + byte;
+        }
+      }
+      value = major == 0 ? magnitude : -1 - magnitude;
+    } else if (major == 3) {
+      value = reader.string(3, info, key: true);
+    } else if (major == 7 && (info == 20 || info == 21 || info == 22)) {
+      value = info == 22 ? null : info == 21;
+    } else {
+      return null;
+    }
+    result[key] = value;
+    index++;
+  }
+  return result;
+}
+
 Object? _normalize(Object? value) {
   if (value is CborBytes) {
     final data = value.bytes;
-    return data is Uint8List ? data : Uint8List.fromList(data);
+    return data is Uint8List ? data : OwnedCopyMetrics.copyBytes(data);
   }
   if (value is CborValue && value is! CborList && value is! CborMap) {
     return _normalize(value.toObject());

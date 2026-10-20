@@ -11,7 +11,7 @@ void main() {
   for (final typed in [false, true]) {
     for (final aes in [false, true]) {
       test('${typed ? 'typed' : 'CBOR'} ${aes ? 'AES' : 'XSalsa'} '
-          'avoids duplicate provider wrapping and AES assembly', () {
+          'counts only required provider wrapping and nonce assembly', () {
         final provider = _provider(typed, aes, key);
         final options = PublishOptions(pptScheme: 'wamp');
         PortableE2eeCopyMetrics.beginWindow();
@@ -22,7 +22,7 @@ void main() {
         final metrics = PortableE2eeCopyMetrics.endWindow();
         expect(metrics.plaintextWrappingCopyBytes, 0);
         expect(metrics.ciphertextWrappingCopyBytes, aes ? 0 : encrypted.length);
-        expect(metrics.ciphertextAssemblyCopyBytes, 0);
+        expect(metrics.ciphertextAssemblyCopyBytes, aes ? 12 : 0);
         expect(metrics.ciphertextCoercionCopyBytes, 0);
       });
     }

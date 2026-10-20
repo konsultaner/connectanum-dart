@@ -361,13 +361,25 @@ test -s native/transport/Cargo.lock
             'router-remote-authenticator-vm': 45, 'router-http-auth-vm': 45,
             'core-lazy-web': 90, 'core-metadata-web': 90, 'core-pem-pkcs8-web': 90,
             'core-base64-web': 45, 'client-meta-cache-web': 45,
-            'client-message-binding-vm': 90, 'router-message-binding-vm': 90}
+            'client-message-binding-vm': 90}
         for target, minutes in minimum.items():
             self.assertGreaterEqual(budgets[target], minutes)
         shards = workflow.split('\n  mcp-shards:', 1)[1].split('\n  mcp-mutations:', 1)[0]
         self.assertIn('shard: [0, 1, 2, 3, 4, 5]', shards)
         self.assertIn('--shard-count 6', shards)
         self.assertNotIn('--threshold', shards)
+        router_shards = workflow.split('\n  router-shards:', 1)[1].split('\n  router-mutations:', 1)[0]
+        self.assertIn('shard: [0, 1]', router_shards)
+        self.assertIn('timeout-minutes: 90', router_shards)
+        self.assertIn('--target router-message-binding-vm --shard-index', router_shards)
+        self.assertIn('--shard-count 2', router_shards)
+        self.assertNotIn('--threshold', router_shards)
+        aggregate = workflow.split('\n  router-mutations:', 1)[1].split('\n  browser-coverage:', 1)[0]
+        self.assertIn('needs: router-shards', aggregate)
+        self.assertIn('if: always()', aggregate)
+        self.assertIn('--target router-message-binding-vm --shard-count 2', aggregate)
+        self.assertIn('test "$SHARD_RESULT" = success', aggregate)
+        self.assertNotIn('--threshold', aggregate)
 
     def assert_mutation_targets(self, targets):
         groups = json.loads((REPO_ROOT / 'tool/ci_mutation_groups.json').read_text())
@@ -641,6 +653,7 @@ printf 'Model name: fixture CPU\\nCPU(s): 4\\n'
         original_files = set((root / 'serializer').rglob('*.dart')) | {
             root / 'serializer_challenge_welcome_test.dart',
             root / 'message_lazy_payload_regression_test.dart',
+            root / 'owned_copy_metrics_test.dart',
         }
         for runtime, entrypoint in [('vm', common), ('web', browser)]:
             for codec in ('cbor', 'msgpack'):

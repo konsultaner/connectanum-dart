@@ -1,8 +1,21 @@
 # Project State
 
-Last updated: 2026-10-19.
+Last updated: 2026-10-20.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
+
+Resume after PR #133 (2026-10-20): the user merges the ObjectBox adapter at
+master `78f2b32b`; all hosted master checks pass. Fresh `bin/test-fast` passes
+on performance source `830c34cd` before integration. Copy-accounting PR #130
+has all 41 checks passing on `63a802f7`, but its state document conflicts with
+master. This merge preserves both the published-adapter record and the
+copy-accounting history. Analysis passes (30 existing informational lints), the rebuilt native library
+passes all 32 adapter tests, and CI execution/coverage-policy/package-inventory
+checks pass. Full combined verification remains pending; evidence is under
+`out/flatbuffers-resume-20261020/`. PR #130 implements #100/#101 and still
+requires independent approval. Performance PR #132 remains draft: the prior
+complete primary campaign fails 176 gates, and fresh measurements are required.
+All sample floors, copy scope, workloads and parity budgets remain unchanged.
 
 Completed delivery (2026-10-19): the separate
 [`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)
@@ -40,6 +53,442 @@ review/merge remains separate from the explicitly authorized first publication.
 No FlatBuffers performance gate or unfinished milestone issue is waived.
 
 Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #102 and #104 are also closed; #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issue [#104](https://github.com/konsultaner/connectanum-dart/issues/104) is complete. Issue [#102](https://github.com/konsultaner/connectanum-dart/issues/102) is complete. Issues #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+
+
+Coverage repair in progress (2026-10-16): the first full benchmark VM run
+passes all 2,657 tests but measures 93.81%, below the unchanged 98% gate.
+The new external metrics observer runs outside the instrumented test process.
+Direct real-VM collector tests and deterministic observer-protocol/process-failure
+tests pass all 72 focused checks; the fresh full benchmark suite passes all
+2,692 tests. Fresh coverage calculation and hosted CI remain pending; earlier full verification is historical evidence for `24f4276b`.
+The latest scalar-metadata diagnostic still fails parity: throughput ratios are
+0.9602 / 0.9973 / 0.9679 and allocation ratios 1.1364 / 1.1777 / 1.0556 for
+managed values / native buffers / pre-encoded spans. No acceptance gate is waived.
+
+Browser CI repair (2026-10-16): hosted `24f4276b` passes 4,852 browser
+cases and fails two new reference-builder tests. Raw SDK builders call uint64
+accessors unsupported by dart2js; production uses the portable WAMP builder.
+Both failures reproduce locally. The byte-vector spy now supplies only relevant
+fields and the wire comparison uses the portable builder. All 155 focused JS
+cases pass without skips or threshold changes. Resulting-head CI is pending.
+
+Verified allocation checkpoint (2026-10-16): full frozen `bin/verify` passes at
+`24f4276b` with HEAD and all 3,092 tracked/intended-new inputs unchanged. This
+includes Rust, VM/live, packaging, core Chrome/Wasm and 2,865 client browser cases
+with twenty declared native-only skips. Prior copy-accounting source `bb549a4c`
+also passes every hosted CI check and all five production consumer platforms
+(170 cases, zero skips, audited hashes). New-head CI/native dry run is running.
+
+The next measured bottleneck is repeated FlatBuffers metadata normalization.
+A validated scalar-map shortcut preserves fallback semantics for complex values;
+all 3,358 serializer cases pass. Fifty-five differential/reference vectors and
+all truncation prefixes pass on VM and Chrome/Wasm. Two independently checked
+metadata-allocation probe pairs drop from about 13,900 to 3,000 managed bytes per
+decode; this is allocation-only diagnostic evidence, not primary acceptance.
+A fail-first managed-fixture case also exposes an unobserved byte-vector build;
+the benchmark now uses the public observed builder. All 31 fixture cases preserve
+wire bytes/capacity and pass. New end-to-end timing and final verification remain
+pending, and #103 stays open with unchanged budgets.
+
+Allocation/performance follow-up (2026-10-16): stock-SDK heap/GC volume now
+retains raw proof and runs its observers outside both measured PIDs. Independent
+Python recomputation rejects the legacy live-heap census and forged totals;
+35 comparison cases and the live 24-row/48-process allocation matrix pass.
+The Rust driver now preserves the raw metadata (fail-first round-trip regression,
+17 driver cases pass). GC crossing one measured snapshot is reproduced; bounded
+three-attempt boundary retries retain the entire original workload and collection
+window. All 100 focused allocation/GC/wire/process cases pass.
+
+Typed input, completed CBOR encoder/decoder buffers and PPT singleton binary
+views avoid extra copies. Metadata-only native PPT views now respect dictionary
+authority; all 1,916 binding cases pass. All 3,270 serializer/owned-copy cases
+pass before the small-frame reservation threshold refinement. Large-frame
+reservation reproduces oversized backing allocation and matches standard wire
+bytes. The next short diagnostic reaches 1.003 native-buffer throughput, but allocation
+ratios remain 1.10–1.23 and latency still fails. All 180 allocation observations
+validate after the boundary repair. The earlier diagnostic has one
+allocation report correctly remains unmeasured at the ambiguous GC boundary.
+No budget or inventory is relaxed. Current-source full verification, new paired
+timing and hosted acceptance remain pending. See
+[allocation method](research/2026-10-15-dart-allocation-volume-research.md).
+
+Owned pipeline accounting follow-up (2026-10-15): E2EE totals now combine eight
+independently observed owned components; mixed transcode totals expose actual
+router serializer/dispatch buffers separately from transport. Strict producer and
+Python validation reject stale native coverage, rewound counters and forged
+subtotals. The unchanged 48-byte codec layout has a separate optional coverage
+scalar; the prior production library safely yields unavailable coverage. Focused
+717 benchmark, 86 client and 35 router cases pass. All 120 full HTTP cases
+pass copy validation. Frozen full verification passes with all 3,082 inputs and
+HEAD unchanged. An extra native typed pub/sub check finds a benchmark verifier
+reading the wire payload; its one-accessor correction and eight fail-first
+regressions pass afterward. Final combined/hosted verification remains pending.
+Missing resource values now display unmeasured/fail rather than false 1.0 parity.
+No issue is closed and all performance budgets remain unchanged. See
+[accounting contract](research/2026-10-15-owned-pipeline-copy-accounting.md).
+
+
+Lazy mutation startup repair (2026-10-15): hosted `b43a0a56` rejects stale
+source-bound equivalence records before running `core-lazy-vm` and web. All eight
+previous predicates map uniquely to unchanged text in the full current
+356-mutant inventory. Their reasons and count are revalidated; only IDs and
+source hashes change. Both full 356-mutant targets pass at 95.7142857143%,
+with zero errors/timeouts and all 246 relevant inputs plus HEAD unchanged.
+Independent benchmark/reporting changes are explicitly excluded from that
+scoped proof. A preflight catches sixteen additional older stale records; their
+unchanged predicates are revalidated without changing reasons, counts, ranges
+or floors. All 154 proof records validate and thirteen preflight tests pass.
+Canonical scripts now reject stale metadata early. Replacement hosted CI is
+pending. Production dry run 38798749509 passes all five platforms and 170
+consumer cases with zero skips and audited log hashes. The two paired 90-row
+reply diagnostics complete cleanly but still show roughly 0.84 throughput
+ratios; no parity is established. Dirty aggregate/native copy follow-up remains
+unverified as a whole. See [proof refresh](research/2026-10-15-lazy-mutation-proof-refresh.md).
+
+Allocation measurement audit (2026-10-15): pinned Dart 3.13.1 source and a
+forced-GC repro show `accumulatedSize` is live heap inventory, not allocation
+volume. Prior allocation ratios cannot establish that resource gate. A standard
+SDK native heap-callback prototype preserves 128 MiB of allocation history after
+GC, but small-allocation weighting and observer isolation still need validation.
+No numeric budget changes. See [allocation research](research/2026-10-15-dart-allocation-volume-research.md).
+
+Owned-copy CI checkpoint (2026-10-15): all 633 client binding mutants
+complete with zero errors/timeouts, clean/restored baselines and a 95.9302325581%
+assertion score against the unchanged 95% floor. Pinned client/core inputs stay
+unchanged; the independent inventory guard and unrelated router correction are
+recorded separately. The first full verification fails because the new serializer
+test was missing from its independent inventory expectation. The second frozen
+run reaches three JSON mixed-PPT failures, exposing an opaque-body conversion
+gap. A router-only view wraps the same bytes in one Arguments item, retaining the
+original message/owner. All fourteen fail-first control/body cases and all 107
+public mixed PPT/E2EE cases now pass. The legacy JSON codec stays unchanged.
+Frozen full `bin/verify` passes at `03524853` with HEAD and all 3,070
+tracked/intended-new input hashes unchanged. This includes Rust, VM/live and
+packaging smoke tests, core Chrome/Dart2Wasm and 2,859 client browser cases
+with twenty declared native-only skips. Replacement hosted CI and production
+consumers are pending; complete owned copy totals and parity stay open.
+
+Hosted CI repair in progress (2026-10-15): `fc1881d3` finishes with 39
+successful checks and one root failure: client message-binding mutation score
+94.3359375% versus the unchanged 95% floor; Full Verify correctly fails as its
+aggregate. A 24-case storage matrix adds event/result/invocation/error, PPT/plain
+and three binary encodings. It reproduces a native ERROR metadata bug: human
+message text was mistaken for a PPT scheme. The repaired predicate reads ERROR's
+actual metadata. All 1,910 binding cases pass and four exact hosted survivors
+are killed by assertions with source restoration checked. Complete resulting
+inventory, frozen full verification and replacement hosted CI remain pending.
+
+Owned copy foundation and reply retention (2026-10-15): cumulative Dart
+observations now cover explicit clones, coalescing, byte-vector writes, allocator
+moves, isolate transfers, framing, keys, PPT and portable crypto. Router worker
+snapshots fence asynchronous work and reject missing/replaced workers; workload
+quiescence returns an explicit success flag. The separate optional native codec
+ABI observes vector/string/growth/parser/framing/key bytes without extending any
+published layout. Full totals remain uncertified while the source inventory and
+aggregation are completed. The new reply regression removes two full model
+copies per RPC by retaining matching packed lazy payloads; other codecs retain
+byte-identical wrapper output. All twelve reply cases, 371 Rust core and 294 FFI
+cases, 3,383 shared serializer cases, and thirteen live copy/encryption/file cases
+pass. Production verification, new timing and complete accounting remain pending.
+No remaining issue is closed. See [source and limits](research/2026-10-15-owned-copy-foundation.md).
+
+Nonce-freshness CI repair (2026-10-15): four repeated-plaintext/key checks cover
+both ciphers and both plaintext profiles. The exact skipped-initialization CI
+mutant fails first; all 168 focused E2EE cases and sixteen Chrome/Dart2Wasm
+cases pass. The unchanged complete 315-mutant target passes at 95.3125% with
+zero errors/timeouts and the original 95% floor. An initial test-setup attempt
+constructs providers during discovery and produces loader errors; its failed
+run is retained. The final tests construct providers inside their test cases.
+Bounded Qwen review completes without a confirmed issue. All other preceding
+head hosted jobs pass; resulting-head CI and fresh full verification are pending.
+No performance or complete copy-acceptance claim is added.
+
+Raw-frame verification and exact-capacity diagnostic (2026-10-15): full
+`bin/verify` passes at `fc1881d3` with all 3,057 tracked inputs and HEAD unchanged.
+Both 90-row paired runs complete using the same production library. Throughput
+ratios remain around 0.80 of the better binary baseline; exact fixture capacity
+does not establish a useful speed improvement. Allocation and latency still
+regress. Required Linux CPU/RSS evidence remains unavailable; diagnostic ratio
+placeholders are not measurements. A five-platform production dry run targets
+`fc1881d3` (run 38773856451). The next controlled change reserves 256 bytes for
+native controls and caches immutable Dart schema field-name sets. All 366 Rust
+core cases, 514 Dart FlatBuffers cases, pinned Python/Dart/Rust interop and
+separate client/router counter suites (83/34) pass. Local review finds no confirmed
+issue. New-source timing and final full verification remain pending. See
+[control construction and evidence](research/2026-10-15-flatbuffers-control-construction.md).
+
+Raw-frame follow-up (2026-10-15): single-span native frames now retain their
+owner instead of copying, and reversed ranges return unavailable instead of
+panicking. Fail-first regressions, all 366 Rust core tests, the additive 32-byte
+ABI guard, 46 fixture/report cases, 117 public router/native PPT cases and three
+live codec observations pass. Those unfragmented live rows report zero raw-frame
+copies; no macro performance improvement is claimed. Exact pinned benchmark
+buffer sizing preserves wire bytes and avoids a partial Dart backing view.
+Fresh full verification, production artifacts, complete E2EE/transcode owned
+totals and parity remain pending. See [source and limits](research/2026-10-15-raw-frame-copy-observations.md).
+
+Verification checkpoint (2026-10-15): `CARGO_INCREMENTAL=0 bin/verify`
+passes at `7976a464` with Git HEAD and all 3,052 tracked input hashes unchanged.
+The resulting complete 315-mutant E2EE target also passes at 95.3125%, retaining
+its 95% floor and zero errors/timeouts. All 131 randomized VM/native cases,
+30 randomized Chrome/Dart2Wasm cases and nine live RPC/file cases pass. Hosted
+acceptance and complete outer/transcode totals remain pending. A source audit
+also identifies unconditional singleton raw-frame coalescing in the native
+FlatBuffers receive path; its owner/pointer regression is prepared but no
+optimization or performance improvement is claimed yet.
+
+PPT/framing observation follow-up (2026-10-15): fresh pre-change
+`bin/test-fast` passes on unchanged combined head `8f1fbfb9`. Actual CBOR PPT
+wrapping, binary cloning, coalescing and cold metadata setup now have separate
+scoped counters for native and portable providers. An optional native plaintext
+framing scalar observes file wrappers and canonical headers while preserving
+the sixteen-byte v1 ABI. Fail-first observations reproduce the undercounts;
+nine Rust and 131 randomized focused VM/native cases pass. Fresh-process probes verify the
+new scalar and the preceding production library's null fallback. All 30 randomized
+Chrome/Dart2Wasm cases and nine live RPC/file cases pass. Full frozen
+`bin/verify` passes at `7976a464`. See
+[PPT/framing source and limits](research/2026-10-15-ppt-serializer-copy-observations.md).
+Outer WAMP serialization, transcode totals and all performance acceptance stay
+open. No milestone issue is closed by these partial observations.
+
+Current follow-up (2026-10-15): finish remaining FlatBuffers issues.
+Both unprofiled 90-row router-view diagnostics complete. Dart-value FlatBuffers
+throughput improves 23.2% (best-binary ratio 0.6546 to 0.8040); native construction
+and pre-encoded cases show no useful gain. All remain failed acceptance evidence.
+The next native receive regression reproduces another opaque-body clone. Shared
+core byte views now serve only the built-in native PPT decoder, preserving ordinary
+copy semantics, custom decoders and FlatBuffers' 64 MiB encoded limit. All 1,906
+focused client/core cases and twenty Chrome/Dart2Wasm cases pass. Full-source
+verification and new-source measurements remain pending. PR #130's hosted
+core-E2EE mutation failure at 94.921875% is repaired in `ef1fc548` without
+changing its 95% floor; replacement hosted CI is pending.
+
+Performance follow-up now uses `codex/flatbuffers-lazy-ppt-views` based on
+`25e0d41f`; PR #130 retains the E2EE/counter and verified-shard review. A server
+CPU diagnostic identifies eager CBOR decoding just to unwrap an opaque PPT body.
+The public native test reproduces a body clone for FlatBuffers/CBOR. Bounded
+singleton byte views repair that boundary without parsing the application model.
+Twenty unit cases, 107 public PPT cases and nine internal regressions pass;
+analysis is clean. Paired unprofiled diagnostics and complete frozen verification
+remain pending; the earlier profiled attempts are failed diagnostics, not parity.
+See [implementation and evidence](research/2026-10-15-internal-ppt-byte-views.md).
+
+The frozen full run preserves all 20 input hashes and reaches the benchmark
+suite, where a stale live assertion expects zero AES assembly bytes rather than
+48. The repaired test checks both RPC legs: four portable/native and cipher
+combinations now pass, including exact 48-byte portable AES and 160-byte native
+nonce/tag totals for two RPCs. This first full run exits 1 and is retained; a
+fresh full rerun is still required. New-source production artifacts pass all five
+platforms: downloaded logs verify 170 visible cases, zero skips, 22 file hashes,
+ABI guards and lifecycle. The downloaded production library passes the actual
+crypto copy probe. No E2EE/transcode total or parity acceptance is added.
+
+E2EE follow-up reproduces and repairs unobserved portable AES nonce assembly,
+partial failed native legacy CBOR coercion, and Rust nonce/tag framing copies.
+An additive optional scalar preserves the 16-byte v1 ABI; eight Rust crypto
+cases pass. The final sequential provider/report retry passes 117 cases against the rebuilt
+new-scalar library; older production lookup safely returns unavailable. Frozen
+full verification remains pending. The CI audit
+now also requires both router shard jobs, and all 28 audit cases pass on a stable
+head. The earlier 129-case run's four failures come from moving HEAD during its
+fake-head assertions; its stable audit retry passes. The current fast run sees a
+transient Dart ffi qualification error during edits and is not accepted; analysis
+passes after qualification. See [copy boundaries](research/2026-10-15-e2ee-copy-boundaries.md).
+
+PR #129 now passes every hosted job and both Codecov gates. PR #130 passes
+both coverage gates, but its router message-binding mutation job reaches its
+90-minute deadline after 622 of 699 mutants, cancelling Full Verify. A rerun
+is dispatched. The follow-up partitions the unchanged full inventory into two
+shards and requires independently regenerated union scoring plus successful
+shard jobs in Full Verify, using the existing MCP mechanism. No timeout,
+mutation inventory or score threshold is relaxed. Focused CI checks are running;
+complete new-head verification is pending. E2EE/transcode owned-boundary totals
+and all performance parity budgets remain open. The shared local native resource
+lease temporarily blocks timed diagnostics; no other campaign is interrupted.
+
+Current follow-up (2026-10-14): validate FlatBuffers byte-vector views.
+Branch `codex/flatbuffers-byte-vector-views` starts at scope checkpoint `fc808e92`;
+[PR #129](https://github.com/konsultaner/connectanum-dart/pull/129) retains the
+separate measurement/scope review. Fresh pre-change `bin/test-fast` passes.
+Immutable byte views retain exact input ranges and storage, with explicit native
+lifetime requirements. Both pinned generators select the same reader. Shared
+payload generation fills its byte buffer directly; FlatBuffers builders reserve
+the known model size. Focused VM and Chrome/Dart2Wasm binding/view cases pass.
+The initial root-level browser invocation fails its hybrid loader paths; the
+package-root retry passes 79 cases. A live diagnostic first rejects an outdated
+driver without executing rows; the driver is being rebuilt. No parity is claimed.
+Fresh pinned interop passes 33 upstream/42 extended fixtures and all 25
+public message types. Both 90-row before/after diagnostics complete; native
+FlatBuffers throughput improves roughly 5–6%, while the Dart-value case does
+not improve usefully and allocation/GC ratios still regress. Both diagnostics
+fail acceptance; Linux CPU/RSS and full duration/matrix evidence remain absent.
+The first full verify rejects the new test missing from serializer mutation
+inventories; all four target support lists and the shared suite now include it.
+Replacement full `bin/verify` passes at exit 0 with all 12 frozen
+code/test/config inputs unchanged; no mutation target or budget is reduced.
+The measurement branch's child ABI probe now contributes real coverage, and
+preceding head `e55d36cf` passes all main CI jobs. The subsequent borrowed-FFI
+observation/router-owned-send fix is merged here from `ef9f605c`; that head passes
+all five production platforms (170 cases, zero skips), audited source/log/ABI/
+lifecycle evidence, a production-library ABI probe, WAMP profiles and package
+dry run. Its main CI/Codecov checks remain pending. The combined branch initially
+fails deployment-audit tests because the local disk is full, not because scripts
+changed. Clearing only this worktree's rebuildable caches restores all 28 tests.
+Fresh combined `bin/verify` passes at exit 0 with all 38 frozen code/test/config
+inputs unchanged; source, native executables and prior evidence stay preserved.
+Hosted byte-view acceptance remains pending. See [source and measured limits](research/2026-10-14-flatbuffers-byte-vector-views.md).
+The primary mutation checkout stays untouched.
+
+Current follow-up (2026-10-14): complete the GitHub FlatBuffers milestone.
+Branch `codex/finish-flatbuffers-milestone` reuses the managed worktree; the
+primary mutation-runner checkout stays untouched. The released master remains
+`73d840c9`. Its main CI now passes all 36 jobs, and all five production native
+consumers pass 170 cases with zero skips. Issue #104 is closed after auditing
+its public examples, generic external-owner contract, ObjectBox boundary,
+seven hosted packages and linked release evidence. Issue #102 also closes on
+released-source CI: the downloaded GuardMalloc report verifies 87 cases and
+263 committed inputs, plus its separately recorded generated lock. The milestone description
+now reflects merged and published work.
+
+Fresh `bin/test-fast` initially fails on two absolute local paths in the
+unpublished beta.8 documentation checkpoint. Normalizing those references
+reproduces and repairs the policy failure; the replacement fast run passes.
+The independent peer moves to cbor2 5.9.0, the first patched release for
+GHSA-3c37-wwvx-h642. Fresh interop passes 33 upstream and 42 extended fixtures,
+both encoding directions and all 25 public message types; the negotiated
+RawSocket/WebSocket live peer also passes.
+
+A live extraction-counter test then reproduces an existing observation gap:
+Tokio-Rustls's public client/server reads bypass the instrumented internal
+`Stream::poll_read`. Four source hooks now observe both public initial and
+batched copies. Exact tests fail first at zero instead of three bytes and
+pass after the repair, including borrowed-pointer preservation and EOF.
+An additive optional scalar C API exposes this partial counter to both Dart
+runtimes and client/router benchmark breakdowns. The old 48-byte Rustls ABI
+is unchanged; the published beta.8 library correctly returns null for the
+new optional metric. Complete dependency TLS/SDK/crypto totals remain unknown. On 2026-10-14
+the user explicitly selects the standard Dart SDK scope: prove Connectanum
+buffer boundaries and label unmeasured dependency internals. The follow-up
+uses a new versioned scope marker, validates owned totals against their
+client/router breakdowns, and permits only active, precisely labelled TLS/SDK
+masking exclusions. Missing owned counters, E2EE/transcode gaps and all numeric
+performance/resource budgets remain blockers. See [approved contract](research/2026-10-14-standard-sdk-copy-scope.md).
+Resulting-source `bin/verify` passes at exit 0; all six scope code/test/policy
+inputs match their frozen hashes. The 32 comparison and 66 owned-counter cases
+pass, including forged totals and malformed evidence. Bounded Qwen test planning
+and review complete; the heavyweight GLM judge times out, so the contract is
+also checked manually against the actual transport/source boundaries. PR #129
+contains the measurement repairs and this approved scope update. At preceding
+head `7965857f`, all five production platforms pass 170 cases with zero skips;
+downloaded profile logs, ABI/lifecycle guards and source hashes are audited.
+WAMP profile gates, binding, GuardMalloc, fast checks and package dry run pass.
+New-head hosted acceptance remains pending; no parity is established.
+The first full run reproduces the strengthened GC probe failure: actual
+collections produce paired category-GC collection scopes, but the old parser
+reports zero. Actual VM evidence also reproduces duplicated notifications and heap
+statistics for isolates sharing one group. The final collector reads native
+cumulative collection/time counters and profiles allocation once per shared
+heap, while retaining every isolate for lifecycle validation. Missing, malformed
+or rewound counters remain unavailable. All 35 focused forced-GC, heap/delta and
+live-worker cases pass. The first timeline-reconciliation experiment fails its
+stronger stream check and is retained as diagnostic evidence.
+See [GC source and scope](research/2026-10-14-dart-gc-metrics.md).
+Final canonical `bin/verify` passes at exit 0, including Rust, VM/native,
+consumers and Chrome/Dart2Wasm (4,751 core, 2,829 client; 20 declared native-only
+skips). All 22 recorded changed code/test inputs still match their frozen hashes.
+The completed local review identifies a missing-profiling-metadata fallback;
+it now leaves allocation/GC unavailable, and a real VM probe verifies that
+behavior. Other speculative review findings are checked against the actual SDK
+snapshot and stable-isolate tests. Hosted new-source acceptance is pending.
+A byte-vector construction prototype is prepared but its timed run is blocked
+by an active native-mutation resource lease; that lease and primary work stay
+untouched.
+See [scope and evidence](research/2026-10-14-tokio-rustls-public-copy-metrics.md).
+
+PR #129 coverage follow-up: the `fc808e92` VM coverage job passes, but
+Codecov patch coverage is 92.70% against 93.91%, with ten changed lines missed.
+The existing isolated transport ABI probe now exports real client/router hits
+through the canonical child-coverage directory. Its scalar/legacy ABI checks
+stay isolated from shared counters; collection does not pause the current
+isolate, and exclusive report creation prevents overwriting evidence. The
+coverage-enabled probe passes and records seven previously missed router
+lines. The normal probe plus collector regression suite passes 42 cases, and
+analysis is clean. Qwen review reports no confirmed issue; its speculative
+partial-write concern is covered by the existing exclusive writer tests. Full
+resulting-source verification prints successful summaries for every suite,
+including Chrome/Dart2Wasm. Its zsh wrapper then fails when assigning the
+read-only `status` variable, so no clean canonical exit is recorded. The next
+run uses a dedicated exit-code variable and an explicit Bash wrapper. Coverage
+floors and milestone criteria remain unchanged; hosted acceptance is pending.
+A subsequent source audit identifies another actual owned copy: the router's
+borrowed send copies into Dart's native staging allocation, then
+`ct_send_message` copies that input again in Rust. The existing total covers
+only the first copy. Add direct Rust observation and conservative optional-ABI
+fallback, then use the established owned-send API to avoid that second copy
+when supported. Fresh pre-change `bin/test-fast` passes at exit 0. The Rust
+regression fails first in both actual borrowed-send and file-wrapper cases,
+then all five cases pass after eight source hooks. Both Dart runtimes expose
+the additive nullable scalar. Missing observation prevents complete native
+client/router coverage; staging and Rust bytes are retained separately. The
+real ABI/ownership probe and scoped merger pass 69 cases, including three
+borrowed bytes versus zero Rust copies on owned router rejection. All 32
+comparison tests pass. Resulting-source `bin/verify` now passes with a clean
+exit 0, including Rust, VM/native, consumers and Chrome/Dart2Wasm (4,751 core,
+2,829 client; 20 declared native-only skips). All 13 changed code/test hashes
+match their frozen inputs. The older production library passes the ABI probe,
+leaving the absent scalar and its deltas null. GuardMalloc passes all 87 cases;
+all 266 source/lock hashes, group logs and the executable are independently
+verified. Bounded GLM review completes without a confirmed finding; the broader
+Qwen review times out. The measurement PR remains ready for review with new-head
+hosted acceptance pending. E2EE/transcode pipeline gaps, parity and milestone
+closure remain open. See the FFI research note for source boundaries and the
+verified disposition of the local ownership advice.
+
+Current follow-up (2026-10-10): synchronized beta.8 publication is complete.
+The user merges PR #107 through protected master at `73d840c9`; its tree exactly
+matches tested release head `b382b21c`. All eight release/package tags point to
+that merge. [Native release v3.0.0-beta.8](https://github.com/konsultaner/connectanum-dart/releases/tag/v3.0.0-beta.8)
+is published as a prerelease with 30 assets across five platforms.
+[Native workflow 38033155639](https://github.com/konsultaner/connectanum-dart/actions/runs/38033155639)
+passes all five builds, production consumers, signing and publication. Downloaded
+reports independently verify 170 profile cases with zero skips, exact source,
+log hashes, lifecycle and 48-byte ABI guards. All five published manifests match
+`73d840c9`; fresh client/router installation passes and both binary hashes match
+the production proof. Intel macOS initially queues, then passes on a runner.
+All seven `3.0.0-beta.8` packages are confirmed through the public pub.dev API:
+[core](https://pub.dev/packages/connectanum_core/versions/3.0.0-beta.8),
+[client](https://pub.dev/packages/connectanum_client/versions/3.0.0-beta.8),
+[MCP](https://pub.dev/packages/connectanum_mcp/versions/3.0.0-beta.8),
+[router](https://pub.dev/packages/connectanum_router/versions/3.0.0-beta.8),
+[facade](https://pub.dev/packages/connectanum/versions/3.0.0-beta.8),
+[auth server](https://pub.dev/packages/connectanum_auth_server/versions/3.0.0-beta.8)
+and [bench](https://pub.dev/packages/connectanum_bench/versions/3.0.0-beta.8).
+All seven tag-triggered publication workflows pass in dependency order; hosted
+constraints remain synchronized. An isolated consumer outside the repository
+uses a fresh public cache, all seven exact hosted versions and matching archive
+hashes. Its default hooks download the verified production library. Dart macOS
+bundling changes the install name/ad hoc signature, while all 14 code/data
+sections remain identical. The public native FlatBuffers example passes with
+116 frame bytes, three segments, zero application-input copies and zero
+control-growth copies. The initial benchmark index is stale; refreshing after
+public-index propagation resolves the clean install without changing versions.
+Evidence is retained under `out/beta8-publish-evidence/`; the standalone
+consumer uses an isolated scratch directory outside the repository.
+Local full `bin/verify` passes on identical tree `b382b21c`; all 36 main jobs,
+seven strict archives and WampApp artifacts also pass there. Post-merge
+[CI 38032968401](https://github.com/konsultaner/connectanum-dart/actions/runs/38032968401)
+passes all 36 jobs, including VM coverage and both mutation gates. WAMP profile gates and kTLS validation pass on `73d840c9`.
+The closed release PR's separate Codecov comparison loses three hits in
+unchanged router WebSocket polling and MCP timer-identity branches (patch 100%;
+project 93.90% versus 93.91%). Actual LCOV differences are retained; no coverage
+floor is relaxed. Local companion triage is blocked by an active native mutation
+resource lease. The primary checkout and earlier local evidence stay preserved.
+This documentation checkpoint remains local on `codex/publish-3.0.0-beta.8`;
+published source/tags stay at `73d840c9`, avoiding another unchanged CI run.
+Issues #100–#104 and performance/copy acceptance remain open; no ObjectBox
+adapter or stable-release claim is included in this beta checkpoint.
 
 Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
 The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one

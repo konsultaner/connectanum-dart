@@ -1,4 +1,11 @@
 import 'dart:typed_data';
+// Count key preparation outside the dedicated payload/PPT scopes.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
+
+// Observe the shared built-in PPT serializer boundaries.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/message/ppt_copy_metrics.dart';
 
 import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:connectanum_core/connectanum_core.dart';
@@ -179,10 +186,12 @@ abstract class _NativeWampE2eeCipherProvider
     final segment = _prepareEncryption(options, runtimeContext: runtimeContext);
     final plaintext =
         typedPlaintext ??
-        _serializer.serializePPT(
-          PPTPayload(
-            arguments: arguments,
-            argumentsKeywords: argumentsKeywords,
+        PptCopyMetrics.measure<Uint8List>(
+          () => _serializer.serializePPT(
+            PPTPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords,
+            ),
           ),
         );
     try {
@@ -219,8 +228,10 @@ abstract class _NativeWampE2eeCipherProvider
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
   ) {
-    final bytes = _serializer.serializePPT(
-      PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+    final bytes = PptCopyMetrics.measure<Uint8List>(
+      () => _serializer.serializePPT(
+        PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+      ),
     );
     final overhead = _cipher == ConnectanumE2eeProfile.aes256Gcm ? 28 : 40;
     if (bytes.length >
@@ -358,7 +369,9 @@ abstract class _NativeWampE2eeCipherProvider
   }
 
   PPTPayload _decodePlaintext(Uint8List plaintext, PPTOptions options) {
-    final decoded = _serializer.deserializePPT(plaintext);
+    final decoded = PptCopyMetrics.measure(
+      () => _serializer.deserializePPT(plaintext),
+    );
     if (decoded == null) {
       throw WampE2eeInvalidPayloadException(
         'unpack',
@@ -508,14 +521,18 @@ abstract class _NativeWampE2eeCipherProvider
     if (value is Uint8List) {
       return value;
     }
-    if (value is List<int>) {
-      final bytes = Uint8List.fromList(value);
-      _runtime.recordE2eeCiphertextCoercionCopy(bytes.length);
-      return bytes;
-    }
     if (value is List) {
-      final bytes = Uint8List.fromList(value.cast<int>());
-      _runtime.recordE2eeCiphertextCoercionCopy(bytes.length);
+      final bytes = Uint8List(value.length);
+      var copied = 0;
+      try {
+        for (var index = 0; index < bytes.length; index++) {
+          // Keep legacy Uint8List integer wrapping and cast errors unchanged.
+          bytes[index] = value[index] as int;
+          copied++;
+        }
+      } finally {
+        _runtime.recordE2eeCiphertextCoercionCopy(copied);
+      }
       return bytes;
     }
     throw WampE2eeInvalidPayloadException(
@@ -566,7 +583,10 @@ abstract class _NativeWampE2eeCipherProvider
           'E2EE key ids must not be empty',
         );
       }
-      final bytes = Uint8List.fromList(entry.value);
+      final bytes = OwnedCopyMetrics.copyBytes(
+        entry.value,
+        kind: OwnedCopyKind.keyMaterial,
+      );
       if (bytes.length != 32) {
         throw ArgumentError.value(
           entry.value,

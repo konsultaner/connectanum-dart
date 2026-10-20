@@ -127,6 +127,18 @@ typedef CtSendMessageNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtSendMessageDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
 
+typedef CtOutboundBufferAllocNative =
+    ffi.Pointer<ffi.Uint8> Function(ffi.Int32);
+typedef CtOutboundBufferAllocDart = ffi.Pointer<ffi.Uint8> Function(int);
+
+typedef CtOutboundBufferFreeNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtOutboundBufferFreeDart = int Function(ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtSendMessageOwnedNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtSendMessageOwnedDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
 typedef CtForwardPublishEventNative =
     ffi.Int32 Function(
       ffi.Int32,
@@ -430,6 +442,30 @@ typedef CtTransportCopyMetricsSnapshotNative =
     ffi.Int32 Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
 typedef CtTransportCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtTransportCopyMetricsInfo>);
+
+typedef CtFfiBorrowedSendCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtFfiBorrowedSendCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+
+typedef CtTokioRustlsCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint64>);
+typedef CtTokioRustlsCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<ffi.Uint64>);
+
+typedef CtRawFrameCopyMetricsVersionNative = ffi.Uint32 Function();
+typedef CtRawFrameCopyMetricsVersionDart = int Function();
+typedef CtRawFrameCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtRawFrameCopyMetricsInfo>);
+typedef CtRawFrameCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtRawFrameCopyMetricsInfo>);
+
+typedef CtCodecCopyMetricsVersionNative = ffi.Uint32 Function();
+typedef CtCodecCopyMetricsVersionDart = int Function();
+typedef CtCodecCopyMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtCodecCopyMetricsInfo>);
+typedef CtCodecCopyMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtCodecCopyMetricsInfo>);
 
 typedef CtRustlsCopyMetricsSnapshotNative =
     ffi.Int32 Function(ffi.Pointer<CtRustlsCopyMetricsInfo>);
@@ -955,6 +991,32 @@ final class CtTransportCopyMetricsInfo extends ffi.Struct {
   external int tlsPlaintextAcceptedBytesTotal;
 }
 
+final class CtRawFrameCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int coalescingCopyBytesTotal;
+  @ffi.Uint64()
+  external int rangeCopyBytesTotal;
+  @ffi.Uint64()
+  external int singleSegmentContiguousRequestsTotal;
+  @ffi.Uint64()
+  external int multiSegmentContiguousRequestsTotal;
+}
+
+final class CtCodecCopyMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int vectorCopyBytesTotal;
+  @ffi.Uint64()
+  external int stringCopyBytesTotal;
+  @ffi.Uint64()
+  external int growthCopyBytesTotal;
+  @ffi.Uint64()
+  external int parserReadCopyBytesTotal;
+  @ffi.Uint64()
+  external int framingCopyBytesTotal;
+  @ffi.Uint64()
+  external int keyMaterialCopyBytesTotal;
+}
+
 final class CtRustlsCopyMetricsInfo extends ffi.Struct {
   @ffi.Uint64()
   external int outboundChunkCopyBytesTotal;
@@ -1357,6 +1419,26 @@ class CtFfiBindings {
                   call(checkedLegacyMessageHandle(a0), a1, a2, a3);
             })(),
       ctSendMessage = _lookupSendMessage(library),
+      ctOutboundBufferAlloc = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtOutboundBufferAllocNative,
+              CtOutboundBufferAllocDart
+            >('ct_outbound_buffer_alloc'),
+      ),
+      ctOutboundBufferFree = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtOutboundBufferFreeNative,
+              CtOutboundBufferFreeDart
+            >('ct_outbound_buffer_free'),
+      ),
+      ctSendMessageOwned = _tryLookup(
+        () => library
+            .lookupFunction<CtSendMessageOwnedNative, CtSendMessageOwnedDart>(
+              'ct_send_message_owned',
+            ),
+      ),
       ctApplyRouterConfig = library
           .lookupFunction<CtApplyRouterConfigNative, CtApplyRouterConfigDart>(
             'ct_apply_router_config',
@@ -1506,6 +1588,55 @@ class CtFfiBindings {
             CtRouterMetricsSnapshotNative,
             CtRouterMetricsSnapshotDart
           >('ct_router_metrics_snapshot'),
+      ctFfiBorrowedSendCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtFfiBorrowedSendCopyMetricsSnapshotNative,
+              CtFfiBorrowedSendCopyMetricsSnapshotDart
+            >('ct_ffi_borrowed_send_copy_metrics_snapshot'),
+      ),
+      ctTokioRustlsCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtTokioRustlsCopyMetricsSnapshotNative,
+              CtTokioRustlsCopyMetricsSnapshotDart
+            >('ct_tokio_rustls_copy_metrics_snapshot'),
+      ),
+      ctRawFrameCopyMetricsVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtRawFrameCopyMetricsVersionNative,
+              CtRawFrameCopyMetricsVersionDart
+            >('ct_raw_frame_copy_metrics_abi_version'),
+      ),
+      ctRawFrameCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtRawFrameCopyMetricsSnapshotNative,
+              CtRawFrameCopyMetricsSnapshotDart
+            >('ct_raw_frame_copy_metrics_snapshot'),
+      ),
+      ctCodecCopyMetricsVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsVersionNative,
+              CtCodecCopyMetricsVersionDart
+            >('ct_codec_copy_metrics_abi_version'),
+      ),
+      ctCodecCopyMetricsCoverageVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsVersionNative,
+              CtCodecCopyMetricsVersionDart
+            >('ct_codec_copy_metrics_coverage_version'),
+      ),
+      ctCodecCopyMetricsSnapshot = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtCodecCopyMetricsSnapshotNative,
+              CtCodecCopyMetricsSnapshotDart
+            >('ct_codec_copy_metrics_snapshot'),
+      ),
       ctRustlsCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1637,6 +1768,9 @@ class CtFfiBindings {
   final CtForwardResultFromCallDart ctForwardResultFromCall;
   final CtForwardErrorFromErrorDart ctForwardErrorFromError;
   final CtSendMessageDart ctSendMessage;
+  final CtOutboundBufferAllocDart? ctOutboundBufferAlloc;
+  final CtOutboundBufferFreeDart? ctOutboundBufferFree;
+  final CtSendMessageOwnedDart? ctSendMessageOwned;
   final CtApplyRouterConfigDart ctApplyRouterConfig;
   final CtReloadTlsDart ctReloadTls;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
@@ -1670,6 +1804,14 @@ class CtFfiBindings {
   final CtHttpConnectionEventGetDart ctHttpConnectionEventGet;
   final CtHttpConnectionEventReleaseDart ctHttpConnectionEventRelease;
   final CtRouterMetricsSnapshotDart ctRouterMetricsSnapshot;
+  final CtFfiBorrowedSendCopyMetricsSnapshotDart?
+  ctFfiBorrowedSendCopyMetricsSnapshot;
+  final CtTokioRustlsCopyMetricsSnapshotDart? ctTokioRustlsCopyMetricsSnapshot;
+  final CtRawFrameCopyMetricsVersionDart? ctRawFrameCopyMetricsVersion;
+  final CtRawFrameCopyMetricsSnapshotDart? ctRawFrameCopyMetricsSnapshot;
+  final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsVersion;
+  final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsCoverageVersion;
+  final CtCodecCopyMetricsSnapshotDart? ctCodecCopyMetricsSnapshot;
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;
   final CtTransportCopyMetricsSnapshotDart? ctTransportCopyMetricsSnapshot;

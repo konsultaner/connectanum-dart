@@ -4,7 +4,7 @@ import json
 import os
 
 REQUIRED = frozenset(('fast', 'verification', 'wamp-app', 'flatbuffers-binding',
-                      'native-memory', 'mutation-gates', 'mcp-mutations', 'browser-coverage'))
+                      'native-memory', 'mutation-gates', 'mcp-mutations', 'router-mutations', 'browser-coverage'))
 
 
 def main():

@@ -11,9 +11,12 @@ native submission ABI; small serialized header copies remain counted. The
 fixed CBOR/MessagePack native fixture now writes the complete existing PPT
 structure directly in native storage. Its body input copy remains counted;
 it does not build a Dart map or serialize the full payload again at send time.
-Native-path copy attribution is now partial; complete
-cross-client coverage and the paired performance campaign are unfinished. No
-parity result is accepted.
+The HTTP report now combines complete Connectanum-owned E2EE and router
+transcode observations when every required counter and native coverage
+capability is available. Dependency internals remain explicitly unmeasured.
+The allocation-volume repair has focused and live validation. The paired performance campaign is unfinished;
+no parity result is accepted. See the
+[owned accounting contract](research/2026-10-15-owned-pipeline-copy-accounting.md).
 
 The runner selects a group with `payload_construction = "values"`,
 `"native_buffer"`, or `"pre_encoded_span"` and requires
@@ -130,22 +133,34 @@ The comparator rejects older complete-coverage labels without this evidence.
 The prepend path copies an unread remainder once instead of twice; this does
 not establish performance parity. See [source and checks](research/2026-10-07-native-prefetched-input-copies.md).
 
-`transport_copy_bytes` sums measured copy operations across the client worker
-and router process for the active cleartext path. A payload can be counted
+On 2026-10-14 the user approves the standard Dart SDK scope: complete evidence
+at Connectanum's documented buffer boundaries, with unmeasured dependency
+internals explicitly labelled. [The versioned contract](research/2026-10-14-standard-sdk-copy-scope.md)
+records this decision. Every numeric performance/resource budget and primary
+case remains unchanged; earlier results retain their original interpretation.
+
+`transport_copy_bytes` sums measured owned buffer-copy operations across the client worker
+and router process for the active cleartext or TLS path. A payload can be counted
 again at a later layer, so this aggregate is copy traffic, not unique
 application bytes. Builder input/growth and any transcode copies stay
 separate. Each report includes a `known_own_transport_copy_bytes` lower bound
 and a per-path breakdown even when the full transport total cannot be measured.
 The evaluator accepts a numeric transport total only when
 `coverage.transport_copy_bytes` is `complete_connectanum_owned_path` and
-`coverage.unknown_boundaries` is empty. Missing or partial coverage fails the
-campaign gate.
+`coverage.unknown_boundaries` is empty, all required client/router boundary
+counters are valid, and the total equals their sum. The new
+`measurement_scope: connectanum_buffer_boundaries_v1` marker is mandatory.
+Missing owned counters or partial coverage still fail the campaign gate.
+Dependency exclusions live separately in `unmeasured_dependency_boundaries`
+and must match the actual client, transport and TLS configuration.
 
-TLS rows keep `transport_copy_bytes` and `tls_copy_bytes` as `not_measured`
-because complete Rustls/Tokio-Rustls and SDK copy coverage remains missing;
+TLS rows can report a numeric owned `transport_copy_bytes` while keeping
+`tls_copy_bytes` explicitly dependency-labelled `not_measured`,
+because complete Rustls/Tokio-Rustls and SDK internal coverage remains missing;
 `tls_plaintext_accepted_bytes` measures acceptance and remains a throughput
-diagnostic. Mixed-serializer
-router transcodes are also not measured. Snapshots use before/after deltas
+diagnostic. Mixed-serializer router transcodes now expose the actual router
+serializer/dispatch buffer subtotal, separately from transport copies, with
+complete owned coverage and explicit dependency exclusions. Snapshots use before/after deltas
 around one benchmark command. Older native libraries without the optional
 snapshot symbol leave affected fields unmeasured, so those rows cannot claim
 complete coverage or establish FlatBuffers parity.
@@ -155,6 +170,16 @@ observations from the optional Rustls snapshot ABI. Missing symbols/snapshots
 remain null or explicitly unmeasured; the entries do not replace any of the
 eight mandatory copy fields, certify whole TLS coverage, or change acceptance
 budgets. See [the bridge scope and proof](research/2026-10-07-rustls-metrics-bridge.md).
+
+The optional scalar `ct_tokio_rustls_copy_metrics_snapshot` adds
+`tokio_rustls_plaintext_extract_copy_bytes` to both client/router breakdowns.
+It measures successful internal and public client/server `AsyncRead` extraction
+copies, including batched reads; borrowed `AsyncBufRead` views and consumption
+add zero. This fixes a reproduced undercount in the original source observer.
+It preserves the 48-byte Rustls ABI and leaves older libraries unavailable.
+This remains partial TLS evidence and does not make a whole TLS total numeric.
+The owned transport total is established independently under the approved scope.
+See [source tests and bridge](research/2026-10-14-tokio-rustls-public-copy-metrics.md).
 
 The client worker now snapshots optional native crypto staging counters separately
 from its transport counters. Native XSalsa encryption constructs the existing
@@ -173,9 +198,12 @@ conversions and the exact prefix copied by typed FlatBuffers validation, includi
 a prefix copied before rejection. Existing `Uint8List` and bounded subviews are
 reused and report zero coercion bytes. This isolate-local Dart counter is available
 independently of the optional native staging ABI. Failed legacy CBOR conversions,
-other isolate bridges/wrappers, crypto dependency internals, serializer and framing
-transformations remain unmeasured. Encrypted
-rows keep `e2ee_copy_bytes` as `not_measured`. The comparator requires that field, rejects
+crypto dependency internals remain outside that staging subtotal. Worker-only
+results still keep `e2ee_copy_bytes` as `not_measured`, because a client worker
+cannot measure router copies. The HTTP assembler now combines client/router
+Dart, native codec, raw frame, crypto and transport observations into the numeric
+owned pipeline total, and retains the staging breakdown as diagnostics without
+adding it again. The comparator requires the total field, rejects
 an encrypted row marked `not_applicable`, and accepts numeric totals only with
 complete pipeline coverage and no unknown boundaries. ABI v1 requires both its
 version and snapshot symbols; older or unknown versions produce unavailable
@@ -229,14 +257,30 @@ while resource ratios sum CPU, allocations and GC pauses per operation. The
 sample; it is not simultaneous combined RSS, because the process peaks may occur
 at different times. Each workload runs one throwaway iteration before the
 measurement window so lazy router isolates are present before server profiling
-starts. The collector profiles every application isolate present at the window
-start and rejects isolate-set changes or incomplete GC timelines. Process CPU
+starts. The collector monitors every application isolate present at the window
+start and profiles each shared heap once. It rejects isolate-set changes and
+unavailable native GC counter snapshots. Process CPU
 ticks and RSS sampling use Linux `/proc`; those fields remain missing on other
 platforms and block acceptance. The machine-readable policy is
 `native/bench/artifact_gate/wamp_flatbuffers_performance.json`. Scheduling and
-execution are provided by `tool/run_wamp_serializer_campaign.py`. No complete
-primary comparison result exists yet. The report must not be used
-to claim parity until the complete primary matrix runs with no missing metrics.
+execution are provided by `tool/run_wamp_serializer_campaign.py`. The [first full hosted primary campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/37582544124)
+records all 1,440 scheduled rows at source `a5c6aaf9`. Its unchanged-policy replay
+fails with 2,129 findings: 276 relative-gate failures, 1,512 missing copy metrics,
+336 zero-baseline GC findings and five short measured windows. All 48 cases
+fail throughput, latency, CPU and allocation gates; 36 also fail sampled RSS.
+The median of the 48 throughput ratios is 0.704 against the better binary
+baseline. This aggregate describes that failed source, rather than replacing
+per-case gates or measuring newer code. No parity is accepted.
+
+A forced-GC probe on Dart 3.13.1 subsequently reproduces the zero-GC measurement
+bug: the VM emits category `GC` collection names and paired `B`/`E` scopes,
+while the old parser requires names containing `gc` and `X` durations. The final repair samples native cumulative GC counts and foreground times
+once per shared isolate-group heap. Allocation profiles are also deduplicated by
+group; all application isolates remain monitored. Missing, invalid or rewound
+counter snapshots remain unavailable. See [native VM scope and proof](research/2026-10-14-dart-gc-metrics.md). A real forced-GC regression requires positive counts and pause
+microseconds. Historical rows retain their original zero values and failures;
+they are not rewritten as passing evidence. A new complete campaign remains
+required after performance and copy-instrumentation blockers are resolved.
 
 The relative gate currently requires no point-estimate regression versus the
 better binary baseline for CPU, allocations, GC pause and peak RSS as well as
@@ -357,7 +401,10 @@ using pointer/allocation identity or independently checked copied-byte counters.
 Report builder growth, cryptography, TLS, masking, coalescing and transcoding
 separately. A retained frame owner or fragment count alone is not copy evidence.
 Report CPU, allocations/GC, live and peak retained bytes, wire bytes and latency
-distributions. Missing metrics cannot pass. CPU/memory point-estimate
+distributions. Missing owned metrics cannot pass. Only active TLS internals and
+Dart SDK WebSocket masking may use the versioned dependency-labelled exclusion;
+native masking, owned transport, E2EE staging and transcodes cannot use it.
+CPU/memory point-estimate
 regressions fail the declared relative budgets; the 5% confidence-bound allowance
 does not waive a regression.
 
@@ -366,3 +413,22 @@ prove final buffer release. Keep failed results, teardown evidence and complete
 configuration. Hosted CI must publish exact-head comparisons and enforce the
 same declared machine-readable policy. Shared-host noise, unexecuted construction
 groups or missing ownership metrics must remain visible limitations.
+
+## Allocation-volume evidence
+
+The standard SDK method `dart_heap_gc_volume_v1` reports
+`dart_managed_heap_allocation_pressure`: combined new/old heap occupancy change
+plus bytes reclaimed by every collection in the measured interval. It includes
+managed allocation overhead and excludes native allocations. It is not a
+live-heap delta or the SDK's `ClassHeapStats.accumulatedSize` census. VM-service
+observers run in separate OS processes outside both measured PIDs.
+
+Reports retain heap snapshots, timestamp brackets, raw GC events, collection
+counters, SDK version and PID attribution. Missing events, changed groups,
+rewound counters or ambiguous snapshot boundaries make allocation unmeasured.
+GC fields have KiB precision; each collection contributes at most 2,048 bytes
+of rounding uncertainty. Evidence is numeric only when that bound is at most
+1% of its estimate. The independent evaluator recomputes all observations and
+compares candidate upper bounds against baseline lower bounds. Existing
+allocation budgets, samples, durations and case inventories are unchanged.
+See [source audit and validation](research/2026-10-15-dart-allocation-volume-research.md).

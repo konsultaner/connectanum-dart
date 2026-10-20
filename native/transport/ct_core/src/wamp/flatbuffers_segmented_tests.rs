@@ -217,3 +217,62 @@ fn composed_flatbuffers_frames_cover_all_public_models_with_the_generated_verifi
         );
     }
 }
+
+#[test]
+fn codec_observation_distinguishes_borrowed_and_copied_application_vectors() {
+    let message = WampMessage::Call {
+        request_id: 7,
+        options: ValueMap::new(),
+        procedure: "com.echo".into(),
+        payload: Payload {
+            args: None,
+            kwargs: None,
+            transparent: Some(guarded(vec![0x5a; 129])),
+        },
+    };
+    let before = codec_copy_metrics::observed_on_current_thread();
+    let segments = encode_flatbuffers_message_segments(&message).unwrap();
+    let borrowed = codec_copy_metrics::observed_on_current_thread();
+    assert_eq!(
+        borrowed.vector_copy_bytes_total - before.vector_copy_bytes_total,
+        1 // the empty CBOR options dictionary; application bytes stay borrowed
+    );
+    let borrowed_strings = borrowed.string_copy_bytes_total - before.string_copy_bytes_total;
+    assert!(
+        borrowed_strings >= 16,
+        "both UTF-8 model storage and wire writes are observed"
+    );
+    assert!(segments.iter().any(|part| part.len() == 129));
+    encode_flatbuffers_message(&message).unwrap();
+    let copied = codec_copy_metrics::observed_on_current_thread();
+    assert_eq!(
+        copied.vector_copy_bytes_total - borrowed.vector_copy_bytes_total,
+        130 // application vector plus its one-byte options dictionary
+    );
+    assert_eq!(
+        copied.string_copy_bytes_total - borrowed.string_copy_bytes_total,
+        borrowed_strings
+    );
+}
+
+#[test]
+fn segmented_parser_counts_only_bytes_actually_read() {
+    let before = codec_copy_metrics::observed_on_current_thread();
+    let mut reader = SegmentedFrameReader::new(vec![
+        Bytes::from_static(&[1, 2, 3]),
+        Bytes::new(),
+        Bytes::from_static(&[4, 5]),
+    ]);
+    let mut destination = [0; 4];
+    assert_eq!(reader.read(&mut []).unwrap(), 0);
+    assert_eq!(reader.read(&mut destination).unwrap(), 4);
+    assert_eq!(destination, [1, 2, 3, 4]);
+    assert_eq!(reader.read(&mut destination).unwrap(), 1);
+    assert_eq!(destination[0], 5);
+    assert_eq!(reader.read(&mut destination).unwrap(), 0);
+    let after = codec_copy_metrics::observed_on_current_thread();
+    assert_eq!(
+        after.parser_read_copy_bytes_total - before.parser_read_copy_bytes_total,
+        5
+    );
+}

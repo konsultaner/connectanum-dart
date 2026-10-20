@@ -5,11 +5,12 @@ library connectanum.bench;
 
 import 'dart:typed_data' show Uint8List;
 import 'package:flat_buffers/flat_buffers.dart' as fb;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as byte_views;
 
 class WorkloadPayload {
   WorkloadPayload._(this._bc, this._bcOffset);
   factory WorkloadPayload(List<int> bytes) {
-    final rootRef = fb.BufferContext.fromBytes(bytes);
+    final rootRef = byte_views.flatBufferContext(bytes);
     return reader.read(rootRef, 0);
   }
 
@@ -20,8 +21,8 @@ class WorkloadPayload {
 
   int get worker => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 4, 0);
   int get iteration => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 6, 0);
-  List<int>? get body =>
-      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 8);
+  List<int>? get body => const byte_views.FlatBufferUint8ListReader()
+      .vTableGetNullable(_bc, _bcOffset, 8);
 
   @override
   String toString() {

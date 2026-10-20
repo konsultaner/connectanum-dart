@@ -686,6 +686,8 @@ class NativeRouterTransportCopyMetrics {
     this.rustlsDeframerMoveCopyBytesTotal,
     this.rustlsRecordBufferCopyBytesTotal,
     this.rustlsRecordAppendCopyBytesTotal,
+    this.tokioRustlsPlaintextExtractCopyBytesTotal,
+    this.ffiBorrowedSendCopyBytesTotal,
   });
 
   final int dartToNativeCopiedBytesTotal;
@@ -702,6 +704,12 @@ class NativeRouterTransportCopyMetrics {
   final int? rustlsDeframerMoveCopyBytesTotal;
   final int? rustlsRecordBufferCopyBytesTotal;
   final int? rustlsRecordAppendCopyBytesTotal;
+
+  /// Partial Tokio-Rustls plaintext extraction; null for older libraries.
+  final int? tokioRustlsPlaintextExtractCopyBytesTotal;
+
+  /// Actual Rust borrowed-send input copies; null without the optional ABI.
+  final int? ffiBorrowedSendCopyBytesTotal;
 
   NativeRouterTransportCopyMetrics deltaFrom(
     NativeRouterTransportCopyMetrics before,
@@ -753,6 +761,14 @@ class NativeRouterTransportCopyMetrics {
     rustlsRecordAppendCopyBytesTotal: _nullableCounterDelta(
       rustlsRecordAppendCopyBytesTotal,
       before.rustlsRecordAppendCopyBytesTotal,
+    ),
+    tokioRustlsPlaintextExtractCopyBytesTotal: _nullableCounterDelta(
+      tokioRustlsPlaintextExtractCopyBytesTotal,
+      before.tokioRustlsPlaintextExtractCopyBytesTotal,
+    ),
+    ffiBorrowedSendCopyBytesTotal: _nullableCounterDelta(
+      ffiBorrowedSendCopyBytesTotal,
+      before.ffiBorrowedSendCopyBytesTotal,
     ),
   );
 
@@ -3660,6 +3676,36 @@ class NativeTransportRuntime
     }
   }
 
+  int? _tokioRustlsCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctTokioRustlsCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final copiedBytes = calloc<ffi.Uint64>();
+    try {
+      final result = snapshot(copiedBytes);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot partial Tokio-Rustls copy metrics');
+      }
+      return copiedBytes.value;
+    } finally {
+      calloc.free(copiedBytes);
+    }
+  }
+
+  int? _ffiBorrowedSendCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctFfiBorrowedSendCopyMetricsSnapshot;
+    if (snapshot == null) return null;
+    final copiedBytes = calloc<ffi.Uint64>();
+    try {
+      final result = snapshot(copiedBytes);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot borrowed FFI send input copy metrics');
+      }
+      return copiedBytes.value;
+    } finally {
+      calloc.free(copiedBytes);
+    }
+  }
+
   _RustlsCopyMetricsSnapshot? _rustlsCopyMetricsSnapshot() {
     final snapshot = _bindings.ctRustlsCopyMetricsSnapshot;
     if (snapshot == null) return null;
@@ -3683,8 +3729,64 @@ class NativeTransportRuntime
     }
   }
 
+  /// Cumulative native parser copies and contiguity requests, or unavailable.
+  Map<String, int>? rawFrameCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctRawFrameCopyMetricsSnapshot;
+    if (_bindings.ctRawFrameCopyMetricsVersion?.call() != 1 ||
+        snapshot == null) {
+      return null;
+    }
+    final info = calloc<CtRawFrameCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot raw-frame copy metrics');
+      }
+      return {
+        'coalescing_copy_bytes': info.ref.coalescingCopyBytesTotal,
+        'range_copy_bytes': info.ref.rangeCopyBytesTotal,
+        'single_segment_contiguous_requests':
+            info.ref.singleSegmentContiguousRequestsTotal,
+        'multi_segment_contiguous_requests':
+            info.ref.multiSegmentContiguousRequestsTotal,
+      };
+    } finally {
+      calloc.free(info);
+    }
+  }
+
+  /// Cumulative explicit native codec buffer operations, or unavailable.
+  Map<String, int>? codecCopyMetricsSnapshot() {
+    final snapshot = _bindings.ctCodecCopyMetricsSnapshot;
+    if (_bindings.ctCodecCopyMetricsVersion?.call() != 1 ||
+        _bindings.ctCodecCopyMetricsCoverageVersion?.call() != 1 ||
+        snapshot == null) {
+      return null;
+    }
+    final info = calloc<CtCodecCopyMetricsInfo>();
+    try {
+      final result = snapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot codec copy metrics');
+      }
+      return {
+        'coverage_version': 1,
+        'vector_copy_bytes': info.ref.vectorCopyBytesTotal,
+        'string_copy_bytes': info.ref.stringCopyBytesTotal,
+        'growth_copy_bytes': info.ref.growthCopyBytesTotal,
+        'parser_read_copy_bytes': info.ref.parserReadCopyBytesTotal,
+        'framing_copy_bytes': info.ref.framingCopyBytesTotal,
+        'key_material_copy_bytes': info.ref.keyMaterialCopyBytesTotal,
+      };
+    } finally {
+      calloc.free(info);
+    }
+  }
+
   NativeRouterTransportCopyMetrics transportCopyMetricsSnapshot() {
     final rustls = _rustlsCopyMetricsSnapshot();
+    final tokioRustls = _tokioRustlsCopyMetricsSnapshot();
+    final ffiBorrowed = _ffiBorrowedSendCopyMetricsSnapshot();
     final snapshotV2 = _bindings.ctTransportCopyMetricsSnapshotV2;
     if (snapshotV2 != null) {
       final info = calloc<CtTransportCopyMetricsInfoV2>();
@@ -3704,6 +3806,8 @@ class NativeTransportRuntime
           rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
           rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
           rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+          tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+          ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
           websocketMaskCopyBytesTotal: value.legacy.websocketMaskCopyBytesTotal,
           websocketCoalesceCopyBytesTotal:
@@ -3728,6 +3832,8 @@ class NativeTransportRuntime
         rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
         rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
         rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+        tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+        ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
         websocketMaskCopyBytesTotal: null,
         websocketCoalesceCopyBytesTotal: null,
@@ -3750,6 +3856,8 @@ class NativeTransportRuntime
         rustlsDeframerMoveCopyBytesTotal: rustls?.deframerMoveCopyBytesTotal,
         rustlsRecordBufferCopyBytesTotal: rustls?.recordBufferCopyBytesTotal,
         rustlsRecordAppendCopyBytesTotal: rustls?.recordAppendCopyBytesTotal,
+        tokioRustlsPlaintextExtractCopyBytesTotal: tokioRustls,
+        ffiBorrowedSendCopyBytesTotal: ffiBorrowed,
 
         websocketMaskCopyBytesTotal: value.websocketMaskCopyBytesTotal,
         websocketCoalesceCopyBytesTotal: value.websocketCoalesceCopyBytesTotal,
@@ -3842,6 +3950,12 @@ class NativeTransportRuntime
   /// Sends one serialized WAMP frame on [connectionId].
   @override
   void sendMessage(int connectionId, Uint8List payload) {
+    if (payload.length > 0x7fffffff) {
+      _throwForError(
+        NativeTransportErrorCode.invalidArgument,
+        'Message length exceeds the native signed 32-bit limit',
+      );
+    }
     if (payload.isEmpty) {
       final result = _bindings.ctSendMessage(
         connectionId,
@@ -3853,6 +3967,7 @@ class NativeTransportRuntime
       }
       return;
     }
+    if (_sendOwnedMessage(connectionId, payload)) return;
     final ptr = calloc<ffi.Uint8>(payload.length);
     try {
       ptr.asTypedList(payload.length).setAll(0, payload);
@@ -3863,6 +3978,35 @@ class NativeTransportRuntime
       }
     } finally {
       calloc.free(ptr);
+    }
+  }
+
+  bool _sendOwnedMessage(int connectionId, Uint8List payload) {
+    final allocate = _bindings.ctOutboundBufferAlloc;
+    final release = _bindings.ctOutboundBufferFree;
+    final send = _bindings.ctSendMessageOwned;
+    if (allocate == null || release == null || send == null) return false;
+    final ptr = allocate(payload.length);
+    if (ptr == ffi.nullptr) {
+      _throwForError(
+        NativeTransportErrorCode.io,
+        'Failed to allocate native outbound message buffer',
+      );
+    }
+    var consumed = false;
+    try {
+      ptr.asTypedList(payload.length).setAll(0, payload);
+      _dartToNativeCopiedBytesTotal += payload.length;
+      // Positive length and a non-null allocator result are validated here.
+      // Rust consumes this valid allocation even when enqueueing is rejected.
+      consumed = true;
+      final result = send(connectionId, ptr, payload.length);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send message');
+      }
+      return true;
+    } finally {
+      if (!consumed) release(ptr, payload.length);
     }
   }
 

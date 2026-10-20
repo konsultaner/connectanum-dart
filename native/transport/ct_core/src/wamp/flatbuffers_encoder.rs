@@ -338,7 +338,10 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
     Ok(root)
 }
 fn text(fields: &mut Fields, key: &'static str, value: &str) {
-    fields.insert(key, Value::Text(Arc::from(value)));
+    fields.insert(
+        key,
+        Value::Text(super::codec_copy_metrics::copy_text_arc(value)),
+    );
 }
 fn integer(fields: &mut Fields, key: &'static str, value: u64) {
     fields.insert(key, Value::Integer(value));

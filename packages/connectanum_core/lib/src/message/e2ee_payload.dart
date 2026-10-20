@@ -8,6 +8,8 @@ import 'package:pointycastle/export.dart'
 
 import 'abstract_ppt_options.dart';
 import 'e2ee_copy_metrics.dart';
+import 'ppt_copy_metrics.dart';
+import '../serializer/owned_copy_metrics.dart';
 import '../message/ppt_payload.dart';
 import '../serializer/cbor/serializer.dart' as cbor_serializer;
 import '../serializer/abstract_serializer.dart';
@@ -536,10 +538,12 @@ abstract class _WampE2eeCipherProvider
 
     final plaintext =
         typedPlaintext ??
-        _serializer.serializePPT(
-          PPTPayload(
-            arguments: arguments,
-            argumentsKeywords: argumentsKeywords,
+        PptCopyMetrics.measure<Uint8List>(
+          () => _serializer.serializePPT(
+            PPTPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords,
+            ),
           ),
         );
     final encrypted = _encryptPayload(plaintext, _keys[keyId]!);
@@ -555,8 +559,10 @@ abstract class _WampE2eeCipherProvider
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
   ) {
-    final bytes = _serializer.serializePPT(
-      PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+    final bytes = PptCopyMetrics.measure<Uint8List>(
+      () => _serializer.serializePPT(
+        PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+      ),
     );
     // Typed serialization returns the application span unchanged. These are
     // exactly nonce + tag bytes, with no additional plaintext framing.
@@ -629,7 +635,9 @@ abstract class _WampE2eeCipherProvider
 
     PPTPayload? decoded;
     try {
-      decoded = _serializer.deserializePPT(plaintext);
+      decoded = PptCopyMetrics.measure(
+        () => _serializer.deserializePPT(plaintext),
+      );
     } catch (_) {
       // Parser errors can retain decrypted input; expose only the envelope
       // failure, not the parser exception or plaintext.
@@ -685,12 +693,10 @@ abstract class _WampE2eeCipherProvider
 
   Uint8List _encryptAes256Gcm(Uint8List plaintext, Uint8List key) {
     final random = Random.secure();
-    final nonce = Uint8List.fromList(
-      List<int>.generate(
-        ConnectanumE2eeProfile.aes256GcmNonceLength,
-        (_) => random.nextInt(256),
-      ),
-    );
+    final nonce = Uint8List(ConnectanumE2eeProfile.aes256GcmNonceLength);
+    for (var index = 0; index < nonce.length; index++) {
+      nonce[index] = random.nextInt(256);
+    }
     final cipher = GCMBlockCipher(AESEngine())
       ..init(
         true,
@@ -707,6 +713,7 @@ abstract class _WampE2eeCipherProvider
     final encrypted = Uint8List(
       nonce.length + cipher.getOutputSize(plaintext.length),
     )..setRange(0, nonce.length, nonce);
+    PortableE2eeCopyMetrics.recordCiphertextAssemblyCopy(nonce.length);
     var written = cipher.processBytes(
       plaintext,
       0,
@@ -907,15 +914,21 @@ abstract class _WampE2eeCipherProvider
         );
       }
       final bytes = Uint8List(SecretBox.keyLength);
-      for (var index = 0; index < bytes.length; index++) {
-        final byte = entry.value[index];
-        if (byte < 0 || byte > 255) {
-          throw ArgumentError(
-            'E2EE key "$keyId" bytes must be integers from 0 to 255',
-            'keys',
-          );
+      var copied = 0;
+      try {
+        for (var index = 0; index < bytes.length; index++) {
+          final byte = entry.value[index];
+          if (byte < 0 || byte > 255) {
+            throw ArgumentError(
+              'E2EE key "$keyId" bytes must be integers from 0 to 255',
+              'keys',
+            );
+          }
+          bytes[index] = byte;
+          copied++;
         }
-        bytes[index] = byte;
+      } finally {
+        OwnedCopyMetrics.record(OwnedCopyKind.keyMaterial, copied);
       }
       normalized[keyId] = bytes;
     }

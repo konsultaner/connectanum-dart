@@ -41,6 +41,10 @@ void main() {
             delta.rustlsRecordAppendCopyBytesTotal,
             values.expected == null ? null : values.expected! * 6,
           );
+          expect(
+            delta.tokioRustlsPlaintextExtractCopyBytesTotal,
+            values.expected == null ? null : values.expected! * 7,
+          );
         } else {
           final before = _router(values.before);
           final after = _router(values.after);
@@ -69,6 +73,10 @@ void main() {
             delta.rustlsRecordAppendCopyBytesTotal,
             values.expected == null ? null : values.expected! * 6,
           );
+          expect(
+            delta.tokioRustlsPlaintextExtractCopyBytesTotal,
+            values.expected == null ? null : values.expected! * 7,
+          );
         }
       });
     }
@@ -87,6 +95,9 @@ client.NativeTransportCopyMetrics _client(int? value) =>
       rustlsDeframerMoveCopyBytesTotal: value == null ? null : value * 4,
       rustlsRecordBufferCopyBytesTotal: value == null ? null : value * 5,
       rustlsRecordAppendCopyBytesTotal: value == null ? null : value * 6,
+      tokioRustlsPlaintextExtractCopyBytesTotal: value == null
+          ? null
+          : value * 7,
     );
 
 router.NativeRouterTransportCopyMetrics _router(int? value) =>
@@ -101,4 +112,7 @@ router.NativeRouterTransportCopyMetrics _router(int? value) =>
       rustlsDeframerMoveCopyBytesTotal: value == null ? null : value * 4,
       rustlsRecordBufferCopyBytesTotal: value == null ? null : value * 5,
       rustlsRecordAppendCopyBytesTotal: value == null ? null : value * 6,
+      tokioRustlsPlaintextExtractCopyBytesTotal: value == null
+          ? null
+          : value * 7,
     );

@@ -122,7 +122,11 @@ impl StoredE2eeKeyring {
         let mut state = self.state.lock().unwrap();
         let was_empty = state.keys.is_empty();
         let had_implicit_default = state.default_key_id.is_some() && !state.default_key_explicit;
-        state.keys.insert(key_id.clone(), Arc::<[u8]>::from(key));
+        let key_len = key.len();
+        state
+            .keys
+            .insert(ct_core::copy_codec_string(&key_id), Arc::<[u8]>::from(key));
+        ct_core::record_key_material_copy(key_len);
         if make_default {
             state.default_key_id = Some(key_id);
             state.default_key_explicit = true;
@@ -146,8 +150,8 @@ impl StoredE2eeKeyring {
     pub fn resolve_key(&self, key_id: Option<&str>) -> Option<(Arc<[u8]>, String)> {
         let state = self.state.lock().unwrap();
         let resolved_key_id = match key_id {
-            Some(value) => value.to_string(),
-            None => state.default_key_id.clone()?,
+            Some(value) => ct_core::copy_codec_string(value),
+            None => ct_core::copy_codec_string(state.default_key_id.as_deref()?),
         };
         let key = state.keys.get(&resolved_key_id)?.clone();
         Some((key, resolved_key_id))
