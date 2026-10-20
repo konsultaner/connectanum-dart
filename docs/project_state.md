@@ -17,6 +17,15 @@ and completed-decoder invariants, then re-keyed to the current source. No new
 equivalence is added; the mutation inventory grows from 356 to 393. Static
 preflight validates all 154 existing proofs and thirteen focused checker tests
 pass. Hosted runtime verification and complete mutation execution remain required.
+The next Linux runtime run on `b54db44b` passes all 142 selected core tests,
+eight native lease tests, repeated native sends without exports and the foreign-
+library fallback. It reveals eager matching-source materialization in invocation
+replies and a Dart-socket test waiting for negotiation before starting receive.
+Matching packed reply sources are now retained through both YIELD and ERROR;
+E2EE still follows the provider path. The fallback fixture starts Session first
+within its existing five-second deadline. Focused analysis passes; runtime
+verification of these corrections remains pending.
+
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 

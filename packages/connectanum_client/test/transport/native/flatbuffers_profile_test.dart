@@ -127,8 +127,12 @@ void main() {
             allocator = NativeBufferAllocator(DynamicLibrary.open(copied.path));
           }
           await client.open();
-          await client.onReady.timeout(const Duration(seconds: 5));
-          final session = await Session.start('realm', client);
+          // Session starts receive() before waiting for the Dart socket's
+          // negotiation. Native transports already pump during open().
+          final session = await Session.start(
+            'realm',
+            client,
+          ).timeout(const Duration(seconds: 5));
           producer = _typedEntity(allocator, 62);
           lease = producer.leaseFlatBuffersPptPayload();
           producer.dispose();

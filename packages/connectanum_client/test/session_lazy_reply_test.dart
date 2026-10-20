@@ -106,6 +106,41 @@ void main() {
         }
       }
 
+      for (final serializer in ['json', 'msgpack', 'cbor']) {
+        test(
+          'source-$serializer error preserves packed bytes without exporting',
+          () async {
+            final fixture = await _start(native);
+            final response = _ResponsePayload('source-$serializer');
+            final options = YieldOptions(
+              pptScheme: 'x_example',
+              pptSerializer: serializer,
+            );
+            fixture.invocation.respondWith(
+              lazyPayload: response.payload,
+              arguments: ['ignored fallback'],
+              isError: true,
+              errorUri: Error.notAuthorized,
+              options: options,
+            );
+            final reply = fixture.transport.responses.single as Error;
+            expect(reply.requestTypeId, MessageTypes.codeInvocation);
+            expect(reply.requestId, 401);
+            expect(reply.error, Error.notAuthorized);
+            expect(reply.details['ppt_serializer'], serializer);
+            expect(response.sourceReads, 0);
+            expect(response.decodeCalls, 0);
+            expect(reply.toLazyPayload().packedPayloadSource, isNotNull);
+            final decoded = PPTPayload.unpackPPTPayload(
+              reply.arguments,
+              options,
+            );
+            expect(decoded.arguments, _arguments);
+            expect(decoded.argumentsKeywords, _keywords);
+          },
+        );
+      }
+
       for (final representation in [
         'explicit',
         'materialized',

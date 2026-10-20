@@ -162,8 +162,19 @@ class Invocation extends AbstractMessageWithPayload {
     final runtimeContext = _responseRuntimeContext(
       isError ? WampE2eeMessageType.error : WampE2eeMessageType.yield,
     );
+    final forwardPackedSource =
+        lazyPayload?.packedPayloadSource != null &&
+        options?.pptScheme != null &&
+        options?.pptScheme != 'wamp' &&
+        _matchesPayloadEncoding(lazyPayload?.encoding, options?.pptSerializer);
+    if (forwardPackedSource) {
+      invokeArguments = null;
+      invokeArgumentsKeywords = null;
+    }
 
-    if (options?.pptScheme != null && options?.pptScheme != 'wamp') {
+    if (!forwardPackedSource &&
+        options?.pptScheme != null &&
+        options?.pptScheme != 'wamp') {
       packedPayload = lazyPayload == null
           ? null
           : _packMatchingLazyPayload(lazyPayload, options!);
@@ -180,7 +191,7 @@ class Invocation extends AbstractMessageWithPayload {
         runtimeContext: runtimeContext,
       );
       invokeArgumentsKeywords = null;
-    } else if (options?.pptScheme != null) {
+    } else if (options?.pptScheme != null && !forwardPackedSource) {
       invokeArguments = packedPayload == null
           ? PPTPayload.packPPTPayload(
               lazyPayload?.arguments ?? arguments,
@@ -215,7 +226,9 @@ class Invocation extends AbstractMessageWithPayload {
           );
     response.attachE2eeProvider(lazyPayload?.e2eeProvider ?? e2eeProvider);
     response.attachE2eeRuntimeContext(runtimeContext);
-    if (lazyPayload != null && options?.pptScheme == null) {
+    if (forwardPackedSource) {
+      response.restoreLazyPayload(lazyPayload!);
+    } else if (lazyPayload != null && options?.pptScheme == null) {
       if (lazyPayload.hasPackedPayloadBytes) {
         // Without PPT metadata the reply contains application values, not the
         // packed wire wrapper. Encoded dynamic fragments can still be reused.
@@ -237,7 +250,8 @@ class Invocation extends AbstractMessageWithPayload {
       // Keep the source lease with the actual outbound wire view. Packing a
       // reply can reuse spans even when its argument wrapper is different.
       response.retainLazyPayload(
-        packedPayload != null && lazyPayload.hasPackedPayloadBytes
+        forwardPackedSource ||
+                (packedPayload != null && lazyPayload.hasPackedPayloadBytes)
             ? lazyPayload
             : response.toLazyPayload(anchor: lazyPayload),
       );
