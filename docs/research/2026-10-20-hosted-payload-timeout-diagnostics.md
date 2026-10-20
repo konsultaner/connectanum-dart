@@ -87,3 +87,12 @@ Detailed evidence is under `out/flatbuffers-resume-20261020/`. The diagnostic
 addition requires its own final verification and hosted observations. Historical
 failed campaigns remain failed. No sample, duration, deadline, copy scope,
 precision limit or parity threshold is relaxed.
+
+The full hosted CI run on `8104d339` subsequently passes. Frozen `f88a8f3d`
+passes 120 production copy cases and all 300 short correctness rows, including
+32 declared zero-avoidable-copy observations; all 3,157 inputs remain unchanged.
+Production source inputs match the binary built on `8104d339`. The copy-gate
+criterion in #103 is checked separately from the five unmet criteria. The new
+cleanup test also follows the existing process-group contract: a dead zombie
+awaiting host reaping cannot execute or retain sockets, so it must not be
+mistaken for a live leaked child.

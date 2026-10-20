@@ -39,6 +39,16 @@ application changes;
 see [payload-timeout research](research/2026-10-20-hosted-payload-timeout-diagnostics.md).
 Complete parity and supplemental acceptance remain unproven.
 
+Copy-gate checkpoint `f88a8f3d`: all 120 renewed production cases pass (96 E2EE,
+48 native-crypto, 120 transcode/encoded-volume reconciliations). The complete
+50-case short correctness inventory passes all 300 rows, including 32 declared
+zero-avoidable-copy observations. All 3,157 inputs remain unchanged; native/Dart
+production sources match the verified `8104d339` build. These short runs are
+rejected by the unchanged timing policy. Criterion two in #103 is checked;
+the other five remain open. Exact-head hosted CI for `8104d339` now passes too.
+The opt-in Linux stack replay is still running; final resulting-source canonical
+verification remains required before handoff.
+
 Completed delivery (2026-10-19): the separate
 [`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)
 is published to pub.dev. The live version API confirms publication at

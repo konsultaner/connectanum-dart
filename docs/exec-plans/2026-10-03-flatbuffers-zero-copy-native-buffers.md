@@ -20,6 +20,7 @@ Status: active. Started: 2026-10-03.
   All 36 collector and 46 comparator tests pass; budgets remain unchanged.
 - [x] Pass full verification and fresh fast checks on RSS source `8104d339`;
   all 3,154 source inputs and resolved locks remain unchanged.
+- [x] Confirm the full hosted CI run on `8104d339` passes as well.
 - [x] Confirm exact-head #130 CI passes all 38 jobs; retain required human review.
 - [x] Complete the strict 90-row Linux diagnostic and independently reproduce
   its report: all three allocation comparisons pass, eleven numerical gates fail.
@@ -33,6 +34,10 @@ Status: active. Started: 2026-10-03.
   with source/lock/binary invariance and owned-process cleanup.
 - [ ] Confirm fresh paired-RSS evidence across every supplemental case.
 - [ ] Renew owned E2EE/transcode proofs on the final frozen production candidate.
+- [x] Renew 120 production copy cases and all 300 short supplemental rows on
+  `f88a8f3d`, with all 3,157 inputs unchanged. All 32 declared no-copy observations
+  are zero; criterion two in #103 is checked. Production inputs match the
+  verified `8104d339` binary. These diagnostics do not establish speed.
 - [ ] Improve measured bottlenecks, then run complete unchanged-policy primary
   and supplemental acceptance before marking #103 complete.
 

@@ -86,8 +86,10 @@ class StallDiagnosticTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertTrue(result["process_group_stopped"])
         child = int((self.output / "child.pid").read_text())
-        with self.assertRaises(ProcessLookupError):
-            os.kill(child, 0)
+        state = subprocess.run(["ps", "-p", str(child), "-o", "stat="],
+                               capture_output=True, text=True, check=False).stdout.strip()
+        # A dead orphan may remain a zombie until the host reaps it.
+        self.assertTrue(not state or state.startswith("Z"), state)
 
     def test_startup_failure_writes_a_failed_result(self):
         self.driver.write_bytes(b"not an executable image")
