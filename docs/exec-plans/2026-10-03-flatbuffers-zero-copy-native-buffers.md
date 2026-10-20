@@ -134,6 +134,21 @@ Status: active. Started: 2026-10-03.
 - [x] Retain full CI's obsolete five-file suite fixture failure (`39491312754`).
   Update the exact expected six-file inventory and both wrapper checks. All 93
   runner tests pass locally with one existing platform skip.
+- [x] Independently audit the complete writer primary campaign (`39457038168`):
+  all 1,440 rows meet the unchanged floors, with stable processes and zero integrity
+  gaps; 169 numerical gates fail. Retain its complete raw artifact and comparisons.
+- [x] Independently reproduce the complete reader supplemental report
+  (`39467640642`): fifty cases, 1,500 rows, zero integrity gaps, 244 retained costs.
+  All 1,500 volume, 480 E2EE, 360 native-crypto, 300 transcode and 160 no-copy
+  observations validate. Do not pool absolute observations across shards.
+- [x] Retain `6e490aef` full CI's core-lazy VM score failure (92.8125% against 95%).
+  Add independent metadata/getter/owner assertions and an observable regression
+  that wire keywords cannot expose decoded application keywords. All 147 selected
+  core and nineteen Chrome/Dart2Wasm source cases pass; no production code,
+  mutation thresholds, equivalences or exclusions change.
+- [x] Complete all 404 VM mutants with the final test inputs: 95.3125%, eight
+  additional assertion kills, unchanged source/equivalences and matching final
+  test/support hashes. Clean and restored baselines pass.
 - [ ] Complete fresh full CI after this tooling correction.
   Another active job currently holds the preserved shared local resource lease;
   local native verification and companion review of the new tool are blocked.

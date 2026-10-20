@@ -9,29 +9,40 @@ and has zero tracked native owners before GC; independent audit verifies source/
 library invariance and cleanup. All 144 pure-Dart core, 199 VM reply and sixteen
 Chrome/Dart2Wasm source tests also pass locally. Root benchmark construction paths
 remain unchanged pending complete CI/canonical/mutation verification.
-Full CI `39491312754` catches an obsolete five-file mutation-suite fixture after
-the sixth source test is added. Its exact inventory now includes all six suites
-and checks the new wrapper in both runtimes. All 93 runner tests pass locally
-with one existing platform skip. Current full CI renewal is pending; no budgets,
-mutation exclusions, workload cases or deadlines change. Another active job
-holds the shared machine lease, blocking local native/canonical runs and local
-companion review; the holder is preserved. Last complete local `bin/verify`
-remains the passing production source `28fa8011`.
+Full CI `39491312754` catches an obsolete five-file mutation-suite fixture;
+`6e490aef` repairs that fixture and passes the full local tooling suite. Its new
+full CI (`39492341784`) exposes the core-lazy VM assertion score of 92.8125%,
+below the unchanged 95% gate. Independent assertions now cover default decoding
+state, each metadata clone, keyword-only wire access, storage-owner retention,
+and the state immediately after classic PPT decoding. All 147 selected core
+cases and nineteen Chrome/Dart2Wasm source contracts pass. The complete unchanged
+404-mutant VM inventory now passes at 95.3125%, with eight additional faults
+killed. Source hashes and all test/support hashes match the independently audited
+report; clean/restored baselines pass and no equivalences or exclusions are added.
+The first browser invocation from the workspace root fails its nested test URI;
+the canonical package-local Dart2Wasm invocation passes without timeout changes.
+Another active job holds the preserved shared machine lease, blocking local
+native/canonical runs and companion review. Pure-Dart verification continues.
+Last complete local `bin/verify` remains the passing production source `28fa8011`.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Latest checkpoint: production source `28fa8011` passes frozen `bin/verify` and
-all 38 hosted CI checks. Copy proofs pass 120 cases and all 300 short supplemental
-rows; strict timing parity still fails eleven gates in the representative
-ninety-row diagnostic. The full primary and remaining supplemental campaigns
-continue. The current payload-size shard completes 360 rows with zero integrity
-gaps and 32 performance-cost findings. A matched Linux private-source experiment
-proves producer-view retention can be avoided, with no public lease API delivered
-yet. Next: implement a trusted disposable payload lease while preserving existing
-view lifetimes, then renew production proofs and full unchanged-policy timing.
-PR #130 remains ready for independent CODEOWNER approval; #132 remains draft.
-
+Latest performance checkpoint: writer source `40927925` completes all 1,440
+primary rows with unchanged floors, stable processes, cleanup and identical
+independent recomputation. It fails 169 numerical gates, with zero integrity gaps;
+45 of 48 memory comparisons fail. Reader source `28fa8011` completes all 1,500
+supplemental rows across fifty cases. Both the aggregate manifest and comparison
+recompute identically: zero integrity gaps and 244 retained performance costs.
+Copy checks reconcile 1,500 volume rows, 480 E2EE, 360 native-crypto, 300 transcode
+and 160 zero-avoidable-copy observations. Cross-shard absolute costs are not
+pooled. The reader's full primary campaign remains in progress. These are earlier
+production candidates; no final parity is established. The public lease passes
+its focused Linux contract/lifetime proof on `100c7624`; benchmark adoption is
+prepared separately while complete mutation verification is repaired. Existing
+120-case copy proofs and 300 short rows must be renewed on the final candidate.
+PR #130 remains ready for an independent approving review under master branch
+protection; #132 remains draft.
 
 Resume after PR #133 (2026-10-20): the user merges the ObjectBox adapter at
 master `78f2b32b`; all hosted master checks pass. Fresh `bin/test-fast` passes
@@ -50,7 +61,7 @@ preserving the sampled peak and every parity budget. See the
 [RSS research](research/2026-10-20-linux-paired-rss-endpoint.md). Full `bin/verify`
 and fresh `bin/test-fast` then pass on RSS source `8104d339`, with all 3,154 inputs
 and resolved locks unchanged. Exact-head PR #130 CI passes all 38 jobs; its body
-records that evidence and it is ready for required CODEOWNER review. Evidence
+records that evidence and it is ready for the required independent review. Evidence
 is under `out/flatbuffers-resume-20261020/`. PR #130 implements #100/#101 and still
 requires independent approval. Performance PR #132 remains draft: the prior
 complete primary campaign fails 176 gates, and fresh measurements are required.

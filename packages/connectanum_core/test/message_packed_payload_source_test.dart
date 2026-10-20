@@ -62,10 +62,14 @@ void main() {
       key: Uint8List(32),
     );
     final anchor = Object();
+    final providerView = payload.withE2eeProvider(provider);
+    final contextView = payload.withE2eeRuntimeContext(context);
     final clones = [
       payload,
       payload.withAnchor(anchor),
-      payload.withE2eeProvider(provider).withE2eeRuntimeContext(context),
+      providerView,
+      contextView,
+      providerView.withE2eeRuntimeContext(context),
     ];
     for (final view in clones) {
       expect(view.packedPayloadSource, same(source));
@@ -76,8 +80,10 @@ void main() {
     expect(source.reads, 0);
     expect(decodes, 0);
     expect(clones[1].anchor, same(anchor));
-    expect(clones[2].e2eeProvider, same(provider));
-    expect(clones[2].e2eeRuntimeContext, same(context));
+    expect(providerView.e2eeProvider, same(provider));
+    expect(contextView.e2eeRuntimeContext, same(context));
+    expect(clones.last.e2eeProvider, same(provider));
+    expect(clones.last.e2eeRuntimeContext, same(context));
     for (final view in clones) {
       expect(view.packedPayloadBytes, same(bytes));
     }
@@ -87,6 +93,31 @@ void main() {
     expect(payload.argumentsKeywords, isNull);
     expect(decodes, 1);
   });
+
+  test(
+    'packed source defaults to decoded and preserves explicit outer state',
+    () {
+      final source = _Source(() => throw StateError('must not export bytes'));
+      final decoded = packed(source);
+      final outer = LazyMessagePayload.packedSource(
+        encoding: LazyPayloadEncoding.flatbuffers,
+        source: source,
+        packedPayloadDecoder: (_) => (arguments: null, argumentsKeywords: null),
+        pptDecoded: false,
+      );
+      for (final payload in [decoded, outer]) {
+        for (final view in [
+          payload,
+          payload.withAnchor(Object()),
+          payload.withE2eeRuntimeContext(context),
+        ]) {
+          expect(view.pptDecoded, identical(payload, decoded));
+          expect(packedPayloadSourceOf(view), same(source));
+        }
+      }
+      expect(source.reads, 0);
+    },
+  );
 
   test(
     'source lookup rejects a public interface forgery without invoking getters',
@@ -232,6 +263,7 @@ void main() {
         final message = Call(1, 'app.source')
           ..restoreLazyPayload(packed(source));
         expect(message.toLazyPayload().packedPayloadSource, same(source));
+        expect(message.hasDecodedPptPayload, isFalse);
         expect(source.reads, 0);
         if (keywordsFirst) expect(message.argumentsKeywords, isNull);
         expect(message.arguments, [bytes]);
@@ -251,7 +283,11 @@ void main() {
         final source = _Source(() => Uint8List.fromList([9]));
         final message = Call(1, 'app.source')
           ..restoreLazyPayload(packed(source));
-        if (keywordsFirst) expect(message.wireArgumentsKeywords, isNull);
+        if (keywordsFirst) {
+          expect(message.wireArgumentsKeywords, isNull);
+          expect(source.reads, 1);
+          expect(packedPayloadSourceOf(message.toLazyPayload()), isNull);
+        }
         expect(message.wireArguments, [
           [9],
         ]);
@@ -260,6 +296,46 @@ void main() {
       },
     );
   }
+
+  test(
+    'materialized outer view retains storage owner independently of anchors',
+    () {
+      final bytes = Uint8List.fromList([8, 9]);
+      final source = _Source(() => bytes);
+      final applicationAnchor = Object();
+      final message = Call(1, 'app.source')
+        ..restoreLazyPayload(packed(source).withAnchor(applicationAnchor));
+      expect(message.wireArguments, [bytes]);
+      final forwardingAnchor = Object();
+      final view = message.toLazyPayload(anchor: forwardingAnchor);
+      expect(packedPayloadSourceOf(view), isNull);
+      expect(view.storageOwner, same(source));
+      expect(view.anchor, same(forwardingAnchor));
+      expect(source.reads, 1);
+    },
+  );
+
+  test('wire keywords do not expose decoded application keywords', () {
+    final bytes = Uint8List.fromList([6, 7]);
+    final source = _Source(() => bytes);
+    var decodes = 0;
+    final payload = packed(
+      source,
+      decoder: (_) {
+        decodes++;
+        return (
+          arguments: <dynamic>['decoded application value'],
+          argumentsKeywords: <String, dynamic>{'decoded': true},
+        );
+      },
+    );
+    final message = Call(1, 'app.source')..restoreLazyPayload(payload);
+    expect(message.wireArgumentsKeywords, isNull);
+    expect(decodes, 0);
+    expect(source.reads, 1);
+    expect(message.wireArguments, [bytes]);
+    expect(packedPayloadSourceOf(message.toLazyPayload()), isNull);
+  });
 
   test(
     'detached message copy materializes and owns its outer packed bytes',
@@ -309,6 +385,8 @@ void main() {
         pptCipher: null,
         pptKeyId: null,
       );
+      expect(source.reads, 1);
+      expect(packedPayloadSourceOf(message.toLazyPayload()), isNull);
       expect(message.arguments, [
         [4, 5],
       ]);
