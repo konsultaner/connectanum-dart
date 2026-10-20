@@ -15,6 +15,28 @@ import profile_wamp_serializers as profiler
 
 
 class ProfileSelectionTests(unittest.TestCase):
+    @staticmethod
+    def fixture_project(folder):
+        root = Path(folder) / 'fixture project'
+        files = {
+            '.gitignore': 'pubspec.lock\n.dart_tool/\nnative/transport/Cargo.lock\n',
+            'native/bench/bench_router.json': json.dumps({'router': {'listeners': [
+                {'endpoint': '127.0.0.1:0', 'protocols': ['rawsocket']}]}}),
+            'pubspec.lock': '# Mocked Dart resolution; never executed\n',
+            'native/transport/Cargo.lock': '# Mocked library resolution; never compiled\n',
+            '.dart_tool/package_config.json': '{"configVersion":2,"packages":[]}',
+        }
+        for name, data in files.items():
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(data)
+        subprocess.run(['git', 'init', '-q', str(root)], check=True, capture_output=True)
+        subprocess.run(['git', '-C', str(root), 'add', '.'], check=True, capture_output=True)
+        subprocess.run(['git', '-C', str(root), '-c', 'user.name=Unit fixture',
+                        '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'],
+                       check=True, capture_output=True)
+        return root
+
     def test_default_preserves_native_buffer_profile(self):
         args = profiler.parse_args(['--output', 'unused', '--native-lib', 'unused'])
         self.assertEqual(args.profile_case, 'rpc_rawsocket_clear_native_native_buffer')
@@ -56,11 +78,13 @@ class ProfileSelectionTests(unittest.TestCase):
             'rpc_rawsocket_clear_native_pre_encoded_span': ('native', 'pre_encoded_span'),
         }
         self.assertEqual(set(profiler.PROFILE_CASES), set(expected))
-        for case_id, (implementation, construction), mode in [(key, value, mode) for key, value in expected.items() for mode in ('none', 'complete', 'missing', 'non-linux', 'memory', 'memory-missing', 'no-rust-driver-lock')]:
+        real_project = Path(profiler.__file__).resolve().parents[1]
+        for case_id, (implementation, construction), mode in [(key, value, mode) for key, value in expected.items() for mode in ('none', 'complete', 'missing', 'non-linux', 'memory', 'memory-missing', 'no-rust-driver-lock', 'no-real-native-lock')]:
             memory = mode.startswith('memory')
-            native = mode not in ('none', 'no-rust-driver-lock') and not memory
+            native = mode not in ('none', 'no-rust-driver-lock', 'no-real-native-lock') and not memory
             requested = native and mode != 'non-linux'
             with self.subTest(case=case_id, symbols=mode), tempfile.TemporaryDirectory() as directory:
+                fixture_project = self.fixture_project(directory)
                 output = Path(directory) / 'profile output'
                 library = Path(directory) / 'native library.so'
                 library.write_bytes(b'unit-test fixture, never executed')
@@ -119,11 +143,15 @@ class ProfileSelectionTests(unittest.TestCase):
                 read_bytes = Path.read_bytes
 
                 def without_driver_lock(path):
+                    if mode == 'no-real-native-lock' and path == real_project / 'native/transport/Cargo.lock':
+                        raise FileNotFoundError('Pure unit tests cannot require a native build in the checkout')
                     if mode == 'no-rust-driver-lock' and path == Path(profiler.__file__).resolve().parents[1] / 'native/bench/Cargo.lock':
                         raise FileNotFoundError('This diagnostic does not build or use the Rust benchmark driver')
                     return read_bytes(path)
 
                 with mock.patch.object(profiler, 'subprocess', commands), \
+                        mock.patch.object(profiler, '__file__', str(fixture_project / 'tool/profile_wamp_serializers.py')), \
+                        mock.patch.object(profiler.ssl, 'create_default_context', return_value=object()), \
                         mock.patch.object(Path, 'read_bytes', without_driver_lock), \
                         mock.patch.object(profiler.platform, 'system', return_value='Darwin' if mode == 'non-linux' else 'Linux'), \
                         mock.patch.object(profiler.urllib.request, 'urlopen', post), \
@@ -147,7 +175,7 @@ class ProfileSelectionTests(unittest.TestCase):
                     self.assertEqual(profiler.digest(output / retained), audit['inputs'][name])
                 self.assertTrue(audit['process_group_stopped'])
                 self.assertEqual(audit['router_perf_symbols']['requested'], requested)
-                self.assertEqual(audit['router_perf_symbols']['status'], {'none':'not_requested', 'non-linux':'not_requested', 'complete':'retained', 'missing':'incomplete', 'memory':'not_requested', 'memory-missing':'not_requested', 'no-rust-driver-lock':'not_requested'}[mode])
+                self.assertEqual(audit['router_perf_symbols']['status'], {'none':'not_requested', 'non-linux':'not_requested', 'complete':'retained', 'missing':'incomplete', 'memory':'not_requested', 'memory-missing':'not_requested', 'no-rust-driver-lock':'not_requested', 'no-real-native-lock':'not_requested'}[mode])
                 self.assertEqual(audit['memory_snapshots']['status'], {'memory':'retained', 'memory-missing':'incomplete'}.get(mode, 'not_requested'))
                 self.assertEqual(len(audit['router_perf_symbols']['maps']), 3 if mode == 'complete' else 0)
                 self.assertEqual(audit['probe_exit'], 0)

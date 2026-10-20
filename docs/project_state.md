@@ -48,7 +48,14 @@ lockfile. The diagnostic runs Dart directly. All three cases reproduce that
 failure with the driver lock absent, then pass after requiring only the actual
 Dart/FFI transport locks and package configuration. Its failed artifact is
 retained; it contains no performance measurement. Fresh hosted execution remains
-pending after this repair.
+The repaired Linux profile (`39514813214`, `3f20fc3f`) passes live CPU/memory
+capture; independent snapshot/source/window audit is in progress. Fast Checks
+also exposes a separate test-fixture dependency on the real checkout's generated
+transport lock. All three cases reproduce that missing-build failure. The mocked
+profiler tests now own temporary Git repositories and synthetic resolved inputs;
+all twelve tests pass without requiring a native build. Production dependency
+requirements remain strict. Retain both failed Fast Checks logs and the cancelled
+obsolete workflow's incomplete shard aggregates.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).

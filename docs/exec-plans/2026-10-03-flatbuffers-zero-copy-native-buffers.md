@@ -186,6 +186,12 @@ Status: active. Started: 2026-10-03.
   benchmark-driver lock is absent on fresh runners. Reproduce all three cases
   before repair, then pass twelve profile tests while requiring and retaining
   only the actual Dart/FFI transport dependencies. No workload ran on the failure.
+- [x] Pass live Linux CPU/memory capture on `3f20fc3f` (`39514813214`);
+  independently audit every snapshot, resolved input and actual sampling window
+  before attributing a cost or choosing a production change.
+- [x] Reproduce missing real native-build inputs in all three mocked profile
+  cases. Give those tests isolated temporary Git repositories and synthetic
+  resolutions; all twelve profile tests pass. Keep live dependency checks strict.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
   checks, all workflow syntax checks, and a real three-codec one-MiB stack smoke
   with source/lock/binary invariance and owned-process cleanup.
