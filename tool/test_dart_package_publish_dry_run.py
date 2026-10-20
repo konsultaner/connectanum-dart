@@ -106,7 +106,41 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         )
         self.assertIn("No benchmark yet; the live gateway is pending", mqtt_table)
         self.assertIn("sustained / full-lifecycle throughput", readme)
-        self.assertIn("| Transport and path | JSON (Gbit/s) |", readme)
+        wamp_tables = readme.split("## WAMP throughput", 1)[1].split(
+            "## Run and reproduce", 1
+        )[0]
+        wamp_table_lines = [
+            line
+            for line in wamp_tables.splitlines()
+            if line.startswith("|")
+        ]
+        self.assertEqual(len(wamp_table_lines), 32)
+        self.assertTrue(all(line.count("|") == 6 for line in wamp_table_lines))
+        table_headers = [
+            line for line in wamp_table_lines if line.startswith("| Transport and ")
+        ]
+        self.assertEqual(len(table_headers), 3)
+        self.assertTrue(
+            all(
+                header
+                == (
+                    f"| Transport and {kind} | JSON (Gbit/s) | "
+                    "MessagePack (Gbit/s) | CBOR (Gbit/s) | "
+                    "FlatBuffers (Gbit/s) |"
+                )
+                for header, kind in zip(
+                    table_headers, ("path", "path", "workload"), strict=True
+                )
+            )
+        )
+        wamp_rows = [
+            line
+            for line in wamp_table_lines
+            if line not in table_headers and not line.startswith("| ---")
+        ]
+        self.assertEqual(len(wamp_rows), 26)
+        self.assertTrue(all(row.endswith("| — |") for row in wamp_rows))
+        self.assertIn("— means FlatBuffers throughput was not recorded", wamp_tables)
         self.assertIn("### 64 MiB file transfer", readme)
         self.assertIn("### Large RPC frames", readme)
         self.assertIn("### WebSocket fragmentation and Pub/Sub", readme)
