@@ -1,42 +1,22 @@
 # Project State
 
 Last updated: 2026-10-20.
-In-progress implementation: the explicit packed-source/native payload lease
-candidate is now being implemented and has not passed native validation yet.
-Core/session/source identity, disposal, mutable-message invalidation, detached
-copies and safe fallback tests are added. Existing benchmark construction paths
-remain unchanged. Local native verification and companion review remain blocked
-by another active job's preserved machine resource lease; focused Linux CI is
-the next validation step. The last complete production verification below is
-for `28fa8011`, not this unverified lease candidate.
-The first candidate `e9192132` fails CI before runtime tests: two invalid
-`@internal` annotations on the public library and stale byte-offset/source-hash
-mutation proofs. The annotations are removed. The eight existing equivalence
-arguments per core-lazy target are re-audited against unchanged paired-field
-and completed-decoder invariants, then re-keyed to the current source. No new
-equivalence is added; the mutation inventory grows from 356 to 393. Static
-preflight validates all 154 existing proofs and thirteen focused checker tests
-pass. Hosted runtime verification and complete mutation execution remain required.
-The next Linux runtime run on `b54db44b` passes all 142 selected core tests,
-eight native lease tests, repeated native sends without exports and the foreign-
-library fallback. It reveals eager matching-source materialization in invocation
-replies and a Dart-socket test waiting for negotiation before starting receive.
-Matching packed reply sources are now retained through both YIELD and ERROR;
-E2EE still follows the provider path. The fallback fixture starts Session first
-within its existing five-second deadline. Focused analysis passes; runtime
-verification of these corrections remains pending.
-The corrected `a5af2b95` focused Linux workflow passes 142 core cases and 433
-client VM/browser/native contract cases, plus all retained lifetime phases with
-verified cleanup. Further inspection then rejects relying on an overridable
-payload getter for native eligibility. The source factory and metadata clones
-now use a private final core type; trusted lookup rejects interface forgeries
-without executing their getters. Legacy clone types remain unchanged. All 144
-pure-Dart core and 199 pure-Dart VM reply cases pass locally, and all 154 retained
-mutation proofs pass preflight after re-audit/re-keying; the inventory is now 404.
-Native runtime renewal for this identity refinement is pending. The diagnostic
-adds a public-API phase with producer disposal, actual owner observations and a
-throwing byte-view getter. Its eleven tooling tests pass; actual execution and
-benchmark adoption remain pending.
+Current native lease candidate `100c7624` passes focused Linux validation: 144
+core and 433 client VM/browser/native contracts, the exact negative control,
+legacy baseline, private prototype and six public-API workloads. The public phase
+forbids Dart byte-view export, disposes producers, observes actual lease owners
+and has zero tracked native owners before GC; independent audit verifies source/
+library invariance and cleanup. All 144 pure-Dart core, 199 VM reply and sixteen
+Chrome/Dart2Wasm source tests also pass locally. Root benchmark construction paths
+remain unchanged pending complete CI/canonical/mutation verification.
+Full CI `39491312754` catches an obsolete five-file mutation-suite fixture after
+the sixth source test is added. Its exact inventory now includes all six suites
+and checks the new wrapper in both runtimes. All 93 runner tests pass locally
+with one existing platform skip. Current full CI renewal is pending; no budgets,
+mutation exclusions, workload cases or deadlines change. Another active job
+holds the shared machine lease, blocking local native/canonical runs and local
+companion review; the holder is preserved. Last complete local `bin/verify`
+remains the passing production source `28fa8011`.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).

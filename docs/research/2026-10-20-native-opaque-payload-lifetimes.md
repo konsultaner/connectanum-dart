@@ -218,3 +218,24 @@ the actual lease owner and disposes the lease after each workload. A throwing
 lease byte getter makes any hidden export fail the case; all native counters must
 be zero before forced collection. This is correctness/lifetime instrumentation,
 not throughput, latency, GC or RSS acceptance. The three earlier controls remain.
+
+
+The public-API phase passes on `100c7624` in
+[39490332832](https://github.com/konsultaner/connectanum-dart/actions/runs/39490332832).
+Independent audit confirms eighteen successful workloads across the three positive
+phases, 36 snapshot groups, 108 post-GC observations, stable workers within each
+phase, the exact negative control and complete source/library/process cleanup.
+All six public cases complete full echoes with the throwing byte getter installed
+and every tracked counter zero before collection. Its raw observations have
+SHA-256 `621634bc7786d3d7f22a36b7d8bfb15168782be853274d8dacc0063723d6f531`.
+The unchanged-API baseline retains 416/81/1 and 290/74/1 producer allocations before
+GC; both sides return all counters to zero afterward. The archive SHA-256 is
+`83ec7c093a76d1bb873155880354f7e6481db27a9f467042aa69a7ec80a05424`.
+
+The same job passes 144 core and 433 client VM/browser/native contracts, including
+forged-interface rejection and native/foreign fallback. All sixteen pure-Dart
+source contracts also pass locally in Chrome/Dart2Wasm. Full CI then finds an
+outdated expected mutation-support inventory; all original suites remain and the
+sixth source suite is added to its exact fixture. Its 93 tests pass locally with
+one existing platform skip. Final canonical/CI/mutation checks, benchmark adoption
+and renewed production copy/timing evidence remain required.

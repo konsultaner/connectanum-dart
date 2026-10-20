@@ -494,7 +494,7 @@ class MutationRunnerTests(unittest.TestCase):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         prefix = 'packages/connectanum_core'
         suites = [f'{prefix}/test/message_{name}_test.dart' for name in [
-            'payload_contract', 'lazy_payload_regression', 'invocation', 'result',
+            'packed_payload_source', 'payload_contract', 'lazy_payload_regression', 'invocation', 'result',
         ]]
         suites.append(f'{prefix}/test/message_flatbuffers_ppt_view_test.dart')
         for runtime in ['vm', 'web']:
@@ -506,6 +506,8 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertIn("group('payload contract', payload_contract.main);", vm_wrapper)
         for runtime in ['vm', 'web']:
             wrapper = (runner.ROOT / targets[f'core-lazy-{runtime}']['tests'][0]).read_text()
+            self.assertIn("import '../message_packed_payload_source_test.dart' as packed_source;", wrapper)
+            self.assertIn("group('packed payload source', packed_source.main);", wrapper)
             self.assertIn("import '../message_flatbuffers_ppt_view_test.dart'", wrapper)
             self.assertIn("group('FlatBuffers PPT view', flatbuffers_ppt.main);", wrapper)
         self.assertLess(vm_wrapper.index("group('payload contract'"),

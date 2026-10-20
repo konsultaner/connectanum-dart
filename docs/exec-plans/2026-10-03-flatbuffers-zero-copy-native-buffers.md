@@ -117,8 +117,8 @@ Status: active. Started: 2026-10-03.
   Retain the six matching-reply failures on each VM/web backend and the Dart
   fixture startup timeout. Preserve packed sources through YIELD/ERROR and
   correct fixture receive ordering, with unchanged deadlines; analysis passes.
-- [ ] Renew focused runtime contracts after the reply and fixture corrections,
-  then the complete canonical/CI/mutation checks before benchmark adoption.
+- [x] Renew focused runtime contracts after the reply and fixture corrections.
+- [ ] Complete canonical/CI/mutation checks before benchmark adoption.
 - [x] On `a5af2b95`, pass all 142 core and 433 client VM/browser/native contracts
   and the retained lifetime controls. Reject overridable source getters as native
   authority; use a private final core view and nonvirtual trusted lookup instead.
@@ -126,8 +126,15 @@ Status: active. Started: 2026-10-03.
   regressions. All 144 pure-Dart core and 199 pure-Dart VM reply cases pass locally.
   Re-audit/re-key the same eight proofs per target; static preflight passes all
   154 existing proofs with a 404-mutation core-lazy inventory and no new exclusions.
-- [ ] Run the public-API lifetime phase with actual lease-owner observation,
-  producer disposal and forbidden byte-view export. Eleven tooling tests pass.
+- [x] Run and independently audit all four lifetime phases on `100c7624`
+  (`39490332832`). All 144 core and 433 client contracts pass. The six public-API
+  cases forbid byte export, dispose producers, observe actual lease owners and
+  retain zero native owners before forced GC; sources/binaries/cleanup match.
+  All sixteen source contracts also pass locally in Chrome/Dart2Wasm.
+- [x] Retain full CI's obsolete five-file suite fixture failure (`39491312754`).
+  Update the exact expected six-file inventory and both wrapper checks. All 93
+  runner tests pass locally with one existing platform skip.
+- [ ] Complete fresh full CI after this tooling correction.
   Another active job currently holds the preserved shared local resource lease;
   local native verification and companion review of the new tool are blocked.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
