@@ -498,6 +498,14 @@ jobs:
           CARGO_TARGET_DIR="$RUNNER_TEMP/native-owned-copy-driver" \
             cargo build --release --locked --manifest-path native/bench/Cargo.toml \
             --bin http_stream 2>&1 | tee out/wamp-native-ppt-view-setup/driver-build.log
+          CARGO_TARGET_DIR="$RUNNER_TEMP/native-owned-copy-production" \
+            cargo test --release --locked --manifest-path native/transport/Cargo.toml \
+            -p ct_core flatbuffers 2>&1 | tee out/wamp-native-ppt-view-setup/codec-tests.log
+          CARGO_TARGET_DIR="$RUNNER_TEMP/native-owned-copy-production" \
+            cargo run --release --locked --manifest-path native/transport/Cargo.toml \
+            -p ct_core --example flatbuffers_allocations \
+            -- out/wamp-native-ppt-view-setup/encoder-allocations \
+            2>&1 | tee out/wamp-native-ppt-view-setup/encoder-allocations.jsonl
           git diff --exit-code
           test -z "$(git status --porcelain)"
           python3 tool/check_wamp_owned_copy_live.py \

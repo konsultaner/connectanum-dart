@@ -201,6 +201,16 @@ Status: active. Started: 2026-10-03.
   `f88a8f3d`, with all 3,157 inputs unchanged. All 32 declared no-copy observations
   are zero; criterion two in #103 is checked. Production inputs match the
   verified `8104d339` binary. These diagnostics do not establish speed.
+- [x] Pass complete local tooling and hosted Fast Checks on isolated fixture
+  repair `3e7832bf`; preserve both preceding dependency-fixture failures.
+- [ ] Record a pinned Linux native encoder allocation baseline for control,
+  opaque, positional and positional+keyword messages at zero/one-KiB/one-MiB
+  bodies. Keep input preparation outside counters, ten stable observations,
+  exact borrowed-pointer checks and full wire artifacts. These allocator counts
+  are component diagnostics, not Dart allocation or performance acceptance.
+- [ ] Keep the first deferred-vector record inline, preserve ordered overflow,
+  then verify native tests, exact wire equality, lifetimes/copies and allocations
+  before paired timing. The candidate remains an ignored draft until baseline.
 - [ ] Improve measured bottlenecks, then run complete unchanged-policy primary
   and supplemental acceptance before marking #103 complete.
 

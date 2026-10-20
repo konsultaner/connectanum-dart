@@ -56,6 +56,15 @@ profiler tests now own temporary Git repositories and synthetic resolved inputs;
 all twelve tests pass without requiring a native build. Production dependency
 requirements remain strict. Retain both failed Fast Checks logs and the cancelled
 obsolete workflow's incomplete shard aggregates.
+The isolated fixture repair (`3e7832bf`) passes complete local tooling and hosted
+Fast Checks. The audited memory capture verifies all 18 snapshots and 3,170
+source/resolved-input hashes, stable process/isolate identities, cleanup and
+sampling within actual data windows. Reported router heap usage after GC requests
+is 45.51 MiB (MessagePack), 45.49 (FlatBuffers) and 45.82 (CBOR): no large
+FlatBuffers-only retained heap appears in this diagnostic. Profiling perturbs RSS;
+this does not resolve the peak-RSS gate. Next, record an encoder-allocation
+baseline and investigate its temporary heap list for a single deferred payload.
+No production encoder change or timing improvement is established yet.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
