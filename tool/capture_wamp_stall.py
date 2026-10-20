@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay one unchanged WAMP scenario and retain stalled VM stacks, never acceptance."""
+"""Replay original WAMP scenarios and retain stalled VM stacks, never acceptance."""
 from __future__ import annotations
 
 import argparse
@@ -37,6 +37,18 @@ def source_inputs(root, output):
 
 def dart_string(value):
     return json.dumps(str(value)).replace("$", "\\$")
+
+
+def scenario_files(path):
+    if path.is_file():
+        return [path]
+    if path.is_dir():
+        # Match the native driver's nonrecursive, regular-file traversal.
+        paths = sorted(entry for entry in path.iterdir() if not entry.is_symlink()
+                       and entry.is_file() and entry.suffix.lower() == ".toml")
+        if paths:
+            return paths
+    raise ValueError("scenario must be a TOML file or a directory containing regular TOML files")
 
 
 def write_wrappers(root, output):
@@ -114,12 +126,18 @@ def run(args, root=ROOT):
         raise ValueError("workload timeout must be positive")
     files = {key: getattr(args, key).resolve(strict=True)
              for key in ("driver", "native_lib", "router_config", "scenario")}
-    if any(not path.is_file() for path in files.values()):
+    if any(not path.is_file() for key, path in files.items() if key != "scenario"):
         raise ValueError("diagnostic inputs must be files")
-    expected = tomllib.loads(files["scenario"].read_text()).get("workloads", [])
+    scenarios = scenario_files(files["scenario"])
+    expected = []
+    for path in scenarios:
+        workloads = tomllib.loads(path.read_text()).get("workloads", [])
+        file_names = [workload["name"] for workload in workloads]
+        if (not file_names or any(not isinstance(name, str) or not name for name in file_names) or
+                len(set(file_names)) != len(file_names)):
+            raise ValueError("each scenario must contain uniquely named workloads")
+        expected.extend(workloads)
     names = [workload["name"] for workload in expected]
-    if not names or any(not isinstance(name, str) or not name for name in names) or len(set(names)) != len(names):
-        raise ValueError("scenario must contain uniquely named workloads")
     for workload in expected:
         if (type(workload.get("iterations")) is not int or workload["iterations"] <= 0 or
                 type(workload.get("minimum_duration_ms")) is not int or workload["minimum_duration_ms"] < 0):
@@ -136,7 +154,18 @@ def run(args, root=ROOT):
     inputs = source_inputs(root, output)
     locks = {name: digest(root / name) for name in LOCKS}
     write_wrappers(root, output)
-    (output / "scenario.toml").write_bytes(files["scenario"].read_bytes())
+    if files["scenario"].is_dir():
+        copied_scenario = output / "scenarios"
+        copied_scenario.mkdir()
+        for path in scenarios:
+            try:
+                with (copied_scenario / path.name).open("xb") as destination:
+                    destination.write(path.read_bytes())
+            except FileExistsError as error:
+                raise ValueError(f"scenario copy filename collision: {path.name}") from error
+    else:
+        copied_scenario = output / "scenario.toml"
+        copied_scenario.write_bytes(scenarios[0].read_bytes())
     ports = []
     for listener in config["router"]["listeners"]:
         while True:
@@ -154,20 +183,23 @@ def run(args, root=ROOT):
     command = [str(files["driver"]), "--dart", args.dart, "--bench-main", str(output / "router.dart"),
                "--native-lib", str(files["native_lib"]), "--router-config", str(output / "router.json"),
                "--control-base", f"https://127.0.0.1:{ports[0]}/bench",
-               "--scenario", str(output / "scenario.toml"), "--results", str(output / "reports.jsonl"),
+               "--scenario", str(copied_scenario), "--results", str(output / "reports.jsonl"),
                "--results-only", "--skip-wamp-worker-aot", "--collect-wamp-vm-metrics",
                "--router-worker-counts", "1", "--native-runtime-thread-counts", "1",
                "--workload-timeout-ms", str(args.workload_timeout_ms)]
-    hashes = {str(path): digest(path) for path in [*files.values(), *(output / name for name in
-              ("worker.dart", "router.dart", "scenario.toml", "router.json"))]}
+    hashes = {str(path): digest(path) for path in [*(path for key, path in files.items() if key != "scenario"),
+              *scenarios, *scenario_files(copied_scenario), *(output / name for name in
+              ("worker.dart", "router.dart", "router.json"))]}
     provenance = {"kind": "stall_reproduction_never_acceptance", "head": head, "inputs": inputs,
                   "resolved_locks": locks, "file_hashes": hashes, "command": command,
                   "platform": platform.uname()._asdict(),
+                  "rustup_toolchain_env": os.environ.get("RUSTUP_TOOLCHAIN"),
+                  "scenario_files": [str(path) for path in scenarios],
                   "workload_order": names, "stall_seconds": args.stall_seconds,
                   "max_seconds": args.max_seconds,
                   "limitations": ["URI-only VM wrappers; getStack after missing log progress",
                                   "ephemeral listener ports; unused HTTP/3 listener disabled",
-                                  "one scenario replay cannot establish performance acceptance"]}
+                                  "diagnostic replay cannot establish performance acceptance"]}
     (output / "inputs.json").write_text(json.dumps(provenance, indent=2) + "\n")
     process = reader = watcher = None
     stop = threading.Event()
@@ -242,6 +274,10 @@ def run(args, root=ROOT):
                      if not (root / name).is_file() or digest(root / name) != value]
     changed_files = [name for name, value in hashes.items()
                      if not Path(name).is_file() or digest(Path(name)) != value]
+    try:
+        scenario_inventory_unchanged = scenario_files(files["scenario"]) == scenarios
+    except ValueError:
+        scenario_inventory_unchanged = False
     reports = []
     try:
         raw = (output / "reports.jsonl").read_bytes()
@@ -262,6 +298,7 @@ def run(args, root=ROOT):
               "inputs_unchanged": not changed and same_head, "changed": changed,
               "locks_unchanged": not changed_locks, "changed_locks": changed_locks,
               "files_unchanged": not changed_files, "changed_files": changed_files,
+              "scenario_inventory_unchanged": scenario_inventory_unchanged,
               "driver_log_sha256": digest(output / "driver.log") if (output / "driver.log").exists() else None,
               "reports_sha256": digest(output / "reports.jsonl") if (output / "reports.jsonl").exists() else None,
               "process_group_stopped": group_stopped,
@@ -270,7 +307,7 @@ def run(args, root=ROOT):
               "reader_stopped": reader is None or not reader.is_alive()}
     result["status"] = "completed" if (code == 0 and failure is None and result["inputs_unchanged"] and
         result["locks_unchanged"] and result["files_unchanged"] and group_stopped and not background_errors and
-        result["monitor_stopped"] and result["reader_stopped"]) else "failed"
+        scenario_inventory_unchanged and result["monitor_stopped"] and result["reader_stopped"]) else "failed"
     (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result), flush=True)
     return 0 if result["status"] == "completed" else code if code and code > 0 else 1
@@ -279,7 +316,8 @@ def run(args, root=ROOT):
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("output", "scenario", "driver", "native-lib", "router-config"):
-        parser.add_argument("--" + name, type=Path, required=True)
+        parser.add_argument("--" + name, type=Path, required=True,
+                            help="One TOML file or a directory of original scenarios" if name == "scenario" else None)
     parser.add_argument("--dart", default="dart")
     parser.add_argument("--stall-seconds", type=float, default=60)
     parser.add_argument("--max-seconds", type=float, default=1800)

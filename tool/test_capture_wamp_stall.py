@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,19 @@ import unittest
 from unittest import mock
 
 import capture_wamp_stall as diagnostic
+
+
+class WorkflowToolchainTests(unittest.TestCase):
+    def test_effective_toolchain_overrides_repository_stable_for_both_diagnostics(self):
+        text = (diagnostic.ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        for job in ('linux-flatbuffers-primary', 'linux-flatbuffers-cpu-profile'):
+            with self.subTest(job=job):
+                block = text.split('\n  ' + job + ':\n', 1)[1]
+                block = re.split(r'\n  [\w-]+:\n', block, maxsplit=1)[0]
+                requested = re.search(r'dtolnay/rust-toolchain@([0-9.]+)', block).group(1)
+                effective = re.search(r'(?m)^      RUSTUP_TOOLCHAIN: ([0-9.]+)$', block)
+                self.assertIsNotNone(effective, 'rust-toolchain.toml stable overrides rustup default')
+                self.assertEqual(effective.group(1), requested)
 
 
 @unittest.skipUnless(os.name == "posix", "diagnostic owns POSIX process groups")
@@ -76,6 +90,82 @@ class StallDiagnosticTests(unittest.TestCase):
         self.assertEqual(command[command.index("--workload-timeout-ms") + 1], "300000")
         self.assertEqual(inputs["workload_order"], ["first"])
         self.assertIn("\\$literal", (self.output / "router.dart").read_text())
+
+    def test_directory_preserves_file_and_internal_order_with_repeated_workloads(self):
+        directory = self.base / 'scenarios'
+        directory.mkdir()
+        def content(names):
+            return 'name="fixture"\n' + ''.join(
+                f'[[workloads]]\nname="{name}"\niterations=2\nminimum_duration_ms=50\n' for name in names)
+        (directory / '02-measured.toml').write_text(content(['A', 'C']))
+        (directory / '01-warmup.TOML').write_text(content(['B', 'A']))
+        (directory / 'notes.txt').write_text('not TOML')
+        (directory / 'nested').mkdir()
+        (directory / 'nested/ignored.toml').write_text('not TOML')
+        (directory / 'ignored.toml').symlink_to(self.root / 'source.txt')
+        self.args.scenario = directory
+        reports = [{'workload': name, 'samples': [{}, {}], 'data_window_elapsed_ms': 50}
+                   for name in ['B', 'A', 'A', 'C']]
+        raw = ''.join(json.dumps(row) + '\n' for row in reports)
+        self.driver_script("assert Path(args[args.index('--scenario')+1]).is_dir()\n" +
+                           f"output.write_text({raw!r})\n")
+        code, result = self.execute()
+        self.assertEqual(code, 0)
+        self.assertEqual(result['rows'], 4)
+        self.assertTrue(result['scenario_inventory_unchanged'])
+        inputs = json.loads((self.output / 'inputs.json').read_text())
+        self.assertEqual(inputs['workload_order'], ['B', 'A', 'A', 'C'])
+        self.assertEqual([Path(path).name for path in inputs['scenario_files']],
+                         ['01-warmup.TOML', '02-measured.toml'])
+        for path in diagnostic.scenario_files(directory):
+            self.assertEqual((self.output / 'scenarios' / path.name).read_bytes(), path.read_bytes())
+
+    def test_duplicate_names_within_one_file_reject_before_launch(self):
+        self.driver_script('sys.exit(0)\n')
+        self.scenario.write_text(self.scenario.read_text() +
+            '[[workloads]]\nname="first"\niterations=2\nminimum_duration_ms=50\n')
+        with self.assertRaisesRegex(ValueError, 'uniquely named'):
+            diagnostic.run(self.args, self.root)
+        self.assertFalse(self.output.exists())
+
+    def test_added_and_removed_original_scenarios_cannot_pass(self):
+        for mutation in ('added', 'removed', 'changed'):
+            with self.subTest(mutation=mutation):
+                directory = self.base / mutation
+                directory.mkdir()
+                original = directory / '01.toml'
+                original.write_bytes(self.scenario.read_bytes())
+                self.args.scenario = directory
+                self.output = self.root / ('inventory-' + mutation)
+                self.args.output = self.output
+                action = (f'Path({str(directory / "02.toml")!r}).write_text("new")' if mutation == 'added'
+                          else f'Path({str(original)!r}).unlink()' if mutation == 'removed'
+                          else f'Path({str(original)!r}).write_text("changed")')
+                self.driver_script(action + '\n' +
+                    "output.write_text(json.dumps({'workload':'first','samples':[{},{}],'data_window_elapsed_ms':50})+'\\n')\n")
+                code, result = self.execute()
+                self.assertNotEqual(code, 0)
+                self.assertEqual(result['scenario_inventory_unchanged'], mutation == 'changed')
+                if mutation == 'changed':
+                    self.assertFalse(result['files_unchanged'])
+                self.assertEqual(result['driver_exit_code'], 0)
+
+    def test_scenario_copy_collision_never_overwrites_evidence(self):
+        directory = self.base / 'scenarios'
+        directory.mkdir()
+        (directory / '01.toml').write_bytes(self.scenario.read_bytes())
+        self.args.scenario = directory
+        self.driver_script('sys.exit(0)\n')
+        original_mkdir = Path.mkdir
+        destination = self.output.resolve() / 'scenarios/01.toml'
+        def mkdir(path, *args, **kwargs):
+            original_mkdir(path, *args, **kwargs)
+            if path == destination.parent:
+                destination.write_bytes(b'existing evidence')
+        with mock.patch.object(Path, 'mkdir', mkdir):
+            with self.assertRaisesRegex(ValueError, 'filename collision'):
+                diagnostic.run(self.args, self.root)
+        self.assertEqual(destination.read_bytes(), b'existing evidence')
 
     def test_failure_keeps_exit_code_and_cleans_descendant_group(self):
         self.driver_script("child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'])\n"

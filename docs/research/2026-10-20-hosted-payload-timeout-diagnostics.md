@@ -46,11 +46,12 @@ prints accumulated and current sizes from the same heap visitor counts.
 Choose `flatbuffers_payload_repro` in WAMP Profile Benchmarks. The existing
 pinned production build and no-test-oracle export check remain in force. The
 executor prepares the complete unchanged payload-size schedule, then
-`tool/capture_wamp_stall.py` replays its original first warmup scenario. The
+`tool/capture_wamp_stall.py` replays all ten original scenarios: three warmup and
+seven measured passes, 360 rows, in the original shared process context. The
 other campaign choices keep their existing commands, cases and gates.
 
 The diagnostic retains the exact workload order, sample/duration fields and
-300-second workload timeout. URI-only Dart wrappers identify the already-enabled
+300-second workload and 19,800-second full-schedule deadlines. URI-only Dart wrappers identify the already-enabled
 client/router VM services. After sixty seconds without driver log progress,
 bounded `getVM`/`getStack` requests retain stacks or explicit service errors
 before teardown. Up to three observations are retained per stalled progress
@@ -62,11 +63,11 @@ reports, stack snapshots and exit/cleanup results. Truncated, reordered, missing
 or undersampled reports remain failed. Source, lock or binary changes prevent
 a completed claim. The tool owns only its new process group and always labels
 results `stall_reproduction_never_acceptance`. Stack capture perturbs execution;
-this one-pass replay cannot establish primary or supplemental acceptance.
+this instrumented replay cannot establish primary or supplemental acceptance.
 
 Local tests use fake drivers and temporary Git repositories, including startup
 failure, descendant cleanup, source mutation, invalid evidence and VM errors.
-All eleven tests pass, alongside 24 campaign-runner, nine profiling and fourteen
+The initial eleven tests pass, alongside 24 campaign-runner, nine profiling and fourteen
 CI execution checks. YAML, all fourteen Bash run blocks and their embedded
 Python parse. A live three-codec one-MiB smoke run completes with actual client
 and router VM stack responses, unchanged source/lock/binary hashes and complete
@@ -75,6 +76,33 @@ instrumentation, not the hosted sixty-second default or performance evidence.
 The actual hosted capture and a causal regression are required before changing
 application behavior. The native table-allocation optimization remains deferred
 until this execution blocker is understood.
+
+## First hosted replay and effective compiler selection
+
+The first `f88a8f3d` Linux replay completes all 36 original warmup rows with no
+timeout, stall capture or allocation gap. Source, lock and binary hashes remain
+unchanged, and the original order matches. Its archive SHA-256 is
+`8897c3abd267444d2400382cec09bbabdceaa5ea074926a66feeb84bf0d77fa2`.
+It does not resolve an intermittent failure: the runner image changes from
+`ubuntu24/20261012.334.1` / Linux 6.17 to `ubuntu24/20261018.339.1` / Linux 7.0,
+and the reported compiler changes from Rust 1.99.0 to 1.99.1.
+
+The action log confirms installation and default selection of Rust 1.99.0.
+However, this repository's `rust-toolchain.toml` selects `stable`. The
+[rustup override order](https://rust-lang.github.io/rustup/overrides.html)
+places repository toolchain files above the default, and places the
+`RUSTUP_TOOLCHAIN` environment above both. Campaign and CPU-profile jobs now set
+that environment to 1.99.0 and verify the effective `rustc` version before use.
+The old action selection alone did not enforce its apparent pin. A regression
+fails for both jobs before the correction and passes afterward.
+
+The complete diagnostic now copies lexically sorted regular TOML files,
+preserves within-file order and repeated workload names across passes, ignores
+nested/symlink entries exactly like the native driver, and rejects changes to
+original/copied contents or scenario inventory. Exclusive destination creation
+prevents case-alias collisions from overwriting evidence. Sixteen focused
+tests cover these cases and the effective toolchain contract. The original
+300-second workload and 19,800-second full-campaign limits remain unchanged.
 
 ## Verification checkpoint
 

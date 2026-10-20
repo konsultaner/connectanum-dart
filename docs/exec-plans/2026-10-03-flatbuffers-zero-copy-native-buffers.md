@@ -29,6 +29,13 @@ Status: active. Started: 2026-10-03.
   different platform/SDK does not reproduce the hosted timeout.
 - [ ] Verify the opt-in hosted stack capture, then capture the Linux failure
   before cleanup and add a causal regression before application changes.
+- [x] Audit the first hosted 36-row replay: no timeout or allocation gap, but
+  changed runner image/kernel and actual Rust 1.99.1. Reproduce the ineffective
+  compiler pin for both jobs, then set the effective environment and verify it.
+- [x] Extend diagnostic traversal to the complete original scenario directory,
+  preserving ordering and repeated cross-pass names. All sixteen focused tests pass.
+- [ ] Complete the 360-row diagnostic with verified Rust 1.99.0; retain any
+  intermittent failure and its pre-cleanup stacks without accepting performance.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
   checks, all workflow syntax checks, and a real three-codec one-MiB stack smoke
   with source/lock/binary invariance and owned-process cleanup.

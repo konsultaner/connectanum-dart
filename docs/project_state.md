@@ -46,8 +46,14 @@ zero-avoidable-copy observations. All 3,157 inputs remain unchanged; native/Dart
 production sources match the verified `8104d339` build. These short runs are
 rejected by the unchanged timing policy. Criterion two in #103 is checked;
 the other five remain open. Exact-head hosted CI for `8104d339` now passes too.
-The opt-in Linux stack replay is still running; final resulting-source canonical
-verification remains required before handoff.
+The first opt-in Linux replay completes 36 rows without a timeout or allocation
+gap, on a newer runner image and Rust 1.99.1. The repository's `stable` selection
+overrides the action's apparent 1.99.0 pin. Effective job-level selection and
+version checks now correct that; a fail-first regression covers both jobs.
+The diagnostic is extended to all 360 original rows in one process context.
+Sixteen focused checks pass; complete hosted evidence and final resulting-source
+canonical verification remain required before handoff. Historical failures are
+not waived by the passing one-pass replay.
 
 Completed delivery (2026-10-19): the separate
 [`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)
