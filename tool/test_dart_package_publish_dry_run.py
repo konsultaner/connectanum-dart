@@ -39,6 +39,13 @@ WAMP_BENCHMARK_SUMMARY = (
     / "wamp-four-serializer-2026-10-20"
     / "summary.json"
 )
+WAMP_FILE_BENCHMARK_SUMMARY = (
+    REPO_ROOT
+    / "docs"
+    / "benchmarks"
+    / "wamp-flatbuffers-file-segments-2026-10-20"
+    / "summary.json"
+)
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
 EXPECTED_PACKAGE_VERSION = "3.0.0-beta.8"
@@ -147,6 +154,9 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         ]
         self.assertEqual(len(wamp_rows), 26)
         summary = json.loads(WAMP_BENCHMARK_SUMMARY.read_text(encoding="utf-8"))
+        file_summary = json.loads(
+            WAMP_FILE_BENCHMARK_SUMMARY.read_text(encoding="utf-8")
+        )["workloads"]
         benchmark_groups = [
             group
             for scenario in (
@@ -157,23 +167,32 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             for group in summary[scenario]
         ]
         self.assertEqual(len(benchmark_groups), len(wamp_rows))
-        for row, group in zip(wamp_rows, benchmark_groups, strict=True):
+        self.assertEqual(len(file_summary), 40)
+        for group_index, (row, group) in enumerate(
+            zip(wamp_rows, benchmark_groups, strict=True)
+        ):
             actual_cells = [cell.strip() for cell in row.split("|")[2:6]]
-            expected_cells = [
+            workloads = [
                 (
-                    f"{group['workloads'][serializer]['median_data_gbit_s']:.3f} / "
-                    f"{group['workloads'][serializer]['median_lifecycle_gbit_s']:.3f}"
+                    file_summary[group["workloads"][serializer]["name"]]
+                    if group_index < 10
+                    else group["workloads"][serializer]
                 )
                 for serializer in ("json", "msgpack", "cbor", "flatbuffers")
             ]
+            expected_cells = [
+                (
+                    f"{workload['median_data_gbit_s']:.3f} / "
+                    f"{workload['median_lifecycle_gbit_s']:.3f}"
+                )
+                for workload in workloads
+            ]
             self.assertEqual(actual_cells, expected_cells)
             self.assertTrue(
-                all(
-                    len(group["workloads"][serializer]["runs"]) == 3
-                    for serializer in ("json", "msgpack", "cbor", "flatbuffers")
-                )
+                all(len(workload["runs"]) == 3 for workload in workloads)
             )
         self.assertIn("wamp-four-serializer-2026-10-20/README.md", wamp_tables)
+        self.assertIn("wamp-flatbuffers-file-segments-2026-10-20/README.md", wamp_tables)
         self.assertIn("RawSocket frames are 60 MiB", wamp_tables)
         self.assertIn("### 64 MiB file transfer", readme)
         self.assertIn("### Large RPC frames", readme)

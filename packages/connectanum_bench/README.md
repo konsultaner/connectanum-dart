@@ -55,25 +55,27 @@ this measured run; QoS 0 does not guarantee delivery in every deployment.
 Each cell shows **sustained / full-lifecycle throughput** in Gbit/s; higher is better.
 The values are medians of three matched local runs on an Apple M3 Ultra.
 FlatBuffers means a FlatBuffers WAMP envelope with CBOR application fragments.
-The [raw measurements and run settings](../../docs/benchmarks/wamp-four-serializer-2026-10-20/README.md)
-are available for reproduction.
+The [file measurements](../../docs/benchmarks/wamp-flatbuffers-file-segments-2026-10-20/README.md)
+and [other WAMP measurements](../../docs/benchmarks/wamp-four-serializer-2026-10-20/README.md)
+include the raw results and run settings.
 
 ### 64 MiB file transfer
 
 | Transport and path | JSON (Gbit/s) | MessagePack (Gbit/s) | CBOR (Gbit/s) | FlatBuffers (Gbit/s) |
 | --- | ---: | ---: | ---: | ---: |
-| Native RawSocket | 10.269 / 9.806 | 16.581 / 15.312 | 16.019 / 14.559 | 2.277 / 2.237 |
-| Dart RawSocket, buffered | 5.666 / 5.113 | 10.837 / 8.911 | 10.721 / 8.837 | 1.072 / 1.050 |
-| Native RawSocket TLS | 6.152 / 5.986 | 12.124 / 11.453 | 12.308 / 11.624 | 2.298 / 2.269 |
-| Native WebSocket | 9.127 / 8.659 | 16.187 / 14.734 | 12.829 / 11.930 | 2.291 / 2.261 |
-| Dart WebSocket, buffered | 2.235 / 2.130 | 8.213 / 6.972 | 8.115 / 6.732 | 0.987 / 0.964 |
-| Native WebSocket TLS | 5.691 / 5.506 | 10.852 / 10.263 | 8.078 / 7.704 | 2.222 / 2.192 |
-| Native RawSocket + E2EE | 8.648 / 8.324 | 22.347 / 20.259 | 22.454 / 20.259 | 0.593 / 0.591 |
-| Native RawSocket TLS + E2EE | 7.518 / 7.261 | 12.216 / 11.561 | 12.379 / 11.703 | 0.594 / 0.592 |
-| Native WebSocket + E2EE | 8.391 / 8.035 | 20.216 / 18.276 | 16.130 / 14.759 | 0.594 / 0.592 |
-| Native WebSocket TLS + E2EE | 7.189 / 6.922 | 11.518 / 10.805 | 9.607 / 9.100 | 0.593 / 0.591 |
+| Native RawSocket | 9.662 / 9.246 | 14.974 / 13.990 | 15.656 / 13.990 | 22.378 / 18.674 |
+| Dart RawSocket, buffered | 5.067 / 4.550 | 9.771 / 7.983 | 10.783 / 8.730 | 1.038 / 1.013 |
+| Native RawSocket TLS | 6.315 / 6.114 | 11.657 / 10.943 | 11.378 / 10.724 | 11.669 / 10.915 |
+| Native WebSocket | 9.319 / 8.865 | 15.665 / 14.222 | 13.456 / 12.540 | 22.156 / 19.523 |
+| Dart WebSocket, buffered | 2.273 / 2.158 | 8.925 / 7.431 | 8.881 / 7.405 | 1.004 / 0.980 |
+| Native WebSocket TLS | 6.041 / 5.832 | 11.323 / 10.605 | 8.355 / 7.983 | 11.269 / 10.514 |
+| Native RawSocket + E2EE | 8.329 / 7.998 | 20.739 / 18.838 | 20.780 / 18.838 | 20.888 / 18.838 |
+| Native RawSocket TLS + E2EE | 6.824 / 6.597 | 11.873 / 11.214 | 11.534 / 10.887 | 11.641 / 10.929 |
+| Native WebSocket + E2EE | 8.180 / 7.802 | 19.767 / 17.638 | 14.884 / 13.635 | 19.182 / 17.214 |
+| Native WebSocket TLS + E2EE | 6.612 / 6.354 | 10.673 / 10.012 | 9.158 / 8.633 | 10.562 / 9.873 |
 
-Files use 4 MiB chunks.
+Files use 4 MiB chunks. Native FlatBuffers file rows use file-backed
+segments; Dart buffered rows use the Dart file path.
 
 ### Large RPC frames
 
