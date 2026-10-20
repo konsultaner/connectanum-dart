@@ -32,6 +32,13 @@ MQTT_BENCHMARK_REPORT = (
     / "benchmarks"
     / "mqtt-hosted-intel-58016dc8-2026-10-16.json"
 )
+WAMP_BENCHMARK_SUMMARY = (
+    REPO_ROOT
+    / "docs"
+    / "benchmarks"
+    / "wamp-four-serializer-2026-10-20"
+    / "summary.json"
+)
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
 EXPECTED_PACKAGE_VERSION = "3.0.0-beta.8"
@@ -139,8 +146,35 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             if line not in table_headers and not line.startswith("| ---")
         ]
         self.assertEqual(len(wamp_rows), 26)
-        self.assertTrue(all(row.endswith("| — |") for row in wamp_rows))
-        self.assertIn("— means FlatBuffers throughput was not recorded", wamp_tables)
+        summary = json.loads(WAMP_BENCHMARK_SUMMARY.read_text(encoding="utf-8"))
+        benchmark_groups = [
+            group
+            for scenario in (
+                "wamp_file_transfer_throughput",
+                "wamp_large_transport_frames_heavy",
+                "wamp_websocket_fragmentation_throughput",
+            )
+            for group in summary[scenario]
+        ]
+        self.assertEqual(len(benchmark_groups), len(wamp_rows))
+        for row, group in zip(wamp_rows, benchmark_groups, strict=True):
+            actual_cells = [cell.strip() for cell in row.split("|")[2:6]]
+            expected_cells = [
+                (
+                    f"{group['workloads'][serializer]['median_data_gbit_s']:.3f} / "
+                    f"{group['workloads'][serializer]['median_lifecycle_gbit_s']:.3f}"
+                )
+                for serializer in ("json", "msgpack", "cbor", "flatbuffers")
+            ]
+            self.assertEqual(actual_cells, expected_cells)
+            self.assertTrue(
+                all(
+                    len(group["workloads"][serializer]["runs"]) == 3
+                    for serializer in ("json", "msgpack", "cbor", "flatbuffers")
+                )
+            )
+        self.assertIn("wamp-four-serializer-2026-10-20/README.md", wamp_tables)
+        self.assertIn("RawSocket frames are 60 MiB", wamp_tables)
         self.assertIn("### 64 MiB file transfer", readme)
         self.assertIn("### Large RPC frames", readme)
         self.assertIn("### WebSocket fragmentation and Pub/Sub", readme)

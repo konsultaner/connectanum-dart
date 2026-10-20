@@ -3,14 +3,14 @@
 Status: active
 Owner: Codex
 Created: 2026-10-14
-Last updated: 2026-10-19
+Last updated: 2026-10-20
 Branch: `codex/mqtt-broker-interoperability` in a separate managed worktree
 Milestone: [GitHub milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2); parent [#109](https://github.com/konsultaner/connectanum-dart/issues/109)
 Baseline: GitHub master `73d840c9`; pre-change `bin/test-fast` passes on 2026-10-14
 
 ## Current hosted checkpoint
 
-The [GitHub Actions MQTT run on `58016dc8`](../benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md) passes 19/20 unchanged profiles, all 192 exact rows and 29,114,000 deliveries, Paho/Connectanum integration, and scoped 652/652 MQTT Dart plus 268/268 Python coverage. On Intel Xeon Platinum 8573C, the MQTT 5 TCP 64 KiB broker-CPU ratio is 4.294 versus its 4.0 cap; throughput, latency, and RSS pass. The Full Verify CI job fails that prerequisite. The same production/workflow source passed 20/20 on EPYC 9V74, including a 3.143 ratio for that profile. Package READMEs now surface these measured results and the red gate; raw evidence is checked in. Local `bin/verify` passes at exit 0 after the README update, including Chrome and Dart2Wasm. Keep #127, #131, PR #128 draft, and milestone #2 open, with unchanged budgets. Resolve direct MQTT release margin before claiming readiness; live WAMP↔MQTT translation and its memory gate have no results yet.
+The latest known [GitHub Actions MQTT run on `c2824597`](https://github.com/konsultaner/connectanum-dart/actions/runs/39387327803) fails native WebSocket MQTT 5/3.1.1 throughput ratios 0.6904/0.6892 against unchanged 0.70 floors on EPYC 7763; Full Verify is blocked by that prerequisite. The prior [Intel checkpoint](../benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md) passed 19/20 and missed the native TCP 64 KiB CPU cap at 4.294 versus 4.0. Local `bin/verify` passes, including Chrome and Dart2Wasm. The user-requested [four-serializer WAMP snapshot](../benchmarks/wamp-four-serializer-2026-10-20/README.md) completes 312 local workload records and publishes matched three-pass medians in the package README; it is diagnostic and does not clear the MQTT gates. FlatBuffers file transfer's 0.593–2.298 Gbit/s sustained range is a separate performance gap. Keep #127, #131, draft PR #128, and milestone #2 open with unchanged budgets. Live WAMP↔MQTT translation and its memory gate have no results yet.
 
 ## Goal
 

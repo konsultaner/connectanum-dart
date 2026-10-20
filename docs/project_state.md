@@ -1,8 +1,12 @@
 # Project State
 
-Last updated: 2026-10-19.
+Last updated: 2026-10-20.
 Current milestone: [MQTT broker interoperability for Connectanum](https://github.com/konsultaner/connectanum-dart/milestone/2), explicitly prioritized by the user on 2026-10-14.
 Active plan: [MQTT broker interoperability execution plan](exec-plans/2026-10-14-mqtt-broker-interoperability.md) on `codex/mqtt-broker-interoperability` in a separate managed worktree based on GitHub master `73d840c9`.
+
+The [matched four-serializer WAMP snapshot](benchmarks/wamp-four-serializer-2026-10-20/README.md) now backs every WAMP throughput cell in the package README. Three rotated local passes completed all 312 workload records across 26 groups on an Apple M3 Ultra, with original JSON/MessagePack/CBOR values replaced by same-source controls. FlatBuffers uses a WAMP envelope with CBOR application fragments; RawSocket large RPC uses 60 MiB for all four codecs because a 64 MiB argument exceeds the FlatBuffers 64 MiB encoded-vector limit. A fail-first live regression and fix at `73abe8f6` allow authenticated E2EE file chunks retained in a FlatBuffers envelope. Local `bin/verify` passes at exit 0, including Chrome and Dart2Wasm. The snapshot is diagnostic; FlatBuffers file transfer measures only 0.593–2.298 Gbit/s sustained versus CBOR's 8.078–22.454 Gbit/s and needs performance investigation before parity claims.
+
+The latest known [GitHub Actions run on `c2824597`](https://github.com/konsultaner/connectanum-dart/actions/runs/39387327803) remains red on native WebSocket MQTT 5/3.1.1 throughput ratios 0.6904/0.6892 against unchanged 0.70 floors on EPYC 7763; Full Verify is blocked by that prerequisite. The local WAMP snapshot does not resolve MQTT release margin or the still-unimplemented WAMP↔MQTT translation/memory gate #131. Keep #127, #131, draft PR #128, and milestone #2 open.
 
 The [GitHub Actions MQTT checkpoint on `58016dc8`](benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md) runs on Intel Xeon Platinum 8573C and is red on one unchanged MQTT 5 TCP 64 KiB broker-CPU cap: 4.294 versus 4.0. The other nineteen profiles, all 192 exact rows and 29,114,000 deliveries, Paho/Connectanum integration, 652/652 scoped MQTT Dart and 268/268 Python lines pass. The previous same-production-source AMD EPYC 9V74 job passed 20/20 and measured 3.143 on that CPU ratio. The hosted Full Verify job failed only because the MQTT job is a prerequisite. Local `bin/verify` passes at exit 0 after the README update, including Chrome and Dart2Wasm. Package README results now link the checked-in raw Intel evidence. Keep the 4.0 cap, #127, PR #128 draft, and milestone #2 open; WAMP↔MQTT gateway and translation/memory gate #131 are still unimplemented and unmeasured.
 

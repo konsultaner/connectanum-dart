@@ -1,0 +1,3336 @@
+{
+  "wamp_file_transfer_throughput": [
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_file_json_64m_native_base64_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 10.593087423850042,
+              "lifecycle_gbit_s": 10.11770858892815,
+              "dominant_bytes": 1073741824,
+              "data_ms": 810.9,
+              "lifecycle_ms": 849,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 10.269317093581806,
+              "lifecycle_gbit_s": 9.805861406392694,
+              "dominant_bytes": 1073741824,
+              "data_ms": 836.466,
+              "lifecycle_ms": 876,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 9.559603403645363,
+              "lifecycle_gbit_s": 9.118826530785562,
+              "dominant_bytes": 1073741824,
+              "data_ms": 898.566,
+              "lifecycle_ms": 942,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 10.269317093581806,
+          "median_lifecycle_gbit_s": 9.805861406392694
+        },
+        "msgpack": {
+          "name": "rawsocket_file_msgpack_64m_native",
+          "runs": [
+            {
+              "data_gbit_s": 16.295109897030812,
+              "lifecycle_gbit_s": 14.991159846422338,
+              "dominant_bytes": 1073741824,
+              "data_ms": 527.148,
+              "lifecycle_ms": 573,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 16.687293650038175,
+              "lifecycle_gbit_s": 15.533335609403254,
+              "dominant_bytes": 1073741824,
+              "data_ms": 514.759,
+              "lifecycle_ms": 553,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 16.580964737675174,
+              "lifecycle_gbit_s": 15.311826367201425,
+              "dominant_bytes": 1073741824,
+              "data_ms": 518.06,
+              "lifecycle_ms": 561,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 16.580964737675174,
+          "median_lifecycle_gbit_s": 15.311826367201425
+        },
+        "cbor": {
+          "name": "rawsocket_file_cbor_64m_native",
+          "runs": [
+            {
+              "data_gbit_s": 16.019272864935427,
+              "lifecycle_gbit_s": 14.559211172881355,
+              "dominant_bytes": 1073741824,
+              "data_ms": 536.225,
+              "lifecycle_ms": 590,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 16.085688482072467,
+              "lifecycle_gbit_s": 14.70879210958904,
+              "dominant_bytes": 1073741824,
+              "data_ms": 534.011,
+              "lifecycle_ms": 584,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 15.588077102591742,
+              "lifecycle_gbit_s": 14.29273642595674,
+              "dominant_bytes": 1073741824,
+              "data_ms": 551.058,
+              "lifecycle_ms": 601,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 16.019272864935427,
+          "median_lifecycle_gbit_s": 14.559211172881355
+        },
+        "flatbuffers": {
+          "name": "rawsocket_file_flatbuffers_64m_native",
+          "runs": [
+            {
+              "data_gbit_s": 2.2769830757106613,
+              "lifecycle_gbit_s": 2.2369621333333334,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3772.507,
+              "lifecycle_ms": 3840,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 2.2949643695385644,
+              "lifecycle_gbit_s": 2.25457600839895,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3742.949,
+              "lifecycle_ms": 3810,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 2.2767374480308855,
+              "lifecycle_gbit_s": 2.2340532098829646,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3772.914,
+              "lifecycle_ms": 3845,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 2.2769830757106613,
+          "median_lifecycle_gbit_s": 2.2369621333333334
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_file_json_64m_dart_buffered",
+          "runs": [
+            {
+              "data_gbit_s": 6.004746926301132,
+              "lifecycle_gbit_s": 5.38216453132832,
+              "dominant_bytes": 268435456,
+              "data_ms": 357.631,
+              "lifecycle_ms": 399,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 5.666153867261913,
+              "lifecycle_gbit_s": 5.113056304761905,
+              "dominant_bytes": 268435456,
+              "data_ms": 379.002,
+              "lifecycle_ms": 420,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 4.870891800735346,
+              "lifecycle_gbit_s": 4.436949685950413,
+              "dominant_bytes": 268435456,
+              "data_ms": 440.881,
+              "lifecycle_ms": 484,
+              "samples": 4
+            }
+          ],
+          "median_data_gbit_s": 5.666153867261913,
+          "median_lifecycle_gbit_s": 5.113056304761905
+        },
+        "msgpack": {
+          "name": "rawsocket_file_msgpack_64m_dart_buffered",
+          "runs": [
+            {
+              "data_gbit_s": 12.49299658512464,
+              "lifecycle_gbit_s": 10.177647620853081,
+              "dominant_bytes": 268435456,
+              "data_ms": 171.895,
+              "lifecycle_ms": 211,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 10.837393192198027,
+              "lifecycle_gbit_s": 8.910720531120331,
+              "dominant_bytes": 268435456,
+              "data_ms": 198.155,
+              "lifecycle_ms": 241,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 8.990704223465183,
+              "lifecycle_gbit_s": 7.5086840839160836,
+              "dominant_bytes": 268435456,
+              "data_ms": 238.856,
+              "lifecycle_ms": 286,
+              "samples": 4
+            }
+          ],
+          "median_data_gbit_s": 10.837393192198027,
+          "median_lifecycle_gbit_s": 8.910720531120331
+        },
+        "cbor": {
+          "name": "rawsocket_file_cbor_64m_dart_buffered",
+          "runs": [
+            {
+              "data_gbit_s": 12.542540697131109,
+              "lifecycle_gbit_s": 10.22611260952381,
+              "dominant_bytes": 268435456,
+              "data_ms": 171.216,
+              "lifecycle_ms": 210,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 10.720908041615912,
+              "lifecycle_gbit_s": 8.837381267489713,
+              "dominant_bytes": 268435456,
+              "data_ms": 200.308,
+              "lifecycle_ms": 243,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 9.028351332716724,
+              "lifecycle_gbit_s": 7.615190241134751,
+              "dominant_bytes": 268435456,
+              "data_ms": 237.86,
+              "lifecycle_ms": 282,
+              "samples": 4
+            }
+          ],
+          "median_data_gbit_s": 10.720908041615912,
+          "median_lifecycle_gbit_s": 8.837381267489713
+        },
+        "flatbuffers": {
+          "name": "rawsocket_file_flatbuffers_64m_dart_buffered",
+          "runs": [
+            {
+              "data_gbit_s": 1.072033003392592,
+              "lifecycle_gbit_s": 1.0496010009775172,
+              "dominant_bytes": 268435456,
+              "data_ms": 2003.188,
+              "lifecycle_ms": 2046,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 1.082665695999274,
+              "lifecycle_gbit_s": 1.0583950951207493,
+              "dominant_bytes": 268435456,
+              "data_ms": 1983.515,
+              "lifecycle_ms": 2029,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 1.0379200880027608,
+              "lifecycle_gbit_s": 1.014399455833727,
+              "dominant_bytes": 268435456,
+              "data_ms": 2069.026,
+              "lifecycle_ms": 2117,
+              "samples": 4
+            }
+          ],
+          "median_data_gbit_s": 1.072033003392592,
+          "median_lifecycle_gbit_s": 1.0496010009775172
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_tls_file_json_64m_native_base64_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 6.152371253667995,
+              "lifecycle_gbit_s": 5.98601713728223,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1396.199,
+              "lifecycle_ms": 1435,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 5.817149542513936,
+              "lifecycle_gbit_s": 5.662448643375082,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1476.657,
+              "lifecycle_ms": 1517,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 6.196088277979267,
+              "lifecycle_gbit_s": 6.011150869139258,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1386.348,
+              "lifecycle_ms": 1429,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 6.152371253667995,
+          "median_lifecycle_gbit_s": 5.98601713728223
+        },
+        "msgpack": {
+          "name": "rawsocket_tls_file_msgpack_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 12.860704472534925,
+              "lifecycle_gbit_s": 12.13267597740113,
+              "dominant_bytes": 1073741824,
+              "data_ms": 667.921,
+              "lifecycle_ms": 708,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 12.124387554270807,
+              "lifecycle_gbit_s": 11.453246122666666,
+              "dominant_bytes": 1073741824,
+              "data_ms": 708.484,
+              "lifecycle_ms": 750,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 10.924639245062254,
+              "lifecycle_gbit_s": 10.299681764988009,
+              "dominant_bytes": 1073741824,
+              "data_ms": 786.29,
+              "lifecycle_ms": 834,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 12.124387554270807,
+          "median_lifecycle_gbit_s": 11.453246122666666
+        },
+        "cbor": {
+          "name": "rawsocket_tls_file_cbor_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 12.307730849798691,
+              "lifecycle_gbit_s": 11.655270816824965,
+              "dominant_bytes": 1073741824,
+              "data_ms": 697.93,
+              "lifecycle_ms": 737,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 12.3852082749393,
+              "lifecycle_gbit_s": 11.62372745872801,
+              "dominant_bytes": 1073741824,
+              "data_ms": 693.564,
+              "lifecycle_ms": 739,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 11.300121937005615,
+              "lifecycle_gbit_s": 10.64428078314746,
+              "dominant_bytes": 1073741824,
+              "data_ms": 760.163,
+              "lifecycle_ms": 807,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 12.307730849798691,
+          "median_lifecycle_gbit_s": 11.62372745872801
+        },
+        "flatbuffers": {
+          "name": "rawsocket_tls_file_flatbuffers_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 2.324723471360894,
+              "lifecycle_gbit_s": 2.296773955080214,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3695.035,
+              "lifecycle_ms": 3740,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 2.29832993673792,
+              "lifecycle_gbit_s": 2.269467527608983,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3737.468,
+              "lifecycle_ms": 3785,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 2.2331349819489046,
+              "lifecycle_gbit_s": 2.202547331282051,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3846.581,
+              "lifecycle_ms": 3900,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 2.29832993673792,
+          "median_lifecycle_gbit_s": 2.269467527608983
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_file_json_64m_native_base64_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 9.479992089278147,
+              "lifecycle_gbit_s": 9.013572499475341,
+              "dominant_bytes": 1073741824,
+              "data_ms": 906.112,
+              "lifecycle_ms": 953,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 9.12664521729337,
+              "lifecycle_gbit_s": 8.659208258064515,
+              "dominant_bytes": 1073741824,
+              "data_ms": 941.193,
+              "lifecycle_ms": 992,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 8.355528592856016,
+              "lifecycle_gbit_s": 7.916990407373272,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1028.054,
+              "lifecycle_ms": 1085,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 9.12664521729337,
+          "median_lifecycle_gbit_s": 8.659208258064515
+        },
+        "msgpack": {
+          "name": "websocket_file_msgpack_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 16.53128090882323,
+              "lifecycle_gbit_s": 15.203424056637168,
+              "dominant_bytes": 1073741824,
+              "data_ms": 519.617,
+              "lifecycle_ms": 565,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 16.186960996476156,
+              "lifecycle_gbit_s": 14.734021598627788,
+              "dominant_bytes": 1073741824,
+              "data_ms": 530.67,
+              "lifecycle_ms": 583,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 15.278464301658587,
+              "lifecycle_gbit_s": 13.990121485342021,
+              "dominant_bytes": 1073741824,
+              "data_ms": 562.225,
+              "lifecycle_ms": 614,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 16.186960996476156,
+          "median_lifecycle_gbit_s": 14.734021598627788
+        },
+        "cbor": {
+          "name": "websocket_file_cbor_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 14.756244553547196,
+              "lifecycle_gbit_s": 13.76592082051282,
+              "dominant_bytes": 1073741824,
+              "data_ms": 582.122,
+              "lifecycle_ms": 624,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 12.829031456009078,
+              "lifecycle_gbit_s": 11.930464711111112,
+              "dominant_bytes": 1073741824,
+              "data_ms": 669.57,
+              "lifecycle_ms": 720,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 11.886238000550728,
+              "lifecycle_gbit_s": 11.126858279792746,
+              "dominant_bytes": 1073741824,
+              "data_ms": 722.679,
+              "lifecycle_ms": 772,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 12.829031456009078,
+          "median_lifecycle_gbit_s": 11.930464711111112
+        },
+        "flatbuffers": {
+          "name": "websocket_file_flatbuffers_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 2.290531338520444,
+              "lifecycle_gbit_s": 2.261104130560674,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3750.193,
+              "lifecycle_ms": 3799,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 2.240270032052536,
+              "lifecycle_gbit_s": 2.2082094066838045,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3834.33,
+              "lifecycle_ms": 3890,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 2.293930462667132,
+              "lifecycle_gbit_s": 2.262891093782929,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3744.636,
+              "lifecycle_ms": 3796,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 2.290531338520444,
+          "median_lifecycle_gbit_s": 2.261104130560674
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_file_json_64m_dart_buffered",
+          "runs": [
+            {
+              "data_gbit_s": 2.419244658188262,
+              "lifecycle_gbit_s": 2.3016973719185425,
+              "dominant_bytes": 268435456,
+              "data_ms": 887.667,
+              "lifecycle_ms": 933,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 2.1607832690208233,
+              "lifecycle_gbit_s": 2.0569766743295017,
+              "dominant_bytes": 268435456,
+              "data_ms": 993.845,
+              "lifecycle_ms": 1044,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 2.2347855453282484,
+              "lifecycle_gbit_s": 2.130440126984127,
+              "dominant_bytes": 268435456,
+              "data_ms": 960.935,
+              "lifecycle_ms": 1008,
+              "samples": 4
+            }
+          ],
+          "median_data_gbit_s": 2.2347855453282484,
+          "median_lifecycle_gbit_s": 2.130440126984127
+        },
+        "msgpack": {
+          "name": "websocket_file_msgpack_64m_dart_buffered",
+          "runs": [
+            {
+              "data_gbit_s": 9.771416049360248,
+              "lifecycle_gbit_s": 8.165337064638782,
+              "dominant_bytes": 268435456,
+              "data_ms": 219.772,
+              "lifecycle_ms": 263,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 8.213368091730349,
+              "lifecycle_gbit_s": 6.972349506493507,
+              "dominant_bytes": 268435456,
+              "data_ms": 261.462,
+              "lifecycle_ms": 308,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 8.183976615942774,
+              "lifecycle_gbit_s": 6.927366606451613,
+              "dominant_bytes": 268435456,
+              "data_ms": 262.401,
+              "lifecycle_ms": 310,
+              "samples": 4
+            }
+          ],
+          "median_data_gbit_s": 8.213368091730349,
+          "median_lifecycle_gbit_s": 6.972349506493507
+        },
+        "cbor": {
+          "name": "websocket_file_cbor_64m_dart_buffered",
+          "runs": [
+            {
+              "data_gbit_s": 9.658731145653425,
+              "lifecycle_gbit_s": 8.043009917602996,
+              "dominant_bytes": 268435456,
+              "data_ms": 222.336,
+              "lifecycle_ms": 267,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 8.115011650184599,
+              "lifecycle_gbit_s": 6.731923661442006,
+              "dominant_bytes": 268435456,
+              "data_ms": 264.631,
+              "lifecycle_ms": 319,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 7.9076906716156845,
+              "lifecycle_gbit_s": 6.710886400000001,
+              "dominant_bytes": 268435456,
+              "data_ms": 271.569,
+              "lifecycle_ms": 320,
+              "samples": 4
+            }
+          ],
+          "median_data_gbit_s": 8.115011650184599,
+          "median_lifecycle_gbit_s": 6.731923661442006
+        },
+        "flatbuffers": {
+          "name": "websocket_file_flatbuffers_64m_dart_buffered",
+          "runs": [
+            {
+              "data_gbit_s": 1.0276904988990827,
+              "lifecycle_gbit_s": 1.0058471419203747,
+              "dominant_bytes": 268435456,
+              "data_ms": 2089.621,
+              "lifecycle_ms": 2135,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 0.9867095973229296,
+              "lifecycle_gbit_s": 0.9638616014362658,
+              "dominant_bytes": 268435456,
+              "data_ms": 2176.409,
+              "lifecycle_ms": 2228,
+              "samples": 4
+            },
+            {
+              "data_gbit_s": 0.9833399414891107,
+              "lifecycle_gbit_s": 0.9586980571428572,
+              "dominant_bytes": 268435456,
+              "data_ms": 2183.867,
+              "lifecycle_ms": 2240,
+              "samples": 4
+            }
+          ],
+          "median_data_gbit_s": 0.9867095973229296,
+          "median_lifecycle_gbit_s": 0.9638616014362658
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_tls_file_json_64m_native_base64_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 5.794499832369712,
+              "lifecycle_gbit_s": 5.60700691383812,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1482.429,
+              "lifecycle_ms": 1532,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 5.690771202755971,
+              "lifecycle_gbit_s": 5.506368328205128,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1509.45,
+              "lifecycle_ms": 1560,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 5.352994734831561,
+              "lifecycle_gbit_s": 5.196572650937689,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1604.697,
+              "lifecycle_ms": 1653,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 5.690771202755971,
+          "median_lifecycle_gbit_s": 5.506368328205128
+        },
+        "msgpack": {
+          "name": "websocket_tls_file_msgpack_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 11.798809659988407,
+              "lifecycle_gbit_s": 11.055256875160875,
+              "dominant_bytes": 1073741824,
+              "data_ms": 728.034,
+              "lifecycle_ms": 777,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 10.852330858376636,
+              "lifecycle_gbit_s": 10.262765342891278,
+              "dominant_bytes": 1073741824,
+              "data_ms": 791.529,
+              "lifecycle_ms": 837,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 9.937740670426608,
+              "lifecycle_gbit_s": 9.387906657923498,
+              "dominant_bytes": 1073741824,
+              "data_ms": 864.375,
+              "lifecycle_ms": 915,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 10.852330858376636,
+          "median_lifecycle_gbit_s": 10.262765342891278
+        },
+        "cbor": {
+          "name": "websocket_tls_file_cbor_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 9.21021493738829,
+              "lifecycle_gbit_s": 8.774192637385086,
+              "dominant_bytes": 1073741824,
+              "data_ms": 932.653,
+              "lifecycle_ms": 979,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 7.989789540458035,
+              "lifecycle_gbit_s": 7.635497415111112,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1075.114,
+              "lifecycle_ms": 1125,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 8.078227358220857,
+              "lifecycle_gbit_s": 7.703977212556054,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1063.344,
+              "lifecycle_ms": 1115,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 8.078227358220857,
+          "median_lifecycle_gbit_s": 7.703977212556054
+        },
+        "flatbuffers": {
+          "name": "websocket_tls_file_flatbuffers_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 2.297324330106892,
+              "lifecycle_gbit_s": 2.267670166842661,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3739.104,
+              "lifecycle_ms": 3788,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 2.2223450062958294,
+              "lifecycle_gbit_s": 2.192428430832057,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3865.257,
+              "lifecycle_ms": 3918,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 2.199978433388295,
+              "lifecycle_gbit_s": 2.1708199625979274,
+              "dominant_bytes": 1073741824,
+              "data_ms": 3904.554,
+              "lifecycle_ms": 3957,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 2.2223450062958294,
+          "median_lifecycle_gbit_s": 2.192428430832057
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_file_json_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 8.68459669598625,
+              "lifecycle_gbit_s": 8.3478470281827,
+              "dominant_bytes": 1073741824,
+              "data_ms": 989.1,
+              "lifecycle_ms": 1029,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 8.647971126228116,
+              "lifecycle_gbit_s": 8.323580031007753,
+              "dominant_bytes": 1073741824,
+              "data_ms": 993.289,
+              "lifecycle_ms": 1032,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 8.298355282440875,
+              "lifecycle_gbit_s": 7.975798135561746,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1035.137,
+              "lifecycle_ms": 1077,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 8.647971126228116,
+          "median_lifecycle_gbit_s": 8.323580031007753
+        },
+        "msgpack": {
+          "name": "rawsocket_file_msgpack_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 22.34744847430024,
+              "lifecycle_gbit_s": 20.259279698113208,
+              "dominant_bytes": 1073741824,
+              "data_ms": 384.381,
+              "lifecycle_ms": 424,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 22.59474501675549,
+              "lifecycle_gbit_s": 20.501037212410502,
+              "dominant_bytes": 1073741824,
+              "data_ms": 380.174,
+              "lifecycle_ms": 419,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 19.376899564185624,
+              "lifecycle_gbit_s": 17.63846938809035,
+              "dominant_bytes": 1073741824,
+              "data_ms": 443.308,
+              "lifecycle_ms": 487,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 22.34744847430024,
+          "median_lifecycle_gbit_s": 20.259279698113208
+        },
+        "cbor": {
+          "name": "rawsocket_file_cbor_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 22.80081805392607,
+              "lifecycle_gbit_s": 20.69863757108434,
+              "dominant_bytes": 1073741824,
+              "data_ms": 376.738,
+              "lifecycle_ms": 415,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 22.453823170221664,
+              "lifecycle_gbit_s": 20.259279698113208,
+              "dominant_bytes": 1073741824,
+              "data_ms": 382.56,
+              "lifecycle_ms": 424,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 19.551505959954387,
+              "lifecycle_gbit_s": 17.858491875259876,
+              "dominant_bytes": 1073741824,
+              "data_ms": 439.349,
+              "lifecycle_ms": 481,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 22.453823170221664,
+          "median_lifecycle_gbit_s": 20.259279698113208
+        },
+        "flatbuffers": {
+          "name": "rawsocket_file_flatbuffers_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 0.6044822518718685,
+              "lifecycle_gbit_s": 0.6025909920729569,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14210.4,
+              "lifecycle_ms": 14255,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 0.5929325349460117,
+              "lifecycle_gbit_s": 0.5911861384721266,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14487.204,
+              "lifecycle_ms": 14530,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 0.5899231021483323,
+              "lifecycle_gbit_s": 0.588109995344379,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14561.109,
+              "lifecycle_ms": 14606,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 0.5929325349460117,
+          "median_lifecycle_gbit_s": 0.5911861384721266
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_tls_file_json_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 7.820100443992087,
+              "lifecycle_gbit_s": 7.554911690413369,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1098.443,
+              "lifecycle_ms": 1137,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 7.449065514119512,
+              "lifecycle_gbit_s": 7.182219558528428,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1153.156,
+              "lifecycle_ms": 1196,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 7.517996147325839,
+              "lifecycle_gbit_s": 7.261145048182586,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1142.583,
+              "lifecycle_ms": 1183,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 7.517996147325839,
+          "median_lifecycle_gbit_s": 7.261145048182586
+        },
+        "msgpack": {
+          "name": "rawsocket_tls_file_msgpack_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 12.207212388638537,
+              "lifecycle_gbit_s": 11.530113546308725,
+              "dominant_bytes": 1073741824,
+              "data_ms": 703.677,
+              "lifecycle_ms": 745,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 12.568710829658286,
+              "lifecycle_gbit_s": 11.815590910591473,
+              "dominant_bytes": 1073741824,
+              "data_ms": 683.438,
+              "lifecycle_ms": 727,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 12.215579735350792,
+              "lifecycle_gbit_s": 11.561150191117093,
+              "dominant_bytes": 1073741824,
+              "data_ms": 703.195,
+              "lifecycle_ms": 743,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 12.215579735350792,
+          "median_lifecycle_gbit_s": 11.561150191117093
+        },
+        "cbor": {
+          "name": "rawsocket_tls_file_cbor_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 12.378747290056864,
+              "lifecycle_gbit_s": 11.63947776693767,
+              "dominant_bytes": 1073741824,
+              "data_ms": 693.926,
+              "lifecycle_ms": 738,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 12.357626673111671,
+              "lifecycle_gbit_s": 11.702908163487738,
+              "dominant_bytes": 1073741824,
+              "data_ms": 695.112,
+              "lifecycle_ms": 734,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 12.392909574352974,
+              "lifecycle_gbit_s": 11.734883322404372,
+              "dominant_bytes": 1073741824,
+              "data_ms": 693.133,
+              "lifecycle_ms": 732,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 12.378747290056864,
+          "median_lifecycle_gbit_s": 11.702908163487738
+        },
+        "flatbuffers": {
+          "name": "rawsocket_tls_file_flatbuffers_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 0.5964925824645122,
+              "lifecycle_gbit_s": 0.594582584065896,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14400.74,
+              "lifecycle_ms": 14447,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 0.5897010901177907,
+              "lifecycle_gbit_s": 0.5879087394428855,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14566.591,
+              "lifecycle_ms": 14611,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 0.5942070248256605,
+              "lifecycle_gbit_s": 0.5923684292117785,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14456.131,
+              "lifecycle_ms": 14501,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 0.5942070248256605,
+          "median_lifecycle_gbit_s": 0.5923684292117785
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_file_json_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 8.391099107547554,
+              "lifecycle_gbit_s": 8.035486054256314,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1023.696,
+              "lifecycle_ms": 1069,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 8.408965250836744,
+              "lifecycle_gbit_s": 8.050547883786317,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1021.521,
+              "lifecycle_ms": 1067,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 7.98459082332076,
+              "lifecycle_gbit_s": 7.548272927943761,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1075.814,
+              "lifecycle_ms": 1138,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 8.391099107547554,
+          "median_lifecycle_gbit_s": 8.035486054256314
+        },
+        "msgpack": {
+          "name": "websocket_file_msgpack_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 21.11213008513734,
+              "lifecycle_gbit_s": 19.00428007079646,
+              "dominant_bytes": 1073741824,
+              "data_ms": 406.872,
+              "lifecycle_ms": 452,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 20.216272439291885,
+              "lifecycle_gbit_s": 18.276456578723405,
+              "dominant_bytes": 1073741824,
+              "data_ms": 424.902,
+              "lifecycle_ms": 470,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 18.61372136845481,
+              "lifecycle_gbit_s": 16.519104984615385,
+              "dominant_bytes": 1073741824,
+              "data_ms": 461.484,
+              "lifecycle_ms": 520,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 20.216272439291885,
+          "median_lifecycle_gbit_s": 18.276456578723405
+        },
+        "cbor": {
+          "name": "websocket_file_cbor_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 16.13006033702506,
+              "lifecycle_gbit_s": 14.75933778694158,
+              "dominant_bytes": 1073741824,
+              "data_ms": 532.542,
+              "lifecycle_ms": 582,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 15.284989086897337,
+              "lifecycle_gbit_s": 14.012943869494292,
+              "dominant_bytes": 1073741824,
+              "data_ms": 561.985,
+              "lifecycle_ms": 613,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 16.525524515292478,
+              "lifecycle_gbit_s": 15.203424056637168,
+              "dominant_bytes": 1073741824,
+              "data_ms": 519.798,
+              "lifecycle_ms": 565,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 16.13006033702506,
+          "median_lifecycle_gbit_s": 14.75933778694158
+        },
+        "flatbuffers": {
+          "name": "websocket_file_flatbuffers_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 0.5989317313728199,
+              "lifecycle_gbit_s": 0.5968548215675374,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14342.093,
+              "lifecycle_ms": 14392,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 0.5936662168867879,
+              "lifecycle_gbit_s": 0.5916747893649262,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14469.3,
+              "lifecycle_ms": 14518,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 0.5745810621322177,
+              "lifecycle_gbit_s": 0.5726241311912539,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14949.909,
+              "lifecycle_ms": 15001,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 0.5936662168867879,
+          "median_lifecycle_gbit_s": 0.5916747893649262
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_tls_file_json_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 7.188608765148288,
+              "lifecycle_gbit_s": 6.921784522159548,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1194.937,
+              "lifecycle_ms": 1241,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 7.319752568323891,
+              "lifecycle_gbit_s": 7.040929993442623,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1173.528,
+              "lifecycle_ms": 1220,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 6.584934101862577,
+              "lifecycle_gbit_s": 6.283785363569861,
+              "dominant_bytes": 1073741824,
+              "data_ms": 1304.483,
+              "lifecycle_ms": 1367,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 7.188608765148288,
+          "median_lifecycle_gbit_s": 6.921784522159548
+        },
+        "msgpack": {
+          "name": "websocket_tls_file_msgpack_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 11.723304157232679,
+              "lifecycle_gbit_s": 10.998635841229193,
+              "dominant_bytes": 1073741824,
+              "data_ms": 732.723,
+              "lifecycle_ms": 781,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 11.517606507832435,
+              "lifecycle_gbit_s": 10.804949172327044,
+              "dominant_bytes": 1073741824,
+              "data_ms": 745.809,
+              "lifecycle_ms": 795,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 10.909612841690024,
+              "lifecycle_gbit_s": 10.16560306745562,
+              "dominant_bytes": 1073741824,
+              "data_ms": 787.373,
+              "lifecycle_ms": 845,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 11.517606507832435,
+          "median_lifecycle_gbit_s": 10.804949172327044
+        },
+        "cbor": {
+          "name": "websocket_tls_file_cbor_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 9.606902026747429,
+              "lifecycle_gbit_s": 9.099506983050848,
+              "dominant_bytes": 1073741824,
+              "data_ms": 894.142,
+              "lifecycle_ms": 944,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 9.608847133152342,
+              "lifecycle_gbit_s": 9.099506983050848,
+              "dominant_bytes": 1073741824,
+              "data_ms": 893.961,
+              "lifecycle_ms": 944,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 8.64752712263676,
+              "lifecycle_gbit_s": 8.05809999249531,
+              "dominant_bytes": 1073741824,
+              "data_ms": 993.34,
+              "lifecycle_ms": 1066,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 9.606902026747429,
+          "median_lifecycle_gbit_s": 9.099506983050848
+        },
+        "flatbuffers": {
+          "name": "websocket_tls_file_flatbuffers_e2ee_64m_native_segmented",
+          "runs": [
+            {
+              "data_gbit_s": 0.5937106139816251,
+              "lifecycle_gbit_s": 0.5917155467383067,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14468.218,
+              "lifecycle_ms": 14517,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 0.5927235483199644,
+              "lifecycle_gbit_s": 0.5905764587143348,
+              "dominant_bytes": 1073741824,
+              "data_ms": 14492.312,
+              "lifecycle_ms": 14545,
+              "samples": 16
+            },
+            {
+              "data_gbit_s": 0.5536923628289241,
+              "lifecycle_gbit_s": 0.5510253763551222,
+              "dominant_bytes": 1073741824,
+              "data_ms": 15513.912,
+              "lifecycle_ms": 15589,
+              "samples": 16
+            }
+          ],
+          "median_data_gbit_s": 0.5927235483199644,
+          "median_lifecycle_gbit_s": 0.5905764587143348
+        }
+      }
+    }
+  ],
+  "wamp_large_transport_frames_heavy": [
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_rpc_json_60m_native",
+          "runs": [
+            {
+              "data_gbit_s": 12.96718646644145,
+              "lifecycle_gbit_s": 4.822193820359281,
+              "dominant_bytes": 503316480,
+              "data_ms": 310.517,
+              "lifecycle_ms": 835,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 13.597543715090401,
+              "lifecycle_gbit_s": 4.9224105623471885,
+              "dominant_bytes": 503316480,
+              "data_ms": 296.122,
+              "lifecycle_ms": 818,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 12.59196247302749,
+              "lifecycle_gbit_s": 4.665737937427578,
+              "dominant_bytes": 503316480,
+              "data_ms": 319.77,
+              "lifecycle_ms": 863,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 12.96718646644145,
+          "median_lifecycle_gbit_s": 4.822193820359281
+        },
+        "msgpack": {
+          "name": "rawsocket_rpc_msgpack_60m_native",
+          "runs": [
+            {
+              "data_gbit_s": 21.162867594500273,
+              "lifecycle_gbit_s": 6.39132038095238,
+              "dominant_bytes": 503316480,
+              "data_ms": 190.264,
+              "lifecycle_ms": 630,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 18.82991175521542,
+              "lifecycle_gbit_s": 6.204209306625578,
+              "dominant_bytes": 503316480,
+              "data_ms": 213.837,
+              "lifecycle_ms": 649,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 17.58310847161572,
+              "lifecycle_gbit_s": 5.88674245614035,
+              "dominant_bytes": 503316480,
+              "data_ms": 229.0,
+              "lifecycle_ms": 684,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 18.82991175521542,
+          "median_lifecycle_gbit_s": 6.204209306625578
+        },
+        "cbor": {
+          "name": "rawsocket_rpc_cbor_60m_native",
+          "runs": [
+            {
+              "data_gbit_s": 17.992697699151428,
+              "lifecycle_gbit_s": 4.580809829351536,
+              "dominant_bytes": 503316480,
+              "data_ms": 223.787,
+              "lifecycle_ms": 879,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 17.976792374489364,
+              "lifecycle_gbit_s": 4.692927552447553,
+              "dominant_bytes": 503316480,
+              "data_ms": 223.985,
+              "lifecycle_ms": 858,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 15.280433837174442,
+              "lifecycle_gbit_s": 4.334264628632939,
+              "dominant_bytes": 503316480,
+              "data_ms": 263.509,
+              "lifecycle_ms": 929,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 17.976792374489364,
+          "median_lifecycle_gbit_s": 4.580809829351536
+        },
+        "flatbuffers": {
+          "name": "rawsocket_rpc_flatbuffers_60m_native",
+          "runs": [
+            {
+              "data_gbit_s": 7.415466996690553,
+              "lifecycle_gbit_s": 3.3332217218543043,
+              "dominant_bytes": 503316480,
+              "data_ms": 542.991,
+              "lifecycle_ms": 1208,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 7.147934970549286,
+              "lifecycle_gbit_s": 3.3031434290401966,
+              "dominant_bytes": 503316480,
+              "data_ms": 563.314,
+              "lifecycle_ms": 1219,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 7.106932032391751,
+              "lifecycle_gbit_s": 3.2445864947622884,
+              "dominant_bytes": 503316480,
+              "data_ms": 566.564,
+              "lifecycle_ms": 1241,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 7.147934970549286,
+          "median_lifecycle_gbit_s": 3.3031434290401966
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_rpc_json_8m_native",
+          "runs": [
+            {
+              "data_gbit_s": 9.569081263172905,
+              "lifecycle_gbit_s": 7.953643140740741,
+              "dominant_bytes": 536870912,
+              "data_ms": 448.838,
+              "lifecycle_ms": 540,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 7.598591898547854,
+              "lifecycle_gbit_s": 6.537240937595129,
+              "dominant_bytes": 536870912,
+              "data_ms": 565.232,
+              "lifecycle_ms": 657,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 7.161155224014979,
+              "lifecycle_gbit_s": 6.153248275071633,
+              "dominant_bytes": 536870912,
+              "data_ms": 599.759,
+              "lifecycle_ms": 698,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 7.598591898547854,
+          "median_lifecycle_gbit_s": 6.537240937595129
+        },
+        "msgpack": {
+          "name": "websocket_rpc_msgpack_8m_native",
+          "runs": [
+            {
+              "data_gbit_s": 14.142324218955796,
+              "lifecycle_gbit_s": 11.15575921038961,
+              "dominant_bytes": 536870912,
+              "data_ms": 303.696,
+              "lifecycle_ms": 385,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 10.900821555111115,
+              "lifecycle_gbit_s": 9.061112438818565,
+              "dominant_bytes": 536870912,
+              "data_ms": 394.004,
+              "lifecycle_ms": 474,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 9.439592294420818,
+              "lifecycle_gbit_s": 7.968399435992579,
+              "dominant_bytes": 536870912,
+              "data_ms": 454.995,
+              "lifecycle_ms": 539,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 10.900821555111115,
+          "median_lifecycle_gbit_s": 9.061112438818565
+        },
+        "cbor": {
+          "name": "websocket_rpc_cbor_8m_native",
+          "runs": [
+            {
+              "data_gbit_s": 8.447858507618866,
+              "lifecycle_gbit_s": 6.949785268608415,
+              "dominant_bytes": 536870912,
+              "data_ms": 508.409,
+              "lifecycle_ms": 618,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 7.165683366145017,
+              "lifecycle_gbit_s": 6.032257438202247,
+              "dominant_bytes": 536870912,
+              "data_ms": 599.38,
+              "lifecycle_ms": 712,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 6.994297521280251,
+              "lifecycle_gbit_s": 5.883516843835617,
+              "dominant_bytes": 536870912,
+              "data_ms": 614.067,
+              "lifecycle_ms": 730,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 7.165683366145017,
+          "median_lifecycle_gbit_s": 6.032257438202247
+        },
+        "flatbuffers": {
+          "name": "websocket_rpc_flatbuffers_8m_native",
+          "runs": [
+            {
+              "data_gbit_s": 5.501952658507403,
+              "lifecycle_gbit_s": 4.793490285714285,
+              "dominant_bytes": 536870912,
+              "data_ms": 780.626,
+              "lifecycle_ms": 896,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 5.452002081804772,
+              "lifecycle_gbit_s": 4.77749421134594,
+              "dominant_bytes": 536870912,
+              "data_ms": 787.778,
+              "lifecycle_ms": 899,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 5.204607834963597,
+              "lifecycle_gbit_s": 4.516264243953732,
+              "dominant_bytes": 536870912,
+              "data_ms": 825.224,
+              "lifecycle_ms": 951,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 5.452002081804772,
+          "median_lifecycle_gbit_s": 4.77749421134594
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_tls_rpc_json_60m_native",
+          "runs": [
+            {
+              "data_gbit_s": 9.453084383341668,
+              "lifecycle_gbit_s": 4.211853389121338,
+              "dominant_bytes": 503316480,
+              "data_ms": 425.949,
+              "lifecycle_ms": 956,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 9.509837673916586,
+              "lifecycle_gbit_s": 4.211853389121338,
+              "dominant_bytes": 503316480,
+              "data_ms": 423.407,
+              "lifecycle_ms": 956,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 8.615334896698107,
+              "lifecycle_gbit_s": 3.9130532944606413,
+              "dominant_bytes": 503316480,
+              "data_ms": 467.368,
+              "lifecycle_ms": 1029,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 9.453084383341668,
+          "median_lifecycle_gbit_s": 4.211853389121338
+        },
+        "msgpack": {
+          "name": "rawsocket_tls_rpc_msgpack_60m_native",
+          "runs": [
+            {
+              "data_gbit_s": 11.677842697671991,
+              "lifecycle_gbit_s": 5.142441685823754,
+              "dominant_bytes": 503316480,
+              "data_ms": 344.801,
+              "lifecycle_ms": 783,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 12.013509205858574,
+              "lifecycle_gbit_s": 5.149017698209719,
+              "dominant_bytes": 503316480,
+              "data_ms": 335.167,
+              "lifecycle_ms": 782,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 10.964694426063444,
+              "lifecycle_gbit_s": 4.868841402660218,
+              "dominant_bytes": 503316480,
+              "data_ms": 367.227,
+              "lifecycle_ms": 827,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 11.677842697671991,
+          "median_lifecycle_gbit_s": 5.142441685823754
+        },
+        "cbor": {
+          "name": "rawsocket_tls_rpc_cbor_60m_native",
+          "runs": [
+            {
+              "data_gbit_s": 11.374897848490328,
+              "lifecycle_gbit_s": 4.054916253776435,
+              "dominant_bytes": 503316480,
+              "data_ms": 353.984,
+              "lifecycle_ms": 993,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 10.946302889268278,
+              "lifecycle_gbit_s": 3.970938698224852,
+              "dominant_bytes": 503316480,
+              "data_ms": 367.844,
+              "lifecycle_ms": 1014,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 9.984407536165762,
+              "lifecycle_gbit_s": 3.7560931343283586,
+              "dominant_bytes": 503316480,
+              "data_ms": 403.282,
+              "lifecycle_ms": 1072,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 10.946302889268278,
+          "median_lifecycle_gbit_s": 3.970938698224852
+        },
+        "flatbuffers": {
+          "name": "rawsocket_tls_rpc_flatbuffers_60m_native",
+          "runs": [
+            {
+              "data_gbit_s": 6.074712168186652,
+              "lifecycle_gbit_s": 3.0831024808575807,
+              "dominant_bytes": 503316480,
+              "data_ms": 662.835,
+              "lifecycle_ms": 1306,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 6.091843424295468,
+              "lifecycle_gbit_s": 3.064331689497717,
+              "dominant_bytes": 503316480,
+              "data_ms": 660.971,
+              "lifecycle_ms": 1314,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 5.768794229102344,
+              "lifecycle_gbit_s": 2.949840175824176,
+              "dominant_bytes": 503316480,
+              "data_ms": 697.985,
+              "lifecycle_ms": 1365,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 6.074712168186652,
+          "median_lifecycle_gbit_s": 3.064331689497717
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_tls_rpc_json_8m_native",
+          "runs": [
+            {
+              "data_gbit_s": 6.145447606619678,
+              "lifecycle_gbit_s": 5.409278710327456,
+              "dominant_bytes": 536870912,
+              "data_ms": 698.886,
+              "lifecycle_ms": 794,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 6.777368145653773,
+              "lifecycle_gbit_s": 5.80400985945946,
+              "dominant_bytes": 536870912,
+              "data_ms": 633.722,
+              "lifecycle_ms": 740,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 5.6898514480417886,
+              "lifecycle_gbit_s": 5.011630450408401,
+              "dominant_bytes": 536870912,
+              "data_ms": 754.847,
+              "lifecycle_ms": 857,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 6.145447606619678,
+          "median_lifecycle_gbit_s": 5.409278710327456
+        },
+        "msgpack": {
+          "name": "websocket_tls_rpc_msgpack_8m_native",
+          "runs": [
+            {
+              "data_gbit_s": 8.616974658478306,
+              "lifecycle_gbit_s": 7.392370561101549,
+              "dominant_bytes": 536870912,
+              "data_ms": 498.431,
+              "lifecycle_ms": 581,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 8.840164282171136,
+              "lifecycle_gbit_s": 7.548272927943761,
+              "dominant_bytes": 536870912,
+              "data_ms": 485.847,
+              "lifecycle_ms": 569,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 8.594008151863985,
+              "lifecycle_gbit_s": 7.304366149659864,
+              "dominant_bytes": 536870912,
+              "data_ms": 499.763,
+              "lifecycle_ms": 588,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 8.616974658478306,
+          "median_lifecycle_gbit_s": 7.392370561101549
+        },
+        "cbor": {
+          "name": "websocket_tls_rpc_cbor_8m_native",
+          "runs": [
+            {
+              "data_gbit_s": 5.544110929533104,
+              "lifecycle_gbit_s": 4.831234303712036,
+              "dominant_bytes": 536870912,
+              "data_ms": 774.69,
+              "lifecycle_ms": 889,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 6.661621626316631,
+              "lifecycle_gbit_s": 5.636440020997375,
+              "dominant_bytes": 536870912,
+              "data_ms": 644.733,
+              "lifecycle_ms": 762,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 4.934747430924499,
+              "lifecycle_gbit_s": 4.333973053481332,
+              "dominant_bytes": 536870912,
+              "data_ms": 870.352,
+              "lifecycle_ms": 991,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 5.544110929533104,
+          "median_lifecycle_gbit_s": 4.831234303712036
+        },
+        "flatbuffers": {
+          "name": "websocket_tls_rpc_flatbuffers_8m_native",
+          "runs": [
+            {
+              "data_gbit_s": 4.854299049702976,
+              "lifecycle_gbit_s": 4.31221616064257,
+              "dominant_bytes": 536870912,
+              "data_ms": 884.776,
+              "lifecycle_ms": 996,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 4.919401713728729,
+              "lifecycle_gbit_s": 4.320892651911469,
+              "dominant_bytes": 536870912,
+              "data_ms": 873.067,
+              "lifecycle_ms": 994,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 4.351524054131548,
+              "lifecycle_gbit_s": 3.8868482316742083,
+              "dominant_bytes": 536870912,
+              "data_ms": 987.003,
+              "lifecycle_ms": 1105,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 4.854299049702976,
+          "median_lifecycle_gbit_s": 4.31221616064257
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_rpc_json_60m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 2.4774403902345385,
+              "lifecycle_gbit_s": 1.8632724849606663,
+              "dominant_bytes": 503316480,
+              "data_ms": 1625.279,
+              "lifecycle_ms": 2161,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 2.474599276647133,
+              "lifecycle_gbit_s": 1.871934839609484,
+              "dominant_bytes": 503316480,
+              "data_ms": 1627.145,
+              "lifecycle_ms": 2151,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 2.43142625436509,
+              "lifecycle_gbit_s": 1.8319071155595996,
+              "dominant_bytes": 503316480,
+              "data_ms": 1656.037,
+              "lifecycle_ms": 2198,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 2.474599276647133,
+          "median_lifecycle_gbit_s": 1.8632724849606663
+        },
+        "msgpack": {
+          "name": "rawsocket_rpc_msgpack_60m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 18.834932360370477,
+              "lifecycle_gbit_s": 6.242685023255814,
+              "dominant_bytes": 503316480,
+              "data_ms": 213.78,
+              "lifecycle_ms": 645,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 19.905241812294534,
+              "lifecycle_gbit_s": 6.281640936037442,
+              "dominant_bytes": 503316480,
+              "data_ms": 202.285,
+              "lifecycle_ms": 641,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 16.317405121513353,
+              "lifecycle_gbit_s": 5.878148671532847,
+              "dominant_bytes": 503316480,
+              "data_ms": 246.763,
+              "lifecycle_ms": 685,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 18.834932360370477,
+          "median_lifecycle_gbit_s": 6.242685023255814
+        },
+        "cbor": {
+          "name": "rawsocket_rpc_cbor_60m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 16.971969348271415,
+              "lifecycle_gbit_s": 4.622883857634902,
+              "dominant_bytes": 503316480,
+              "data_ms": 237.246,
+              "lifecycle_ms": 871,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 18.820934191521882,
+              "lifecycle_gbit_s": 4.748268679245283,
+              "dominant_bytes": 503316480,
+              "data_ms": 213.939,
+              "lifecycle_ms": 848,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 15.869731834591919,
+              "lifecycle_gbit_s": 4.483888463251671,
+              "dominant_bytes": 503316480,
+              "data_ms": 253.724,
+              "lifecycle_ms": 898,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 16.971969348271415,
+          "median_lifecycle_gbit_s": 4.622883857634902
+        },
+        "flatbuffers": {
+          "name": "rawsocket_rpc_flatbuffers_60m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 4.5595629920189875,
+              "lifecycle_gbit_s": 2.666577377483444,
+              "dominant_bytes": 503316480,
+              "data_ms": 883.096,
+              "lifecycle_ms": 1510,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 4.550025978956932,
+              "lifecycle_gbit_s": 2.6403487475409837,
+              "dominant_bytes": 503316480,
+              "data_ms": 884.947,
+              "lifecycle_ms": 1525,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 4.352640361137116,
+              "lifecycle_gbit_s": 2.5728637955271565,
+              "dominant_bytes": 503316480,
+              "data_ms": 925.078,
+              "lifecycle_ms": 1565,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 4.550025978956932,
+          "median_lifecycle_gbit_s": 2.6403487475409837
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_rpc_json_8m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 2.6012605435131517,
+              "lifecycle_gbit_s": 2.46695421941413,
+              "dominant_bytes": 536870912,
+              "data_ms": 1651.11,
+              "lifecycle_ms": 1741,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 2.636121769498703,
+              "lifecycle_gbit_s": 2.4970740093023256,
+              "dominant_bytes": 536870912,
+              "data_ms": 1629.275,
+              "lifecycle_ms": 1720,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 2.51992918094344,
+              "lifecycle_gbit_s": 2.3874192862701498,
+              "dominant_bytes": 536870912,
+              "data_ms": 1704.4,
+              "lifecycle_ms": 1799,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 2.6012605435131517,
+          "median_lifecycle_gbit_s": 2.46695421941413
+        },
+        "msgpack": {
+          "name": "websocket_rpc_msgpack_8m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 8.724767143434638,
+              "lifecycle_gbit_s": 7.5086840839160836,
+              "dominant_bytes": 536870912,
+              "data_ms": 492.273,
+              "lifecycle_ms": 572,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 8.752503593750319,
+              "lifecycle_gbit_s": 7.456540444444444,
+              "dominant_bytes": 536870912,
+              "data_ms": 490.713,
+              "lifecycle_ms": 576,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 8.53664883000312,
+              "lifecycle_gbit_s": 7.304366149659864,
+              "dominant_bytes": 536870912,
+              "data_ms": 503.121,
+              "lifecycle_ms": 588,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 8.724767143434638,
+          "median_lifecycle_gbit_s": 7.456540444444444
+        },
+        "cbor": {
+          "name": "websocket_rpc_cbor_8m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 8.509873700228253,
+              "lifecycle_gbit_s": 7.040929993442623,
+              "dominant_bytes": 536870912,
+              "data_ms": 504.704,
+              "lifecycle_ms": 610,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 8.326048801291856,
+              "lifecycle_gbit_s": 6.88296041025641,
+              "dominant_bytes": 536870912,
+              "data_ms": 515.847,
+              "lifecycle_ms": 624,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 8.117588360480367,
+              "lifecycle_gbit_s": 6.721388569640062,
+              "dominant_bytes": 536870912,
+              "data_ms": 529.094,
+              "lifecycle_ms": 639,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 8.326048801291856,
+          "median_lifecycle_gbit_s": 6.88296041025641
+        },
+        "flatbuffers": {
+          "name": "websocket_rpc_flatbuffers_8m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 3.700892612117651,
+              "lifecycle_gbit_s": 3.392549206951027,
+              "dominant_bytes": 536870912,
+              "data_ms": 1160.522,
+              "lifecycle_ms": 1266,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 3.7420691020359804,
+              "lifecycle_gbit_s": 3.422284698007968,
+              "dominant_bytes": 536870912,
+              "data_ms": 1147.752,
+              "lifecycle_ms": 1255,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 3.441700826976088,
+              "lifecycle_gbit_s": 3.158064188235294,
+              "dominant_bytes": 536870912,
+              "data_ms": 1247.92,
+              "lifecycle_ms": 1360,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 3.700892612117651,
+          "median_lifecycle_gbit_s": 3.392549206951027
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "rawsocket_tls_rpc_json_60m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 0.7535608514524622,
+              "lifecycle_gbit_s": 0.6850173256209595,
+              "dominant_bytes": 503316480,
+              "data_ms": 5343.34,
+              "lifecycle_ms": 5878,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 0.7853141543833699,
+              "lifecycle_gbit_s": 0.7111500953726598,
+              "dominant_bytes": 503316480,
+              "data_ms": 5127.288,
+              "lifecycle_ms": 5662,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 0.7930069882141955,
+              "lifecycle_gbit_s": 0.7162098612593383,
+              "dominant_bytes": 503316480,
+              "data_ms": 5077.549,
+              "lifecycle_ms": 5622,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 0.7853141543833699,
+          "median_lifecycle_gbit_s": 0.7111500953726598
+        },
+        "msgpack": {
+          "name": "rawsocket_tls_rpc_msgpack_60m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 1.073022183788739,
+              "lifecycle_gbit_s": 0.9584698500357058,
+              "dominant_bytes": 503316480,
+              "data_ms": 3752.515,
+              "lifecycle_ms": 4201,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 1.06880565197691,
+              "lifecycle_gbit_s": 0.957785880114177,
+              "dominant_bytes": 503316480,
+              "data_ms": 3767.319,
+              "lifecycle_ms": 4204,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 1.0859464137621346,
+              "lifecycle_gbit_s": 0.9702486361445783,
+              "dominant_bytes": 503316480,
+              "data_ms": 3707.855,
+              "lifecycle_ms": 4150,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 1.073022183788739,
+          "median_lifecycle_gbit_s": 0.9584698500357058
+        },
+        "cbor": {
+          "name": "rawsocket_tls_rpc_cbor_60m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 1.0664481716643532,
+              "lifecycle_gbit_s": 0.9128387757878033,
+              "dominant_bytes": 503316480,
+              "data_ms": 3775.647,
+              "lifecycle_ms": 4411,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 1.0606008382012415,
+              "lifecycle_gbit_s": 0.9113924490719783,
+              "dominant_bytes": 503316480,
+              "data_ms": 3796.463,
+              "lifecycle_ms": 4418,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 1.0635959693293733,
+              "lifecycle_gbit_s": 0.9118052173913043,
+              "dominant_bytes": 503316480,
+              "data_ms": 3785.772,
+              "lifecycle_ms": 4416,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 1.0635959693293733,
+          "median_lifecycle_gbit_s": 0.9118052173913043
+        },
+        "flatbuffers": {
+          "name": "rawsocket_tls_rpc_flatbuffers_60m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 0.9074629169163587,
+              "lifecycle_gbit_s": 0.7924683802401102,
+              "dominant_bytes": 503316480,
+              "data_ms": 4437.131,
+              "lifecycle_ms": 5081,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 0.9255233343125207,
+              "lifecycle_gbit_s": 0.8062738966760112,
+              "dominant_bytes": 503316480,
+              "data_ms": 4350.546,
+              "lifecycle_ms": 4994,
+              "samples": 8
+            },
+            {
+              "data_gbit_s": 0.9137253648972478,
+              "lifecycle_gbit_s": 0.7984397858417608,
+              "dominant_bytes": 503316480,
+              "data_ms": 4406.72,
+              "lifecycle_ms": 5043,
+              "samples": 8
+            }
+          ],
+          "median_data_gbit_s": 0.9137253648972478,
+          "median_lifecycle_gbit_s": 0.7984397858417608
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_tls_rpc_json_8m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 0.7961513244017883,
+              "lifecycle_gbit_s": 0.7816137026387625,
+              "dominant_bytes": 536870912,
+              "data_ms": 5394.662,
+              "lifecycle_ms": 5495,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 0.800012833085877,
+              "lifecycle_gbit_s": 0.7857605737285034,
+              "dominant_bytes": 536870912,
+              "data_ms": 5368.623,
+              "lifecycle_ms": 5466,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 0.8088790350329214,
+              "lifecycle_gbit_s": 0.7943346210467912,
+              "dominant_bytes": 536870912,
+              "data_ms": 5309.777,
+              "lifecycle_ms": 5407,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 0.800012833085877,
+          "median_lifecycle_gbit_s": 0.7857605737285034
+        },
+        "msgpack": {
+          "name": "websocket_tls_rpc_msgpack_8m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 0.9952776199173833,
+              "lifecycle_gbit_s": 0.9765728276489313,
+              "dominant_bytes": 536870912,
+              "data_ms": 4315.346,
+              "lifecycle_ms": 4398,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 1.0491725632079374,
+              "lifecycle_gbit_s": 1.027504137799043,
+              "dominant_bytes": 536870912,
+              "data_ms": 4093.671,
+              "lifecycle_ms": 4180,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 0.9873942011126948,
+              "lifecycle_gbit_s": 0.9682072353471596,
+              "dominant_bytes": 536870912,
+              "data_ms": 4349.8,
+              "lifecycle_ms": 4436,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 0.9952776199173833,
+          "median_lifecycle_gbit_s": 0.9765728276489313
+        },
+        "cbor": {
+          "name": "websocket_tls_rpc_cbor_8m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 0.9964182715038908,
+              "lifecycle_gbit_s": 0.9706140781920903,
+              "dominant_bytes": 536870912,
+              "data_ms": 4310.406,
+              "lifecycle_ms": 4425,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 1.0109535226172857,
+              "lifecycle_gbit_s": 0.9844068980059593,
+              "dominant_bytes": 536870912,
+              "data_ms": 4248.432,
+              "lifecycle_ms": 4363,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 0.9857516593803879,
+              "lifecycle_gbit_s": 0.9612728952551477,
+              "dominant_bytes": 536870912,
+              "data_ms": 4357.048,
+              "lifecycle_ms": 4468,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 0.9964182715038908,
+          "median_lifecycle_gbit_s": 0.9706140781920903
+        },
+        "flatbuffers": {
+          "name": "websocket_tls_rpc_flatbuffers_8m_dart",
+          "runs": [
+            {
+              "data_gbit_s": 0.9027007869845318,
+              "lifecycle_gbit_s": 0.8813805245228812,
+              "dominant_bytes": 536870912,
+              "data_ms": 4757.908,
+              "lifecycle_ms": 4873,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 0.8660056803952968,
+              "lifecycle_gbit_s": 0.8461322490149725,
+              "dominant_bytes": 536870912,
+              "data_ms": 4959.514,
+              "lifecycle_ms": 5076,
+              "samples": 64
+            },
+            {
+              "data_gbit_s": 0.8847718169499262,
+              "lifecycle_gbit_s": 0.8645264283413848,
+              "dominant_bytes": 536870912,
+              "data_ms": 4854.322,
+              "lifecycle_ms": 4968,
+              "samples": 64
+            }
+          ],
+          "median_data_gbit_s": 0.8847718169499262,
+          "median_lifecycle_gbit_s": 0.8645264283413848
+        }
+      }
+    }
+  ],
+  "wamp_websocket_fragmentation_throughput": [
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_rpc_json_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 17.36617349323543,
+              "lifecycle_gbit_s": 13.634816812698412,
+              "dominant_bytes": 536870912,
+              "data_ms": 247.318,
+              "lifecycle_ms": 315,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 19.24708287287866,
+              "lifecycle_gbit_s": 14.658591453924915,
+              "dominant_bytes": 536870912,
+              "data_ms": 223.149,
+              "lifecycle_ms": 293,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 18.303171420413623,
+              "lifecycle_gbit_s": 14.174809557755776,
+              "dominant_bytes": 536870912,
+              "data_ms": 234.657,
+              "lifecycle_ms": 303,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 18.303171420413623,
+          "median_lifecycle_gbit_s": 14.174809557755776
+        },
+        "msgpack": {
+          "name": "websocket_rpc_msgpack_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 26.061536616889462,
+              "lifecycle_gbit_s": 18.51279006896552,
+              "dominant_bytes": 536870912,
+              "data_ms": 164.801,
+              "lifecycle_ms": 232,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 23.907682223013893,
+              "lifecycle_gbit_s": 17.747798743801653,
+              "dominant_bytes": 536870912,
+              "data_ms": 179.648,
+              "lifecycle_ms": 242,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 27.005409271822987,
+              "lifecycle_gbit_s": 19.259943031390133,
+              "dominant_bytes": 536870912,
+              "data_ms": 159.041,
+              "lifecycle_ms": 223,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 26.061536616889462,
+          "median_lifecycle_gbit_s": 18.51279006896552
+        },
+        "cbor": {
+          "name": "websocket_rpc_cbor_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 14.051453562782175,
+              "lifecycle_gbit_s": 10.984571089514068,
+              "dominant_bytes": 536870912,
+              "data_ms": 305.66,
+              "lifecycle_ms": 391,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 12.534121951077156,
+              "lifecycle_gbit_s": 10.058471419203746,
+              "dominant_bytes": 536870912,
+              "data_ms": 342.662,
+              "lifecycle_ms": 427,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 11.631313782467048,
+              "lifecycle_gbit_s": 9.481164008830023,
+              "dominant_bytes": 536870912,
+              "data_ms": 369.259,
+              "lifecycle_ms": 453,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 12.534121951077156,
+          "median_lifecycle_gbit_s": 10.058471419203746
+        },
+        "flatbuffers": {
+          "name": "websocket_rpc_flatbuffers_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 11.036933009546571,
+              "lifecycle_gbit_s": 8.966528801670146,
+              "dominant_bytes": 536870912,
+              "data_ms": 389.145,
+              "lifecycle_ms": 479,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 11.148606727631881,
+              "lifecycle_gbit_s": 8.966528801670146,
+              "dominant_bytes": 536870912,
+              "data_ms": 385.247,
+              "lifecycle_ms": 479,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 11.255007916562937,
+              "lifecycle_gbit_s": 8.985287230125522,
+              "dominant_bytes": 536870912,
+              "data_ms": 381.605,
+              "lifecycle_ms": 478,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 11.148606727631881,
+          "median_lifecycle_gbit_s": 8.966528801670146
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_rpc_json_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 9.026491843520002,
+              "lifecycle_gbit_s": 7.851859773308958,
+              "dominant_bytes": 536870912,
+              "data_ms": 475.818,
+              "lifecycle_ms": 547,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.523789981741686,
+              "lifecycle_gbit_s": 7.495579923211169,
+              "dominant_bytes": 536870912,
+              "data_ms": 503.88,
+              "lifecycle_ms": 573,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.536563993910073,
+              "lifecycle_gbit_s": 7.56156214084507,
+              "dominant_bytes": 536870912,
+              "data_ms": 503.126,
+              "lifecycle_ms": 568,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 8.536563993910073,
+          "median_lifecycle_gbit_s": 7.56156214084507
+        },
+        "msgpack": {
+          "name": "websocket_rpc_msgpack_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 9.429375298580863,
+              "lifecycle_gbit_s": 8.339742322330096,
+              "dominant_bytes": 536870912,
+              "data_ms": 455.488,
+              "lifecycle_ms": 515,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 9.371437508727832,
+              "lifecycle_gbit_s": 8.243699224568138,
+              "dominant_bytes": 536870912,
+              "data_ms": 458.304,
+              "lifecycle_ms": 521,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 10.177044715360465,
+              "lifecycle_gbit_s": 8.873899371900826,
+              "dominant_bytes": 536870912,
+              "data_ms": 422.025,
+              "lifecycle_ms": 484,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 9.429375298580863,
+          "median_lifecycle_gbit_s": 8.339742322330096
+        },
+        "cbor": {
+          "name": "websocket_rpc_cbor_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 8.483835742207948,
+              "lifecycle_gbit_s": 7.3292957269624575,
+              "dominant_bytes": 536870912,
+              "data_ms": 506.253,
+              "lifecycle_ms": 586,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.368650729412865,
+              "lifecycle_gbit_s": 7.316809703577513,
+              "dominant_bytes": 536870912,
+              "data_ms": 513.221,
+              "lifecycle_ms": 587,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 7.261574727160524,
+              "lifecycle_gbit_s": 6.400845448584203,
+              "dominant_bytes": 536870912,
+              "data_ms": 591.465,
+              "lifecycle_ms": 671,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 8.368650729412865,
+          "median_lifecycle_gbit_s": 7.316809703577513
+        },
+        "flatbuffers": {
+          "name": "websocket_rpc_flatbuffers_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 9.36277553582951,
+              "lifecycle_gbit_s": 7.9832105873605945,
+              "dominant_bytes": 536870912,
+              "data_ms": 458.728,
+              "lifecycle_ms": 538,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 9.271060893741392,
+              "lifecycle_gbit_s": 7.953643140740741,
+              "dominant_bytes": 536870912,
+              "data_ms": 463.266,
+              "lifecycle_ms": 540,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 10.05220938712652,
+              "lifecycle_gbit_s": 8.55571174501992,
+              "dominant_bytes": 536870912,
+              "data_ms": 427.266,
+              "lifecycle_ms": 502,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 9.36277553582951,
+          "median_lifecycle_gbit_s": 7.9832105873605945
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_pubsub_json_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 8.819868565502654,
+              "lifecycle_gbit_s": 7.615190241134751,
+              "dominant_bytes": 536870912,
+              "data_ms": 486.965,
+              "lifecycle_ms": 564,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 7.281827160828726,
+              "lifecycle_gbit_s": 6.4199810104633785,
+              "dominant_bytes": 536870912,
+              "data_ms": 589.82,
+              "lifecycle_ms": 669,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 7.374397846213015,
+              "lifecycle_gbit_s": 6.497681234493192,
+              "dominant_bytes": 536870912,
+              "data_ms": 582.416,
+              "lifecycle_ms": 661,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 7.374397846213015,
+          "median_lifecycle_gbit_s": 6.497681234493192
+        },
+        "msgpack": {
+          "name": "websocket_pubsub_msgpack_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 13.035158156064961,
+              "lifecycle_gbit_s": 10.501142533007336,
+              "dominant_bytes": 536870912,
+              "data_ms": 329.491,
+              "lifecycle_ms": 409,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 12.342392045634151,
+              "lifecycle_gbit_s": 10.034970317757008,
+              "dominant_bytes": 536870912,
+              "data_ms": 347.985,
+              "lifecycle_ms": 428,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 12.166873828982592,
+              "lifecycle_gbit_s": 9.89623800921659,
+              "dominant_bytes": 536870912,
+              "data_ms": 353.005,
+              "lifecycle_ms": 434,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 12.342392045634151,
+          "median_lifecycle_gbit_s": 10.034970317757008
+        },
+        "cbor": {
+          "name": "websocket_pubsub_cbor_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 4.571214958363844,
+              "lifecycle_gbit_s": 4.106087281070746,
+              "dominant_bytes": 536870912,
+              "data_ms": 939.568,
+              "lifecycle_ms": 1046,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.650920874184864,
+              "lifecycle_gbit_s": 4.190211996097561,
+              "dominant_bytes": 536870912,
+              "data_ms": 923.466,
+              "lifecycle_ms": 1025,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.84043057732858,
+              "lifecycle_gbit_s": 4.382619689795919,
+              "dominant_bytes": 536870912,
+              "data_ms": 887.311,
+              "lifecycle_ms": 980,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 4.650920874184864,
+          "median_lifecycle_gbit_s": 4.190211996097561
+        },
+        "flatbuffers": {
+          "name": "websocket_pubsub_flatbuffers_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 8.164638568943722,
+              "lifecycle_gbit_s": 6.850027585326954,
+              "dominant_bytes": 536870912,
+              "data_ms": 526.045,
+              "lifecycle_ms": 627,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.203563173647549,
+              "lifecycle_gbit_s": 6.785098413902054,
+              "dominant_bytes": 536870912,
+              "data_ms": 523.549,
+              "lifecycle_ms": 633,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.0879175496907,
+              "lifecycle_gbit_s": 6.785098413902054,
+              "dominant_bytes": 536870912,
+              "data_ms": 531.035,
+              "lifecycle_ms": 633,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 8.164638568943722,
+          "median_lifecycle_gbit_s": 6.785098413902054
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_pubsub_json_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 6.698619552943672,
+              "lifecycle_gbit_s": 5.907795455295736,
+              "dominant_bytes": 536870912,
+              "data_ms": 641.172,
+              "lifecycle_ms": 727,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 6.408476406331832,
+              "lifecycle_gbit_s": 5.666183767810026,
+              "dominant_bytes": 536870912,
+              "data_ms": 670.201,
+              "lifecycle_ms": 758,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 6.34211238397316,
+              "lifecycle_gbit_s": 5.599696604954367,
+              "dominant_bytes": 536870912,
+              "data_ms": 677.214,
+              "lifecycle_ms": 767,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 6.408476406331832,
+          "median_lifecycle_gbit_s": 5.666183767810026
+        },
+        "msgpack": {
+          "name": "websocket_pubsub_msgpack_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 7.3350912000437205,
+              "lifecycle_gbit_s": 6.458597437593985,
+              "dominant_bytes": 536870912,
+              "data_ms": 585.537,
+              "lifecycle_ms": 665,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 7.12547787684028,
+              "lifecycle_gbit_s": 6.316128376470588,
+              "dominant_bytes": 536870912,
+              "data_ms": 602.762,
+              "lifecycle_ms": 680,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 7.280963054128736,
+              "lifecycle_gbit_s": 6.429591760479043,
+              "dominant_bytes": 536870912,
+              "data_ms": 589.89,
+              "lifecycle_ms": 668,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 7.280963054128736,
+          "median_lifecycle_gbit_s": 6.429591760479043
+        },
+        "cbor": {
+          "name": "websocket_pubsub_cbor_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 4.802682920992749,
+              "lifecycle_gbit_s": 4.338350804040404,
+              "dominant_bytes": 536870912,
+              "data_ms": 894.285,
+              "lifecycle_ms": 990,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.709202911723976,
+              "lifecycle_gbit_s": 4.269351188866799,
+              "dominant_bytes": 536870912,
+              "data_ms": 912.037,
+              "lifecycle_ms": 1006,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.388122753943466,
+              "lifecycle_gbit_s": 3.999038450651769,
+              "dominant_bytes": 536870912,
+              "data_ms": 978.771,
+              "lifecycle_ms": 1074,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 4.709202911723976,
+          "median_lifecycle_gbit_s": 4.269351188866799
+        },
+        "flatbuffers": {
+          "name": "websocket_pubsub_flatbuffers_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 6.922286541328541,
+              "lifecycle_gbit_s": 6.006947267132867,
+              "dominant_bytes": 536870912,
+              "data_ms": 620.455,
+              "lifecycle_ms": 715,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 6.91093641246456,
+              "lifecycle_gbit_s": 5.990191486750349,
+              "dominant_bytes": 536870912,
+              "data_ms": 621.474,
+              "lifecycle_ms": 717,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 6.621639120232615,
+              "lifecycle_gbit_s": 5.734268753004005,
+              "dominant_bytes": 536870912,
+              "data_ms": 648.626,
+              "lifecycle_ms": 749,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 6.91093641246456,
+          "median_lifecycle_gbit_s": 5.990191486750349
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_tls_rpc_json_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 9.97303497438803,
+              "lifecycle_gbit_s": 8.538702377733598,
+              "dominant_bytes": 536870912,
+              "data_ms": 430.658,
+              "lifecycle_ms": 503,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 10.422477040042516,
+              "lifecycle_gbit_s": 8.929245937629938,
+              "dominant_bytes": 536870912,
+              "data_ms": 412.087,
+              "lifecycle_ms": 481,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 10.302004039279836,
+              "lifecycle_gbit_s": 8.819234694045175,
+              "dominant_bytes": 536870912,
+              "data_ms": 416.906,
+              "lifecycle_ms": 487,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 10.302004039279836,
+          "median_lifecycle_gbit_s": 8.819234694045175
+        },
+        "msgpack": {
+          "name": "websocket_tls_rpc_msgpack_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 12.376821008769022,
+              "lifecycle_gbit_s": 10.475529990243903,
+              "dominant_bytes": 536870912,
+              "data_ms": 347.017,
+              "lifecycle_ms": 410,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 12.382458855039081,
+              "lifecycle_gbit_s": 10.52688062745098,
+              "dominant_bytes": 536870912,
+              "data_ms": 346.859,
+              "lifecycle_ms": 408,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 12.317755472767372,
+              "lifecycle_gbit_s": 10.399436552058113,
+              "dominant_bytes": 536870912,
+              "data_ms": 348.681,
+              "lifecycle_ms": 413,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 12.376821008769022,
+          "median_lifecycle_gbit_s": 10.475529990243903
+        },
+        "cbor": {
+          "name": "websocket_tls_rpc_cbor_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 8.747476646401694,
+              "lifecycle_gbit_s": 7.521834143607705,
+              "dominant_bytes": 536870912,
+              "data_ms": 490.995,
+              "lifecycle_ms": 571,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.583239665061253,
+              "lifecycle_gbit_s": 7.41790551986183,
+              "dominant_bytes": 536870912,
+              "data_ms": 500.39,
+              "lifecycle_ms": 579,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.348901797117227,
+              "lifecycle_gbit_s": 7.242777902192242,
+              "dominant_bytes": 536870912,
+              "data_ms": 514.435,
+              "lifecycle_ms": 593,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 8.583239665061253,
+          "median_lifecycle_gbit_s": 7.41790551986183
+        },
+        "flatbuffers": {
+          "name": "websocket_tls_rpc_flatbuffers_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 11.153905054744145,
+              "lifecycle_gbit_s": 9.177280547008548,
+              "dominant_bytes": 536870912,
+              "data_ms": 385.064,
+              "lifecycle_ms": 468,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 10.950934077169613,
+              "lifecycle_gbit_s": 9.099506983050848,
+              "dominant_bytes": 536870912,
+              "data_ms": 392.201,
+              "lifecycle_ms": 472,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 11.08627561800972,
+              "lifecycle_gbit_s": 9.196932111349037,
+              "dominant_bytes": 536870912,
+              "data_ms": 387.413,
+              "lifecycle_ms": 467,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 11.08627561800972,
+          "median_lifecycle_gbit_s": 9.177280547008548
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_tls_rpc_json_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 8.952082122170275,
+              "lifecycle_gbit_s": 7.809031447272727,
+              "dominant_bytes": 536870912,
+              "data_ms": 479.773,
+              "lifecycle_ms": 550,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.729909968433867,
+              "lifecycle_gbit_s": 7.64229056227758,
+              "dominant_bytes": 536870912,
+              "data_ms": 491.983,
+              "lifecycle_ms": 562,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 8.85978595254254,
+              "lifecycle_gbit_s": 7.724761323741007,
+              "dominant_bytes": 536870912,
+              "data_ms": 484.771,
+              "lifecycle_ms": 556,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 8.85978595254254,
+          "median_lifecycle_gbit_s": 7.724761323741007
+        },
+        "msgpack": {
+          "name": "websocket_tls_rpc_msgpack_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 9.388070820910528,
+              "lifecycle_gbit_s": 8.243699224568138,
+              "dominant_bytes": 536870912,
+              "data_ms": 457.492,
+              "lifecycle_ms": 521,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 9.104271294512172,
+              "lifecycle_gbit_s": 7.9832105873605945,
+              "dominant_bytes": 536870912,
+              "data_ms": 471.753,
+              "lifecycle_ms": 538,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 9.741871986971423,
+              "lifecycle_gbit_s": 8.504885734653465,
+              "dominant_bytes": 536870912,
+              "data_ms": 440.877,
+              "lifecycle_ms": 505,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 9.388070820910528,
+          "median_lifecycle_gbit_s": 8.243699224568138
+        },
+        "cbor": {
+          "name": "websocket_tls_rpc_cbor_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 8.685738285286712,
+              "lifecycle_gbit_s": 7.456540444444444,
+              "dominant_bytes": 536870912,
+              "data_ms": 494.485,
+              "lifecycle_ms": 576,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 7.078819082465985,
+              "lifecycle_gbit_s": 6.279191953216374,
+              "dominant_bytes": 536870912,
+              "data_ms": 606.735,
+              "lifecycle_ms": 684,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 7.9798139750923855,
+              "lifecycle_gbit_s": 6.949785268608415,
+              "dominant_bytes": 536870912,
+              "data_ms": 538.229,
+              "lifecycle_ms": 618,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 7.9798139750923855,
+          "median_lifecycle_gbit_s": 6.949785268608415
+        },
+        "flatbuffers": {
+          "name": "websocket_tls_rpc_flatbuffers_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 9.886055827293086,
+              "lifecycle_gbit_s": 8.323580031007753,
+              "dominant_bytes": 536870912,
+              "data_ms": 434.447,
+              "lifecycle_ms": 516,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 9.350443569262387,
+              "lifecycle_gbit_s": 7.880673937614679,
+              "dominant_bytes": 536870912,
+              "data_ms": 459.333,
+              "lifecycle_ms": 545,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 9.620588206569826,
+              "lifecycle_gbit_s": 8.134407757575758,
+              "dominant_bytes": 536870912,
+              "data_ms": 446.435,
+              "lifecycle_ms": 528,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 9.620588206569826,
+          "median_lifecycle_gbit_s": 8.134407757575758
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_tls_pubsub_json_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 4.250023299606659,
+              "lifecycle_gbit_s": 3.9045157236363637,
+              "dominant_bytes": 536870912,
+              "data_ms": 1010.575,
+              "lifecycle_ms": 1100,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.364214284044941,
+              "lifecycle_gbit_s": 3.999038450651769,
+              "dominant_bytes": 536870912,
+              "data_ms": 984.133,
+              "lifecycle_ms": 1074,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.0931153142764565,
+              "lifecycle_gbit_s": 3.7543420419580418,
+              "dominant_bytes": 536870912,
+              "data_ms": 1049.315,
+              "lifecycle_ms": 1144,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 4.250023299606659,
+          "median_lifecycle_gbit_s": 3.9045157236363637
+        },
+        "msgpack": {
+          "name": "websocket_tls_pubsub_msgpack_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 5.197459331840036,
+              "lifecycle_gbit_s": 4.673522628944505,
+              "dominant_bytes": 536870912,
+              "data_ms": 826.359,
+              "lifecycle_ms": 919,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 5.2842730421280955,
+              "lifecycle_gbit_s": 4.798846140782122,
+              "dominant_bytes": 536870912,
+              "data_ms": 812.783,
+              "lifecycle_ms": 895,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.903529650311168,
+              "lifecycle_gbit_s": 4.4096173470225875,
+              "dominant_bytes": 536870912,
+              "data_ms": 875.893,
+              "lifecycle_ms": 974,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 5.197459331840036,
+          "median_lifecycle_gbit_s": 4.673522628944505
+        },
+        "cbor": {
+          "name": "websocket_tls_pubsub_cbor_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 2.9461655627321965,
+              "lifecycle_gbit_s": 2.7269633625396827,
+              "dominant_bytes": 536870912,
+              "data_ms": 1457.816,
+              "lifecycle_ms": 1575,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 2.8358978514361177,
+              "lifecycle_gbit_s": 2.634949261349693,
+              "dominant_bytes": 536870912,
+              "data_ms": 1514.5,
+              "lifecycle_ms": 1630,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 2.944814170869087,
+              "lifecycle_gbit_s": 2.7321674910941476,
+              "dominant_bytes": 536870912,
+              "data_ms": 1458.485,
+              "lifecycle_ms": 1572,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 2.944814170869087,
+          "median_lifecycle_gbit_s": 2.7269633625396827
+        },
+        "flatbuffers": {
+          "name": "websocket_tls_pubsub_flatbuffers_4m_native_contiguous",
+          "runs": [
+            {
+              "data_gbit_s": 4.372571698505068,
+              "lifecycle_gbit_s": 3.9548501804788216,
+              "dominant_bytes": 536870912,
+              "data_ms": 982.252,
+              "lifecycle_ms": 1086,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.6162886862984935,
+              "lifecycle_gbit_s": 4.149726856038647,
+              "dominant_bytes": 536870912,
+              "data_ms": 930.394,
+              "lifecycle_ms": 1035,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.525686809550906,
+              "lifecycle_gbit_s": 4.082668532319391,
+              "dominant_bytes": 536870912,
+              "data_ms": 949.02,
+              "lifecycle_ms": 1052,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 4.525686809550906,
+          "median_lifecycle_gbit_s": 4.082668532319391
+        }
+      }
+    },
+    {
+      "workloads": {
+        "json": {
+          "name": "websocket_tls_pubsub_json_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 4.197111638156383,
+              "lifecycle_gbit_s": 3.8143581669627,
+              "dominant_bytes": 536870912,
+              "data_ms": 1023.315,
+              "lifecycle_ms": 1126,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 3.8287380365511323,
+              "lifecycle_gbit_s": 3.53204547368421,
+              "dominant_bytes": 536870912,
+              "data_ms": 1121.771,
+              "lifecycle_ms": 1216,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.146746006735255,
+              "lifecycle_gbit_s": 3.804222582816652,
+              "dominant_bytes": 536870912,
+              "data_ms": 1035.744,
+              "lifecycle_ms": 1129,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 4.146746006735255,
+          "median_lifecycle_gbit_s": 3.804222582816652
+        },
+        "msgpack": {
+          "name": "websocket_tls_pubsub_msgpack_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 5.135511942099202,
+              "lifecycle_gbit_s": 4.673522628944505,
+              "dominant_bytes": 536870912,
+              "data_ms": 836.327,
+              "lifecycle_ms": 919,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 4.822998856845117,
+              "lifecycle_gbit_s": 4.373693784114052,
+              "dominant_bytes": 536870912,
+              "data_ms": 890.518,
+              "lifecycle_ms": 982,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 5.096087546585951,
+              "lifecycle_gbit_s": 4.658315939262473,
+              "dominant_bytes": 536870912,
+              "data_ms": 842.797,
+              "lifecycle_ms": 922,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 5.096087546585951,
+          "median_lifecycle_gbit_s": 4.658315939262473
+        },
+        "cbor": {
+          "name": "websocket_tls_pubsub_cbor_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 3.1485167741349027,
+              "lifecycle_gbit_s": 2.913817704206241,
+              "dominant_bytes": 536870912,
+              "data_ms": 1364.124,
+              "lifecycle_ms": 1474,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 3.2689961296922254,
+              "lifecycle_gbit_s": 3.0267563749119097,
+              "dominant_bytes": 536870912,
+              "data_ms": 1313.849,
+              "lifecycle_ms": 1419,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 2.8741412950664773,
+              "lifecycle_gbit_s": 2.677660408977556,
+              "dominant_bytes": 536870912,
+              "data_ms": 1494.348,
+              "lifecycle_ms": 1604,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 3.1485167741349027,
+          "median_lifecycle_gbit_s": 2.913817704206241
+        },
+        "flatbuffers": {
+          "name": "websocket_tls_pubsub_flatbuffers_4m_native_fragmented_4k",
+          "runs": [
+            {
+              "data_gbit_s": 5.31289713559062,
+              "lifecycle_gbit_s": 4.735355342888644,
+              "dominant_bytes": 536870912,
+              "data_ms": 808.404,
+              "lifecycle_ms": 907,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 5.149377808950034,
+              "lifecycle_gbit_s": 4.5984660556745185,
+              "dominant_bytes": 536870912,
+              "data_ms": 834.075,
+              "lifecycle_ms": 934,
+              "samples": 128
+            },
+            {
+              "data_gbit_s": 5.449802176384603,
+              "lifecycle_gbit_s": 4.847592884875846,
+              "dominant_bytes": 536870912,
+              "data_ms": 788.096,
+              "lifecycle_ms": 886,
+              "samples": 128
+            }
+          ],
+          "median_data_gbit_s": 5.31289713559062,
+          "median_lifecycle_gbit_s": 4.735355342888644
+        }
+      }
+    }
+  ]
+}

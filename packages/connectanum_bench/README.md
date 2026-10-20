@@ -43,7 +43,7 @@ delivery and have no numeric performance gate.
 | Profile results | 19 of 20 passed: 15 of 16 performance profiles and all 4 delivery-only smoke profiles |
 | Open performance limit | The 64 KiB TCP broker CPU ratio was 4.294× against a 4.0× cap |
 | MQTT ↔ WAMP translation | No benchmark yet; the live gateway is pending |
-| Typed FlatBuffers parity | No accepted performance result yet |
+| Typed FlatBuffers PPT parity | No accepted performance result yet; outer-envelope measurements appear below |
 
 The [benchmark report](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.md)
 and [raw results](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
@@ -52,28 +52,26 @@ this measured run; QoS 0 does not guarantee delivery in every deployment.
 
 ## WAMP throughput
 
-Each cell gives **sustained / full-lifecycle throughput** in Gbit/s.
-The JSON, MessagePack, and CBOR results come from one local snapshot recorded
-on 2026-08-24. **— means FlatBuffers throughput was not recorded for that
-workload.** The [WAMP benchmark contract](../../docs/wamp_profile_benchmarks.md)
-describes the snapshot. The [FlatBuffers performance plan](../../docs/flatbuffers_performance_acceptance.md)
-tracks a separate comparison; these cells need matched runs of the workloads
-shown below.
+Each cell shows **sustained / full-lifecycle throughput** in Gbit/s; higher is better.
+The values are medians of three matched local runs on an Apple M3 Ultra.
+FlatBuffers means a FlatBuffers WAMP envelope with CBOR application fragments.
+The [raw measurements and run settings](../../docs/benchmarks/wamp-four-serializer-2026-10-20/README.md)
+are available for reproduction.
 
 ### 64 MiB file transfer
 
 | Transport and path | JSON (Gbit/s) | MessagePack (Gbit/s) | CBOR (Gbit/s) | FlatBuffers (Gbit/s) |
 | --- | ---: | ---: | ---: | ---: |
-| Native RawSocket | 16.102 / 14.913 | 18.242 / 16.843 | 19.174 / 17.180 | — |
-| Dart RawSocket, buffered | 5.292 / 4.804 | 9.491 / 8.013 | 12.007 / 9.630 | — |
-| Native RawSocket TLS | 13.262 / 12.504 | 18.340 / 16.943 | 17.324 / 15.966 | — |
-| Native WebSocket | 15.663 / 14.437 | 19.407 / 17.748 | 19.057 / 17.180 | — |
-| Dart WebSocket, buffered | 2.351 / 2.239 | 9.430 / 7.697 | 9.370 / 7.483 | — |
-| Native WebSocket TLS | 12.874 / 12.014 | 18.155 / 16.424 | 16.951 / 15.203 | — |
-| Native RawSocket + E2EE | 8.725 / 8.397 | 20.843 / 19.131 | 21.182 / 19.303 | — |
-| Native RawSocket TLS + E2EE | 8.592 / 8.244 | 18.097 / 16.777 | 17.853 / 16.487 | — |
-| Native WebSocket + E2EE | 8.516 / 8.142 | 20.891 / 18.921 | 19.218 / 17.424 | — |
-| Native WebSocket TLS + E2EE | 8.329 / 7.932 | 17.339 / 15.704 | 15.701 / 14.413 | — |
+| Native RawSocket | 10.269 / 9.806 | 16.581 / 15.312 | 16.019 / 14.559 | 2.277 / 2.237 |
+| Dart RawSocket, buffered | 5.666 / 5.113 | 10.837 / 8.911 | 10.721 / 8.837 | 1.072 / 1.050 |
+| Native RawSocket TLS | 6.152 / 5.986 | 12.124 / 11.453 | 12.308 / 11.624 | 2.298 / 2.269 |
+| Native WebSocket | 9.127 / 8.659 | 16.187 / 14.734 | 12.829 / 11.930 | 2.291 / 2.261 |
+| Dart WebSocket, buffered | 2.235 / 2.130 | 8.213 / 6.972 | 8.115 / 6.732 | 0.987 / 0.964 |
+| Native WebSocket TLS | 5.691 / 5.506 | 10.852 / 10.263 | 8.078 / 7.704 | 2.222 / 2.192 |
+| Native RawSocket + E2EE | 8.648 / 8.324 | 22.347 / 20.259 | 22.454 / 20.259 | 0.593 / 0.591 |
+| Native RawSocket TLS + E2EE | 7.518 / 7.261 | 12.216 / 11.561 | 12.379 / 11.703 | 0.594 / 0.592 |
+| Native WebSocket + E2EE | 8.391 / 8.035 | 20.216 / 18.276 | 16.130 / 14.759 | 0.594 / 0.592 |
+| Native WebSocket TLS + E2EE | 7.189 / 6.922 | 11.518 / 10.805 | 9.607 / 9.100 | 0.593 / 0.591 |
 
 Files use 4 MiB chunks.
 
@@ -81,33 +79,32 @@ Files use 4 MiB chunks.
 
 | Transport and path | JSON (Gbit/s) | MessagePack (Gbit/s) | CBOR (Gbit/s) | FlatBuffers (Gbit/s) |
 | --- | ---: | ---: | ---: | ---: |
-| Native RawSocket | 13.612 / 4.965 | 21.246 / 6.638 | 19.525 / 4.914 | — |
-| Native WebSocket | 6.816 / 5.949 | 9.132 / 7.809 | 6.644 / 5.674 | — |
-| Native RawSocket TLS | 8.820 / 4.146 | 11.417 / 5.150 | 10.798 / 4.067 | — |
-| Native WebSocket TLS | 5.578 / 4.965 | 6.613 / 5.828 | 5.276 / 4.628 | — |
-| Dart RawSocket | 2.411 / 1.851 | 19.749 / 6.547 | 18.651 / 4.810 | — |
-| Dart WebSocket | 2.616 / 2.475 | 7.886 / 6.883 | 7.306 / 6.216 | — |
-| Dart RawSocket TLS reference[^dart-tls] | 0.741 / 0.678 | 0.989 / 0.896 | 0.987 / 0.858 | — |
-| Dart WebSocket TLS reference[^dart-tls] | 0.717 / 0.706 | 0.934 / 0.917 | 0.929 / 0.906 | — |
+| Native RawSocket | 12.967 / 4.822 | 18.830 / 6.204 | 17.977 / 4.581 | 7.148 / 3.303 |
+| Native WebSocket | 7.599 / 6.537 | 10.901 / 9.061 | 7.166 / 6.032 | 5.452 / 4.777 |
+| Native RawSocket TLS | 9.453 / 4.212 | 11.678 / 5.142 | 10.946 / 3.971 | 6.075 / 3.064 |
+| Native WebSocket TLS | 6.145 / 5.409 | 8.617 / 7.392 | 5.544 / 4.831 | 4.854 / 4.312 |
+| Dart RawSocket | 2.475 / 1.863 | 18.835 / 6.243 | 16.972 / 4.623 | 4.550 / 2.640 |
+| Dart WebSocket | 2.601 / 2.467 | 8.725 / 7.457 | 8.326 / 6.883 | 3.701 / 3.393 |
+| Dart RawSocket TLS reference[^dart-tls] | 0.785 / 0.711 | 1.073 / 0.958 | 1.064 / 0.912 | 0.914 / 0.798 |
+| Dart WebSocket TLS reference[^dart-tls] | 0.800 / 0.786 | 0.995 / 0.977 | 0.996 / 0.971 | 0.885 / 0.865 |
 
-RawSocket frames are 64 MiB; WebSocket frames are 8 MiB.
+RawSocket frames are 60 MiB; WebSocket frames are 8 MiB.
 
 ### WebSocket fragmentation and Pub/Sub
 
 | Transport and workload | JSON (Gbit/s) | MessagePack (Gbit/s) | CBOR (Gbit/s) | FlatBuffers (Gbit/s) |
 | --- | ---: | ---: | ---: | ---: |
-| WebSocket RPC, contiguous | 18.156 / 14.364 | 26.577 / 19.089 | 12.631 / 10.154 | — |
-| WebSocket RPC, 4 KiB fragments | 8.761 / 7.683 | 11.047 / 9.460 | 7.444 / 6.557 | — |
-| WebSocket Pub/Sub, contiguous | 6.962 / 6.032 | 11.818 / 9.673 | 4.229 / 3.825 | — |
-| WebSocket Pub/Sub, 4 KiB fragments | 6.706 / 5.884 | 7.232 / 6.363 | 4.515 / 4.090 | — |
-| WebSocket TLS RPC, contiguous | 9.469 / 8.212 | 12.251 / 10.399 | 7.977 / 6.961 | — |
-| WebSocket TLS RPC, 4 KiB fragments | 8.134 / 7.206 | 8.981 / 7.954 | 6.969 / 6.180 | — |
-| WebSocket TLS Pub/Sub, contiguous | 3.472 / 3.208 | 4.715 / 4.265 | 2.725 / 2.540 | — |
-| WebSocket TLS Pub/Sub, 4 KiB fragments | 3.635 / 3.363 | 4.620 / 4.215 | 2.517 / 2.355 | — |
+| WebSocket RPC, contiguous | 18.303 / 14.175 | 26.062 / 18.513 | 12.534 / 10.058 | 11.149 / 8.967 |
+| WebSocket RPC, 4 KiB fragments | 8.537 / 7.562 | 9.429 / 8.340 | 8.369 / 7.317 | 9.363 / 7.983 |
+| WebSocket Pub/Sub, contiguous | 7.374 / 6.498 | 12.342 / 10.035 | 4.651 / 4.190 | 8.165 / 6.785 |
+| WebSocket Pub/Sub, 4 KiB fragments | 6.408 / 5.666 | 7.281 / 6.430 | 4.709 / 4.269 | 6.911 / 5.990 |
+| WebSocket TLS RPC, contiguous | 10.302 / 8.819 | 12.377 / 10.476 | 8.583 / 7.418 | 11.086 / 9.177 |
+| WebSocket TLS RPC, 4 KiB fragments | 8.860 / 7.725 | 9.388 / 8.244 | 7.980 / 6.950 | 9.621 / 8.134 |
+| WebSocket TLS Pub/Sub, contiguous | 4.250 / 3.905 | 5.197 / 4.674 | 2.945 / 2.727 | 4.526 / 4.083 |
+| WebSocket TLS Pub/Sub, 4 KiB fragments | 4.147 / 3.804 | 5.096 / 4.658 | 3.149 / 2.914 | 5.313 / 4.735 |
 
 Fragmented rows use 4 MiB payloads split into 4 KiB frames with four messages
-in flight. The [hosted WAMP profile run](https://github.com/konsultaner/connectanum-dart/actions/runs/29580331118)
-passed its performance policies. These measurements are workload-specific.
+in flight. These local results are diagnostic; the [WAMP benchmark contract](../../docs/wamp_profile_benchmarks.md) identifies release gates.
 
 [^dart-tls]: Dart TLS rows are reference measurements; native TLS is the production secure path.
 
