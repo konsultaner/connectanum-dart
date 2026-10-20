@@ -102,6 +102,11 @@ Status: active. Started: 2026-10-03.
   current APIs and exported-view lifetimes. Verify source identity, edits and
   clones, disposal orders, foreign/old-library fallback and E2EE/transcodes
   before using equivalent native benchmark construction paths.
+  Implementation started after the matched Linux comparison: add a core packed
+  byte source, retain it through session preparation, and recognize only the
+  final native lease type in transport. Access to mutable message arguments
+  must drop its native eligibility. Detached copies must drop source identity.
+  Existing packed/deferred factories and public native helpers retain behavior.
   Another active job currently holds the preserved shared local resource lease;
   local native verification and companion review of the new tool are blocked.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI

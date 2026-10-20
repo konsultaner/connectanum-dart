@@ -457,6 +457,24 @@ jobs:
             2>&1 | tee out/wamp-native-ppt-view-setup/native-build.log
           git diff --exit-code
           test -z "$(git status --porcelain)"
+      - name: Validate packed-source and native lease contracts
+        run: |
+          set -euo pipefail
+          export CONNECTANUM_NATIVE_LIB="$RUNNER_TEMP/native-view-ffi-test/release/libct_ffi.so"
+          export CONNECTANUM_SKIP_NATIVE_BUILD=1
+          dart analyze 2>&1 | tee out/wamp-native-ppt-view-setup/analyze.log
+          (cd packages/connectanum_core && dart test \
+            test/message_packed_payload_source_test.dart \
+            test/message_lazy_payload_regression_test.dart \
+            test/message_flatbuffers_ppt_view_test.dart --reporter expanded) \
+            2>&1 | tee out/wamp-native-ppt-view-setup/core-contracts.log
+          (cd packages/connectanum_client && dart test \
+            test/session_lazy_reply_test.dart \
+            test/transport/native/native_ppt_payload_lease_test.dart \
+            test/transport/native/flatbuffers_profile_test.dart \
+            test/transport/native/native_owned_segments_test.dart \
+            --concurrency 1 --reporter expanded) \
+            2>&1 | tee out/wamp-native-ppt-view-setup/native-contracts.log
       - name: Run source-attributed control and private native prototype
         run: |
           set -euo pipefail

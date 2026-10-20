@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -45,6 +46,126 @@ void main() {
     flat.Serializer(),
     SocketHelper.serializationFlatBuffers,
   );
+
+  test(
+    'leased FlatBuffers PPT survives producer disposal and repeated lazy sends',
+    () async {
+      final peer = await _Peer.start('ppt-echo');
+      final client = transport(peer);
+      NativeOwnedBuffer? producer;
+      NativePptPayloadLease? lease;
+      try {
+        await client.open();
+        await client.onReady.timeout(const Duration(seconds: 5));
+        final session = await Session.start('realm', client);
+        producer = _typedEntity(client.nativeBuffers, 61);
+        lease = producer.leaseFlatBuffersPptPayload();
+        producer.dispose();
+        for (var iteration = 0; iteration < 2; iteration++) {
+          final payload = lease.payload
+              .withAnchor(Object())
+              .withE2eeRuntimeContext(
+                const WampE2eeRuntimeContext(
+                  direction: WampE2eeDirection.outbound,
+                  messageType: WampE2eeMessageType.call,
+                  realm: 'realm',
+                  uri: 'com.entity.read',
+                ),
+              );
+          final result = await session
+              .callLazyPayload(
+                'com.entity.read',
+                payload: payload,
+                options: CallOptions(
+                  pptScheme: 'x_flatbuffers',
+                  pptSerializer: 'flatbuffers',
+                ),
+              )
+              .first
+              .timeout(const Duration(seconds: 5));
+          final entity =
+              wire.Message(result.arguments!.single as Uint8List).msg
+                  as wire.Call;
+          expect(entity.request, 61);
+          expect(entity.procedure, 'com.example.entity');
+          expect(lease.hasExportedByteView, isFalse);
+        }
+        lease.dispose();
+        await session.close();
+        await session.onGoodbye.timeout(const Duration(seconds: 5));
+        expect(await peer.close(), [1, 48, 48, 6]);
+      } finally {
+        producer?.dispose();
+        lease?.dispose();
+        await client.close();
+        await peer.dispose();
+      }
+    },
+  );
+
+  for (final foreign in [false, true]) {
+    test(
+      'leased payload safely falls back for ${foreign ? 'foreign library' : 'Dart transport'}',
+      () async {
+        final peer = await _Peer.start('ppt-echo');
+        final AbstractTransport client = foreign
+            ? transport(peer)
+            : SocketTransport.withFlatBuffersSerializer('127.0.0.1', peer.port);
+        Directory? directory;
+        NativeOwnedBuffer? producer;
+        NativePptPayloadLease? lease;
+        try {
+          var allocator = NativeBufferAllocator.instance();
+          if (foreign) {
+            directory = await Directory.systemTemp.createTemp(
+              'connectanum-lease-foreign-',
+            );
+            final copied =
+                await File(NativeClientRuntime.instance().libraryPath).copy(
+                  '${directory.path}/native.${Platform.isMacOS ? 'dylib' : 'so'}',
+                );
+            allocator = NativeBufferAllocator(DynamicLibrary.open(copied.path));
+          }
+          await client.open();
+          await client.onReady.timeout(const Duration(seconds: 5));
+          final session = await Session.start('realm', client);
+          producer = _typedEntity(allocator, 62);
+          lease = producer.leaseFlatBuffersPptPayload();
+          producer.dispose();
+          final result = await session
+              .callLazyPayload(
+                'com.entity.read',
+                payload: lease.payload,
+                options: CallOptions(
+                  pptScheme: 'x_flatbuffers',
+                  pptSerializer: 'flatbuffers',
+                ),
+              )
+              .first
+              .timeout(const Duration(seconds: 5));
+          final entity =
+              wire.Message(result.arguments!.single as Uint8List).msg
+                  as wire.Call;
+          expect(entity.request, 62);
+          expect(lease.hasExportedByteView, isTrue);
+          expect(lease.isDisposed, isFalse);
+          lease.dispose();
+          await session.close();
+          await session.onGoodbye.timeout(const Duration(seconds: 5));
+          expect(await peer.close(), [1, 48, 6]);
+        } finally {
+          producer?.dispose();
+          lease?.dispose();
+          await client.close();
+          await peer.dispose();
+          await directory?.delete(recursive: true);
+        }
+      },
+      skip: foreign && Platform.isWindows
+          ? 'Private copied DLL remains loaded on Windows'
+          : false,
+    );
+  }
 
   test(
     'typed native submission does not reparse canonical control strings',

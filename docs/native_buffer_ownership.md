@@ -59,6 +59,37 @@ the negotiated session profile before submission. Other payloads continue
 through the regular serializer. The payload schema and its identity remain the
 application's responsibility.
 
+For explicit lifetime control, use `buffer.leaseFlatBuffersPptPayload()` and
+pass `lease.payload` to the same Session APIs. The lease retains its own native
+reference, so the producer can be disposed first. Eligible native FlatBuffers
+CALL/PUBLISH sends do not export a Dart application-byte view. Dispose the lease
+after its last asynchronous use. For example:
+
+```dart
+final lease = producer.leaseFlatBuffersPptPayload();
+producer.dispose();
+try {
+  await session.callLazyPayload(
+    'com.entity.store',
+    payload: lease.payload,
+    options: CallOptions(
+      pptScheme: 'x_my_entity',
+      pptSerializer: 'flatbuffers',
+    ),
+  ).first;
+} finally {
+  lease.dispose();
+}
+```
+
+Application reads and safe serializer/foreign-library fallbacks export a cached,
+independently owned read-only view. Those exported and derived views remain
+valid after disposal and can keep the native allocation alive until collection.
+Disposal before any export prevents later byte access. Mutable message-argument
+access and transparent-payload replacement drop the native source optimization;
+detached `toOwned` copies drop source identity entirely. Existing `as...Payload`
+helpers retain their reusable exported-view contract.
+
 `NativeOwnedBuffer.asPptPayload` also retains encoded CBOR/MessagePack PPT with
 an explicit lazy decoder. Native CBOR/MessagePack CALL/PUBLISH paths now reuse
 that exact span through the optional owned-segment ABI. Only newly serialized

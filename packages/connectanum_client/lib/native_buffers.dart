@@ -7,7 +7,11 @@ import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show LazyMessagePayload, LazyPayloadEncoding, PackedPayloadDecoder;
+    show
+        LazyMessagePayload,
+        LazyPayloadEncoding,
+        PackedPayloadDecoder,
+        PackedPayloadSource;
 // Shared observations preserve disjoint allocator and serializer counters.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
@@ -16,6 +20,7 @@ import 'package:connectanum_core/src/serializer/flatbuffers/byte_vector_builder.
     show ByteViewFlatBufferBuilder;
 import 'package:ffi/ffi.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
+import 'package:meta/meta.dart';
 
 import 'src/transport/native/runtime.dart' show NativeClientRuntime;
 
@@ -763,6 +768,18 @@ final class NativeOwnedBuffer implements ffi.Finalizable {
 }
 
 extension NativeOwnedBufferFlatBuffersPpt on NativeOwnedBuffer {
+  /// Retains this allocation in an independently disposable packed payload.
+  /// Native FlatBuffers transports can send it without first exporting a Dart
+  /// byte view. Dispose the lease after its last asynchronous use completes.
+  /// Disposing this producer does not dispose the lease.
+  NativePptPayloadLease leaseFlatBuffersPptPayload() => leasePptPayload(
+    encoding: LazyPayloadEncoding.flatbuffers,
+    packedPayloadDecoder: (bytes) => (
+      arguments: <dynamic>[bytes],
+      argumentsKeywords: null,
+    ),
+  );
+
   /// Makes this already encoded FlatBuffer usable as a typed WAMP PPT payload.
   ///
   /// Pass the result to `Session.callLazyPayload` or
@@ -780,6 +797,19 @@ extension NativeOwnedBufferFlatBuffersPpt on NativeOwnedBuffer {
 }
 
 extension NativeOwnedBufferPpt on NativeOwnedBuffer {
+  /// Retains packed storage without eagerly exporting its Dart byte view.
+  /// Use matching PPT options with [NativePptPayloadLease.payload]. Other
+  /// serializers and application reads export an independently owned view on
+  /// demand. The application must dispose the lease after its last use.
+  NativePptPayloadLease leasePptPayload({
+    required LazyPayloadEncoding encoding,
+    required PackedPayloadDecoder packedPayloadDecoder,
+  }) => NativePptPayloadLease._(
+    retain(),
+    encoding: encoding,
+    packedPayloadDecoder: packedPayloadDecoder,
+  );
+
   /// Retains already encoded PPT bytes and their native owner without decoding.
   /// Use matching PPT options with Session's lazy call/publish APIs. The decoder
   /// runs only on application access; it must interpret this encoding/schema.
@@ -798,6 +828,54 @@ extension NativeOwnedBufferPpt on NativeOwnedBuffer {
       storageOwner: (buffer: this, bytes: bytes),
     );
   }
+}
+
+/// An explicit native reference to immutable, already encoded PPT storage.
+///
+/// The producer may be disposed independently. Reuse [payload] until its last
+/// asynchronous send/use completes, then call [dispose]. Byte access or a
+/// serializer fallback exports an independently owned read-only view. Exported
+/// views and their derived views remain valid after disposal; a lease disposed
+/// before any export cannot subsequently create a byte view.
+final class NativePptPayloadLease implements PackedPayloadSource {
+  NativePptPayloadLease._(
+    this._owner, {
+    required this.encoding,
+    required PackedPayloadDecoder packedPayloadDecoder,
+  }) {
+    _payload = LazyMessagePayload.packedSource(
+      encoding: encoding,
+      source: this,
+      packedPayloadDecoder: packedPayloadDecoder,
+      anchor: this,
+    );
+  }
+
+  final NativeOwnedBuffer _owner;
+  final LazyPayloadEncoding encoding;
+  late final LazyMessagePayload _payload;
+  Uint8List? _bytes;
+
+  LazyMessagePayload get payload => _payload;
+  bool get isDisposed => _owner.isDisposed;
+
+  @override
+  Uint8List get bytes => _bytes ??= _owner.bytes;
+
+  void dispose() => _owner.dispose();
+
+  /// Internal transport eligibility. Public anchors and structural records do
+  /// not grant ownership: the exact final source and encoding must agree.
+  @internal
+  NativeOwnedBuffer? nativeOwnerFor(LazyMessagePayload payload) =>
+      !isDisposed &&
+          payload.encoding == encoding &&
+          identical(payload.packedPayloadSource, this)
+      ? _owner
+      : null;
+
+  @internal
+  bool get hasExportedByteView => _bytes != null;
 }
 
 /// Writes initialized native memory without exposing mutable typed-data views.

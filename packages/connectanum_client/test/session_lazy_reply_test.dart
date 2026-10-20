@@ -20,6 +20,9 @@ const _representations = [
   'packed-json',
   'packed-msgpack',
   'packed-cbor',
+  'source-json',
+  'source-msgpack',
+  'source-cbor',
 ];
 
 // Exercise the metadata boundary without claiming real native/FFI coverage.
@@ -46,6 +49,11 @@ void main() {
             );
             expect(fixture.transport.yields, hasLength(1));
             final reply = fixture.transport.yields.single;
+            if (representation.startsWith('source-') &&
+                response.sourceSerializer == serializer) {
+              expect(response.sourceReads, 0);
+              expect(reply.toLazyPayload().packedPayloadSource, isNotNull);
+            }
             expect(reply.invocationRequestId, 401);
             expect(fixture.invocation.isResponseClosed(), isTrue);
             if (serializer == null) {
@@ -103,6 +111,9 @@ void main() {
         'materialized',
         'encoded-json',
         'packed-json',
+        'source-json',
+        'source-msgpack',
+        'source-cbor',
       ]) {
         test('$representation is encrypted with response context', () async {
           final provider = _RecordingProvider();
@@ -734,28 +745,49 @@ class _ResponsePayload {
     packedBytes =
         PPTPayload.packPPTPayload(_arguments, _keywords, options).single
             as Uint8List;
-    payload = LazyMessagePayload.packed(
-      encoding: switch (sourceSerializer) {
-        'msgpack' => LazyPayloadEncoding.messagePack,
-        'cbor' => LazyPayloadEncoding.cbor,
-        _ => LazyPayloadEncoding.json,
-      },
-      packedPayloadBytes: packedBytes!,
-      packedPayloadDecoder: (bytes) {
-        decodeCalls++;
-        final decoded = PPTPayload.unpackPPTPayload([bytes], options);
-        return (
-          arguments: decoded.arguments,
-          argumentsKeywords: decoded.argumentsKeywords,
-        );
-      },
-    );
+    final encoding = switch (sourceSerializer) {
+      'msgpack' => LazyPayloadEncoding.messagePack,
+      'cbor' => LazyPayloadEncoding.cbor,
+      _ => LazyPayloadEncoding.json,
+    };
+    MaterializedPayloadView decode(Uint8List bytes) {
+      decodeCalls++;
+      final decoded = PPTPayload.unpackPPTPayload([bytes], options);
+      return (
+        arguments: decoded.arguments,
+        argumentsKeywords: decoded.argumentsKeywords,
+      );
+    }
+
+    payload = representation.startsWith('source-')
+        ? LazyMessagePayload.packedSource(
+            encoding: encoding,
+            source: _ReplyPackedSource(packedBytes!, () => sourceReads++),
+            packedPayloadDecoder: decode,
+          )
+        : LazyMessagePayload.packed(
+            encoding: encoding,
+            packedPayloadBytes: packedBytes!,
+            packedPayloadDecoder: decode,
+          );
   }
 
   String? sourceSerializer;
   LazyMessagePayload? payload;
   Uint8List? packedBytes;
   int decodeCalls = 0;
+  int sourceReads = 0;
+}
+
+final class _ReplyPackedSource implements PackedPayloadSource {
+  _ReplyPackedSource(this._bytes, this.onRead);
+  final Uint8List _bytes;
+  final void Function() onRead;
+  @override
+  Uint8List get bytes {
+    onRead();
+    return _bytes;
+  }
 }
 
 Future<

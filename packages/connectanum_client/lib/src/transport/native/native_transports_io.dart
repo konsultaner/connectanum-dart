@@ -312,7 +312,14 @@ abstract class _NativeTransportBase extends AbstractTransport
 
   NativeOwnedBuffer? _nativeFlatBufferPayloadOwner(
     LazyMessagePayload payload,
-  ) => _nativePptPayloadOwner(payload, flatBuffersOnly: true)?.buffer;
+  ) {
+    final source = payload.packedPayloadSource;
+    if (payload.encoding == LazyPayloadEncoding.flatbuffers &&
+        source is NativePptPayloadLease) {
+      return source.nativeOwnerFor(payload);
+    }
+    return _nativePptPayloadOwner(payload, flatBuffersOnly: true)?.buffer;
+  }
 
   ({NativeOwnedBuffer buffer, Uint8List bytes})? _nativePptPayloadOwner(
     LazyMessagePayload payload, {
@@ -322,6 +329,11 @@ abstract class _NativeTransportBase extends AbstractTransport
     Object? owner = payload.storageOwner ?? payload.anchor;
     var current = payload;
     while (seen.add(current)) {
+      final source = current.packedPayloadSource;
+      if (!flatBuffersOnly && source is NativePptPayloadLease) {
+        final owner = source.nativeOwnerFor(current);
+        if (owner != null) return (buffer: owner, bytes: source.bytes);
+      }
       final packed = current.packedPayloadBytes;
       if ((!flatBuffersOnly ||
               current.encoding == LazyPayloadEncoding.flatbuffers) &&

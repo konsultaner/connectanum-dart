@@ -121,15 +121,13 @@ def patch_sources(buffer, transport, marker):
     }
     final bytes = this.bytes;
     NativeOwnedBuffer._pptViews[bytes] = _pptViewIdentity;""")
-    fast = replace_once(transport, """    while (seen.add(current)) {
-      final packed = current.packedPayloadBytes;""", """    while (seen.add(current)) {
+    fast = replace_once(transport, "    while (seen.add(current)) {", """    while (seen.add(current)) {
       if (flatBuffersOnly &&
           current.encoding == LazyPayloadEncoding.flatbuffers &&
           owner is ({NativeOwnedBuffer prototypeNativeBuffer}) &&
           !owner.prototypeNativeBuffer.isDisposed) {
         return (buffer: owner.prototypeNativeBuffer, bytes: Uint8List(0));
-      }
-      final packed = current.packedPayloadBytes;""")
+      }""")
     return buffer, fast
 
 

@@ -1,6 +1,14 @@
 # Project State
 
 Last updated: 2026-10-20.
+In-progress implementation: the explicit packed-source/native payload lease
+candidate is now being implemented and has not passed native validation yet.
+Core/session/source identity, disposal, mutable-message invalidation, detached
+copies and safe fallback tests are added. Existing benchmark construction paths
+remain unchanged. Local native verification and companion review remain blocked
+by another active job's preserved machine resource lease; focused Linux CI is
+the next validation step. The last complete production verification below is
+for `28fa8011`, not this unverified lease candidate.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 

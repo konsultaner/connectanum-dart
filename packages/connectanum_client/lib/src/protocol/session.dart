@@ -2073,6 +2073,15 @@ class Session {
     message.transparentBinaryPayload = options?.pptScheme == null
         ? payload.transparentBinaryPayload
         : null;
+    if (payload.packedPayloadSource != null &&
+        options?.pptScheme != null &&
+        options?.pptScheme != 'wamp' &&
+        _matchesPayloadEncoding(payload.encoding, options?.pptSerializer)) {
+      // Preserve encoded source identity until transport selection. Neither a
+      // native send nor a detached metadata view needs a Dart application view.
+      message.restoreLazyPayload(payload);
+      return;
+    }
     Uint8List? packedPayload;
     if (options?.pptScheme != null && options?.pptScheme != 'wamp') {
       packedPayload = _packMatchingLazyPayload(payload, options!.pptSerializer);
