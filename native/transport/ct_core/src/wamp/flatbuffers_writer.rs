@@ -29,6 +29,21 @@ pub(super) fn write(fields: &Fields) -> Result<Bytes, ParseError> {
     }
     Ok(bytes)
 }
+// Derive bounded staging storage from the pinned schema, including future
+// schema additions, instead of allocating a temporary vector for each table.
+const MAX_TABLE_FIELDS: usize = {
+    let mut maximum = 0;
+    let mut index = 0;
+    while index < schema::TABLES.len() {
+        let count = schema::TABLES[index].fields.len();
+        if count > maximum {
+            maximum = count;
+        }
+        index += 1;
+    }
+    maximum
+};
+
 enum Slot {
     Scalar(u64),
     Offset(WIPOffset<UnionWIPOffset>),
@@ -218,14 +233,13 @@ impl Writer<'_> {
             return Err(wire::invalid("field absent from pinned schema"));
         }
         self.charge(8 + spec.fields.len() * 16)?;
-        let mut slots = Vec::with_capacity(spec.fields.len());
-        for field in spec.fields {
+        let mut slots: [Option<Slot>; MAX_TABLE_FIELDS] = std::array::from_fn(|_| None);
+        for (index, field) in spec.fields.iter().enumerate() {
             let value = fields.get(field.name).unwrap_or(&Value::Null);
             if *value == Value::Null {
                 if field.required {
                     return Err(wire::invalid("missing required field"));
                 }
-                slots.push(None);
                 continue;
             }
             let slot = match (field.kind, value) {
@@ -338,29 +352,26 @@ impl Writer<'_> {
                 }
                 _ => return Err(wire::invalid("field type")),
             };
-            slots.push(Some(slot));
+            slots[index] = Some(slot);
         }
         let start = self.builder.start_table();
-        let mut borrowed = Vec::new();
-        for (index, (field, slot)) in spec.fields.iter().zip(slots).enumerate().rev() {
+        for (index, (field, slot)) in spec.fields.iter().zip(slots.iter()).enumerate().rev() {
             let offset = (4 + index * 2) as u16;
             match slot {
-                Some(Slot::Offset(value)) => self.builder.push_slot_always(offset, value),
-                Some(Slot::Borrowed(value, bytes)) => {
-                    self.builder.push_slot_always(offset, value);
-                    borrowed.push((offset, bytes));
+                Some(Slot::Offset(value) | Slot::Borrowed(value, _)) => {
+                    self.builder.push_slot_always(offset, *value)
                 }
                 Some(Slot::Scalar(value)) => match field.width {
                     1 => self
                         .builder
-                        .push_slot(offset, value as u8, field.default as u8),
+                        .push_slot(offset, *value as u8, field.default as u8),
                     2 => self
                         .builder
-                        .push_slot(offset, value as u16, field.default as u16),
+                        .push_slot(offset, *value as u16, field.default as u16),
                     4 => self
                         .builder
-                        .push_slot(offset, value as u32, field.default as u32),
-                    8 => self.builder.push_slot(offset, value, field.default),
+                        .push_slot(offset, *value as u32, field.default as u32),
+                    8 => self.builder.push_slot(offset, *value, field.default),
                     _ => return Err(wire::invalid("scalar width")),
                 },
                 None => (),
@@ -368,11 +379,15 @@ impl Writer<'_> {
         }
         let table = self.builder.end_table(start);
         if let Some(deferred) = &mut self.deferred {
-            deferred.extend(borrowed.into_iter().map(|(slot, bytes)| DeferredVector {
-                table: table.value(),
-                slot,
-                bytes,
-            }));
+            for (index, slot) in slots.into_iter().take(spec.fields.len()).enumerate().rev() {
+                if let Some(Slot::Borrowed(_, bytes)) = slot {
+                    deferred.push(DeferredVector {
+                        table: table.value(),
+                        slot: (4 + index * 2) as u16,
+                        bytes,
+                    });
+                }
+            }
         }
         Ok(table)
     }

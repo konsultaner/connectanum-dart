@@ -61,10 +61,28 @@ An isolated unchanged-source rerun passes. The test fixture now compiles its
 identical worker once per test process and installs private executable copies;
 runtime directories, sockets, environment and cleanup remain isolated. The
 initial ten tests and three additional ten-test processes pass; a compiler shim
-confirms one compilation per process. This removes redundant parallel setup,
-but does not establish the cause of every historical timeout. Full resulting-
-source verification is pending. Companion review is blocked by another native
-mutation campaign's resource lease; that lease is preserved.
+confirms one compilation per process. Full frozen `bin/verify` passes on
+`c43f4e62`, with all 3,157 inputs and resolved locks unchanged. Its Rust CLI target
+fails twice before the existing retry passes; those failures remain in the log.
+The cache reduces setup but has not resolved the intermittent startup flake.
+Companion review was blocked by another campaign's preserved resource lease;
+that resource subsequently becomes available after canonical verification.
+
+The effective-pin diagnostic on `53c19b72` completes ninety rows with stable
+client/server processes, complete cleanup and an independently identical report.
+All three allocation comparisons pass, while thirteen numerical gates fail on
+the newer Linux runner. The full 360-row timeout replay is running separately.
+Neither run changes the original acceptance policy.
+
+The next native writer change removes temporary per-table slot/borrowed-owner
+vectors. Bounded stack storage is derived from the pinned schema. Controlled
+source restoration confirms segmented envelope allocations fall from fifteen
+to twelve and requested bytes from 3,360 to 2,520, with original application
+pointers retained. All 31 isolated FlatBuffers tests pass; 56 independently
+encoded streams remain byte-identical across 25 public models and three opaque
+body sizes. See [staging research](research/2026-10-20-native-flatbuffers-staging.md).
+Resulting-source canonical checks, production copy proofs and speed evidence
+remain pending; this allocation improvement does not establish parity.
 
 Completed delivery (2026-10-19): the separate
 [`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)

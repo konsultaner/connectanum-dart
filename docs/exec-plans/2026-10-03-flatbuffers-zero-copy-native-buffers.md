@@ -39,9 +39,21 @@ Status: active. Started: 2026-10-03.
   fixture compilation with a process-local immutable image cache, preserving
   every private runtime resource and deadline. Forty focused tests pass;
   compiler instrumentation confirms one compilation per process.
-- [ ] Pass complete canonical verification after the fixture setup change.
-  Its effect on intermittent startup failures remains under verification;
-  local companion review is blocked by another campaign's resource lease.
+- [x] Pass complete frozen canonical verification on `c43f4e62`, with all 3,157
+  source inputs and resolved locks unchanged. Preserve both failed Rust CLI
+  attempts before the existing retry passes; the startup flake is unresolved.
+  The previously blocked companion resource becomes available afterward.
+- [x] Independently recompute the effective-pin ninety-row diagnostic on
+  `53c19b72`: all three allocation comparisons pass, thirteen numerical gates
+  fail, stable process identities and cleanup are retained. No parity is claimed.
+- [x] Reproduce temporary native envelope allocations with a thread-local
+  allocator probe, then replace per-table staging vectors with schema-bounded
+  stack storage. Controlled restoration changes fifteen allocations to twelve
+  and 3,360 requested bytes to 2,520. Original application pointers are retained.
+- [x] Pass 31 isolated FlatBuffers tests and compare all 56 contiguous/segmented
+  streams for 25 public models plus three opaque body sizes byte for byte.
+- [ ] Verify the resulting native writer source, renew production copy proofs
+  and measure its actual effect with the unchanged timing policy.
 - [ ] Complete the 360-row diagnostic with verified Rust 1.99.0; retain any
   intermittent failure and its pre-cleanup stacks without accepting performance.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
