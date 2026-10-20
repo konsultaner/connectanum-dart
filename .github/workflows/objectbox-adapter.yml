@@ -1,0 +1,57 @@
+name: ObjectBox adapter
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'packages/connectanum_objectbox_adapter/**'
+      - 'tool/install_objectbox_test_library.py'
+      - 'tool/test_install_objectbox_test_library.py'
+      - 'bin/test-objectbox-adapter'
+      - '.github/workflows/objectbox-adapter.yml'
+      - 'pubspec.yaml'
+  push:
+    branches: [master]
+    paths:
+      - 'packages/connectanum_objectbox_adapter/**'
+      - 'tool/install_objectbox_test_library.py'
+      - 'tool/test_install_objectbox_test_library.py'
+      - 'bin/test-objectbox-adapter'
+      - '.github/workflows/objectbox-adapter.yml'
+      - 'pubspec.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  database-and-native-network:
+    name: ObjectBox C API (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      CONNECTANUM_SKIP_NATIVE_BUILD: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.5
+      - name: Resolve workspace
+        run: dart pub get
+      - name: Test pinned engine download and archive handling
+        run: python3 tool/test_install_objectbox_test_library.py
+      - name: Install the published Connectanum native runtime
+        run: |
+          set -euo pipefail
+          library="$(dart packages/connectanum_client/tool/install_native.dart \
+            --tag v3.0.0-beta.8 --out-dir "$RUNNER_TEMP/objectbox-connectanum-native")"
+          echo "CONNECTANUM_NATIVE_LIB=$library" >> "$GITHUB_ENV"
+      - name: Test database interop, native buffer copies and pointer offsets
+        run: bin/test-objectbox-adapter --reporter expanded

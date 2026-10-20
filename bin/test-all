@@ -234,6 +234,7 @@ else
   run_bench_vm_tests
   run_router_vm_tests
   run_router_zero_copy_publish_tests
+  "$ROOT_DIR/bin/test-objectbox-adapter"
 fi
 run_mcp_server_package_smoke
 run_mcp_client_package_smoke

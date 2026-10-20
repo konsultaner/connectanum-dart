@@ -93,6 +93,7 @@ run_mcp_server_package_smoke
 run_mcp_client_package_smoke
 run_client_consumer_package_smoke
 run_client_fast_tests
+"$ROOT_DIR/bin/test-objectbox-adapter"
 dart test packages/connectanum_auth_server/test
 dart test packages/connectanum_router/test/authorization_test.dart packages/connectanum_router/test/authorization_regression_test.dart
 run_bench_vm_tests
