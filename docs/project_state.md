@@ -18,12 +18,26 @@ timeout is retained as failed; three isolated reruns and a quiet full rerun pass
 without changing deadlines. A paired Linux RSS follow-up reproduces three lost
 HWM observations, then passes 36 collector and 46 comparator tests while
 preserving the sampled peak and every parity budget. See the
-[RSS research](research/2026-10-20-linux-paired-rss-endpoint.md). Fresh full
-verification and hosted evidence for that correction remain pending. Evidence
+[RSS research](research/2026-10-20-linux-paired-rss-endpoint.md). Full `bin/verify`
+and fresh `bin/test-fast` then pass on RSS source `8104d339`, with all 3,154 inputs
+and resolved locks unchanged. Exact-head PR #130 CI passes all 38 jobs; its body
+records that evidence and it is ready for required CODEOWNER review. Evidence
 is under `out/flatbuffers-resume-20261020/`. PR #130 implements #100/#101 and still
 requires independent approval. Performance PR #132 remains draft: the prior
 complete primary campaign fails 176 gates, and fresh measurements are required.
 All sample floors, copy scope, workloads and parity budgets remain unchanged.
+
+Current hosted blocker: the integrated 90-row Linux diagnostic completes with
+all three allocation comparisons passing, but fails eleven numerical gates.
+The renewed payload-size batch stops after twenty warmup rows at the one-MiB
+TLS WebSocket FlatBuffers workload. A local replay completes all 36 original
+warmup rows, without reproducing the Linux timeout. Four server allocation
+windows retain uncertainty above the unchanged one-percent limit. The opt-in
+hosted stack-capture diagnostic passes 58 focused checks, syntax validation and
+a real three-codec one-MiB VM-stack smoke test; hosted capture is pending before
+application changes;
+see [payload-timeout research](research/2026-10-20-hosted-payload-timeout-diagnostics.md).
+Complete parity and supplemental acceptance remain unproven.
 
 Completed delivery (2026-10-19): the separate
 [`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)

@@ -29,6 +29,7 @@ on:
           - flatbuffers_diagnostic
           - flatbuffers_extensions
           - flatbuffers_profile
+          - flatbuffers_payload_repro
       profile_case:
         description: Canonical case used only by the CPU profiling diagnostic
         required: false
@@ -99,8 +100,8 @@ jobs:
           if-no-files-found: error
 
   linux-flatbuffers-primary:
-    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic') }}
-    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions')
+    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic')) }}
+    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro')
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     strategy:
@@ -179,6 +180,9 @@ jobs:
           if [[ "$INPUT_CAMPAIGN" == flatbuffers_extensions ]]; then
             diagnostic_args=(--diagnostic --extension-diagnostics --extension-shard "$INPUT_EXTENSION_SHARD")
           fi
+          if [[ "$INPUT_CAMPAIGN" == flatbuffers_payload_repro ]]; then
+            diagnostic_args=(--diagnostic --extension-diagnostics --extension-shard payload_sizes --prepare-only)
+          fi
           python3 tool/run_wamp_serializer_campaign.py \
             --output out/wamp-flatbuffers-primary/campaign \
             --driver out/wamp-flatbuffers-primary/setup/http_stream \
@@ -189,15 +193,47 @@ jobs:
             --concurrency 1 --in-flight 1 --router-workers 1 --native-threads 1 \
             --workload-timeout-ms 300000 --campaign-timeout-seconds 19800 \
             2>&1 | tee out/wamp-flatbuffers-primary/campaign.log
+          if [[ "$INPUT_CAMPAIGN" == flatbuffers_payload_repro ]]; then
+            python3 - <<'PY' 2>&1 | tee out/wamp-flatbuffers-primary/stall-repro.log
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+          root = Path('out/wamp-flatbuffers-primary')
+          manifest = json.loads((root / 'campaign/manifest.json').read_text())
+          first = manifest['warmup_runs'][0]['scenario']
+          raise SystemExit(subprocess.run([
+              sys.executable, 'tool/capture_wamp_stall.py',
+              '--scenario', str(root / 'campaign/scenarios' / (first + '.toml')),
+              '--driver', str(root / 'setup/http_stream'),
+              '--native-lib', str(root / 'setup/libct_ffi.so'),
+              '--router-config', str(root / 'campaign/inputs/router_config.json'),
+              '--output', str(root / 'stall-repro'),
+          ]).returncode)
+          PY
+          fi
 
       - name: Summarize completed rows and acceptance
         if: always()
+        env:
+          INPUT_CAMPAIGN: ${{ inputs.campaign }}
         run: |
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json
+          import os
           from pathlib import Path
           root = Path('out/wamp-flatbuffers-primary/campaign')
           print('## Paired FlatBuffers campaign\n')
+          if os.environ.get('INPUT_CAMPAIGN') == 'flatbuffers_payload_repro':
+              result = root.parent / 'stall-repro/result.json'
+              print('One original payload-size warmup pass with opt-in VM stack capture. This never establishes acceptance.\n')
+              if result.exists():
+                  data = json.loads(result.read_text())
+                  print(f"Replay: {data['status']}. Rows: {data['rows']}/{data['expected_rows']}. Driver exit: {data['driver_exit_code']}.\n")
+                  print(f"Captured stalls: {len(data['stalls'])}. All raw reports, stacks and failures are retained.\n")
+              else:
+                  print('Replay did not produce a result; setup and diagnostic logs retain the failure.')
+              raise SystemExit(0)
           manifest = root / 'manifest.json'
           if not manifest.exists():
               print('Campaign did not start. Setup logs are retained in the artifact.')

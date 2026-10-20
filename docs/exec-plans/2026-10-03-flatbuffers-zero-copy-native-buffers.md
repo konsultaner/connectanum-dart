@@ -18,8 +18,21 @@ Status: active. Started: 2026-10-03.
 - [x] Reproduce the three captured Linux paired-RSS failures before changing
   production code; preserve actual HWM independently of historical sampled RSS.
   All 36 collector and 46 comparator tests pass; budgets remain unchanged.
-- [ ] Pass full verification and fresh hosted evidence for the paired-RSS fix.
-- [ ] Renew owned E2EE/transcode proofs and strict Linux performance diagnostics.
+- [x] Pass full verification and fresh fast checks on RSS source `8104d339`;
+  all 3,154 source inputs and resolved locks remain unchanged.
+- [x] Confirm exact-head #130 CI passes all 38 jobs; retain required human review.
+- [x] Complete the strict 90-row Linux diagnostic and independently reproduce
+  its report: all three allocation comparisons pass, eleven numerical gates fail.
+- [x] Retain the renewed payload-size failure at twenty rows and its four
+  allocation-precision gaps. Replay all 36 original warmup rows locally; the
+  different platform/SDK does not reproduce the hosted timeout.
+- [ ] Verify the opt-in hosted stack capture, then capture the Linux failure
+  before cleanup and add a causal regression before application changes.
+- [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
+  checks, all workflow syntax checks, and a real three-codec one-MiB stack smoke
+  with source/lock/binary invariance and owned-process cleanup.
+- [ ] Confirm fresh paired-RSS evidence across every supplemental case.
+- [ ] Renew owned E2EE/transcode proofs on the final frozen production candidate.
 - [ ] Improve measured bottlenecks, then run complete unchanged-policy primary
   and supplemental acceptance before marking #103 complete.
 
