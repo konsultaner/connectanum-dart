@@ -24,6 +24,7 @@ mkdir -p "$coverage_root/raw"
 if native_runtime_supported; then
   build_native_ffi_test_release
 fi
+python3 tool/install_objectbox_test_library.py
 
 run_package_coverage() {
   local package_name="$1"
@@ -98,6 +99,7 @@ run_package_coverage \
   connectanum_client_native_transport \
   test/transport/native/native_transports_test.dart
 run_package_coverage connectanum_auth_server connectanum_auth_server test
+run_package_coverage connectanum_objectbox_adapter connectanum_objectbox_adapter test --concurrency=1
 
 printf 'Collecting Dart VM coverage for connectanum_bench.\n'
 (
@@ -148,6 +150,7 @@ for package_name in \
   connectanum \
   connectanum_client \
   connectanum_auth_server \
+  connectanum_objectbox_adapter \
   connectanum_bench \
   connectanum_router; do
   report_on+=(--report-on="packages/$package_name/lib")

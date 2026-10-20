@@ -1,6 +1,52 @@
 # FlatBuffers and zero-copy native buffers
 
 Status: active. Started: 2026-10-03.
+
+## ObjectBox adapter delivery (2026-10-19)
+
+The user now explicitly requests implementation and pub.dev publication of a
+separate `connectanum_objectbox_adapter`. This extends the earlier documentation
+boundary; it does not mark the original performance milestone complete. Work
+runs on `codex/objectbox-c-adapter`, based on released master `73d840c9`.
+
+- [x] Confirm the package was absent from pub.dev and source.
+- [x] Inspect published ObjectBox 5.3.2 and Connectanum beta.8 C/native contracts.
+- [x] Pass a fresh pristine `bin/test-fast` baseline.
+- [x] Build an independently resolving prototype; pass analysis and 23 actual
+  database, malformed-buffer and native network tests. All three envelope
+  codecs demonstrate zero additional adapter body copies for received entities.
+- [x] Reproduce the physical-offset gate and test the actual C reader at offsets
+  0–7. Remove the unsupported eight-byte physical-alignment assumption.
+- [x] Reproduce unsafe nested read tracking; retain only owned database read
+  snapshots in the first release. No native transaction crosses `await`.
+- [x] Integrate the separate package, public example and explicit copy metrics.
+- [x] Test modified/expired receive ownership and remaining model limits.
+- [x] Add native-library test setup, cross-platform CI and publication workflow.
+  All 32 adapter tests pass on hosted Linux/macOS/Windows. Initial full verify
+  reveals an obsolete seven-package release-order fixture; update its exact
+  order to eight packages and retain all dependency assertions. Its 23 tests pass.
+  Add the new helper to the canonical-flow mock, retaining one local invocation
+  and coverage ownership in CI. Its 14 execution tests pass.
+- [x] Complete local review, canonical `bin/verify`, strict archive inspection
+  and an independent consumer using hosted dependencies.
+- [x] Publish the ready archive and verify the hosted version plus fresh install.
+  Published `3.0.0-beta.8` at 2026-10-19 13:19:06 UTC. A fresh-cache consumer
+  passes analysis and real C ingestion with zero additional native-input body
+  copies; six downloaded library files and the archive digest match.
+
+Canonical `bin/verify` passes at exit 0 on `ce1d40b5`. Hosted adapter tests
+(32 per OS), Fast Checks and archive validation pass; broader CI remains in
+progress at this checkpoint. Publication/source evidence is recorded in the
+[ObjectBox research](../research/2026-10-19-objectbox-c-adapter.md).
+
+Evidence is under `out/objectbox-adapter-evidence/`. The package's initial version
+is `3.0.0-beta.8`, matching the current synchronized workspace gate. It depends
+on published versions; no client/core version or native ABI is changed. The
+isolated native compatibility module constrains its SDK compatibility bands.
+C API insertion uses caller-owned immutable memory, an independent native receive lease, schema and
+complete byte checks; fallback copies are counted. ObjectBox/SDK internals are
+not included in those counters. See the checked ObjectBox adapter research.
+
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Branch: `codex/release-3.0.0-beta.8` in the managed FlatBuffers worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;

@@ -1,9 +1,45 @@
 # Project State
 
-Last updated: 2026-10-09.
+Last updated: 2026-10-19.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+
+Completed delivery (2026-10-19): the separate
+[`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)
+is published to pub.dev. The live version API confirms publication at
+13:19:06 UTC. Source is in [PR #133](https://github.com/konsultaner/connectanum-dart/pull/133),
+branch `codex/objectbox-c-adapter`, based on released master `73d840c9`.
+The unrelated performance worktrees and primary mutation-runner checkout are
+preserved. No client/core version or native ABI changes are required.
+
+Fresh pristine-master `bin/test-fast` passes. Full canonical `bin/verify` passes
+at exit 0 on implementation head `ce1d40b5`, including Rust, Dart VM/native,
+isolated consumers and Chrome/Dart2Wasm (20 existing native-only browser skips).
+Analysis and all 32 adapter tests pass against actual ObjectBox 5.3.2 and the
+published Connectanum beta.8 native runtime, independently with hosted Dart
+dependencies and on hosted Linux/macOS/Windows. FlatBuffers/CBOR/MessagePack
+receive writes use zero additional adapter body copies. Modified bytes and
+expired routing handles safely fall back to counted copies. C roundtrips cover
+all eight physical pointer offsets and Dart-builder four-byte wide-vector
+layouts. Reads return owned snapshots; no transaction-borrowed DB view escapes.
+Adapter coverage is 354/368 lines (96.196%), gated at 96.19%; old floors are
+unchanged. Local native-lifetime/bounds review claims are checked against source.
+
+The strict archive dry run has zero warnings and excludes engine binaries.
+After publication, an isolated consumer with a fresh pub cache resolves the
+hosted package, passes analysis and a real C write/read smoke test with zero
+additional native-input adapter copies. All six downloaded library files match
+the published source, and the archive digest matches pub.dev metadata. Snapshots
+survive Store closure and `await`. Public evidence is in the checked ObjectBox
+adapter research; detailed logs remain under `out/objectbox-adapter-evidence/`.
+Two fail-first tooling fixtures (seven-package release order and missing mocked
+adapter command) are fixed; their 23 and 14 tests pass. Hosted Fast Checks,
+three-platform adapter tests and publish dry run pass on `ce1d40b5`; broader CI
+is still running without a known failure at this checkpoint. Protected-master
+review/merge remains separate from the explicitly authorized first publication.
+No FlatBuffers performance gate or unfinished milestone issue is waived.
+
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #102 and #104 are also closed; #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
 The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one
