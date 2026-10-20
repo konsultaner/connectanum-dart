@@ -36,6 +36,17 @@ class NativePptViewProbeTests(unittest.TestCase):
         self.assertIn("captureViewProbe(nativeLibraryPath, scenario)", worker)
         self.assertEqual((probe.ROOT / probe.WORKER).read_text(), original)
 
+    def test_session_prototype_preserves_deferred_payload_only_for_controlled_flatbuffers(self):
+        original = (probe.ROOT / probe.SESSION).read_text()
+        patched = probe.patch_session(original)
+        self.assertIn("payload.storageOwner is ({Object prototypeNativeBuffer})", patched)
+        self.assertIn("options?.pptScheme != 'wamp'", patched)
+        self.assertIn("options?.pptSerializer == 'flatbuffers'", patched)
+        self.assertIn("message.restoreLazyPayload(payload);", patched)
+        self.assertEqual((probe.ROOT / probe.SESSION).read_text(), original)
+        with self.assertRaises(ValueError):
+            probe.patch_session(original + original)
+
     def test_passing_request_or_unrelated_failure_cannot_accept_negative_control(self):
         good = [{"status": 500, "body": probe.FORCED}]
         probe.validate_control([], good)
@@ -101,7 +112,7 @@ class NativePptViewProbeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             shadow, out = root / "source", root / "negative-control"
-            for name in (probe.BUFFER, probe.TRANSPORT, probe.WORKER,
+            for name in (probe.BUFFER, probe.TRANSPORT, probe.SESSION, probe.WORKER,
                          "native/bench/bench_router.json"):
                 path = shadow / name
                 path.parent.mkdir(parents=True, exist_ok=True)

@@ -85,11 +85,14 @@ Status: active. Started: 2026-10-03.
 - [ ] Complete full primary/supplemental timing evidence (runs `39468662119`
   and `39467640642`); retain every failed gate.
 - [x] Add an opt-in private-source producer-view lifetime probe with a throwing
-  negative control and compile-time package marker. Eight tool tests, sixteen
+  negative control and compile-time package marker. Nine tool tests, sixteen
   capture tests and fourteen CI execution tests pass.
 - [x] Audit the current complete 360-row payload-size supplemental shard:
   report recomputes identically, zero integrity gaps, 32 performance-cost findings.
-- [ ] Execute both lifetime controls on Linux and review complete evidence.
+- [x] Observe the exact negative control on Linux; retain the positive
+  variant failure at session-layer deferred materialization (`39481115738`).
+- [ ] Execute the extended private session/transport prototype on Linux and
+  review complete lifetime and byte evidence.
   Another active job currently holds the preserved shared local resource lease;
   local native verification and companion review of the new tool are blocked.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI

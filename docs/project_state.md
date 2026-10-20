@@ -136,8 +136,11 @@ A separate manual Linux lifetime probe now stages a private source archive and
 uses a compile-time source marker plus a throwing-loader negative control. Its
 six positive cases cover both native construction modes at zero, 64-KiB and
 one-MiB bodies; full byte validation and native-owner cleanup remain required.
-Eight focused tool tests, sixteen capture tests, fourteen CI execution tests
-and 87 verification-script tests pass. Actual probe execution remains pending. Another active job holds the
+Nine focused tool tests, sixteen capture tests, fourteen CI execution tests
+and 87 verification-script tests pass. The first hosted probe validates its negative control but reproduces earlier
+session-layer materialization in the positive variant (`39481115738`). The next
+private variant also preserves the deferred body through session preparation;
+its execution remains pending. Another active job holds the
 shared local resource lease, preventing local native verification and companion
 review of this tooling; the holder and lock are preserved. Last complete
 canonical verification remains the passing, frozen `28fa8011` production source.

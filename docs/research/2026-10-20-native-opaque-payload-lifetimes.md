@@ -92,7 +92,7 @@ passing result requires every tracked counter to be zero even before forced GC,
 one stable worker PID, unchanged inputs and owned-process cleanup. No numerical
 performance acceptance can come from this ffi-test experiment.
 
-Eight focused tooling tests cover attribution, malformed/incomplete evidence,
+Nine focused tooling tests cover attribution, malformed/incomplete evidence,
 negative-control rejection, package resolution, a real child-process cleanup
 path and resource-lease isolation. Linux execution is pending. The local shared
 lease is held by another active job, so native execution and local companion
@@ -101,3 +101,19 @@ review of the new tool are blocked; the holder and lease remain untouched.
 Metadata ownership was also checked: both client and router already copy
 metadata using `NativeMessageBytes.withCopiedBytes`, releasing the temporary
 native export afterward. No additional metadata-copy change is justified.
+
+
+The first hosted run on `14fb22db` correctly observes its throwing-loader
+negative control, then the positive variant fails in
+`Session._packMatchingLazyPayload` before native transport selection. Both
+phases attest the private marker, exit zero during cleanup and preserve their
+inputs. This is a valid failed experiment: existing deferred payload semantics
+do not represent an unexported native packed body throughout the session layer.
+Run [39481115738](https://github.com/konsultaner/connectanum-dart/actions/runs/39481115738)
+and its failure artifacts are retained.
+
+The next private-only variant restores the deferred payload into the outbound
+message for the controlled FlatBuffers owner, leaving non-FlatBuffers and E2EE
+paths unchanged. It still retains the throwing loader and original negative
+control. This probes both earlier session access and native transport selection;
+there is no public API or general provenance claim. Its execution is pending.

@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 KIND = "isolated_native_ppt_view_lifetime_diagnostic_never_acceptance"
 BUFFER = "packages/connectanum_client/lib/native_buffers.dart"
 TRANSPORT = "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart"
+SESSION = "packages/connectanum_client/lib/src/protocol/session.dart"
 WORKER = "packages/connectanum_bench/tool/wamp_client_main.dart"
 FORCED = "PROTOTYPE_FORCED_PRODUCER_VIEW"
 COUNTERS = ("owned_allocations", "owned_handles", "external_byte_owners", "write_receipts")
@@ -142,6 +143,20 @@ import 'package:connectanum_client/native_buffers.dart' as view_probe_source;"""
     return original + MEMORY_PROBE
 
 
+def patch_session(original):
+    return replace_once(original, """    Uint8List? packedPayload;
+    if (options?.pptScheme != null && options?.pptScheme != 'wamp') {""", """    if (options?.pptScheme != null &&
+        options?.pptScheme != 'wamp' &&
+        options?.pptSerializer == 'flatbuffers' &&
+        payload.encoding == LazyPayloadEncoding.flatbuffers &&
+        payload.storageOwner is ({Object prototypeNativeBuffer})) {
+      message.restoreLazyPayload(payload);
+      return;
+    }
+    Uint8List? packedPayload;
+    if (options?.pptScheme != null && options?.pptScheme != 'wamp') {""")
+
+
 @contextmanager
 def resource_lease(path):
     if fcntl is None:
@@ -249,7 +264,7 @@ def run_phase(root, shadow, out, library, dart, marker, control):
     command = [dart, "--enable-vm-service=0", "run", "packages/connectanum_bench/tool/bench_main.dart",
                "--router-config", str(configuration), "--native-lib", str(library),
                "--wamp-worker", str(worker)]
-    files = [shadow / BUFFER, shadow / TRANSPORT, shadow / "pubspec.lock",
+    files = [shadow / BUFFER, shadow / TRANSPORT, shadow / SESSION, shadow / "pubspec.lock",
              shadow / ".dart_tool/package_config.json", worker, library, configuration]
     inputs = {str(path): digest(path) for path in files}
     (out / "inputs.json").write_text(json.dumps({"kind": KIND, "command": command,
@@ -362,12 +377,16 @@ def run(args, root=ROOT):
         (shadow / "pubspec.lock").write_bytes((root / "pubspec.lock").read_bytes())
         marker = "native-view-" + uuid.uuid4().hex
         original_buffer, original_transport = (shadow / BUFFER).read_text(), (shadow / TRANSPORT).read_text()
+        original_session = (shadow / SESSION).read_text()
+        direct_session = patch_session(original_session)
         buffer, fast = patch_sources(original_buffer, original_transport, marker)
         (shadow / BUFFER).write_text(buffer)
         patch = "".join(difflib.unified_diff(original_buffer.splitlines(True), buffer.splitlines(True),
                                             fromfile="a/" + BUFFER, tofile="b/" + BUFFER))
         patch += "".join(difflib.unified_diff(original_transport.splitlines(True), fast.splitlines(True),
                                              fromfile="a/" + TRANSPORT, tofile="b/" + TRANSPORT))
+        patch += "".join(difflib.unified_diff(original_session.splitlines(True), direct_session.splitlines(True),
+                                             fromfile="a/" + SESSION, tofile="b/" + SESSION))
         (output / "private-source.patch").write_text(patch)
         inputs = {"kind": KIND, "head": head, "source_inputs": before,
                   "library_sha256": library_hash, "archive_sha256": digest(archive),
@@ -384,6 +403,7 @@ def run(args, root=ROOT):
         results = []
         for name, control in (("negative-control", True), ("direct-native", False)):
             (shadow / TRANSPORT).write_text(original_transport if control else fast)
+            (shadow / SESSION).write_text(original_session if control else direct_session)
             results.append(run_phase(root, shadow, output / name, library, args.dart, marker, control))
         if snapshot(root) != before or digest(library) != library_hash:
             raise ValueError("original source, dependency lock or native library changed")
