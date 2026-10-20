@@ -834,6 +834,35 @@ void main() {
     );
 
     test(
+      'FlatBuffers envelope accepts authenticated E2EE file chunks',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.flatbuffers,
+            peerSerializer: WampSerializer.flatbuffers,
+            mode: WampMode.fileTransfer,
+            uri: 'bench.file.flatbuffers_e2ee',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 2 * 1024 * 1024,
+            fileChunkBytes: 256 * 1024,
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes256gcm',
+            pptKeyId: 'benchmark-key',
+          ),
+        );
+
+        expect(samples, hasLength(1));
+        expect(samples.single.requestBytes, 2 * 1024 * 1024);
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'Dart CBOR file transfer uses native progressive invocation forwarding',
       () async {
         final samples = await harness!.runDart(
