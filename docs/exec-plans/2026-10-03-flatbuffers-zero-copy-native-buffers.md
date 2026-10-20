@@ -163,10 +163,25 @@ Status: active. Started: 2026-10-03.
   for hosted production renewal. Require actual package roots, immutable resolved
   inputs/binaries, no test oracles, complete counters, exact raw/pass equality and
   the specific unchanged three-warmup-floor rejection. Preserve every deadline.
-- [ ] Renew hosted source/lifetime, production copy proofs and complete CI on
-  the adopted benchmark candidate before interpreting any timing measurement.
-  Another active job currently holds the preserved shared local resource lease;
-  local native verification and companion review of the new tool are blocked.
+- [x] Renew hosted source/lifetime and production copy proofs on `8bc62a3c`
+  (`39508516372`): verify 3,167 source hashes, four lifetime controls, six public
+  cases with no exported views and zero owners before GC, all 120 owned cases,
+  all 300 short inventory rows and the expected warmup-policy rejection. The
+  production binary hashes exactly match the paired timing binaries.
+- [ ] Complete full CI on adopted benchmark `8bc62a3c`; 34 jobs are green at
+  this checkpoint. Preserve the resource lease held by another task; local
+  native/canonical verification and companion review remain blocked.
+- [x] Independently audit strict-floor timing `39510196123`: all 90 rows, zero
+  integrity gaps, six numerical failures and exact comparison recomputation.
+  Native pre-encoded forwarding passes all seven diagnostic gates. Native-buffer
+  construction fails RSS/p99; Dart values fail CPU/RSS/GC/p99. No parity claim.
+- [ ] Attribute remaining memory costs using diagnostic class heaps, external
+  usage and Linux smaps with stable PID/isolate/source/binary evidence. Keep
+  forced-GC requests outside workloads and CPU windows; never use their results
+  as acceptance measurements or sum shared isolate-group heaps.
+  The optional probe compiles against the resolved SDK. Twelve profile tests,
+  complete tooling, Python syntax and all 23 workflow shell parsers pass. Retain
+  the resolved locks/package configuration and validate every snapshot's identity.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
   checks, all workflow syntax checks, and a real three-codec one-MiB stack smoke
   with source/lock/binary invariance and owned-process cleanup.

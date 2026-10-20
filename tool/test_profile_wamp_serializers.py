@@ -56,15 +56,17 @@ class ProfileSelectionTests(unittest.TestCase):
             'rpc_rawsocket_clear_native_pre_encoded_span': ('native', 'pre_encoded_span'),
         }
         self.assertEqual(set(profiler.PROFILE_CASES), set(expected))
-        for case_id, (implementation, construction), mode in [(key, value, mode) for key, value in expected.items() for mode in ('none', 'complete', 'missing', 'non-linux')]:
-            native = mode != 'none'
+        for case_id, (implementation, construction), mode in [(key, value, mode) for key, value in expected.items() for mode in ('none', 'complete', 'missing', 'non-linux', 'memory', 'memory-missing')]:
+            memory = mode.startswith('memory')
+            native = mode != 'none' and not memory
             requested = native and mode != 'non-linux'
             with self.subTest(case=case_id, symbols=mode), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / 'profile output'
                 library = Path(directory) / 'native library.so'
                 library.write_bytes(b'unit-test fixture, never executed')
                 args = profiler.parse_args(['--output', str(output), '--native-lib', str(library),
-                                            '--case', case_id, '--dart', 'unit-test-dart', *(['--perf', 'unit-test-perf'] if native else [])])
+                                            '--case', case_id, '--dart', 'unit-test-dart', *(['--perf', 'unit-test-perf'] if native else []),
+                                            *(['--memory'] if memory else [])])
                 target = {'client_impl': implementation, 'payload_construction': construction}
                 warmups = []
                 probes = []
@@ -88,7 +90,11 @@ class ProfileSelectionTests(unittest.TestCase):
                     probes.append(command)
                     # Dart removes its executable/options/script from main's arguments.
                     dart_args = command[3:]
-                    self.assertEqual(len(dart_args), 6)
+                    self.assertEqual(len(dart_args), 7 if memory else 6)
+                    if memory:
+                        self.assertEqual(dart_args[6], 'memory')
+                    if mode == 'memory':
+                        MemorySnapshotAuditTests.fixture(output)
                     self.assertEqual(json.loads(dart_args[5]), target)
                     self.assertEqual(dart_args[4], 'unit-test-perf' if native else '')
                     self.assertEqual(dart_args[3], str(output.resolve()))
@@ -115,7 +121,7 @@ class ProfileSelectionTests(unittest.TestCase):
                         mock.patch.object(profiler.urllib.request, 'urlopen', post), \
                         mock.patch.object(profiler.campaign, 'interfering_jobs', return_value=[]), \
                         mock.patch.object(profiler.campaign, 'stop_process_group', return_value=True):
-                    self.assertEqual(profiler.profile(args), 1 if mode == 'missing' else 0)
+                    self.assertEqual(profiler.profile(args), 1 if mode in ('missing', 'memory-missing') else 0)
                 self.assertEqual(len(warmups), 1)
                 self.assertEqual(len(probes), 1)
                 self.assertEqual({key: warmups[0][key] for key in target}, target)
@@ -125,12 +131,92 @@ class ProfileSelectionTests(unittest.TestCase):
                 self.assertEqual(audit['requested_configuration'], target)
                 self.assertEqual(audit['kind'], 'cpu_profile_only_never_acceptance')
                 self.assertTrue(audit['inputs_unchanged'])
+                self.assertTrue({'pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.lock',
+                                 '.dart_tool/package_config.json'}.issubset(audit['inputs']))
+                self.assertEqual(len(audit['resolved_input_files']), 4)
+                for name, retained in audit['resolved_input_files'].items():
+                    self.assertEqual(profiler.digest(output / retained), audit['inputs'][name])
                 self.assertTrue(audit['process_group_stopped'])
                 self.assertEqual(audit['router_perf_symbols']['requested'], requested)
-                self.assertEqual(audit['router_perf_symbols']['status'], {'none':'not_requested', 'non-linux':'not_requested', 'complete':'retained', 'missing':'incomplete'}[mode])
+                self.assertEqual(audit['router_perf_symbols']['status'], {'none':'not_requested', 'non-linux':'not_requested', 'complete':'retained', 'missing':'incomplete', 'memory':'not_requested', 'memory-missing':'not_requested'}[mode])
+                self.assertEqual(audit['memory_snapshots']['status'], {'memory':'retained', 'memory-missing':'incomplete'}.get(mode, 'not_requested'))
                 self.assertEqual(len(audit['router_perf_symbols']['maps']), 3 if mode == 'complete' else 0)
                 self.assertEqual(audit['probe_exit'], 0)
                 self.assertEqual(bool(audit['router_perf_symbols']['findings']), mode == 'missing')
+
+
+class MemorySnapshotAuditTests(unittest.TestCase):
+    @staticmethod
+    def fixture(output, linux=True):
+        for codec in ('msgpack', 'flatbuffers', 'cbor'):
+            for process, pid in (('router', 12345), ('client', 67890)):
+                for index, stage in enumerate(('before_workload', 'after_workload', 'after_gc_request')):
+                    data = {'kind': 'diagnostic_memory_never_acceptance', 'codec': codec,
+                            'process': process, 'pid': pid, 'stage': stage, 'captured_at_us': index + 100,
+                            'gc_requested': stage == 'after_gc_request',
+                            'isolates': [{'id': f'isolates/{pid}', 'group_id': f'isolateGroups/{pid}',
+                                          'usage': {'externalUsage': 32, 'heapUsage': 64, 'heapCapacity': 128},
+                                          'allocation': {'members': [{'class': {'name': 'Fixture'},
+                                                                     'bytesCurrent': 16, 'instancesCurrent': 1}]}}],
+                            'linux_smaps_rollup': '\n'.join(f'{key}: 10 kB' for key in (
+                                'Rss', 'Anonymous', 'Private_Dirty', 'Private_Clean', 'Shared_Clean', 'Swap')) if linux else None}
+                    (output / f'{codec}-{process}-memory-{stage}.json').write_text(json.dumps(data))
+
+    def test_complete_attributed_snapshot_inventory_and_units(self):
+        for linux in (False, True):
+            with self.subTest(linux=linux), tempfile.TemporaryDirectory() as folder:
+                output = Path(folder)
+                self.fixture(output, linux)
+                result = profiler.memory_snapshot_audit(output, 12345, True, linux)
+                self.assertEqual(result['status'], 'retained')
+                self.assertEqual(len(result['snapshots']), 18)
+                self.assertEqual(result['findings'], [])
+                self.assertEqual(result['snapshots'][0]['linux_smaps_bytes'],
+                                 {key: 10240 for key in ('Rss', 'Anonymous', 'Private_Dirty', 'Private_Clean', 'Shared_Clean', 'Swap')} if linux else None)
+                self.assertTrue(all(len(item['sha256']) == 64 for item in result['snapshots']))
+
+    def test_missing_or_misattributed_evidence_cannot_pass(self):
+        mutations = {
+            'foreign router': lambda d: d.update(pid=67890),
+            'boolean PID': lambda d: d.update(pid=True),
+            'codec': lambda d: d.update(codec='cbor'),
+            'stage': lambda d: d.update(stage='before_workload'),
+            'time': lambda d: d.update(captured_at_us=1),
+            'boolean time': lambda d: d.update(captured_at_us=True),
+            'GC attribution': lambda d: d.update(gc_requested=True),
+            'missing isolates': lambda d: d.update(isolates=[]),
+            'changed isolate': lambda d: d['isolates'][0].update(id='isolates/foreign'),
+            'changed group': lambda d: d['isolates'][0].update(group_id='isolateGroups/foreign'),
+            'duplicate isolate': lambda d: d['isolates'].append(d['isolates'][0]),
+            'unmeasured heap': lambda d: d['isolates'][0]['usage'].update(heapUsage=-1),
+            'boolean heap': lambda d: d['isolates'][0]['usage'].update(heapUsage=True),
+            'missing classes': lambda d: d['isolates'][0]['allocation'].update(members=[]),
+            'unmeasured classes': lambda d: d['isolates'][0]['allocation']['members'][0].update(bytesCurrent=-1),
+            'wrong units': lambda d: d.update(linux_smaps_rollup=d['linux_smaps_rollup'].replace(' kB', ' MB')),
+            'duplicate RSS': lambda d: d.update(linux_smaps_rollup=d['linux_smaps_rollup'] + '\nRss: 10 kB'),
+        }
+        for defect in ('missing', 'invalid JSON', *mutations):
+            with self.subTest(defect=defect), tempfile.TemporaryDirectory() as folder:
+                output = Path(folder)
+                self.fixture(output)
+                path = output / 'flatbuffers-router-memory-after_workload.json'
+                if defect == 'missing':
+                    path.unlink()
+                elif defect == 'invalid JSON':
+                    path.write_text('{')
+                else:
+                    data = json.loads(path.read_text())
+                    mutations[defect](data)
+                    path.write_text(json.dumps(data))
+                result = profiler.memory_snapshot_audit(output, 12345, True, True)
+                self.assertEqual(result['status'], 'incomplete')
+                self.assertTrue(result['findings'])
+
+    def test_unrequested_snapshots_are_not_inferred(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = profiler.memory_snapshot_audit(Path(folder), 12345, False, True)
+            self.assertEqual(result['status'], 'not_requested')
+            self.assertEqual(result['snapshots'], [])
 
 
 class RouterSymbolMapTests(unittest.TestCase):

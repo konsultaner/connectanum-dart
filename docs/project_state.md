@@ -1,45 +1,47 @@
 # Project State
 
 Last updated: 2026-10-21.
-Current native lease candidate `100c7624` passes focused Linux validation: 144
-core and 433 client VM/browser/native contracts, the exact negative control,
-legacy baseline, private prototype and six public-API workloads. The public phase
-forbids Dart byte-view export, disposes producers, observes actual lease owners
-and has zero tracked native owners before GC; independent audit verifies source/
-library invariance and cleanup. All 144 pure-Dart core, 199 VM reply and sixteen
-Chrome/Dart2Wasm source tests also pass locally. All 38 hosted CI jobs pass on test repair `c38ca52a` (`39500243765`). Native and
-pre-encoded benchmark groups now use explicit leases consistently for FlatBuffers,
-CBOR and MessagePack, dispose producer wrappers immediately, and observe the
-actual lease owner for submission/copy metrics. Historical lifetime controls keep
-the exact frozen `100c7624` preparation method. Production-source validation of
-this newly adopted benchmark path remains pending.
-Full CI `39491312754` catches an obsolete five-file mutation-suite fixture;
-`6e490aef` repairs that fixture and passes the full local tooling suite. Its new
-full CI (`39492341784`) exposes the core-lazy VM assertion score of 92.8125%,
-below the unchanged 95% gate. Independent assertions now cover default decoding
-state, each metadata clone, keyword-only wire access, storage-owner retention,
-and the state immediately after classic PPT decoding. All 147 selected core
-cases and nineteen Chrome/Dart2Wasm source contracts pass. The complete unchanged
-404-mutant VM inventory now passes at 95.3125%, with eight additional faults
-killed. Source hashes and all test/support hashes match the independently audited
-report; clean/restored baselines pass and no equivalences or exclusions are added.
-The independently downloaded hosted VM report matches the final local source,
-test and support hashes and the 95.3125% score. All 38 resulting CI jobs pass.
-The first browser invocation from the workspace root fails its nested test URI;
-the canonical package-local Dart2Wasm invocation passes without timeout changes.
-Another active job holds the preserved shared machine lease, blocking local
-native/canonical runs and companion review. Pure-Dart verification continues.
-Last complete local `bin/verify` remains the passing production source `28fa8011`.
+The adopted public-lease benchmark candidate `8bc62a3c` passes hosted native
+contracts, all four lifetime controls and renewed production copy proofs
+([run 39508516372](https://github.com/konsultaner/connectanum-dart/actions/runs/39508516372)).
+An independent audit verifies all 3,167 source hashes, unchanged binaries and
+owned-process cleanup. All six public-API workloads prohibit Dart byte-view
+export, dispose producers and have zero tracked native owners before GC. The
+unchanged 120 owned-copy cases and 300 short inventory rows pass every copy
+check, including E2EE, native crypto, transcode and all 32 zero-copy flags. The
+short campaign is correctly rejected by the original warmup floor; it provides
+no performance acceptance. Production and paired-timing binary hashes match.
 
-The hosted lifetime workflow now also prepares separate production binaries,
-rejects test-oracle exports, and renews the unchanged 120 owned-copy cases plus
-300 deliberately short inventory rows. It verifies actual package roots,
-resolved input/binary hashes, complete owned/zero-copy counters and raw/pass
-stream equality. The short campaign must fail the original three-warmup floor;
-it grants no timing acceptance. The exact nine-file proposal passes complete
-isolated tooling, all-workspace analysis (30 existing infos), fourteen copy-proof
-guards, thirteen lifetime-tool tests and all 23 workflow shell parsers. Native
-execution, renewed copy proofs and final timing measurements are still pending.
+The 90-row strict-floor diagnostic on the same candidate completes with zero
+integrity gaps and six numerical failures
+([run 39510196123](https://github.com/konsultaner/connectanum-dart/actions/runs/39510196123)).
+Native pre-encoded forwarding passes all seven measured gates. Native-buffer
+construction still fails peak RSS and the p99 confidence bound; Dart-value
+construction fails CPU, peak RSS and the GC/p99 confidence bounds. Allocation
+comparisons pass for all three groups. Different candidates/runners are not
+pooled or treated as causal proof of improvement. Issue #103 remains open and
+full 48-case primary and 50-case supplemental acceptance remain required.
+
+All 38 full CI jobs pass on test repair `c38ca52a` (`39500243765`). The unchanged
+404-mutant VM inventory passes at 95.3125%, with eight additional assertion
+kills, matching source/test/support hashes, clean/restored baselines and no new
+equivalences or exclusions. All 147 selected core cases and nineteen canonical
+Chrome/Dart2Wasm source contracts pass. Failed earlier runs are retained. Full
+CI on `8bc62a3c` is still running, with no failures among 34 completed jobs at
+this checkpoint. The earlier passing local `bin/verify` remains `28fa8011`;
+another task still holds the preserved machine resource lease, blocking new
+local native/canonical runs and companion review.
+
+A diagnostic-only profile follow-up adds class heaps, external/heap usage and
+Linux smaps before/after the workload and after a GC request. It preserves the
+CPU sample window and labels shared isolate-group heaps and the uncertainty of
+GC/finalizer completion. Snapshots require stable distinct process identities,
+stable application isolate sets, correct units and complete attribution. It
+changes no production code, acceptance scenario, floor, repetition or budget.
+The generated probe compiles against the resolved SDK. All twelve profile
+tests, complete tooling, Python syntax and 23 workflow shell blocks pass; hosted
+execution is pending. The first compilation's incorrect VM-service group accessor is retained
+and corrected to the actual `isolateGroupId` API.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
@@ -53,10 +55,9 @@ recompute identically: zero integrity gaps and 244 retained performance costs.
 Copy checks reconcile 1,500 volume rows, 480 E2EE, 360 native-crypto, 300 transcode
 and 160 zero-avoidable-copy observations. Cross-shard absolute costs are not
 pooled. The reader's full primary campaign remains in progress. These are earlier
-production candidates; no final parity is established. The public lease passes
-its focused Linux contract/lifetime proof on `100c7624`; benchmark adoption now uses the public lease consistently after the repaired
-full CI passes; final native/copy/timing renewal remains pending. Existing
-120-case copy proofs and 300 short rows must be renewed on the final candidate.
+production candidates; no final parity is established. The adopted public lease now passes renewed native/lifetime and production copy
+proofs on `8bc62a3c`; its strict-floor timing diagnostic still fails six gates.
+Final complete acceptance remains pending.
 PR #130 remains ready for an independent approving review under master branch
 protection; #132 remains draft.
 

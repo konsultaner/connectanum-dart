@@ -384,7 +384,7 @@ jobs:
           cp native/transport/target/release/libct_ffi.so out/wamp-flatbuffers-profile/setup/
           git diff --exit-code
           test -z "$(git status --porcelain)"
-      - name: Capture Dart and native CPU stacks
+      - name: Capture CPU stacks and diagnostic heap snapshots
         env:
           RUSTFLAGS: -C force-frame-pointers=yes -C debuginfo=1
           INPUT_PROFILE_CASE: ${{ inputs.profile_case || 'rpc_rawsocket_clear_native_native_buffer' }}
@@ -394,13 +394,14 @@ jobs:
             --output out/wamp-flatbuffers-profile/cpu \
             --native-lib out/wamp-flatbuffers-profile/setup/libct_ffi.so \
             --perf "$CONNECTANUM_PROFILE_PERF" \
+            --memory \
             --case "$INPUT_PROFILE_CASE" \
             2>&1 | tee out/wamp-flatbuffers-profile/capture.log
       - name: Explain profiling scope
         if: always()
         run: |
-          echo '## FlatBuffers CPU diagnostic' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Dart CPU samples and Linux perf stacks are retained for all three codecs. Frame pointers, native debug information and profiling alter execution; these results never establish primary parity. Dart JIT addresses may be unresolved in perf; Dart CPU samples are retained separately.' >> "$GITHUB_STEP_SUMMARY"
+          echo '## FlatBuffers CPU and memory diagnostic' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Dart CPU samples, Linux perf stacks, class heaps and process smaps are retained for all three codecs. Memory snapshots surround the workload; GC is requested only after the workload and CPU window. Shared isolate-group heaps must not be summed, and a GC request does not guarantee collection or finalizer completion. Profiling alters execution; these results never establish parity. Dart JIT addresses may be unresolved in perf; Dart CPU samples are retained separately.' >> "$GITHUB_STEP_SUMMARY"
       - name: Give the runner ownership of captured perf data
         if: always()
         run: |
