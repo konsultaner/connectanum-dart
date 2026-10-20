@@ -11,7 +11,8 @@ import 'package:connectanum_core/connectanum_core.dart'
         LazyMessagePayload,
         LazyPayloadEncoding,
         PackedPayloadDecoder,
-        PackedPayloadSource;
+        PackedPayloadSource,
+        packedPayloadSourceOf;
 // Shared observations preserve disjoint allocator and serializer counters.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
@@ -867,9 +868,9 @@ final class NativePptPayloadLease implements PackedPayloadSource {
   /// not grant ownership: the exact final source and encoding must agree.
   /// The returned wrapper belongs to this lease; do not dispose it separately.
   NativeOwnedBuffer? nativeOwnerFor(LazyMessagePayload payload) =>
-      !isDisposed &&
-          payload.encoding == encoding &&
-          identical(payload.packedPayloadSource, this)
+      identical(packedPayloadSourceOf(payload), this) &&
+          !isDisposed &&
+          payload.encoding == encoding
       ? _owner
       : null;
 

@@ -190,3 +190,31 @@ exported/derived-view survival, old-library fallback and E2EE/transcode accounti
 Keep existing reusable APIs intact. Only after that production contract passes
 verification should equivalent benchmark native-construction paths use it and
 the complete unchanged-policy timing campaigns be repeated.
+
+## Candidate production contract
+
+The explicit native lease is implemented after the experiment. It retains a
+separate immutable native reference, delays byte-view export, preserves exported
+views after disposal and rejects unexported access after closure. Matching
+session and invocation reply preparation retain the source; E2EE uses its
+provider path. Mutable full-message argument access, transparent replacement and
+owned copies remove native source eligibility. No benchmark construction or
+acceptance policy has changed at this checkpoint.
+
+Candidate `a5af2b95` passes the focused Linux workflow: 142 core cases and 433
+client VM/browser/native cases, then all earlier lifetime phases. Subsequent
+source-identity hardening keeps the existing public lazy interface open but uses
+a private final core source-view class and a trusted lookup for native eligibility.
+Public getter overrides and `noSuchMethod` implementations cannot forge its
+runtime type. Anchor/provider/context views preserve that type and source; legacy
+views preserve their original type, and detached copies have no native source.
+All 144 pure-Dart core and 199 VM reply cases pass locally for that refinement.
+Native validation and full canonical/CI/mutation verification remain pending;
+local native work and companion review are blocked by the preserved machine lease.
+
+The next diagnostic adds six cases through the public API without the private
+session/transport shortcuts. It disposes producers after retaining leases, observes
+the actual lease owner and disposes the lease after each workload. A throwing
+lease byte getter makes any hidden export fail the case; all native counters must
+be zero before forced collection. This is correctness/lifetime instrumentation,
+not throughput, latency, GC or RSS acceptance. The three earlier controls remain.

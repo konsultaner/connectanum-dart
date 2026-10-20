@@ -25,6 +25,18 @@ Matching packed reply sources are now retained through both YIELD and ERROR;
 E2EE still follows the provider path. The fallback fixture starts Session first
 within its existing five-second deadline. Focused analysis passes; runtime
 verification of these corrections remains pending.
+The corrected `a5af2b95` focused Linux workflow passes 142 core cases and 433
+client VM/browser/native contract cases, plus all retained lifetime phases with
+verified cleanup. Further inspection then rejects relying on an overridable
+payload getter for native eligibility. The source factory and metadata clones
+now use a private final core type; trusted lookup rejects interface forgeries
+without executing their getters. Legacy clone types remain unchanged. All 144
+pure-Dart core and 199 pure-Dart VM reply cases pass locally, and all 154 retained
+mutation proofs pass preflight after re-audit/re-keying; the inventory is now 404.
+Native runtime renewal for this identity refinement is pending. The diagnostic
+adds a public-API phase with producer disposal, actual owner observations and a
+throwing byte-view getter. Its eleven tooling tests pass; actual execution and
+benchmark adoption remain pending.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).

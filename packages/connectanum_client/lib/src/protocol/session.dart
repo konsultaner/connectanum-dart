@@ -2073,7 +2073,7 @@ class Session {
     message.transparentBinaryPayload = options?.pptScheme == null
         ? payload.transparentBinaryPayload
         : null;
-    if (payload.packedPayloadSource != null &&
+    if (packedPayloadSourceOf(payload) != null &&
         options?.pptScheme != null &&
         options?.pptScheme != 'wamp' &&
         _matchesPayloadEncoding(payload.encoding, options?.pptSerializer)) {

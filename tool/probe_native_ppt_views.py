@@ -33,7 +33,9 @@ BUFFER = "packages/connectanum_client/lib/native_buffers.dart"
 TRANSPORT = "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart"
 SESSION = "packages/connectanum_client/lib/src/protocol/session.dart"
 WORKER = "packages/connectanum_bench/tool/wamp_client_main.dart"
+RUNNER = "packages/connectanum_bench/lib/src/wamp_workload_runner.dart"
 FORCED = "PROTOTYPE_FORCED_PRODUCER_VIEW"
+PUBLIC_FORCED = "PUBLIC_LEASE_FORCED_BYTE_VIEW"
 COUNTERS = ("owned_allocations", "owned_handles", "external_byte_owners", "write_receipts")
 
 
@@ -159,6 +161,40 @@ def patch_session(original):
     if (options?.pptScheme != null && options?.pptScheme != 'wamp') {""")
 
 
+def patch_public_lease(buffer, runner, marker):
+    buffer = mark_buffer_source(buffer, marker)
+    buffer = replace_once(buffer, """    _handle.check();
+    final bytes = this.bytes;
+    NativeOwnedBuffer._pptViews[bytes] = _pptViewIdentity;""", """    _handle.check();
+    if (encoding == LazyPayloadEncoding.flatbuffers) {
+      return leasePptPayload(
+        encoding: encoding,
+        packedPayloadDecoder: packedPayloadDecoder,
+      ).payload;
+    }
+    final bytes = this.bytes;
+    NativeOwnedBuffer._pptViews[bytes] = _pptViewIdentity;""")
+    buffer = replace_once(buffer, "  Uint8List get bytes => _bytes ??= _owner.bytes;",
+                          "  Uint8List get bytes => throw StateError('PUBLIC_LEASE_FORCED_BYTE_VIEW');")
+    runner = replace_once(runner, "      if (owner != null) observeNativeFlatBufferPptSubmissions(owner);", """      final source = payload.packedPayloadSource;
+      if (source is native_buffers.NativePptPayloadLease) {
+        final producer = owner!;
+        owner = source.nativeOwnerFor(payload);
+        if (owner == null) throw StateError('Public lease lost native source identity');
+        producer.dispose();
+      }
+      if (owner != null) observeNativeFlatBufferPptSubmissions(owner);""")
+    runner = replace_once(runner, "  void dispose() => owner?.dispose();", """  void dispose() {
+    final source = payload.packedPayloadSource;
+    if (source is native_buffers.NativePptPayloadLease) {
+      source.dispose();
+    } else {
+      owner?.dispose();
+    }
+  }""")
+    return buffer, runner
+
+
 @contextmanager
 def resource_lease(path):
     if fcntl is None:
@@ -268,7 +304,7 @@ def run_phase(root, shadow, out, library, dart, marker, control, *, baseline=Fal
     command = [dart, "--enable-vm-service=0", "run", "packages/connectanum_bench/tool/bench_main.dart",
                "--router-config", str(configuration), "--native-lib", str(library),
                "--wamp-worker", str(worker)]
-    files = [shadow / BUFFER, shadow / TRANSPORT, shadow / SESSION, shadow / "pubspec.lock",
+    files = [shadow / BUFFER, shadow / TRANSPORT, shadow / SESSION, shadow / RUNNER, shadow / "pubspec.lock",
              shadow / ".dart_tool/package_config.json", worker, library, configuration]
     inputs = {str(path): digest(path) for path in files}
     (out / "inputs.json").write_text(json.dumps({"kind": KIND, "command": command,
@@ -386,7 +422,9 @@ def run(args, root=ROOT):
         marker = "native-view-" + uuid.uuid4().hex
         original_buffer, original_transport = (shadow / BUFFER).read_text(), (shadow / TRANSPORT).read_text()
         original_session = (shadow / SESSION).read_text()
+        original_runner = (shadow / RUNNER).read_text()
         direct_session = patch_session(original_session)
+        public_buffer, public_runner = patch_public_lease(original_buffer, original_runner, marker)
         buffer, fast = patch_sources(original_buffer, original_transport, marker)
         (shadow / BUFFER).write_text(buffer)
         patch = "".join(difflib.unified_diff(original_buffer.splitlines(True), buffer.splitlines(True),
@@ -396,11 +434,16 @@ def run(args, root=ROOT):
         patch += "".join(difflib.unified_diff(original_session.splitlines(True), direct_session.splitlines(True),
                                              fromfile="a/" + SESSION, tofile="b/" + SESSION))
         (output / "private-source.patch").write_text(patch)
+        public_patch = "".join(difflib.unified_diff(original_buffer.splitlines(True), public_buffer.splitlines(True),
+                                                   fromfile="a/" + BUFFER, tofile="b/" + BUFFER))
+        public_patch += "".join(difflib.unified_diff(original_runner.splitlines(True), public_runner.splitlines(True),
+                                                    fromfile="a/" + RUNNER, tofile="b/" + RUNNER))
+        (output / "public-lease-probe.patch").write_text(public_patch)
         inputs = {"kind": KIND, "head": head, "source_inputs": before,
                   "library_sha256": library_hash, "archive_sha256": digest(archive),
                   "dart_version": subprocess.check_output([args.dart, "--version"], text=True).strip(),
                   "limitations": ["ffi-test counters and forced GC, never performance acceptance",
-                                  "private live-producer prototype, not a public lease API",
+                                  "private live-producer prototype and separate public-API diagnostic",
                                   "controlled input only; no adversarial provenance guarantee",
                                   "original 48 primary cases are unchanged"]}
         (output / "inputs.json").write_text(json.dumps(inputs, indent=2) + "\n")
@@ -409,12 +452,15 @@ def run(args, root=ROOT):
                            stdout=log, stderr=subprocess.STDOUT, check=True)
         verify_package_roots(shadow)
         results = []
-        for name, control, baseline in (("negative-control", True, False),
-                                         ("existing-api-baseline", False, True),
-                                         ("direct-native", False, False)):
-            (shadow / BUFFER).write_text(mark_buffer_source(original_buffer, marker) if baseline else buffer)
-            (shadow / TRANSPORT).write_text(original_transport if control or baseline else fast)
-            (shadow / SESSION).write_text(original_session if control or baseline else direct_session)
+        for name, control, baseline, public in (("negative-control", True, False, False),
+                                                ("existing-api-baseline", False, True, False),
+                                                ("direct-native", False, False, False),
+                                                ("public-native-lease", False, False, True)):
+            (shadow / BUFFER).write_text(public_buffer if public else (
+                mark_buffer_source(original_buffer, marker) if baseline else buffer))
+            (shadow / TRANSPORT).write_text(original_transport if control or baseline or public else fast)
+            (shadow / SESSION).write_text(original_session if control or baseline or public else direct_session)
+            (shadow / RUNNER).write_text(public_runner if public else original_runner)
             results.append(run_phase(root, shadow, output / name, library, args.dart, marker, control,
                                      baseline=baseline))
         if snapshot(root) != before or digest(library) != library_hash:

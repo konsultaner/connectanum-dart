@@ -47,6 +47,21 @@ class NativePptViewProbeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             probe.patch_session(original + original)
 
+    def test_public_probe_uses_real_lease_with_strict_view_guard_and_owner_cleanup(self):
+        original = (probe.ROOT / probe.BUFFER).read_text()
+        runner = (probe.ROOT / probe.RUNNER).read_text()
+        buffer, changed = probe.patch_public_lease(original, runner, "public-marker")
+        self.assertIn("return leasePptPayload(", buffer)
+        self.assertIn(probe.PUBLIC_FORCED, buffer)
+        self.assertNotIn(probe.FORCED, buffer)
+        self.assertIn("owner = source.nativeOwnerFor(payload);", changed)
+        self.assertIn("producer.dispose();", changed)
+        self.assertIn("source.dispose();", changed)
+        self.assertEqual((probe.ROOT / probe.BUFFER).read_text(), original)
+        self.assertEqual((probe.ROOT / probe.RUNNER).read_text(), runner)
+        with self.assertRaises(ValueError):
+            probe.patch_public_lease(original, runner + runner, "public-marker")
+
     def test_passing_request_or_unrelated_failure_cannot_accept_negative_control(self):
         good = [{"status": 500, "body": probe.FORCED}]
         probe.validate_control([], good)
@@ -126,7 +141,7 @@ class NativePptViewProbeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             shadow, out = root / "source", root / "negative-control"
-            for name in (probe.BUFFER, probe.TRANSPORT, probe.SESSION, probe.WORKER,
+            for name in (probe.BUFFER, probe.TRANSPORT, probe.SESSION, probe.WORKER, probe.RUNNER,
                          "native/bench/bench_router.json"):
                 path = shadow / name
                 path.parent.mkdir(parents=True, exist_ok=True)

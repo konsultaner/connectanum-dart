@@ -163,7 +163,7 @@ class Invocation extends AbstractMessageWithPayload {
       isError ? WampE2eeMessageType.error : WampE2eeMessageType.yield,
     );
     final forwardPackedSource =
-        lazyPayload?.packedPayloadSource != null &&
+        packedPayloadSourceOf(lazyPayload) != null &&
         options?.pptScheme != null &&
         options?.pptScheme != 'wamp' &&
         _matchesPayloadEncoding(lazyPayload?.encoding, options?.pptSerializer);

@@ -15,6 +15,20 @@ final class _Source implements PackedPayloadSource {
   }
 }
 
+final class _ForgedPayload implements LazyMessagePayload {
+  _ForgedPayload(this.source);
+  final PackedPayloadSource source;
+  var claims = 0;
+  @override
+  PackedPayloadSource get packedPayloadSource {
+    claims++;
+    return source;
+  }
+
+  @override
+  dynamic noSuchMethod(dynamic invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   const context = WampE2eeRuntimeContext(
     direction: WampE2eeDirection.outbound,
@@ -55,6 +69,7 @@ void main() {
     ];
     for (final view in clones) {
       expect(view.packedPayloadSource, same(source));
+      expect(packedPayloadSourceOf(view), same(source));
       expect(view.storageOwner, same(source));
       expect(view.hasPackedPayloadBytes, isTrue);
     }
@@ -71,6 +86,40 @@ void main() {
     expect(payload.arguments, [bytes]);
     expect(payload.argumentsKeywords, isNull);
     expect(decodes, 1);
+  });
+
+  test(
+    'source lookup rejects a public interface forgery without invoking getters',
+    () {
+      final source = _Source(() => throw StateError('must not read bytes'));
+      final forged = _ForgedPayload(source);
+      expect(() => packedPayloadSourceOf(forged), returnsNormally);
+      expect(packedPayloadSourceOf(forged), isNull);
+      expect(packedPayloadSourceOf(null), isNull);
+      expect(forged.claims, 0);
+      expect(source.reads, 0);
+    },
+  );
+
+  test('legacy metadata views retain their original concrete type', () {
+    final provider = WampCborXsalsa20Poly1305Provider.single(
+      keyId: 'test',
+      key: Uint8List(32),
+    );
+    final legacy = LazyMessagePayload.packed(
+      encoding: LazyPayloadEncoding.flatbuffers,
+      packedPayloadBytes: Uint8List.fromList([1]),
+      packedPayloadDecoder: (bytes) =>
+          (arguments: <dynamic>[bytes], argumentsKeywords: null),
+    );
+    for (final view in [
+      legacy.withAnchor(Object()),
+      legacy.withE2eeProvider(provider),
+      legacy.withE2eeRuntimeContext(context),
+    ]) {
+      expect(view.runtimeType, legacy.runtimeType);
+      expect(packedPayloadSourceOf(view), isNull);
+    }
   });
 
   test('owned copy materializes bytes once and drops the source and owner', () {

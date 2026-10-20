@@ -14,6 +14,28 @@ final class _ForwardingSource implements PackedPayloadSource {
   Uint8List get bytes => source.bytes;
 }
 
+final class _ForgedPayload implements LazyMessagePayload {
+  _ForgedPayload(this.lease);
+  final NativePptPayloadLease lease;
+  var getterCalls = 0;
+  @override
+  PackedPayloadSource get packedPayloadSource {
+    getterCalls++;
+    return lease;
+  }
+
+  @override
+  LazyPayloadEncoding get encoding {
+    getterCalls++;
+    return LazyPayloadEncoding.flatbuffers;
+  }
+
+  @override
+  Uint8List get packedPayloadBytes => Uint8List.fromList([99]);
+  @override
+  dynamic noSuchMethod(dynamic invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   late NativeBufferAllocator allocator;
   setUpAll(() => allocator = NativeBufferAllocator.instance());
@@ -102,9 +124,12 @@ void main() {
         source: lease,
         packedPayloadDecoder: decode,
       );
-      for (final payload in [fakeAnchor, fakeSource, otherEncoding]) {
+      final forged = _ForgedPayload(lease);
+      for (final payload in [fakeAnchor, fakeSource, otherEncoding, forged]) {
+        expect(() => lease.nativeOwnerFor(payload), returnsNormally);
         expect(lease.nativeOwnerFor(payload), isNull);
       }
+      expect(forged.getterCalls, 0);
       expect(lease.hasExportedByteView, isFalse);
       expect(
         lease.nativeOwnerFor(lease.payload.withAnchor(fakeAnchor)),
