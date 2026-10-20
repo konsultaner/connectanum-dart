@@ -1,0 +1,5 @@
+.dart_tool/
+pubspec.lock
+/lib/libobjectbox.dylib
+/lib/libobjectbox.so
+/lib/objectbox.dll
