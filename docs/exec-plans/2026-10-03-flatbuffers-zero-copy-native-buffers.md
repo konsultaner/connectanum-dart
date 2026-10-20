@@ -12,7 +12,13 @@ Status: active. Started: 2026-10-03.
 - [x] Carry integration `1f46c70b` into stacked performance branch #132.
 - [x] Rebuild #130 native code and pass all 32 adapter tests, analysis and
   focused CI/coverage-policy/package-inventory checks.
-- [ ] Pass canonical verification on the full combined performance source.
+- [x] Pass canonical verification on combined source `9e964951`; all 3,153
+  source inputs and resolved locks remain unchanged. Retain the preceding
+  failed lifecycle-timeout attempt and three successful isolated reruns.
+- [x] Reproduce the three captured Linux paired-RSS failures before changing
+  production code; preserve actual HWM independently of historical sampled RSS.
+  All 36 collector and 46 comparator tests pass; budgets remain unchanged.
+- [ ] Pass full verification and fresh hosted evidence for the paired-RSS fix.
 - [ ] Renew owned E2EE/transcode proofs and strict Linux performance diagnostics.
 - [ ] Improve measured bottlenecks, then run complete unchanged-policy primary
   and supplemental acceptance before marking #103 complete.

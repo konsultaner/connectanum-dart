@@ -9,10 +9,18 @@ master `78f2b32b`; all hosted master checks pass. Fresh `bin/test-fast` passes
 on performance source `830c34cd` before integration. Copy-accounting PR #130
 has all 41 checks passing on parent `63a802f7`; integration `1f46c70b` resolves
 its state-document conflict with master. The performance branch now carries
-that integration, preserving the published-adapter and copy-accounting records. Analysis passes (30 existing informational lints), the rebuilt native library
+that integration, preserving the published-adapter and copy-accounting records.
+Analysis passes (30 existing informational lints), the rebuilt native library
 passes all 32 adapter tests, and CI execution/coverage-policy/package-inventory
-checks pass. Full combined verification remains pending; evidence is under
-`out/flatbuffers-resume-20261020/`. PR #130 implements #100/#101 and still
+checks pass. Full canonical `bin/verify` passes on combined source `9e964951`,
+with all 3,153 source inputs and resolved locks unchanged. An earlier lifecycle
+timeout is retained as failed; three isolated reruns and a quiet full rerun pass
+without changing deadlines. A paired Linux RSS follow-up reproduces three lost
+HWM observations, then passes 36 collector and 46 comparator tests while
+preserving the sampled peak and every parity budget. See the
+[RSS research](research/2026-10-20-linux-paired-rss-endpoint.md). Fresh full
+verification and hosted evidence for that correction remain pending. Evidence
+is under `out/flatbuffers-resume-20261020/`. PR #130 implements #100/#101 and still
 requires independent approval. Performance PR #132 remains draft: the prior
 complete primary campaign fails 176 gates, and fresh measurements are required.
 All sample floors, copy scope, workloads and parity budgets remain unchanged.

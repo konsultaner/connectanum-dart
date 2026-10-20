@@ -737,6 +737,44 @@ class WampSerializerCompareTest(unittest.TestCase):
             + report["server_process_metrics"]["peak_rss_during_bytes"],
         )
 
+    def test_reported_hwm_below_sampled_peak_preserves_the_sampled_metric(self):
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+        client = report["client_process_metrics"]
+        client["peak_rss_during_bytes"] = 150
+        client["max_rss_bytes"] = client["current_rss_bytes"] + 1
+
+        summary, findings = compare._summarize_report(
+            report, min_duration_ms=10_000, min_samples=25,
+            label="reported-hwm-distinct-from-sampled-peak",
+        )
+
+        self.assertEqual(findings, [])
+        self.assertEqual(summary["summed_sampled_peak_rss_bytes"], 186)
+        self.assertEqual(client["max_rss_bytes"], 55)
+
+    def test_reported_hwm_cannot_hide_a_sampled_peak_rss_regression(self):
+        for run in self.manifest["measured_runs"]:
+            path = self.root / run["results"]
+            reports = [json.loads(line) for line in path.read_text().splitlines()]
+            for report in reports:
+                if report["wamp_configuration"]["serializer"] != "flatbuffers":
+                    continue
+                for role in ("client_process_metrics", "server_process_metrics"):
+                    metrics = report[role]
+                    metrics["peak_rss_during_bytes"] += 200
+                    metrics["max_rss_bytes"] = metrics["current_rss_bytes"] + 1
+            path.write_text("".join(json.dumps(report) + "\n" for report in reports))
+
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+
+        self.assertEqual(result["status"], "failed")
+        for case in result["cases"]:
+            metric = case["metrics"]["summed_sampled_peak_rss_bytes"]
+            self.assertFalse(metric["passed"])
+            self.assertGreater(metric["median_ratio"], 1.0)
+            self.assertTrue(all(row["flatbuffers"] == 490 for row in metric["observations"]))
+        self.assertFalse(any("max RSS is below final live RSS" in f for f in result["findings"]))
+
     def test_missing_resource_observations_never_render_as_parity(self) -> None:
         for run in self.manifest["measured_runs"]:
             path = self.root / run["results"]

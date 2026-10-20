@@ -155,16 +155,91 @@ void main() {
     }
   });
 
-  test('RSS joint endpoint still checks the historical sampled peak', () async {
+  test(
+    'RSS joint endpoint keeps reported HWM separate from sampled peak',
+    () async {
+      for (final maximum in [8192, 16384]) {
+        var separateReads = 0;
+        final result = await DartVmMetricsRssSampler(
+          pid,
+          readRssBytes: () async => 32768,
+          readFinalRss: () async => (
+            currentRssBytes: 8192,
+            lifetimeMaxRssBytes: maximum,
+          ),
+          readMaxRssBytes: () async {
+            separateReads++;
+            return maximum;
+          },
+        ).stop();
+        expect(result.currentRssBytes, 8192);
+        expect(result.peakRssBytes, 32768);
+        expect(result.lifetimeMaxRssBytes, maximum);
+        expect(result.lifetimeMaxReadAttemptsBytes, [maximum]);
+        expect(separateReads, 0);
+      }
+    },
+  );
+
+  // Actual measured CBOR endpoints from the retained b8 encrypted-progressive
+  // campaign. The reported HWM bounds the paired final RSS, but not an earlier
+  // sampled peak; both observations must survive without clamping either one.
+  for (final row in const [
+    (
+      name: 'ext_49_measured_3',
+      peak: 282476544,
+      current: 269946880,
+      maximum: 282193920,
+    ),
+    (
+      name: 'ext_49_measured_4',
+      peak: 282460160,
+      current: 273375232,
+      maximum: 282193920,
+    ),
+    (
+      name: 'ext_48_measured_4',
+      peak: 283693056,
+      current: 271732736,
+      maximum: 283324416,
+    ),
+  ]) {
+    test(
+      'RSS captured paired endpoint preserves actual HWM ${row.name}',
+      () async {
+        var separateReads = 0;
+        final result = await DartVmMetricsRssSampler(
+          pid,
+          readRssBytes: () async => row.peak,
+          readFinalRss: () async => (
+            currentRssBytes: row.current,
+            lifetimeMaxRssBytes: row.maximum,
+          ),
+          readMaxRssBytes: () async {
+            separateReads++;
+            return row.maximum;
+          },
+        ).stop();
+        expect(result.currentRssBytes, row.current);
+        expect(result.peakRssBytes, row.peak);
+        expect(result.lifetimeMaxRssBytes, row.maximum);
+        expect(result.lifetimeMaxReadAttemptsBytes, [row.maximum]);
+        expect(separateReads, 0);
+      },
+    );
+  }
+
+  test('RSS independent readers retain the historical peak check', () async {
+    var liveReads = 0;
     final result = await DartVmMetricsRssSampler(
       pid,
-      readRssBytes: () async => 32768,
-      readFinalRss: () async => (
-        currentRssBytes: 8192,
-        lifetimeMaxRssBytes: 16384,
-      ),
+      readRssBytes: () async {
+        liveReads++;
+        return liveReads == 1 ? 32768 : 8192;
+      },
       readMaxRssBytes: () async => 16384,
     ).stop();
+    expect(liveReads, 2);
     expect(result.currentRssBytes, 8192);
     expect(result.peakRssBytes, 32768);
     expect(result.lifetimeMaxRssBytes, isNull);
@@ -193,14 +268,14 @@ void main() {
         readRssBytes: () async => 8192,
         readFinalRss: () async => (
           currentRssBytes: 4096,
-          lifetimeMaxRssBytes: 4096,
+          lifetimeMaxRssBytes: 2048,
         ),
         readMaxRssBytes: () async => 16384,
       ).stop();
       expect(result.currentRssBytes, 4096);
       expect(result.peakRssBytes, 8192);
       expect(result.lifetimeMaxRssBytes, 16384);
-      expect(result.lifetimeMaxReadAttemptsBytes, [4096, 16384]);
+      expect(result.lifetimeMaxReadAttemptsBytes, [2048, 16384]);
     },
   );
 

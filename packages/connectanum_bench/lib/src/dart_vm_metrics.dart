@@ -511,7 +511,9 @@ class DartVmMetricsRssSnapshot {
 
   final int? currentRssBytes;
   final int? peakRssBytes;
-  // A fresh OS lifetime high-water value, captured after the final live sample.
+  // The OS-reported lifetime high-water value at the final endpoint. Linux's
+  // asynchronous RSS accounting can report less than an earlier live sample;
+  // peakRssBytes retains that observation independently.
   final int? lifetimeMaxRssBytes;
   final List<int?> lifetimeMaxReadAttemptsBytes;
 }
@@ -623,9 +625,12 @@ class DartVmMetricsRssSampler {
           maximum == null ||
           maximum <= 0 ||
           maximum > 9007199254740991 ||
-          maximum >= (peakRssBytes ?? current)) {
+          maximum >=
+              (endpointReader == null ? peakRssBytes ?? current : current)) {
         break;
       }
+      // A paired endpoint is consistent when HWM covers its own live RSS.
+      // Separate readers retain the conservative historical-peak check.
       // Linux RSS accounting can lag between procfs reads. Retain every actual
       // observation and reread a bounded number of times; never infer a high
       // water mark from a live sample or replace a missing process value.
@@ -634,7 +639,8 @@ class DartVmMetricsRssSampler {
     if (current == null ||
         maximum == null ||
         maximum > 9007199254740991 ||
-        maximum < (peakRssBytes ?? current)) {
+        maximum <
+            (endpointReader == null ? peakRssBytes ?? current : current)) {
       maximum = null;
     }
     return DartVmMetricsRssSnapshot(
