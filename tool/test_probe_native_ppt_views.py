@@ -76,6 +76,20 @@ class NativePptViewProbeTests(unittest.TestCase):
         reports, observations = self.fixture()
         self.assertEqual(probe.validate_observations(observations, reports), 123)
 
+    def test_baseline_allows_retention_only_before_gc(self):
+        reports, observations = self.fixture()
+        observations[0]["before_gc"]["owned_allocations"] = 1
+        self.assertEqual(probe.validate_observations(observations, reports, immediate_cleanup=False), 123)
+        with self.assertRaises(ValueError):
+            probe.validate_observations(observations, reports)
+        observations[0]["after_gc"][0]["counts"]["owned_allocations"] = 1
+        with self.assertRaises(ValueError):
+            probe.validate_observations(observations, reports, immediate_cleanup=False)
+        original = (probe.ROOT / probe.BUFFER).read_text()
+        baseline = probe.mark_buffer_source(original, "baseline-marker")
+        self.assertEqual(baseline.count(probe.FORCED), 0)
+        self.assertIn("final bytes = this.bytes;", baseline)
+
     def test_rejects_incomplete_duplicate_misattributed_and_live_owner_evidence(self):
         reports, observations = self.fixture()
         variants = []

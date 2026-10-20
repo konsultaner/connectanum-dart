@@ -99,12 +99,16 @@ def replace_once(source, old, new):
     return source.replace(old, new, 1)
 
 
-def patch_sources(buffer, transport, marker):
-    buffer = replace_once(
+def mark_buffer_source(buffer, marker):
+    return replace_once(
         buffer, "part 'src/transport/native/native_owned_segments.dart';",
         "part 'src/transport/native/native_owned_segments.dart';\n"
         f"const nativePptViewProbeMarker = '{marker}';",
     )
+
+
+def patch_sources(buffer, transport, marker):
+    buffer = mark_buffer_source(buffer, marker)
     buffer = replace_once(buffer, """    _handle.check();
     final bytes = this.bytes;
     NativeOwnedBuffer._pptViews[bytes] = _pptViewIdentity;""", """    _handle.check();
@@ -198,7 +202,7 @@ def snapshot(root):
     return files
 
 
-def validate_observations(rows, reports):
+def validate_observations(rows, reports, *, immediate_cleanup=True):
     if len(reports) != 6 or len(rows) != 12:
         raise ValueError("incomplete six-case inventory or warmup/workload snapshots")
     expected = {(construction, size) for construction in ("native_buffer", "pre_encoded_span")
@@ -225,10 +229,12 @@ def validate_observations(rows, reports):
             pids.add(before["pid"])
             if len(observed["after_gc"]) != 3:
                 raise ValueError("missing forced-GC round")
-            for counts in [before, *(item["counts"] for item in observed["after_gc"])]:
+            for round_index, counts in enumerate([before, *(item["counts"] for item in observed["after_gc"])]):
                 if counts["pid"] != before["pid"]:
                     raise ValueError("GC observation changed process identity")
-                if any(type(counts[key]) is not int or counts[key] != 0 for key in COUNTERS):
+                if any(type(counts[key]) is not int or counts[key] < 0
+                       or ((immediate_cleanup or round_index > 0) and counts[key] != 0)
+                       for key in COUNTERS):
                     raise ValueError("an unexported producer allocation or handle remains live")
     if len(pids) != 1:
         raise ValueError("client worker restarted during the diagnostic")
@@ -241,7 +247,7 @@ def validate_control(reports, failures):
         raise ValueError("negative control did not exercise the throwing producer-view loader")
 
 
-def run_phase(root, shadow, out, library, dart, marker, control):
+def run_phase(root, shadow, out, library, dart, marker, control, *, baseline=False):
     out.mkdir()
     worker = shadow / "out" / out.name / "worker.dart"
     worker.parent.mkdir(parents=True)
@@ -349,7 +355,11 @@ def run_phase(root, shadow, out, library, dart, marker, control):
         result["negative_control_observed"] = True
     else:
         observations = [json.loads(line) for line in (out / "memory-observations.jsonl").read_text().splitlines()]
-        result["client_pid"] = validate_observations(observations, reports)
+        result["client_pid"] = validate_observations(observations, reports, immediate_cleanup=not baseline)
+        result["before_gc_owned_allocations"] = [row["before_gc"]["owned_allocations"]
+                                                   for row in observations]
+        if baseline and not any(result["before_gc_owned_allocations"]):
+            raise ValueError("baseline did not reproduce producer allocations awaiting GC")
     (out / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
 
@@ -401,10 +411,14 @@ def run(args, root=ROOT):
                            stdout=log, stderr=subprocess.STDOUT, check=True)
         verify_package_roots(shadow)
         results = []
-        for name, control in (("negative-control", True), ("direct-native", False)):
-            (shadow / TRANSPORT).write_text(original_transport if control else fast)
-            (shadow / SESSION).write_text(original_session if control else direct_session)
-            results.append(run_phase(root, shadow, output / name, library, args.dart, marker, control))
+        for name, control, baseline in (("negative-control", True, False),
+                                         ("existing-api-baseline", False, True),
+                                         ("direct-native", False, False)):
+            (shadow / BUFFER).write_text(mark_buffer_source(original_buffer, marker) if baseline else buffer)
+            (shadow / TRANSPORT).write_text(original_transport if control or baseline else fast)
+            (shadow / SESSION).write_text(original_session if control or baseline else direct_session)
+            results.append(run_phase(root, shadow, output / name, library, args.dart, marker, control,
+                                     baseline=baseline))
         if snapshot(root) != before or digest(library) != library_hash:
             raise ValueError("original source, dependency lock or native library changed")
         result = {"kind": KIND, "head": head, "status": "diagnostic_complete_not_acceptance",

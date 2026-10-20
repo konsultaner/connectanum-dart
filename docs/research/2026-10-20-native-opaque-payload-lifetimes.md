@@ -92,7 +92,7 @@ passing result requires every tracked counter to be zero even before forced GC,
 one stable worker PID, unchanged inputs and owned-process cleanup. No numerical
 performance acceptance can come from this ffi-test experiment.
 
-Nine focused tooling tests cover attribution, malformed/incomplete evidence,
+Ten focused tooling tests cover attribution, malformed/incomplete evidence,
 negative-control rejection, package resolution, a real child-process cleanup
 path and resource-lease isolation. Linux execution is pending. The local shared
 lease is held by another active job, so native execution and local companion
@@ -116,4 +116,34 @@ The next private-only variant restores the deferred payload into the outbound
 message for the controlled FlatBuffers owner, leaving non-FlatBuffers and E2EE
 paths unchanged. It still retains the throwing loader and original negative
 control. This probes both earlier session access and native transport selection;
-there is no public API or general provenance claim. Its execution is pending.
+there is no public API or general provenance claim. The extended prototype passes on Linux as described below.
+
+
+The extended prototype passes on `1c25277a` in
+[39481566412](https://github.com/konsultaner/connectanum-dart/actions/runs/39481566412).
+Independent inspection confirms the exact negative control, all six complete
+byte-validation cases, twelve attributed snapshot groups, 36 post-GC rounds,
+one stable worker PID, zero native counters before and after GC, unchanged
+source/library inputs and complete owned-process cleanup. Raw memory observations
+have SHA-256 `d1a5eb9355ab37f26d1af0f0eb215ac9a667e937a067f82724cfefde604a982d`.
+This demonstrates the controlled path can avoid exporting a producer Dart view.
+It does not establish an RSS, GC or throughput improvement.
+
+The next run adds the same six cases using the unchanged API in the same Linux
+job. That baseline must reproduce at least one native producer allocation
+awaiting collection, then return all tracked owners to zero after collection.
+The prototype still requires zero before collection. Complete original source
+and library hashes, independent child cleanup and the negative control remain
+mandatory. This removes the platform difference in the earlier macOS baseline;
+timing remains ineligible for parity acceptance.
+
+A production solution still needs a separately owned, explicit disposable
+payload lease. Native eligibility must derive from an unforgeable source identity,
+not the prototype's structural anchor. Source identity must survive payload
+anchor/provider/context copies and disappear on detached owned copies. A source
+from a foreign allocator/library, an expired lease or an edited/replaced payload
+must never lend an unrelated native allocation. Session preparation must retain
+the encoded representation without forcing application values; safe serializer,
+old-library and E2EE fallbacks must materialize independent views when necessary.
+An exported view must outlive lease disposal. None of those public contracts is
+implemented by this diagnostic.
