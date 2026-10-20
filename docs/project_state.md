@@ -42,6 +42,13 @@ The generated probe compiles against the resolved SDK. All twelve profile
 tests, complete tooling, Python syntax and 23 workflow shell blocks pass; hosted
 execution is pending. The first compilation's incorrect VM-service group accessor is retained
 and corrected to the actual `isolateGroupId` API.
+The first hosted attempt (`39514441849`, source `3582058e`) stops before
+launching a workload because a fresh runner has no unused Rust benchmark-driver
+lockfile. The diagnostic runs Dart directly. All three cases reproduce that
+failure with the driver lock absent, then pass after requiring only the actual
+Dart/FFI transport locks and package configuration. Its failed artifact is
+retained; it contains no performance measurement. Fresh hosted execution remains
+pending after this repair.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).

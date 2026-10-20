@@ -182,6 +182,10 @@ Status: active. Started: 2026-10-03.
   The optional probe compiles against the resolved SDK. Twelve profile tests,
   complete tooling, Python syntax and all 23 workflow shell parsers pass. Retain
   the resolved locks/package configuration and validate every snapshot's identity.
+- [x] Retain the first hosted profile failure (`39514441849`): an unused Rust
+  benchmark-driver lock is absent on fresh runners. Reproduce all three cases
+  before repair, then pass twelve profile tests while requiring and retaining
+  only the actual Dart/FFI transport dependencies. No workload ran on the failure.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
   checks, all workflow syntax checks, and a real three-codec one-MiB stack smoke
   with source/lock/binary invariance and owned-process cleanup.

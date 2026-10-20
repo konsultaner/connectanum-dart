@@ -359,7 +359,9 @@ def profile(args):
     # These ignored files select the actual resolved dependencies and package
     # roots; tracked-source invariance alone does not freeze the execution.
     resolved_files = {}
-    for p in ('pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.lock',
+    # The controller and workload driver here are Dart; native/bench's Rust
+    # driver is not built or executed and has no resolved lock on fresh runners.
+    for p in ('pubspec.lock', 'native/transport/Cargo.lock',
               '.dart_tool/package_config.json'):
         data = (root/p).read_bytes()
         retained = output / 'resolved-inputs' / p.replace('/', '__').lstrip('.')
