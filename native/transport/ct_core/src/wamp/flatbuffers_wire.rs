@@ -51,7 +51,7 @@ pub(super) fn read(bytes: Bytes) -> Result<Arc<Fields>, ParseError> {
     }
     let mut reader = Reader {
         bytes,
-        tables: HashMap::new(),
+        tables: TableCache::default(),
         strings: HashMap::new(),
         string_bytes: 0,
         elements: 0,
@@ -60,9 +60,49 @@ pub(super) fn read(bytes: Bytes) -> Result<Arc<Fields>, ParseError> {
     Ok(reader.table(root, schema::ROOT, 1)?.1)
 }
 
+type CachedTable = (usize, Option<Arc<Fields>>);
+
+// The common root/message pair fits here. Larger graphs retain randomized
+// HashMap lookup instead of paying an unbounded linear search cost.
+#[derive(Default)]
+struct TableCache {
+    inline: [Option<((usize, usize), CachedTable)>; 4],
+    used: usize,
+    overflow: Option<HashMap<(usize, usize), CachedTable>>,
+}
+impl TableCache {
+    fn get(&self, key: &(usize, usize)) -> Option<&CachedTable> {
+        for (candidate, value) in self.inline[..self.used].iter().flatten() {
+            if candidate == key {
+                return Some(value);
+            }
+        }
+        self.overflow.as_ref()?.get(key)
+    }
+    fn insert(&mut self, key: (usize, usize), value: CachedTable) {
+        for (candidate, existing) in self.inline[..self.used].iter_mut().flatten() {
+            if *candidate == key {
+                *existing = value;
+                return;
+            }
+        }
+        if self.used < self.inline.len() {
+            self.inline[self.used] = Some((key, value));
+            self.used += 1;
+        } else {
+            self.overflow
+                .get_or_insert_with(HashMap::new)
+                .insert(key, value);
+        }
+    }
+    fn len(&self) -> usize {
+        self.used + self.overflow.as_ref().map_or(0, HashMap::len)
+    }
+}
+
 struct Reader {
     bytes: Bytes,
-    tables: HashMap<(usize, usize), (usize, Option<Arc<Fields>>)>,
+    tables: TableCache,
     strings: HashMap<usize, Arc<str>>,
     string_bytes: usize,
     elements: usize,
@@ -295,7 +335,7 @@ mod copy_tests {
             bytes.push(0);
             let mut reader = Reader {
                 bytes: Bytes::from(bytes),
-                tables: HashMap::new(),
+                tables: TableCache::default(),
                 strings: HashMap::new(),
                 string_bytes: 0,
                 elements: 0,

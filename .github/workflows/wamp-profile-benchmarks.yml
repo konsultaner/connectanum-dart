@@ -111,7 +111,7 @@ jobs:
       matrix:
         shard: ${{ fromJSON(inputs.campaign == 'flatbuffers_extensions' && '["protocol","payload_sizes","encrypted_progressive_results"]' || '["all"]') }}
     concurrency:
-      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}', matrix.shard) || (inputs.campaign == 'flatbuffers_primary' && 'flatbuffers-primary' || 'flatbuffers-diagnostic') }}
+      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}', matrix.shard) || (inputs.campaign == 'flatbuffers_primary' && 'flatbuffers-primary' || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic')) }}
       cancel-in-progress: false
 
     steps:

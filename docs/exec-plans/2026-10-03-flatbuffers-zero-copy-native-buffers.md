@@ -52,8 +52,21 @@ Status: active. Started: 2026-10-03.
   and 3,360 requested bytes to 2,520. Original application pointers are retained.
 - [x] Pass 31 isolated FlatBuffers tests and compare all 56 contiguous/segmented
   streams for 25 public models plus three opaque body sizes byte for byte.
-- [ ] Verify the resulting native writer source, renew production copy proofs
-  and measure its actual effect with the unchanged timing policy.
+- [x] Pass frozen full verification on writer source `40927925`, with all 3,158
+  source inputs and resolved locks unchanged and no Rust CLI retry. Renew all
+  120 production copy cases and 300 short supplemental rows, retaining all
+  32 zero-avoidable-copy observations and unchanged production binaries.
+- [x] Confirm all 38 hosted CI jobs pass on tooling source `53c19b72`.
+- [x] Reject the compact-field prototype after its 3.4% parsing slowdown.
+  Instead retain four table-cache entries inline with randomized overflow.
+  All 32 FlatBuffers tests and 56 wire comparisons pass; controlled restoration
+  changes decode allocations from seven to six and requested bytes 2,844 to 2,704.
+  A local seven-pair microbenchmark improves parsing 5.2%; it is not acceptance.
+- [x] Test distinct/shared table limits with independently generated frames on
+  both baseline and candidate. Separate paired-diagnostic and stack-replay
+  concurrency groups without changing the measurement contract.
+- [ ] Complete canonical checks, production copy proofs, and actual unchanged-
+  policy timing evidence for the reader-cache candidate.
 - [ ] Complete the 360-row diagnostic with verified Rust 1.99.0; retain any
   intermittent failure and its pre-cleanup stacks without accepting performance.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI

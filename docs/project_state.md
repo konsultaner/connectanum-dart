@@ -81,8 +81,24 @@ to twelve and requested bytes from 3,360 to 2,520, with original application
 pointers retained. All 31 isolated FlatBuffers tests pass; 56 independently
 encoded streams remain byte-identical across 25 public models and three opaque
 body sizes. See [staging research](research/2026-10-20-native-flatbuffers-staging.md).
-Resulting-source canonical checks, production copy proofs and speed evidence
-remain pending; this allocation improvement does not establish parity.
+Frozen `bin/verify` passes on `40927925`, with all 3,158 source inputs and
+resolved locks unchanged and no Rust CLI retry. Renewed production proofs pass
+all 120 copy cases and all 300 short supplemental rows, including 32 zero-
+avoidable-copy observations; source and binary hashes remain unchanged.
+The complete 1,440-row hosted primary campaign is running. Full parity remains
+unproven. All 38 hosted CI jobs also pass on preceding tooling source `53c19b72`.
+
+A second reader change keeps the first four table-cache entries inline and
+preserves randomized HashMap overflow, cached heights and all existing bounds.
+Independent generated frames pass on the original and proposed reader at the
+10,000-table limit, reject the next distinct table, and preserve shared-table
+references. All 32 FlatBuffers tests pass; 56 wire streams remain identical.
+Controlled restoration confirms one fewer decode allocation (seven to six)
+and 140 fewer requested bytes per frame. Local parsing improves 5.2%; this is
+component evidence. A slower compact-field alternative is discarded. See
+[table-cache research](research/2026-10-20-native-flatbuffers-table-cache.md).
+Paired diagnostics and full stack replays use separate hosted concurrency
+groups. Resulting-source canonical/production-copy/timing verification is pending.
 
 Completed delivery (2026-10-19): the separate
 [`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)
