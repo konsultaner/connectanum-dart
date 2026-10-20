@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    mpsc, Arc, Mutex,
+    mpsc, Arc, Mutex, OnceLock,
 };
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -18,6 +18,31 @@ impl Drop for ScratchDirectory {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
+}
+
+fn install_peer_worker(destination: &Path) {
+    // Concurrent tests share only immutable compiler output. Each peer still
+    // owns its executable path and all of its runtime state and resources.
+    static IMAGE: OnceLock<(Vec<u8>, fs::Permissions)> = OnceLock::new();
+    let (bytes, permissions) = IMAGE.get_or_init(|| {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/bench_peer.rs");
+        let compiled = Command::new("rustc")
+            .arg("--edition=2021")
+            .arg(source)
+            .arg("-o")
+            .arg(destination)
+            .output()
+            .unwrap();
+        assert!(compiled.status.success(), "{compiled:?}");
+        (
+            fs::read(destination).unwrap(),
+            fs::metadata(destination).unwrap().permissions(),
+        )
+    });
+    if !destination.exists() {
+        fs::write(destination, bytes).unwrap();
+    }
+    fs::set_permissions(destination, permissions.clone()).unwrap();
 }
 
 struct Peer {
@@ -46,15 +71,7 @@ impl Peer {
         fs::create_dir(&root).unwrap();
         let directory = ScratchDirectory(root.clone());
         let worker = root.join(format!("stdio-peer{}", std::env::consts::EXE_SUFFIX));
-        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/bench_peer.rs");
-        let compiled = Command::new("rustc")
-            .arg("--edition=2021")
-            .arg(source)
-            .arg("-o")
-            .arg(&worker)
-            .output()
-            .unwrap();
-        assert!(compiled.status.success(), "{compiled:?}");
+        install_peer_worker(&worker);
         fs::write(
             root.join("router.json"),
             r#"{"router":{"worker_pool":{"min_workers":1}}}"#,

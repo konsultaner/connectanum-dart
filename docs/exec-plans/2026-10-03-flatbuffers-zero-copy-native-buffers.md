@@ -34,6 +34,14 @@ Status: active. Started: 2026-10-03.
   compiler pin for both jobs, then set the effective environment and verify it.
 - [x] Extend diagnostic traversal to the complete original scenario directory,
   preserving ordering and repeated cross-pass names. All sixteen focused tests pass.
+- [x] Retain the six CLI startup failures in canonical verification on
+  `53c19b72` and the passing unchanged-source isolated run. Remove repeated
+  fixture compilation with a process-local immutable image cache, preserving
+  every private runtime resource and deadline. Forty focused tests pass;
+  compiler instrumentation confirms one compilation per process.
+- [ ] Pass complete canonical verification after the fixture setup change.
+  Its effect on intermittent startup failures remains under verification;
+  local companion review is blocked by another campaign's resource lease.
 - [ ] Complete the 360-row diagnostic with verified Rust 1.99.0; retain any
   intermittent failure and its pre-cleanup stacks without accepting performance.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI

@@ -55,6 +55,17 @@ Sixteen focused checks pass; complete hosted evidence and final resulting-source
 canonical verification remain required before handoff. Historical failures are
 not waived by the passing one-pass replay.
 
+Canonical verification on `53c19b72` fails six existing Rust HTTP CLI lifecycle
+cases at their unchanged two-second startup limit, with local models idle.
+An isolated unchanged-source rerun passes. The test fixture now compiles its
+identical worker once per test process and installs private executable copies;
+runtime directories, sockets, environment and cleanup remain isolated. The
+initial ten tests and three additional ten-test processes pass; a compiler shim
+confirms one compilation per process. This removes redundant parallel setup,
+but does not establish the cause of every historical timeout. Full resulting-
+source verification is pending. Companion review is blocked by another native
+mutation campaign's resource lease; that lease is preserved.
+
 Completed delivery (2026-10-19): the separate
 [`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)
 is published to pub.dev. The live version API confirms publication at
