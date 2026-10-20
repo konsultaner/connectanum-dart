@@ -1,0 +1,9 @@
+date_utc=2026-10-20T13:23:26Z
+uname=Linux runnervm8k3b6 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+rustc=rustc 1.99.1 (58cf8f9c3 2026-10-13)
+cargo=cargo 1.99.1 (5f94df478 2026-08-27)
+dart=Dart SDK version: 3.13.6 (stable) (Tue Oct 20 01:00:48 2026 -0700) on "linux_x64"
+native_lib=/home/runner/work/connectanum-dart/connectanum-dart/native/transport/target/ffi-test/release/libct_ffi.so
+router_worker_counts=1
+native_runtime_thread_counts=1
+workload_timeout_ms=300000

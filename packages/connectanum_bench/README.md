@@ -76,6 +76,8 @@ include the raw results and run settings.
 
 Files use 4 MiB chunks. Native FlatBuffers file rows use file-backed
 segments; Dart buffered rows use the Dart file path.
+The [hosted Linux FlatBuffers file table](../../docs/benchmarks/wamp-flatbuffers-hosted-linux-1c53c153-2026-10-20/README.md)
+shows the eight native paths and the GitHub Actions gate result.
 
 ### Large RPC frames
 
