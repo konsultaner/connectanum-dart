@@ -149,7 +149,22 @@ Status: active. Started: 2026-10-03.
 - [x] Complete all 404 VM mutants with the final test inputs: 95.3125%, eight
   additional assertion kills, unchanged source/equivalences and matching final
   test/support hashes. Clean and restored baselines pass.
-- [ ] Complete fresh full CI after this tooling correction.
+- [x] Pass all 38 full hosted CI jobs on `c38ca52a` (`39500243765`). The hosted
+  VM mutation report independently matches local source/test/support hashes and
+  the 95.3125% score; the browser gate passes too. Retain the obsolete failed run.
+- [x] Preflight the complete benchmark/proof proposal in an isolated source
+  snapshot: all tooling, full analysis with thirty existing infos, fourteen
+  copy-proof guards, thirteen lifetime-tool cases and all 23 shell blocks pass.
+  Verify exact proposal hashes and remove the owned temporary Git clone.
+- [x] Adopt explicit leases for native and pre-encoded construction in all three
+  codecs. Close producers, observe actual lease owners, retain original metrics
+  and preserve the frozen legacy preparation in historical diagnostic controls.
+- [x] Make the original 120 owned cases and all 300 short inventory rows portable
+  for hosted production renewal. Require actual package roots, immutable resolved
+  inputs/binaries, no test oracles, complete counters, exact raw/pass equality and
+  the specific unchanged three-warmup-floor rejection. Preserve every deadline.
+- [ ] Renew hosted source/lifetime, production copy proofs and complete CI on
+  the adopted benchmark candidate before interpreting any timing measurement.
   Another active job currently holds the preserved shared local resource lease;
   local native verification and companion review of the new tool are blocked.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI

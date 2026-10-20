@@ -419,7 +419,7 @@ jobs:
           retention-days: 30
 
   linux-flatbuffers-native-view-probe:
-    name: Experimental native payload view lifetime diagnostic
+    name: Native payload lifetime and production copy proofs
     if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_native_view_probe'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -448,6 +448,7 @@ jobs:
           mkdir -p out/wamp-native-ppt-view-setup
           bin/bootstrap 2>&1 | tee out/wamp-native-ppt-view-setup/bootstrap.log
           python3 -m unittest discover -s tool -p test_probe_native_ppt_views.py -v
+          python3 -m unittest discover -s tool -p test_check_wamp_owned_copy_live.py -v
       - name: Build isolated ffi-test library
         run: |
           set -euo pipefail
@@ -475,6 +476,9 @@ jobs:
             test/transport/native/native_owned_segments_test.dart \
             --concurrency 1 --reporter expanded) \
             2>&1 | tee out/wamp-native-ppt-view-setup/native-contracts.log
+          (cd packages/connectanum_bench && dart test \
+            test/wamp_flatbuffers_scenario_test.dart --reporter expanded) \
+            2>&1 | tee out/wamp-native-ppt-view-setup/bench-lease-contracts.log
       - name: Run source-attributed control and private native prototype
         run: |
           set -euo pipefail
@@ -483,10 +487,29 @@ jobs:
             --native-lib "$RUNNER_TEMP/native-view-ffi-test/release/libct_ffi.so" \
             --resource-lock "$RUNNER_TEMP/native-view-resources/machine.lock" \
             2>&1 | tee out/wamp-native-ppt-view-setup/probe.log
+      - name: Build and verify production owned-copy paths
+        run: |
+          set -euo pipefail
+          CARGO_TARGET_DIR="$RUNNER_TEMP/native-owned-copy-production" \
+            cargo build --release --locked --manifest-path native/transport/Cargo.toml \
+            -p ct_ffi 2>&1 | tee out/wamp-native-ppt-view-setup/production-build.log
+          cargo generate-lockfile --manifest-path native/bench/Cargo.toml
+          CARGO_TARGET_DIR="$RUNNER_TEMP/native-owned-copy-driver" \
+            cargo build --release --locked --manifest-path native/bench/Cargo.toml \
+            --bin http_stream 2>&1 | tee out/wamp-native-ppt-view-setup/driver-build.log
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          python3 tool/check_wamp_owned_copy_live.py \
+            --output out/wamp-native-ppt-copy-proof \
+            --native-lib "$RUNNER_TEMP/native-owned-copy-production/release/libct_ffi.so" \
+            --driver "$RUNNER_TEMP/native-owned-copy-driver/release/http_stream" \
+            --resource-lock "$RUNNER_TEMP/native-view-resources/machine.lock" \
+            2>&1 | tee out/wamp-native-ppt-view-setup/copy-proof.log
       - name: Explain diagnostic scope
         if: always()
         run: |
-          echo '## Experimental native payload view lifetime diagnostic' >> "$GITHUB_STEP_SUMMARY"
+          echo '## Native payload lifetime and production copy proofs' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Production binaries without test oracles separately renew all 120 owned E2EE/transcode cases and all 300 short inventory rows. The original strict timing policy must reject these short runs. No performance acceptance is granted.' >> "$GITHUB_STEP_SUMMARY"
           echo 'A private snapshot runs an exact throwing-loader control and six cases each for the unchanged API, structural-anchor prototype and candidate public lease API. The public phase disposes producers, observes actual lease owners and forbids byte-view export; all positive phases validate full echoed bytes and native-owner cleanup. This diagnostic never establishes parity or replaces the original 48-case matrix.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
@@ -495,6 +518,7 @@ jobs:
           path: |
             out/wamp-native-ppt-view-setup
             out/wamp-native-ppt-view
+            out/wamp-native-ppt-copy-proof
             !out/wamp-native-ppt-view/source/**
             !out/wamp-native-ppt-view/source.tar
           if-no-files-found: error

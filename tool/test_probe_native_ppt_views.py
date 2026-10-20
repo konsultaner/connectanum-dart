@@ -51,16 +51,43 @@ class NativePptViewProbeTests(unittest.TestCase):
         original = (probe.ROOT / probe.BUFFER).read_text()
         runner = (probe.ROOT / probe.RUNNER).read_text()
         buffer, changed = probe.patch_public_lease(original, runner, "public-marker")
-        self.assertIn("return leasePptPayload(", buffer)
+        self.assertNotIn("return leasePptPayload(", buffer)
         self.assertIn(probe.PUBLIC_FORCED, buffer)
         self.assertNotIn(probe.FORCED, buffer)
-        self.assertIn("owner = source.nativeOwnerFor(payload);", changed)
+        self.assertEqual(changed, runner)
+        self.assertIn("final leasedOwner = lease.nativeOwnerFor(payload);", changed)
         self.assertIn("producer.dispose();", changed)
-        self.assertIn("source.dispose();", changed)
+        self.assertIn("lease!.dispose();", changed)
         self.assertEqual((probe.ROOT / probe.BUFFER).read_text(), original)
         self.assertEqual((probe.ROOT / probe.RUNNER).read_text(), runner)
         with self.assertRaises(ValueError):
             probe.patch_public_lease(original, runner + runner, "public-marker")
+
+    def test_legacy_controls_restore_only_the_frozen_preparation_method(self):
+        original = (probe.ROOT / probe.RUNNER).read_text()
+        restored = probe.legacy_runner_source(original)
+        before_start, before_end = probe.preparation_span(original)
+        after_start, after_end = probe.preparation_span(restored)
+        self.assertEqual(original[:before_start], restored[:after_start])
+        self.assertEqual(original[before_end:], restored[after_end:])
+        preparation = restored[after_start:after_end]
+        self.assertIn("owner.asFlatBuffersPptPayload()", preparation)
+        self.assertIn("owner.asPptPayload(", preparation)
+        self.assertNotIn("leasePptPayload(", preparation)
+        self.assertNotIn("leaseFlatBuffersPptPayload(", preparation)
+        self.assertNotIn("producer.dispose();", preparation)
+        self.assertEqual((probe.ROOT / probe.RUNNER).read_text(), original)
+
+    def test_legacy_controls_reject_fixture_drift_and_ambiguous_or_old_runner(self):
+        original = (probe.ROOT / probe.RUNNER).read_text()
+        restored = probe.legacy_runner_source(original)
+        for invalid in ("unrelated", original + original, restored,
+                        original.replace("owner = leasedOwner;", "owner = null;")):
+            with self.subTest(source=invalid[:20]), self.assertRaises(ValueError):
+                probe.legacy_runner_source(invalid)
+        with mock.patch.object(probe, "LEGACY_PREPARATION_SHA256", "0" * 64):
+            with self.assertRaisesRegex(ValueError, "fixture changed"):
+                probe.legacy_runner_source(original)
 
     def test_passing_request_or_unrelated_failure_cannot_accept_negative_control(self):
         good = [{"status": 500, "body": probe.FORCED}]

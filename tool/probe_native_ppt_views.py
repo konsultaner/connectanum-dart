@@ -36,6 +36,8 @@ WORKER = "packages/connectanum_bench/tool/wamp_client_main.dart"
 RUNNER = "packages/connectanum_bench/lib/src/wamp_workload_runner.dart"
 FORCED = "PROTOTYPE_FORCED_PRODUCER_VIEW"
 PUBLIC_FORCED = "PUBLIC_LEASE_FORCED_BYTE_VIEW"
+LEGACY_PREPARATION = "tool/fixtures/native_ppt_legacy_preparation_100c.dart.txt"
+LEGACY_PREPARATION_SHA256 = "93cbb02d913d868c580149ef6c461a09d5f34a035722d31a1d6e1f62fcd57d29"
 COUNTERS = ("owned_allocations", "owned_handles", "external_byte_owners", "write_receipts")
 
 
@@ -161,39 +163,47 @@ def patch_session(original):
     if (options?.pptScheme != null && options?.pptScheme != 'wamp') {""")
 
 
+def preparation_span(runner):
+    start_marker = "  _PreparedBenchPayload _prepareTypedBenchPayload("
+    end_marker = "  Object _buildTypedBenchmarkValue("
+    if runner.count(start_marker) != 1 or runner.count(end_marker) != 1:
+        raise ValueError("diagnostic benchmark preparation boundary changed")
+    start, end = runner.index(start_marker), runner.index(end_marker)
+    if end <= start:
+        raise ValueError("diagnostic benchmark preparation order changed")
+    return start, end
+
+
+def require_public_preparation(runner):
+    start, end = preparation_span(runner)
+    preparation = runner[start:end]
+    for pattern in ("owner.leaseFlatBuffersPptPayload()", "owner.leasePptPayload(",
+                    "final leasedOwner = lease.nativeOwnerFor(payload);",
+                    "producer.dispose();", "owner = leasedOwner;", "lease: lease,"):
+        if preparation.count(pattern) != 1:
+            raise ValueError("diagnostic requires the public benchmark lease path")
+
+
+def legacy_runner_source(runner):
+    # Preserve the historical producer-view controls after the real benchmark
+    # adopts leases. This fixture is the unchanged 100c7624 method, not a new
+    # benchmark case or an alternative acceptance workload.
+    require_public_preparation(runner)
+    fixture = ROOT / LEGACY_PREPARATION
+    if digest(fixture) != LEGACY_PREPARATION_SHA256:
+        raise ValueError("frozen legacy preparation fixture changed")
+    start, end = preparation_span(runner)
+    return runner[:start] + fixture.read_text() + runner[end:]
+
+
 def patch_public_lease(buffer, runner, marker):
+    # The production benchmark now owns/disposes real leases itself. Guard the
+    # source getter only; don't replace legacy helpers or rewrite its ownership.
+    require_public_preparation(runner)
     buffer = mark_buffer_source(buffer, marker)
-    buffer = replace_once(buffer, """    _handle.check();
-    final bytes = this.bytes;
-    NativeOwnedBuffer._pptViews[bytes] = _pptViewIdentity;""", """    _handle.check();
-    if (encoding == LazyPayloadEncoding.flatbuffers) {
-      return leasePptPayload(
-        encoding: encoding,
-        packedPayloadDecoder: packedPayloadDecoder,
-      ).payload;
-    }
-    final bytes = this.bytes;
-    NativeOwnedBuffer._pptViews[bytes] = _pptViewIdentity;""")
     buffer = replace_once(buffer, "  Uint8List get bytes => _bytes ??= _owner.bytes;",
                           "  Uint8List get bytes => throw StateError('PUBLIC_LEASE_FORCED_BYTE_VIEW');")
-    runner = replace_once(runner, "      if (owner != null) observeNativeFlatBufferPptSubmissions(owner);", """      final source = payload.packedPayloadSource;
-      if (source is native_buffers.NativePptPayloadLease) {
-        final producer = owner!;
-        owner = source.nativeOwnerFor(payload);
-        if (owner == null) throw StateError('Public lease lost native source identity');
-        producer.dispose();
-      }
-      if (owner != null) observeNativeFlatBufferPptSubmissions(owner);""")
-    runner = replace_once(runner, "  void dispose() => owner?.dispose();", """  void dispose() {
-    final source = payload.packedPayloadSource;
-    if (source is native_buffers.NativePptPayloadLease) {
-      source.dispose();
-    } else {
-      owner?.dispose();
-    }
-  }""")
     return buffer, runner
-
 
 @contextmanager
 def resource_lease(path):
@@ -424,6 +434,7 @@ def run(args, root=ROOT):
         original_session = (shadow / SESSION).read_text()
         original_runner = (shadow / RUNNER).read_text()
         direct_session = patch_session(original_session)
+        legacy_runner = legacy_runner_source(original_runner)
         public_buffer, public_runner = patch_public_lease(original_buffer, original_runner, marker)
         buffer, fast = patch_sources(original_buffer, original_transport, marker)
         (shadow / BUFFER).write_text(buffer)
@@ -433,7 +444,10 @@ def run(args, root=ROOT):
                                              fromfile="a/" + TRANSPORT, tofile="b/" + TRANSPORT))
         patch += "".join(difflib.unified_diff(original_session.splitlines(True), direct_session.splitlines(True),
                                              fromfile="a/" + SESSION, tofile="b/" + SESSION))
-        (output / "private-source.patch").write_text(patch)
+        legacy_patch = "".join(difflib.unified_diff(original_runner.splitlines(True), legacy_runner.splitlines(True),
+                                                   fromfile="a/" + RUNNER, tofile="b/" + RUNNER))
+        (output / "legacy-preparation.patch").write_text(legacy_patch)
+        (output / "private-source.patch").write_text(patch + legacy_patch)
         public_patch = "".join(difflib.unified_diff(original_buffer.splitlines(True), public_buffer.splitlines(True),
                                                    fromfile="a/" + BUFFER, tofile="b/" + BUFFER))
         public_patch += "".join(difflib.unified_diff(original_runner.splitlines(True), public_runner.splitlines(True),
@@ -441,6 +455,9 @@ def run(args, root=ROOT):
         (output / "public-lease-probe.patch").write_text(public_patch)
         inputs = {"kind": KIND, "head": head, "source_inputs": before,
                   "library_sha256": library_hash, "archive_sha256": digest(archive),
+                  "legacy_preparation": {"path": LEGACY_PREPARATION,
+                                         "sha256": LEGACY_PREPARATION_SHA256,
+                                         "source_head": "100c762449f9eab94c60bc3702eabc10b5c5d9ab"},
                   "dart_version": subprocess.check_output([args.dart, "--version"], text=True).strip(),
                   "limitations": ["ffi-test counters and forced GC, never performance acceptance",
                                   "private live-producer prototype and separate public-API diagnostic",
@@ -460,7 +477,7 @@ def run(args, root=ROOT):
                 mark_buffer_source(original_buffer, marker) if baseline else buffer))
             (shadow / TRANSPORT).write_text(original_transport if control or baseline or public else fast)
             (shadow / SESSION).write_text(original_session if control or baseline or public else direct_session)
-            (shadow / RUNNER).write_text(public_runner if public else original_runner)
+            (shadow / RUNNER).write_text(public_runner if public else legacy_runner)
             results.append(run_phase(root, shadow, output / name, library, args.dart, marker, control,
                                      baseline=baseline))
         if snapshot(root) != before or digest(library) != library_hash:

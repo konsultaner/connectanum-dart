@@ -24,6 +24,7 @@ python3 tool/test_run_wamp_serializer_campaign.py
 python3 tool/test_profile_wamp_serializers.py
 python3 tool/test_capture_wamp_stall.py
 python3 tool/test_probe_native_ppt_views.py
+python3 tool/test_check_wamp_owned_copy_live.py
 python3 tool/test_merge_wamp_extension_campaigns.py
 python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py

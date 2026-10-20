@@ -2162,6 +2162,7 @@ class WampWorkloadRunner {
       _ => throw StateError('Unvalidated benchmark PPT serializer'),
     };
     native_buffers.NativeOwnedBuffer? owner;
+    native_buffers.NativePptPayloadLease? lease;
     try {
       Object? value;
       switch (scenario.payloadConstruction) {
@@ -2197,37 +2198,50 @@ class WampWorkloadRunner {
           owner = _copyToNative(_encodePptValue(serializer, valueToEncode));
       }
       preparation.stop();
-      final payload = owner != null
-          ? serializer == 'flatbuffers'
-                ? owner.asFlatBuffersPptPayload()
-                : owner.asPptPayload(
-                    encoding: encoding,
-                    packedPayloadDecoder: (bytes) {
-                      final decoded = serializer == 'cbor'
-                          ? wamp_cbor.Serializer().deserializePPT(bytes)
-                          : wamp_msgpack.Serializer().deserializePPT(bytes);
-                      if (decoded == null) {
-                        throw const FormatException(
-                          'Invalid benchmark PPT payload',
-                        );
-                      }
-                      return (
-                        arguments: decoded.arguments,
-                        argumentsKeywords: decoded.argumentsKeywords,
-                      );
-                    },
-                  )
-          : wamp_core.LazyMessagePayload.materialized(
-              encoding: encoding,
-              arguments: [value],
-            );
+      final wamp_core.LazyMessagePayload payload;
+      if (owner != null) {
+        lease = serializer == 'flatbuffers'
+            ? owner.leaseFlatBuffersPptPayload()
+            : owner.leasePptPayload(
+                encoding: encoding,
+                packedPayloadDecoder: (bytes) {
+                  final decoded = serializer == 'cbor'
+                      ? wamp_cbor.Serializer().deserializePPT(bytes)
+                      : wamp_msgpack.Serializer().deserializePPT(bytes);
+                  if (decoded == null) {
+                    throw const FormatException(
+                      'Invalid benchmark PPT payload',
+                    );
+                  }
+                  return (
+                    arguments: decoded.arguments,
+                    argumentsKeywords: decoded.argumentsKeywords,
+                  );
+                },
+              );
+        payload = lease.payload;
+        final producer = owner;
+        final leasedOwner = lease.nativeOwnerFor(payload);
+        if (leasedOwner == null) {
+          throw StateError('Benchmark payload lease lost its native owner');
+        }
+        producer.dispose();
+        owner = leasedOwner;
+      } else {
+        payload = wamp_core.LazyMessagePayload.materialized(
+          encoding: encoding,
+          arguments: [value],
+        );
+      }
       if (owner != null) observeNativeFlatBufferPptSubmissions(owner);
       return _PreparedBenchPayload(
         payload: payload,
         owner: owner,
+        lease: lease,
         preparationUs: preparation.elapsedMicroseconds,
       );
     } catch (_) {
+      lease?.dispose();
       owner?.dispose();
       rethrow;
     }
@@ -3387,11 +3401,13 @@ class _PreparedBenchPayload {
   const _PreparedBenchPayload({
     required this.payload,
     required this.owner,
+    this.lease,
     required this.preparationUs,
   });
 
   final wamp_core.LazyMessagePayload payload;
   final native_buffers.NativeOwnedBuffer? owner;
+  final native_buffers.NativePptPayloadLease? lease;
   final int preparationUs;
 
   int get nativeBuilderInputCopiedBytes => owner?.inputCopiedBytes ?? 0;
@@ -3404,7 +3420,13 @@ class _PreparedBenchPayload {
       ? null
       : nativeFlatBufferPptSubmissionSnapshot(owner!).reusedBytes;
 
-  void dispose() => owner?.dispose();
+  void dispose() {
+    if (lease != null) {
+      lease!.dispose();
+    } else {
+      owner?.dispose();
+    }
+  }
 }
 
 class WampScenario {
