@@ -98,7 +98,49 @@ and 140 fewer requested bytes per frame. Local parsing improves 5.2%; this is
 component evidence. A slower compact-field alternative is discarded. See
 [table-cache research](research/2026-10-20-native-flatbuffers-table-cache.md).
 Paired diagnostics and full stack replays use separate hosted concurrency
-groups. Resulting-source canonical/production-copy/timing verification is pending.
+groups. Frozen full `bin/verify` passes on `28fa8011` in 23m41s, with all
+3,159 inputs and resolved locks unchanged and no Rust CLI retry. Renewed
+production proofs pass all 120 copy cases and 300 short supplemental rows,
+including 32 zero-avoidable-copy observations; production binary hashes match.
+The current strict ninety-row diagnostic completes with stable processes and
+an independently identical report: zero integrity gaps, eleven numerical gates
+failing. Both optimized native construction paths pass throughput, CPU and
+allocation comparisons; retained memory fails in all three cases. This is not
+parity. All 38 hosted CI checks pass on both writer source `40927925` and current
+reader-cache source `28fa8011` (run `39466446961`).
+
+The complete effective-pin payload replay finishes all 360 original rows without
+a stall. All 720 allocation windows independently satisfy the existing 1%
+precision limit; sources, binaries, locks, inventory and cleanup are verified.
+It remains a replay diagnostic; the historic timeout and four precision gaps
+are not retroactively accepted. The current full supplemental campaign runs at
+[39467640642](https://github.com/konsultaner/connectanum-dart/actions/runs/39467640642),
+and the current full primary campaign queues at
+[39468662119](https://github.com/konsultaner/connectanum-dart/actions/runs/39468662119).
+The preceding writer primary campaign remains separate and retained. The current
+payload-size supplemental shard completes all 360 rows with stable processes,
+zero integrity findings and 32 performance-cost findings. Its report recomputes
+identically; it remains diagnostic evidence rather than parity acceptance.
+
+A private ffi-test lifetime diagnostic completes eighteen workloads across all
+three codecs and construction groups. Every native allocation, handle,
+external-buffer-owner and receipt counter returns to zero after each requested
+collection. FlatBuffers producer allocations wait longer for GC in this probe;
+there is no reproduced native-owner leak. See
+[lifetime research](research/2026-10-20-native-opaque-payload-lifetimes.md).
+Investigate avoiding unnecessary producer Dart-view exports while preserving the
+existing reusable-payload and exported-view lifetime contracts. No new lease API
+or performance acceptance is delivered by this diagnostic.
+
+A separate manual Linux lifetime probe now stages a private source archive and
+uses a compile-time source marker plus a throwing-loader negative control. Its
+six positive cases cover both native construction modes at zero, 64-KiB and
+one-MiB bodies; full byte validation and native-owner cleanup remain required.
+Eight focused tool tests, sixteen capture tests, fourteen CI execution tests
+and 87 verification-script tests pass. Actual probe execution remains pending. Another active job holds the
+shared local resource lease, preventing local native verification and companion
+review of this tooling; the holder and lock are preserved. Last complete
+canonical verification remains the passing, frozen `28fa8011` production source.
 
 Completed delivery (2026-10-19): the separate
 [`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)

@@ -58,5 +58,20 @@ failed or incomplete run is promoted to acceptance.
 Evidence is under `out/flatbuffers-resume-20261020/`, including
 `inline-cache-micro-result.json`, `inline-cache-allocation-wire-audit.json`,
 `inline-cache-resource-tests.log`, `inline-cache-resource-baseline.log` and the
-review disposition. Complete canonical verification and renewed production
-copy proofs are still required on the resulting source.
+review disposition. Frozen full `bin/verify` passes on resulting source
+`28fa8011` in 23m41s with all 3,159 source inputs and locks unchanged. Renewed
+production proofs pass all 120 copy cases and all 300 short supplemental rows,
+including 32 zero-avoidable-copy observations, with unchanged binaries.
+
+The full-floor ninety-row Linux diagnostic independently recomputes with no
+integrity findings and eleven numerical gate failures. Both optimized native
+construction paths pass throughput, CPU and allocation comparisons, but all
+three RSS comparisons fail. The pre-encoded p99 confidence bound also fails
+even though its median ratio is below one. Component improvement does not
+accept those budgets. Full current-source campaigns remain queued/running.
+
+
+All 38 hosted CI checks pass on this source in run
+[39466446961](https://github.com/konsultaner/connectanum-dart/actions/runs/39466446961).
+Full primary and supplemental measurements remain separate; this does not
+establish performance parity.

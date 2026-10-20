@@ -65,10 +65,33 @@ Status: active. Started: 2026-10-03.
 - [x] Test distinct/shared table limits with independently generated frames on
   both baseline and candidate. Separate paired-diagnostic and stack-replay
   concurrency groups without changing the measurement contract.
-- [ ] Complete canonical checks, production copy proofs, and actual unchanged-
-  policy timing evidence for the reader-cache candidate.
-- [ ] Complete the 360-row diagnostic with verified Rust 1.99.0; retain any
-  intermittent failure and its pre-cleanup stacks without accepting performance.
+- [x] Pass frozen full `bin/verify` on reader-cache source `28fa8011` in 23m41s,
+  with all 3,159 source inputs and resolved locks unchanged and no CLI retry.
+  Renew all 120 production copy cases and 300 short supplemental rows with
+  identical production binary hashes and all 32 no-copy observations zero.
+- [x] Audit the reader-cache ninety-row diagnostic: zero integrity gaps,
+  eleven numerical failures. Native construction throughput/CPU/allocation
+  comparisons pass; every RSS comparison still fails. No parity is accepted.
+- [x] Complete the 360-row diagnostic with verified Rust 1.99.0: no stall,
+  all 720 allocation windows satisfy the unchanged 1% limit, inputs and process
+  cleanup are verified. Retain the original failure; no timeout fix is claimed.
+- [x] Confirm all 38 hosted CI checks pass on writer source `40927925`.
+- [x] Run a private eighteen-workload ffi-test forced-GC lifetime diagnostic:
+  all tracked native owners return to zero. No owner leak is reproduced; this
+  probe cannot establish timing, GC, allocation or RSS acceptance.
+- [ ] Evaluate avoiding eager producer Dart-view exports without weakening
+  existing reusable-payload, disposal or exported-view lifetime contracts.
+- [x] Confirm all 38 current reader-cache CI checks pass (`39466446961`).
+- [ ] Complete full primary/supplemental timing evidence (runs `39468662119`
+  and `39467640642`); retain every failed gate.
+- [x] Add an opt-in private-source producer-view lifetime probe with a throwing
+  negative control and compile-time package marker. Eight tool tests, sixteen
+  capture tests and fourteen CI execution tests pass.
+- [x] Audit the current complete 360-row payload-size supplemental shard:
+  report recomputes identically, zero integrity gaps, 32 performance-cost findings.
+- [ ] Execute both lifetime controls on Linux and review complete evidence.
+  Another active job currently holds the preserved shared local resource lease;
+  local native verification and companion review of the new tool are blocked.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
   checks, all workflow syntax checks, and a real three-codec one-MiB stack smoke
   with source/lock/binary invariance and owned-process cleanup.

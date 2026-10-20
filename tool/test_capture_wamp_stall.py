@@ -17,9 +17,10 @@ import capture_wamp_stall as diagnostic
 
 
 class WorkflowToolchainTests(unittest.TestCase):
-    def test_effective_toolchain_overrides_repository_stable_for_both_diagnostics(self):
+    def test_effective_toolchain_overrides_repository_stable_for_all_diagnostics(self):
         text = (diagnostic.ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
-        for job in ('linux-flatbuffers-primary', 'linux-flatbuffers-cpu-profile'):
+        for job in ('linux-flatbuffers-primary', 'linux-flatbuffers-cpu-profile',
+                    'linux-flatbuffers-native-view-probe'):
             with self.subTest(job=job):
                 block = text.split('\n  ' + job + ':\n', 1)[1]
                 block = re.split(r'\n  [\w-]+:\n', block, maxsplit=1)[0]

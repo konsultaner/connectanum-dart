@@ -30,6 +30,7 @@ on:
           - flatbuffers_extensions
           - flatbuffers_profile
           - flatbuffers_payload_repro
+          - flatbuffers_native_view_probe
       profile_case:
         description: Canonical case used only by the CPU profiling diagnostic
         required: false
@@ -414,5 +415,69 @@ jobs:
         with:
           name: wamp-flatbuffers-cpu-${{ github.sha }}-${{ github.run_attempt }}
           path: out/wamp-flatbuffers-profile
+          if-no-files-found: error
+          retention-days: 30
+
+  linux-flatbuffers-native-view-probe:
+    name: Experimental native payload view lifetime diagnostic
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_native_view_probe'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    concurrency:
+      group: wamp-flatbuffers-native-view-probe
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.5
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - name: Verify effective pinned Rust toolchain
+        run: |
+          python3 - <<'PY'
+          import os, subprocess
+          actual = subprocess.check_output(['rustc', '--version'], text=True).split()[1]
+          if actual != os.environ['RUSTUP_TOOLCHAIN']:
+              raise SystemExit(f'Unexpected Rust toolchain: {actual}')
+          PY
+      - name: Prepare and test diagnostic tooling
+        run: |
+          set -euo pipefail
+          mkdir -p out/wamp-native-ppt-view-setup
+          bin/bootstrap 2>&1 | tee out/wamp-native-ppt-view-setup/bootstrap.log
+          python3 -m unittest discover -s tool -p test_probe_native_ppt_views.py -v
+      - name: Build isolated ffi-test library
+        run: |
+          set -euo pipefail
+          CARGO_TARGET_DIR="$RUNNER_TEMP/native-view-ffi-test" \
+            cargo build --release --locked --manifest-path native/transport/Cargo.toml \
+            -p ct_ffi --features ffi-test \
+            2>&1 | tee out/wamp-native-ppt-view-setup/native-build.log
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+      - name: Run source-attributed control and private native prototype
+        run: |
+          set -euo pipefail
+          python3 tool/probe_native_ppt_views.py \
+            --output out/wamp-native-ppt-view \
+            --native-lib "$RUNNER_TEMP/native-view-ffi-test/release/libct_ffi.so" \
+            --resource-lock "$RUNNER_TEMP/native-view-resources/machine.lock" \
+            2>&1 | tee out/wamp-native-ppt-view-setup/probe.log
+      - name: Explain diagnostic scope
+        if: always()
+        run: |
+          echo '## Experimental native payload view lifetime diagnostic' >> "$GITHUB_STEP_SUMMARY"
+          echo 'A private source snapshot tests controlled live producers with ffi-test counters and forced GC. The negative control must force a producer view; six native-buffer/pre-encoded cases validate echoed bytes and immediate owner cleanup. This is not a public lease API, and its results never establish parity or replace the original 48-case matrix.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wamp-native-ppt-view-diagnostic-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            out/wamp-native-ppt-view-setup
+            out/wamp-native-ppt-view
+            !out/wamp-native-ppt-view/source/**
+            !out/wamp-native-ppt-view/source.tar
           if-no-files-found: error
           retention-days: 30
