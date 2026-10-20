@@ -94,8 +94,14 @@ Status: active. Started: 2026-10-03.
 - [x] Execute and independently audit the extended private session/transport
   prototype on Linux (`39481566412`): six byte-validated cases, twelve snapshots,
   zero native counters before and after forced GC, verified cleanup/invariance.
-- [ ] Compare the same six unchanged-API baseline cases in one Linux job,
-  retaining the exact negative control and all immediate-cleanup requirements.
+- [x] Compare the same six unchanged-API baseline cases in one Linux job
+  (`39482582437`). Independent audit confirms retained producer allocations
+  before GC versus zero for the prototype; all owners reach zero after GC.
+  Negative control, byte checks, source invariance and cleanup pass.
+- [ ] Implement a separately owned, trusted disposable payload lease, preserving
+  current APIs and exported-view lifetimes. Verify source identity, edits and
+  clones, disposal orders, foreign/old-library fallback and E2EE/transcodes
+  before using equivalent native benchmark construction paths.
   Another active job currently holds the preserved shared local resource lease;
   local native verification and companion review of the new tool are blocked.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI

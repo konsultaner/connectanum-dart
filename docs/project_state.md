@@ -4,6 +4,18 @@ Last updated: 2026-10-20.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Latest checkpoint: production source `28fa8011` passes frozen `bin/verify` and
+all 38 hosted CI checks. Copy proofs pass 120 cases and all 300 short supplemental
+rows; strict timing parity still fails eleven gates in the representative
+ninety-row diagnostic. The full primary and remaining supplemental campaigns
+continue. The current payload-size shard completes 360 rows with zero integrity
+gaps and 32 performance-cost findings. A matched Linux private-source experiment
+proves producer-view retention can be avoided, with no public lease API delivered
+yet. Next: implement a trusted disposable payload lease while preserving existing
+view lifetimes, then renew production proofs and full unchanged-policy timing.
+PR #130 remains ready for independent CODEOWNER approval; #132 remains draft.
+
+
 Resume after PR #133 (2026-10-20): the user merges the ObjectBox adapter at
 master `78f2b32b`; all hosted master checks pass. Fresh `bin/test-fast` passes
 on performance source `830c34cd` before integration. Copy-accounting PR #130
@@ -27,7 +39,7 @@ requires independent approval. Performance PR #132 remains draft: the prior
 complete primary campaign fails 176 gates, and fresh measurements are required.
 All sample floors, copy scope, workloads and parity budgets remain unchanged.
 
-Current hosted blocker: the integrated 90-row Linux diagnostic completes with
+Earlier hosted blocker: the integrated 90-row Linux diagnostic completes with
 all three allocation comparisons passing, but fails eleven numerical gates.
 The renewed payload-size batch stops after twenty warmup rows at the one-MiB
 TLS WebSocket FlatBuffers workload. A local replay completes all 36 original
@@ -137,14 +149,18 @@ uses a compile-time source marker plus a throwing-loader negative control. Its
 six positive cases cover both native construction modes at zero, 64-KiB and
 one-MiB bodies; full byte validation and native-owner cleanup remain required.
 Ten focused tool tests, sixteen capture tests, fourteen CI execution tests
-and 87 verification-script tests pass. The first hosted probe validates its negative control but reproduces earlier
-session-layer materialization in the positive variant (`39481115738`). The extended
+and 87 verification-script tests pass. The first hosted probe validates its
+negative control but reproduces earlier session-layer materialization in the
+positive variant (`39481115738`). The extended
 private session/transport variant then passes all six Linux cases with twelve
 snapshots and every native counter zero before forced GC (`39481566412`).
 Independent evidence also confirms source/library invariance and cleanup. A
-matched unchanged-API baseline is added next; its execution remains pending.
-This is controlled lifetime evidence, not an RSS or performance acceptance. Another active job holds the
-shared local resource lease, preventing local native verification and companion
+matched unchanged-API baseline then passes in the same Linux job
+(`39482582437`): its six workloads retain 410/268/1 and 290/125/1 producer
+allocations before collection; the prototype retains zero in every case. Both
+phases return all counters to zero after collection.
+This is controlled lifetime evidence, not an RSS or performance acceptance.
+Another active job holds the shared local resource lease, preventing local native verification and companion
 review of this tooling; the holder and lock are preserved. Last complete
 canonical verification remains the passing, frozen `28fa8011` production source.
 

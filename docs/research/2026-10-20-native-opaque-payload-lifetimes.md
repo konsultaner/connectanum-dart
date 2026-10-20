@@ -129,8 +129,8 @@ have SHA-256 `d1a5eb9355ab37f26d1af0f0eb215ac9a667e937a067f82724cfefde604a982d`.
 This demonstrates the controlled path can avoid exporting a producer Dart view.
 It does not establish an RSS, GC or throughput improvement.
 
-The next run adds the same six cases using the unchanged API in the same Linux
-job. That baseline must reproduce at least one native producer allocation
+The matched run adds the same six cases using the unchanged API in the same
+Linux job. That baseline must reproduce at least one native producer allocation
 awaiting collection, then return all tracked owners to zero after collection.
 The prototype still requires zero before collection. Complete original source
 and library hashes, independent child cleanup and the negative control remain
@@ -147,3 +147,46 @@ the encoded representation without forcing application values; safe serializer,
 old-library and E2EE fallbacks must materialize independent views when necessary.
 An exported view must outlive lease disposal. None of those public contracts is
 implemented by this diagnostic.
+
+
+## Matched Linux comparison
+
+The matched run passes on `4eaf0684` in
+[39482582437](https://github.com/konsultaner/connectanum-dart/actions/runs/39482582437).
+Independent audit confirms the exact negative control, twelve complete
+byte-validation cases, 24 attributed snapshot groups, 72 post-GC observations,
+stable worker identities within each phase, unchanged source/library inputs and
+complete cleanup. Both phases use the same ffi-test binary and scenario inventory.
+The unchanged API retains producer allocations before requested collection:
+
+| Construction | Body bytes | Existing API | Private prototype |
+| --- | ---: | ---: | ---: |
+| Native buffer | 0 | 410 | 0 |
+| Native buffer | 65,536 | 268 | 0 |
+| Native buffer | 1,048,576 | 1 | 0 |
+| Pre-encoded span | 0 | 290 | 0 |
+| Pre-encoded span | 65,536 | 125 | 0 |
+| Pre-encoded span | 1,048,576 | 1 | 0 |
+
+All tracked counters return to zero after requested collection in both phases.
+All six existing-API preflights retain one producer allocation before collection;
+the prototype retains zero. This is controlled evidence of avoidable producer
+view retention. It does not prove the cause or magnitude of the primary RSS gap,
+and its elapsed time, GC, allocation and RSS values cannot establish parity.
+
+The artifact archive SHA-256 is
+`2e8d8acc157014335ff2c8b21bb36f00f70b5bc6d77db7263523fdd9e02de72a`.
+Raw memory observations have SHA-256
+`aff011378fad26a1fe974c55d45fd48b1f04638457372c72c1281e54b0009cab`
+(existing API) and
+`3300e2dd57df2b7a44be0f620b1d760bbc1740087b5ea0444125d46f51df738e`
+(prototype). Independent audit is retained under
+`out/flatbuffers-resume-20261020/linux-native-view-baseline-4eaf-independent-audit.json`.
+
+The next implementation step is the explicit disposable lease described above,
+with tests for provenance, owner/library mismatch, application-byte edits,
+anchor/provider/context clones, detached copies, producer/lease disposal orders,
+exported/derived-view survival, old-library fallback and E2EE/transcode accounting.
+Keep existing reusable APIs intact. Only after that production contract passes
+verification should equivalent benchmark native-construction paths use it and
+the complete unchanged-policy timing campaigns be repeated.
