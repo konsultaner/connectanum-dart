@@ -107,6 +107,11 @@ Status: active. Started: 2026-10-03.
   final native lease type in transport. Access to mutable message arguments
   must drop its native eligibility. Detached copies must drop source identity.
   Existing packed/deferred factories and public native helpers retain behavior.
+- [x] Retain first lease candidate CI failures (`e9192132`): invalid annotations
+  and stale mutation source/offset records. Remove annotations and re-audit/re-key
+  the eight existing core-lazy proofs per target, adding no new equivalences.
+  All 154 proofs pass static preflight; thirteen checker tests pass. Full runtime
+  tests and all 393 current core-lazy mutants still require hosted execution.
   Another active job currently holds the preserved shared local resource lease;
   local native verification and companion review of the new tool are blocked.
 - [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI

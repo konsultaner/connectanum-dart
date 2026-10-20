@@ -9,6 +9,14 @@ remain unchanged. Local native verification and companion review remain blocked
 by another active job's preserved machine resource lease; focused Linux CI is
 the next validation step. The last complete production verification below is
 for `28fa8011`, not this unverified lease candidate.
+The first candidate `e9192132` fails CI before runtime tests: two invalid
+`@internal` annotations on the public library and stale byte-offset/source-hash
+mutation proofs. The annotations are removed. The eight existing equivalence
+arguments per core-lazy target are re-audited against unchanged paired-field
+and completed-decoder invariants, then re-keyed to the current source. No new
+equivalence is added; the mutation inventory grows from 356 to 393. Static
+preflight validates all 154 existing proofs and thirteen focused checker tests
+pass. Hosted runtime verification and complete mutation execution remain required.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 

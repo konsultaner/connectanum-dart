@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:test/test.dart';
 
 final class _Source implements PackedPayloadSource {
@@ -149,6 +150,29 @@ void main() {
     expect(source.reads, 1);
     expect(decodes, 1);
   });
+
+  for (final decodeFirst in [false, true]) {
+    test('detaching source accounts for one body copy decode=$decodeFirst', () {
+      OwnedCopyMetrics.enable();
+      final source = _Source(() => Uint8List.fromList([1, 2, 3]));
+      final before = OwnedCopyMetrics.snapshot()!;
+      final payload = packed(source).withAnchor(Object());
+      expect(source.reads, 0);
+      if (decodeFirst) {
+        expect(payload.arguments, [
+          [1, 2, 3],
+        ]);
+      }
+      final owned = payload.toOwned();
+      final after = OwnedCopyMetrics.snapshot()!;
+      expect(after['clone_copy_bytes']! - before['clone_copy_bytes']!, 3);
+      expect(owned.packedPayloadSource, isNull);
+      expect(owned.arguments, [
+        [1, 2, 3],
+      ]);
+      expect(source.reads, 1);
+    });
+  }
 
   for (final keywordsFirst in [false, true]) {
     test(

@@ -121,10 +121,11 @@ void main() {
         addTearDown(producer.dispose);
         final lease = producer.leaseFlatBuffersPptPayload();
         addTearDown(lease.dispose);
-        if (decodeFirst)
+        if (decodeFirst) {
           expect(lease.payload.arguments, [
             [1, 2, 3, 4],
           ]);
+        }
         final owned = lease.payload.toOwned();
         expect(lease.hasExportedByteView, isTrue);
         expect(owned.packedPayloadSource, isNull);

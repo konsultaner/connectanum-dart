@@ -20,7 +20,6 @@ import 'package:connectanum_core/src/serializer/flatbuffers/byte_vector_builder.
     show ByteViewFlatBufferBuilder;
 import 'package:ffi/ffi.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
-import 'package:meta/meta.dart';
 
 import 'src/transport/native/runtime.dart' show NativeClientRuntime;
 
@@ -866,7 +865,7 @@ final class NativePptPayloadLease implements PackedPayloadSource {
 
   /// Internal transport eligibility. Public anchors and structural records do
   /// not grant ownership: the exact final source and encoding must agree.
-  @internal
+  /// The returned wrapper belongs to this lease; do not dispose it separately.
   NativeOwnedBuffer? nativeOwnerFor(LazyMessagePayload payload) =>
       !isDisposed &&
           payload.encoding == encoding &&
@@ -874,7 +873,7 @@ final class NativePptPayloadLease implements PackedPayloadSource {
       ? _owner
       : null;
 
-  @internal
+  /// Whether application access or a fallback exported an independent view.
   bool get hasExportedByteView => _bytes != null;
 }
 
