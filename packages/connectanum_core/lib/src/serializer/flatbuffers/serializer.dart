@@ -49,10 +49,39 @@ class Serializer extends AbstractSerializer {
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is! AbstractMessageWithPayload) return null;
+    final fields = prepareWampFlatBufferMessage(
+      message,
+      fragmentBinaryArguments: true,
+    );
+    final body = fields['msg'] as Map<String, Object?>;
+    final payload = body['payload'];
+    if (payload is Uint8List) {
+      final builder = WampFlatBufferBuilder();
+      // The builder grows backwards. An empty vector written first places its
+      // length word at the end of the envelope, directly before the body span.
+      final vector = builder.writeListUint8(const <int>[]);
+      body['payload'] = FlatBufferByteVectorReference(builder, vector);
+      builder.finish(writeWampFlatBufferFields(fields, builder));
+      final control = builder.buffer;
+      if (vector == 4 && control.length % 8 == 0) {
+        if (payload.length > 64 * 1024 * 1024 - control.length) {
+          throw ArgumentError('FlatBuffers frame exceeds the byte limit');
+        }
+        // Both fragments form one FlatBuffer. Its vector length covers the
+        // following original body; the root offset at the start stays intact.
+        ByteData.sublistView(
+          control,
+        ).setUint32(control.length - 4, payload.length, Endian.little);
+        return [control, payload];
+      }
+      // Keep the existing layout if a builder cannot place the original body
+      // at an eight-byte wire boundary.
+      body['payload'] = payload;
+    }
     final builder = WampFlatBufferBuilder();
     final vectors = <DeferredFlatBufferVector>[];
-    final root = writeWampFlatBufferMessage(
-      message,
+    final root = writeWampFlatBufferFields(
+      fields,
       builder,
       deferredVectors: vectors,
     );

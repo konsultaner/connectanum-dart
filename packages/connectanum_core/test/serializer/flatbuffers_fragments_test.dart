@@ -93,6 +93,8 @@ void main() {
           ),
         )..transparentBinaryPayload = bytes;
         final fragments = codec.serializeFragments(message)!;
+        expect(fragments, hasLength(2));
+        expect(fragments.last, same(bytes));
         expect(fragments.where((part) => identical(part, bytes)), hasLength(1));
         expect(
           fragments.fold<int>(0, (sum, p) => sum + p.length),
@@ -237,6 +239,36 @@ void main() {
     )..transparentBinaryPayload = Uint8List(64 * 1024 * 1024);
     expect(() => codec.serializeFragments(message), throwsArgumentError);
   });
+  test('opaque terminal header preserves the exact aggregate byte limit', () {
+    const maximumBytes = 64 * 1024 * 1024;
+    Call message(Uint8List bytes) => Call(
+      0,
+      'com.probe',
+      options: CallOptions(pptScheme: 'opaque', pptSerializer: 'flatbuffers'),
+    )..transparentBinaryPayload = bytes;
+
+    final empty = codec.serializeFragments(message(Uint8List(0)))!;
+    final overhead = empty.fold<int>(0, (sum, part) => sum + part.length);
+    final backing = Uint8List(maximumBytes + 1);
+    final bytes = Uint8List.sublistView(
+      backing,
+      1,
+      maximumBytes - overhead + 1,
+    ).asUnmodifiableView();
+    final fragments = codec.serializeFragments(message(bytes))!;
+    expect(fragments, hasLength(2));
+    expect(fragments.last, same(bytes));
+    expect(
+      fragments.fold<int>(0, (sum, part) => sum + part.length),
+      maximumBytes,
+    );
+    expect(
+      () => codec.serializeFragments(
+        message(Uint8List.sublistView(backing, 1, bytes.length + 2)),
+      ),
+      throwsArgumentError,
+    );
+  });
 
   final payloadFactories = <String, AbstractMessageWithPayload Function(bool)>{
     'CALL': (ppt) => Call(
@@ -350,6 +382,8 @@ void main() {
       ).asUnmodifiableView();
       final message = entry.value(true)..transparentBinaryPayload = bytes;
       final fragments = codec.serializeFragments(message)!;
+      expect(fragments, hasLength(2));
+      expect(fragments.last, same(bytes));
       expect(fragments.any((p) => identical(p, bytes)), true);
       final encoded = join(fragments);
       validateWampFlatBuffer(encoded);

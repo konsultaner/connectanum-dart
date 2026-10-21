@@ -1,120 +1,76 @@
 # Project State
 
 Last updated: 2026-10-21.
-Current follow-up aligns the native typed fixture with the managed fixture's
-single-table policy: both disable vtable deduplication. The default native builder
-API remains unchanged. The VM runtime creates and grows a per-builder vtable
-list when enabled, although this model has no second table to reuse. A pure-Dart
-regression checks exact wire equality across both policies, boundary identities
-and zero/one-byte/64-KiB/one-MiB bodies before and after this change; it and focused
-analysis pass. Native wire/lifetime/copy and timing renewal remain required.
-
-Writer source `7a2af782` passes matched component proof: all ten wires are
-byte-for-byte identical, single-vector cold/steady encodes remove one allocator
-request and 160 requested bytes (steady 12/2,520 to 11/2,360), while control and
-multi-vector observations remain unchanged. Its complete native/lifetime/copy
-proof also passes independent audit: 3,168 tracked inputs, four lifetime phases,
-all 120 owned cases and 300 short rows, all 32 no-copy flags and public owners
-zero before GC, with source/binary invariance and cleanup. Its strict 90-row
-campaign recomputes identically with zero integrity gaps but four numerical
-failures: Dart-value throughput/RSS, native-builder RSS and pre-encoded p99 CI.
-CPU, allocations and GC pass in all three groups. Timing binaries match copy
-proof binaries exactly; no parity acceptance is established. Complete campaigns
-on this candidate remain in progress/queued, and every failed result is retained.
-The current native writer candidate keeps the first deferred application-vector
-record inline and preserves the ordered growable fallback. It is applied only
-after the focused Linux baseline (`39519826093`, source `d57a9d5e`) passes all
-34 codec tests and independent verification of 3,169 source/resolved inputs,
-compiler, executable, ten complete wires and all pointer assertions. Steady
-single-vector encodes take 12 allocator requests / 2,520 requested bytes at all
-three body sizes; first nonempty Vec-backed use adds one 24-byte sharing request.
-Cold records remain separate and first/steady wires match. The new writer still
-requires matched allocation/wire, lifetime/copy and timing validation; no
-performance improvement or parity is claimed. All 38 full CI jobs pass on the
-unchanged-writer lease benchmark (`8bc62a3c`, run `39508515813`). Local native
-execution and companion review remain blocked by the preserved resource lease.
-The adopted public-lease benchmark candidate `8bc62a3c` passes hosted native
-contracts, all four lifetime controls and renewed production copy proofs
-([run 39508516372](https://github.com/konsultaner/connectanum-dart/actions/runs/39508516372)).
-An independent audit verifies all 3,167 source hashes, unchanged binaries and
-owned-process cleanup. All six public-API workloads prohibit Dart byte-view
-export, dispose producers and have zero tracked native owners before GC. The
-unchanged 120 owned-copy cases and 300 short inventory rows pass every copy
-check, including E2EE, native crypto, transcode and all 32 zero-copy flags. The
-short campaign is correctly rejected by the original warmup floor; it provides
-no performance acceptance. Production and paired-timing binary hashes match.
-
-The 90-row strict-floor diagnostic on the same candidate completes with zero
-integrity gaps and six numerical failures
-([run 39510196123](https://github.com/konsultaner/connectanum-dart/actions/runs/39510196123)).
-Native pre-encoded forwarding passes all seven measured gates. Native-buffer
-construction still fails peak RSS and the p99 confidence bound; Dart-value
-construction fails CPU, peak RSS and the GC/p99 confidence bounds. Allocation
-comparisons pass for all three groups. Different candidates/runners are not
-pooled or treated as causal proof of improvement. Issue #103 remains open and
-full 48-case primary and 50-case supplemental acceptance remain required.
-
-All 38 full CI jobs pass on test repair `c38ca52a` (`39500243765`). The unchanged
-404-mutant VM inventory passes at 95.3125%, with eight additional assertion
-kills, matching source/test/support hashes, clean/restored baselines and no new
-equivalences or exclusions. All 147 selected core cases and nineteen canonical
-Chrome/Dart2Wasm source contracts pass. Failed earlier runs are retained. Full
-CI on `8bc62a3c` is still running, with no failures among 34 completed jobs at
-this checkpoint. The earlier passing local `bin/verify` remains `28fa8011`;
-another task still holds the preserved machine resource lease, blocking new
-local native/canonical runs and companion review.
-
-A diagnostic-only profile follow-up adds class heaps, external/heap usage and
-Linux smaps before/after the workload and after a GC request. It preserves the
-CPU sample window and labels shared isolate-group heaps and the uncertainty of
-GC/finalizer completion. Snapshots require stable distinct process identities,
-stable application isolate sets, correct units and complete attribution. It
-changes no production code, acceptance scenario, floor, repetition or budget.
-The generated probe compiles against the resolved SDK. All twelve profile
-tests, complete tooling, Python syntax and 23 workflow shell blocks pass; hosted
-execution is pending. The first compilation's incorrect VM-service group accessor is retained
-and corrected to the actual `isolateGroupId` API.
-The first hosted attempt (`39514441849`, source `3582058e`) stops before
-launching a workload because a fresh runner has no unused Rust benchmark-driver
-lockfile. The diagnostic runs Dart directly. All three cases reproduce that
-failure with the driver lock absent, then pass after requiring only the actual
-Dart/FFI transport locks and package configuration. Its failed artifact is
-retained; it contains no performance measurement. Fresh hosted execution remains
-The repaired Linux profile (`39514813214`, `3f20fc3f`) passes live CPU/memory
-capture; independent snapshot/source/window audit is in progress. Fast Checks
-also exposes a separate test-fixture dependency on the real checkout's generated
-transport lock. All three cases reproduce that missing-build failure. The mocked
-profiler tests now own temporary Git repositories and synthetic resolved inputs;
-all twelve tests pass without requiring a native build. Production dependency
-requirements remain strict. Retain both failed Fast Checks logs and the cancelled
-obsolete workflow's incomplete shard aggregates.
-The isolated fixture repair (`3e7832bf`) passes complete local tooling and hosted
-Fast Checks. The audited memory capture verifies all 18 snapshots and 3,170
-source/resolved-input hashes, stable process/isolate identities, cleanup and
-sampling within actual data windows. Reported router heap usage after GC requests
-is 45.51 MiB (MessagePack), 45.49 (FlatBuffers) and 45.82 (CBOR): no large
-FlatBuffers-only retained heap appears in this diagnostic. Profiling perturbs RSS;
-this does not resolve the peak-RSS gate. Next, record an encoder-allocation
-baseline and investigate its temporary heap list for a single deferred payload.
-No production encoder change or timing improvement is established yet.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Latest performance checkpoint: writer source `40927925` completes all 1,440
-primary rows with unchanged floors, stable processes, cleanup and identical
-independent recomputation. It fails 169 numerical gates, with zero integrity gaps;
-45 of 48 memory comparisons fail. Reader source `28fa8011` completes all 1,500
-supplemental rows across fifty cases. Both the aggregate manifest and comparison
-recompute identically: zero integrity gaps and 244 retained performance costs.
-Copy checks reconcile 1,500 volume rows, 480 E2EE, 360 native-crypto, 300 transcode
-and 160 zero-avoidable-copy observations. Cross-shard absolute costs are not
-pooled. The reader's full primary campaign remains in progress. These are earlier
-production candidates; no final parity is established. The adopted public lease now passes renewed native/lifetime and production copy
-proofs on `8bc62a3c`; its strict-floor timing diagnostic still fails six gates.
-Final complete acceptance remains pending.
-PR #130 remains ready for an independent approving review under master branch
-protection; #132 remains draft.
+Current working change removes the separate vector-header fragment for opaque
+Dart FlatBuffers payloads. It reuses the existing same-builder vector-reference
+API and returns the owned envelope plus the original body. Ordinary arguments,
+multiple vectors, schemas, public builder defaults and native ABI stay unchanged.
+A regression first observes the original three fragments instead of two. All
+134 focused contracts, all 3,395 serializer VM cases, analysis and all 154 existing
+mutation proofs then pass. All 67 fragment contracts pass in Chrome/Dart2Wasm from the canonical package
+directory. Complete resulting-source verification and hosted copy/performance
+renewal remain required before handoff.
+
+The isolated public-serializer prototype verifies 93 cases, source identity,
+mutations through original aliases and exact aggregate-size boundaries. It
+removes one fragment/eight wire bytes in 55 opaque cases; the 38 fallback cases
+remain byte-identical. A balanced seven-pair component run uses three 100,000-call
+warmups and 300,000 encodes per observation. Opaque encoding's median time ratio
+is 0.9614; ordinary fallback paths cost about 0.7–1.1% more in that component.
+These are encoder-only observations, with reused input data and no network;
+they establish no primary throughput, latency, CPU, GC or RSS acceptance.
+Rejected fixed-capacity and general-writer experiments retain their allocation
+and small-control regressions. See the [terminal-header research](research/2026-10-21-flatbuffers-opaque-terminal-header.md);
+raw local evidence is under `out/flatbuffers-resume-20261020/`.
+
+Last complete frozen `bin/verify`: `fe72c527`, 23m22s, exit 0, all 3,169 source
+files and four resolved inputs unchanged. Rust, VM/live/consumer integrations
+and full Chrome/Dart2Wasm pass. All 38 hosted CI jobs pass on native writer
+`7a2af782` ([run 39520711477](https://github.com/konsultaner/connectanum-dart/actions/runs/39520711477)).
+All 38 hosted jobs also pass on fixture-policy head `fe72c527`
+([run 39523823156](https://github.com/konsultaner/connectanum-dart/actions/runs/39523823156)). The local machine lease is available
+again and is preserved around native verification and performance probes.
+
+Current verified production-copy/lifetime baseline is `fe72c527`
+([run 39523817411](https://github.com/konsultaner/connectanum-dart/actions/runs/39523817411)):
+3,169 tracked inputs, four lifetime phases, all 120 owned-copy cases and 300 short
+inventory rows, including E2EE/native crypto/transcode and all 32 no-copy flags.
+All six public workloads prohibit byte-view export and have zero tracked owners
+before GC. Short inventory rows do not establish timing acceptance. Standard
+SDK/TLS/crypto internals remain explicitly unmeasured under the approved scope.
+The current Dart change still requires renewal; earlier results are not relabelled.
+
+Performance acceptance remains open in #103 and draft PR #132. The latest
+`fe72c527` strict-floor diagnostic completes all 90 rows with zero integrity
+gaps and seven numerical failures. Native pre-encoded forwarding passes all
+seven metrics; native construction fails RSS; Dart values fail CPU, GC, p95/p99,
+throughput and RSS. Its production binary hashes match the copy proof exactly.
+The completed earlier reader campaign `28fa8011` retains all 1,440 primary rows
+and 173 numerical failures, with zero integrity gaps. Its complete 1,500-row
+supplemental report retains 244 performance costs. The later `7a2af782` full
+primary and three supplemental shards continue separately. Final-candidate full
+48-case/1,440-row primary and 50-case/1,500-row supplemental evidence is required;
+no budget, floor, repetition or deadline is weakened, and absolute cross-shard
+costs are not pooled.
+
+The current Dart-value CPU/memory diagnostic
+([run 39526201784](https://github.com/konsultaner/connectanum-dart/actions/runs/39526201784))
+passes independent audit of all 3,172 source/dependency inputs and 18 snapshots,
+stable process/isolate identities, sampling windows and cleanup. It demonstrates
+no large FlatBuffers-only retained application heap. Shared isolate-group heaps
+must not be summed, GC requests do not guarantee finalizer completion, and
+profiling perturbs RSS; this does not resolve performance gates.
+
+PR #130 implements #100/#101 and remains ready for the required independent
+approving review under master branch protection. PR #132 remains draft for #103.
+The merged ObjectBox adapter remains published as `3.0.0-beta.8`; no new release
+or milestone completion is claimed.
+
+## Earlier checkpoints
 
 Resume after PR #133 (2026-10-20): the user merges the ObjectBox adapter at
 master `78f2b32b`; all hosted master checks pass. Fresh `bin/test-fast` passes

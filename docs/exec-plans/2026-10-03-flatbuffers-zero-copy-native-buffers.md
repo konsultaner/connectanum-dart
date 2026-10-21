@@ -2,6 +2,41 @@
 
 Status: active. Started: 2026-10-03.
 
+## Current opaque-header follow-up (2026-10-21)
+
+- [x] Complete native writer `7a2af782` CI: all 38 jobs pass.
+- [x] Complete frozen `bin/verify` on `fe72c527` in 23m22s, with all 3,169
+  sources and four resolved inputs unchanged, including full browser suites.
+- [x] Audit the latest native/lifetime/copy proof: four phases, 120 owned cases,
+  300 short inventory rows and all 32 no-copy flags. No timing acceptance.
+- [x] Audit the latest strict 90-row diagnostic: zero integrity gaps, seven
+  numerical failures. Native pre-encoded passes; native-builder RSS and Dart-value
+  CPU/GC/latency/throughput/RSS remain blockers.
+- [x] Audit the completed earlier reader primary campaign: all 1,440 rows,
+  zero integrity gaps and 173 numerical failures. Retain the completed
+  1,500-row supplemental report and its 244 performance costs.
+- [x] Audit current Dart-value memory/CPU attribution: all 3,172 inputs,
+  18 snapshots, stable identities, actual sampling windows and cleanup.
+- [x] Reject fixed-capacity and general-writer prototypes after their measured
+  allocation/control regressions; retain their complete observations and source.
+- [x] Validate a serializer-only opaque terminal-header prototype on 93 cases,
+  original aliases, metadata, alignment and exact frame bounds. Run balanced
+  seven-pair component timing; report its non-opaque fallback costs too.
+- [x] Reproduce three fragments before the two-fragment regression; implement
+  the opaque shortcut with the existing vector-reference API. All 134 focused
+  cases, all 3,395 serializer VM cases, analysis and 154 static proofs pass.
+- [x] Pass all 67 resulting-source fragment contracts in Chrome/Dart2Wasm using
+  the canonical package directory; retain the failed workspace-root invocation.
+- [x] Confirm all 38 full CI jobs pass on fixture-policy source `fe72c527`.
+- [ ] Complete resulting-source canonical verification, then hosted
+  contracts/lifetime/copy/CI and unchanged performance campaigns.
+- [ ] Achieve final 48-case primary parity and complete final 50-case supplemental
+  evidence. Component results and historical passes cannot replace these gates.
+- [ ] Retain the required independent approving review for #130 before merging
+  #100/#101; leave #103 and #132 open/draft until their acceptance is achieved.
+
+Research: [Dart opaque terminal header](../research/2026-10-21-flatbuffers-opaque-terminal-header.md).
+
 ## Resume after merged ObjectBox adapter (2026-10-20)
 
 - [x] Confirm PR #133 merged at master `78f2b32b`, with hosted CI green.
@@ -79,11 +114,12 @@ Status: active. Started: 2026-10-03.
 - [x] Run a private eighteen-workload ffi-test forced-GC lifetime diagnostic:
   all tracked native owners return to zero. No owner leak is reproduced; this
   probe cannot establish timing, GC, allocation or RSS acceptance.
-- [ ] Evaluate avoiding eager producer Dart-view exports without weakening
+- [x] Evaluate avoiding eager producer Dart-view exports without weakening
   existing reusable-payload, disposal or exported-view lifetime contracts.
 - [x] Confirm all 38 current reader-cache CI checks pass (`39466446961`).
-- [ ] Complete full primary/supplemental timing evidence (runs `39468662119`
-  and `39467640642`); retain every failed gate.
+- [x] Complete full primary/supplemental timing evidence (runs `39468662119`
+  and `39467640642`); retain every failed gate. Both complete with zero integrity
+  gaps, 173 primary failures and 244 supplemental costs; parity remains unproven.
 - [x] Add an opt-in private-source producer-view lifetime probe with a throwing
   negative control and compile-time package marker. Ten tool tests, sixteen
   capture tests and fourteen CI execution tests pass.
@@ -98,7 +134,7 @@ Status: active. Started: 2026-10-03.
   (`39482582437`). Independent audit confirms retained producer allocations
   before GC versus zero for the prototype; all owners reach zero after GC.
   Negative control, byte checks, source invariance and cleanup pass.
-- [ ] Implement a separately owned, trusted disposable payload lease, preserving
+- [x] Implement a separately owned, trusted disposable payload lease, preserving
   current APIs and exported-view lifetimes. Verify source identity, edits and
   clones, disposal orders, foreign/old-library fallback and E2EE/transcodes
   before using equivalent native benchmark construction paths.
@@ -118,7 +154,7 @@ Status: active. Started: 2026-10-03.
   fixture startup timeout. Preserve packed sources through YIELD/ERROR and
   correct fixture receive ordering, with unchanged deadlines; analysis passes.
 - [x] Renew focused runtime contracts after the reply and fixture corrections.
-- [ ] Complete canonical/CI/mutation checks before benchmark adoption.
+- [x] Complete canonical/CI/mutation checks before benchmark adoption.
 - [x] On `a5af2b95`, pass all 142 core and 433 client VM/browser/native contracts
   and the retained lifetime controls. Reject overridable source getters as native
   authority; use a private final core view and nonvirtual trusted lookup instead.
