@@ -3091,3 +3091,20 @@ verification. #97's producer-thread cleanup and asynchronous terminal paths are
 verified separately above. Issues #100–#104 remain open; #103 still lacks the paired
 parity campaign and copy coverage for SDK masking, TLS and mixed-serializer
 conversions.
+
+Native encoder component calibration (2026-10-21): baseline `e73a5eb0`
+(`39517222518`) passes all focused contracts, four lifetime phases and 34 native
+FlatBuffers tests, then stops on non-identical allocation observations. The
+control and empty opaque cases retain ten stable observations (11/2,328 and
+12/2,520 allocator calls/requested bytes respectively). The first nonempty
+Vec-backed `bytes` 1.12.1 clone promotes its ownership through `shallow_clone_vec`
+and a `Shared` allocation; the earlier local probe cloned before counting. The
+new example records the genuine first-call cost separately and retains ten
+subsequent observations without relaxing their stability check. First and steady
+wire output must match, and all borrowed pointer identities are checked. Print
+observations before a stability assertion so failures preserve their data.
+The failed artifact and logs are retained; its new 120/300 copy renewal never
+started. Production writer code remains unchanged. A focused manual encoder
+campaign avoids rebuilding Dart/native transport proofs during component
+calibration. It retains compiler, resolved lock, all source hashes, executable
+and wires; it never grants performance or copy acceptance.

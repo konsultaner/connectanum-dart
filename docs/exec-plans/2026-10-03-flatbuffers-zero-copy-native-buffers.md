@@ -208,6 +208,14 @@ Status: active. Started: 2026-10-03.
   bodies. Keep input preparation outside counters, ten stable observations,
   exact borrowed-pointer checks and full wire artifacts. These allocator counts
   are component diagnostics, not Dart allocation or performance acceptance.
+- [x] Retain the first Linux component-baseline failure: all native contracts,
+  four lifetime controls and 34 codec tests pass; control/empty opaque counts
+  match, but first nonempty `bytes` sharing changes allocator requests. Verify
+  bytes 1.12.1's lazy `Shared` promotion in source. Keep the actual first-call
+  observation plus ten stable later calls and exact first/steady wire equality.
+- [ ] Run the focused encoder-only campaign with immutable source/dependency,
+  compiler and executable provenance. It bypasses no acceptance checks: final
+  native/copy and complete timing campaigns remain required separately.
 - [ ] Keep the first deferred-vector record inline, preserve ordered overflow,
   then verify native tests, exact wire equality, lifetimes/copies and allocations
   before paired timing. The candidate remains an ignored draft until baseline.

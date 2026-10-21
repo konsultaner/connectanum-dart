@@ -31,6 +31,7 @@ on:
           - flatbuffers_profile
           - flatbuffers_payload_repro
           - flatbuffers_native_view_probe
+          - flatbuffers_encoder_component
       profile_case:
         description: Canonical case used only by the CPU profiling diagnostic
         required: false
@@ -416,6 +417,86 @@ jobs:
         with:
           name: wamp-flatbuffers-cpu-${{ github.sha }}-${{ github.run_attempt }}
           path: out/wamp-flatbuffers-profile
+          if-no-files-found: error
+          retention-days: 30
+
+  linux-flatbuffers-encoder-component:
+    name: Native FlatBuffers encoder component diagnostic
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_encoder_component'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    concurrency:
+      group: wamp-flatbuffers-encoder-component
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - name: Prepare immutable diagnostic inputs
+        run: |
+          set -euo pipefail
+          mkdir -p out/wamp-encoder-component/setup
+          test "$(rustc --version | cut -d ' ' -f 2)" = "$RUSTUP_TOOLCHAIN"
+          rustc --version > out/wamp-encoder-component/setup/rustc-version.txt
+          cargo generate-lockfile --manifest-path native/transport/Cargo.toml
+          cp native/transport/Cargo.lock out/wamp-encoder-component/setup/Cargo.lock
+          python3 - <<'PY'
+          import hashlib, json, subprocess
+          from pathlib import Path
+          paths = subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0')
+          paths = [p for p in paths if p and Path(p).is_file()]
+          paths.append('native/transport/Cargo.lock')
+          digest = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+          data = {'kind': 'native_encoder_component_only_never_acceptance',
+                  'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
+                  'inputs': {p: digest(p) for p in paths}}
+          Path('out/wamp-encoder-component/setup/inputs.json').write_text(json.dumps(data, indent=2)+'\n')
+          PY
+      - name: Verify native codec and retain cold and steady observations
+        run: |
+          set -euo pipefail
+          export CARGO_TARGET_DIR="$RUNNER_TEMP/encoder-component-target"
+          cargo test --release --locked --manifest-path native/transport/Cargo.toml \
+            -p ct_core flatbuffers \
+            2>&1 | tee out/wamp-encoder-component/setup/codec-tests.log
+          cargo run --release --locked --manifest-path native/transport/Cargo.toml \
+            -p ct_core --example flatbuffers_allocations \
+            -- out/wamp-encoder-component/encoder-allocations \
+            2> >(tee out/wamp-encoder-component/setup/build.log >&2) \
+            | tee out/wamp-encoder-component/encoder-allocations.jsonl
+          cp "$CARGO_TARGET_DIR/release/examples/flatbuffers_allocations" \
+            out/wamp-encoder-component/setup/flatbuffers_allocations
+          sha256sum out/wamp-encoder-component/setup/flatbuffers_allocations \
+            > out/wamp-encoder-component/setup/executable.sha256
+      - name: Verify source and resolved-input invariance
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, subprocess
+          from pathlib import Path
+          path = Path('out/wamp-encoder-component/setup/inputs.json')
+          data = json.loads(path.read_text())
+          changed = [p for p, old in data['inputs'].items()
+                     if not Path(p).is_file() or hashlib.sha256(Path(p).read_bytes()).hexdigest() != old]
+          after = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          result = {'head': data['head'], 'inputs_unchanged': not changed and after == data['head'], 'changed': changed}
+          Path('out/wamp-encoder-component/setup/invariance.json').write_text(json.dumps(result, indent=2)+'\n')
+          if not result['inputs_unchanged']: raise SystemExit('Component inputs changed')
+          PY
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+      - name: Explain component scope
+        if: always()
+        run: |
+          echo '## Native encoder component diagnostic' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Reports first-use allocation requests separately from ten steady observations and retains complete wires and borrowed-pointer assertions. Standard Rust dependencies and compiler remain unchanged. These are neither Dart allocation metrics nor performance, RSS, E2EE or copy-accounting acceptance; the original primary and supplemental campaigns remain required.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wamp-encoder-component-${{ github.sha }}-${{ github.run_attempt }}
+          path: out/wamp-encoder-component
           if-no-files-found: error
           retention-days: 30
 

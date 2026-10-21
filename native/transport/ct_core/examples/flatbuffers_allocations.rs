@@ -75,6 +75,26 @@ fn payload(shape: &str, length: usize) -> Payload {
     }
 }
 
+fn check_aliases(segments: &[Bytes], aliases: &[(*const u8, usize)]) {
+    assert_eq!(
+        segments.len(),
+        if aliases.len() == 1 {
+            2
+        } else {
+            1 + 2 * aliases.len()
+        }
+    );
+    for (pointer, size) in aliases {
+        assert_eq!(
+            segments
+                .iter()
+                .filter(|s| s.as_ptr() == *pointer && s.len() == *size)
+                .count(),
+            1
+        );
+    }
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output = PathBuf::from(
         std::env::args()
@@ -98,41 +118,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 details: BTreeMap::new(),
                 payload,
             };
+            // Bytes can allocate shared ownership on its first clone. Retain
+            // that genuine first-call cost separately from the steady series.
+            let (first_segments, cold_observation) =
+                measure(|| encode_flatbuffers_message_segments(&message).unwrap());
+            check_aliases(&first_segments, &aliases);
+            let first_wire: Vec<_> = first_segments
+                .iter()
+                .flat_map(|s| s.iter().copied())
+                .collect();
+            drop(first_segments);
             let mut observations = Vec::new();
             for _ in 0..10 {
                 let (segments, counts) =
                     measure(|| encode_flatbuffers_message_segments(&message).unwrap());
-                assert_eq!(
-                    segments.len(),
-                    if aliases.len() == 1 {
-                        2
-                    } else {
-                        1 + 2 * aliases.len()
-                    }
-                );
-                for (pointer, size) in &aliases {
-                    assert_eq!(
-                        segments
-                            .iter()
-                            .filter(|s| s.as_ptr() == *pointer && s.len() == *size)
-                            .count(),
-                        1
-                    );
-                }
+                check_aliases(&segments, &aliases);
                 observations.push(counts);
             }
-            assert!(observations.iter().all(|value| *value == observations[0]));
+            let stable = observations.iter().all(|value| *value == observations[0]);
             let segments = encode_flatbuffers_message_segments(&message)?;
             drop(message);
             let wire: Vec<_> = segments.iter().flat_map(|s| s.iter().copied()).collect();
+            assert_eq!(first_wire, wire, "first-use and steady encoding differ");
             std::fs::write(output.join(format!("{shape}-{length}.bin")), &wire)?;
             println!(
                 "{}",
                 serde_json::json!({
                     "scope": "native_encoder_allocator_requests_only_never_parity_acceptance",
+                    "cold_observation": cold_observation,
                     "shape": shape, "body_bytes": length, "observations": observations,
                     "wire_bytes": wire.len(), "borrowed_vectors": aliases.len(),
                 })
+            );
+            assert!(
+                stable,
+                "steady allocation observations differ; retain the printed series"
             );
         }
     }
