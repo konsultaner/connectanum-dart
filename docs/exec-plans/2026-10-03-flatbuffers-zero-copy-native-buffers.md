@@ -223,6 +223,21 @@ Status: active. Started: 2026-10-03.
   and ten wire frames. Single-vector steady baseline: 12 requests / 2,520 bytes;
   first nonempty Vec-backed use adds one 24-byte request. Candidate is now
   applied; its matched component/native/performance validation is pending.
+- [x] Verify writer `7a2af782`: matched compiler/lock/fixture, all ten wires
+  identical, exactly one request/160 requested bytes removed for cold and steady
+  single-vector encoding; control/multi-vector counts unchanged. All native
+  lifetime/120-owned/300-short copy proofs pass independent audit on that source.
+- [x] Audit its strict 90-row run: zero integrity gaps, four numerical failures,
+  exact recomputation, same production binaries. Preserve throughput/RSS/p99
+  failures; component counts cannot override these gates.
+- [x] Reproduce the fixture policy mismatch in source: managed builder disables
+  deduplication for the single-table model, native helper retains the default
+  enabled list. Verify exact model wire equality across both policies at boundary
+  identities and body sizes; align only this native helper and expand hosted
+  codec/model tests. Pure-Dart test and focused analysis pass.
+- [ ] Renew native model bytes, ownership/copy and strict performance after this
+  fixture change. Existing source7a campaigns remain separately attributed; no
+  policy/case/floor/deadline/budget changes and no result is silently discarded.
 - [ ] Improve measured bottlenecks, then run complete unchanged-policy primary
   and supplemental acceptance before marking #103 complete.
 

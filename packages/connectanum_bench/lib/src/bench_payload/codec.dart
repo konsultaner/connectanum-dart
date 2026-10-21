@@ -67,6 +67,9 @@ abstract final class BenchPayloadCodec {
   }) {
     final builder = allocator.flatBuffers(
       initialSize: initialSize ?? _initialFlatBufferSize(bodyBytes),
+      // This fixture contains one table, so there is no vtable to reuse.
+      // Match encodeDart rather than allocating a per-message vtable list.
+      deduplicateTables: false,
     );
     try {
       builder.finish(

@@ -1,6 +1,26 @@
 # Project State
 
 Last updated: 2026-10-21.
+Current follow-up aligns the native typed fixture with the managed fixture's
+single-table policy: both disable vtable deduplication. The default native builder
+API remains unchanged. The VM runtime creates and grows a per-builder vtable
+list when enabled, although this model has no second table to reuse. A pure-Dart
+regression checks exact wire equality across both policies, boundary identities
+and zero/one-byte/64-KiB/one-MiB bodies before and after this change; it and focused
+analysis pass. Native wire/lifetime/copy and timing renewal remain required.
+
+Writer source `7a2af782` passes matched component proof: all ten wires are
+byte-for-byte identical, single-vector cold/steady encodes remove one allocator
+request and 160 requested bytes (steady 12/2,520 to 11/2,360), while control and
+multi-vector observations remain unchanged. Its complete native/lifetime/copy
+proof also passes independent audit: 3,168 tracked inputs, four lifetime phases,
+all 120 owned cases and 300 short rows, all 32 no-copy flags and public owners
+zero before GC, with source/binary invariance and cleanup. Its strict 90-row
+campaign recomputes identically with zero integrity gaps but four numerical
+failures: Dart-value throughput/RSS, native-builder RSS and pre-encoded p99 CI.
+CPU, allocations and GC pass in all three groups. Timing binaries match copy
+proof binaries exactly; no parity acceptance is established. Complete campaigns
+on this candidate remain in progress/queued, and every failed result is retained.
 The current native writer candidate keeps the first deferred application-vector
 record inline and preserves the ordered growable fallback. It is applied only
 after the focused Linux baseline (`39519826093`, source `d57a9d5e`) passes all

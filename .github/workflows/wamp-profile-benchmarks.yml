@@ -559,6 +559,8 @@ jobs:
             --concurrency 1 --reporter expanded) \
             2>&1 | tee out/wamp-native-ppt-view-setup/native-contracts.log
           (cd packages/connectanum_bench && dart test \
+            test/bench_payload_codec_test.dart \
+            test/bench_payload_model_policy_test.dart \
             test/wamp_flatbuffers_scenario_test.dart --reporter expanded) \
             2>&1 | tee out/wamp-native-ppt-view-setup/bench-lease-contracts.log
       - name: Run source-attributed control and private native prototype
