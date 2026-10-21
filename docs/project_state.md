@@ -1,6 +1,18 @@
 # Project State
 
 Last updated: 2026-10-21.
+The current native writer candidate keeps the first deferred application-vector
+record inline and preserves the ordered growable fallback. It is applied only
+after the focused Linux baseline (`39519826093`, source `d57a9d5e`) passes all
+34 codec tests and independent verification of 3,169 source/resolved inputs,
+compiler, executable, ten complete wires and all pointer assertions. Steady
+single-vector encodes take 12 allocator requests / 2,520 requested bytes at all
+three body sizes; first nonempty Vec-backed use adds one 24-byte sharing request.
+Cold records remain separate and first/steady wires match. The new writer still
+requires matched allocation/wire, lifetime/copy and timing validation; no
+performance improvement or parity is claimed. All 38 full CI jobs pass on the
+unchanged-writer lease benchmark (`8bc62a3c`, run `39508515813`). Local native
+execution and companion review remain blocked by the preserved resource lease.
 The adopted public-lease benchmark candidate `8bc62a3c` passes hosted native
 contracts, all four lifetime controls and renewed production copy proofs
 ([run 39508516372](https://github.com/konsultaner/connectanum-dart/actions/runs/39508516372)).

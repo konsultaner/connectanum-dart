@@ -203,7 +203,7 @@ Status: active. Started: 2026-10-03.
   verified `8104d339` binary. These diagnostics do not establish speed.
 - [x] Pass complete local tooling and hosted Fast Checks on isolated fixture
   repair `3e7832bf`; preserve both preceding dependency-fixture failures.
-- [ ] Record a pinned Linux native encoder allocation baseline for control,
+- [x] Record a pinned Linux native encoder allocation baseline for control,
   opaque, positional and positional+keyword messages at zero/one-KiB/one-MiB
   bodies. Keep input preparation outside counters, ten stable observations,
   exact borrowed-pointer checks and full wire artifacts. These allocator counts
@@ -213,12 +213,16 @@ Status: active. Started: 2026-10-03.
   match, but first nonempty `bytes` sharing changes allocator requests. Verify
   bytes 1.12.1's lazy `Shared` promotion in source. Keep the actual first-call
   observation plus ten stable later calls and exact first/steady wire equality.
-- [ ] Run the focused encoder-only campaign with immutable source/dependency,
+- [x] Run the focused encoder-only campaign with immutable source/dependency,
   compiler and executable provenance. It bypasses no acceptance checks: final
   native/copy and complete timing campaigns remain required separately.
 - [ ] Keep the first deferred-vector record inline, preserve ordered overflow,
   then verify native tests, exact wire equality, lifetimes/copies and allocations
-  before paired timing. The candidate remains an ignored draft until baseline.
+  before paired timing. Apply only after baseline `d57a9d5e`/`39519826093`
+  passes 34 codec tests and independent audit of 3,169 inputs, compiler, binary
+  and ten wire frames. Single-vector steady baseline: 12 requests / 2,520 bytes;
+  first nonempty Vec-backed use adds one 24-byte request. Candidate is now
+  applied; its matched component/native/performance validation is pending.
 - [ ] Improve measured bottlenecks, then run complete unchanged-policy primary
   and supplemental acceptance before marking #103 complete.
 

@@ -54,13 +54,39 @@ struct DeferredVector {
     slot: u16,
     bytes: Bytes,
 }
+// The common opaque-PPT message has one deferred body. Keep its
+// bookkeeping inline; additional argument/keyword vectors preserve their order
+// and use the existing growable fallback.
+#[derive(Default)]
+struct DeferredVectors {
+    first: Option<DeferredVector>,
+    remaining: Vec<DeferredVector>,
+}
+impl DeferredVectors {
+    fn push(&mut self, vector: DeferredVector) {
+        if self.first.is_none() {
+            self.first = Some(vector);
+        } else {
+            self.remaining.push(vector);
+        }
+    }
+    fn len(&self) -> usize {
+        usize::from(self.first.is_some()) + self.remaining.len()
+    }
+    fn pop(&mut self) -> Option<DeferredVector> {
+        self.remaining.pop().or_else(|| self.first.take())
+    }
+    fn into_iter(self) -> impl Iterator<Item = DeferredVector> {
+        self.first.into_iter().chain(self.remaining)
+    }
+}
 struct Writer<'a> {
     builder: FlatBufferBuilder<'a, CodecAllocator>,
     strings: usize,
     elements: usize,
     tables: usize,
     estimated: usize,
-    deferred: Option<Vec<DeferredVector>>,
+    deferred: Option<DeferredVectors>,
     terminal_vector: Option<WIPOffset<UnionWIPOffset>>,
 }
 
@@ -87,7 +113,7 @@ pub(super) fn write_segments(fields: &Fields) -> Result<Vec<Bytes>, ParseError> 
         elements: 0,
         tables: 0,
         estimated: 0,
-        deferred: Some(Vec::new()),
+        deferred: Some(DeferredVectors::default()),
         terminal_vector,
     };
     let root = writer.table(fields, schema::ROOT, 1)?;
@@ -116,7 +142,7 @@ pub(super) fn write_segments(fields: &Fields) -> Result<Vec<Bytes>, ParseError> 
         return Ok(vec![Bytes::from(allocation).slice(start..), bytes]);
     }
     let mut segments = vec![Bytes::new()];
-    for vector in deferred {
+    for vector in deferred.into_iter() {
         let table = allocation
             .len()
             .checked_sub(vector.table as usize)
