@@ -80,9 +80,58 @@ dart test test/serializer/flatbuffers_fragments_test.dart
 dart test test/serializer/flatbuffers_fragments_test.dart -p chrome --compiler=dart2wasm --timeout=5m --concurrency=1
 ```
 
-Before this change, frozen `bin/verify` passes on `fe72c527` in 23m22s and all
-38 CI jobs pass on native writer `7a2af782`. Resulting-source complete
-verification, hosted lifetime/copy renewal and complete performance acceptance
-remain pending. The latest preceding 90-row diagnostic retains seven numerical
-failures with zero integrity gaps; neither it nor these component observations
-closes #103.
+Frozen complete `bin/verify` now passes on `f316941a` in 22m33s, including
+full Chrome/Dart2Wasm suites, with all 3,170 tracked source files and four resolved
+inputs unchanged. The resulting-source
+[lifetime/production-copy renewal](https://github.com/konsultaner/connectanum-dart/actions/runs/39533302910)
+passes independent audit of four phases, 120 owned cases, 300 short inventory
+rows and all 32 no-copy observations. Public native workloads prohibit byte-view
+export and leave zero tracked owners before GC. These short rows establish no
+performance acceptance.
+
+The resulting-source [90-row diagnostic](https://github.com/konsultaner/connectanum-dart/actions/runs/39533305805)
+retains zero integrity gaps and six numerical failures: all three RSS comparisons,
+Dart-value CPU, and Dart-value GC/p99 confidence bounds. All throughput medians
+pass. Its actual native library and driver hashes match its copy proof exactly.
+The [full 48-case primary](https://github.com/konsultaner/connectanum-dart/actions/runs/39534974873),
+[50-case supplemental](https://github.com/konsultaner/connectanum-dart/actions/runs/39534977336)
+and [full CI](https://github.com/konsultaner/connectanum-dart/actions/runs/39533299518)
+remain pending. No acceptance, regression waiver or cross-runner causal claim is
+inferred from component results or changes in diagnostic failure counts.
+
+## Further probes retained outside production
+
+A separate byte-vector access probe compares the current verifier with the same
+checks after an explicit `Uint8List` narrowing. It retains 112 observations
+across four body lengths, writable/read-only inputs and seven balanced pairs.
+The narrow form shows no consistent gain, including a 1.0010 time ratio for the
+one-KiB read-only case and an empty-body writable cost. This does not establish
+a benefit for changing generated getter types; production and benchmark checks
+remain unchanged.
+
+An adaptive envelope-capacity prototype uses already-encoded metadata and URI
+lengths, capped at the original 1,024-byte default. Its first version adds a
+310-byte header-growth copy for four forwarding principals and grows backing
+from 1,024 to 1,456 bytes; the failed audit is retained. A conservative revision
+accounts for duplicated typed metadata. All 138 complete wires, original body
+spans, decoded fields and exact aggregate bounds match the current serializer
+across 2,760 component observations, including ASCII/multibyte URI and metadata
+boundaries. Backing decreases to 512 bytes in 51 cases; 87 remain unchanged, with
+no additional observed growth copies in that inventory.
+
+A separate seven-pair encoder-only run retains all 84 observations, with three
+100,000-call warmups and 300,000 encodes per observation. Median time ratios for
+opaque one-MiB, 200-byte metadata and 512-character URI cases are respectively
+1.0099, 1.0117 and 1.0201. The smaller backing is a measured tradeoff, with no
+whole-workload evidence for adopting it. It stays outside production, and public
+builder defaults remain unchanged. These are component observations, not new
+acceptance gates or a waiver of existing whole-workload budgets.
+
+Both follow-ups preserve all 3,170 source files and four resolved inputs under
+the exclusive machine lease. Their sources, failed attempts, complete wires,
+observations and independent audits remain under
+`out/flatbuffers-resume-20261020/typed-vector-verify-*` and
+`adaptive-envelope*`. The timing receipt's generic `probe_sha256` labels its
+component fixture; `experiment_inputs_sha256` separately retains the actual
+executed timing source and wrapper hashes. The command and full source manifests
+are authoritative for that component-only run.

@@ -28,8 +28,19 @@ Status: active. Started: 2026-10-03.
 - [x] Pass all 67 resulting-source fragment contracts in Chrome/Dart2Wasm using
   the canonical package directory; retain the failed workspace-root invocation.
 - [x] Confirm all 38 full CI jobs pass on fixture-policy source `fe72c527`.
-- [ ] Complete resulting-source canonical verification, then hosted
-  contracts/lifetime/copy/CI and unchanged performance campaigns.
+- [x] Pass frozen full `bin/verify` on resulting source `f316941a` in 22m33s,
+  with all 3,170 sources and four resolved inputs unchanged.
+- [x] Independently audit resulting-source lifetime/copy renewal: four phases,
+  120 owned cases, 300 short rows and all 32 no-copy flags, with zero public
+  native owners before GC. Timing and copy production binaries match exactly.
+- [x] Audit resulting-source 90-row timing: zero integrity gaps, six numerical
+  failures. Throughput medians pass; all RSS, Dart CPU and GC/p99 confidence
+  bounds still block acceptance.
+- [x] Retain the byte-vector type probe and both adaptive-capacity prototypes.
+  The second preserves 138 complete wires and source aliases, with smaller
+  backing in 51 cases but opaque encoder costs. No follow-up is adopted.
+- [x] Queue the unchanged current-source full primary and supplemental campaigns.
+- [ ] Complete current-source full CI and collect/audit all campaign artifacts.
 - [ ] Achieve final 48-case primary parity and complete final 50-case supplemental
   evidence. Component results and historical passes cannot replace these gates.
 - [ ] Retain the required independent approving review for #130 before merging

@@ -12,8 +12,10 @@ multiple vectors, schemas, public builder defaults and native ABI stay unchanged
 A regression first observes the original three fragments instead of two. All
 134 focused contracts, all 3,395 serializer VM cases, analysis and all 154 existing
 mutation proofs then pass. All 67 fragment contracts pass in Chrome/Dart2Wasm from the canonical package
-directory. Complete resulting-source verification and hosted copy/performance
-renewal remain required before handoff.
+directory. Frozen full `bin/verify` now passes on `f316941a` in 22m33s,
+including complete browser inventories, with all 3,170 tracked sources and four
+resolved inputs unchanged. Hosted lifetime/copy renewal also passes; full current
+CI and performance acceptance remain outstanding.
 
 The isolated public-serializer prototype verifies 93 cases, source identity,
 mutations through original aliases and exact aggregate-size boundaries. It
@@ -27,35 +29,46 @@ Rejected fixed-capacity and general-writer experiments retain their allocation
 and small-control regressions. See the [terminal-header research](research/2026-10-21-flatbuffers-opaque-terminal-header.md);
 raw local evidence is under `out/flatbuffers-resume-20261020/`.
 
-Last complete frozen `bin/verify`: `fe72c527`, 23m22s, exit 0, all 3,169 source
-files and four resolved inputs unchanged. Rust, VM/live/consumer integrations
-and full Chrome/Dart2Wasm pass. All 38 hosted CI jobs pass on native writer
-`7a2af782` ([run 39520711477](https://github.com/konsultaner/connectanum-dart/actions/runs/39520711477)).
-All 38 hosted jobs also pass on fixture-policy head `fe72c527`
-([run 39523823156](https://github.com/konsultaner/connectanum-dart/actions/runs/39523823156)). The local machine lease is available
-again and is preserved around native verification and performance probes.
-
-Current verified production-copy/lifetime baseline is `fe72c527`
-([run 39523817411](https://github.com/konsultaner/connectanum-dart/actions/runs/39523817411)):
-3,169 tracked inputs, four lifetime phases, all 120 owned-copy cases and 300 short
+Current verified production-copy/lifetime source is `f316941a`
+([run 39533302910](https://github.com/konsultaner/connectanum-dart/actions/runs/39533302910)):
+3,170 tracked inputs, four lifetime phases, all 120 owned-copy cases and 300 short
 inventory rows, including E2EE/native crypto/transcode and all 32 no-copy flags.
 All six public workloads prohibit byte-view export and have zero tracked owners
-before GC. Short inventory rows do not establish timing acceptance. Standard
-SDK/TLS/crypto internals remain explicitly unmeasured under the approved scope.
-The current Dart change still requires renewal; earlier results are not relabelled.
+before GC. Its production binaries exactly match the current timing diagnostic.
+Short rows establish copy correctness only. Standard SDK/TLS/crypto internals
+remain explicitly unmeasured under the approved scope.
 
-Performance acceptance remains open in #103 and draft PR #132. The latest
-`fe72c527` strict-floor diagnostic completes all 90 rows with zero integrity
-gaps and seven numerical failures. Native pre-encoded forwarding passes all
-seven metrics; native construction fails RSS; Dart values fail CPU, GC, p95/p99,
-throughput and RSS. Its production binary hashes match the copy proof exactly.
+Resulting-source [full CI 39533299518](https://github.com/konsultaner/connectanum-dart/actions/runs/39533299518)
+remains pending, with no failures observed at this checkpoint. Preceding `fe72c527`
+and `7a2af782` each pass all 38 jobs. The exclusive local machine lease is
+preserved around native verification, model inference and performance probes.
+
+Performance acceptance remains open in #103 and draft PR #132. The current
+[`f316941a` strict-floor diagnostic](https://github.com/konsultaner/connectanum-dart/actions/runs/39533305805)
+completes all 90 rows with zero integrity gaps and six numerical failures.
+All three median throughput comparisons pass. All three RSS comparisons fail;
+Dart values additionally fail CPU and the GC/p99 confidence bounds. These are
+within-run comparisons against the better binary codec; changes between hosted
+runners do not establish a causal gain.
 The completed earlier reader campaign `28fa8011` retains all 1,440 primary rows
 and 173 numerical failures, with zero integrity gaps. Its complete 1,500-row
 supplemental report retains 244 performance costs. The later `7a2af782` full
-primary and three supplemental shards continue separately. Final-candidate full
-48-case/1,440-row primary and 50-case/1,500-row supplemental evidence is required;
+primary and remaining supplemental shards continue separately. Its completed
+360-row payload shard has zero integrity findings, 33 performance costs and all
+60 declared no-copy observations verified. Current-source
+[48-case/1,440-row primary](https://github.com/konsultaner/connectanum-dart/actions/runs/39534974873)
+and [50-case/1,500-row supplemental](https://github.com/konsultaner/connectanum-dart/actions/runs/39534977336)
+campaigns are queued. Complete final-candidate evidence remains required;
 no budget, floor, repetition or deadline is weakened, and absolute cross-shard
 costs are not pooled.
+
+Further isolated probes remain outside production: narrowing the verifier's
+byte-vector type shows no consistent benefit. An adaptive envelope-capacity
+prototype initially regresses forwarded metadata; a conservative revision
+preserves all 138 complete wires and original spans, reduces backing size in
+51 cases, but costs about 1–2% encoder time on the measured opaque cases.
+No primary result exists for that tradeoff and no builder default is changed.
+Raw attempts, observations, source snapshots and audits remain retained.
 
 The current Dart-value CPU/memory diagnostic
 ([run 39526201784](https://github.com/konsultaner/connectanum-dart/actions/runs/39526201784))
