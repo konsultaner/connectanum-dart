@@ -75,6 +75,68 @@ class StallDiagnosticTests(unittest.TestCase):
             code = diagnostic.run(self.args, self.root)
         return code, json.loads((self.output / "result.json").read_text())
 
+    def test_original_process_mode_preserves_entrypoint_router_and_control_url(self):
+        self.args.original_processes = True
+        self.args.control_base = "https://127.0.0.1:1/bench"
+        proc = self.base / "proc"
+        proc.mkdir()
+        self.driver_script("output.write_text(json.dumps({'workload':'first','samples':[{},{}],'data_window_elapsed_ms':50})+'\\n')\n")
+        with mock.patch.object(diagnostic, "PROC_ROOT", proc, create=True):
+            code, result = self.execute()
+        self.assertEqual(code, 0)
+        self.assertEqual(result["status"], "completed")
+        inputs = json.loads((self.output / "inputs.json").read_text())
+        command = inputs["command"]
+        self.assertNotIn("--bench-main", command)
+        self.assertEqual(command[command.index("--router-config") + 1], str(self.config.resolve()))
+        self.assertEqual(command[command.index("--control-base") + 1], self.args.control_base)
+        self.assertEqual((self.output / "router.json").read_bytes(), self.config.read_bytes())
+        self.assertFalse((self.output / "router.dart").exists())
+        self.assertFalse((self.output / "worker.dart").exists())
+        self.assertTrue(result["files_unchanged"])
+
+    def original_target(self):
+        target = mock.Mock()
+        target.role, target.pid, target.observer_pid = "worker", 42, 43
+        target.identity.start_ticks = 100
+        target.uri = "http://127.0.0.1:40000/secretToken=/"
+        return target
+
+    def test_original_capture_verifies_pid_before_stack_and_redacts_credentials(self):
+        target = self.original_target()
+        def rpc(uri, method, params=None):
+            if method == "getVM":
+                return {"pid": 42, "isolates": [{"id": "isolates/1", "name": "main"}]}
+            return {"type": "Stack", "test_uri": target.uri}
+        with mock.patch.object(diagnostic, "discover_vm_services", return_value=[target]), \
+                mock.patch.object(diagnostic, "identity_matches", return_value=True), \
+                mock.patch.object(diagnostic, "rpc", side_effect=rpc) as call:
+            snapshot = diagnostic.capture_original_stacks(10, target.uri, threading.Event())
+        self.assertEqual([args.args[1] for args in call.call_args_list], ["getVM", "getStack"])
+        self.assertEqual(snapshot["roles"]["worker"]["pid"], 42)
+        self.assertEqual(snapshot["roles"]["worker"]["isolates"][0]["stack"]["type"], "Stack")
+        self.assertNotIn("secretToken", json.dumps(snapshot))
+
+    def test_original_capture_rejects_wrong_pid_and_changed_identity(self):
+        target = self.original_target()
+        for vm_pid, identities in [(99, [True]), (42, [True, False])]:
+            with self.subTest(vm_pid=vm_pid), \
+                    mock.patch.object(diagnostic, "discover_vm_services", return_value=[target]), \
+                    mock.patch.object(diagnostic, "identity_matches", side_effect=identities), \
+                    mock.patch.object(diagnostic, "rpc", return_value={"pid": vm_pid, "isolates": []}) as call:
+                snapshot = diagnostic.capture_original_stacks(10, "waiting", threading.Event())
+            self.assertEqual([args.args[1] for args in call.call_args_list], ["getVM"])
+            self.assertIn("identity", snapshot["roles"]["worker"]["error"])
+
+    def test_original_capture_keeps_rpc_errors_without_authentication_urls(self):
+        target = self.original_target()
+        with mock.patch.object(diagnostic, "discover_vm_services", return_value=[target]), \
+                mock.patch.object(diagnostic, "identity_matches", return_value=True), \
+                mock.patch.object(diagnostic, "rpc", side_effect=ValueError("RPC failed: " + target.uri)):
+            snapshot = diagnostic.capture_original_stacks(10, "waiting", threading.Event())
+        self.assertIn("RPC failed", snapshot["roles"]["worker"]["error"])
+        self.assertNotIn("secretToken", json.dumps(snapshot))
+
     def test_success_preserves_scenario_floors_timeout_and_provenance(self):
         self.driver_script("output.write_text(json.dumps({'workload':'first','samples':[{},{}],'data_window_elapsed_ms':50})+'\\n')\n")
         code, result = self.execute()

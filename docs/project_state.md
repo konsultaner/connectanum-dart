@@ -9,10 +9,11 @@ The working tree now adds a first-owner slot with lazy identity-map overflow to
 the native Dart FlatBuffers allocator, after frozen `bin/test-fast` passes in
 15m20s with 3,172 source inputs/four resolved inputs unchanged. Private actual-model
 components retain 20 native lifecycle checks, 24 allocation windows and 56
-balanced timing observations under fixed root/private/library inputs. Managed
+balanced timing observations under fixed root/private/library inputs. For the one-KiB fixture, managed
 allocation pressure falls about 209 bytes per construction (6.8%); one-KiB
 construction time improves about 7.2%. Growth/one-MiB timing intervals overlap
-parity. These are component results, not whole-workload acceptance. The adopted
+parity. The primary workload uses 64 KiB; these component percentages are not
+primary gains or whole-workload acceptance. The adopted
 methods match the tested candidate; declaration grouping/comments preserve field
 order. See [allocator research](research/2026-10-22-native-flatbuffers-inline-owner.md).
 
@@ -24,8 +25,10 @@ reruns pass 13 proof tests and 93 runner tests (one pre-existing skip). New help
 style notices are fixed; its isolated cleanup probe, added parent error-path
 coverage case and final 50-case rerun pass with clean analysis. Source review
 confirms no demonstrated ownership defect; withdrawn/inapplicable companion
-findings are recorded with source/test dispositions. Complete local verification
-and exact-head hosted renewal remain pending. No ABI/schema,
+findings are recorded with source/test dispositions. Frozen full `bin/verify` on committed `2de4ec32` then passes in 23m58s, with
+all 3,174 source inputs/four resolved inputs unchanged and a clean tree, including
+Chrome/Dart2Wasm. Its exact-head hosted lifetime/copy renewal also passes;
+full CI and performance campaigns remain pending. No ABI/schema,
 write guard, byte-view export rule, lease or copy policy changes. Last fully
 verified checkpoint `36a6df24` remains separate from this working-tree follow-up.
 
@@ -33,7 +36,7 @@ Frozen full `bin/verify` passes in
 27m22s, including VM/live/consumer and Chrome/Dart2Wasm verification. All 3,172
 source inputs and four resolved inputs remain unchanged; the tree is clean
 through verification. [Exact-head CI](https://github.com/konsultaner/connectanum-dart/actions/runs/39780933118)
-on checkpoint `36a6df24` is still running, with no failure reported at this checkpoint.
+on checkpoint `36a6df24` now passes all jobs.
 
 The native reader now caches its first four string offsets inline, initialized
 lazily, with randomized HashMap overflow and the original validation/visit
@@ -60,6 +63,43 @@ binaries exactly match the copy proof. Final [48-case/1,440-row primary](https:/
 and [50-case/1,500-row supplemental](https://github.com/konsultaner/connectanum-dart/actions/runs/39784813538)
 campaigns are running. No floor, case, budget, deadline or better-codec baseline
 is weakened; absolute cross-runner costs are not pooled.
+
+The checkpoint `36a6df24` payload-size shard also fails, at 85/360 rows after
+its two completed passes, on the same one-MiB TLS WebSocket Dart-value FlatBuffers
+deadline. All retained rows meet sample/duration floors, match the original order
+and verify 14 no-copy observations; available locks/policy/scenario/binary hashes
+and cleanup pass audit. Its final source-invariance flag is absent/unconfirmed.
+The native library/driver match the checkpoint's copy and strict timing binaries.
+
+On `2de4ec32`, the [renewed copy proof](https://github.com/konsultaner/connectanum-dart/actions/runs/39792299754)
+passes independent audit against all 3,174 committed source hashes: four lifetime
+phases, 120 owned cases, 300 short inventory rows and all 32 no-copy observations.
+The production library/driver hashes match `36a6df24`; the Dart allocator differs.
+The [renewed strict diagnostic](https://github.com/konsultaner/connectanum-dart/actions/runs/39792305245)
+completes 90 rows with zero integrity gaps and eight numerical failures. Dart
+values fail CPU, throughput, p95, p99, GC and RSS; native-buffer and pre-encoded
+paths each fail RSS. All allocation comparisons pass. These are separate runner
+observations, not causal before/after estimates or primary acceptance. The
+resulting-source [primary](https://github.com/konsultaner/connectanum-dart/actions/runs/39792311393)
+and [supplemental](https://github.com/konsultaner/connectanum-dart/actions/runs/39792316277)
+campaigns remain queued/running behind retained observations.
+
+The passing historical replay is not a causal control: it uses URI entrypoint
+wrappers, ephemeral ports and disabled unused HTTP/3, and its resolved Cargo
+graphs differ (including Tokio 1.54.0 to 1.54.1). Both runs use JIT; AOT is not a
+difference. An original-process diagnostic is now implemented, with validation
+pending: existing owned
+external metrics observers already carry authenticated VM endpoints in their
+startup arguments, so stacks can be captured without changing application
+entrypoints or listener configuration. Scope discovery to the diagnostic driver's
+own descendants, verify PID identity, restrict endpoints to loopback and redact
+authentication URLs. Debug RPC can perturb scheduling and never accepts timing.
+The focused tests and local companion review are blocked by another job's
+preserved machine resource lease. Linux CI runs focused contracts and a real
+authenticated Dart VM discovery smoke before the full diagnostic replay. The
+initial fail-before attempt expired without executing; a reconstructed old-source
+regression check is queued and must not be described as a chronological
+fail-first pass. No causal runtime fix is claimed.
 
 The previous source `f316941a` retains its complete primary campaign with zero
 integrity gaps and 151 numerical failures, completed protocol/encrypted shards

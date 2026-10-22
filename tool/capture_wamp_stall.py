@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import math
 import os
 from pathlib import Path
 import platform
+import re
 import socket
 import subprocess
 import threading
@@ -18,8 +20,10 @@ import urllib.parse
 import urllib.request
 
 import run_wamp_serializer_campaign as campaign
+from wamp_stall_vm_services import discover_vm_services, identity_matches
 
 ROOT = Path(__file__).resolve().parents[1]
+PROC_ROOT = Path("/proc")
 LOCKS = ("pubspec.lock", "native/bench/Cargo.lock", "native/transport/Cargo.lock")
 
 
@@ -115,6 +119,71 @@ def capture_stacks(output, last_output, stop, driver_alive=lambda: True):
     return snapshot
 
 
+def redact_debug_text(value):
+    return re.sub(
+        r"((?:https?|wss?)://(?:127\.[0-9.]+|\[::1\]|localhost):[0-9]+)/[A-Za-z0-9_-]{8,}={0,2}",
+        r"\1/<vm-service>", value,
+    )
+
+
+def capture_original_stacks(driver_pid, last_output, stop, driver_alive=lambda: True):
+    snapshot = {"started_at_unix_seconds": time.time(), "last_output": redact_debug_text(last_output),
+                "roles": {}, "driver_alive_at_start": driver_alive(), "endpoint_source": "owned metrics observers"}
+    private_uris = []
+    try:
+        targets = discover_vm_services(driver_pid, PROC_ROOT)
+        if not targets:
+            snapshot["discovery_error"] = "No existing owned metrics observer endpoints are available"
+        for target in targets:
+            if stop.is_set() or not driver_alive():
+                break
+            key = target.role if target.role not in snapshot["roles"] else f"{target.role}:{target.pid}"
+            record = {"pid": target.pid, "observer_pid": target.observer_pid,
+                      "start_ticks": target.identity.start_ticks, "isolates": []}
+            snapshot["roles"][key] = record
+            private_uris.append(target.uri)
+            try:
+                if not identity_matches(target, PROC_ROOT):
+                    raise ValueError("VM process identity changed before observation")
+                vm = rpc(target.uri, "getVM")
+                if (type(vm.get("pid")) is not int or vm["pid"] != target.pid
+                        or not identity_matches(target, PROC_ROOT)):
+                    raise ValueError("VM endpoint does not match the owned process identity")
+                isolates = vm.get("isolates")
+                if not isinstance(isolates, list) or len(isolates) > 32:
+                    raise ValueError("Invalid or excessive VM isolate inventory")
+                for isolate in isolates:
+                    if stop.is_set() or not driver_alive():
+                        break
+                    if not identity_matches(target, PROC_ROOT):
+                        record["identity_changed"] = True
+                        break
+                    if not isinstance(isolate, dict) or not isinstance(isolate.get("id"), str):
+                        raise ValueError("Invalid VM isolate reference")
+                    entry = {"id": isolate["id"], "name": isolate.get("name")}
+                    try:
+                        stack = rpc(target.uri, "getStack", {"isolateId": isolate["id"], "limit": 100})
+                        if not identity_matches(target, PROC_ROOT):
+                            raise ValueError("VM process identity changed during stack observation")
+                        entry["stack"] = stack
+                    except Exception as error:
+                        entry["error"] = repr(error)
+                    record["isolates"].append(entry)
+            except Exception as error:
+                record["error"] = repr(error)
+    except Exception as error:
+        snapshot["discovery_error"] = repr(error)
+    snapshot.update(completed_at_unix_seconds=time.time(), driver_alive_at_end=driver_alive(),
+                    interrupted=stop.is_set() or not driver_alive())
+    encoded = json.dumps(snapshot)
+    for uri in private_uris:
+        encoded = encoded.replace(uri, "<vm-service>")
+        path = urllib.parse.urlsplit(uri).path
+        if path != "/":
+            encoded = encoded.replace(path, "<vm-service-path>")
+    return json.loads(redact_debug_text(encoded))
+
+
 def run(args, root=ROOT):
     if os.name != "posix":
         raise ValueError("WAMP stall diagnostics currently require POSIX process groups")
@@ -124,6 +193,16 @@ def run(args, root=ROOT):
             raise ValueError(f"{key} must be finite and positive")
     if args.workload_timeout_ms <= 0:
         raise ValueError("workload timeout must be positive")
+    original = getattr(args, "original_processes", False)
+    control_base = getattr(args, "control_base", "https://127.0.0.1:8080/bench")
+    if original:
+        if not PROC_ROOT.is_dir():
+            raise ValueError("Original-process VM discovery requires Linux procfs")
+        control = urllib.parse.urlsplit(control_base)
+        if (control.scheme not in ("http", "https") or control.username is not None
+                or control.password is not None or control.port is None or not 0 < control.port < 65536
+                or not ipaddress.ip_address(control.hostname or "").is_loopback):
+            raise ValueError("Original-process control URL must be loopback HTTP(S)")
     files = {key: getattr(args, key).resolve(strict=True)
              for key in ("driver", "native_lib", "router_config", "scenario")}
     if any(not path.is_file() for key, path in files.items() if key != "scenario"):
@@ -153,7 +232,8 @@ def run(args, root=ROOT):
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     inputs = source_inputs(root, output)
     locks = {name: digest(root / name) for name in LOCKS}
-    write_wrappers(root, output)
+    if not original:
+        write_wrappers(root, output)
     if files["scenario"].is_dir():
         copied_scenario = output / "scenarios"
         copied_scenario.mkdir()
@@ -167,39 +247,50 @@ def run(args, root=ROOT):
         copied_scenario = output / "scenario.toml"
         copied_scenario.write_bytes(scenarios[0].read_bytes())
     ports = []
-    for listener in config["router"]["listeners"]:
-        while True:
-            with socket.socket() as sock:
-                sock.bind(("127.0.0.1", 0))
-                port = sock.getsockname()[1]
-            if port not in ports:
-                break
-        ports.append(port)
-        listener["endpoint"] = f"127.0.0.1:{port}"
-        if "http3" in listener["protocols"]:
-            listener["protocols"].remove("http3")
-            listener["http"].pop("http3", None)
-    (output / "router.json").write_text(json.dumps(config, indent=2) + "\n")
-    command = [str(files["driver"]), "--dart", args.dart, "--bench-main", str(output / "router.dart"),
-               "--native-lib", str(files["native_lib"]), "--router-config", str(output / "router.json"),
-               "--control-base", f"https://127.0.0.1:{ports[0]}/bench",
-               "--scenario", str(copied_scenario), "--results", str(output / "reports.jsonl"),
+    if original:
+        (output / "router.json").write_bytes(files["router_config"].read_bytes())
+    else:
+        for listener in config["router"]["listeners"]:
+            while True:
+                with socket.socket() as sock:
+                    sock.bind(("127.0.0.1", 0))
+                    port = sock.getsockname()[1]
+                if port not in ports:
+                    break
+            ports.append(port)
+            listener["endpoint"] = f"127.0.0.1:{port}"
+            if "http3" in listener["protocols"]:
+                listener["protocols"].remove("http3")
+                listener["http"].pop("http3", None)
+        (output / "router.json").write_text(json.dumps(config, indent=2) + "\n")
+    router_config = files["router_config"] if original else output / "router.json"
+    scenario = files["scenario"] if original else copied_scenario
+    entrypoint = [] if original else ["--bench-main", str(output / "router.dart")]
+    control_base = control_base if original else f"https://127.0.0.1:{ports[0]}/bench"
+    command = [str(files["driver"]), "--dart", args.dart, *entrypoint,
+               "--native-lib", str(files["native_lib"]), "--router-config", str(router_config),
+               "--control-base", control_base,
+               "--scenario", str(scenario), "--results", str(output / "reports.jsonl"),
                "--results-only", "--skip-wamp-worker-aot", "--collect-wamp-vm-metrics",
                "--router-worker-counts", "1", "--native-runtime-thread-counts", "1",
                "--workload-timeout-ms", str(args.workload_timeout_ms)]
+    generated = ("router.json",) if original else ("worker.dart", "router.dart", "router.json")
     hashes = {str(path): digest(path) for path in [*(path for key, path in files.items() if key != "scenario"),
               *scenarios, *scenario_files(copied_scenario), *(output / name for name in
-              ("worker.dart", "router.dart", "router.json"))]}
-    provenance = {"kind": "stall_reproduction_never_acceptance", "head": head, "inputs": inputs,
+              generated)]}
+    provenance = {"kind": "stall_reproduction_never_acceptance", "mode": "original_processes" if original else "entrypoint_wrappers", "head": head, "inputs": inputs,
                   "resolved_locks": locks, "file_hashes": hashes, "command": command,
                   "platform": platform.uname()._asdict(),
                   "rustup_toolchain_env": os.environ.get("RUSTUP_TOOLCHAIN"),
                   "scenario_files": [str(path) for path in scenarios],
                   "workload_order": names, "stall_seconds": args.stall_seconds,
                   "max_seconds": args.max_seconds,
-                  "limitations": ["URI-only VM wrappers; getStack after missing log progress",
-                                  "ephemeral listener ports; unused HTTP/3 listener disabled",
-                                  "diagnostic replay cannot establish performance acceptance"]}
+                  "limitations": (["Original package entrypoints, router config, listener ports and HTTP/3 retained",
+                                   "Existing owned metrics endpoints; debug RPC may perturb scheduling",
+                                   "Diagnostic replay cannot establish performance acceptance"] if original else
+                                  ["URI-only VM wrappers; getStack after missing log progress",
+                                   "ephemeral listener ports; unused HTTP/3 listener disabled",
+                                   "diagnostic replay cannot establish performance acceptance"])}
     (output / "inputs.json").write_text(json.dumps(provenance, indent=2) + "\n")
     process = reader = watcher = None
     stop = threading.Event()
@@ -213,6 +304,8 @@ def run(args, root=ROOT):
     def read():
         with process.stdout as stream, (output / "driver.log").open("wb") as log:
             for line in stream:
+                if original:
+                    line = redact_debug_text(line.decode(errors="replace")).encode()
                 log.write(line)
                 log.flush()
                 with activity_lock:
@@ -230,10 +323,11 @@ def run(args, root=ROOT):
             if now - progress_at < args.stall_seconds or count >= 3 or now - prior < args.stall_seconds:
                 continue
             captured[progress_at] = (count + 1, now)
-            snapshot = capture_stacks(output, line, stop, lambda: process.poll() is None)
+            snapshot = (capture_original_stacks(process.pid, line, stop, lambda: process.poll() is None)
+                        if original else capture_stacks(output, line, stop, lambda: process.poll() is None))
             with activity_lock:
                 snapshot["progress_changed_during_capture"] = activity["at"] != progress_at
-                snapshot["last_output_at_completion"] = activity["line"]
+                snapshot["last_output_at_completion"] = redact_debug_text(activity["line"]) if original else activity["line"]
             path = output / f"stall-{len(stalls) + 1}.json"
             path.write_text(json.dumps(snapshot, indent=2) + "\n")
             stalls.append(path.name)
@@ -293,7 +387,7 @@ def run(args, root=ROOT):
     except Exception as error:
         failure = failure or f"{type(error).__name__}: {error}"
     code = process.returncode if process is not None else None
-    result = {"kind": "stall_reproduction_never_acceptance", "head": head, "driver_exit_code": code,
+    result = {"kind": "stall_reproduction_never_acceptance", "mode": "original_processes" if original else "entrypoint_wrappers", "head": head, "driver_exit_code": code,
               "failure": failure, "rows": len(reports), "expected_rows": len(names), "stalls": stalls,
               "inputs_unchanged": not changed and same_head, "changed": changed,
               "locks_unchanged": not changed_locks, "changed_locks": changed_locks,
@@ -319,6 +413,9 @@ def parse_args(argv=None):
         parser.add_argument("--" + name, type=Path, required=True,
                             help="One TOML file or a directory of original scenarios" if name == "scenario" else None)
     parser.add_argument("--dart", default="dart")
+    parser.add_argument("--original-processes", action="store_true",
+                        help="Keep the original entrypoints/listeners and observe existing Linux VM services")
+    parser.add_argument("--control-base", default="https://127.0.0.1:8080/bench")
     parser.add_argument("--stall-seconds", type=float, default=60)
     parser.add_argument("--max-seconds", type=float, default=1800)
     parser.add_argument("--workload-timeout-ms", type=int, default=300000)

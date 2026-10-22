@@ -2,6 +2,26 @@
 
 Status: active. Started: 2026-10-03.
 
+## Faithful payload timeout diagnosis (2026-10-22)
+
+- [x] Independently audit checkpoint `36a6df24` failed payload shard: 85/360 rows,
+  original order/floors, 14 no-copy flags, available hashes and cleanup; final
+  source-invariance flag absent/unconfirmed. Same one-MiB TLS WebSocket Dart-value
+  FlatBuffers deadline, no worker-crash inference from cleanup warnings.
+- [x] Verify historical passing replay differs in entrypoint wrappers, listener
+  settings and resolved Cargo graphs. Both use JIT, so AOT is not a difference.
+- [x] Locate existing authenticated VM endpoints in owned metrics observers'
+  startup arguments; a new diagnostic can preserve actual entrypoints/config.
+- [x] Implement bounded original-process stack discovery and focused regressions,
+  keeping legacy replay behavior, PID/ownership checks and URL redaction.
+- [ ] Validate new contracts and the old-source regression check. Initial local
+  fail-before attempt expires at another task's preserved resource lease without
+  executing; no chronological fail-first result is claimed. Companion review is
+  likewise resource-blocked. Linux CI runs units before its real VM smoke.
+- [ ] Run focused tooling tests, real Linux discovery smoke and full original
+  360-row replay with unchanged floors/300s workload/19,800s campaign deadlines.
+- [ ] Diagnose and reproduce any captured failure before changing runtime behavior.
+
 ## Native allocator owner follow-up (2026-10-22)
 
 - [x] Measure a private first-owner slot with identity-map fallback, using the
@@ -26,8 +46,15 @@ Status: active. Started: 2026-10-03.
   ownership/frame/segment cases and clean analysis pass with all inputs fixed.
 - [x] Complete actual-source review: no demonstrated ownership defect; record
   source-backed dispositions for withdrawn/inapplicable companion claims.
-- [ ] Finish frozen canonical verification and exact-head
-  hosted CI/copy/timing renewal. Complete full final-candidate parity campaigns;
+- [x] Pass frozen full `bin/verify` on `2de4ec32` in 23m58s: all 3,174 sources
+  and four resolved inputs unchanged, clean tree, including browser suites.
+- [x] Independently audit renewed `2de4ec32` lifetime/copy proof: four phases,
+  120 owned cases, 300 short rows, all 32 no-copy observations and 3,174 committed
+  source hashes. Production native binaries match the earlier checkpoint.
+- [x] Recompute all 90 renewed strict rows: zero integrity gaps, eight numerical
+  failures retained (Dart values CPU/throughput/p95/p99/GC/RSS, native-buffer RSS,
+  pre-encoded RSS). All allocation gates pass; no cross-runner causal inference.
+- [ ] Finish exact-head hosted CI/copy/timing renewal and full parity campaigns;
   retain running checkpoint `36a6df24` campaigns and all historical observations.
 
 Research: [Native owner tracking](../research/2026-10-22-native-flatbuffers-inline-owner.md).

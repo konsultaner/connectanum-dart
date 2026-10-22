@@ -119,6 +119,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Verify original-process stall diagnostic contracts
+        if: inputs.campaign == 'flatbuffers_payload_repro'
+        run: |
+          python3 tool/test_wamp_stall_vm_services.py
+          python3 tool/test_capture_wamp_stall.py
+
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: 3.13.5
@@ -215,6 +221,10 @@ jobs:
           import sys
           root = Path('out/wamp-flatbuffers-primary')
           manifest = json.loads((root / 'campaign/manifest.json').read_text())
+          subprocess.run([
+              sys.executable, 'tool/smoke_wamp_stall_discovery.py',
+              '--output', str(root / 'original-process-smoke'),
+          ], check=True)
           raise SystemExit(subprocess.run([
               sys.executable, 'tool/capture_wamp_stall.py',
               '--scenario', str(root / 'campaign/scenarios'),
@@ -222,6 +232,8 @@ jobs:
               '--native-lib', str(root / 'setup/libct_ffi.so'),
               '--router-config', str(root / 'campaign/inputs/router_config.json'),
               '--output', str(root / 'stall-repro'),
+              '--original-processes',
+              '--control-base', 'https://127.0.0.1:8080/bench',
               '--max-seconds', '19800',
           ]).returncode)
           PY

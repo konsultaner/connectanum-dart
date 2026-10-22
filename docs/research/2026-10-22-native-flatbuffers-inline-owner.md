@@ -25,7 +25,7 @@ inputs before execution and verifies every hash and the machine-resource lease
 afterward. No model inference or other cooperating local performance job runs
 inside that lease. Production source is unchanged during measurement.
 
-The allocation probe controls a separate Dart process through stdin and collects
+The one-KiB allocation probe controls a separate Dart process through stdin and collects
 its heap/GC volume with the unchanged production collector. Each codec/variant
 retains an empty signaling control and three 100,000-operation windows, following
 100,000 actual construction warmups. Every estimated-volume arithmetic identity
@@ -39,8 +39,8 @@ Full control wires and input/growth-copy counters match within each codec.
 | MessagePack | 6,474.35 | 6,474.38 | 1.00000 |
 
 These estimates include the retained common observation/signaling overhead;
-empty controls are reported without subtracting them. The approximately
-209-byte reduction is managed allocation pressure, not a count of allocations,
+empty controls are reported without subtracting them. The primary workload uses 64 KiB, so the component percentage is not a primary
+workload gain. The approximately 209-byte reduction is managed allocation pressure, not a count of allocations,
 live heap, native allocator requests, peak RSS, GC acceptance or full parity.
 
 Ten direct allocator lifecycle checks pass on each source: zero allocation,
@@ -102,3 +102,8 @@ canonical verification and exact-head hosted evidence. All 48 primary and
 CBOR/MessagePack baseline and approved copy scope remain required. Existing
 failed/incomplete/superseded observations are retained. This research alone
 closes no issue or milestone.
+
+Resulting-source canonical verification on `2de4ec32` passes in 23m58s, with all
+3,174 source inputs and four resolved inputs unchanged and a clean tree,
+including VM/live/consumer and Chrome/Dart2Wasm verification. Hosted primary and
+supplemental results remain pending; the timeout diagnosis is separate work.
