@@ -30,6 +30,7 @@ on:
           - flatbuffers_extensions
           - flatbuffers_profile
           - flatbuffers_payload_repro
+          - flatbuffers_payload_focus
           - flatbuffers_native_view_probe
           - flatbuffers_encoder_component
       profile_case:
@@ -103,8 +104,8 @@ jobs:
           if-no-files-found: error
 
   linux-flatbuffers-primary:
-    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic')) }}
-    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro')
+    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
+    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus')
     runs-on: ubuntu-24.04
     env:
       RUSTUP_TOOLCHAIN: 1.99.0
@@ -114,14 +115,14 @@ jobs:
       matrix:
         shard: ${{ fromJSON(inputs.campaign == 'flatbuffers_extensions' && '["protocol","payload_sizes","encrypted_progressive_results"]' || '["all"]') }}
     concurrency:
-      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}', matrix.shard) || (inputs.campaign == 'flatbuffers_primary' && 'flatbuffers-primary' || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic')) }}
+      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}', matrix.shard) || (inputs.campaign == 'flatbuffers_payload_focus' && 'flatbuffers-payload-focus' || (inputs.campaign == 'flatbuffers_primary' && 'flatbuffers-primary' || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic'))) }}
       cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v5
 
       - name: Verify original-process stall diagnostic contracts
-        if: inputs.campaign == 'flatbuffers_payload_repro'
+        if: inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus'
         run: |
           python3 tool/test_wamp_stall_vm_services.py
           python3 tool/test_wamp_stall_linux.py
@@ -205,6 +206,11 @@ jobs:
           if [[ "$INPUT_CAMPAIGN" == flatbuffers_payload_repro ]]; then
             diagnostic_args=(--diagnostic --extension-diagnostics --extension-shard payload_sizes --prepare-only)
           fi
+          if [[ "$INPUT_CAMPAIGN" == flatbuffers_payload_focus ]]; then
+            # A reduced reproduction, never a complete supplemental/primary gate.
+            diagnostic_args=(--diagnostic --extension-diagnostics --prepare-only
+              --case ext_15_payload_sizes --case ext_17_payload_sizes --case ext_18_payload_sizes)
+          fi
           python3 tool/run_wamp_serializer_campaign.py \
             --output out/wamp-flatbuffers-primary/campaign \
             --driver out/wamp-flatbuffers-primary/setup/http_stream \
@@ -215,7 +221,7 @@ jobs:
             --concurrency 1 --in-flight 1 --router-workers 1 --native-threads 1 \
             --workload-timeout-ms 300000 --campaign-timeout-seconds 19800 \
             2>&1 | tee out/wamp-flatbuffers-primary/campaign.log
-          if [[ "$INPUT_CAMPAIGN" == flatbuffers_payload_repro ]]; then
+          if [[ "$INPUT_CAMPAIGN" == flatbuffers_payload_repro || "$INPUT_CAMPAIGN" == flatbuffers_payload_focus ]]; then
             python3 - <<'PY' 2>&1 | tee out/wamp-flatbuffers-primary/stall-repro.log
           import json
           from pathlib import Path

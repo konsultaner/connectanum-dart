@@ -4,6 +4,9 @@ Status: active. Started: 2026-10-03.
 
 ## Faithful payload timeout diagnosis (2026-10-22)
 
+- [ ] Run the separately labelled 90-row reduced reproduction using declared
+  ext_15/ext_17/ext_18 transitions; keep full campaigns and original floors,
+  runtime/config/deadlines. This subset can never accept parity or a shard.
 - [x] Reproduce profiler ambient native-thread inheritance in hosted run
   39811409005 on test-first `5b9f63c7`: all 32 mode/selection cases inherit nine
   parent threads instead of required one, before workloads. Retain the failed

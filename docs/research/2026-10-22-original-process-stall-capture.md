@@ -69,3 +69,20 @@ Artifact `12438351850`, archive SHA256
 `3b3dd2ef926b247ccadf18d18efb3c4e35b73dbc185f50c1ddc5ee2119713095`,
 all three captures and `original-process-f087-independent-audit.json` are retained
 under `out/flatbuffers-resume-20261022/`.
+
+## Reduced reproduction
+
+The separate `flatbuffers_payload_focus` workflow selection prepares three
+existing declared cases: native TLS WebSocket at 100 KiB (`ext_15`), native
+clear RawSocket at one MiB (`ext_17`), and Dart TLS WebSocket at one MiB
+(`ext_18`). These are the transitions immediately preceding the reproduced
+stall in the retained driver log. All three codecs, three warmup/seven measured
+repetitions, original duration/sample floors and deadlines remain in this
+90-row diagnostic. Case ordering is regenerated for the subset and is not
+represented as the original full schedule. Original application entrypoints,
+router settings and the explicit one-thread runtime remain.
+
+It runs in a separate diagnostic concurrency group alongside the full replay.
+It cannot accept a supplemental shard or primary performance, and no complete
+campaign is cancelled or replaced. Its hosted contracts, actual preparation,
+real VM smoke and observed workload result remain pending.
