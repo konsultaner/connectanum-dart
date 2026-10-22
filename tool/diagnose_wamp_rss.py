@@ -26,22 +26,41 @@ RESOLVED = ('pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.l
 def prepare_allocator_wrappers(output, root):
     probe = json.dumps((root / 'tool/wamp_allocator_probe.dart').as_uri())
     worker = output / 'allocator-worker.dart'
-    router = output / 'allocator-router.dart'
-    worker.write_text(f'''import {probe};
-import {json.dumps((root / 'packages/connectanum_bench/tool/wamp_client_main.dart').as_uri())} as production;
+    router = output / 'allocator-router.dill'
+    worker_source = output / 'allocator-worker-source.dart'
+    router_source = output / 'allocator-router-source.dart'
+    worker_source.write_text(f'''import {probe};
+import {json.dumps((root / 'packages/connectanum_bench/bin/wamp_client_worker.dart').as_uri())} as production;
 Future<void> main(List<String> args) async {{
   registerAllocatorProbe();
   await production.main(args);
 }}
 ''')
-    router.write_text(f'''import {probe};
-import {json.dumps((root / 'packages/connectanum_bench/tool/bench_main.dart').as_uri())} as production;
+    router_source.write_text(f'''import {probe};
+import {json.dumps((root / 'packages/connectanum_bench/bin/bench_router_service.dart').as_uri())} as production;
 Future<void> main(List<String> args) async {{
   registerAllocatorProbe();
   await production.main([...args, '--wamp-worker', {json.dumps(str(worker))}]);
 }}
 ''')
-    return {'allocator_router_wrapper': router, 'allocator_worker_wrapper': worker}
+    return {'allocator_router_wrapper': router, 'allocator_worker_wrapper': worker,
+            'allocator_router_source': router_source, 'allocator_worker_source': worker_source}
+
+
+def compile_allocator_wrappers(files, dart, root):
+    # Canonical package executables use cached JIT kernel snapshots. Compiling
+    # these temporary wrappers first avoids retaining a 260+ MiB compiler heap.
+    # The worker's .dart filename preserves the existing source/JIT selector;
+    # Dart VM recognizes the kernel magic, as in canonical cached snapshots.
+    for role in ('router', 'worker'):
+        output = files[f'allocator_{role}_wrapper']
+        with output.with_suffix('.compile.log').open('w') as log:
+            subprocess.run([dart, 'compile', 'kernel', str(files[f'allocator_{role}_source']),
+                            '--output', str(output)], cwd=root, stdout=log, stderr=subprocess.STDOUT,
+                           check=True, timeout=120)
+        with output.open('rb') as stream:
+            if stream.read(4) != bytes.fromhex('90abcdef'):
+                raise ValueError('Diagnostic wrapper is not a JIT kernel snapshot')
 
 
 def prepare_pair(output, case, codec, policy):
@@ -127,6 +146,7 @@ def run(args, root=ROOT):
     memory_attribution = getattr(args, 'memory_attribution', False) or allocator_attribution
     if allocator_attribution:
         files.update(prepare_allocator_wrappers(output, root))
+        compile_allocator_wrappers(files, args.dart, root)
     sources = source_inputs(root)
     resolved = {name: campaign.sha256(root / name) for name in RESOLVED}
     for name in RESOLVED:

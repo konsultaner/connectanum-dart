@@ -102,6 +102,25 @@ class MemoryTests(unittest.TestCase):
                                    ('getAllocationProfile', 'isolates/1'), ('invoke', 'isolates/1')):
             with self.assertRaises(ValueError): memory.memory_rpc(self.targets[0].uri, method, identifier)
 
+    def test_resident_compiler_heap_disqualifies_allocator_attribution(self):
+        self.usage['root']['children'].append({'name': 'IsolateGroup kernel-service', 'size': 280 * 1024**2, 'children': []})
+        result = self.capture(rpc=self.allocator_reply, allocator_attribution=True)
+        self.assertEqual(result['status'], 'failed')
+        role = result['roles']['worker']
+        self.assertEqual(role['failure_phase'], 'kernel_service_exclusion')
+        self.assertEqual(role['validation_error'], 'Compiler service is resident in allocator diagnostic')
+        self.assertEqual(role['error_site']['function'], 'capture_target_memory')
+        self.assertNotIn('linux_smaps', role)
+
+    def test_external_errors_retain_safe_phase_and_site_without_private_message(self):
+        def fail(uri, method): raise ValueError('http://127.0.0.1/privateToken=/')
+        result = self.capture(rpc=fail)
+        role = result['roles']['worker']
+        self.assertEqual(role['failure_phase'], 'getVM')
+        self.assertIn('error_site', role)
+        self.assertNotIn('validation_error', role)
+        self.assertNotIn('privateToken', json.dumps(result))
+
     def test_raw_retained_tree_preserves_unknown_buckets_without_double_counting(self):
         result = self.capture()
         self.assertEqual(result['status'], 'complete')

@@ -22,6 +22,12 @@ Status: active. Started: 2026-10-03.
   No runtime/SDK/allocator-policy/GC change or acceptance substitution.
 - [x] Wire the four omitted diagnostic regression suites into the canonical
   tooling gate; reproduce all omissions before repair and pass after repair.
+- [x] Audit failed first allocator control: 20 complete driver rows, one failed
+  observation and retained 260+ MiB compiler heaps; no comparative RSS claim.
+- [x] Prepare JIT-kernel wrappers, checked magic/compiler exclusion and safe
+  validation phase/source locations; pass 99 focused contracts and syntax checks.
+- [x] Independently audit older primary 2de4: 1,440 rows, zero integrity findings,
+  exact recomputation and 144 numerical costs. Never current acceptance.
 - [ ] Complete current-head verification/CI and all unchanged acceptance gates.
 
 ## Owned receive-window and fresh-process memory discrimination (2026-10-22)

@@ -173,3 +173,42 @@ API errors and identity changes remain failed observations. There is no malloc
 trim, allocator tuning, forced GC, SDK patch, socket change or profiler flag.
 The local companion test/review attempts and local analysis are resource-blocked
 by another task's machine lease; no advisory approval or analysis pass is inferred.
+
+
+## First allocator-control failure and compiler isolation
+
+Run 39865339251/artifact 12463174692 passes Dart 3.13.5 analysis, the known
+64-MiB allocation/free self-test and the owned Linux extension/maps smoke. The
+FlatBuffers pair completes, followed by ten CBOR rows with one failed final
+worker observation. The failure is retained; no later pair starts. Independent
+audit verifies 3,196 sources/four retained resolved contents, both production
+binaries matching the existing copy proof, both ten-row streams, stable PIDs,
+report-line hashes and cleanup. Archive SHA-256:
+`ffb3d79a80d1d5104a1468bb70c5cc308c659d5082ab3841f24b1c7b85b9fbbd`.
+The old failed record contains only ValueError, so its exact condition is unknown.
+
+The complete role snapshots also show an extra kernel-service heap of 260+
+MiB. Both standard package entrypoints delegate to the same tool entrypoints;
+there is no alternate production application. The distinction is execution:
+canonical package commands use cached JIT kernel snapshots, while uncached
+source wrappers retain the compiler. These partial data cannot quantify the
+production native-allocation/RSS difference. No leak/fragmentation fix is inferred.
+
+The diagnostic now precompiles temporary wrappers to JIT kernels and guards
+sources plus compiled artifacts. It checks the observed canonical kernel magic
+`90abcdef`. The worker retains a .dart filename solely for the existing source-
+worker selector, while the VM loads kernel bytes; no production selector/API
+changes or AOT metrics are introduced. The pinned
+[Dart run implementation](https://github.com/dart-lang/sdk/blob/3.13.5/pkg/dartdev/lib/src/commands/run.dart#L528)
+resolves existing kernel executables and hands them to the VM. Real Linux smoke
+also uses a precompiled kernel. Any retained kernel-service bucket explicitly
+fails allocator observation before data can be used.
+
+Failures now retain the operation phase and static source location. Only literal
+ValueError messages originating in this module are included; external exception
+messages, response bodies and private VM URIs remain omitted. Tests cover both
+compiler rejection and token-safe error locations, and verify kernel compilation
+arguments/magic with failure on non-kernel output. Ninety-nine focused contracts
+and YAML/shell/seven embedded Python blocks pass. Hosted validation is pending;
+no runtime or acceptance change is claimed. Local model review and verification
+remain machine-lease blocked, separate from hosted evidence.

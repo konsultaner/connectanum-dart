@@ -112,17 +112,28 @@ def capture_target_memory(target, driver_pid, expected_pid, proc_root=Path('/pro
               'observer_pid': target.observer_pid, 'observer_start_ticks': target.observer_identity.start_ticks,
               'driver_pid': driver_pid, 'driver_start_ticks': target.driver_identity.start_ticks,
               'parent_pid': target.identity.parent, 'observer_parent_pid': target.observer_identity.parent}
+    phase = 'owner_before'
     try:
         if (target.driver_pid != driver_pid or target.pid != expected_pid
                 or not identity_matches(target, proc_root)):
             raise ValueError('Owned memory process identity does not match report')
+        phase = 'getVM'
         vm = memory_rpc(target.uri, 'getVM')
         if type(vm.get('pid')) is not int or vm['pid'] != target.pid:
             raise ValueError('Memory VM endpoint PID does not match owner')
+        phase = 'getProcessMemoryUsage'
         usage = memory_rpc(target.uri, 'getProcessMemoryUsage')
         count = validate_memory_tree(usage.get('root'))
         allocator = {}
         if allocator_attribution:
+            phase = 'kernel_service_exclusion'
+            pending = [usage['root']]
+            while pending:
+                node = pending.pop()
+                if node['name'] == 'IsolateGroup kernel-service':
+                    raise ValueError('Compiler service is resident in allocator diagnostic')
+                pending.extend(node['children'])
+            phase = 'allocator_isolate_selection'
             isolates = vm.get('isolates')
             if (not isinstance(isolates, list) or not 1 <= len(isolates) <= 16
                     or any(not isinstance(item, dict) or not isinstance(item.get('id'), str)
@@ -136,22 +147,37 @@ def capture_target_memory(target, driver_pid, expected_pid, proc_root=Path('/pro
             allocator['isolate_refs'] = isolates
             allocator['isolate_memory_usage'] = {}
             for isolate in isolates:
+                phase = 'getMemoryUsage'
                 sample = memory_rpc(target.uri, 'getMemoryUsage', isolate['id'])
                 if any(type(sample.get(key)) is not int or sample[key] < 0
                        for key in ('externalUsage', 'heapUsage', 'heapCapacity')):
                     raise ValueError('Invalid isolate memory usage')
                 allocator['isolate_memory_usage'][isolate['id']] = sample
+            phase = 'allocator_extension'
             sample = memory_rpc(target.uri, ALLOCATOR_METHOD, main[0])
+            phase = 'allocator_validation'
             allocator['allocator_counters'] = validate_allocator_counters(sample, target.pid)
             allocator['allocator_diagnostic'] = sample
+        phase = 'owned_smaps'
         maps = bounded_text(Path(proc_root) / str(target.pid) / 'smaps', 8 * 1024 * 1024)
         if not maps.strip():
             raise ValueError('Owned memory maps are empty')
+        phase = 'owner_after'
         if not identity_matches(target, proc_root):
             raise ValueError('Owned memory process identity changed during observation')
         record.update(process_memory_usage=usage, bucket_count=count, linux_smaps=maps, **allocator)
     except Exception as error:
         record['error'] = type(error).__name__
+        record['failure_phase'] = phase
+        frame = error.__traceback__
+        while frame.tb_next is not None:
+            frame = frame.tb_next
+        record['error_site'] = {'module': Path(frame.tb_frame.f_code.co_filename).name,
+                                'function': frame.tb_frame.f_code.co_name, 'line': frame.tb_lineno}
+        # Only our literal validation messages are safe to retain. URL/JSON/XML
+        # exceptions may contain service tokens or response data.
+        if type(error) is ValueError and Path(frame.tb_frame.f_code.co_filename).resolve() == Path(__file__).resolve():
+            record['validation_error'] = str(error)
     return record
 
 

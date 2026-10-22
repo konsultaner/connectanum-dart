@@ -104,6 +104,12 @@ Future<void> main() async {
                          + script_source.replace('Future<void> main() async {',
                                                  'Future<void> main() async {\n  registerAllocatorProbe();'))
     script.write_text(script_source)
+    if args.allocator_attribution:
+        compiled = output / 'idle.dill'
+        with (output / 'kernel-compile.log').open('w') as log:
+            subprocess.run([args.dart, 'compile', 'kernel', str(script), '--output', str(compiled)],
+                           cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
+        script = compiled
     vm = observer = peer = None
     readers = []
     lines = queue.Queue()

@@ -54,6 +54,24 @@ contract fails for all four omissions before repair and passes afterward. The
 owned local verification resource wait is stopped before verification begins
 to make this test-chain repair; no benchmark observation is canceled.
 
+The first allocator control 39865339251 passes pinned Dart analysis, the
+controlled allocation/free check and the owned Linux extension smoke. It then
+fails one CBOR worker observation after two complete ten-row driver segments.
+Independent audit verifies all 3,196 sources/four retained contents, exact raw
+reports, stable PIDs, unchanged production binaries and cleanup. Its old error
+records only ValueError, so that failing condition is still unknown. Additionally,
+the wrappers retain a 260+ MiB kernel-service heap, unlike canonical cached JIT
+executables. All partial comparisons are excluded. Temporary wrappers now compile
+to JIT kernels before launch, with checked kernel magic and an explicit compiler-
+heap exclusion. Errors retain safe phase/source locations and only our literal
+validation messages. Ninety-nine focused contracts and workflow parsing pass;
+real Linux validation is still required. No started benchmark is canceled.
+
+Older primary run 39792311393 completes all 1,440 rows/48 cases with zero integrity
+findings but 144 numerical costs; independent input/binary/raw verification and
+comparison recomputation agree exactly. This is older runtime `2de4ec32`, never
+current acceptance. The current-runtime full campaigns remain observing.
+
 Current strict run 39840621032 completes 90 valid rows with zero integrity
 findings. Throughput, p95/p99, CPU, managed allocation and GC pass in every
 case. Two RSS costs remain: Dart values (ratio 1.0082) and native buffer

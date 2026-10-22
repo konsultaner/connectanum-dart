@@ -139,12 +139,16 @@ class RssControlTests(unittest.TestCase):
             if lifecycle is not None:lifecycle.append('cleanup')
             if isinstance(cleanup, Exception):raise cleanup
             return cleanup
+        def compile_wrappers(files, dart, root):
+            for role in ('router', 'worker'):
+                files[f'allocator_{role}_wrapper'].write_bytes(bytes.fromhex('90abcdef') + b'fixture kernel')
         with mock.patch.object(diagnostic.platform, 'system', return_value='Linux'), \
                 mock.patch.object(diagnostic.platform, 'uname', return_value=argparse.Namespace(_asdict=lambda: {'system': 'Linux', 'machine': 'fixture'})), \
                 mock.patch.object(diagnostic.campaign, 'POLICY', policy), \
                 mock.patch.object(diagnostic.campaign, 'LOCK', self.root / 'lock'), \
                 mock.patch.object(diagnostic.subprocess, 'check_output', side_effect=output), \
                 mock.patch.object(diagnostic.subprocess, 'Popen', side_effect=popen), \
+                mock.patch.object(diagnostic, 'compile_allocator_wrappers', side_effect=compile_wrappers), \
                 mock.patch.object(diagnostic.campaign, 'stop_process_group', side_effect=cleanup_pair), \
                 mock.patch.object(diagnostic, 'source_inputs', side_effect=inputs), \
                 mock.patch.object(diagnostic.compare, '_validate_evidence', return_value=[]):
@@ -185,15 +189,35 @@ class RssControlTests(unittest.TestCase):
         self.assertEqual(len(calls), 6)
         for command, observation in zip(calls, constructor.call_args_list):
             router = Path(command[command.index('--bench-main') + 1])
-            self.assertEqual(router.name, 'allocator-router.dart')
-            self.assertIn('await production.main([...args', router.read_text())
+            self.assertEqual(router.name, 'allocator-router.dill')
+            self.assertEqual(router.read_bytes()[:4], bytes.fromhex('90abcdef'))
             self.assertEqual(observation.kwargs, {'allocator_attribution': True})
             self.assertNotIn('--profiler', command)
             self.assertEqual(command[command.index('--workload-timeout-ms') + 1], '300000')
         inputs = json.loads((self.root / 'output/inputs.json').read_text())
-        for name in ('allocator_router_wrapper', 'allocator_worker_wrapper'):
+        self.assertIn('await production.main([...args', (self.root / 'output/allocator-router-source.dart').read_text())
+        for name in ('allocator_router_wrapper', 'allocator_worker_wrapper', 'allocator_router_source', 'allocator_worker_source'):
             artifact = inputs['artifacts'][name]
             self.assertEqual(diagnostic.campaign.sha256(Path(artifact['path'])), artifact['sha256'])
+
+    def test_jit_wrapper_compile_uses_kernel_magic_and_fails_closed_on_source_output(self):
+        output = self.root / 'wrappers'
+        output.mkdir()
+        files = diagnostic.prepare_allocator_wrappers(output, self.root)
+        commands = []
+        def compile(command, **kwargs):
+            commands.append(command)
+            self.assertTrue(kwargs['check'])
+            self.assertEqual(kwargs['timeout'], 120)
+            Path(command[-1]).write_bytes(bytes.fromhex('90abcdef') + b'fixture')
+        with mock.patch.object(diagnostic.subprocess, 'run', side_effect=compile):
+            diagnostic.compile_allocator_wrappers(files, 'pinned-dart', self.root)
+        self.assertEqual(len(commands), 2)
+        self.assertTrue(all(command[:3] == ['pinned-dart', 'compile', 'kernel'] for command in commands))
+        self.assertTrue(files['allocator_worker_wrapper'].name.endswith('.dart'))
+        with mock.patch.object(diagnostic.subprocess, 'run', side_effect=lambda command, **kwargs: Path(command[-1]).write_text('source')):
+            with self.assertRaisesRegex(ValueError, 'JIT kernel'):
+                diagnostic.compile_allocator_wrappers(files, 'dart', self.root)
 
     def test_each_pair_preserves_canonical_worker_reuse_and_native_build_environment(self):
         code, result, calls = self.execute()
