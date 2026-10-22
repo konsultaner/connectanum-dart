@@ -18,6 +18,7 @@ import wamp_serializer_compare as compare
 ROOT = Path(__file__).resolve().parents[1]
 SEQUENCE = ('flatbuffers', 'cbor', 'msgpack', 'msgpack', 'cbor', 'flatbuffers')
 CASES = ('rpc_rawsocket_clear_native_native_buffer', 'rpc_rawsocket_clear_dart_values')
+DRIVER_ENVIRONMENT = {'CONNECTANUM_SKIP_NATIVE_BUILD': '1', 'CONNECTANUM_BENCH_WAMP_REUSE_WORKER': '1'}
 RESOLVED = ('pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.lock', '.dart_tool/package_config.json')
 
 
@@ -47,14 +48,14 @@ def validate_rows(rows, case, codec, policy):
         findings += compare._validate_evidence(row, label='RSS control')
         if findings:
             raise ValueError('; '.join(findings))
-        samples = row['samples']
-        starts = [sample.get('started_at_us') for sample in samples]
-        ends = [sample.get('completed_at_us') for sample in samples]
-        if (any(type(value) is not int or value < 0 for value in starts + ends)
-                or any(end < start for start, end in zip(starts, ends))
-                or (previous_end is not None and min(starts) < previous_end)):
-            raise ValueError('Replayed, overlapping, or invalid data-window timestamps')
-        previous_end = max(ends)
+        # WorkloadSample has no timestamps. The production driver records
+        # wall-clock boundaries on WorkloadReport, separately from data duration.
+        started, completed = row.get('started_at_ms'), row.get('completed_at_ms')
+        if (any(type(value) is not int or value < 0 for value in (started, completed))
+                or completed < started
+                or (previous_end is not None and started < previous_end)):
+            raise ValueError('Replayed, overlapping, or invalid workload report timestamps')
+        previous_end = completed
         for role in pids:
             metrics = row[role]
             pids[role].add(metrics['pid'])
@@ -111,6 +112,7 @@ def run(args, root=ROOT):
     manifest = {'kind': 'fresh_process_rss_control_never_acceptance', 'primary_acceptance_eligible': False,
                 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
                 'case': case, 'sequence': SEQUENCE, 'source_inputs': sources, 'resolved_inputs': resolved,
+                'driver_environment': DRIVER_ENVIRONMENT,
                 'artifacts': {key: {'path': str(path), 'sha256': campaign.sha256(path)} for key, path in files.items()},
                 'policy_sha256': campaign.sha256(campaign.POLICY), 'policy': policy,
                 'platform': platform.uname()._asdict(), 'rustflags': os.environ.get('RUSTFLAGS'),
@@ -145,7 +147,8 @@ def run(args, root=ROOT):
                 try:
                     with (pair / 'driver.log').open('w') as log:
                         process = subprocess.Popen(command, cwd=root, stdout=log, stderr=subprocess.STDOUT,
-                                                   start_new_session=True)
+                                                   start_new_session=True, stdin=subprocess.DEVNULL,
+                                                   env={**os.environ, **DRIVER_ENVIRONMENT})
                         receipt['driver_pid'] = process.pid
                         receipt['exit_code'] = process.wait(timeout=remaining)
                 finally:

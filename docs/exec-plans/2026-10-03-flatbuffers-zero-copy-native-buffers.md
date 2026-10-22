@@ -12,6 +12,9 @@ Status: active. Started: 2026-10-03.
   TCP policy/pressure observations. Preserve original replay inputs/limits.
 - [x] Prepare fresh-process six-pair RSS control, always excluded from acceptance;
   pass 15 isolated contracts, including launch/wait/cleanup and retention failures.
+- [x] Retain failed initial controls; reproduce/fix report timestamp shape and
+  missing canonical worker-reuse environment. Pass 18 focused cases and validate
+  60 actual archived strict rows; keep failed pairs ineligible.
 - [ ] Pass resulting-source review/tooling/full verification and Linux smokes.
 - [ ] Run/audit socket-option replay and fresh-process RSS controls; identify
   causal fixes before changing runtime code or acceptance policy.

@@ -34,3 +34,30 @@ are nested observations. Absolute metrics from other runners must not be pooled.
 The workflow labels this diagnostic separately and never invokes acceptance on
 its output. Its result always has `primary_acceptance_eligible: false`. The
 unchanged complete primary and supplemental campaigns remain required.
+
+
+## Real report-shape and process-reuse corrections
+
+The first hosted controls 39852830342 and 39852833821 finish one ten-row
+FlatBuffers segment each, then fail validation. Their driver exits and process
+group cleanup succeed. Both failures are retained and grant no comparative
+memory or parity evidence. Two defects in the new diagnostic are identified:
+it expects per-sample microsecond timestamps that WorkloadSample does not
+contain, and omits the canonical driver's explicit worker-reuse environment.
+The first defect masks the second: the raw reports show ten distinct client
+PIDs rather than one stable client within the pair.
+
+Separate regressions reproduce both defects before repair. Validation now reads
+integer started_at_ms/completed_at_ms on WorkloadReport, retaining missing,
+invalid, overlapping and replayed-row rejection. Samples follow the production
+report shape. All sixty archived strict rows for the two cases/three codecs
+pass the repaired full validation without mocking configuration/evidence checks.
+The driver receives and records the same two environment keys as the canonical
+campaign: skip native rebuilds and reuse the WAMP worker. Eighteen focused
+contracts pass, including environment, real-shape and error retention tests.
+The new controls must run again in full; the old failed segments are not reused
+as successful process pairs. The initial local verification is stopped before
+editing, solely within its verified owned process group; its incomplete result
+is not claimed as passing. No started benchmark observation is canceled.
+Advisory follow-up review is resource-blocked by another task's native lease;
+manual source checks and actual archived-report validation remain separate proof.

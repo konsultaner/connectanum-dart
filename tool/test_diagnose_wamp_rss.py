@@ -15,19 +15,21 @@ class RssControlTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
+        self.launched_environments = []
         self.case = next(c for c in diagnostic.campaign.primary_cases() if c['id'] == diagnostic.CASES[0])
         self.policy = json.loads(diagnostic.campaign.POLICY.read_text())
 
     def rows(self, codec, *, client=100, server=200):
         result = []
         for i in range(self.policy['minimum_warmup_runs'] + self.policy['minimum_repetitions']):
-            start = 1_000_000 + i * 11_000_000
+            start = 1_790_000_000_000 + i * 11_000
             result.append({
                 'workload': self.case['workloads'][codec], 'protocol': 'wamp_rawsocket_rpc',
                 'client_impl': 'native', 'request_chunk_bytes': 65536, 'response_chunk_bytes': 65536,
                 'data_window_elapsed_ms': 10000,
-                'samples': [{'started_at_us': start, 'completed_at_us': start + 4_000_000},
-                            {'started_at_us': start + 5_000_000, 'completed_at_us': start + 10_000_000}],
+                'started_at_ms': start, 'completed_at_ms': start + 10_000,
+                'samples': [{'worker': 0, 'iteration': n, 'latency_ms': 1.25,
+                             'request_bytes': 65536, 'response_bytes': 65536} for n in range(2)],
                 'wamp_configuration': {'serializer': codec, 'peer_serializer': None, 'peer_count': 1,
                     'payload_bytes': 65536, 'secure_transport': False, 'ppt_scheme': 'x_connectanum_bench_typed',
                     'ppt_serializer': codec, 'payload_construction': 'native_buffer', 'ppt_cipher': None, 'ppt_keyid': None},
@@ -35,6 +37,23 @@ class RssControlTests(unittest.TestCase):
                 'server_process_metrics': {'pid': server, 'rss_before_bytes': 200, 'peak_rss_during_bytes': 230, 'current_rss_bytes': 210},
             })
         return result
+
+    def test_real_driver_report_shape_accepts_workload_timestamps_without_sample_timestamps(self):
+        rows = self.rows('flatbuffers')
+        self.assertNotIn('started_at_us', rows[0]['samples'][0])
+        policy = dict(self.policy, minimum_samples_per_run=2)
+        with mock.patch.object(diagnostic.compare, '_validate_evidence', return_value=[]):
+            result = diagnostic.validate_rows(rows, self.case, 'flatbuffers', policy)
+        self.assertEqual(len(result['measured']), 7)
+
+    def test_missing_or_invalid_report_timestamp_is_rejected(self):
+        policy = dict(self.policy, minimum_samples_per_run=2)
+        for value in (None, True, -1, '1000'):
+            rows = self.rows('flatbuffers')
+            rows[0]['started_at_ms'] = value
+            with mock.patch.object(diagnostic.compare, '_validate_evidence', return_value=[]):
+                with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'timestamps'):
+                    diagnostic.validate_rows(rows, self.case, 'flatbuffers', policy)
 
     def test_generated_control_preserves_real_policy_and_exact_codec_configuration(self):
         pair = self.root / 'pair'
@@ -101,6 +120,7 @@ class RssControlTests(unittest.TestCase):
         def popen(command, **kwargs):
             index = len(calls)
             calls.append(command)
+            self.launched_environments.append(kwargs.get('env'))
             if launch_error:
                 raise launch_error
             pair = Path(command[command.index('--scenario') + 1]).parent
@@ -125,6 +145,18 @@ class RssControlTests(unittest.TestCase):
                 mock.patch.object(diagnostic.compare, '_validate_evidence', return_value=[]):
             code = diagnostic.run(args, root=self.root)
         return code, json.loads((args.output / 'result.json').read_text()), calls
+
+    def test_each_pair_preserves_canonical_worker_reuse_and_native_build_environment(self):
+        code, result, calls = self.execute()
+        self.assertEqual(code, 0)
+        self.assertEqual(len(self.launched_environments), 6)
+        for environment in self.launched_environments:
+            self.assertIsNotNone(environment)
+            self.assertEqual(environment['CONNECTANUM_SKIP_NATIVE_BUILD'], '1')
+            self.assertEqual(environment['CONNECTANUM_BENCH_WAMP_REUSE_WORKER'], '1')
+        manifest = json.loads((self.root / 'output/inputs.json').read_text())
+        self.assertEqual(manifest['driver_environment'], {
+            'CONNECTANUM_SKIP_NATIVE_BUILD': '1', 'CONNECTANUM_BENCH_WAMP_REUSE_WORKER': '1'})
 
     def test_complete_control_is_always_ineligible_and_retains_separate_pairs(self):
         code, result, calls = self.execute()

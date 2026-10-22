@@ -40,10 +40,14 @@ This establishes flow limitation, not its cause. The next opt-in diagnostic
 records owned descendants' socket-option calls and fixed TCP policy/pressure
 state. It preserves the original driver/scenarios/deadlines and cannot accept parity.
 A separate fresh-process RSS control distinguishes codec/process history without
-changing the strict RSS gate. Fifteen isolated RSS contracts, including launch/
-wait failures, pass; hosted controls remain pending. Runtime CI 39840612253 has
+changing the strict RSS gate. The first hosted RSS controls fail validation after one ten-row segment each.
+Their retained reports expose incorrect sample timestamp assumptions and missing
+worker-reuse environment. Both have failing regressions before correction; all
+60 archived strict rows pass the repaired report validator, and 18 focused
+contracts pass. Renewed complete controls remain required. Runtime CI 39840612253 has
 35 successful jobs and two still running, with no failed job. Latest full
-`bin/verify` remains `c0aef5fa`; resulting-source full verification is pending.
+`bin/verify` remains `c0aef5fa`; preliminary diagnostic-head verification is
+stopped before the report/reuse repair and will restart on the corrected head.
 
 Before this follow-up, `dd6e674a` passes the resulting-source serializer directory
 (3,398 cases), focused analysis and full `bin/verify`, including Chrome/Wasm.
