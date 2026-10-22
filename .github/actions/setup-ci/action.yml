@@ -35,6 +35,10 @@ runs:
         # Shared native artifacts may be consumed after the stable channel advances.
         toolchain: 1.99.0
         components: rustfmt, clippy, llvm-tools-preview
+    - name: Select the pinned Rust toolchain for workspace commands
+      if: inputs.rust == 'true'
+      shell: bash
+      run: echo 'RUSTUP_TOOLCHAIN=1.99.0' >> "$GITHUB_ENV"
     - id: rust
       if: inputs.rust == 'true'
       shell: bash

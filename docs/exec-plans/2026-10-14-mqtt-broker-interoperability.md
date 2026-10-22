@@ -3,7 +3,7 @@
 Status: active
 Owner: Codex
 Created: 2026-10-14
-Last updated: 2026-10-20
+Last updated: 2026-10-22
 Branch: `codex/mqtt-broker-interoperability` in a separate managed worktree
 Milestone: [GitHub milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2); parent [#109](https://github.com/konsultaner/connectanum-dart/issues/109)
 Baseline: GitHub master `73d840c9`; pre-change `bin/test-fast` passes on 2026-10-14
@@ -11,6 +11,8 @@ Baseline: GitHub master `73d840c9`; pre-change `bin/test-fast` passes on 2026-10
 ## Current hosted checkpoint
 
 The latest known [GitHub Actions CI on `fcf32554`](https://github.com/konsultaner/connectanum-dart/actions/runs/39411135727) is red on MQTT 5 TCP 64 KiB native broker CPU ratio 5.0 versus the unchanged 4.0 cap on Intel Xeon 6973P-C, and a shared ffi-test artifact source/build/digest mismatch in the bench-remote-auth-native mutation job. Full Verify is blocked by those prerequisites. The [four-serializer WAMP snapshot](../benchmarks/wamp-four-serializer-2026-10-20/README.md) remains the large RPC and Pub/Sub reference. A new [FlatBuffers file checkpoint](../benchmarks/wamp-flatbuffers-file-segments-2026-10-20/README.md) records 120 exact file workload rows after native file-backed segment support: RawSocket clear/E2EE FlatBuffers rises from 2.277/0.593 to 22.378/20.888 Gbit/s, with small measured Dart-to-native transport copies. All 378 native file tests and the four-case live RawSocket/WebSocket clear/E2EE matrix pass; local `bin/verify` passes including Chrome and Dart2Wasm. The [hosted Linux diagnostic](../benchmarks/wamp-flatbuffers-hosted-linux-1c53c153-2026-10-20/README.md) passes all eight new FlatBuffers file rows but exits red on existing Dart buffered JSON file and native JSON/CBOR fragmentation 2 Gbit/s gates. A specific FlatBuffers parity gate remains pending. Dart buffered FlatBuffers file performance remains near 1 Gbit/s. Keep #127, #131, draft PR #128, and milestone #2 open with unchanged MQTT budgets. Live WAMP↔MQTT translation and its memory gate have no results yet.
+
+2026-10-22 continuation: merge GitHub master `78f2b32b` and preserve its published ObjectBox adapter evidence. The failed shared native artifact records Rust 1.99.1 although setup requested 1.99.0; the repository's `stable` toolchain file can select a different version for bare commands. Add a fail-first CI fixture, then export `RUSTUP_TOOLCHAIN=1.99.0` from the shared setup action before the identity step. The focused fixture, full CI execution test module, post-merge `bin/test-fast`, and full `bin/verify` pass locally, including Chrome and Dart2Wasm. Hosted exact-head proof, the MQTT CPU gate and the unrelated WAMP diagnostic misses remain open.
 
 ## Goal
 

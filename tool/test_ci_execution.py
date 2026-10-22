@@ -25,7 +25,16 @@ class CompositeSetupTests(unittest.TestCase):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
         rust_step = action.split('uses: dtolnay/rust-toolchain@stable', 1)[1].split(
             '    - ', 1)[0]
-        self.assertRegex(rust_step, r'(?m)^\s+toolchain:\s*[0-9]+\.[0-9]+\.[0-9]+\s*$')
+        pin = re.search(
+            r'(?m)^\s+toolchain:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$',
+            rust_step,
+        )
+        self.assertIsNotNone(pin)
+        # rust-toolchain.toml selects `stable` for bare cargo/rustc commands.
+        # The action must override it after installing the pinned toolchain.
+        selected = f'RUSTUP_TOOLCHAIN={pin.group(1)}'
+        self.assertIn(selected, action)
+        self.assertLess(action.index(selected), action.index('    - id: rust'))
 
         workflow = (ROOT / '.github/workflows/dart.yml').read_text()
         for start, end in (('  native-build:', '  fast:'),
