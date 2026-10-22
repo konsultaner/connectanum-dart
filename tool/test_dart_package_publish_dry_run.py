@@ -30,7 +30,7 @@ MQTT_BENCHMARK_REPORT = (
     REPO_ROOT
     / "docs"
     / "benchmarks"
-    / "mqtt-hosted-intel-58016dc8-2026-10-16.json"
+    / "mqtt-hosted-amd-fccc7566.json"
 )
 WAMP_BENCHMARK_SUMMARY = (
     REPO_ROOT
@@ -112,8 +112,48 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
 
         self.assertEqual(len(profile_rows), len(mqtt_report["profiles"]))
         self.assertEqual(sum("Delivery pass" in row for row in profile_rows), 4)
-        self.assertEqual(sum("CPU cap missed" in row for row in profile_rows), 1)
-        self.assertIn("mqtt-hosted-intel-58016dc8-2026-10-16.json", mqtt_table)
+        self.assertEqual(sum("CPU cap missed" in row for row in profile_rows), 0)
+        ordered_profiles = [
+            "burst", "sustained", "v311-sustained", "batched", "fanout",
+            "native-burst", "native-sustained", "native-v311-sustained",
+            "native-1k-sustained", "native-64k-sustained", "native-batched",
+            "native-fanout", "native-tls-sustained",
+            "native-tls-v311-sustained", "native-ws-sustained",
+            "native-ws-v311-sustained", "native-wss-single-smoke",
+            "native-wss-sustained", "native-wss-v311-single-smoke",
+            "native-wss-v311-sustained",
+        ]
+        summaries = {
+            profile["name"]: profile["summary"]
+            for profile in mqtt_report["profiles"]
+        }
+        self.assertEqual(set(ordered_profiles), set(summaries))
+        for row, profile_name in zip(profile_rows, ordered_profiles, strict=True):
+            cells = [cell.strip() for cell in row.strip("|").split("|")]
+            summary = summaries[profile_name]
+            self.assertTrue(summary["passed"], profile_name)
+            self.assertEqual(
+                cells[3],
+                f'{summary["connectanum_delivered_per_sec_median"]:,.0f} / '
+                f'{summary["mosquitto_delivered_per_sec_median"]:,.0f}',
+            )
+            self.assertEqual(cells[4], f'{summary["throughput_ratio"]:.3f}')
+            self.assertEqual(
+                cells[5],
+                f'{summary["p95_ratio"]:.3f} / '
+                f'{summary["p99_ratio"]:.3f}',
+            )
+            self.assertEqual(cells[6], f'{summary["broker_cpu_ratio"]:.3f}')
+            self.assertEqual(
+                cells[7],
+                f'{summary["connectanum_broker_rss_bytes_max"] / 1048576:.1f} MiB',
+            )
+            self.assertEqual(
+                cells[8],
+                "Delivery pass" if summary["gate"] == "correctness" else "Pass",
+            )
+        self.assertIn("mqtt-hosted-amd-fccc7566.json", mqtt_table)
+        self.assertIn("Intel Xeon 6973P-C | 5.000 | CPU cap missed", mqtt_table)
         self.assertIn(
             f'{mqtt_report["totalExactDeliveries"]:,} expected and received',
             mqtt_table,
