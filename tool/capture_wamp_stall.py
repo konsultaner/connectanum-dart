@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import shutil
 import socket
 import subprocess
 import threading
@@ -128,6 +129,21 @@ def redact_debug_text(value):
     )
 
 
+def socket_option_launch(command, output, enabled):
+    """Trace only socket options in the launched process group, never attach elsewhere."""
+    if not enabled:
+        return command, None
+    executable = shutil.which('strace')
+    if executable is None:
+        raise ValueError('Socket-option diagnostic requires strace')
+    version = subprocess.check_output([executable, '--version'], text=True).splitlines()[0]
+    trace = output / 'socket-options.log'
+    return ([executable, '-f', '--seccomp-bpf', '-qq', '-ttt', '-X', 'abbrev', '-s', '80',
+             '-e', 'trace=setsockopt', '-o', str(trace), '--', *command],
+            {'tool': version, 'path': trace.name,
+             'scope': 'setsockopt calls in launched driver descendants only; syscall tracing perturbs execution'})
+
+
 def capture_original_stacks(driver_pid, last_output, stop, driver_alive=lambda: True, application_ports=()):
     snapshot = {"started_at_unix_seconds": time.time(), "last_output": redact_debug_text(last_output),
                 "roles": {}, "driver_alive_at_start": driver_alive(), "endpoint_source": "owned metrics observers"}
@@ -212,6 +228,9 @@ def run(args, root=ROOT):
     if args.workload_timeout_ms <= 0:
         raise ValueError("workload timeout must be positive")
     original = getattr(args, "original_processes", False)
+    trace_options = getattr(args, "trace_socket_options", False)
+    if trace_options and not original:
+        raise ValueError("Socket-option trace requires original Linux processes")
     control_base = getattr(args, "control_base", "https://127.0.0.1:8080/bench")
     if original:
         if not PROC_ROOT.is_dir():
@@ -303,12 +322,14 @@ def run(args, root=ROOT):
                "--results-only", "--skip-wamp-worker-aot", "--collect-wamp-vm-metrics",
                "--router-worker-counts", "1", "--native-runtime-thread-counts", "1",
                "--workload-timeout-ms", str(args.workload_timeout_ms)]
+    launch_command, socket_trace = socket_option_launch(command, output, trace_options)
     generated = ("router.json",) if original else ("worker.dart", "router.dart", "router.json")
     hashes = {str(path): digest(path) for path in [*(path for key, path in files.items() if key != "scenario"),
               *scenarios, *scenario_files(copied_scenario), *(output / name for name in
               generated)]}
     provenance = {"kind": "stall_reproduction_never_acceptance", "mode": "original_processes" if original else "entrypoint_wrappers", "head": head, "inputs": inputs,
                   "resolved_locks": locks, "file_hashes": hashes, "command": command,
+                  "launch_command": launch_command, "socket_option_trace": socket_trace,
                   "resolved_input_files": resolved_files,
                   "platform": platform.uname()._asdict(),
                   "rustup_toolchain_env": os.environ.get("RUSTUP_TOOLCHAIN"),
@@ -371,7 +392,7 @@ def run(args, root=ROOT):
             background_errors.append(f"{action.__name__}: {type(error).__name__}: {error}")
 
     try:
-        process = subprocess.Popen(command, cwd=root, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        process = subprocess.Popen(launch_command, cwd=root, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT, start_new_session=True,
                                    env={**os.environ, "CONNECTANUM_SKIP_NATIVE_BUILD": "1",
                                         "CONNECTANUM_BENCH_WAMP_REUSE_WORKER": "1"})
@@ -392,6 +413,15 @@ def run(args, root=ROOT):
             group_stopped = campaign.stop_process_group(process)
         if reader is not None:
             reader.join(timeout=8)
+    if socket_trace is not None:
+        trace_path = output / socket_trace['path']
+        socket_trace['sha256'] = digest(trace_path) if trace_path.is_file() else None
+        socket_trace['bytes'] = trace_path.stat().st_size if trace_path.is_file() else 0
+        if trace_path.is_file():
+            with trace_path.open(errors='replace') as trace_stream:
+                socket_trace['observed_option_calls'] = sum('setsockopt(' in line for line in trace_stream)
+        if not socket_trace.get('observed_option_calls'):
+            failure = failure or 'Socket-option trace has no observed calls'
     after = source_inputs(root, output)
     changed = sorted(name for name in inputs.keys() | after.keys() if inputs.get(name) != after.get(name))
     same_head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip() == head
@@ -419,7 +449,7 @@ def run(args, root=ROOT):
         failure = failure or f"{type(error).__name__}: {error}"
     code = process.returncode if process is not None else None
     result = {"kind": "stall_reproduction_never_acceptance", "mode": "original_processes" if original else "entrypoint_wrappers", "head": head, "driver_exit_code": code,
-              "failure": failure, "rows": len(reports), "expected_rows": len(names), "stalls": stalls,
+              "failure": failure, "socket_option_trace": socket_trace, "rows": len(reports), "expected_rows": len(names), "stalls": stalls,
               "inputs_unchanged": not changed and same_head, "changed": changed,
               "locks_unchanged": not changed_locks, "changed_locks": changed_locks,
               "files_unchanged": not changed_files, "changed_files": changed_files,
@@ -447,6 +477,7 @@ def parse_args(argv=None):
     parser.add_argument("--original-processes", action="store_true",
                         help="Keep the original entrypoints/listeners and observe existing Linux VM services")
     parser.add_argument("--control-base", default="https://127.0.0.1:8080/bench")
+    parser.add_argument("--trace-socket-options", action="store_true", help="Trace setsockopt in launched Linux descendants; diagnostic only")
     parser.add_argument("--stall-seconds", type=float, default=60)
     parser.add_argument("--max-seconds", type=float, default=1800)
     parser.add_argument("--workload-timeout-ms", type=int, default=300000)

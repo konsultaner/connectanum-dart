@@ -14,6 +14,36 @@ def bounded_text(path, limit=2 * 1024 * 1024):
     return value
 
 
+def capture_tcp_environment(root, proc_root):
+    """Read fixed TCP policy/counters; global values are explicitly separate."""
+    result = {'scope': 'read-only observer network namespace policy, host memory and owned network namespace counters',
+              'records': {}, 'errors': []}
+    paths = {
+        'tcp_rmem': proc_root / 'sys/net/ipv4/tcp_rmem',
+        'tcp_mem': proc_root / 'sys/net/ipv4/tcp_mem',
+        'tcp_moderate_rcvbuf': proc_root / 'sys/net/ipv4/tcp_moderate_rcvbuf',
+        'tcp_shrink_window': proc_root / 'sys/net/ipv4/tcp_shrink_window',
+        'rmem_default': proc_root / 'sys/net/core/rmem_default',
+        'rmem_max': proc_root / 'sys/net/core/rmem_max',
+        'memory_pressure': proc_root / 'pressure/memory',
+        'namespace_sockstat': root / 'net/sockstat',
+    }
+    for name, path in paths.items():
+        try:
+            result['records'][name] = bounded_text(path, 4096).strip()
+        except (OSError, ValueError) as error:
+            result['errors'].append({'record': name, 'error': type(error).__name__})
+    try:
+        memory = bounded_text(proc_root / 'meminfo', 16384)
+        result['records']['host_memory'] = {
+            key: value.strip() for line in memory.splitlines()
+            for key, sep, value in [line.partition(':')]
+            if sep and key in ('MemTotal', 'MemAvailable', 'SwapTotal', 'SwapFree')}
+    except (OSError, ValueError) as error:
+        result['errors'].append({'record': 'host_memory', 'error': type(error).__name__})
+    return result
+
+
 def capture_linux_state(target, proc_root=Path('/proc'), application_ports=()):
     if not identity_matches(target, proc_root):
         return {'error': 'owned process identity changed before Linux observation'}
@@ -86,6 +116,7 @@ def capture_linux_state(target, proc_root=Path('/proc'), application_ports=()):
         result['errors'].append({'record': 'process', 'error': type(error).__name__})
     if application_ports:
         result['tcp_info'] = capture_tcp_info(target, result['tcp'], application_ports, proc_root)
+        result['tcp_environment'] = capture_tcp_environment(root, proc_root)
     if not identity_matches(target, proc_root):
         return {'error': 'owned process identity changed during Linux observation'}
     return result

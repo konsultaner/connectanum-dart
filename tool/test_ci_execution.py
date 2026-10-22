@@ -35,6 +35,28 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertIn('set -euo pipefail', fast)
 
 
+class FlatbuffersDiagnosticModesTests(unittest.TestCase):
+    def test_rss_control_is_separate_from_acceptance_and_never_cancels_started_runs(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        block = workflow.split('  linux-flatbuffers-primary:', 1)[1].split('  merge-flatbuffers-extensions:', 1)[0]
+        self.assertIn('flatbuffers_rss_control', workflow.split('      profile_case:', 1)[0])
+        self.assertIn('python3 tool/test_diagnose_wamp_rss.py', block)
+        self.assertIn('python3 tool/diagnose_wamp_rss.py', block)
+        self.assertIn("format('flatbuffers-rss-control-{0}-{1}', github.sha, inputs.rss_case)", block)
+        self.assertIn('cancel-in-progress: false', block)
+        self.assertIn('This never establishes parity or replaces primary gates.', block)
+        runner = block.split('if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then', 1)[1].split('\n          fi', 1)[0]
+        self.assertIn('exit 0', runner)
+        self.assertNotIn('run_wamp_serializer_campaign.py', runner)
+
+    def test_optional_socket_trace_requires_explicit_diagnostic_input_and_real_smoke(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        self.assertIn('trace_socket_options:', workflow)
+        self.assertIn("inputs.trace_socket_options && (inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus')", workflow)
+        self.assertIn("if 'SO_RCVBUF' not in trace.read_text():", workflow)
+        self.assertIn("*(['--trace-socket-options'] if os.environ.get('INPUT_TRACE_SOCKET_OPTIONS') == 'true' else [])", workflow)
+
+
 class ShardingTests(unittest.TestCase):
     def inventory(self, count=23):
         return [{'file': 'packages/fixture/lib/a.dart', 'offset': index,

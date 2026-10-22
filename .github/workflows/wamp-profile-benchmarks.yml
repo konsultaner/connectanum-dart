@@ -33,6 +33,20 @@ on:
           - flatbuffers_payload_focus
           - flatbuffers_native_view_probe
           - flatbuffers_encoder_component
+          - flatbuffers_rss_control
+      rss_case:
+        description: Canonical case used only by the fresh-process RSS diagnostic
+        required: false
+        default: rpc_rawsocket_clear_native_native_buffer
+        type: choice
+        options:
+          - rpc_rawsocket_clear_dart_values
+          - rpc_rawsocket_clear_native_native_buffer
+      trace_socket_options:
+        description: Trace socket options in the original-process payload diagnostic only
+        required: false
+        default: false
+        type: boolean
       profile_case:
         description: Canonical case used only by the CPU profiling diagnostic
         required: false
@@ -105,8 +119,8 @@ jobs:
           if-no-files-found: error
 
   linux-flatbuffers-primary:
-    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
-    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus')
+    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_rss_control' && 'Fresh-process RSS diagnostic' || inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
+    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus' || inputs.campaign == 'flatbuffers_rss_control')
     runs-on: ubuntu-24.04
     env:
       RUSTUP_TOOLCHAIN: 1.99.0
@@ -117,7 +131,7 @@ jobs:
         shard: ${{ fromJSON(inputs.campaign == 'flatbuffers_extensions' && '["protocol","payload_sizes","encrypted_progressive_results"]' || '["all"]') }}
     # Each job keeps one hosted VM/process set; source revisions finish independently.
     concurrency:
-      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}-{1}', matrix.shard, github.sha) || (inputs.campaign == 'flatbuffers_payload_focus' && 'flatbuffers-payload-focus' || (inputs.campaign == 'flatbuffers_primary' && format('flatbuffers-primary-{0}', github.sha) || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic'))) }}
+      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}-{1}', matrix.shard, github.sha) || (inputs.campaign == 'flatbuffers_rss_control' && format('flatbuffers-rss-control-{0}-{1}', github.sha, inputs.rss_case) || inputs.campaign == 'flatbuffers_payload_focus' && 'flatbuffers-payload-focus' || (inputs.campaign == 'flatbuffers_primary' && format('flatbuffers-primary-{0}', github.sha) || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic'))) }}
       cancel-in-progress: false
 
     steps:
@@ -132,6 +146,34 @@ jobs:
           python3 tool/test_smoke_wamp_stall_discovery.py
           python3 tool/test_capture_wamp_stall.py
           python3 tool/test_ci_execution.py
+
+      - name: Verify fresh-process RSS diagnostic contracts
+        if: inputs.campaign == 'flatbuffers_rss_control'
+        run: python3 tool/test_diagnose_wamp_rss.py
+
+      - name: Prepare owned socket-option trace
+        if: inputs.trace_socket_options && (inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus')
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y strace
+          mkdir -p out/wamp-flatbuffers-primary/socket-trace-smoke
+          python3 - <<'PYTHON'
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+          sys.path.insert(0, 'tool')
+          from capture_wamp_stall import socket_option_launch, digest
+          output = Path('out/wamp-flatbuffers-primary/socket-trace-smoke').resolve()
+          command = [sys.executable, '-c', 'import socket; s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF,65536); s.close()']
+          launch, metadata = socket_option_launch(command, output, True)
+          subprocess.run(launch, check=True, timeout=30)
+          trace = output / metadata['path']
+          if 'SO_RCVBUF' not in trace.read_text():
+              raise SystemExit('Socket trace smoke did not capture its owned option')
+          metadata['sha256'] = digest(trace)
+          (output / 'result.json').write_text(json.dumps(metadata, indent=2) + '\n')
+          PYTHON
 
       - uses: dart-lang/setup-dart@v1
         with:
@@ -194,8 +236,19 @@ jobs:
         env:
           INPUT_CAMPAIGN: ${{ inputs.campaign }}
           INPUT_EXTENSION_SHARD: ${{ matrix.shard }}
+          INPUT_TRACE_SOCKET_OPTIONS: ${{ inputs.trace_socket_options }}
+          INPUT_RSS_CASE: ${{ inputs.rss_case }}
         run: |
           set -euo pipefail
+          if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then
+            python3 tool/diagnose_wamp_rss.py \
+              --case "$INPUT_RSS_CASE" \
+              --output out/wamp-flatbuffers-primary/rss-control \
+              --driver out/wamp-flatbuffers-primary/setup/http_stream \
+              --native-lib out/wamp-flatbuffers-primary/setup/libct_ffi.so \
+              2>&1 | tee out/wamp-flatbuffers-primary/rss-control.log
+            exit 0
+          fi
           diagnostic_args=()
           if [[ "$INPUT_CAMPAIGN" == flatbuffers_diagnostic ]]; then
             diagnostic_args=(
@@ -229,6 +282,7 @@ jobs:
           if [[ "$INPUT_CAMPAIGN" == flatbuffers_payload_repro || "$INPUT_CAMPAIGN" == flatbuffers_payload_focus ]]; then
             python3 - <<'PY' 2>&1 | tee out/wamp-flatbuffers-primary/stall-repro.log
           import json
+          import os
           from pathlib import Path
           import subprocess
           import sys
@@ -246,6 +300,7 @@ jobs:
               '--router-config', str(root / 'campaign/inputs/router_config.json'),
               '--output', str(root / 'stall-repro'),
               '--original-processes',
+              *(['--trace-socket-options'] if os.environ.get('INPUT_TRACE_SOCKET_OPTIONS') == 'true' else []),
               '--control-base', 'https://127.0.0.1:8080/bench',
               '--max-seconds', '19800',
           ]).returncode)
@@ -263,6 +318,15 @@ jobs:
           from pathlib import Path
           root = Path('out/wamp-flatbuffers-primary/campaign')
           print('## Paired FlatBuffers campaign\n')
+          if os.environ.get('INPUT_CAMPAIGN') == 'flatbuffers_rss_control':
+              path = root.parent / 'rss-control/result.json'
+              print('Fresh process pairs isolate RSS history. This never establishes parity or replaces primary gates.\n')
+              if path.exists():
+                  data = json.loads(path.read_text())
+                  print(f"Diagnostic: {data['status']}; complete process pairs: {sum(p['status'] == 'complete' for p in data['pairs'])}/6.\n")
+              else:
+                  print('RSS control did not produce a result; setup logs retain the failure.')
+              raise SystemExit(0)
           if os.environ.get('INPUT_CAMPAIGN') in ('flatbuffers_payload_repro', 'flatbuffers_payload_focus'):
               result = root.parent / 'stall-repro/result.json'
               scope = ('Reduced three-case TLS transition schedule'

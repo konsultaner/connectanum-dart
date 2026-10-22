@@ -75,3 +75,46 @@ its package entrypoints, listener ports, router configuration, scenario order,
 sample/duration floors and deadlines. Stack/socket observations can perturb
 scheduling and are diagnostic only. They are outside copy accounting and cannot
 establish primary performance acceptance. No transport fix is justified yet.
+
+
+## Audited Linux result and next discrimination
+
+Run 39845190356 on `ad8ea5e5` passes the explicit owned IPv4 smoke, then
+reproduces the unchanged full payload replay failure at 47/360 rows. Archive
+12456009724 has SHA-256
+`86c782764d2b910973c426da8c992cf2bf5f27871f60ff3af0cfbc020373e168`.
+Independent audit matches 3,190 tracked sources, four retained resolved contents,
+production binaries, every completed row's original order/floors and all recorded
+invariance/cleanup flags. Three captures positively match both socket tuples and
+inodes against the verified processes' FD-derived inventories.
+
+The client socket reports `rb2072` in every capture; the server's `snd_wnd`
+remains 3,072 bytes and receive-window limitation is about 100%. Over the two
+roughly 60-second intervals, acknowledged bytes increase at 14,778 and 14,770
+bytes/second. This is slow continued transfer, not evidence of a complete
+application deadlock. `rcv_space` is not substituted for the advertised window.
+The runner uses Ubuntu's `6.17.0-1022-azure` kernel and unmodified Dart 3.13.5.
+
+No production receive-buffer option setting is found in this repository or the
+selected Dart socket C++ sources. Linux
+[`tcp_clamp_window` in v6.17](https://github.com/torvalds/linux/blob/v6.17/net/ipv4/tcp_input.c)
+can assign the current receive allocation to the buffer during pruning. This is
+an investigation lead, not proof that this branch executed on the runner.
+The upstream [stronger receive-buffer checks discussion](https://lists.openwall.net/netdev/2025/07/11/155)
+and [follow-up proposed zero-buffer fix](https://lists.openwall.net/netdev/2025/07/18/159)
+provide context; their reports do not establish our cause or installed patch set.
+
+An explicit opt-in `--trace-socket-options` now launches the original driver under
+`strace -f --seccomp-bpf -e trace=setsockopt`, without attaching to other processes.
+The exact driver command, tracer/version and trace hash are recorded separately.
+The existing owned descendant/observer identity checks still apply with the tracer
+as process-group root. A Linux smoke must positively capture its own SO_RCVBUF
+call before the unchanged replay begins. Missing tools/traces are failures.
+Tracing changes scheduling and can never establish performance acceptance.
+
+Stall snapshots additionally read fixed TCP policy, memory-pressure and socket
+accounting files. Missing/oversized records remain explicit errors; host memory
+and owned network namespace accounting are labelled separately. No socket option,
+sysctl, SDK, workload, floor, deadline or acceptance budget is changed by capture.
+A local companion's initial attempt is blocked by another task's resource lease;
+the subsequent bounded attempt and its verified disposition are retained locally.

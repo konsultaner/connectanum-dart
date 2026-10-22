@@ -2,6 +2,22 @@
 
 Status: active. Started: 2026-10-03.
 
+## Owned receive-window and fresh-process memory discrimination (2026-10-22)
+
+- [x] Audit real Linux smoke success and faithful replay 39845190356: 47/360
+  rows, all source/resolved contents/binaries/order/floors/cleanup fixed.
+- [x] Positively match three captures' tuples/inodes and counter deltas:
+  client buffer 2,072 bytes, peer window 3,072 bytes, continued ~14.8 KB/s transfer.
+- [x] Prepare opt-in launched-descendant socket-option tracing and fixed read-only
+  TCP policy/pressure observations. Preserve original replay inputs/limits.
+- [x] Prepare fresh-process six-pair RSS control, always excluded from acceptance;
+  pass 15 isolated contracts, including launch/wait/cleanup and retention failures.
+- [ ] Pass resulting-source review/tooling/full verification and Linux smokes.
+- [ ] Run/audit socket-option replay and fresh-process RSS controls; identify
+  causal fixes before changing runtime code or acceptance policy.
+- [ ] Complete all unchanged primary/supplemental timing gates and close issues
+  only with required independent review and actual passing acceptance evidence.
+
 ## TCP_INFO smoke correction and remaining RSS costs (2026-10-22)
 
 - [x] Pass frozen full `bin/verify` on `c0aef5fa` in 23m22s, including browsers;
@@ -18,8 +34,8 @@ Status: active. Started: 2026-10-03.
   Pass five mocked cases and real local Dart analysis/socket acceptance/shutdown;
   adopt independent positive endpoint assertion from advisory review.
 - [x] Pass all 54 combined capture/smoke contracts and 14 CI contracts.
-- [ ] Retry real Linux smoke and unchanged faithful payload replay; fix failures
-  before further runtime changes.
+- [x] Retry real Linux smoke and unchanged faithful payload replay; smoke passes
+  and the 47-row replay failure is independently audited above.
 - [ ] Diagnose/fix the two RSS costs with measured source changes; preserve
   primary/supplemental policies and all started observations.
 - [ ] Complete final-source full verification/hosted CI and unchanged final

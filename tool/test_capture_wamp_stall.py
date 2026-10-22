@@ -30,6 +30,31 @@ class WorkflowToolchainTests(unittest.TestCase):
                 self.assertEqual(effective.group(1), requested)
 
 
+class SocketOptionLaunchTests(unittest.TestCase):
+    def test_disabled_mode_preserves_exact_driver_argv(self):
+        command = ['/owned driver', '--scenario', '$literal']
+        launch, metadata = diagnostic.socket_option_launch(command, Path('/capture'), False)
+        self.assertIs(launch, command)
+        self.assertIsNone(metadata)
+
+    def test_trace_launches_only_owned_descendants_with_unchanged_driver_argv(self):
+        command = ['/owned driver', '--scenario', '$literal']
+        with mock.patch.object(diagnostic.shutil, 'which', return_value='/usr/bin/strace'), \
+                mock.patch.object(diagnostic.subprocess, 'check_output', return_value='strace -- version 6.8\n'):
+            launch, metadata = diagnostic.socket_option_launch(command, Path('/capture'), True)
+        self.assertEqual(launch[launch.index('--') + 1:], command)
+        self.assertIn('--seccomp-bpf', launch)
+        self.assertIn('trace=setsockopt', launch)
+        self.assertNotIn('-p', launch)
+        self.assertEqual(metadata['path'], 'socket-options.log')
+        self.assertIn('perturbs', metadata['scope'])
+
+    def test_missing_tool_rejects_before_launch(self):
+        with mock.patch.object(diagnostic.shutil, 'which', return_value=None):
+            with self.assertRaisesRegex(ValueError, 'requires strace'):
+                diagnostic.socket_option_launch(['driver'], Path('/capture'), True)
+
+
 @unittest.skipUnless(os.name == "posix", "diagnostic owns POSIX process groups")
 class StallDiagnosticTests(unittest.TestCase):
     def setUp(self):
@@ -99,6 +124,40 @@ class StallDiagnosticTests(unittest.TestCase):
             self.assertEqual((self.output / path).read_bytes(), (self.root / name).read_bytes())
             self.assertFalse(any(part.startswith('.') for part in Path(path).parts),
                              'Artifact uploads omit hidden path components by default')
+
+    def traced_fixture(self, trace_text):
+        self.args.original_processes = True
+        self.args.trace_socket_options = True
+        self.args.control_base = 'https://127.0.0.1:1/bench'
+        self.driver_script("output.write_text(json.dumps({'workload':'first','samples':[{},{}],'data_window_elapsed_ms':50})+'\\n')\n")
+        tracer = self.base / 'fixture-tracer'
+        tracer.write_text(f"#!{sys.executable}\nimport subprocess,sys\nfrom pathlib import Path\n"
+                          + f"Path({str(self.output / 'socket-options.log')!r}).write_text({trace_text!r})\n"
+                          + "raise SystemExit(subprocess.run(sys.argv[1:]).returncode)\n")
+        tracer.chmod(0o755)
+        def launch(command, output, enabled):
+            self.assertTrue(enabled)
+            return [str(tracer), *command], {'path': 'socket-options.log', 'tool': 'unit fixture'}
+        with mock.patch.object(diagnostic, 'socket_option_launch', side_effect=launch), \
+                mock.patch.object(diagnostic, 'PROC_ROOT', self.base):
+            return self.execute()
+
+    def test_traced_launch_retains_original_command_positive_calls_and_digest(self):
+        code, result = self.traced_fixture('123 setsockopt(8, SOL_SOCKET, SO_RCVBUF, [65536], 4) = 0\n')
+        self.assertEqual(code, 0)
+        self.assertEqual(result['socket_option_trace']['observed_option_calls'], 1)
+        self.assertEqual(result['socket_option_trace']['sha256'], diagnostic.digest(self.output / 'socket-options.log'))
+        inputs = json.loads((self.output / 'inputs.json').read_text())
+        self.assertEqual(inputs['command'][0], str(self.driver.resolve()))
+        self.assertNotEqual(inputs['command'][0], inputs['launch_command'][0])
+        self.assertTrue(result['process_group_stopped'])
+
+    def test_empty_trace_cannot_claim_observed_absence_of_buffer_option(self):
+        code, result = self.traced_fixture('')
+        self.assertEqual(code, 1)
+        self.assertEqual(result['rows'], 1)
+        self.assertIn('no observed calls', result['failure'])
+        self.assertTrue(result['process_group_stopped'])
 
     def original_target(self):
         target = mock.Mock()

@@ -101,5 +101,30 @@ class LinuxStallTests(unittest.TestCase):
                 self.assertEqual(result['errors'], [{'record': 'tcp', 'error': 'ValueError'}])
 
 
+
+class TcpEnvironmentTests(unittest.TestCase):
+    def test_fixed_read_only_records_and_explicit_missing_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proc = Path(directory)
+            path = proc / 'sys/net/ipv4/tcp_rmem'
+            path.parent.mkdir(parents=True)
+            path.write_text('4096 131072 6291456\n')
+            (proc / 'meminfo').write_text('MemTotal: 10 kB\nMemAvailable: 8 kB\nSecretFixture: omitted\n')
+            snapshot = linux.capture_tcp_environment(proc / '42', proc)
+        self.assertEqual(snapshot['records']['tcp_rmem'], '4096 131072 6291456')
+        self.assertEqual(snapshot['records']['host_memory'], {'MemTotal': '10 kB', 'MemAvailable': '8 kB'})
+        self.assertIn('namespace_sockstat', {item['record'] for item in snapshot['errors']})
+        self.assertIn('read-only', snapshot['scope'])
+
+    def test_oversized_record_is_reported_without_unbounded_retention(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proc = Path(directory)
+            path = proc / 'pressure/memory'
+            path.parent.mkdir(parents=True)
+            path.write_text('x' * 4097)
+            snapshot = linux.capture_tcp_environment(proc / '42', proc)
+        self.assertNotIn('memory_pressure', snapshot['records'])
+        self.assertIn({'record': 'memory_pressure', 'error': 'ValueError'}, snapshot['errors'])
+
 if __name__ == '__main__':
     unittest.main()

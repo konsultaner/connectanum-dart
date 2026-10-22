@@ -18,7 +18,8 @@ pass with 3,193 source/resolved hashes fixed. Frozen `bin/verify` on runtime `c0
 Chrome/Wasm, with all 3,189 sources/four resolved inputs fixed and a clean tree.
 Its renewed copy proof 39840616517 also passes independent source/contents/
 lifetime audits.
-The current follow-up changes only the diagnostic smoke and its tests.
+The current follow-up changes diagnostic capture/control tooling and its tests;
+production Dart/Rust remains the verified `c0aef5fa` runtime.
 
 Current strict run 39840621032 completes 90 valid rows with zero integrity
 findings. Throughput, p95/p99, CPU, managed allocation and GC pass in every
@@ -29,13 +30,20 @@ The native-buffer profile 39841411082 also passes source, clock/window,
 18-snapshot and cleanup audits. Its profiling flags exclude timing acceptance;
 no new isolated codec hotspot is established from it.
 
-The first TCP_INFO replay 39840625793 fails the Linux smoke before any workload
-row: there is no selected IPv4 socket for the advertised VM-service port, and
-that attempt saves no failed snapshot. The follow-up smoke uses an explicit
-IPv4 listener in the test VM, holds an accepted connection, asserts its owned
-local endpoint and saves redacted snapshots before validation. Five isolated
-cases and real local Dart listener/readiness/shutdown pass; real Linux retry
-and faithful replay remain pending. Application benchmark behavior is unchanged.
+The corrected real Linux smoke passes in run 39845190356. Its faithful replay
+then fails at 47/360 rows, preserving three positive owned TCP_INFO captures.
+Independent audit verifies all 3,190 sources/four retained resolved contents,
+original order/floors, production binaries and recorded cleanup/invariance flags.
+The client receive buffer remains 2,072 bytes, server advertised send window
+3,072 bytes, and transfer continues at about 14.8 KB/s while receive-window limited.
+This establishes flow limitation, not its cause. The next opt-in diagnostic
+records owned descendants' socket-option calls and fixed TCP policy/pressure
+state. It preserves the original driver/scenarios/deadlines and cannot accept parity.
+A separate fresh-process RSS control distinguishes codec/process history without
+changing the strict RSS gate. Fifteen isolated RSS contracts, including launch/
+wait failures, pass; hosted controls remain pending. Runtime CI 39840612253 has
+35 successful jobs and two still running, with no failed job. Latest full
+`bin/verify` remains `c0aef5fa`; resulting-source full verification is pending.
 
 Before this follow-up, `dd6e674a` passes the resulting-source serializer directory
 (3,398 cases), focused analysis and full `bin/verify`, including Chrome/Wasm.
@@ -74,7 +82,8 @@ application sockets, with numeric tuple/inode checks and process identity checks
 Its isolated 46-test staging suite and 49 original production capture
 contracts/14 CI contracts pass; the five added smoke-fix cases also pass.
 All 54 combined resulting-source capture/smoke contracts and 14 CI contracts
-pass. Real Linux retry remains pending. This changes observations, never the workload
+pass. The real Linux smoke now passes; the unchanged replay failure and next
+discrimination are recorded above. This changes observations, never the workload
 or performance acceptance. See the TCP diagnostic research note.
 
 Native source review finds no demonstrated defect. Qwen's hypothetical sorting/
