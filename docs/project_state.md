@@ -5,13 +5,13 @@ Last updated: 2026-10-22.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Current follow-up is a test-first diagnostic correction: acceptance explicitly
-uses one native runtime thread, while the CPU profiler inherits ambient/default
-thread selection. A new unit regression sets the parent to nine threads and
-requires one in the diagnostic child plus recorded provenance. The hosted
-diagnostic contract is expected to fail on this test-only checkpoint; pinning
-and renewed profiling follow immediately after that reproduction. Production
-Dart/Rust remains unchanged. All 38 runtime CI jobs on `2de4ec32` now pass.
+The CPU profiler now explicitly pins/records one native runtime thread, matching
+acceptance. A hosted fail-first regression on `5b9f63c7` reproduces inheritance
+of nine conflicting parent threads in all 32 selection/mode combinations before
+any workload runs. The repair and renewed 10-KiB profile are pending resulting-
+source validation. Previous profiles retain their observed data with actual
+native thread count unrecorded; they cannot isolate the primary regression.
+Production Dart/Rust remains unchanged. All 38 runtime CI jobs on `2de4ec32` pass.
 
 The working tree now adds a first-owner slot with lazy identity-map overflow to
 the native Dart FlatBuffers allocator, after frozen `bin/test-fast` passes in

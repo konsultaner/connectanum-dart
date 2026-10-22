@@ -36,6 +36,7 @@ PROFILE_CASES.update({
     if case['id'] == 'ext_08_payload_sizes'
 })
 DEFAULT_CASE = 'rpc_rawsocket_clear_native_native_buffer'
+NATIVE_RUNTIME_THREADS = 1
 
 
 def profile_target(case_id):
@@ -391,6 +392,7 @@ def profile(args):
     (output/'worker.dart').write_text(WORKER.replace('__WORKER_URI__', json.dumps(worker_uri)))
     env = {**os.environ, 'CONNECTANUM_SKIP_NATIVE_BUILD': '1', 'CONNECTANUM_BENCH_WAMP_REUSE_WORKER': '1',
            'CONNECTANUM_BENCH_WAMP_VM_METRICS': '1', 'CONNECTANUM_NATIVE_LIB': str(library),
+           'CONNECTANUM_NATIVE_RUNTIME_THREADS': str(NATIVE_RUNTIME_THREADS),
            'CONNECTANUM_BENCH_PROFILE_WORKER_URI': str(output/'worker-uri.txt')}
     router_symbols = bool(args.perf and platform.system() == 'Linux')
     command = [args.dart, *(['--generate-perf-events-symbols'] if router_symbols else []), '--observe=0/127.0.0.1', '--profiler', '--no-pause-isolates-on-exit',
@@ -450,6 +452,7 @@ def profile(args):
         memory = memory_snapshot_audit(output, process.pid, args.memory, platform.system() == 'Linux')
         audit = {'kind': 'cpu_profile_only_never_acceptance', 'case_id': args.profile_case,
                  'requested_configuration': target, 'head': head, 'inputs': inputs,
+                 'native_runtime_threads': NATIVE_RUNTIME_THREADS,
                  'resolved_input_files': resolved_files,
                  'inputs_unchanged': not changed and head == after, 'changed': changed,
                  'native_library_sha256': library_digest, 'native_library_unchanged': digest(library) == library_digest,

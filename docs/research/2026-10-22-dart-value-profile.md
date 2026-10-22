@@ -60,3 +60,34 @@ and the hosted 10-KiB profile are pending; no primary/supplemental case, policy 
 benchmark workload changes. Payload artifact `12438197547` has archive SHA256
 `764867d44aa8f25a1f8a83e109010b2054b61e402c09e9c2ec794b242ea367ae`;
 the independently recomputed report is `payload-2de4-independent-audit.json`.
+
+The first 10-KiB profile on `17f27d25` completes and independently verifies all
+3,181 tracked sources/three resolved inputs, actual byte count, 18 snapshots,
+sampling windows and cleanup. It retains 14,556 MessagePack, 14,560 FlatBuffers
+and 14,558 CBOR observations in its three instrumented 30-second windows. This
+does not reproduce the accepted shard's timing comparison. Its archive is
+`ten-kib-profile-17f.zip`, SHA256
+`cd95ec55179070743a01a778bb7adcf4ecba0813ccd61fac5d77e4b65a5cedae`,
+with `ten-kib-profile-17f-independent-audit.json` and CPU selections retained.
+
+## Native thread configuration correction
+
+The acceptance driver explicitly passes one native runtime thread through
+`CONNECTANUM_NATIVE_RUNTIME_THREADS` (`native/bench/src/bin/http_stream.rs`,
+`configure_bench_child_environment`). The profiler previously inherited ambient
+environment/default selection instead and did not record it. Previous actual
+counts are unrecorded, not assumed to be any particular automatic value.
+
+[Fail-first run 39811409005](https://github.com/konsultaner/connectanum-dart/actions/runs/39811409005)
+on `5b9f63c7` sets the parent environment to nine and demonstrates that all 32
+profile selection/mode combinations pass nine to the child instead of required
+one. Thirteen unit tests run with 32 subcase failures; no SDK setup or workload
+executes. The subsequent upload has no artifact directory, an expected cascade
+rather than a benchmark observation. `profile-thread-pin-before.log` retains
+the actual failure.
+
+The repair explicitly sets one in the child environment and records that
+setting in `source-audit.json`. The parent environment is untouched. Repaired
+contracts and a renewed small-payload profile remain pending; production
+benchmarks and every acceptance budget stay unchanged. Earlier profiles remain
+diagnostic evidence, not comparable one-thread primary measurements.
