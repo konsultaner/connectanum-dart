@@ -110,6 +110,7 @@ class ProfileSelectionTests(unittest.TestCase):
 
                 def launch(command, **kwargs):
                     self.assertEqual('--generate-perf-events-symbols' in command, requested)
+                    self.assertEqual(kwargs['env'].get('CONNECTANUM_NATIVE_RUNTIME_THREADS'), '1')
 
                     Path(kwargs['env']['CONNECTANUM_BENCH_PROFILE_WORKER_URI']).write_text(
                         'http://127.0.0.1:2/test/')
@@ -162,7 +163,8 @@ class ProfileSelectionTests(unittest.TestCase):
                         raise FileNotFoundError('This diagnostic does not build or use the Rust benchmark driver')
                     return read_bytes(path)
 
-                with mock.patch.object(profiler, 'subprocess', commands), \
+                with mock.patch.dict(profiler.os.environ, {'CONNECTANUM_NATIVE_RUNTIME_THREADS': '9'}), \
+                        mock.patch.object(profiler, 'subprocess', commands), \
                         mock.patch.object(profiler, '__file__', str(fixture_project / 'tool/profile_wamp_serializers.py')), \
                         mock.patch.object(profiler.ssl, 'create_default_context', return_value=object()), \
                         mock.patch.object(Path, 'read_bytes', without_driver_lock), \
@@ -178,6 +180,7 @@ class ProfileSelectionTests(unittest.TestCase):
                 audit = json.loads((output / 'source-audit.json').read_text())
                 self.assertEqual(audit['case_id'], case_id)
                 self.assertEqual(audit['requested_configuration'], target)
+                self.assertEqual(audit['native_runtime_threads'], 1)
                 self.assertEqual(audit['kind'], 'cpu_profile_only_never_acceptance')
                 self.assertTrue(audit['inputs_unchanged'])
                 self.assertTrue({'pubspec.lock', 'native/transport/Cargo.lock',
