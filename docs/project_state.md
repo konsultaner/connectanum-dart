@@ -67,6 +67,16 @@ heap exclusion. Errors retain safe phase/source locations and only our literal
 validation messages. Ninety-nine focused contracts and workflow parsing pass;
 real Linux validation is still required. No started benchmark is canceled.
 
+The JIT-kernel retry 39867099125 passes analysis, controlled allocation/free and
+real compiled-kernel smoke. Retained complete snapshots have no compiler heap and
+return to roughly 200–235 MiB RSS. It again finishes two ten-row driver segments,
+then fails CBOR worker getMemoryUsage type validation before report ten finishes.
+Sources are unchanged and both drivers/cleanup succeed. This identifies the
+failing operation, not the unexpected response type or its cause. A bounded
+protocol-type/kind/request-isolate record now preserves only known safe enums;
+Sentinel/error results remain failures, never zero or automatic retries. Seventeen
+memory contracts pass. The failed artifact remains excluded from comparisons.
+
 Older primary run 39792311393 completes all 1,440 rows/48 cases with zero integrity
 findings but 144 numerical costs; independent input/binary/raw verification and
 comparison recomputation agree exactly. This is older runtime `2de4ec32`, never

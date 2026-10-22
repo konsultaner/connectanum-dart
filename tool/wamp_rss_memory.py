@@ -15,6 +15,21 @@ from wamp_stall_linux import bounded_text
 ALLOCATOR_METHOD = 'ext.connectanum.diagnosticMallocInfo'
 
 
+class UnexpectedMemoryResponse(ValueError):
+    def __init__(self, method, result, isolate_id=None):
+        super().__init__('Memory RPC returned unexpected type')
+        known_types = {'Sentinel', 'MemoryUsage', 'Success', 'VM', 'ProcessMemoryUsage', 'ConnectanumAllocatorDiagnostic'}
+        known_kinds = {'Collected', 'Expired', 'NotInitialized', 'BeingInitialized', 'OptimizedOut'}
+        self.safe_response = {'method': method, 'type': result.get('type') if isinstance(result, dict)
+                              and result.get('type') in known_types else 'other'}
+        if isinstance(isolate_id, str) and isolate_id.startswith('isolates/'):
+            suffix = isolate_id.removeprefix('isolates/')
+            self.safe_response['isolate_id'] = isolate_id if suffix.isascii() and suffix.isdigit() else 'other'
+        if self.safe_response['type'] == 'Sentinel':
+            kind = result.get('kind')
+            self.safe_response['kind'] = kind if kind in known_kinds else 'other'
+
+
 def memory_rpc(uri, method, isolate_id=None):
     types = {'getVM': 'VM', 'getProcessMemoryUsage': 'ProcessMemoryUsage',
              'getMemoryUsage': 'MemoryUsage', ALLOCATOR_METHOD: 'ConnectanumAllocatorDiagnostic'}
@@ -36,7 +51,7 @@ def memory_rpc(uri, method, isolate_id=None):
         raise ValueError('Memory RPC failed')
     result = envelope.get('result', envelope)
     if not isinstance(result, dict) or result.get('type') != types[method]:
-        raise ValueError('Memory RPC returned unexpected type')
+        raise UnexpectedMemoryResponse(method, result, isolate_id)
     return result
 
 
@@ -168,6 +183,8 @@ def capture_target_memory(target, driver_pid, expected_pid, proc_root=Path('/pro
         record.update(process_memory_usage=usage, bucket_count=count, linux_smaps=maps, **allocator)
     except Exception as error:
         record['error'] = type(error).__name__
+        if isinstance(error, UnexpectedMemoryResponse):
+            record['rpc_response'] = error.safe_response
         record['failure_phase'] = phase
         frame = error.__traceback__
         while frame.tb_next is not None:

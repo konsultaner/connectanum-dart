@@ -121,6 +121,23 @@ class MemoryTests(unittest.TestCase):
         self.assertNotIn('validation_error', role)
         self.assertNotIn('privateToken', json.dumps(result))
 
+    def test_sentinel_is_not_zero_or_retried_and_retains_only_safe_response_kind(self):
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = b'{"result":{"type":"Sentinel","kind":"Collected","valueAsString":"privateToken"}}'
+        with mock.patch.object(memory.urllib.request, 'urlopen', return_value=response) as request:
+            with self.assertRaises(memory.UnexpectedMemoryResponse) as raised:
+                memory.memory_rpc(self.targets[0].uri, 'getMemoryUsage', 'isolates/1')
+            self.assertEqual(request.call_count, 1)
+        def reply(uri, method): raise raised.exception
+        result = self.capture(rpc=reply)
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(result['roles']['worker']['rpc_response'],
+                         {'method': 'getMemoryUsage', 'type': 'Sentinel', 'kind': 'Collected', 'isolate_id': 'isolates/1'})
+        self.assertNotIn('privateToken', json.dumps(result))
+        unknown = memory.UnexpectedMemoryResponse('getMemoryUsage', {'type': 'privateToken', 'kind': 'privateToken'})
+        self.assertEqual(unknown.safe_response, {'method': 'getMemoryUsage', 'type': 'other'})
+
     def test_raw_retained_tree_preserves_unknown_buckets_without_double_counting(self):
         result = self.capture()
         self.assertEqual(result['status'], 'complete')

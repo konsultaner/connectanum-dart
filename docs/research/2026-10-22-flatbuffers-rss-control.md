@@ -212,3 +212,21 @@ arguments/magic with failure on non-kernel output. Ninety-nine focused contracts
 and YAML/shell/seven embedded Python blocks pass. Hosted validation is pending;
 no runtime or acceptance change is claimed. Local model review and verification
 remain machine-lease blocked, separate from hosted evidence.
+
+
+Run 39867099125/artifact 12465096391 validates the compiled-kernel launch and
+owned smoke; complete role snapshots have no compiler heap and RSS returns to
+about 200–235 MiB. It retains two complete ten-row segments and one failed final
+CBOR worker observation. The safe error location identifies getMemoryUsage's
+unexpected result type. It does not identify that type or prove the earlier
+failure's cause. Archive hash:
+`da84b1926ec19d12fb5c78d43d278a51aaa5d76c0dd3c3ca65fb0880c1ae6edc`.
+
+The [pinned API](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/service/service.md#getmemoryusage)
+allows a MemoryUsage or an exited-isolate Sentinel. The diagnostic must distinguish
+these without treating a Sentinel as zero or silently retrying. It now retains
+only whitelisted protocol types/kinds and numeric request isolate IDs; arbitrary
+result fields, error messages and valueAsString remain omitted. A regression
+checks explicit failure, exactly one request and token omission. Seventeen memory
+contracts pass. Real response classification is pending; no comparative allocator
+claim or runtime fix follows from either failed control.

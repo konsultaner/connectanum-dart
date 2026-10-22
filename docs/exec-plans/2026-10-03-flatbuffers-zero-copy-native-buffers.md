@@ -28,6 +28,9 @@ Status: active. Started: 2026-10-03.
   validation phase/source locations; pass 99 focused contracts and syntax checks.
 - [x] Independently audit older primary 2de4: 1,440 rows, zero integrity findings,
   exact recomputation and 144 numerical costs. Never current acceptance.
+- [x] Retain kernel retry: no compiler heap in complete snapshots; one failed
+  CBOR getMemoryUsage type check. Prepare safe protocol-kind/request-ID records
+  with Sentinel rejection, no retries/zero substitution; 17 memory contracts pass.
 - [ ] Complete current-head verification/CI and all unchanged acceptance gates.
 
 ## Owned receive-window and fresh-process memory discrimination (2026-10-22)
