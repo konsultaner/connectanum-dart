@@ -112,31 +112,7 @@ void _agree(
   Map<String, Object?> expected,
   Map<String, dynamic> dictionary,
 ) {
-  final ignored = switch (name) {
-    'Hello' => const {'realm'},
-    'Authenticate' => const {'signature'},
-    'Abort' || 'Goodbye' => const {'reason'},
-    'Error' => const {'request_type', 'error'},
-    'Publish' || 'Subscribe' => const {'topic'},
-    'Event' => const {'subscription', 'publication'},
-    'Call' || 'Register' => const {'procedure'},
-    'Invocation' => const {'registration'},
-    _ => const <String>{},
-  };
-  final spec = wampValidationTables.singleWhere((table) => table.name == name);
-  for (final field in spec.fields) {
-    if (ignored.contains(field.name) ||
-        (const {
-          'session',
-          'request',
-          'args',
-          'kwargs',
-          'payload',
-          'method',
-          'method_name',
-        }).contains(field.name)) {
-      continue;
-    }
+  for (final field in flatBufferDictionaryFields(name)) {
     final value = actual[field.name];
     final target = expected[field.name];
     if (field.kind == FlatBufferFieldKind.table &&

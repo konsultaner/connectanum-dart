@@ -80,6 +80,17 @@ class FlatbuffersDiagnosticModesTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertIn('python3 tool/' + name, gate)
 
+    def test_dictionary_component_requires_explicit_baseline_and_never_replaces_parity(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        self.assertIn('          - flatbuffers_dictionary_component', workflow)
+        self.assertIn('git fetch --no-tags --depth=1 origin "$INPUT_BASELINE_REF"', workflow)
+        self.assertIn('[[ "$INPUT_BASELINE_REF" =~ ^[0-9a-f]{40}$ ]]', workflow)
+        branch = workflow.split('if [[ "$INPUT_CAMPAIGN" == flatbuffers_dictionary_component ]]; then', 1)[1].split('fi\n', 1)[0]
+        self.assertIn('python3 tool/benchmark_flatbuffers_dictionary.py', branch)
+        self.assertIn('exit 0', branch)
+        self.assertNotIn('run_wamp_serializer_campaign.py', branch)
+        self.assertIn('python3 tool/test_benchmark_flatbuffers_dictionary.py', (ROOT / 'bin/test-tooling').read_text())
+
 
 class ShardingTests(unittest.TestCase):
     def inventory(self, count=23):

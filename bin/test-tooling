@@ -27,6 +27,7 @@ python3 tool/test_wamp_stall_vm_services.py
 python3 tool/test_smoke_wamp_stall_discovery.py
 python3 tool/test_diagnose_wamp_rss.py
 python3 tool/test_wamp_rss_memory.py
+python3 tool/test_benchmark_flatbuffers_dictionary.py
 python3 tool/test_probe_native_ppt_views.py
 python3 tool/test_check_wamp_owned_copy_live.py
 python3 tool/test_merge_wamp_extension_campaigns.py

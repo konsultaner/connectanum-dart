@@ -11,9 +11,44 @@ import 'dictionary_retention.dart';
 final _messageTags = {
   for (final tag in wire.AnyMessageTypeId.values) tag.name: tag.value,
 };
-final _messageTables = {
-  for (final table in wampValidationTables) table.name: table,
+final _dictionaryFields = {
+  for (final table in wampValidationTables)
+    table.name: _selectDictionaryFields(table),
 };
+
+// Both projection and agreement must inspect the same fixed schema fields.
+// Keep the plans immutable so sharing them cannot weaken later validation.
+List<FlatBufferFieldSpec> flatBufferDictionaryFields(String name) =>
+    _dictionaryFields[name] ?? (throw StateError('No element'));
+
+List<FlatBufferFieldSpec> _selectDictionaryFields(FlatBufferTableSpec table) {
+  final routingFields = switch (table.name) {
+    'Hello' => const {'realm'},
+    'Authenticate' => const {'signature'},
+    'Abort' || 'Goodbye' => const {'reason'},
+    'Error' => const {'request_type', 'error'},
+    'Publish' || 'Subscribe' => const {'topic'},
+    'Event' => const {'subscription', 'publication'},
+    'Call' || 'Register' => const {'procedure'},
+    'Invocation' => const {'registration'},
+    _ => const <String>{},
+  };
+  return List<FlatBufferFieldSpec>.unmodifiable(
+    table.fields.where(
+      (field) =>
+          !routingFields.contains(field.name) &&
+          !(const {
+            'session',
+            'request',
+            'args',
+            'kwargs',
+            'payload',
+            'method',
+            'method_name',
+          }).contains(field.name),
+    ),
+  );
+}
 
 /// The message envelope and its complete logical WAMP dictionary. Application
 /// byte vectors are supplied separately by the serializer or native builder.
@@ -264,32 +299,8 @@ Map<String, Object?> projectFlatBufferDictionary(
   String name,
   Map<String, Object?> dictionary,
 ) {
-  final table = _messageTables[name] ?? (throw StateError('No element'));
   final fields = <String, Object?>{};
-  final routingFields = switch (name) {
-    'Hello' => const {'realm'},
-    'Authenticate' => const {'signature'},
-    'Abort' || 'Goodbye' => const {'reason'},
-    'Error' => const {'request_type', 'error'},
-    'Publish' || 'Subscribe' => const {'topic'},
-    'Event' => const {'subscription', 'publication'},
-    'Call' || 'Register' => const {'procedure'},
-    'Invocation' => const {'registration'},
-    _ => const <String>{},
-  };
-  for (final field in table.fields) {
-    if (routingFields.contains(field.name) ||
-        (const {
-          'session',
-          'request',
-          'args',
-          'kwargs',
-          'payload',
-          'method',
-          'method_name',
-        }).contains(field.name)) {
-      continue;
-    }
+  for (final field in flatBufferDictionaryFields(name)) {
     final value =
         field.name == 'extra' && (name == 'Challenge' || name == 'Authenticate')
         ? dictionary

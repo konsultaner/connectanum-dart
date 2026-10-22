@@ -1,0 +1,116 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:connectanum_bench/src/dart_vm_metrics.dart';
+
+Future<void> main(List<String> args) async {
+  final folder = args[0];
+  final wires = <String, Object?>{};
+  for (final shape in ['result', 'call']) {
+    for (var cycle = 0; cycle < 4; cycle++) {
+      var orderIndex = 0;
+      for (final variant in [
+        'baseline',
+        'candidate',
+        'candidate',
+        'baseline',
+      ]) {
+        final index = orderIndex++;
+        final child = await Process.start(Platform.resolvedExecutable, [
+          '--enable-vm-service=0/127.0.0.1',
+          '--no-pause-isolates-on-exit',
+          '$folder/$variant/worker.dill',
+          shape,
+          '100000',
+        ]);
+        final ready = Completer<Map<String, dynamic>>();
+        Completer<Map<String, dynamic>>? done;
+        var exited = false;
+        final output = child.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen((line) {
+              if (line.startsWith('PROBE_READY=')) {
+                ready.complete(jsonDecode(line.substring(12)));
+              } else if (line.startsWith('PROBE_DONE=')) {
+                done!.complete(jsonDecode(line.substring(11)));
+              }
+            });
+        final errors = child.stderr.forEach(stderr.add);
+        final exit = child.exitCode.then((code) {
+          exited = true;
+          if (!ready.isCompleted)
+            ready.completeError(
+              StateError('Worker exited before readiness ($code)'),
+            );
+          if (done != null && !done!.isCompleted)
+            done!.completeError(
+              StateError('Worker exited before result ($code)'),
+            );
+          return code;
+        });
+        DartVmMetricsCollector? collector;
+        try {
+          final info = await ready.future.timeout(const Duration(seconds: 90));
+          if (info['variant'] != variant ||
+              info['shape'] != shape ||
+              info['pid'] != child.pid ||
+              info['payload_alias_verified'] != true) {
+            throw StateError('Wrong private core variant or worker identity');
+          }
+          final digest = info['wire_sha256'];
+          if (wires.containsKey(shape) && wires[shape] != digest)
+            throw StateError('Variants changed wire bytes');
+          wires[shape] = digest;
+          collector = await DartVmMetricsCollector.connect(
+            serviceUri: Uri.parse(info['uri'] as String),
+            pid: child.pid,
+          );
+          final retainedInfo = Map<String, dynamic>.from(info)..remove('uri');
+          for (var round = -1; round < 4; round++) {
+            final window = await collector.beginWindow();
+            done = Completer<Map<String, dynamic>>();
+            child.stdin.writeln(round == -1 ? 'control' : 'measure');
+            await child.stdin.flush();
+            final result = await done!.future.timeout(
+              const Duration(seconds: 90),
+            );
+            final metrics = await collector.endWindow(
+              window,
+              rssSnapshot: const DartVmMetricsRssSnapshot(
+                currentRssBytes: null,
+                peakRssBytes: null,
+              ),
+            );
+            if (metrics.allocatedBytes == null)
+              throw StateError('Managed allocation evidence unavailable');
+            print(
+              jsonEncode({
+                'scope': 'dictionary-field component; never parity acceptance',
+                'cycle': cycle,
+                'order_index': index,
+                'info': retainedInfo,
+                'round': round,
+                'workload': result,
+                'allocated_bytes': metrics.allocatedBytes,
+                'allocation_measurement': metrics.allocationMeasurement,
+                'gc_count': metrics.gcCount,
+                'gc_pause_us': metrics.gcPauseMicros,
+              }),
+            );
+          }
+          child.stdin.writeln('quit');
+          await child.stdin.flush();
+          if (await exit.timeout(const Duration(seconds: 30)) != 0)
+            throw StateError('Worker failed');
+        } finally {
+          await collector?.close();
+          if (!exited) child.kill();
+          await exit.timeout(const Duration(seconds: 30));
+          await output.cancel();
+          await errors;
+        }
+      }
+    }
+  }
+}

@@ -34,6 +34,12 @@ on:
           - flatbuffers_native_view_probe
           - flatbuffers_encoder_component
           - flatbuffers_rss_control
+          - flatbuffers_dictionary_component
+      baseline_ref:
+        description: Full baseline commit SHA used only for the dictionary component
+        required: false
+        default: ''
+        type: string
       rss_case:
         description: Canonical case used only by the fresh-process RSS diagnostic
         required: false
@@ -129,8 +135,8 @@ jobs:
           if-no-files-found: error
 
   linux-flatbuffers-primary:
-    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_rss_control' && format('{0} ({1})', inputs.allocator_attribution && 'Allocator attribution' || inputs.memory_attribution && 'Memory attribution' || 'Fresh-process RSS', inputs.rss_case) || inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
-    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus' || inputs.campaign == 'flatbuffers_rss_control')
+    name: ${{ inputs.campaign == 'flatbuffers_dictionary_component' && 'FlatBuffers dictionary component' || matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_rss_control' && format('{0} ({1})', inputs.allocator_attribution && 'Allocator attribution' || inputs.memory_attribution && 'Memory attribution' || 'Fresh-process RSS', inputs.rss_case) || inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
+    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus' || inputs.campaign == 'flatbuffers_rss_control' || inputs.campaign == 'flatbuffers_dictionary_component')
     runs-on: ubuntu-24.04
     env:
       RUSTUP_TOOLCHAIN: 1.99.0
@@ -141,11 +147,15 @@ jobs:
         shard: ${{ fromJSON(inputs.campaign == 'flatbuffers_extensions' && '["protocol","payload_sizes","encrypted_progressive_results"]' || '["all"]') }}
     # Each job keeps one hosted VM/process set; source revisions finish independently.
     concurrency:
-      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}-{1}', matrix.shard, github.sha) || (inputs.campaign == 'flatbuffers_rss_control' && format('flatbuffers-rss-control-{0}-{1}', github.sha, inputs.rss_case) || inputs.campaign == 'flatbuffers_payload_focus' && 'flatbuffers-payload-focus' || (inputs.campaign == 'flatbuffers_primary' && format('flatbuffers-primary-{0}', github.sha) || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic'))) }}
+      group: wamp-${{ inputs.campaign == 'flatbuffers_dictionary_component' && format('flatbuffers-dictionary-component-{0}', github.sha) || matrix.shard != 'all' && format('flatbuffers-extension-{0}-{1}', matrix.shard, github.sha) || (inputs.campaign == 'flatbuffers_rss_control' && format('flatbuffers-rss-control-{0}-{1}', github.sha, inputs.rss_case) || inputs.campaign == 'flatbuffers_payload_focus' && 'flatbuffers-payload-focus' || (inputs.campaign == 'flatbuffers_primary' && format('flatbuffers-primary-{0}', github.sha) || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic'))) }}
       cancel-in-progress: false
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Verify dictionary component contracts
+        if: inputs.campaign == 'flatbuffers_dictionary_component'
+        run: python3 tool/test_benchmark_flatbuffers_dictionary.py
 
       - name: Verify original-process stall diagnostic contracts
         if: inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus'
@@ -250,12 +260,25 @@ jobs:
         env:
           INPUT_CAMPAIGN: ${{ inputs.campaign }}
           INPUT_EXTENSION_SHARD: ${{ matrix.shard }}
+          INPUT_BASELINE_REF: ${{ inputs.baseline_ref }}
           INPUT_TRACE_SOCKET_OPTIONS: ${{ inputs.trace_socket_options }}
           INPUT_RSS_CASE: ${{ inputs.rss_case }}
           INPUT_MEMORY_ATTRIBUTION: ${{ inputs.memory_attribution }}
           INPUT_ALLOCATOR_ATTRIBUTION: ${{ inputs.allocator_attribution }}
         run: |
           set -euo pipefail
+          if [[ "$INPUT_CAMPAIGN" == flatbuffers_dictionary_component ]]; then
+            [[ "$INPUT_BASELINE_REF" =~ ^[0-9a-f]{40}$ ]] || { echo 'Explicit full baseline SHA required'; exit 1; }
+            git fetch --no-tags --depth=1 origin "$INPUT_BASELINE_REF"
+            dart analyze packages/connectanum_core/lib/src/serializer/flatbuffers/frame.dart \
+              packages/connectanum_core/lib/src/serializer/flatbuffers/message_projection.dart
+            python3 tool/benchmark_flatbuffers_dictionary.py \
+              --baseline-ref "$INPUT_BASELINE_REF" \
+              --output out/wamp-flatbuffers-primary/dictionary-component \
+              --native-lib out/wamp-flatbuffers-primary/setup/libct_ffi.so \
+              2>&1 | tee out/wamp-flatbuffers-primary/dictionary-component.log
+            exit 0
+          fi
           if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then
             memory_args=()
             if [[ "$INPUT_ALLOCATOR_ATTRIBUTION" == true ]]; then
@@ -365,6 +388,16 @@ jobs:
           from pathlib import Path
           root = Path('out/wamp-flatbuffers-primary/campaign')
           print('## Paired FlatBuffers campaign\n')
+          if os.environ.get('INPUT_CAMPAIGN') == 'flatbuffers_dictionary_component':
+              path = root.parent / 'dictionary-component/result.json'
+              print('Balanced private model-decoding component. This never establishes transport or primary parity.\n')
+              if path.exists():
+                  data = json.loads(path.read_text())
+                  print(f"Component: {data['status']}; retained rows: {data.get('rows')}; baseline: {data['baseline']}.\n")
+                  print(json.dumps(data.get('summary', {}), indent=2))
+              else:
+                  print('Component did not produce a result; setup logs retain the failure.')
+              raise SystemExit(0)
           if os.environ.get('INPUT_CAMPAIGN') == 'flatbuffers_rss_control':
               path = root.parent / 'rss-control/result.json'
               print('Fresh process pairs isolate RSS history. This never establishes parity or replaces primary gates.\n')

@@ -5,7 +5,21 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-The current candidate removes an extra copy of the fresh validated metadata
+The current unverified runtime candidate derives immutable dictionary-field
+plans once from the pinned schema and shares them between projection and frame
+agreement. It removes repeated full-schema singleWhere scans, predicate closures
+and field-name filtering while leaving nested-map/default/type checks unchanged.
+It changes two Dart modules; Rust/ABI/wire schema remain unchanged. Formatting
+and 154 existing mutation proofs pass. Local baseline bin/test-fast, analysis and
+companion review are machine-resource-lease blocked (no local tests started).
+A controlled hosted component must compare the explicit before-change commit
+b0e5d264bd44833629d1c3811cd7e539864c0e0a, prove actual private package selection,
+run existing metadata/validation/alias suites for both variants and retain all
+balanced fresh-worker windows. It cannot replace primary/supplemental acceptance.
+Its five integrity tests, canonical gate registration and 107 combined focused
+Python contracts pass. Hosted Dart/functional/component checks are pending.
+
+The preceding fully verified runtime `c0aef5fa` removes an extra copy of the fresh validated metadata
 map and uses the checked-in generated enum switch in Dart decoding. It retains
 the adopted two-table/one-string inline reader cache. Private baseline and
 candidate suites each pass 434 cases, including mutable ERROR metadata, independent
@@ -19,7 +33,8 @@ Chrome/Wasm, with all 3,189 sources/four resolved inputs fixed and a clean tree.
 Its renewed copy proof 39840616517 also passes independent source/contents/
 lifetime audits.
 The current follow-up changes diagnostic capture/control tooling and its tests;
-production Dart/Rust remains the verified `c0aef5fa` runtime.
+the native library remains unchanged; the dictionary-field candidate above
+adds the first Dart runtime follow-up to verified `c0aef5fa`.
 
 Frozen full `bin/verify` on corrected diagnostic head `76c4282c` passes in
 22m59s, including Chrome/Wasm, with all 3,193 sources/four resolved inputs fixed

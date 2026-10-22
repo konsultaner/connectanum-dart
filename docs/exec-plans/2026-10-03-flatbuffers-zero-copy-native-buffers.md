@@ -2,6 +2,24 @@
 
 Status: active. Started: 2026-10-03.
 
+## Dictionary-field plan candidate (2026-10-23)
+
+- [x] Use audited 10-KiB profile stacks and 360-row current-runtime payload costs
+  to select repeated dictionary projection/agreement work as a concrete lead.
+- [x] Derive immutable schema field lists once; share exactly the old routing/
+  envelope exclusions in projection and agreement without changing value checks.
+- [x] Preserve native ABI, wire schema, metadata mutation/retention and payload
+  ownership contracts. Pass formatting and 154 existing mutation proofs.
+- [x] Prepare isolated before/after package configs with selected-core markers,
+  unchanged-wire/alias assertions, 12 existing functional suites per variant and
+  balanced fresh-worker timing/allocation windows, explicitly never acceptance.
+- [x] Pass five component integrity cases and 107 combined focused contracts.
+- [ ] Pass hosted Dart analysis, both private functional corpora and measured
+  component evidence before retaining the candidate. Local native/analysis/
+  companion work is machine-lease blocked, not claimed as passed.
+- [ ] Complete resulting-source full verification/CI, copy/lifetime proof and
+  unchanged complete primary/supplemental gates; no closure from a component.
+
 ## Fresh-process result and passive memory attribution (2026-10-22)
 
 - [x] Pass frozen full verification on `76c4282c` in 22m59s, including browsers;
