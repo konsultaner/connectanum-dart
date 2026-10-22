@@ -9,7 +9,9 @@ A new native allocation candidate replaces fixed-schema table B-trees with
 sorted contiguous fields and reserves known table sizes. It preserves sorted
 lookup, duplicate replacement, nested aliases and all existing validation.
 Two regressions compare every pinned table against BTreeMap semantics and check
-shared table/byte ownership. Native conformance, allocator components and full CI
+shared table/byte ownership. The first hosted compile finds missing mutable
+lookup used by segmented composition; get_mut/remove and mutation/removal
+regressions are added before the next run. Native conformance, allocator components and full CI
 are pending; no performance gain or stall repair is claimed. Local bin/test-fast
 and companion tests/review could not acquire the shared resource lease.
 

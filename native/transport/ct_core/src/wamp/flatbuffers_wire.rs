@@ -48,6 +48,14 @@ impl Fields {
             .ok()
             .map(|index| &self.0[index].1)
     }
+    pub(super) fn get_mut(&mut self, key: &str) -> Option<&mut Value> {
+        let index = self.0.binary_search_by_key(&key, |(name, _)| *name).ok()?;
+        Some(&mut self.0[index].1)
+    }
+    pub(super) fn remove(&mut self, key: &str) -> Option<Value> {
+        let index = self.0.binary_search_by_key(&key, |(name, _)| *name).ok()?;
+        Some(self.0.remove(index).1)
+    }
     pub(super) fn insert(&mut self, key: &'static str, value: Value) -> Option<Value> {
         match self.0.binary_search_by_key(&key, |(name, _)| *name) {
             Ok(index) => Some(std::mem::replace(&mut self.0[index].1, value)),
@@ -455,6 +463,18 @@ mod copy_tests {
                 let mut reordered = Fields::new();
                 reordered.extend(fields.clone().into_iter().rev());
                 assert_eq!(fields, reordered);
+                assert!(fields.get_mut("not_a_pinned_field").is_none());
+                assert_eq!(fields.remove("not_a_pinned_field"), None);
+                for field in spec.fields {
+                    *fields.get_mut(field.name).unwrap() = Value::Integer(456);
+                    expected.insert(field.name, Value::Integer(456));
+                    assert_eq!(fields.remove(field.name), expected.remove(field.name));
+                    assert_eq!(
+                        fields.keys().copied().collect::<Vec<_>>(),
+                        expected.keys().copied().collect::<Vec<_>>()
+                    );
+                }
+                assert_eq!(fields, Fields::new());
             }
         }
     }
