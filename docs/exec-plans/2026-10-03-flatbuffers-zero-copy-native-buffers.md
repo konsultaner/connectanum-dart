@@ -20,6 +20,8 @@ Status: active. Started: 2026-10-03.
 - [ ] Validate optional all-arena glibc/external-usage wrappers with controlled
   allocation/free, real Linux owned extension smoke and full diagnostic audits.
   No runtime/SDK/allocator-policy/GC change or acceptance substitution.
+- [x] Wire the four omitted diagnostic regression suites into the canonical
+  tooling gate; reproduce all omissions before repair and pass after repair.
 - [ ] Complete current-head verification/CI and all unchanged acceptance gates.
 
 ## Owned receive-window and fresh-process memory discrimination (2026-10-22)

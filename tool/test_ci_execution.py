@@ -73,6 +73,13 @@ class FlatbuffersDiagnosticModesTests(unittest.TestCase):
         self.assertIn('--output out/wamp-flatbuffers-primary/memory-smoke --allocator-attribution', workflow)
         self.assertIn('memory_args=(--allocator-attribution)', workflow)
 
+    def test_canonical_tooling_gate_always_runs_diagnostic_regressions(self):
+        gate = (ROOT / 'bin/test-tooling').read_text()
+        for name in ('test_wamp_stall_vm_services.py', 'test_smoke_wamp_stall_discovery.py',
+                     'test_diagnose_wamp_rss.py', 'test_wamp_rss_memory.py'):
+            with self.subTest(name=name):
+                self.assertIn('python3 tool/' + name, gate)
+
 
 class ShardingTests(unittest.TestCase):
     def inventory(self, count=23):

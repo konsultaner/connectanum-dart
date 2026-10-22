@@ -48,7 +48,11 @@ real Linux service/ownership smoke before observing workloads. It changes no
 production package, SDK, allocator policy, GC or acceptance limit. Focused Python
 contracts pass; local Dart analysis/full verification and companion review are
 currently blocked by another task's machine resource lease. They are not claimed
-as passed. Pinned hosted validation is the next check.
+as passed. Pinned hosted validation is the next check. The canonical tooling gate now includes the
+owned-discovery, smoke, RSS-control and memory-observer regressions; a new gate
+contract fails for all four omissions before repair and passes afterward. The
+owned local verification resource wait is stopped before verification begins
+to make this test-chain repair; no benchmark observation is canceled.
 
 Current strict run 39840621032 completes 90 valid rows with zero integrity
 findings. Throughput, p95/p99, CPU, managed allocation and GC pass in every
