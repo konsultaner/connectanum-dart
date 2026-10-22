@@ -57,8 +57,20 @@ compare parent/start ticks for driver, target and observer. The returned tuple
 and single owned inode must also match. No concrete defect is established.
 Real Linux smoke and the resulting-source faithful replay must still run.
 
-The Linux smoke uses the existing owned VM observer connection to verify real
-`ss` output without adding a benchmark workload. The original full replay keeps
+The first real Linux attempt (39840625793, artifact 12452618295) fails before
+any workload row: no selected IPv4 socket matches the advertised VM-service
+port. Its snapshot is not saved, so endpoint ownership/family cannot be inferred
+from that failed capture. The archive SHA-256 is
+`b5cf60b8186084d4e0d79792475468d6ce73f5215ca236ad9e1bd5a43e0533cd`.
+
+The corrected Linux smoke binds an explicit IPv4 listener inside the test VM,
+holds an accepted Python peer, and captures that known owned listener endpoint.
+It also checks the expected local endpoint independently of collector filtering.
+A redacted snapshot is saved before validation, so failed observations survive.
+Five isolated cases, all 54 resulting-source capture/smoke cases, 14 CI
+contracts and real local Dart listener readiness/acceptance/shutdown pass.
+Real Linux `ss` validation and replay remain pending. This listener exists
+only in the smoke; it adds no benchmark workload. The original full replay keeps
 its package entrypoints, listener ports, router configuration, scenario order,
 sample/duration floors and deadlines. Stack/socket observations can perturb
 scheduling and are diagnostic only. They are outside copy accounting and cannot

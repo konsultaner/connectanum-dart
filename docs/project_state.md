@@ -14,8 +14,28 @@ balanced component windows preserve wires/storage aliases. Eight worker processe
 per variant/shape measure about 382/392 fewer managed bytes and roughly 7% lower
 warm RESULT/CALL decode time. These are component results, never hosted parity.
 Resulting-source formatting, focused analysis and all 3,399 serializer cases
-pass with 3,193 source/resolved hashes fixed. Full verification and hosted
-renewal remain pending.
+pass with 3,193 source/resolved hashes fixed. Frozen `bin/verify` on runtime `c0aef5fa` passes in 23m22s, including
+Chrome/Wasm, with all 3,189 sources/four resolved inputs fixed and a clean tree.
+Its renewed copy proof 39840616517 also passes independent source/contents/
+lifetime audits.
+The current follow-up changes only the diagnostic smoke and its tests.
+
+Current strict run 39840621032 completes 90 valid rows with zero integrity
+findings. Throughput, p95/p99, CPU, managed allocation and GC pass in every
+case. Two RSS costs remain: Dart values (ratio 1.0082) and native buffer
+(1.0188); pre-encoded spans pass all metrics. This three-case diagnostic cannot
+accept primary parity, and runner-to-runner count changes are not causal proof.
+The native-buffer profile 39841411082 also passes source, clock/window,
+18-snapshot and cleanup audits. Its profiling flags exclude timing acceptance;
+no new isolated codec hotspot is established from it.
+
+The first TCP_INFO replay 39840625793 fails the Linux smoke before any workload
+row: there is no selected IPv4 socket for the advertised VM-service port, and
+that attempt saves no failed snapshot. The follow-up smoke uses an explicit
+IPv4 listener in the test VM, holds an accepted connection, asserts its owned
+local endpoint and saves redacted snapshots before validation. Five isolated
+cases and real local Dart listener/readiness/shutdown pass; real Linux retry
+and faithful replay remain pending. Application benchmark behavior is unchanged.
 
 Before this follow-up, `dd6e674a` passes the resulting-source serializer directory
 (3,398 cases), focused analysis and full `bin/verify`, including Chrome/Wasm.
@@ -51,8 +71,10 @@ retained separately.
 The faithful 1-MiB TLS timeout remains unresolved. The next diagnostic adds
 bounded `ss` TCP_INFO/socket-memory snapshots for verified owned IPv4 loopback
 application sockets, with numeric tuple/inode checks and process identity checks.
-Its isolated 46-test staging suite and all 49 production-source capture
-contracts/14 CI contracts pass; real Linux smoke/replay remain pending. This changes observations, never the workload
+Its isolated 46-test staging suite and 49 original production capture
+contracts/14 CI contracts pass; the five added smoke-fix cases also pass.
+All 54 combined resulting-source capture/smoke contracts and 14 CI contracts
+pass. Real Linux retry remains pending. This changes observations, never the workload
 or performance acceptance. See the TCP diagnostic research note.
 
 Native source review finds no demonstrated defect. Qwen's hypothetical sorting/

@@ -2,6 +2,29 @@
 
 Status: active. Started: 2026-10-03.
 
+## TCP_INFO smoke correction and remaining RSS costs (2026-10-22)
+
+- [x] Pass frozen full `bin/verify` on `c0aef5fa` in 23m22s, including browsers;
+  verify 3,189 source/four resolved hashes and a clean tree.
+- [x] Audit renewed production proof: 36 snapshot groups/108 post-GC observations,
+  120 owned cases/300 short cases and all 32 no-copy observations.
+- [x] Audit strict 90 rows: zero integrity gaps; all throughput/latency/CPU/
+  allocation/GC gates pass. Retain two RSS costs; no primary acceptance claim.
+- [x] Audit the current native-buffer profile: matching source/resolved contents,
+  conservative operation windows, 18 snapshots, native clocks/filter and cleanup.
+- [x] Preserve failed Linux smoke 39840625793: zero benchmark rows; no selected
+  owned IPv4 socket for advertised VM-service port; failed snapshot missing.
+- [x] Prepare explicit owned IPv4 listener/readiness and retained failed captures.
+  Pass five mocked cases and real local Dart analysis/socket acceptance/shutdown;
+  adopt independent positive endpoint assertion from advisory review.
+- [x] Pass all 54 combined capture/smoke contracts and 14 CI contracts.
+- [ ] Retry real Linux smoke and unchanged faithful payload replay; fix failures
+  before further runtime changes.
+- [ ] Diagnose/fix the two RSS costs with measured source changes; preserve
+  primary/supplemental policies and all started observations.
+- [ ] Complete final-source full verification/hosted CI and unchanged final
+  primary/supplemental acceptance campaigns.
+
 ## Metadata reuse and bounded TCP flow diagnosis (2026-10-22)
 
 - [x] Pass `dd6e674a` serializer cases/analysis and frozen full verification,
@@ -23,8 +46,9 @@ Status: active. Started: 2026-10-03.
 - [x] Pass all 49 production-source capture contracts and 14 CI contracts.
 - [x] Pass resulting-source formatting, analysis and 3,399 serializer cases
   with all 3,193 source/resolved inputs fixed.
-- [ ] Pass frozen full verification; run real Linux socket smoke and faithful
-  timeout replay.
+- [x] Pass frozen full runtime verification on `c0aef5fa`.
+- [ ] Repair the real Linux smoke preflight and finish faithful timeout replay
+  as tracked above.
 - [ ] Complete renewed CI/copy/strict timing, then primary acceptance on the
   final runtime. Every started earlier campaign remains available separately.
 
