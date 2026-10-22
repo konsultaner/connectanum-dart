@@ -4,6 +4,14 @@ Status: active. Started: 2026-10-03.
 
 ## Faithful payload timeout diagnosis (2026-10-22)
 
+- [x] Pass hosted focused original-process contracts on `f0875fef`; Linux real
+  VM smoke/full replay are still running in run 39803270108. These diagnostics
+  do not change production Dart/Rust, workloads or acceptance budgets.
+- [x] Independently audit Dart-value CPU/heap run 39803478045: 3,178 tracked
+  sources/three resolved inputs fixed, 18 snapshots, actual 64-KiB request and
+  clean shutdown. Profiling build flags differ from acceptance; no reader-map,
+  builder-guard or retained-buffer bottleneck is established. See
+  [profile research](../research/2026-10-22-dart-value-profile.md).
 - [x] Independently audit checkpoint `36a6df24` failed payload shard: 85/360 rows,
   original order/floors, 14 no-copy flags, available hashes and cleanup; final
   source-invariance flag absent/unconfirmed. Same one-MiB TLS WebSocket Dart-value

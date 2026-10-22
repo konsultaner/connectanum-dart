@@ -94,12 +94,21 @@ startup arguments, so stacks can be captured without changing application
 entrypoints or listener configuration. Scope discovery to the diagnostic driver's
 own descendants, verify PID identity, restrict endpoints to loopback and redact
 authentication URLs. Debug RPC can perturb scheduling and never accepts timing.
-The focused tests and local companion review are blocked by another job's
-preserved machine resource lease. Linux CI runs focused contracts and a real
-authenticated Dart VM discovery smoke before the full diagnostic replay. The
+The focused original-process contracts pass in Linux CI on `f0875fef`; its real
+authenticated Dart VM discovery smoke/full replay is still running. Local tests
+and companion review are blocked by another job's preserved resource lease. The
 initial fail-before attempt expired without executing; a reconstructed old-source
 regression check is queued and must not be described as a chronological
 fail-first pass. No causal runtime fix is claimed.
+
+The [Dart-value CPU/heap profile](https://github.com/konsultaner/connectanum-dart/actions/runs/39803478045)
+passes independent audit: 3,178 tracked sources/three resolved inputs unchanged,
+18 snapshots, actual 64-KiB requests, sampling inside workload windows and clean
+shutdown. Profiling native build flags differ from acceptance. Socket/async
+frames dominate the VM inventory; snapshots do not establish a retained-buffer
+leak or identify reader maps/builder guards as the next bottleneck. No collection,
+allocator trimming or speculative runtime change is adopted. See
+[profile research](research/2026-10-22-dart-value-profile.md).
 
 The previous source `f316941a` retains its complete primary campaign with zero
 integrity gaps and 151 numerical failures, completed protocol/encrypted shards
