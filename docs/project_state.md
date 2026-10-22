@@ -5,6 +5,25 @@ Last updated: 2026-10-22.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+A new native allocation candidate replaces fixed-schema table B-trees with
+sorted contiguous fields and reserves known table sizes. It preserves sorted
+lookup, duplicate replacement, nested aliases and all existing validation.
+Two regressions compare every pinned table against BTreeMap semantics and check
+shared table/byte ownership. Native conformance, allocator components and full CI
+are pending; no performance gain or stall repair is claimed. Local bin/test-fast
+and companion tests/review could not acquire the shared resource lease.
+
+The original-process replay on 17f27d25 fails at 257/360 rows on the same one-MiB
+Dart/TLS/FlatBuffers case. Three captures show server send queues of about
+497/954/364 KiB, no client kernel receive backlog and unchanged native runtime
+CPU ticks. This identifies backpressure but does not establish its cause.
+The reduced 90-row diagnostic passes; it cannot accept the full schedule.
+The complete 36a6df24 protocol shard has 900 valid rows and 153 retained costs.
+
+The repaired operation-window profile on e1ab797a captures a valid MessagePack
+interval and native reports, then fails starting the FlatBuffers perf recorder
+(exit 255). It has no FlatBuffers comparison. Retry 39822284373 is running.
+
 The first native E2EE profile fails correctly at its operation-window guard:
 sampling is entirely before the actual MessagePack data interval, so no
 FlatBuffers comparison is accepted. Sources/native binary and shutdown remain

@@ -2,6 +2,19 @@
 
 Status: active. Started: 2026-10-03.
 
+## Fixed-schema native table allocation candidate (2026-10-22)
+
+- [x] Locate per-root/message BTreeMap allocation in the checked wire reader.
+- [x] Implement sorted contiguous schema fields, reserving known table sizes;
+  application maps, schema, limits, validation and byte owners are unchanged.
+- [x] Add every-schema-field map equivalence, replacement/extension/order and
+  nested table/byte alias regressions. Rust formatting/diff checks pass.
+- [ ] Pass native conformance and allocator components on the candidate; compare
+  complete wires, copy flags and allocation requests with the retained baseline.
+- [ ] Pass full CI and bin/verify; local precheck and companion review/test
+  planning are resource-blocked. Do not claim pending execution as a pass.
+- [ ] Repeat strict/full timing only after correctness and component review.
+
 ## Faithful payload timeout diagnosis (2026-10-22)
 
 - [x] Preserve failed E2EE profile 39816020705: MessagePack CPU sampling precedes

@@ -85,7 +85,7 @@ pub fn compose_segments(control: Bytes, supplied: Payload) -> Result<Vec<Bytes>,
 }
 
 fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
-    let mut controls = Fields::new();
+    let mut controls = Fields::with_capacity(4);
     let (name, dictionary, payload): (&str, Option<&ValueMap>, Option<&Payload>) = match message {
         WampMessage::Hello { realm, details } => {
             text(&mut controls, "realm", realm);
@@ -325,12 +325,12 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
     let mut body = if let Some(dictionary) = dictionary {
         validate_dictionary(dictionary)?;
         if name == "Heartbeat" {
-            Fields::new()
+            Fields::with_capacity(schema::TABLES[reference].fields.len())
         } else {
             flatbuffers_projection::project(name, dictionary, reference)?
         }
     } else {
-        Fields::new()
+        Fields::with_capacity(schema::TABLES[reference].fields.len())
     };
     body.extend(controls);
     if let Some(payload) = payload {
@@ -345,7 +345,8 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
             }
         }
     }
-    let mut root = Fields::from([
+    let mut root = Fields::with_capacity(3);
+    root.extend([
         ("msg_type", Value::Integer(tag as u64)),
         ("msg", Value::Table(Arc::new(body))),
     ]);

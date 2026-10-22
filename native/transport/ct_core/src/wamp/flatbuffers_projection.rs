@@ -147,7 +147,7 @@ fn enumeration(key: &str) -> Option<&'static [(&'static str, u64)]> {
     })
 }
 pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fields, ParseError> {
-    let mut result = Fields::new();
+    let mut result = Fields::with_capacity(schema::TABLES[reference].fields.len());
     for field in schema::TABLES[reference].fields {
         if ignored(name, field.name) {
             continue;

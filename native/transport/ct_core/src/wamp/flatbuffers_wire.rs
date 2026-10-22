@@ -1,7 +1,7 @@
 //! Checked access to the pinned schema. Byte vectors retain their Bytes owner.
 use super::{flatbuffers_schema as schema, ParseError};
 use bytes::Bytes;
-use std::{collections::BTreeMap, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 pub(super) const MAX_BYTES: usize = 64 * 1024 * 1024;
 const MAX_INTEGER: u64 = 9_007_199_254_740_992;
@@ -30,7 +30,58 @@ pub(super) struct TableSpec {
     pub name: &'static str,
     pub fields: &'static [FieldSpec],
 }
-pub(super) type Fields = BTreeMap<&'static str, Value>;
+// Keys come only from the pinned schema. A sorted contiguous table avoids
+// allocating B-tree nodes for each small root/message dictionary. Application
+// dictionaries keep their existing maps and are not stored here.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct Fields(Vec<(&'static str, Value)>);
+impl Fields {
+    pub(super) fn new() -> Self {
+        Self::default()
+    }
+    pub(super) fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
+    }
+    pub(super) fn get(&self, key: &str) -> Option<&Value> {
+        self.0
+            .binary_search_by_key(&key, |(name, _)| *name)
+            .ok()
+            .map(|index| &self.0[index].1)
+    }
+    pub(super) fn insert(&mut self, key: &'static str, value: Value) -> Option<Value> {
+        match self.0.binary_search_by_key(&key, |(name, _)| *name) {
+            Ok(index) => Some(std::mem::replace(&mut self.0[index].1, value)),
+            Err(index) => {
+                self.0.insert(index, (key, value));
+                None
+            }
+        }
+    }
+    pub(super) fn keys(&self) -> impl Iterator<Item = &&'static str> {
+        self.0.iter().map(|(name, _)| name)
+    }
+}
+impl IntoIterator for Fields {
+    type Item = (&'static str, Value);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+impl Extend<(&'static str, Value)> for Fields {
+    fn extend<T: IntoIterator<Item = (&'static str, Value)>>(&mut self, values: T) {
+        for (key, value) in values {
+            self.insert(key, value);
+        }
+    }
+}
+impl<const N: usize> From<[(&'static str, Value); N]> for Fields {
+    fn from(values: [(&'static str, Value); N]) -> Self {
+        let mut fields = Self::with_capacity(N);
+        fields.extend(values);
+        fields
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Value {
     Null,
@@ -217,7 +268,7 @@ impl Reader {
         let spec = schema::TABLES
             .get(reference)
             .ok_or_else(|| invalid("table type"))?;
-        let mut fields = Fields::new();
+        let mut fields = Fields::with_capacity(spec.fields.len());
         let mut height = 1;
         let mut union_tag = 0;
         for (slot, field) in spec.fields.iter().enumerate() {
@@ -364,6 +415,73 @@ impl Reader {
 #[cfg(test)]
 mod copy_tests {
     use super::*;
+
+    #[test]
+    fn schema_fields_preserve_sorted_map_lookup_replacement_and_extension() {
+        use std::collections::BTreeMap;
+        for spec in schema::TABLES {
+            for reverse in [false, true] {
+                let mut fields = Fields::with_capacity(spec.fields.len());
+                let mut expected = BTreeMap::new();
+                let mut entries: Vec<_> = spec.fields.iter().enumerate().collect();
+                if reverse {
+                    entries.reverse();
+                }
+                for (index, field) in entries {
+                    let value = Value::Integer(index as u64);
+                    assert_eq!(
+                        fields.insert(field.name, value.clone()),
+                        expected.insert(field.name, value)
+                    );
+                }
+                assert_eq!(
+                    fields.keys().copied().collect::<Vec<_>>(),
+                    expected.keys().copied().collect::<Vec<_>>()
+                );
+                assert_eq!(fields.get("not_a_pinned_field"), None);
+                for (key, value) in &expected {
+                    assert_eq!(fields.get(key), Some(value));
+                }
+                let mut replacements = Fields::new();
+                if let Some(field) = spec.fields.first() {
+                    replacements.insert(field.name, Value::Integer(123));
+                }
+                fields.extend(replacements.clone());
+                expected.extend(replacements);
+                assert_eq!(
+                    fields.clone().into_iter().collect::<BTreeMap<_, _>>(),
+                    expected
+                );
+                let mut reordered = Fields::new();
+                reordered.extend(fields.clone().into_iter().rev());
+                assert_eq!(fields, reordered);
+            }
+        }
+    }
+
+    #[test]
+    fn fields_duplicate_keys_replace_values_without_copying_borrowed_bytes() {
+        let bytes = Bytes::from_static(b"payload");
+        let nested = Arc::new(Fields::from([("args", Value::Bytes(bytes.clone()))]));
+        let mut fields = Fields::from([
+            ("request", Value::Integer(1)),
+            ("msg", Value::Table(nested.clone())),
+            ("request", Value::Integer(2)),
+        ]);
+        assert_eq!(fields.get("request"), Some(&Value::Integer(2)));
+        assert_eq!(
+            fields.insert("request", Value::Null),
+            Some(Value::Integer(2))
+        );
+        let Value::Table(table) = fields.get("msg").unwrap() else {
+            panic!("table");
+        };
+        assert!(Arc::ptr_eq(table, &nested));
+        let Value::Bytes(retained) = table.get("args").unwrap() else {
+            panic!("bytes");
+        };
+        assert_eq!(retained.as_ptr(), bytes.as_ptr());
+    }
     #[test]
     fn string_cache_keeps_small_sets_inline_and_aliases_after_overflow() {
         let mut cache = StringCache::default();
