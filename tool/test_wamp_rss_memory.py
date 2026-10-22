@@ -41,11 +41,12 @@ class MemoryTests(unittest.TestCase):
     def allocator_reply(self, uri, method, isolate_id=None):
         target = next(t for t in self.targets if t.uri == uri)
         if method == 'getVM':
-            return {'type': 'VM', 'pid': target.pid, 'isolates': [{'id': 'isolates/1', 'name': 'main'}]}
+            return {'type': 'VM', 'pid': target.pid, 'isolates': [{'id': 'isolates/1', 'name': 'main', 'isolateGroupId': 'isolateGroups/1'}]}
         if method == 'getProcessMemoryUsage': return copy.deepcopy(self.usage)
-        self.assertEqual(isolate_id, 'isolates/1')
-        if method == 'getMemoryUsage':
+        if method == 'getIsolateGroupMemoryUsage':
+            self.assertEqual(isolate_id, 'isolateGroups/1')
             return {'type': 'MemoryUsage', 'externalUsage': 112, 'heapUsage': 100, 'heapCapacity': 200}
+        self.assertEqual(isolate_id, 'isolates/1')
         self.assertEqual(method, memory.ALLOCATOR_METHOD)
         return {'type': 'ConnectanumAllocatorDiagnostic', 'pid': target.pid, 'glibc_version': '2.39',
                 'malloc_info_xml': '<malloc version="1"><heap nr="0"><total type="rest" size="10"/></heap>'
@@ -57,7 +58,7 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(result['status'], 'complete')
         role = result['roles']['worker']
         self.assertEqual(role['allocator_counters']['arena_free_rest_bytes'], 10)
-        self.assertEqual(role['isolate_memory_usage']['isolates/1']['externalUsage'], 112)
+        self.assertEqual(role['isolate_group_memory_usage']['isolateGroups/1']['externalUsage'], 112)
         self.assertIn('<heap nr="0">', role['allocator_diagnostic']['malloc_info_xml'])
         self.assertNotIn('privateToken', json.dumps(result))
 
@@ -68,7 +69,7 @@ class MemoryTests(unittest.TestCase):
                 if uri == self.targets[0].uri:
                     if failure == 'pid' and method == memory.ALLOCATOR_METHOD: value['pid'] = 999
                     if failure == 'isolate' and method == 'getVM': value['isolates'][0]['name'] = 'unrelated'
-                    if failure == 'external' and method == 'getMemoryUsage': value['externalUsage'] = True
+                    if failure == 'external' and method == 'getIsolateGroupMemoryUsage': value['externalUsage'] = True
                     if failure == 'xml' and method == memory.ALLOCATOR_METHOD: value['malloc_info_xml'] = '<bad/>'
                 return value
             with self.subTest(failure=failure):
@@ -91,6 +92,27 @@ class MemoryTests(unittest.TestCase):
             with self.subTest(xml=invalid[:50]), self.assertRaises(ValueError):
                 memory.validate_allocator_counters({**sample, 'malloc_info_xml': invalid}, 20)
 
+    def test_shared_heap_is_queried_once_per_group_and_expired_group_still_fails(self):
+        calls = []
+        def reply(uri, method, isolate_id=None):
+            value = self.allocator_reply(uri, method, isolate_id)
+            calls.append((uri, method, isolate_id))
+            if method == 'getVM':
+                value['isolates'].append({'id': 'isolates/2', 'name': 'worker', 'isolateGroupId': 'isolateGroups/1'})
+            return value
+        result = self.capture(rpc=reply, allocator_attribution=True)
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(sum(method == 'getIsolateGroupMemoryUsage' for _, method, _ in calls), 2)
+        self.assertEqual(len(result['roles']['router']['isolate_refs']), 2)
+        def expired(uri, method, isolate_id=None):
+            if method == 'getIsolateGroupMemoryUsage':
+                raise memory.UnexpectedMemoryResponse(method, {'type': 'Sentinel', 'kind': 'Expired'}, isolate_id)
+            return reply(uri, method, isolate_id)
+        result = self.capture(rpc=expired, allocator_attribution=True)
+        self.assertEqual(result['status'], 'failed')
+        self.assertEqual(result['roles']['worker']['rpc_response'],
+                         {'method': 'getIsolateGroupMemoryUsage', 'type': 'Sentinel', 'kind': 'Expired', 'isolate_group_id': 'isolateGroups/1'})
+
     def test_allocator_rpc_is_isolate_scoped_and_does_not_enable_heap_or_gc_actions(self):
         response = mock.MagicMock()
         response.__enter__.return_value = response
@@ -98,6 +120,9 @@ class MemoryTests(unittest.TestCase):
         with mock.patch.object(memory.urllib.request, 'urlopen', return_value=response) as request:
             memory.memory_rpc(self.targets[0].uri, memory.ALLOCATOR_METHOD, 'isolates/1')
             self.assertTrue(request.call_args.args[0].endswith('ext.connectanum.diagnosticMallocInfo?isolateId=isolates%2F1'))
+            response.read.return_value = b'{"type":"MemoryUsage","externalUsage":0,"heapUsage":10,"heapCapacity":20}'
+            memory.memory_rpc(self.targets[0].uri, 'getIsolateGroupMemoryUsage', 'isolateGroups/1')
+            self.assertTrue(request.call_args.args[0].endswith('getIsolateGroupMemoryUsage?isolateGroupId=isolateGroups%2F1'))
         for method, identifier in ((memory.ALLOCATOR_METHOD, None), ('getMemoryUsage', 'groups/1'),
                                    ('getAllocationProfile', 'isolates/1'), ('invoke', 'isolates/1')):
             with self.assertRaises(ValueError): memory.memory_rpc(self.targets[0].uri, method, identifier)

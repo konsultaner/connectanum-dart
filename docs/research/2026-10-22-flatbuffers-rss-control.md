@@ -230,3 +230,20 @@ result fields, error messages and valueAsString remain omitted. A regression
 checks explicit failure, exactly one request and token omission. Seventeen memory
 contracts pass. Real response classification is pending; no comparative allocator
 claim or runtime fix follows from either failed control.
+
+
+Classification run 39868319957/artifact 12464803230 retains a Collected Sentinel
+from the first FlatBuffers worker's isolate query. This confirms a non-memory
+result, not a native-buffer leak or a valid zero. Archive SHA-256:
+`99eee9080311b336c11706af438926af61271751959f3f0defc73326df47b108`.
+
+The new probe measures shared heaps directly with the documented
+[getIsolateGroupMemoryUsage](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/service/service.md#getisolategroupmemoryusage)
+API, once per distinct group from the verified VM's isolate references. It keeps
+those references and group IDs and never sums shared heaps. There is no fallback
+from an isolate sentinel: this is an explicit change in diagnostic query scope.
+Expired group sentinels still fail; no retries or zero substitution. Eighteen
+memory contracts pass, including exact isolateGroupId URL encoding, one request
+per shared group and explicit Expired failure; the combined focused suite passes
+101 cases before the final URL assertion, also verified separately. Linux
+validation is pending.

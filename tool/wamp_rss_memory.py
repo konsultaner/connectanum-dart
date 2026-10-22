@@ -25,6 +25,9 @@ class UnexpectedMemoryResponse(ValueError):
         if isinstance(isolate_id, str) and isolate_id.startswith('isolates/'):
             suffix = isolate_id.removeprefix('isolates/')
             self.safe_response['isolate_id'] = isolate_id if suffix.isascii() and suffix.isdigit() else 'other'
+        elif isinstance(isolate_id, str) and isolate_id.startswith('isolateGroups/'):
+            suffix = isolate_id.removeprefix('isolateGroups/')
+            self.safe_response['isolate_group_id'] = isolate_id if suffix.isascii() and suffix.isdigit() else 'other'
         if self.safe_response['type'] == 'Sentinel':
             kind = result.get('kind')
             self.safe_response['kind'] = kind if kind in known_kinds else 'other'
@@ -32,16 +35,19 @@ class UnexpectedMemoryResponse(ValueError):
 
 def memory_rpc(uri, method, isolate_id=None):
     types = {'getVM': 'VM', 'getProcessMemoryUsage': 'ProcessMemoryUsage',
-             'getMemoryUsage': 'MemoryUsage', ALLOCATOR_METHOD: 'ConnectanumAllocatorDiagnostic'}
+             'getMemoryUsage': 'MemoryUsage', 'getIsolateGroupMemoryUsage': 'MemoryUsage',
+             ALLOCATOR_METHOD: 'ConnectanumAllocatorDiagnostic'}
     if method not in types:
         raise ValueError('Unsupported memory diagnostic RPC')
-    needs_isolate = method in ('getMemoryUsage', ALLOCATOR_METHOD)
-    if needs_isolate != (isinstance(isolate_id, str) and isolate_id.startswith('isolates/')):
+    needs_isolate = method in ('getMemoryUsage', 'getIsolateGroupMemoryUsage', ALLOCATOR_METHOD)
+    group = method == 'getIsolateGroupMemoryUsage'
+    prefix = 'isolateGroups/' if group else 'isolates/'
+    if needs_isolate != (isinstance(isolate_id, str) and isolate_id.startswith(prefix)):
         raise ValueError('Invalid diagnostic isolate identifier')
     uri = loopback_service_uri(uri)
     url = urllib.parse.urljoin(uri, method)
     if needs_isolate:
-        url += '?' + urllib.parse.urlencode({'isolateId': isolate_id})
+        url += '?' + urllib.parse.urlencode({'isolateGroupId' if group else 'isolateId': isolate_id})
     with urllib.request.urlopen(url, timeout=1) as response:
         raw = response.read(524289)
     if len(raw) > 524288:
@@ -152,7 +158,9 @@ def capture_target_memory(target, driver_pid, expected_pid, proc_root=Path('/pro
             isolates = vm.get('isolates')
             if (not isinstance(isolates, list) or not 1 <= len(isolates) <= 16
                     or any(not isinstance(item, dict) or not isinstance(item.get('id'), str)
-                           or not item['id'].startswith('isolates/') for item in isolates)
+                           or not item['id'].startswith('isolates/')
+                           or not isinstance(item.get('isolateGroupId'), str)
+                           or not item['isolateGroupId'].startswith('isolateGroups/') for item in isolates)
                     or len({item['id'] for item in isolates}) != len(isolates)):
                 raise ValueError('Invalid allocator observation isolate set')
             main = [item['id'] for item in isolates if item.get('name') == 'main']
@@ -160,14 +168,14 @@ def capture_target_memory(target, driver_pid, expected_pid, proc_root=Path('/pro
                 raise ValueError('Allocator extension requires exactly one main isolate')
             # Preserve group identity; isolates sharing a heap are not additive.
             allocator['isolate_refs'] = isolates
-            allocator['isolate_memory_usage'] = {}
-            for isolate in isolates:
-                phase = 'getMemoryUsage'
-                sample = memory_rpc(target.uri, 'getMemoryUsage', isolate['id'])
+            allocator['isolate_group_memory_usage'] = {}
+            for group_id in sorted({item['isolateGroupId'] for item in isolates}):
+                phase = 'getIsolateGroupMemoryUsage'
+                sample = memory_rpc(target.uri, 'getIsolateGroupMemoryUsage', group_id)
                 if any(type(sample.get(key)) is not int or sample[key] < 0
                        for key in ('externalUsage', 'heapUsage', 'heapCapacity')):
                     raise ValueError('Invalid isolate memory usage')
-                allocator['isolate_memory_usage'][isolate['id']] = sample
+                allocator['isolate_group_memory_usage'][group_id] = sample
             phase = 'allocator_extension'
             sample = memory_rpc(target.uri, ALLOCATOR_METHOD, main[0])
             phase = 'allocator_validation'

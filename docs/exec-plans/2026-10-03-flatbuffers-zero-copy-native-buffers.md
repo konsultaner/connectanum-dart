@@ -31,6 +31,13 @@ Status: active. Started: 2026-10-03.
 - [x] Retain kernel retry: no compiler heap in complete snapshots; one failed
   CBOR getMemoryUsage type check. Prepare safe protocol-kind/request-ID records
   with Sentinel rejection, no retries/zero substitution; 17 memory contracts pass.
+- [x] Identify Collected Sentinel in isolate query; prepare one direct shared-heap
+  group query, preserving IDs/refs and failure on Expired Sentinel. Pass 101
+  combined focused contracts and group URL/one-query-per-group regressions.
+- [x] Audit current-runtime payload batch: 360 rows, zero integrity gaps, 28
+  numerical costs. Audit the exact 10-KiB CPU profile before interpreting stacks.
+- [ ] Optimize repeated dictionary-field projection/agreement work only with
+  schema/metadata regressions, component evidence and unchanged end-to-end gates.
 - [ ] Complete current-head verification/CI and all unchanged acceptance gates.
 
 ## Owned receive-window and fresh-process memory discrimination (2026-10-22)

@@ -77,6 +77,25 @@ protocol-type/kind/request-isolate record now preserves only known safe enums;
 Sentinel/error results remain failures, never zero or automatic retries. Seventeen
 memory contracts pass. The failed artifact remains excluded from comparisons.
 
+Classification run 39868319957 confirms Collected Sentinel from the isolate-
+scoped getMemoryUsage request, this time on the first FlatBuffers pair. Failed
+captures remain failures, with no zero substitution or retry. The probe now uses
+the standard getIsolateGroupMemoryUsage API once per distinct group, matching
+shared-heap semantics and avoiding duplicate per-isolate requests. Group IDs and
+isolate references are retained; Expired group sentinels still fail the capture.
+Eighteen memory contracts and 101 combined focused contracts pass before the
+final URL assertion, which also passes. Real Linux group capture remains pending.
+
+Current-runtime supplemental payload batch 39852994229/artifact 12463981138
+passes independent input/binary/raw/comparison audits: 360 rows/12 cases, zero
+integrity findings, 28 numerical costs. Ten-KiB Dart values have about 2–3% CPU
+costs. Profile 39868579299 passes independent 3,196-source/three-resolved-content,
+18-snapshot, clock/window, native sampling and cleanup audits. Filtered stacks
+identify repeated dictionary projection and agreement checks; no runtime change
+has been made yet. Superseded ordinary CI32 is confirmed canceled with five
+successful jobs retained, including Fast Checks and FlatBuffers Binding. Every
+started benchmark is preserved, and final-head CI is still required.
+
 Older primary run 39792311393 completes all 1,440 rows/48 cases with zero integrity
 findings but 144 numerical costs; independent input/binary/raw verification and
 comparison recomputation agree exactly. This is older runtime `2de4ec32`, never
