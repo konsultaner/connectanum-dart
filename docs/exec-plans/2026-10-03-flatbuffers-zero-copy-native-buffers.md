@@ -33,8 +33,14 @@ Status: active. Started: 2026-10-03.
 - [x] Reproduce five baseline wrapper-inventory failures after adding the new
   test; register it in all VM/browser serializer wrappers and pass all 87 tooling
   cases, without weakening inventory equality or skipping tests.
-- [ ] Repeat the complete fast baseline before adopting measured reader-cache
-  source; then renew full verification, copy/lifetime and hosted timing.
+- [x] Pass complete pre-adoption `bin/test-fast` on `de1b57f0` in 15m08s with
+  3,185 sources/four resolved inputs unchanged and a clean tree; adopt the exact
+  measured methods/field order without the private marker.
+- [ ] Pass resulting-source focused/core checks, analysis and full verification;
+  renew hosted CI/copy/lifetime/strict and full timing.
+- [ ] Run final primary/supplemental campaigns with source-qualified queues so
+  independent hosted VMs can finish without waiting behind older revisions.
+  Preserve every observation and all existing acceptance rules.
 
 ## Faithful payload timeout diagnosis (2026-10-22)
 

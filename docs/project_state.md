@@ -5,6 +5,15 @@ Last updated: 2026-10-22.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+The current candidate adopts the measured Dart reader cache: two table views
+and one decoded string are stored inline, with the original `(offset, type)` and
+string-offset maps used for overflow. Validation, byte views and wire behavior
+are unchanged. The pre-adoption `bin/test-fast` on `de1b57f0` passes in 15m08s,
+with all 3,185 sources/four resolved inputs unchanged and a clean tree. Private
+baseline/candidate suites each pass 433 cases; current-source focused/full checks
+and hosted copy/timing renewal remain pending. Advisory review was attempted
+again but another native task acquired the shared lease after the precheck.
+
 Runtime `08efcd5b` passes frozen local `bin/verify` in 24m19s, including
 browser suites, with all 3,183 sources/four resolved inputs unchanged and a
 clean tree. Its 39 native FlatBuffers tests pass. Independent allocator audits
@@ -26,7 +35,7 @@ has 1,440 rows, zero integrity gaps and 187 numerical failures; it is retained
 separately. Current full CI and full candidate campaigns continue. No budget,
 case, floor, repetition, baseline or deadline is waived.
 
-A private Dart reader-cache candidate remains unadopted. Forty balanced
+The adopted Dart reader-cache candidate has forty balanced
 component windows retain identical wires and storage aliases, saving about
 259 managed bytes per RESULT decode and 456 per CALL decode. Only two worker
 processes per variant/shape are measured, so timing remains inconclusive.
@@ -36,7 +45,7 @@ storage-alias check replaces it outside measurement and the failed bundle remain
 Three shared-string/table/type/overflow regressions are now added to the repository.
 Their first baseline fast run reproduces five wrapper-inventory failures; adding
 all VM/browser serializer wrapper registrations restores all 87 tooling cases.
-The corrected full fast baseline remains to be repeated before adoption.
+The corrected full fast baseline subsequently passes before adoption.
 
 Native source review finds no demonstrated defect. Qwen's hypothetical sorting/
 sharing concerns are checked against private storage, binary-position insertion,
