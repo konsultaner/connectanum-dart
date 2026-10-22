@@ -62,6 +62,23 @@ class SmokeCaptureTests(unittest.TestCase):
             self.capture()
         self.assertFalse((self.output / 'snapshot.json').exists())
 
+class SmokeMemoryTests(unittest.TestCase):
+    def test_success_requires_owned_standard_api_maps_and_expected_observer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = mock.Mock(role='worker')
+            record = {'pid': 100, 'observer_pid': 101, 'process_memory_usage': {'root': {'name': 'Process', 'size': 100, 'children': []}}, 'linux_smaps': 'Rss: 4 kB'}
+            with mock.patch.object(smoke.diagnostic, 'discover_vm_services', return_value=[target]), \
+                    mock.patch.object(smoke, 'capture_target_memory', return_value=record):
+                smoke.capture_smoke_memory(Path(directory), 100, 101)
+            self.assertEqual(json.loads((Path(directory) / 'memory.json').read_text()), record)
+
+    def test_failed_observation_is_saved_before_smoke_rejects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.object(smoke.diagnostic, 'discover_vm_services', return_value=[]):
+                with self.assertRaisesRegex(RuntimeError, 'memory API/maps smoke failed'):
+                    smoke.capture_smoke_memory(Path(directory), 100, 101)
+            self.assertEqual(json.loads((Path(directory) / 'memory.json').read_text()), {'error': 'ValueError'})
+
 
 if __name__ == '__main__':
     unittest.main()

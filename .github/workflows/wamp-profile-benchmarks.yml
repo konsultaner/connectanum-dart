@@ -42,6 +42,11 @@ on:
         options:
           - rpc_rawsocket_clear_dart_values
           - rpc_rawsocket_clear_native_native_buffer
+      memory_attribution:
+        description: Read standard VM memory buckets and owned process maps in RSS control only
+        required: false
+        default: false
+        type: boolean
       trace_socket_options:
         description: Trace socket options in the original-process payload diagnostic only
         required: false
@@ -119,7 +124,7 @@ jobs:
           if-no-files-found: error
 
   linux-flatbuffers-primary:
-    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_rss_control' && 'Fresh-process RSS diagnostic' || inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
+    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_rss_control' && format('{0} ({1})', inputs.memory_attribution && 'Memory attribution' || 'Fresh-process RSS', inputs.rss_case) || inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
     if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus' || inputs.campaign == 'flatbuffers_rss_control')
     runs-on: ubuntu-24.04
     env:
@@ -149,7 +154,11 @@ jobs:
 
       - name: Verify fresh-process RSS diagnostic contracts
         if: inputs.campaign == 'flatbuffers_rss_control'
-        run: python3 tool/test_diagnose_wamp_rss.py
+        run: |
+          python3 tool/test_wamp_rss_memory.py
+          python3 tool/test_smoke_wamp_stall_discovery.py
+          python3 tool/test_diagnose_wamp_rss.py
+          python3 tool/test_ci_execution.py
 
       - name: Prepare owned socket-option trace
         if: inputs.trace_socket_options && (inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus')
@@ -238,11 +247,18 @@ jobs:
           INPUT_EXTENSION_SHARD: ${{ matrix.shard }}
           INPUT_TRACE_SOCKET_OPTIONS: ${{ inputs.trace_socket_options }}
           INPUT_RSS_CASE: ${{ inputs.rss_case }}
+          INPUT_MEMORY_ATTRIBUTION: ${{ inputs.memory_attribution }}
         run: |
           set -euo pipefail
           if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then
+            memory_args=()
+            if [[ "$INPUT_MEMORY_ATTRIBUTION" == true ]]; then
+              python3 tool/smoke_wamp_stall_discovery.py \
+                --output out/wamp-flatbuffers-primary/memory-smoke --memory-attribution
+              memory_args=(--memory-attribution)
+            fi
             python3 tool/diagnose_wamp_rss.py \
-              --case "$INPUT_RSS_CASE" \
+              --case "$INPUT_RSS_CASE" "${memory_args[@]}" \
               --output out/wamp-flatbuffers-primary/rss-control \
               --driver out/wamp-flatbuffers-primary/setup/http_stream \
               --native-lib out/wamp-flatbuffers-primary/setup/libct_ffi.so \
@@ -323,7 +339,7 @@ jobs:
               print('Fresh process pairs isolate RSS history. This never establishes parity or replaces primary gates.\n')
               if path.exists():
                   data = json.loads(path.read_text())
-                  print(f"Diagnostic: {data['status']}; complete process pairs: {sum(p['status'] == 'complete' for p in data['pairs'])}/6.\n")
+                  print(f"Diagnostic: {data['status']}; case: {data.get('case_id')}; memory attribution: {data.get('memory_attribution', False)}; complete process pairs: {sum(p['status'] == 'complete' for p in data['pairs'])}/6.\n")
               else:
                   print('RSS control did not produce a result; setup logs retain the failure.')
               raise SystemExit(0)

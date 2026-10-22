@@ -14,6 +14,7 @@ import time
 import capture_wamp_stall as capture
 import run_wamp_serializer_campaign as campaign
 import wamp_serializer_compare as compare
+from wamp_rss_memory import MemoryAttribution
 
 ROOT = Path(__file__).resolve().parents[1]
 SEQUENCE = ('flatbuffers', 'cbor', 'msgpack', 'msgpack', 'cbor', 'flatbuffers')
@@ -101,6 +102,7 @@ def run(args, root=ROOT):
         raise ValueError('RSS control requires a production native library without test oracles')
     policy = json.loads(campaign.POLICY.read_text())
     case = next(case for case in campaign.primary_cases() if case['id'] == args.case)
+    memory_attribution = getattr(args, 'memory_attribution', False)
     sources = source_inputs(root)
     resolved = {name: campaign.sha256(root / name) for name in RESOLVED}
     for name in RESOLVED:
@@ -112,7 +114,7 @@ def run(args, root=ROOT):
     manifest = {'kind': 'fresh_process_rss_control_never_acceptance', 'primary_acceptance_eligible': False,
                 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
                 'case': case, 'sequence': SEQUENCE, 'source_inputs': sources, 'resolved_inputs': resolved,
-                'driver_environment': DRIVER_ENVIRONMENT,
+                'driver_environment': DRIVER_ENVIRONMENT, 'memory_attribution': memory_attribution,
                 'artifacts': {key: {'path': str(path), 'sha256': campaign.sha256(path)} for key, path in files.items()},
                 'policy_sha256': campaign.sha256(campaign.POLICY), 'policy': policy,
                 'platform': platform.uname()._asdict(), 'rustflags': os.environ.get('RUSTFLAGS'),
@@ -144,14 +146,19 @@ def run(args, root=ROOT):
                            'scenario_sha256': digest, 'status': 'started'}
                 receipts.append(receipt)
                 process = None
+                observer = None
                 try:
                     with (pair / 'driver.log').open('w') as log:
                         process = subprocess.Popen(command, cwd=root, stdout=log, stderr=subprocess.STDOUT,
                                                    start_new_session=True, stdin=subprocess.DEVNULL,
                                                    env={**os.environ, **DRIVER_ENVIRONMENT})
                         receipt['driver_pid'] = process.pid
+                        if memory_attribution:
+                            observer = MemoryAttribution(process, pair, policy)
                         receipt['exit_code'] = process.wait(timeout=remaining)
                 finally:
+                    if observer is not None:
+                        receipt['memory_attribution'] = observer.finish()
                     if process is not None:
                         try:
                             receipt['process_group_stopped'] = campaign.stop_process_group(process)
@@ -168,6 +175,8 @@ def run(args, root=ROOT):
                     (pair / 'execution.json').write_text(json.dumps(receipt, indent=2) + '\n')
                 if receipt['exit_code'] or not receipt['process_group_stopped']:
                     raise ValueError('Driver or owned process cleanup failed')
+                if memory_attribution and receipt.get('memory_attribution', {}).get('status') != 'complete':
+                    raise ValueError('Required diagnostic memory observations failed')
                 if campaign.scenario_directory_hash(pair / 'scenarios') != digest:
                     raise ValueError('Scenario inputs changed during execution')
                 rows = [json.loads(line) for line in (pair / 'reports.jsonl').read_text().splitlines() if line.strip()]
@@ -191,6 +200,7 @@ def run(args, root=ROOT):
         for item in receipts if item['codec'] == codec and item['status'] == 'complete']
         for codec in compare.CODECS}
     result = {'kind': manifest['kind'], 'primary_acceptance_eligible': False, 'head': manifest['head'],
+              'case_id': args.case, 'memory_attribution': memory_attribution,
               'status': 'failed' if error or changed else 'diagnostic_complete_never_acceptance',
               'error': error, 'inputs_unchanged': not changed, 'changed': changed, 'pairs': receipts, 'summary': summary,
               'elapsed_seconds': time.monotonic() - started}
@@ -206,6 +216,7 @@ def main():
     parser.add_argument('--native-lib', type=Path, required=True)
     parser.add_argument('--router-config', type=Path, default=campaign.ROOT / 'native/bench/bench_router.json')
     parser.add_argument('--dart', default='dart')
+    parser.add_argument('--memory-attribution', action='store_true', help='Read owned process maps/VM memory buckets; perturbs execution, never acceptance')
     parser.add_argument('--case', choices=CASES, default=CASES[0])
     raise SystemExit(run(parser.parse_args(), root=campaign.ROOT))
 

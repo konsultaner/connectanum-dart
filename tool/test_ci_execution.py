@@ -45,9 +45,18 @@ class FlatbuffersDiagnosticModesTests(unittest.TestCase):
         self.assertIn("format('flatbuffers-rss-control-{0}-{1}', github.sha, inputs.rss_case)", block)
         self.assertIn('cancel-in-progress: false', block)
         self.assertIn('This never establishes parity or replaces primary gates.', block)
-        runner = block.split('if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then', 1)[1].split('\n          fi', 1)[0]
+        runner = block.split('if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then', 1)[1].split('          diagnostic_args=()', 1)[0]
         self.assertIn('exit 0', runner)
         self.assertNotIn('run_wamp_serializer_campaign.py', runner)
+
+    def test_memory_attribution_is_opt_in_and_has_owned_linux_smoke_and_units(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        options = workflow.split('      memory_attribution:', 1)[1].split('      trace_socket_options:', 1)[0]
+        self.assertIn('default: false', options)
+        self.assertIn('python3 tool/test_wamp_rss_memory.py', workflow)
+        self.assertIn('if [[ "$INPUT_MEMORY_ATTRIBUTION" == true ]]; then', workflow)
+        self.assertIn('--output out/wamp-flatbuffers-primary/memory-smoke --memory-attribution', workflow)
+        self.assertIn('memory_args=(--memory-attribution)', workflow)
 
     def test_optional_socket_trace_requires_explicit_diagnostic_input_and_real_smoke(self):
         workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()

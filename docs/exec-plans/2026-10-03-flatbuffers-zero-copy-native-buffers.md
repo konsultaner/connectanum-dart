@@ -2,6 +2,22 @@
 
 Status: active. Started: 2026-10-03.
 
+## Fresh-process result and passive memory attribution (2026-10-22)
+
+- [x] Pass frozen full verification on `76c4282c` in 22m59s, including browsers;
+  all 3,193 sources/four resolved inputs fixed, clean tree. Core CI passes 38/38.
+- [x] Independently audit both corrected RSS controls: 60 rows each, six fresh
+  process pairs, exact inputs/scenarios/binaries, stable PIDs and cleanup.
+- [x] Retain higher FlatBuffers RSS than CBOR in both fresh pairs for each case;
+  do not attribute it solely to workload history or waive the strict RSS gate.
+- [x] Prepare default-off owned VM memory buckets/maps at complete report
+  boundaries; preserve snapshots/errors, source inputs and cleanup ordering.
+- [x] Complete advisory review and 107 focused contracts; verify CRLF hashes
+  with fail-before/pass-after and pass the local standard-VM API smoke.
+- [ ] Pass pinned real Linux ownership/maps smoke, then audit full attribution
+  before any runtime allocation change. No forced GC or SDK patch.
+- [ ] Complete current-head verification/CI and all unchanged acceptance gates.
+
 ## Owned receive-window and fresh-process memory discrimination (2026-10-22)
 
 - [x] Audit real Linux smoke success and faithful replay 39845190356: 47/360

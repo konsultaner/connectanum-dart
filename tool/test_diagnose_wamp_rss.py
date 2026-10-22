@@ -97,7 +97,7 @@ class RssControlTests(unittest.TestCase):
                 with self.subTest(mutation=mutation), self.assertRaises(ValueError):
                     diagnostic.validate_rows(rows, self.case, 'flatbuffers', policy)
 
-    def execute(self, *, corrupt=None, cleanup=True, launch_error=None, wait_error=None):
+    def execute(self, *, corrupt=None, cleanup=True, launch_error=None, wait_error=None, memory_attribution=False, lifecycle=None):
         self.policy['minimum_samples_per_run'] = 2  # Unit fixture only; generation test pins real floors.
         policy = self.root / 'policy.json'
         policy.write_text(json.dumps(self.policy))
@@ -108,7 +108,7 @@ class RssControlTests(unittest.TestCase):
         for name in ['driver', 'native.so', 'router.json', 'source.txt']:
             (self.root / name).write_text('fixed fixture')
         args = argparse.Namespace(output=self.root / 'output', driver=self.root / 'driver', native_lib=self.root / 'native.so',
-                                  router_config=self.root / 'router.json', dart='dart', case=self.case['id'])
+                                  router_config=self.root / 'router.json', dart='dart', case=self.case['id'], memory_attribution=memory_attribution)
         calls = []
         def output(command, **kwargs):
             if command[0] == 'nm': return '0000 T ct_runtime_new\n'
@@ -134,17 +134,43 @@ class RssControlTests(unittest.TestCase):
                 (pair / 'reports.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in rows))
                 return 0
             return argparse.Namespace(pid=3000 + index, wait=wait)
+        def cleanup_pair(process):
+            if lifecycle is not None:lifecycle.append('cleanup')
+            if isinstance(cleanup, Exception):raise cleanup
+            return cleanup
         with mock.patch.object(diagnostic.platform, 'system', return_value='Linux'), \
                 mock.patch.object(diagnostic.platform, 'uname', return_value=argparse.Namespace(_asdict=lambda: {'system': 'Linux', 'machine': 'fixture'})), \
                 mock.patch.object(diagnostic.campaign, 'POLICY', policy), \
                 mock.patch.object(diagnostic.campaign, 'LOCK', self.root / 'lock'), \
                 mock.patch.object(diagnostic.subprocess, 'check_output', side_effect=output), \
                 mock.patch.object(diagnostic.subprocess, 'Popen', side_effect=popen), \
-                mock.patch.object(diagnostic.campaign, 'stop_process_group', return_value=cleanup if not isinstance(cleanup, Exception) else False, side_effect=cleanup if isinstance(cleanup, Exception) else None), \
+                mock.patch.object(diagnostic.campaign, 'stop_process_group', side_effect=cleanup_pair), \
                 mock.patch.object(diagnostic, 'source_inputs', side_effect=inputs), \
                 mock.patch.object(diagnostic.compare, '_validate_evidence', return_value=[]):
             code = diagnostic.run(args, root=self.root)
         return code, json.loads((args.output / 'result.json').read_text()), calls
+
+    def test_optional_memory_observer_finishes_before_owned_group_cleanup(self):
+        lifecycle = []
+        observer = mock.Mock()
+        observer.finish.side_effect = lambda: (lifecycle.append('finish') or {'status': 'complete'})
+        with mock.patch.object(diagnostic, 'MemoryAttribution', return_value=observer) as constructor:
+            code, result, calls = self.execute(memory_attribution=True, lifecycle=lifecycle)
+        self.assertEqual(code, 0)
+        self.assertEqual(constructor.call_count, 6)
+        self.assertEqual(lifecycle, ['finish', 'cleanup'] * 6)
+        self.assertTrue(all(pair['memory_attribution']['status'] == 'complete' for pair in result['pairs']))
+
+    def test_failed_optional_memory_snapshot_preserves_raw_rows_and_stops_new_pairs(self):
+        observer = mock.Mock()
+        observer.finish.return_value = {'status': 'failed', 'missing_stages': ['before_last_report']}
+        with mock.patch.object(diagnostic, 'MemoryAttribution', return_value=observer):
+            code, result, calls = self.execute(memory_attribution=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(result['pairs'][0]['process_group_stopped'])
+        self.assertTrue((self.root / 'output/00-flatbuffers/reports.jsonl').exists())
+        self.assertIn('memory observations failed', result['error'])
 
     def test_each_pair_preserves_canonical_worker_reuse_and_native_build_environment(self):
         code, result, calls = self.execute()

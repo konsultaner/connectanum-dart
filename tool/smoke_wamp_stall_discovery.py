@@ -12,6 +12,7 @@ import time
 import urllib.parse
 
 import capture_wamp_stall as diagnostic
+from wamp_rss_memory import capture_target_memory
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -56,10 +57,26 @@ def capture_smoke_snapshot(output, vm_pid, observer_pid, uri, tcp_port):
         raise RuntimeError('Owned TCP_INFO observation failed: ' + json.dumps(info))
 
 
+def capture_smoke_memory(output, vm_pid, observer_pid):
+    try:
+        targets = diagnostic.discover_vm_services(os.getpid())
+        if len(targets) != 1 or targets[0].role != 'worker':
+            raise ValueError('Expected one owned smoke memory endpoint')
+        record = capture_target_memory(targets[0], os.getpid(), vm_pid)
+        if record['pid'] != vm_pid or record['observer_pid'] != observer_pid:
+            raise ValueError('Smoke memory owner differs from launched VM/observer')
+    except Exception as error:
+        record = {'error': type(error).__name__}
+    (output / 'memory.json').write_text(json.dumps(record, indent=2) + '\n')
+    if 'error' in record:
+        raise RuntimeError('Owned standard-VM memory API/maps smoke failed')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--dart', default='dart')
+    parser.add_argument('--memory-attribution', action='store_true')
     args = parser.parse_args()
     if not Path('/proc').is_dir():
         raise ValueError('Real original-process discovery smoke requires Linux procfs')
@@ -127,6 +144,8 @@ Future<void> main() async {
             if observer.poll() is not None:
                 raise RuntimeError('Metrics observer exited before readiness')
         capture_smoke_snapshot(output, vm.pid, observer.pid, uri, tcp_port)
+        if args.memory_attribution:
+            capture_smoke_memory(output, vm.pid, observer.pid)
         observer.stdin.write(json.dumps({'id': 1, 'command': 'close'}) + '\n')
         observer.stdin.flush()
         stop(observer)

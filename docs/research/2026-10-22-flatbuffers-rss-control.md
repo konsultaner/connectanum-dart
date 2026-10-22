@@ -61,3 +61,63 @@ editing, solely within its verified owned process group; its incomplete result
 is not claimed as passing. No started benchmark observation is canceled.
 Advisory follow-up review is resource-blocked by another task's native lease;
 manual source checks and actual archived-report validation remain separate proof.
+
+
+## Successful fresh-process controls and passive attribution
+
+Corrected native control 39854187635 (artifact 12460435216) and Dart-value
+control 39854191150 (artifact 12458709768) both complete successfully. Each
+independent audit verifies 3,193 sources, four retained resolved contents, the
+production binaries already audited in the copy proof, exact scenarios, all
+60 rows (18 warmup/42 measured), stable per-pair process identities and cleanup.
+Archive hashes are respectively
+`eca2c33f94021522db7709d3a4fab5a13d415dd83ba637a7c79b29976e7a4700`
+and `57d9f9993153a21789ba83769abc84f179ab389b4e47f42c4a62ba100c53fb2f`.
+No values are pooled across the two runners.
+
+FlatBuffers exceeds CBOR in both fresh process pairs for each case. In the
+native case, summed median peaks are about431/437 MiB versus CBOR 408/418 MiB;
+in the Dart-value case, about391/393 MiB versus 377/368 MiB. These are two
+experimental units per codec, not 42 independent replicates. They cannot accept
+parity or quantify the original paired RSS gate, but simple workload history
+alone does not explain the repeated excess.
+
+The difference is mainly client RSS and exceeds the difference in reported
+live managed-heap usage. Young-collection occupancy is about 30–32 MiB for all
+codecs, and the existing observer already clears its GC-only timeline each
+window. No new-space capacity, timeline leak or native-owner leak is inferred.
+Existing CPU profiles have additional instrumentation and cannot substitute for
+production memory attribution.
+
+Optional `--memory-attribution` observes the unchanged production processes after
+the third and ninth complete report lines. It checks report PIDs against owned
+observer/driver process identities before and after reading standard VM memory
+buckets and bounded `/proc/PID/smaps`. Each snapshot binds to the exact report
+line hash. Partial lines wait for completion; failed snapshots and missing
+stages stay explicit failures. The observer stops/joins before process cleanup.
+Default controls are unchanged and all outputs remain ineligible for acceptance.
+
+The standard [VM API](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/service/service.md#getprocessmemoryusage)
+returns a tree of VM-known memory buckets. Bucket names may change and sizes
+include children; parents and descendants must never be summed. The pinned
+[implementation](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/service.cc#L4996)
+includes profiler/timeline/zone/page-cache and isolate-group heap capacity.
+Its heap Used sub-bucket approximates new-space capacity, not exact live usage.
+These observations are non-atomic and do not promise a complete RSS reconciliation.
+They do not measure dependency-internal buffer copies or change approved copy scope.
+
+A real owned Linux smoke must validate the standard API and maps before running
+the optional full control. There is no forced GC, CPU profiling, SDK patch,
+socket change, allocator setting or changed workload/acceptance limit.
+
+
+Ten memory-observer contracts, 20 RSS-control contracts, seven smoke contracts,
+17 CI contracts and the existing 53 capture/discovery contracts pass (107 total).
+Review identifies a possible stage collision outside the fixed policy; invalid
+counts now reject before thread creation. A new CRLF/raw-line-hash regression
+fails before switching the tail reader to binary bytes and passes afterward.
+Other advisory claims about text reads, partial-line handling and file closure
+are independently checked against source/tests and rejected. API-only smoke
+passes 15 memory buckets on local macOS Dart 3.13.1, with exit 0 and reader cleanup;
+this does not establish Linux ownership/maps behavior or pinned 3.13.5 evidence.
+The new hosted mode requires that real Linux smoke before observing any rows.

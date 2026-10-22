@@ -21,6 +21,21 @@ lifetime audits.
 The current follow-up changes diagnostic capture/control tooling and its tests;
 production Dart/Rust remains the verified `c0aef5fa` runtime.
 
+Frozen full `bin/verify` on corrected diagnostic head `76c4282c` passes in
+22m59s, including Chrome/Wasm, with all 3,193 sources/four resolved inputs fixed
+and a clean tree. Runtime CI 39840612253 passes all 38 jobs. The superseded
+ordinary CI on pre-correction `fe9f9b6d` is confirmed canceled; all started
+benchmark observations remain preserved.
+
+Both corrected fresh-process RSS controls pass independent audits: 60 rows each,
+exact inputs/scenarios, stable per-pair processes, production binaries and cleanup.
+FlatBuffers remains higher than CBOR in both fresh pairs for each case. The
+excess is mostly client RSS and larger than reported live-heap differences;
+no causal runtime fix is established. A default-off passive memory observer now
+reads standard VM buckets and owned process maps, with complete-report hashes,
+identity checks and retained failures. Local tests/review and a real API smoke
+precede hosted Linux validation; no acceptance policy changes.
+
 Current strict run 39840621032 completes 90 valid rows with zero integrity
 findings. Throughput, p95/p99, CPU, managed allocation and GC pass in every
 case. Two RSS costs remain: Dart values (ratio 1.0082) and native buffer
@@ -44,10 +59,10 @@ changing the strict RSS gate. The first hosted RSS controls fail validation afte
 Their retained reports expose incorrect sample timestamp assumptions and missing
 worker-reuse environment. Both have failing regressions before correction; all
 60 archived strict rows pass the repaired report validator, and 18 focused
-contracts pass. Renewed complete controls remain required. Runtime CI 39840612253 has
+contracts pass. The renewed complete controls pass as recorded above. Runtime CI 39840612253 has
 35 successful jobs and two still running, with no failed job. Latest full
-`bin/verify` remains `c0aef5fa`; preliminary diagnostic-head verification is
-stopped before the report/reuse repair and will restart on the corrected head.
+`bin/verify` on `76c4282c` passes as recorded above; the new optional attribution
+follow-up still requires resulting-source verification.
 
 Before this follow-up, `dd6e674a` passes the resulting-source serializer directory
 (3,398 cases), focused analysis and full `bin/verify`, including Chrome/Wasm.
