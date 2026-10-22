@@ -27,8 +27,10 @@ and payload spans. Ordinary CALL/PUBLISH/ERROR parsing removes one allocation
 and 108 requested bytes. Separate-target, normal-allocator timing retains the
 string-free control interval and faster CALL/PUBLISH components. These are not
 Dart allocation, RSS, GC or whole-workload acceptance. The reproducible reader
-probe is added to the existing hosted component diagnostic; production adoption
-and renewed acceptance remain pending. See the
+probe is added to the existing hosted component diagnostic. Baseline source
+`b1baf368` is queued as [39779792736](https://github.com/konsultaner/connectanum-dart/actions/runs/39779792736).
+The verified lazy-cache implementation is now adopted; actual-source canonical
+and hosted acceptance remain pending. See the
 [string-cache research](research/2026-10-22-flatbuffers-inline-string-cache.md).
 
 The existing opaque FlatBuffers serializer retains the owned envelope and

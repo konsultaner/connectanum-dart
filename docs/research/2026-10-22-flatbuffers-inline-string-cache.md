@@ -14,7 +14,10 @@ terminator checks, one-MiB string-visit budget, depth and table limits remain
 unchanged. Repeated references still consume the original visit budget.
 
 This candidate is measured privately before production adoption. The diagnostic
-and CI follow-up first retain a baseline with the production reader unchanged.
+first retains unchanged-reader baseline `b1baf368` as
+[run39779792736](https://github.com/konsultaner/connectanum-dart/actions/runs/39779792736).
+The verified lazy variant is then adopted; resulting-source acceptance remains
+pending.
 
 ## Allocation evidence
 

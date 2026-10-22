@@ -33,8 +33,9 @@ Status: active. Started: 2026-10-03.
 - [x] Audit the native-buffer profile: 3,173 source/dependency inputs and 18
   snapshots. Builder objects disappear after the workload; no retained-builder
   leak is established, and RSS/GC gates remain unresolved.
-- [ ] Publish the component baseline, adopt the verified cache candidate, and
-  renew actual-source native/canonical/hosted verification and acceptance.
+- [x] Publish unchanged-reader component baseline `b1baf368`, run39779792736,
+  and adopt the privately verified lazy cache without schema/ABI/budget changes.
+- [ ] Renew actual-source native/canonical/hosted verification and acceptance.
 - [ ] Complete canonical/hosted verification and unchanged acceptance campaigns
   for any adopted production fix. Keep #103 open until primary parity passes.
 

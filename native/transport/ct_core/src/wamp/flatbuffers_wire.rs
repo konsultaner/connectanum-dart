@@ -52,7 +52,7 @@ pub(super) fn read(bytes: Bytes) -> Result<Arc<Fields>, ParseError> {
     let mut reader = Reader {
         bytes,
         tables: TableCache::default(),
-        strings: HashMap::new(),
+        strings: StringCache::default(),
         string_bytes: 0,
         elements: 0,
     };
@@ -100,10 +100,47 @@ impl TableCache {
     }
 }
 
+// Common messages have only a few wire strings. Keep their offsets inline;
+// larger graphs retain randomized lookup rather than an unbounded linear scan.
+#[derive(Default)]
+struct StringCache {
+    inline: Option<[Option<(usize, Arc<str>)>; 4]>,
+    used: usize,
+    overflow: Option<HashMap<usize, Arc<str>>>,
+}
+impl StringCache {
+    fn get(&self, key: &usize) -> Option<&Arc<str>> {
+        let inline = self.inline.as_ref()?;
+        for (candidate, value) in inline[..self.used].iter().flatten() {
+            if candidate == key {
+                return Some(value);
+            }
+        }
+        self.overflow.as_ref()?.get(key)
+    }
+    fn insert(&mut self, key: usize, value: Arc<str>) {
+        let inline = self.inline.get_or_insert_with(Default::default);
+        for (candidate, existing) in inline[..self.used].iter_mut().flatten() {
+            if *candidate == key {
+                *existing = value;
+                return;
+            }
+        }
+        if self.used < inline.len() {
+            inline[self.used] = Some((key, value));
+            self.used += 1;
+        } else {
+            self.overflow
+                .get_or_insert_with(HashMap::new)
+                .insert(key, value);
+        }
+    }
+}
+
 struct Reader {
     bytes: Bytes,
     tables: TableCache,
-    strings: HashMap<usize, Arc<str>>,
+    strings: StringCache,
     string_bytes: usize,
     elements: usize,
 }
@@ -328,6 +365,98 @@ impl Reader {
 mod copy_tests {
     use super::*;
     #[test]
+    fn string_cache_keeps_small_sets_inline_and_aliases_after_overflow() {
+        let mut cache = StringCache::default();
+        assert!(cache.inline.is_none());
+        let mut values = Vec::new();
+        for offset in 0..12 {
+            let value: Arc<str> = format!("value-{offset}").into();
+            cache.insert(offset, value.clone());
+            assert!(Arc::ptr_eq(cache.get(&offset).unwrap(), &value));
+            if offset < 4 {
+                assert!(cache.overflow.is_none());
+            }
+            values.push(value);
+        }
+        assert_eq!(cache.used, 4);
+        assert_eq!(cache.overflow.as_ref().unwrap().len(), 8);
+        for (offset, value) in values.iter().enumerate() {
+            assert!(Arc::ptr_eq(cache.get(&offset).unwrap(), value));
+        }
+        assert!(cache.get(&12).is_none());
+        for offset in [0, 11] {
+            let replacement: Arc<str> = "replacement".into();
+            cache.insert(offset, replacement.clone());
+            assert!(Arc::ptr_eq(cache.get(&offset).unwrap(), &replacement));
+        }
+        assert_eq!(cache.used, 4);
+        assert_eq!(cache.overflow.as_ref().unwrap().len(), 8);
+    }
+
+    #[test]
+    fn cached_strings_preserve_the_original_visit_budget() {
+        let text = "x".repeat(512 * 1024);
+        let mut bytes = (text.len() as u32).to_le_bytes().to_vec();
+        bytes.extend_from_slice(text.as_bytes());
+        bytes.push(0);
+        let mut reader = Reader {
+            bytes: Bytes::from(bytes),
+            tables: TableCache::default(),
+            strings: StringCache::default(),
+            string_bytes: 0,
+            elements: 0,
+        };
+        let Value::Text(first) = reader.string(0).unwrap() else {
+            panic!("text");
+        };
+        let Value::Text(second) = reader.string(0).unwrap() else {
+            panic!("text");
+        };
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(reader.string_bytes, 1024 * 1024);
+        assert!(reader
+            .string(0)
+            .unwrap_err()
+            .to_string()
+            .contains("string budget"));
+    }
+
+    #[test]
+    fn malformed_strings_are_rejected_before_cache_overflow_allocation() {
+        for (last_byte, terminator, reason) in [(0xff, 0, "UTF-8"), (b'x', 1, "string terminator")]
+        {
+            let mut bytes = Vec::new();
+            let mut offsets = Vec::new();
+            for index in 0..5 {
+                while bytes.len() % 4 != 0 {
+                    bytes.push(0);
+                }
+                offsets.push(bytes.len());
+                bytes.extend_from_slice(&1_u32.to_le_bytes());
+                bytes.push(if index == 4 { last_byte } else { b'a' + index });
+                bytes.push(if index == 4 { terminator } else { 0 });
+            }
+            let mut reader = Reader {
+                bytes: Bytes::from(bytes),
+                tables: TableCache::default(),
+                strings: StringCache::default(),
+                string_bytes: 0,
+                elements: 0,
+            };
+            for offset in &offsets[..4] {
+                reader.string(*offset).unwrap();
+            }
+            assert!(reader.strings.overflow.is_none());
+            assert!(reader
+                .string(offsets[4])
+                .unwrap_err()
+                .to_string()
+                .contains(reason));
+            assert!(reader.strings.overflow.is_none());
+        }
+    }
+
+    #[test]
     fn string_reader_observes_storage_once_and_retains_cached_aliases() {
         for text in ["", "écho", "routing.name"] {
             let mut bytes = (text.len() as u32).to_le_bytes().to_vec();
@@ -336,7 +465,7 @@ mod copy_tests {
             let mut reader = Reader {
                 bytes: Bytes::from(bytes),
                 tables: TableCache::default(),
-                strings: HashMap::new(),
+                strings: StringCache::default(),
                 string_bytes: 0,
                 elements: 0,
             };
