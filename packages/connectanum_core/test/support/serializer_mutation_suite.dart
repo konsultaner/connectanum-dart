@@ -15,6 +15,8 @@ import '../serializer/flatbuffers_byte_view_test.dart'
 import '../serializer/flatbuffers_validation_test.dart'
     as flatbuffers_validation;
 import '../serializer/flatbuffers_wire_writer_test.dart' as flatbuffers_writer;
+import '../serializer/flatbuffers_reader_cache_test.dart'
+    as flatbuffers_reader_cache;
 import '../serializer/flatbuffers_message_writer_test.dart'
     as flatbuffers_message_writer;
 import '../serializer/flatbuffers_cbor_validation_test.dart'
@@ -101,4 +103,5 @@ void main() {
   group('PPT null values', ppt_nulls.main);
   group('resource limits', limits.main);
   group('handshake', handshake.main);
+  group('flatbuffers reader cache', flatbuffers_reader_cache.main);
 }

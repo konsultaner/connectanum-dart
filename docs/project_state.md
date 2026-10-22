@@ -5,15 +5,44 @@ Last updated: 2026-10-22.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-A new native allocation candidate replaces fixed-schema table B-trees with
-sorted contiguous fields and reserves known table sizes. It preserves sorted
-lookup, duplicate replacement, nested aliases and all existing validation.
-Two regressions compare every pinned table against BTreeMap semantics and check
-shared table/byte ownership. The first hosted compile finds missing mutable
-lookup used by segmented composition; get_mut/remove and mutation/removal
-regressions are added before the next run. Native conformance, allocator components and full CI
-are pending; no performance gain or stall repair is claimed. Local bin/test-fast
-and companion tests/review could not acquire the shared resource lease.
+Runtime `08efcd5b` passes frozen local `bin/verify` in 24m19s, including
+browser suites, with all 3,183 sources/four resolved inputs unchanged and a
+clean tree. Its 39 native FlatBuffers tests pass. Independent allocator audits
+verify matching compiler/lock/probes and 34 identical wires: decoding requests
+552–1,368 fewer bytes/1–3 fewer allocations, and encoding requests 720 fewer
+bytes in all ten fixtures. These are component savings, not parity acceptance.
+
+Its renewed production copy proof also passes independent audit: four lifetime
+phases, 36 snapshot groups/108 post-GC observations, 120 owned-path cases and
+300 short rows, including E2EE/native crypto/transcode and all 32 no-copy
+observations. Public leases export no byte view and leave zero native owners
+before GC. Production exports contain no test-oracle symbols. All four recorded
+resolved-input hashes match independently retained contents.
+
+The strict candidate diagnostic completes 90 valid rows but retains six costs:
+Dart-value throughput/CPU/GC and RSS in all three construction modes. Every
+allocation/p95/p99 gate passes. The completed older `36a6df24` primary campaign
+has 1,440 rows, zero integrity gaps and 187 numerical failures; it is retained
+separately. Current full CI and full candidate campaigns continue. No budget,
+case, floor, repetition, baseline or deadline is waived.
+
+A private Dart reader-cache candidate remains unadopted. Forty balanced
+component windows retain identical wires and storage aliases, saving about
+259 managed bytes per RESULT decode and 456 per CALL decode. Only two worker
+processes per variant/shape are measured, so timing remains inconclusive.
+All 433 selected cases pass separately on baseline and candidate configurations.
+The initial ByteBuffer-wrapper identity guard fails before measurement; a direct
+storage-alias check replaces it outside measurement and the failed bundle remains.
+Three shared-string/table/type/overflow regressions are now added to the repository.
+Their first baseline fast run reproduces five wrapper-inventory failures; adding
+all VM/browser serializer wrapper registrations restores all 87 tooling cases.
+The corrected full fast baseline remains to be repeated before adoption.
+
+Native source review finds no demonstrated defect. Qwen's hypothetical sorting/
+sharing concerns are checked against private storage, binary-position insertion,
+mutable-value-only access and bounded (at most 21-field) schema tables. GLM also
+finds neither claim demonstrated; schema-wide BTreeMap comparison and Arc/Bytes
+alias regressions pass. Application dictionaries retain their original maps.
 
 A retention regression finds that artifact uploads omit the copied
 .dart_tool/package_config.json because its path contains a hidden directory.
@@ -33,16 +62,16 @@ The repaired operation-window profile on e1ab797a captures a valid MessagePack
 interval and native reports, then fails starting the FlatBuffers perf recorder
 (exit 255). It has no FlatBuffers comparison. Retry 39822284373 is running.
 
-The first native E2EE profile fails correctly at its operation-window guard:
-sampling is entirely before the actual MessagePack data interval, so no
-FlatBuffers comparison is accepted. Sources/native binary and shutdown remain
-verified. The diagnostic correction now captures the complete HTTP operation,
-then selects an interior five-second interval using independent VM-clock/wall
-observations and CLOCK_MONOTONIC anchors for native perf. Old failed data is not
-relabelled. Ten new interval/clock regressions and the affected profile/CI
-contracts (37 tests) pass; generated Dart syntax parses. Full hosted integration
-is pending. Native/full verification and local inference remain resource-blocked;
-lightweight Python mock/file contracts run independently without native code.
+The repaired E2EE profile retry `39822284373` on `e1ab797a` succeeds for all
+three codecs. Independent audit verifies 3,183 source/three resolved hashes,
+18 snapshots, independent post-hoc VM/native clock ranges and every sampled VM
+timestamp, positive filtered native reports and cleanup. Its largest exclusive
+Dart function is in a common CBOR PPT copy path. No additional FlatBuffers cause
+is established. Before/after class allocation deltas are not inferred because
+workload observers reset accumulators. Profile HTTP reports lack the driver's
+pipeline-applicability fields; observed component sums/active crypto are checked,
+while full copy acceptance comes from the separate production proof. The earlier
+same-head recorder startup failure remains retained rather than relabelled.
 
 The CPU profiler explicitly pins/records one native runtime thread, matching
 acceptance. Hosted fail-first `5b9f63c7` reproduces nine inherited parent threads

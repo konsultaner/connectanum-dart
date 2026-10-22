@@ -9,11 +9,32 @@ Status: active. Started: 2026-10-03.
   application maps, schema, limits, validation and byte owners are unchanged.
 - [x] Add every-schema-field map equivalence, replacement/extension/order and
   nested table/byte alias regressions. Rust formatting/diff checks pass.
-- [ ] Pass native conformance and allocator components on the candidate; compare
-  complete wires, copy flags and allocation requests with the retained baseline.
-- [ ] Pass full CI and bin/verify; local precheck and companion review/test
-  planning are resource-blocked. Do not claim pending execution as a pass.
-- [ ] Repeat strict/full timing only after correctness and component review.
+- [x] Pass all 39 native conformance tests and allocator components on `08efcd5b`.
+  Verify same lock/compiler/probes, all 34 identical wires, 552–1,368 fewer reader
+  allocator bytes/1–3 fewer requests and 720 fewer encoder bytes per fixture.
+- [x] Pass frozen `bin/verify` in 24m19s, including browser suites, with all
+  3,183 sources/four resolved inputs unchanged and a clean tree.
+- [x] Audit renewed production copy/lifetime proof: four phases, 36 snapshot
+  groups, 120 owned cases/300 short rows and all 32 no-copy observations.
+- [ ] Complete full hosted CI (all completed jobs currently pass).
+- [x] Complete advisory native review once the lease is available; independently
+  verify Qwen/GLM claims against sorting/COW methods, fixed schema size and tests.
+  No demonstrated defect remains from that review.
+- [x] Audit renewed strict 90 rows: zero integrity gaps, six retained costs
+  (Dart-value throughput/CPU/GC and all three RSS comparisons). All allocation
+  and p95/p99 gates pass. This is not primary acceptance.
+- [ ] Complete full candidate primary/supplemental timing and fix remaining costs.
+- [x] Measure private reader-cache copies after baseline verification: 40 ABBA
+  windows retain wire/storage identity and save about 259/456 managed bytes per
+  RESULT/CALL decode. Timing is inconclusive with two workers per variant.
+- [x] Pass all 433 selected cases on both configurations, including three new
+  shared-string/table/schema-type/overflow regressions. Preserve the failed
+  initial buffer-wrapper guard and the invalid CLI attempt as failed diagnostics.
+- [x] Reproduce five baseline wrapper-inventory failures after adding the new
+  test; register it in all VM/browser serializer wrappers and pass all 87 tooling
+  cases, without weakening inventory equality or skipping tests.
+- [ ] Repeat the complete fast baseline before adopting measured reader-cache
+  source; then renew full verification, copy/lifetime and hosted timing.
 
 ## Faithful payload timeout diagnosis (2026-10-22)
 

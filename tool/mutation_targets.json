@@ -497,7 +497,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_byte_view_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_copy_retention_test.dart",
-      "packages/connectanum_core/test/owned_copy_metrics_test.dart"
+      "packages/connectanum_core/test/owned_copy_metrics_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_reader_cache_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -552,7 +553,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_byte_view_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_copy_retention_test.dart",
-      "packages/connectanum_core/test/owned_copy_metrics_test.dart"
+      "packages/connectanum_core/test/owned_copy_metrics_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_reader_cache_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -608,7 +610,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_byte_view_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_copy_retention_test.dart",
-      "packages/connectanum_core/test/owned_copy_metrics_test.dart"
+      "packages/connectanum_core/test/owned_copy_metrics_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_reader_cache_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
@@ -666,7 +669,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_byte_view_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_copy_retention_test.dart",
-      "packages/connectanum_core/test/owned_copy_metrics_test.dart"
+      "packages/connectanum_core/test/owned_copy_metrics_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_reader_cache_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
