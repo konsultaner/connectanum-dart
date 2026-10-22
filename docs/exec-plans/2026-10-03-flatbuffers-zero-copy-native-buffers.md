@@ -14,9 +14,10 @@ Status: active. Started: 2026-10-03.
   unchanged-wire/alias assertions, 12 existing functional suites per variant and
   balanced fresh-worker timing/allocation windows, explicitly never acceptance.
 - [x] Pass five component integrity cases and 107 combined focused contracts.
-- [ ] Pass hosted Dart analysis, both private functional corpora and measured
-  component evidence before retaining the candidate. Local native/analysis/
-  companion work is machine-lease blocked, not claimed as passed.
+- [x] Pass hosted analysis and 434 cases per private variant in 39872554911.
+  Independently audit 160 raw rows/32 workers, matching wires/aliases, all inputs
+  and allocation proofs. RESULT/CALL decode ratios 0.82056/0.83085, about 80 fewer
+  managed bytes/decode. Local companion/verification remain machine-lease blocked.
 - [ ] Complete resulting-source full verification/CI, copy/lifetime proof and
   unchanged complete primary/supplemental gates; no closure from a component.
 
@@ -35,9 +36,10 @@ Status: active. Started: 2026-10-03.
 - [x] Pass both pinned Linux ownership/maps smokes and independently audit
   120 rows/48 owned role observations. Most native-case gap is unnamed mappings;
   native allocation liveness versus free retained pages is unresolved.
-- [ ] Validate optional all-arena glibc/external-usage wrappers with controlled
-  allocation/free, real Linux owned extension smoke and full diagnostic audits.
-  No runtime/SDK/allocator-policy/GC change or acceptance substitution.
+- [x] Validate wrappers and independently audit 39869871111: allocation/free,
+  owned compiled-kernel smoke, 60 rows/24 role observations, no compiler heap.
+  Most arena bytes are retained free space; final external usage is 112 bytes
+  for every codec. No runtime/SDK/allocator-policy/GC change or gate substitution.
 - [x] Wire the four omitted diagnostic regression suites into the canonical
   tooling gate; reproduce all omissions before repair and pass after repair.
 - [x] Audit failed first allocator control: 20 complete driver rows, one failed
@@ -54,8 +56,9 @@ Status: active. Started: 2026-10-03.
   combined focused contracts and group URL/one-query-per-group regressions.
 - [x] Audit current-runtime payload batch: 360 rows, zero integrity gaps, 28
   numerical costs. Audit the exact 10-KiB CPU profile before interpreting stacks.
-- [ ] Optimize repeated dictionary-field projection/agreement work only with
-  schema/metadata regressions, component evidence and unchanged end-to-end gates.
+- [x] Implement repeated dictionary-field projection/agreement optimization;
+  schema/metadata regressions and controlled component evidence pass above.
+  End-to-end parity remains required.
 - [ ] Complete current-head verification/CI and all unchanged acceptance gates.
 
 ## Owned receive-window and fresh-process memory discrimination (2026-10-22)
@@ -72,8 +75,10 @@ Status: active. Started: 2026-10-03.
   missing canonical worker-reuse environment. Pass 18 focused cases and validate
   60 actual archived strict rows; keep failed pairs ineligible.
 - [ ] Pass resulting-source review/tooling/full verification and Linux smokes.
-- [ ] Run/audit socket-option replay and fresh-process RSS controls; identify
-  causal fixes before changing runtime code or acceptance policy.
+- [x] Audit complete traced replay 39852837408: 360 rows/55 snapshots, 13,107
+  setsockopt calls, no SO_RCVBUF/TCP_WINDOW_CLAMP calls. One changing-progress
+  capture is excluded. This does not fix/explain earlier intermittent failure.
+- [ ] Identify a causal timeout fix if reproduced; preserve acceptance policy.
 - [ ] Complete all unchanged primary/supplemental timing gates and close issues
   only with required independent review and actual passing acceptance evidence.
 

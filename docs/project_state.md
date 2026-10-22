@@ -5,19 +5,21 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-The current unverified runtime candidate derives immutable dictionary-field
-plans once from the pinned schema and shares them between projection and frame
-agreement. It removes repeated full-schema singleWhere scans, predicate closures
-and field-name filtering while leaving nested-map/default/type checks unchanged.
-It changes two Dart modules; Rust/ABI/wire schema remain unchanged. Formatting
-and 154 existing mutation proofs pass. Local baseline bin/test-fast, analysis and
-companion review are machine-resource-lease blocked (no local tests started).
-A controlled hosted component must compare the explicit before-change commit
-b0e5d264bd44833629d1c3811cd7e539864c0e0a, prove actual private package selection,
-run existing metadata/validation/alias suites for both variants and retain all
-balanced fresh-worker windows. It cannot replace primary/supplemental acceptance.
-Its five integrity tests, canonical gate registration and 107 combined focused
-Python contracts pass. Hosted Dart/functional/component checks are pending.
+The runtime candidate `55ae6f4d` derives immutable dictionary-field plans once
+from the pinned schema and shares them between projection and frame agreement.
+It removes repeated full-schema scans/filtering in two Dart modules without
+changing value/default/type checks, wire schema, native ABI or byte ownership.
+Hosted component run 39872554911 passes analysis and 434 existing functional
+cases on each private baseline/candidate. Independent audit verifies all 3,201
+sources/four resolved contents, selected package variants, identical wires and
+payload aliases, 160 raw rows/32 fresh workers/128 measured windows and managed
+allocation proofs. RESULT/CALL median decode ratios are 0.82056/0.83085, with
+about 80 fewer managed bytes per decode. This is component evidence only;
+resulting-source full verification/CI, renewed copy proof and unchanged complete
+primary/supplemental parity gates remain required. Formatting, 154 mutation
+proofs and 107 focused Python contracts pass. Local baseline bin/test-fast,
+analysis and companion review remain machine-resource-lease blocked; no local
+Dart tests or advisory approval are claimed.
 
 The preceding fully verified runtime `c0aef5fa` removes an extra copy of the fresh validated metadata
 map and uses the checked-in generated enum switch in Dart decoding. It retains
@@ -99,22 +101,31 @@ the standard getIsolateGroupMemoryUsage API once per distinct group, matching
 shared-heap semantics and avoiding duplicate per-isolate requests. Group IDs and
 isolate references are retained; Expired group sentinels still fail the capture.
 Eighteen memory contracts and 101 combined focused contracts pass before the
-final URL assertion, which also passes. Real Linux group capture remains pending.
+final URL assertion, which also passes. Real Linux group capture passes in run 39869871111/artifact 12466123130:
+60 complete rows, six fresh pairs, 12 snapshots/24 owned role observations,
+controlled allocation/free and compiled-kernel ownership smoke. Independent
+source/content/binary/report/PID/cleanup audits pass. No compiler heap remains;
+worker external usage is 112 bytes for every codec at the final boundary.
+All-arena free retention accounts for most arena-system bytes, while FlatBuffers
+RSS lies within the CBOR range on this diagnostic runner. These counters do not
+reconcile resident bytes exactly or establish a runtime fix; strict RSS gates
+remain unchanged.
 
 Current-runtime supplemental payload batch 39852994229/artifact 12463981138
 passes independent input/binary/raw/comparison audits: 360 rows/12 cases, zero
 integrity findings, 28 numerical costs. Ten-KiB Dart values have about 2–3% CPU
 costs. Profile 39868579299 passes independent 3,196-source/three-resolved-content,
 18-snapshot, clock/window, native sampling and cleanup audits. Filtered stacks
-identify repeated dictionary projection and agreement checks; no runtime change
-has been made yet. Superseded ordinary CI32 is confirmed canceled with five
+identify repeated dictionary projection and agreement checks, motivating the
+measured dictionary-field candidate above. Superseded ordinary CI32 is confirmed canceled with five
 successful jobs retained, including Fast Checks and FlatBuffers Binding. Every
 started benchmark is preserved, and final-head CI is still required.
 
 Older primary run 39792311393 completes all 1,440 rows/48 cases with zero integrity
 findings but 144 numerical costs; independent input/binary/raw verification and
 comparison recomputation agree exactly. This is older runtime `2de4ec32`, never
-current acceptance. The current-runtime full campaigns remain observing.
+current acceptance. The preceding-runtime full campaigns remain observing; the new Dart candidate
+requires fresh campaigns.
 
 Current strict run 39840621032 completes 90 valid rows with zero integrity
 findings. Throughput, p95/p99, CPU, managed allocation and GC pass in every
@@ -134,6 +145,12 @@ The client receive buffer remains 2,072 bytes, server advertised send window
 This establishes flow limitation, not its cause. The next opt-in diagnostic
 records owned descendants' socket-option calls and fixed TCP policy/pressure
 state. It preserves the original driver/scenarios/deadlines and cannot accept parity.
+The traced replay 39852837408 now completes all 360 rows. Independent audit
+verifies sources/contents/binaries/original schedule/cleanup and the full trace:
+13,107 setsockopt calls, zero SO_RCVBUF or TCP_WINDOW_CLAMP mentions. Of 55 owned
+snapshots, 54 have stable progress through capture; one changed during capture
+and is excluded from interval interpretation. Tracing is intrusive and cannot
+accept parity or prove the earlier intermittent failure fixed.
 A separate fresh-process RSS control distinguishes codec/process history without
 changing the strict RSS gate. The first hosted RSS controls fail validation after one ten-row segment each.
 Their retained reports expose incorrect sample timestamp assumptions and missing

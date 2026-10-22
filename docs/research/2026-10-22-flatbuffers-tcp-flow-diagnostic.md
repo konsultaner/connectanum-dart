@@ -118,3 +118,22 @@ and owned network namespace accounting are labelled separately. No socket option
 sysctl, SDK, workload, floor, deadline or acceptance budget is changed by capture.
 A local companion's initial attempt is blocked by another task's resource lease;
 the subsequent bounded attempt and its verified disposition are retained locally.
+
+
+## Completed traced replay
+
+[Run 39852837408](https://github.com/konsultaner/connectanum-dart/actions/runs/39852837408)
+on fe9f9b6d/artifact 12465991409 completes the unchanged 360-row schedule.
+Archive SHA-256: ae2e5f43482317d577b6eac8bc9337adba609f2cb65a856f2b9ffc872d9eda60.
+Independent audit verifies 3,193 sources/four resolved contents, production
+binaries, original driver arguments/order/floors, all rows and cleanup. The full
+614,828,757-byte trace hashes to
+40bcc52463c0d54923939e83a8cb8a500fadeed4ee2baf6d30fc5944e2ba1b88.
+It contains 13,107 setsockopt calls and zero mentions of SO_RCVBUF or
+TCP_WINDOW_CLAMP; trace line count is not a socket-call count.
+
+All 55 owned captures retain process/socket checks; 54 preserve progress through
+capture, while stall-14 changes progress and is excluded from interval claims.
+No partial snapshot is substituted. The earlier narrow-window timeout is not
+reproduced here. Intrusive tracing changes scheduling, so this successful replay
+neither explains/fixes the earlier intermittent failure nor accepts performance.

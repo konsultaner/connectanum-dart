@@ -247,3 +247,24 @@ memory contracts pass, including exact isolateGroupId URL encoding, one request
 per shared group and explicit Expired failure; the combined focused suite passes
 101 cases before the final URL assertion, also verified separately. Linux
 validation is pending.
+
+
+## Complete shared-heap allocator control
+
+[Run 39869871111](https://github.com/konsultaner/connectanum-dart/actions/runs/39869871111)
+on b0e5d264/artifact 12466123130 passes analysis, controlled allocation/free,
+compiled-kernel ownership smoke and all six fresh codec pairs (60 rows).
+Archive SHA-256: e3b99a56887a18f6a7b4b3fe37f2e6b8900e8032334ff360fe20be3c42f62591.
+Independent audit matches 3,196 sources/four resolved contents, production
+binaries, raw reports, 12 snapshots/24 owned role observations, stable identities
+and cleanup. No kernel-service heap remains. Final application-group external
+usage is 112 bytes for every codec.
+
+On this runner the two FlatBuffers worker RSS values are 244.61/244.68 MiB;
+CBOR is 247.22/238.12 and MessagePack 273.77/286.68. FlatBuffers all-arena system
+bytes are 58.53/60.33 MiB, of which 55.85/57.55 MiB are free; nonfree totals are
+2.68/2.78 MiB. All codecs have 45.16 MiB malloc-mmap bytes at these boundaries.
+These capacities/counters do not equal resident/live bytes and cannot reconcile
+RSS exactly. They identify substantial allocator free retention, not a large
+live external-view allocation, and do not establish a runtime fix or waive the
+original strict RSS failures. This is diagnostic, not performance acceptance.
