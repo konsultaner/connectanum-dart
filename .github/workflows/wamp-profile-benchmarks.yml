@@ -43,6 +43,7 @@ on:
           - rpc_rawsocket_clear_native_native_buffer
           - rpc_rawsocket_clear_native_pre_encoded_span
           - ext_08_payload_sizes
+          - ext_44_encrypted_progressive_results
       router_worker_counts:
         description: Router worker counts passed to the bench orchestrator
         required: false

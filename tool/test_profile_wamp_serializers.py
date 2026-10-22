@@ -87,6 +87,7 @@ class ProfileSelectionTests(unittest.TestCase):
             'rpc_rawsocket_clear_native_native_buffer': ('native', 'native_buffer'),
             'rpc_rawsocket_clear_native_pre_encoded_span': ('native', 'pre_encoded_span'),
             'ext_08_payload_sizes': ('dart', 'values'),
+            'ext_44_encrypted_progressive_results': ('native', 'values'),
         }
         self.assertEqual(set(profiler.PROFILE_CASES), set(expected))
         real_project = Path(profiler.__file__).resolve().parents[1]
@@ -105,6 +106,10 @@ class ProfileSelectionTests(unittest.TestCase):
                 target = {'client_impl': implementation, 'payload_construction': construction}
                 if case_id == 'ext_08_payload_sizes':
                     target['payload_bytes'] = 10240
+                if case_id == 'ext_44_encrypted_progressive_results':
+                    target.update(mode='progressive_rpc', payload_bytes=10240, event_timeout_ms=300000,
+                                  peer_serializer='cbor', ppt_scheme='wamp', ppt_serializer='cbor',
+                                  ppt_cipher='xsalsa20poly1305', ppt_keyid='bench-key')
                 warmups = []
                 probes = []
 

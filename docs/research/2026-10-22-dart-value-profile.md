@@ -99,3 +99,24 @@ The archive `ten-kib-profile-80b.zip` (artifact `12441070760`) has SHA256
 the independent audit and `ten-kib-pinned-cpu-selected.json` are retained.
 Production benchmarks and every acceptance budget stay unchanged. Earlier
 profiles remain diagnostic evidence, not comparable one-thread primary measurements.
+
+## Native progressive E2EE follow-up
+
+The complete `36a6df24` encrypted/progressive shard independently verifies all
+240 rows with zero integrity findings, all E2EE/transcode/native-crypto copy
+reconciliations and the same production binaries as the copy proof. It retains
+47 numerical costs. Native cases have roughly 6–7% higher CPU and 4% higher
+managed allocation than the better codec. These are separate runner observations,
+not causal before/after estimates. Resulting `2de4ec32` renewal continues.
+
+Profiling now accepts exact `ext_44_encrypted_progressive_results`: native value
+construction, progressive RPC, clear RawSocket, 10-KiB data, fixed CBOR peer/PPT
+serializer, `wamp` scheme, XSalsa20-Poly1305 and the synthetic benchmark key ID.
+The mode and PPT fields override the ordinary profiler defaults in both warmup
+and instrumented requests, with the explicit one-thread setting retained. The
+same selection/mode matrix checks all request/audit fields; hosted validation
+and actual capture remain pending. Accepted workloads and budgets do not change.
+
+Encrypted artifact `12441082513`, archive `encrypted-36a6.zip`, SHA256
+`9f47afe40b4f38ecf0a7fe8e03f3871281f20869762ddcf11d27fab50330aceb`,
+and `encrypted-36a6-independent-audit.json` retain the original costs and proof.

@@ -4,6 +4,13 @@ Status: active. Started: 2026-10-03.
 
 ## Faithful payload timeout diagnosis (2026-10-22)
 
+- [x] Independently audit completed `36a6df24` encrypted/progressive shard:
+  240 rows, zero integrity gaps, 240 E2EE/160 transcode/120 native-crypto copy
+  reconciliations, fixed processes/inputs and matching production binaries.
+  Retain 47 costs; native cases have about 6–7% CPU/4% allocation overhead.
+- [ ] Verify/profile exact ext_44 native progressive E2EE with fixed CBOR PPT/
+  peer serializer, XSalsa20-Poly1305 and 10-KiB application data. This is a
+  diagnostic selection, not a changed workload or performance acceptance.
 - [ ] Run the separately labelled 90-row reduced reproduction using declared
   ext_15/ext_17/ext_18 transitions; keep full campaigns and original floors,
   runtime/config/deadlines. This subset can never accept parity or a shard.

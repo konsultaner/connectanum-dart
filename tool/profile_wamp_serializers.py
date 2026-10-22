@@ -35,6 +35,15 @@ PROFILE_CASES.update({
     for case in extensions.cases_for_shard('payload_sizes')
     if case['id'] == 'ext_08_payload_sizes'
 })
+PROFILE_CASES.update({
+    case['id']: {'client_impl': case['client_impl'],
+                 'payload_construction': case['construction'], 'mode': case['mode'],
+                 'payload_bytes': case['fields']['request_bytes'], 'event_timeout_ms': 300000,
+                 **{key: case['fields'][key] for key in
+                    ('peer_serializer', 'ppt_scheme', 'ppt_serializer', 'ppt_cipher', 'ppt_keyid')}}
+    for case in extensions.cases_for_shard('encrypted_progressive_results')
+    if case['id'] == 'ext_44_encrypted_progressive_results'
+})
 DEFAULT_CASE = 'rpc_rawsocket_clear_native_native_buffer'
 NATIVE_RUNTIME_THREADS = 1
 
