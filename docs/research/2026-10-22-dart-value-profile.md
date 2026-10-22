@@ -88,6 +88,14 @@ the actual failure.
 
 The repair explicitly sets one in the child environment and records that
 setting in `source-audit.json`. The parent environment is untouched. Repaired
-contracts and a renewed small-payload profile remain pending; production
-benchmarks and every acceptance budget stay unchanged. Earlier profiles remain
-diagnostic evidence, not comparable one-thread primary measurements.
+contracts pass all 13 tests in [run 39811772943](https://github.com/konsultaner/connectanum-dart/actions/runs/39811772943).
+Its real profile passes independent audit of 3,181 tracked sources/three
+resolved inputs, the one-thread setting, 18 snapshots, actual 10-KiB requests,
+sampling windows and cleanup. It retains 14,467 MessagePack, 14,596 FlatBuffers
+and 14,502 CBOR operations in three instrumented windows. These observations
+do not establish a causal hotspot or replace the failing repeated comparisons.
+The archive `ten-kib-profile-80b.zip` (artifact `12441070760`) has SHA256
+`9a817155014eaf9ace7bc2504bc3b6333531f44e7f19845950eeeb5f822f1051`;
+the independent audit and `ten-kib-pinned-cpu-selected.json` are retained.
+Production benchmarks and every acceptance budget stay unchanged. Earlier
+profiles remain diagnostic evidence, not comparable one-thread primary measurements.

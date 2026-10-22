@@ -11,7 +11,9 @@ Status: active. Started: 2026-10-03.
   39811409005 on test-first `5b9f63c7`: all 32 mode/selection cases inherit nine
   parent threads instead of required one, before workloads. Retain the failed
   log and expected missing-artifact cascade. Pin/record one in the child only.
-- [ ] Verify repaired contracts and repeat the 10-KiB profile with the pin.
+- [x] Verify repaired contracts (all 13 tests) and repeat the 10-KiB profile with
+  the recorded pin on `80b16f4b`: 3,181 tracked/three resolved inputs fixed,
+  18 snapshots and cleanup pass independent audit. No causal hotspot established.
   Actual prior thread count is unrecorded, so no causal timing comparison is
   made from earlier profiles; accepted workloads were already explicitly pinned.
 - [x] Complete all 38 hosted runtime CI jobs on `2de4ec32`, including VM coverage.

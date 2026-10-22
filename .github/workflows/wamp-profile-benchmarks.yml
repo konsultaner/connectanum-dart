@@ -127,6 +127,7 @@ jobs:
           python3 tool/test_wamp_stall_vm_services.py
           python3 tool/test_wamp_stall_linux.py
           python3 tool/test_capture_wamp_stall.py
+          python3 tool/test_ci_execution.py
 
       - uses: dart-lang/setup-dart@v1
         with:
@@ -258,9 +259,12 @@ jobs:
           from pathlib import Path
           root = Path('out/wamp-flatbuffers-primary/campaign')
           print('## Paired FlatBuffers campaign\n')
-          if os.environ.get('INPUT_CAMPAIGN') == 'flatbuffers_payload_repro':
+          if os.environ.get('INPUT_CAMPAIGN') in ('flatbuffers_payload_repro', 'flatbuffers_payload_focus'):
               result = root.parent / 'stall-repro/result.json'
-              print('Complete original payload-size schedule with opt-in VM stack capture. This never establishes acceptance.\n')
+              scope = ('Reduced three-case TLS transition schedule'
+                       if os.environ.get('INPUT_CAMPAIGN') == 'flatbuffers_payload_focus'
+                       else 'Complete original payload-size schedule')
+              print(f'{scope} with opt-in owned-process observations. This never establishes acceptance.\n')
               if result.exists():
                   data = json.loads(result.read_text())
                   print(f"Replay: {data['status']}. Rows: {data['rows']}/{data['expected_rows']}. Driver exit: {data['driver_exit_code']}.\n")
