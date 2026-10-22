@@ -65,6 +65,14 @@ class FlatbuffersDiagnosticModesTests(unittest.TestCase):
         self.assertIn("if 'SO_RCVBUF' not in trace.read_text():", workflow)
         self.assertIn("*(['--trace-socket-options'] if os.environ.get('INPUT_TRACE_SOCKET_OPTIONS') == 'true' else [])", workflow)
 
+    def test_allocator_attribution_is_opt_in_and_requires_real_owned_glibc_smoke(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        options = workflow.split('      allocator_attribution:', 1)[1].split('      trace_socket_options:', 1)[0]
+        self.assertIn('default: false', options)
+        self.assertIn('if [[ "$INPUT_ALLOCATOR_ATTRIBUTION" == true ]]; then', workflow)
+        self.assertIn('--output out/wamp-flatbuffers-primary/memory-smoke --allocator-attribution', workflow)
+        self.assertIn('memory_args=(--allocator-attribution)', workflow)
+
 
 class ShardingTests(unittest.TestCase):
     def inventory(self, count=23):

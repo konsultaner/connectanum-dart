@@ -63,6 +63,16 @@ class SmokeCaptureTests(unittest.TestCase):
         self.assertFalse((self.output / 'snapshot.json').exists())
 
 class SmokeMemoryTests(unittest.TestCase):
+    def test_allocator_smoke_explicitly_requires_allocator_aware_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = mock.Mock(role='worker')
+            record = {'pid': 100, 'observer_pid': 101, 'allocator_counters': {'arena_count': 2}}
+            with mock.patch.object(smoke.diagnostic, 'discover_vm_services', return_value=[target]), \
+                    mock.patch.object(smoke, 'capture_target_memory', return_value=record) as capture:
+                smoke.capture_smoke_memory(Path(directory), 100, 101, allocator_attribution=True)
+            self.assertEqual(capture.call_args.kwargs, {'allocator_attribution': True})
+            self.assertEqual(json.loads((Path(directory) / 'memory.json').read_text()), record)
+
     def test_success_requires_owned_standard_api_maps_and_expected_observer(self):
         with tempfile.TemporaryDirectory() as directory:
             target = mock.Mock(role='worker')

@@ -23,6 +23,27 @@ DRIVER_ENVIRONMENT = {'CONNECTANUM_SKIP_NATIVE_BUILD': '1', 'CONNECTANUM_BENCH_W
 RESOLVED = ('pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.lock', '.dart_tool/package_config.json')
 
 
+def prepare_allocator_wrappers(output, root):
+    probe = json.dumps((root / 'tool/wamp_allocator_probe.dart').as_uri())
+    worker = output / 'allocator-worker.dart'
+    router = output / 'allocator-router.dart'
+    worker.write_text(f'''import {probe};
+import {json.dumps((root / 'packages/connectanum_bench/tool/wamp_client_main.dart').as_uri())} as production;
+Future<void> main(List<String> args) async {{
+  registerAllocatorProbe();
+  await production.main(args);
+}}
+''')
+    router.write_text(f'''import {probe};
+import {json.dumps((root / 'packages/connectanum_bench/tool/bench_main.dart').as_uri())} as production;
+Future<void> main(List<String> args) async {{
+  registerAllocatorProbe();
+  await production.main([...args, '--wamp-worker', {json.dumps(str(worker))}]);
+}}
+''')
+    return {'allocator_router_wrapper': router, 'allocator_worker_wrapper': worker}
+
+
 def prepare_pair(output, case, codec, policy):
     output.mkdir()
     runs = campaign.schedule([case], policy['minimum_warmup_runs'], policy['minimum_repetitions'], 20261005)
@@ -102,7 +123,10 @@ def run(args, root=ROOT):
         raise ValueError('RSS control requires a production native library without test oracles')
     policy = json.loads(campaign.POLICY.read_text())
     case = next(case for case in campaign.primary_cases() if case['id'] == args.case)
-    memory_attribution = getattr(args, 'memory_attribution', False)
+    allocator_attribution = getattr(args, 'allocator_attribution', False)
+    memory_attribution = getattr(args, 'memory_attribution', False) or allocator_attribution
+    if allocator_attribution:
+        files.update(prepare_allocator_wrappers(output, root))
     sources = source_inputs(root)
     resolved = {name: campaign.sha256(root / name) for name in RESOLVED}
     for name in RESOLVED:
@@ -115,6 +139,7 @@ def run(args, root=ROOT):
                 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
                 'case': case, 'sequence': SEQUENCE, 'source_inputs': sources, 'resolved_inputs': resolved,
                 'driver_environment': DRIVER_ENVIRONMENT, 'memory_attribution': memory_attribution,
+                'allocator_attribution': allocator_attribution,
                 'artifacts': {key: {'path': str(path), 'sha256': campaign.sha256(path)} for key, path in files.items()},
                 'policy_sha256': campaign.sha256(campaign.POLICY), 'policy': policy,
                 'platform': platform.uname()._asdict(), 'rustflags': os.environ.get('RUSTFLAGS'),
@@ -142,6 +167,8 @@ def run(args, root=ROOT):
                            '--results', str(pair / 'reports.jsonl'), '--results-only', '--skip-wamp-worker-aot',
                            '--collect-wamp-vm-metrics', '--router-worker-counts', '1', '--native-runtime-thread-counts', '1',
                            '--workload-timeout-ms', '300000']
+                if allocator_attribution:
+                    command += ['--bench-main', str(files['allocator_router_wrapper'])]
                 receipt = {'index': index, 'codec': codec, 'command': command, 'runs': runs,
                            'scenario_sha256': digest, 'status': 'started'}
                 receipts.append(receipt)
@@ -154,7 +181,8 @@ def run(args, root=ROOT):
                                                    env={**os.environ, **DRIVER_ENVIRONMENT})
                         receipt['driver_pid'] = process.pid
                         if memory_attribution:
-                            observer = MemoryAttribution(process, pair, policy)
+                            observer = (MemoryAttribution(process, pair, policy, allocator_attribution=True)
+                                        if allocator_attribution else MemoryAttribution(process, pair, policy))
                         receipt['exit_code'] = process.wait(timeout=remaining)
                 finally:
                     if observer is not None:
@@ -200,7 +228,7 @@ def run(args, root=ROOT):
         for item in receipts if item['codec'] == codec and item['status'] == 'complete']
         for codec in compare.CODECS}
     result = {'kind': manifest['kind'], 'primary_acceptance_eligible': False, 'head': manifest['head'],
-              'case_id': args.case, 'memory_attribution': memory_attribution,
+              'case_id': args.case, 'memory_attribution': memory_attribution, 'allocator_attribution': allocator_attribution,
               'status': 'failed' if error or changed else 'diagnostic_complete_never_acceptance',
               'error': error, 'inputs_unchanged': not changed, 'changed': changed, 'pairs': receipts, 'summary': summary,
               'elapsed_seconds': time.monotonic() - started}
@@ -217,6 +245,7 @@ def main():
     parser.add_argument('--router-config', type=Path, default=campaign.ROOT / 'native/bench/bench_router.json')
     parser.add_argument('--dart', default='dart')
     parser.add_argument('--memory-attribution', action='store_true', help='Read owned process maps/VM memory buckets; perturbs execution, never acceptance')
+    parser.add_argument('--allocator-attribution', action='store_true', help='Diagnostic wrappers read all-arena glibc counters and external usage; implies memory attribution, never acceptance')
     parser.add_argument('--case', choices=CASES, default=CASES[0])
     raise SystemExit(run(parser.parse_args(), root=campaign.ROOT))
 

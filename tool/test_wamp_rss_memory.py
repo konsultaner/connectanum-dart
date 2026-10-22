@@ -29,14 +29,78 @@ class MemoryTests(unittest.TestCase):
             path.mkdir()
             (path / 'smaps').write_text('1000-2000 rw-p 00000000 00:00 0\nRss: 4 kB\n')
 
-    def capture(self, *, identity=None, rpc=None):
+    def capture(self, *, identity=None, rpc=None, allocator_attribution=False):
         def reply(uri, method):
             target = next(t for t in self.targets if t.uri == uri)
             return {'type': 'VM', 'pid': target.pid} if method == 'getVM' else copy.deepcopy(self.usage)
         with mock.patch.object(memory, 'discover_vm_services', return_value=self.targets), \
                 mock.patch.object(memory, 'identity_matches', side_effect=identity or [True] * 4), \
                 mock.patch.object(memory, 'memory_rpc', side_effect=rpc or reply):
-            return memory.capture_owned_memory(10, self.row, self.root)
+            return memory.capture_owned_memory(10, self.row, self.root, allocator_attribution=allocator_attribution)
+
+    def allocator_reply(self, uri, method, isolate_id=None):
+        target = next(t for t in self.targets if t.uri == uri)
+        if method == 'getVM':
+            return {'type': 'VM', 'pid': target.pid, 'isolates': [{'id': 'isolates/1', 'name': 'main'}]}
+        if method == 'getProcessMemoryUsage': return copy.deepcopy(self.usage)
+        self.assertEqual(isolate_id, 'isolates/1')
+        if method == 'getMemoryUsage':
+            return {'type': 'MemoryUsage', 'externalUsage': 112, 'heapUsage': 100, 'heapCapacity': 200}
+        self.assertEqual(method, memory.ALLOCATOR_METHOD)
+        return {'type': 'ConnectanumAllocatorDiagnostic', 'pid': target.pid, 'glibc_version': '2.39',
+                'malloc_info_xml': '<malloc version="1"><heap nr="0"><total type="rest" size="10"/></heap>'
+                '<total type="fast" size="1"/><total type="rest" size="10"/>'
+                '<total type="mmap" size="30"/><system type="current" size="100"/></malloc>'}
+
+    def test_allocator_attribution_preserves_xml_and_external_usage_without_double_counting(self):
+        result = self.capture(rpc=self.allocator_reply, allocator_attribution=True)
+        self.assertEqual(result['status'], 'complete')
+        role = result['roles']['worker']
+        self.assertEqual(role['allocator_counters']['arena_free_rest_bytes'], 10)
+        self.assertEqual(role['isolate_memory_usage']['isolates/1']['externalUsage'], 112)
+        self.assertIn('<heap nr="0">', role['allocator_diagnostic']['malloc_info_xml'])
+        self.assertNotIn('privateToken', json.dumps(result))
+
+    def test_allocator_failure_discards_unverified_evidence_and_preserves_other_role(self):
+        for failure in ('pid', 'isolate', 'external', 'xml'):
+            def reply(uri, method, isolate_id=None):
+                value = self.allocator_reply(uri, method, isolate_id)
+                if uri == self.targets[0].uri:
+                    if failure == 'pid' and method == memory.ALLOCATOR_METHOD: value['pid'] = 999
+                    if failure == 'isolate' and method == 'getVM': value['isolates'][0]['name'] = 'unrelated'
+                    if failure == 'external' and method == 'getMemoryUsage': value['externalUsage'] = True
+                    if failure == 'xml' and method == memory.ALLOCATOR_METHOD: value['malloc_info_xml'] = '<bad/>'
+                return value
+            with self.subTest(failure=failure):
+                result = self.capture(rpc=reply, allocator_attribution=True)
+                self.assertEqual(result['status'], 'failed')
+                self.assertNotIn('allocator_diagnostic', result['roles']['worker'])
+                self.assertNotIn('linux_smaps', result['roles']['worker'])
+                self.assertIn('allocator_diagnostic', result['roles']['router'])
+
+    def test_allocator_xml_rejects_unsupported_duplicate_missing_and_unsafe_totals(self):
+        sample = self.allocator_reply(self.targets[0].uri, memory.ALLOCATOR_METHOD, 'isolates/1')
+        xml = sample['malloc_info_xml']
+        for invalid in (xml.replace('version="1"', 'version="2"'),
+                        xml.replace('<heap nr="0">', '<heap nr="0"/><heap nr="0">'),
+                        xml.replace('<total type="rest" size="10"/>', ''),
+                        xml.replace('</malloc>', '<total type="rest" size="2"/></malloc>'),
+                        xml.replace('size="100"', 'size="-1"'),
+                        xml.replace('size="100"', 'size="18446744073709551616"'),
+                        '<!DOCTYPE malloc><malloc version="1"/>', 'x' * 524289):
+            with self.subTest(xml=invalid[:50]), self.assertRaises(ValueError):
+                memory.validate_allocator_counters({**sample, 'malloc_info_xml': invalid}, 20)
+
+    def test_allocator_rpc_is_isolate_scoped_and_does_not_enable_heap_or_gc_actions(self):
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = json.dumps(self.allocator_reply(self.targets[0].uri, memory.ALLOCATOR_METHOD, 'isolates/1')).encode()
+        with mock.patch.object(memory.urllib.request, 'urlopen', return_value=response) as request:
+            memory.memory_rpc(self.targets[0].uri, memory.ALLOCATOR_METHOD, 'isolates/1')
+            self.assertTrue(request.call_args.args[0].endswith('ext.connectanum.diagnosticMallocInfo?isolateId=isolates%2F1'))
+        for method, identifier in ((memory.ALLOCATOR_METHOD, None), ('getMemoryUsage', 'groups/1'),
+                                   ('getAllocationProfile', 'isolates/1'), ('invoke', 'isolates/1')):
+            with self.assertRaises(ValueError): memory.memory_rpc(self.targets[0].uri, method, identifier)
 
     def test_raw_retained_tree_preserves_unknown_buckets_without_double_counting(self):
         result = self.capture()

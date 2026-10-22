@@ -57,12 +57,13 @@ def capture_smoke_snapshot(output, vm_pid, observer_pid, uri, tcp_port):
         raise RuntimeError('Owned TCP_INFO observation failed: ' + json.dumps(info))
 
 
-def capture_smoke_memory(output, vm_pid, observer_pid):
+def capture_smoke_memory(output, vm_pid, observer_pid, *, allocator_attribution=False):
     try:
         targets = diagnostic.discover_vm_services(os.getpid())
         if len(targets) != 1 or targets[0].role != 'worker':
             raise ValueError('Expected one owned smoke memory endpoint')
-        record = capture_target_memory(targets[0], os.getpid(), vm_pid)
+        record = (capture_target_memory(targets[0], os.getpid(), vm_pid, allocator_attribution=True)
+                  if allocator_attribution else capture_target_memory(targets[0], os.getpid(), vm_pid))
         if record['pid'] != vm_pid or record['observer_pid'] != observer_pid:
             raise ValueError('Smoke memory owner differs from launched VM/observer')
     except Exception as error:
@@ -77,13 +78,14 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--dart', default='dart')
     parser.add_argument('--memory-attribution', action='store_true')
+    parser.add_argument('--allocator-attribution', action='store_true')
     args = parser.parse_args()
     if not Path('/proc').is_dir():
         raise ValueError('Real original-process discovery smoke requires Linux procfs')
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     script = output / 'idle.dart'
-    script.write_text("""import 'dart:io';
+    script_source = """import 'dart:io';
 Future<void> main() async {
   final listener = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
   final accepted = <Socket>[];
@@ -96,7 +98,12 @@ Future<void> main() async {
   for (final connection in accepted) { connection.destroy(); }
   await listener.close();
 }
-""")
+"""
+    if args.allocator_attribution:
+        script_source = (f'import {json.dumps((ROOT / "tool/wamp_allocator_probe.dart").as_uri())};\n'
+                         + script_source.replace('Future<void> main() async {',
+                                                 'Future<void> main() async {\n  registerAllocatorProbe();'))
+    script.write_text(script_source)
     vm = observer = peer = None
     readers = []
     lines = queue.Queue()
@@ -144,7 +151,9 @@ Future<void> main() async {
             if observer.poll() is not None:
                 raise RuntimeError('Metrics observer exited before readiness')
         capture_smoke_snapshot(output, vm.pid, observer.pid, uri, tcp_port)
-        if args.memory_attribution:
+        if args.allocator_attribution:
+            capture_smoke_memory(output, vm.pid, observer.pid, allocator_attribution=True)
+        elif args.memory_attribution:
             capture_smoke_memory(output, vm.pid, observer.pid)
         observer.stdin.write(json.dumps({'id': 1, 'command': 'close'}) + '\n')
         observer.stdin.flush()

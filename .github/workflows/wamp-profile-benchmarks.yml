@@ -47,6 +47,11 @@ on:
         required: false
         default: false
         type: boolean
+      allocator_attribution:
+        description: Read all-arena glibc counters through diagnostic wrappers in RSS control only
+        required: false
+        default: false
+        type: boolean
       trace_socket_options:
         description: Trace socket options in the original-process payload diagnostic only
         required: false
@@ -124,7 +129,7 @@ jobs:
           if-no-files-found: error
 
   linux-flatbuffers-primary:
-    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_rss_control' && format('{0} ({1})', inputs.memory_attribution && 'Memory attribution' || 'Fresh-process RSS', inputs.rss_case) || inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
+    name: ${{ matrix.shard != 'all' && format('Supplemental FlatBuffers ({0})', matrix.shard) || (inputs.campaign == 'flatbuffers_rss_control' && format('{0} ({1})', inputs.allocator_attribution && 'Allocator attribution' || inputs.memory_attribution && 'Memory attribution' || 'Fresh-process RSS', inputs.rss_case) || inputs.campaign == 'flatbuffers_payload_focus' && 'Focused TLS payload stall reproduction' || (inputs.campaign == 'flatbuffers_payload_repro' && 'FlatBuffers payload stall reproduction' || (inputs.campaign == 'flatbuffers_primary' && 'Full paired FlatBuffers campaign' || 'Paired FlatBuffers diagnostic'))) }}
     if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus' || inputs.campaign == 'flatbuffers_rss_control')
     runs-on: ubuntu-24.04
     env:
@@ -248,11 +253,37 @@ jobs:
           INPUT_TRACE_SOCKET_OPTIONS: ${{ inputs.trace_socket_options }}
           INPUT_RSS_CASE: ${{ inputs.rss_case }}
           INPUT_MEMORY_ATTRIBUTION: ${{ inputs.memory_attribution }}
+          INPUT_ALLOCATOR_ATTRIBUTION: ${{ inputs.allocator_attribution }}
         run: |
           set -euo pipefail
           if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then
             memory_args=()
-            if [[ "$INPUT_MEMORY_ATTRIBUTION" == true ]]; then
+            if [[ "$INPUT_ALLOCATOR_ATTRIBUTION" == true ]]; then
+              dart analyze tool/wamp_allocator_probe.dart
+              dart run tool/wamp_allocator_probe.dart > out/wamp-flatbuffers-primary/allocator-self-test.json
+              python3 - <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, 'tool')
+          from wamp_rss_memory import validate_allocator_counters
+          data = json.loads(Path('out/wamp-flatbuffers-primary/allocator-self-test.json').read_text())
+          counters = [validate_allocator_counters(data[stage], data['before']['pid'])
+                      for stage in ('before', 'allocated', 'after_free')]
+          # Probe allocation is much larger than glibc's adaptive mmap threshold.
+          # Keep original counters; this controlled process is never a workload.
+          tolerance = 1024 * 1024
+          committed = [row['arena_system_current_bytes'] + row['mmap_bytes'] for row in counters]
+          available = [row['arena_free_fast_bytes'] + row['arena_free_rest_bytes'] for row in counters]
+          if committed[1] - committed[0] < data['requested_bytes'] - tolerance:
+              raise SystemExit('Allocator probe did not observe the controlled allocation')
+          released = committed[1] - committed[2] + available[2] - available[1]
+          if released < data['requested_bytes'] - tolerance:
+              raise SystemExit('Allocator probe did not observe controlled deallocation')
+          PY
+              python3 tool/smoke_wamp_stall_discovery.py \
+                --output out/wamp-flatbuffers-primary/memory-smoke --allocator-attribution
+              memory_args=(--allocator-attribution)
+            elif [[ "$INPUT_MEMORY_ATTRIBUTION" == true ]]; then
               python3 tool/smoke_wamp_stall_discovery.py \
                 --output out/wamp-flatbuffers-primary/memory-smoke --memory-attribution
               memory_args=(--memory-attribution)
@@ -339,7 +370,7 @@ jobs:
               print('Fresh process pairs isolate RSS history. This never establishes parity or replaces primary gates.\n')
               if path.exists():
                   data = json.loads(path.read_text())
-                  print(f"Diagnostic: {data['status']}; case: {data.get('case_id')}; memory attribution: {data.get('memory_attribution', False)}; complete process pairs: {sum(p['status'] == 'complete' for p in data['pairs'])}/6.\n")
+                  print(f"Diagnostic: {data['status']}; case: {data.get('case_id')}; memory attribution: {data.get('memory_attribution', False)}; allocator attribution: {data.get('allocator_attribution', False)}; complete process pairs: {sum(p['status'] == 'complete' for p in data['pairs'])}/6.\n")
               else:
                   print('RSS control did not produce a result; setup logs retain the failure.')
               raise SystemExit(0)

@@ -14,8 +14,12 @@ Status: active. Started: 2026-10-03.
   boundaries; preserve snapshots/errors, source inputs and cleanup ordering.
 - [x] Complete advisory review and 107 focused contracts; verify CRLF hashes
   with fail-before/pass-after and pass the local standard-VM API smoke.
-- [ ] Pass pinned real Linux ownership/maps smoke, then audit full attribution
-  before any runtime allocation change. No forced GC or SDK patch.
+- [x] Pass both pinned Linux ownership/maps smokes and independently audit
+  120 rows/48 owned role observations. Most native-case gap is unnamed mappings;
+  native allocation liveness versus free retained pages is unresolved.
+- [ ] Validate optional all-arena glibc/external-usage wrappers with controlled
+  allocation/free, real Linux owned extension smoke and full diagnostic audits.
+  No runtime/SDK/allocator-policy/GC change or acceptance substitution.
 - [ ] Complete current-head verification/CI and all unchanged acceptance gates.
 
 ## Owned receive-window and fresh-process memory discrimination (2026-10-22)

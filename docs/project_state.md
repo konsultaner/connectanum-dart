@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-10-22.
+Last updated: 2026-10-23.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
@@ -33,8 +33,22 @@ FlatBuffers remains higher than CBOR in both fresh pairs for each case. The
 excess is mostly client RSS and larger than reported live-heap differences;
 no causal runtime fix is established. A default-off passive memory observer now
 reads standard VM buckets and owned process maps, with complete-report hashes,
-identity checks and retained failures. Local tests/review and a real API smoke
-precede hosted Linux validation; no acceptance policy changes.
+identity checks and retained failures. Both hosted Linux attribution controls now pass independent audits (120 rows,
+48 owned role observations). Most of the native-case client RSS gap is in unnamed
+anonymous mappings. The FFI library resident size is identical across codecs.
+No cause or runtime fix is inferred from mapping names/alignment. No acceptance
+policy changes.
+
+A diagnostic-only allocator follow-up adds owned, bounded standard external-memory
+usage and glibc all-arena counters through temporary benchmark wrappers. Existing
+instrumented profile snapshots have 112 bytes of external usage after workloads
+for every codec; that does not establish unprofiled liveness or RSS acceptance.
+The new default-off mode must pass a known native allocation/free self-test and
+real Linux service/ownership smoke before observing workloads. It changes no
+production package, SDK, allocator policy, GC or acceptance limit. Focused Python
+contracts pass; local Dart analysis/full verification and companion review are
+currently blocked by another task's machine resource lease. They are not claimed
+as passed. Pinned hosted validation is the next check.
 
 Current strict run 39840621032 completes 90 valid rows with zero integrity
 findings. Throughput, p95/p99, CPU, managed allocation and GC pass in every
@@ -59,8 +73,7 @@ changing the strict RSS gate. The first hosted RSS controls fail validation afte
 Their retained reports expose incorrect sample timestamp assumptions and missing
 worker-reuse environment. Both have failing regressions before correction; all
 60 archived strict rows pass the repaired report validator, and 18 focused
-contracts pass. The renewed complete controls pass as recorded above. Runtime CI 39840612253 has
-35 successful jobs and two still running, with no failed job. Latest full
+contracts pass. The renewed complete controls pass as recorded above. Runtime CI 39840612253 passes all 38 jobs. Latest full
 `bin/verify` on `76c4282c` passes as recorded above; the new optional attribution
 follow-up still requires resulting-source verification.
 

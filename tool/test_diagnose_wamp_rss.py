@@ -97,7 +97,7 @@ class RssControlTests(unittest.TestCase):
                 with self.subTest(mutation=mutation), self.assertRaises(ValueError):
                     diagnostic.validate_rows(rows, self.case, 'flatbuffers', policy)
 
-    def execute(self, *, corrupt=None, cleanup=True, launch_error=None, wait_error=None, memory_attribution=False, lifecycle=None):
+    def execute(self, *, corrupt=None, cleanup=True, launch_error=None, wait_error=None, memory_attribution=False, allocator_attribution=False, lifecycle=None):
         self.policy['minimum_samples_per_run'] = 2  # Unit fixture only; generation test pins real floors.
         policy = self.root / 'policy.json'
         policy.write_text(json.dumps(self.policy))
@@ -108,7 +108,8 @@ class RssControlTests(unittest.TestCase):
         for name in ['driver', 'native.so', 'router.json', 'source.txt']:
             (self.root / name).write_text('fixed fixture')
         args = argparse.Namespace(output=self.root / 'output', driver=self.root / 'driver', native_lib=self.root / 'native.so',
-                                  router_config=self.root / 'router.json', dart='dart', case=self.case['id'], memory_attribution=memory_attribution)
+                                  router_config=self.root / 'router.json', dart='dart', case=self.case['id'], memory_attribution=memory_attribution,
+                                  allocator_attribution=allocator_attribution)
         calls = []
         def output(command, **kwargs):
             if command[0] == 'nm': return '0000 T ct_runtime_new\n'
@@ -171,6 +172,28 @@ class RssControlTests(unittest.TestCase):
         self.assertTrue(result['pairs'][0]['process_group_stopped'])
         self.assertTrue((self.root / 'output/00-flatbuffers/reports.jsonl').exists())
         self.assertIn('memory observations failed', result['error'])
+
+    def test_allocator_mode_binds_generated_wrappers_and_implies_memory_without_changing_cases(self):
+        observer = mock.Mock()
+        observer.finish.return_value = {'status': 'complete'}
+        with mock.patch.object(diagnostic, 'MemoryAttribution', return_value=observer) as constructor:
+            code, result, calls = self.execute(allocator_attribution=True)
+        self.assertEqual(code, 0)
+        self.assertFalse(result['primary_acceptance_eligible'])
+        self.assertTrue(result['allocator_attribution'])
+        self.assertTrue(result['memory_attribution'])
+        self.assertEqual(len(calls), 6)
+        for command, observation in zip(calls, constructor.call_args_list):
+            router = Path(command[command.index('--bench-main') + 1])
+            self.assertEqual(router.name, 'allocator-router.dart')
+            self.assertIn('await production.main([...args', router.read_text())
+            self.assertEqual(observation.kwargs, {'allocator_attribution': True})
+            self.assertNotIn('--profiler', command)
+            self.assertEqual(command[command.index('--workload-timeout-ms') + 1], '300000')
+        inputs = json.loads((self.root / 'output/inputs.json').read_text())
+        for name in ('allocator_router_wrapper', 'allocator_worker_wrapper'):
+            artifact = inputs['artifacts'][name]
+            self.assertEqual(diagnostic.campaign.sha256(Path(artifact['path'])), artifact['sha256'])
 
     def test_each_pair_preserves_canonical_worker_reuse_and_native_build_environment(self):
         code, result, calls = self.execute()

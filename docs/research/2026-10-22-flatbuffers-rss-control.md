@@ -121,3 +121,55 @@ are independently checked against source/tests and rejected. API-only smoke
 passes 15 memory buckets on local macOS Dart 3.13.1, with exit 0 and reader cleanup;
 this does not establish Linux ownership/maps behavior or pinned 3.13.5 evidence.
 The new hosted mode requires that real Linux smoke before observing any rows.
+
+
+## Owned Linux attribution and next allocator check
+
+Native run 39859717261/artifact 12461692184 and Dart-value run
+39859720623/artifact 12462355617 pass independent audits. Each has sixty rows,
+twelve complete boundary snapshots/twenty-four owned role observations, 3,195
+fixed sources/four retained resolved contents, stable process/observer/start
+identities, exact report-line hashes and production binaries matching the
+current copy proof. Archive hashes respectively:
+`37910bf87a60ca77100d1c0a9c30aea7f4be37df721bcf16327022c6ce5fbdf7`
+and `394e3160289da34b45afe7ba02feea81bcaeac07c13eabfdd1a67fc786bda4d3`.
+
+For native-buffer client snapshots after report nine, FlatBuffers RSS is
+223/220 MiB, versus CBOR 212/213 MiB. Unnamed anonymous mappings contribute
+92/88 MiB versus 79/83 MiB; named Dart heap mappings are approximately
+87/88 versus 90/87 MiB. The mapped FFI library is about 2.05 MiB resident for
+all codecs. These are non-atomic diagnostic snapshots, not peak reconciliation
+or acceptance. The Dart-value snapshots have more variable codec differences.
+Mapping alignment suggests allocator arenas but does not prove allocation
+liveness, fragmentation or a leak.
+
+Existing CPU-profile snapshots report externalUsage 112 bytes after each
+workload and after requested GC for every codec. Their additional instrumentation
+prevents accepting RSS or inferring unprofiled native-buffer liveness from them.
+
+Optional `--allocator-attribution` therefore adds standard per-isolate memory
+usage (including externalUsage, preserving isolate/group references without
+summing shared heaps) and glibc counters to the existing owned observations.
+Temporary wrappers register one diagnostic service extension and invoke the
+unchanged production entrypoints. No production library export or public
+package API changes. The driver scenarios, workload limits and policy stay fixed;
+wrappers and all inputs are hash guarded. Its outputs remain ineligible for
+acceptance and cannot be pooled with uninstrumented controls.
+
+The [glibc malloc_info contract](https://man7.org/linux/man-pages/man3/malloc_info.3.html)
+provides all-arena XML counters, supports open_memstream and is thread safe.
+The probe closes the stream, copies bounded XML and frees both the stream buffer
+and pointer slots on every exit. The parser retains raw XML and uses only direct
+root totals, never double-counting per-arena totals. These counters are not RSS
+or exact live allocations; thread caches are not represented as free bins.
+[mallinfo2](https://man7.org/linux/man-pages/man3/mallinfo.3.html) excludes other
+arenas and is unsuitable for this all-arena question.
+
+Before any workload, a separate process must observe a controlled 64-MiB native
+allocation and deallocation, then real Linux smoke verifies the authenticated
+extension, expected VM/observer PID, bounded counters, standard memory usage and
+maps. Unsupported versions, malformed counters, missing/wrong isolate or owner,
+API errors and identity changes remain failed observations. There is no malloc
+trim, allocator tuning, forced GC, SDK patch, socket change or profiler flag.
+The local companion test/review attempts and local analysis are resource-blocked
+by another task's machine lease; no advisory approval or analysis pass is inferred.
