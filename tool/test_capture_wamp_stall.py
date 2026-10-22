@@ -97,6 +97,8 @@ class StallDiagnosticTests(unittest.TestCase):
         self.assertEqual(set(inputs['resolved_input_files']), set(diagnostic.LOCKS))
         for name, path in inputs['resolved_input_files'].items():
             self.assertEqual((self.output / path).read_bytes(), (self.root / name).read_bytes())
+            self.assertFalse(any(part.startswith('.') for part in Path(path).parts),
+                             'Artifact uploads omit hidden path components by default')
 
     def original_target(self):
         target = mock.Mock()

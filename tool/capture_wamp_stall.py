@@ -237,7 +237,9 @@ def run(args, root=ROOT):
     locks = {name: digest(root / name) for name in LOCKS}
     resolved_files = {}
     for name, expected_hash in locks.items():
-        retained = output / "resolved-inputs" / name
+        # Artifact uploads exclude hidden components (notably .dart_tool).
+        # Use visible names, while the manifest retains original input keys.
+        retained = output / "resolved-inputs" / name.replace("/", "__").lstrip(".")
         retained.parent.mkdir(parents=True, exist_ok=True)
         retained.write_bytes((root / name).read_bytes())
         if digest(retained) != expected_hash:

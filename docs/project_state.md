@@ -15,6 +15,13 @@ regressions are added before the next run. Native conformance, allocator compone
 are pending; no performance gain or stall repair is claimed. Local bin/test-fast
 and companion tests/review could not acquire the shared resource lease.
 
+A retention regression finds that artifact uploads omit the copied
+.dart_tool/package_config.json because its path contains a hidden directory.
+Visible retained names now preserve every resolved input; the new assertion
+fails before the repair and all 21 capture tests pass afterward. Both older
+replays' recorded package hash exactly matches independently retained e1ab797a
+profile content, permitting content verification with explicit recovery provenance.
+
 The original-process replay on 17f27d25 fails at 257/360 rows on the same one-MiB
 Dart/TLS/FlatBuffers case. Three captures show server send queues of about
 497/954/364 KiB, no client kernel receive backlog and unchanged native runtime
