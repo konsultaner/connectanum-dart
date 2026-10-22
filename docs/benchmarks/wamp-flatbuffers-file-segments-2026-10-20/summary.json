@@ -1,0 +1,2267 @@
+{
+  "source_commit": "b6b79464",
+  "scenario": "wamp_file_transfer_throughput",
+  "host": "Apple M3 Ultra; macOS 26.7.1; Dart 3.13.1",
+  "router_workers": 1,
+  "native_runtime_threads": 1,
+  "runner_sha256": "30bd1286f0a4b29b43bec4f31ab592373685e06a84dd6c9c65d99e1e86cf5847",
+  "native_ffi_sha256": "62869e4bce8ff61e824cb464243249fbe2e1fdcb860b512daa2e47d63f00c373",
+  "workloads": {
+    "rawsocket_file_json_64m_native_base64_segmented": {
+      "median_data_gbit_s": 9.66241426313688,
+      "median_lifecycle_gbit_s": 9.246431207750268,
+      "runs": [
+        {
+          "data_gbit_s": 9.66241426313688,
+          "lifecycle_gbit_s": 9.246431207750268,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 889.005,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 12029,
+          "client_max_rss_bytes": 106414080
+        },
+        {
+          "data_gbit_s": 10.278164169496474,
+          "lifecycle_gbit_s": 9.761289309090909,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 835.746,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 12038,
+          "client_max_rss_bytes": 111919104
+        },
+        {
+          "data_gbit_s": 8.194055202978499,
+          "lifecycle_gbit_s": 7.724761323741007,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1048.313,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 12038,
+          "client_max_rss_bytes": 131334144
+        }
+      ]
+    },
+    "rawsocket_file_msgpack_64m_native": {
+      "median_data_gbit_s": 14.974173436764577,
+      "median_lifecycle_gbit_s": 13.990121485342021,
+      "runs": [
+        {
+          "data_gbit_s": 15.352492684722813,
+          "lifecycle_gbit_s": 14.035840836601308,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 559.514,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 724,
+            "rawsocket_zero_copy_bytes": 1073741824,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 9534,
+          "client_max_rss_bytes": 116637696
+        },
+        {
+          "data_gbit_s": 14.974173436764577,
+          "lifecycle_gbit_s": 13.990121485342021,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 573.65,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 653,
+            "rawsocket_zero_copy_bytes": 1073741824,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 9534,
+          "client_max_rss_bytes": 125124608
+        },
+        {
+          "data_gbit_s": 13.426556010578768,
+          "lifecycle_gbit_s": 12.149836763790665,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 639.772,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 430,
+            "rawsocket_zero_copy_bytes": 1073741824,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 9534,
+          "client_max_rss_bytes": 147374080
+        }
+      ]
+    },
+    "rawsocket_file_cbor_64m_native": {
+      "median_data_gbit_s": 15.65637832222129,
+      "median_lifecycle_gbit_s": 13.990121485342021,
+      "runs": [
+        {
+          "data_gbit_s": 15.65637832222129,
+          "lifecycle_gbit_s": 13.990121485342021,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 548.654,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 438,
+            "rawsocket_zero_copy_bytes": 1073741824,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 9666,
+          "client_max_rss_bytes": 125796352
+        },
+        {
+          "data_gbit_s": 15.718345941653203,
+          "lifecycle_gbit_s": 14.198238995041322,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 546.491,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 462,
+            "rawsocket_zero_copy_bytes": 1073741824,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 9666,
+          "client_max_rss_bytes": 120782848
+        },
+        {
+          "data_gbit_s": 13.013061019450054,
+          "lifecycle_gbit_s": 11.718873931787176,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 660.101,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 435,
+            "rawsocket_zero_copy_bytes": 1073741824,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 9650,
+          "client_max_rss_bytes": 128139264
+        }
+      ]
+    },
+    "rawsocket_file_flatbuffers_64m_native": {
+      "median_data_gbit_s": 22.378421181245752,
+      "median_lifecycle_gbit_s": 18.673770852173913,
+      "runs": [
+        {
+          "data_gbit_s": 23.591397703460192,
+          "lifecycle_gbit_s": 19.522578618181818,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 364.113,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 16784,
+          "client_max_rss_bytes": 160268288
+        },
+        {
+          "data_gbit_s": 22.378421181245752,
+          "lifecycle_gbit_s": 18.673770852173913,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 383.849,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 16784,
+          "client_max_rss_bytes": 176373760
+        },
+        {
+          "data_gbit_s": 16.98639415457934,
+          "lifecycle_gbit_s": 13.944699012987014,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 505.695,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 16784,
+          "client_max_rss_bytes": 167182336
+        }
+      ]
+    },
+    "rawsocket_file_msgpack_64m_dart_buffered": {
+      "median_data_gbit_s": 9.770838082671702,
+      "median_lifecycle_gbit_s": 7.9832105873605945,
+      "runs": [
+        {
+          "data_gbit_s": 11.16631645503801,
+          "lifecycle_gbit_s": 9.099506983050848,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 192.318,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 204996608
+        },
+        {
+          "data_gbit_s": 9.770838082671702,
+          "lifecycle_gbit_s": 7.9832105873605945,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 219.785,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 210518016
+        },
+        {
+          "data_gbit_s": 6.940665817728163,
+          "lifecycle_gbit_s": 5.741934887700534,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 309.406,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 107560960
+        }
+      ]
+    },
+    "rawsocket_file_cbor_64m_dart_buffered": {
+      "median_data_gbit_s": 10.783192893834327,
+      "median_lifecycle_gbit_s": 8.729608325203253,
+      "runs": [
+        {
+          "data_gbit_s": 10.887392065705088,
+          "lifecycle_gbit_s": 8.801162491803279,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 197.245,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 135430144
+        },
+        {
+          "data_gbit_s": 10.783192893834327,
+          "lifecycle_gbit_s": 8.729608325203253,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 199.151,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 213860352
+        },
+        {
+          "data_gbit_s": 6.8181010388356915,
+          "lifecycle_gbit_s": 5.651272757894737,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 314.968,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 207929344
+        }
+      ]
+    },
+    "rawsocket_file_flatbuffers_64m_dart_buffered": {
+      "median_data_gbit_s": 1.0382030938929505,
+      "median_lifecycle_gbit_s": 1.013442023596036,
+      "runs": [
+        {
+          "data_gbit_s": 1.0382030938929505,
+          "lifecycle_gbit_s": 1.013442023596036,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 2068.462,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 99581952
+        },
+        {
+          "data_gbit_s": 1.0441150591953325,
+          "lifecycle_gbit_s": 1.0196978385565052,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 2056.75,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 106020864
+        },
+        {
+          "data_gbit_s": 0.9532212901765305,
+          "lifecycle_gbit_s": 0.924444101592768,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 2252.87,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 232701952
+        }
+      ]
+    },
+    "rawsocket_file_json_64m_dart_buffered": {
+      "median_data_gbit_s": 5.067437303701676,
+      "median_lifecycle_gbit_s": 4.549753491525424,
+      "runs": [
+        {
+          "data_gbit_s": 5.088498243003411,
+          "lifecycle_gbit_s": 4.578856392324094,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 422.027,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 133644288
+        },
+        {
+          "data_gbit_s": 5.067437303701676,
+          "lifecycle_gbit_s": 4.549753491525424,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 423.781,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 237060096
+        },
+        {
+          "data_gbit_s": 3.8939595532837346,
+          "lifecycle_gbit_s": 3.508960209150327,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 551.491,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 232407040
+        }
+      ]
+    },
+    "rawsocket_tls_file_cbor_64m_native_segmented": {
+      "median_data_gbit_s": 11.378165401901322,
+      "median_lifecycle_gbit_s": 10.724013223470662,
+      "runs": [
+        {
+          "data_gbit_s": 11.378165401901322,
+          "lifecycle_gbit_s": 10.724013223470662,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 754.949,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 104972288
+        },
+        {
+          "data_gbit_s": 11.186616839177159,
+          "lifecycle_gbit_s": 10.591781247842171,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 767.876,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 92995584
+        },
+        {
+          "data_gbit_s": 11.982087538255094,
+          "lifecycle_gbit_s": 11.228672669281044,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 716.898,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 76824576
+        }
+      ]
+    },
+    "rawsocket_tls_file_flatbuffers_64m_native_segmented": {
+      "median_data_gbit_s": 11.669220047302135,
+      "median_lifecycle_gbit_s": 10.91478347141042,
+      "runs": [
+        {
+          "data_gbit_s": 11.76469686432147,
+          "lifecycle_gbit_s": 10.970542263090678,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 730.145,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 89964544
+        },
+        {
+          "data_gbit_s": 11.669220047302135,
+          "lifecycle_gbit_s": 10.91478347141042,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 736.119,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 81231872
+        },
+        {
+          "data_gbit_s": 11.538740497257681,
+          "lifecycle_gbit_s": 10.832199989911727,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 744.443,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 116670464
+        }
+      ]
+    },
+    "rawsocket_tls_file_json_64m_native_base64_segmented": {
+      "median_data_gbit_s": 6.315399319343282,
+      "median_lifecycle_gbit_s": 6.113832449822064,
+      "runs": [
+        {
+          "data_gbit_s": 6.341859538923367,
+          "lifecycle_gbit_s": 6.140053318084346,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1354.482,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 108396544
+        },
+        {
+          "data_gbit_s": 6.315399319343282,
+          "lifecycle_gbit_s": 6.113832449822064,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1360.157,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 108118016
+        },
+        {
+          "data_gbit_s": 5.397019862315258,
+          "lifecycle_gbit_s": 5.190292804833837,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1591.607,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 139689984
+        }
+      ]
+    },
+    "rawsocket_tls_file_msgpack_64m_native_segmented": {
+      "median_data_gbit_s": 11.656852479305199,
+      "median_lifecycle_gbit_s": 10.942591836942675,
+      "runs": [
+        {
+          "data_gbit_s": 11.997819134641977,
+          "lifecycle_gbit_s": 11.302545515789474,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 715.958,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 70860800
+        },
+        {
+          "data_gbit_s": 11.656852479305199,
+          "lifecycle_gbit_s": 10.942591836942675,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 736.9,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 96927744
+        },
+        {
+          "data_gbit_s": 10.131169082125604,
+          "lifecycle_gbit_s": 9.439488562637363,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 847.872,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 103645184
+        }
+      ]
+    },
+    "websocket_file_flatbuffers_64m_native_segmented": {
+      "median_data_gbit_s": 22.156309158956606,
+      "median_lifecycle_gbit_s": 19.522578618181818,
+      "runs": [
+        {
+          "data_gbit_s": 22.411233858701184,
+          "lifecycle_gbit_s": 19.79247601843318,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 383.287,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 122536,
+          "client_max_rss_bytes": 180666368
+        },
+        {
+          "data_gbit_s": 22.156309158956606,
+          "lifecycle_gbit_s": 19.522578618181818,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 387.697,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 122536,
+          "client_max_rss_bytes": 156123136
+        },
+        {
+          "data_gbit_s": 21.35153138624444,
+          "lifecycle_gbit_s": 18.878977125274726,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 402.31,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 122536,
+          "client_max_rss_bytes": 149192704
+        }
+      ]
+    },
+    "websocket_file_json_64m_native_base64_segmented": {
+      "median_data_gbit_s": 9.319391307838439,
+      "median_lifecycle_gbit_s": 8.864741581011351,
+      "runs": [
+        {
+          "data_gbit_s": 9.319391307838439,
+          "lifecycle_gbit_s": 8.864741581011351,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 921.727,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 59566,
+          "client_max_rss_bytes": 200572928
+        },
+        {
+          "data_gbit_s": 9.321343099657744,
+          "lifecycle_gbit_s": 8.873899371900826,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 921.534,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 59566,
+          "client_max_rss_bytes": 180944896
+        },
+        {
+          "data_gbit_s": 9.079616467315246,
+          "lifecycle_gbit_s": 8.641785303822939,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 946.068,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 59566,
+          "client_max_rss_bytes": 184483840
+        }
+      ]
+    },
+    "websocket_file_msgpack_64m_native_segmented": {
+      "median_data_gbit_s": 15.664572434154499,
+      "median_lifecycle_gbit_s": 14.221746013245033,
+      "runs": [
+        {
+          "data_gbit_s": 14.852433452292031,
+          "lifecycle_gbit_s": 13.700055170653908,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 578.352,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 51646,
+          "client_max_rss_bytes": 159072256
+        },
+        {
+          "data_gbit_s": 15.664572434154499,
+          "lifecycle_gbit_s": 14.221746013245033,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 548.367,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 51646,
+          "client_max_rss_bytes": 167542784
+        },
+        {
+          "data_gbit_s": 15.69775038376632,
+          "lifecycle_gbit_s": 14.412641932885906,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 547.208,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 51646,
+          "client_max_rss_bytes": 167378944
+        }
+      ]
+    },
+    "websocket_file_cbor_64m_native_segmented": {
+      "median_data_gbit_s": 13.456233372652779,
+      "median_lifecycle_gbit_s": 12.540050499270071,
+      "runs": [
+        {
+          "data_gbit_s": 13.299665248437782,
+          "lifecycle_gbit_s": 12.359618117985612,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 645.876,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 46218,
+          "client_max_rss_bytes": 185647104
+        },
+        {
+          "data_gbit_s": 13.456233372652779,
+          "lifecycle_gbit_s": 12.540050499270071,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 638.361,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 46180,
+          "client_max_rss_bytes": 149667840
+        },
+        {
+          "data_gbit_s": 13.62357195965235,
+          "lifecycle_gbit_s": 12.65086096023564,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 630.52,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": 46180,
+          "client_max_rss_bytes": 151355392
+        }
+      ]
+    },
+    "websocket_file_json_64m_dart_buffered": {
+      "median_data_gbit_s": 2.2733619738542856,
+      "median_lifecycle_gbit_s": 2.158275023115578,
+      "runs": [
+        {
+          "data_gbit_s": 2.2733619738542856,
+          "lifecycle_gbit_s": 2.158275023115578,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 944.629,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 141279232
+        },
+        {
+          "data_gbit_s": 2.2618566935669038,
+          "lifecycle_gbit_s": 2.15394548445336,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 949.434,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 131727360
+        },
+        {
+          "data_gbit_s": 2.2766034916313647,
+          "lifecycle_gbit_s": 2.166986526740666,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 943.284,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 163823616
+        }
+      ]
+    },
+    "websocket_file_msgpack_64m_dart_buffered": {
+      "median_data_gbit_s": 8.924829909525016,
+      "median_lifecycle_gbit_s": 7.430739266435986,
+      "runs": [
+        {
+          "data_gbit_s": 8.924829909525016,
+          "lifecycle_gbit_s": 7.430739266435986,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 240.619,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 132317184
+        },
+        {
+          "data_gbit_s": 9.04211255673732,
+          "lifecycle_gbit_s": 7.615190241134751,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 237.498,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 228229120
+        },
+        {
+          "data_gbit_s": 8.89838832489413,
+          "lifecycle_gbit_s": 7.405116027586207,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 241.334,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 143851520
+        }
+      ]
+    },
+    "websocket_file_cbor_64m_dart_buffered": {
+      "median_data_gbit_s": 8.880541429747042,
+      "median_lifecycle_gbit_s": 7.405116027586207,
+      "runs": [
+        {
+          "data_gbit_s": 8.756947086840215,
+          "lifecycle_gbit_s": 7.2550123243243245,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 245.232,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 176160768
+        },
+        {
+          "data_gbit_s": 8.96885059180247,
+          "lifecycle_gbit_s": 7.5086840839160836,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 239.438,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 119832576
+        },
+        {
+          "data_gbit_s": 8.880541429747042,
+          "lifecycle_gbit_s": 7.405116027586207,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 241.819,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 144801792
+        }
+      ]
+    },
+    "websocket_file_flatbuffers_64m_dart_buffered": {
+      "median_data_gbit_s": 1.0039272192804112,
+      "median_lifecycle_gbit_s": 0.9801385887722501,
+      "runs": [
+        {
+          "data_gbit_s": 1.0039272192804112,
+          "lifecycle_gbit_s": 0.9801385887722501,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 2139.083,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 110837760
+        },
+        {
+          "data_gbit_s": 1.0047360497361,
+          "lifecycle_gbit_s": 0.9819312519433013,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 2137.361,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 105480192
+        },
+        {
+          "data_gbit_s": 0.995514771048402,
+          "lifecycle_gbit_s": 0.9717120579185521,
+          "samples": 4,
+          "dominant_bytes": 268435456,
+          "data_window_elapsed_ms": 2157.159,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "client transport copy coverage is incomplete",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 102989824
+        }
+      ]
+    },
+    "websocket_tls_file_msgpack_64m_native_segmented": {
+      "median_data_gbit_s": 11.322822306788867,
+      "median_lifecycle_gbit_s": 10.604857520987654,
+      "runs": [
+        {
+          "data_gbit_s": 10.294349440098173,
+          "lifecycle_gbit_s": 9.684255458850055,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 834.432,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 134250496
+        },
+        {
+          "data_gbit_s": 11.322822306788867,
+          "lifecycle_gbit_s": 10.617966121137206,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 758.639,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 97173504
+        },
+        {
+          "data_gbit_s": 11.338650164999075,
+          "lifecycle_gbit_s": 10.604857520987654,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 757.58,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 114180096
+        }
+      ]
+    },
+    "websocket_tls_file_cbor_64m_native_segmented": {
+      "median_data_gbit_s": 8.35463466139643,
+      "median_lifecycle_gbit_s": 7.9832105873605945,
+      "runs": [
+        {
+          "data_gbit_s": 8.271299327987922,
+          "lifecycle_gbit_s": 7.880673937614679,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1038.523,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 118816768
+        },
+        {
+          "data_gbit_s": 8.502461270449615,
+          "lifecycle_gbit_s": 8.09607407351555,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1010.288,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 119717888
+        },
+        {
+          "data_gbit_s": 8.35463466139643,
+          "lifecycle_gbit_s": 7.9832105873605945,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1028.164,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 127877120
+        }
+      ]
+    },
+    "websocket_tls_file_flatbuffers_64m_native_segmented": {
+      "median_data_gbit_s": 11.269345431026226,
+      "median_lifecycle_gbit_s": 10.51399582864137,
+      "runs": [
+        {
+          "data_gbit_s": 11.269345431026226,
+          "lifecycle_gbit_s": 10.51399582864137,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 762.239,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 137740288
+        },
+        {
+          "data_gbit_s": 11.135310730684173,
+          "lifecycle_gbit_s": 10.42467790291262,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 771.414,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 95830016
+        },
+        {
+          "data_gbit_s": 11.328332377649122,
+          "lifecycle_gbit_s": 10.591781247842171,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 758.27,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 120242176
+        }
+      ]
+    },
+    "websocket_tls_file_json_64m_native_base64_segmented": {
+      "median_data_gbit_s": 6.041208948652849,
+      "median_lifecycle_gbit_s": 5.83159171215207,
+      "runs": [
+        {
+          "data_gbit_s": 6.075300773528178,
+          "lifecycle_gbit_s": 5.855442802999319,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1413.911,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 170049536
+        },
+        {
+          "data_gbit_s": 6.041208948652849,
+          "lifecycle_gbit_s": 5.83159171215207,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1421.89,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 174325760
+        },
+        {
+          "data_gbit_s": 5.954741259322984,
+          "lifecycle_gbit_s": 5.753472600133958,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1442.537,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 256,
+            "buffered_file_segment_bytes": 1073741824
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 170000384
+        }
+      ]
+    },
+    "rawsocket_file_cbor_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 20.78010559954327,
+      "median_lifecycle_gbit_s": 18.83757585964912,
+      "runs": [
+        {
+          "data_gbit_s": 21.01029877410455,
+          "lifecycle_gbit_s": 19.131257443207126,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 408.844,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 13722,
+          "client_max_rss_bytes": 114147328
+        },
+        {
+          "data_gbit_s": 20.588600185035162,
+          "lifecycle_gbit_s": 18.673770852173913,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 417.218,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 13722,
+          "client_max_rss_bytes": 115359744
+        },
+        {
+          "data_gbit_s": 20.78010559954327,
+          "lifecycle_gbit_s": 18.83757585964912,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 413.373,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 13722,
+          "client_max_rss_bytes": 106414080
+        }
+      ]
+    },
+    "rawsocket_file_flatbuffers_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 20.887988444647625,
+      "median_lifecycle_gbit_s": 18.83757585964912,
+      "runs": [
+        {
+          "data_gbit_s": 20.887988444647625,
+          "lifecycle_gbit_s": 18.83757585964912,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 411.238,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 21680,
+          "client_max_rss_bytes": 107560960
+        },
+        {
+          "data_gbit_s": 20.68313767754767,
+          "lifecycle_gbit_s": 18.714454448801746,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 415.311,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 21680,
+          "client_max_rss_bytes": 118095872
+        },
+        {
+          "data_gbit_s": 21.39188942874006,
+          "lifecycle_gbit_s": 19.34669953153153,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 401.551,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 21680,
+          "client_max_rss_bytes": 140509184
+        }
+      ]
+    },
+    "rawsocket_file_json_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 8.329334697324798,
+      "median_lifecycle_gbit_s": 7.998076901303538,
+      "runs": [
+        {
+          "data_gbit_s": 8.361620543071433,
+          "lifecycle_gbit_s": 8.02048047805789,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1027.305,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 17894,
+          "client_max_rss_bytes": 186236928
+        },
+        {
+          "data_gbit_s": 8.181287464438748,
+          "lifecycle_gbit_s": 7.8303870483135825,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1049.949,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 17894,
+          "client_max_rss_bytes": 174604288
+        },
+        {
+          "data_gbit_s": 8.329334697324798,
+          "lifecycle_gbit_s": 7.998076901303538,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1031.287,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 17894,
+          "client_max_rss_bytes": 177586176
+        }
+      ]
+    },
+    "rawsocket_file_msgpack_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 20.739316616206246,
+      "median_lifecycle_gbit_s": 18.83757585964912,
+      "runs": [
+        {
+          "data_gbit_s": 20.739316616206246,
+          "lifecycle_gbit_s": 18.83757585964912,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 414.186,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 13614,
+          "client_max_rss_bytes": 100892672
+        },
+        {
+          "data_gbit_s": 20.640198454976872,
+          "lifecycle_gbit_s": 18.755315703056766,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 416.175,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 13614,
+          "client_max_rss_bytes": 109330432
+        },
+        {
+          "data_gbit_s": 20.777692937707567,
+          "lifecycle_gbit_s": 18.920560775330397,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 413.421,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 13614,
+          "client_max_rss_bytes": 122322944
+        }
+      ]
+    },
+    "rawsocket_tls_file_flatbuffers_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 11.640692310715346,
+      "median_lifecycle_gbit_s": 10.92866996437659,
+      "runs": [
+        {
+          "data_gbit_s": 11.640692310715346,
+          "lifecycle_gbit_s": 10.92866996437659,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 737.923,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 100270080
+        },
+        {
+          "data_gbit_s": 11.30547601417736,
+          "lifecycle_gbit_s": 10.604857520987654,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 759.803,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 83918848
+        },
+        {
+          "data_gbit_s": 11.74814010345007,
+          "lifecycle_gbit_s": 10.998635841229193,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 731.174,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 87130112
+        }
+      ]
+    },
+    "rawsocket_tls_file_json_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 6.824265168018025,
+      "median_lifecycle_gbit_s": 6.597492006144393,
+      "runs": [
+        {
+          "data_gbit_s": 6.819530037916559,
+          "lifecycle_gbit_s": 6.597492006144393,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1259.608,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 116129792
+        },
+        {
+          "data_gbit_s": 7.332505262115585,
+          "lifecycle_gbit_s": 7.069905013991769,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1171.487,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 124698624
+        },
+        {
+          "data_gbit_s": 6.824265168018025,
+          "lifecycle_gbit_s": 6.587373153374234,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1258.734,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 116178944
+        }
+      ]
+    },
+    "rawsocket_tls_file_msgpack_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 11.872536626155991,
+      "median_lifecycle_gbit_s": 11.21401382767624,
+      "runs": [
+        {
+          "data_gbit_s": 11.872536626155991,
+          "lifecycle_gbit_s": 11.21401382767624,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 723.513,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 81133568
+        },
+        {
+          "data_gbit_s": 11.22559113445982,
+          "lifecycle_gbit_s": 10.604857520987654,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 765.21,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 88244224
+        },
+        {
+          "data_gbit_s": 11.941892438736513,
+          "lifecycle_gbit_s": 11.287693287779238,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 719.311,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 79872000
+        }
+      ]
+    },
+    "rawsocket_tls_file_cbor_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 11.533503932028342,
+      "median_lifecycle_gbit_s": 10.887116086185044,
+      "runs": [
+        {
+          "data_gbit_s": 11.533503932028342,
+          "lifecycle_gbit_s": 10.887116086185044,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 744.781,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 81920000
+        },
+        {
+          "data_gbit_s": 11.39916846745705,
+          "lifecycle_gbit_s": 10.791375115577889,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 753.558,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 95125504
+        },
+        {
+          "data_gbit_s": 11.896213529656974,
+          "lifecycle_gbit_s": 11.21401382767624,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 722.073,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 90882048
+        }
+      ]
+    },
+    "websocket_file_json_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 8.180329150762995,
+      "median_lifecycle_gbit_s": 7.801938775658492,
+      "runs": [
+        {
+          "data_gbit_s": 8.173129506554252,
+          "lifecycle_gbit_s": 7.801938775658492,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1050.997,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1431797538,
+          "client_max_rss_bytes": 270516224
+        },
+        {
+          "data_gbit_s": 8.180329150762995,
+          "lifecycle_gbit_s": 7.794858976406533,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1050.072,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1431797538,
+          "client_max_rss_bytes": 248856576
+        },
+        {
+          "data_gbit_s": 8.261768870687424,
+          "lifecycle_gbit_s": 7.851859773308958,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1039.721,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1431797538,
+          "client_max_rss_bytes": 261947392
+        }
+      ]
+    },
+    "websocket_file_msgpack_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 19.767061225429057,
+      "median_lifecycle_gbit_s": 17.63846938809035,
+      "runs": [
+        {
+          "data_gbit_s": 19.97529135777205,
+          "lifecycle_gbit_s": 17.970574460251044,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 430.028,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073857358,
+          "client_max_rss_bytes": 131563520
+        },
+        {
+          "data_gbit_s": 19.767061225429057,
+          "lifecycle_gbit_s": 17.566328408997958,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 434.558,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073857358,
+          "client_max_rss_bytes": 123174912
+        },
+        {
+          "data_gbit_s": 19.684438386551232,
+          "lifecycle_gbit_s": 17.63846938809035,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 436.382,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073857362,
+          "client_max_rss_bytes": 115228672
+        }
+      ]
+    },
+    "websocket_file_cbor_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 14.883958976100583,
+      "median_lifecycle_gbit_s": 13.634816812698412,
+      "runs": [
+        {
+          "data_gbit_s": 14.556916608060087,
+          "lifecycle_gbit_s": 13.338407751552793,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 590.093,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073852116,
+          "client_max_rss_bytes": 414433280
+        },
+        {
+          "data_gbit_s": 14.883958976100583,
+          "lifecycle_gbit_s": 13.634816812698412,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 577.127,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073852116,
+          "client_max_rss_bytes": 425721856
+        },
+        {
+          "data_gbit_s": 15.859267942433558,
+          "lifecycle_gbit_s": 14.510024648648649,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 541.635,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073852116,
+          "client_max_rss_bytes": 406192128
+        }
+      ]
+    },
+    "websocket_file_flatbuffers_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 19.18239625906928,
+      "median_lifecycle_gbit_s": 17.214297779559118,
+      "runs": [
+        {
+          "data_gbit_s": 19.18239625906928,
+          "lifecycle_gbit_s": 17.214297779559118,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 447.803,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073944712,
+          "client_max_rss_bytes": 116686848
+        },
+        {
+          "data_gbit_s": 19.055882726675776,
+          "lifecycle_gbit_s": 17.14557802794411,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 450.776,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073944712,
+          "client_max_rss_bytes": 129040384
+        },
+        {
+          "data_gbit_s": 19.509852873239502,
+          "lifecycle_gbit_s": 17.4238024178499,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 440.287,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": 1073944712,
+          "client_max_rss_bytes": 120913920
+        }
+      ]
+    },
+    "websocket_tls_file_msgpack_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 10.67315252038662,
+      "median_lifecycle_gbit_s": 10.011578778554778,
+      "runs": [
+        {
+          "data_gbit_s": 10.763115177486249,
+          "lifecycle_gbit_s": 10.093930190364278,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 798.09,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 99418112
+        },
+        {
+          "data_gbit_s": 10.662765552674339,
+          "lifecycle_gbit_s": 9.976695228803717,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 805.601,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 92061696
+        },
+        {
+          "data_gbit_s": 10.67315252038662,
+          "lifecycle_gbit_s": 10.011578778554778,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 804.817,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 102268928
+        }
+      ]
+    },
+    "websocket_tls_file_cbor_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 9.158034975644131,
+      "median_lifecycle_gbit_s": 8.633100092462312,
+      "runs": [
+        {
+          "data_gbit_s": 9.336753493700632,
+          "lifecycle_gbit_s": 8.801162491803279,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 920.013,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 380715008
+        },
+        {
+          "data_gbit_s": 8.669748294801947,
+          "lifecycle_gbit_s": 8.235795390220517,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 990.794,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 376930304
+        },
+        {
+          "data_gbit_s": 9.158034975644131,
+          "lifecycle_gbit_s": 8.633100092462312,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 937.967,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 390037504
+        }
+      ]
+    },
+    "websocket_tls_file_flatbuffers_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 10.561568130625092,
+      "median_lifecycle_gbit_s": 9.873488036781609,
+      "runs": [
+        {
+          "data_gbit_s": 10.322840078881999,
+          "lifecycle_gbit_s": 9.695185769751692,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 832.129,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 100909056
+        },
+        {
+          "data_gbit_s": 10.561568130625092,
+          "lifecycle_gbit_s": 9.873488036781609,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 813.32,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 122814464
+        },
+        {
+          "data_gbit_s": 10.807273755738658,
+          "lifecycle_gbit_s": 10.093930190364278,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 794.829,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 96256000
+        }
+      ]
+    },
+    "websocket_tls_file_json_e2ee_64m_native_segmented": {
+      "median_data_gbit_s": 6.611812521744485,
+      "median_lifecycle_gbit_s": 6.353501917159763,
+      "runs": [
+        {
+          "data_gbit_s": 6.436042254924659,
+          "lifecycle_gbit_s": 6.188713682997117,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1334.661,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 213139456
+        },
+        {
+          "data_gbit_s": 6.770519869538418,
+          "lifecycle_gbit_s": 6.478080386123681,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1268.726,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 222478336
+        },
+        {
+          "data_gbit_s": 6.611812521744485,
+          "lifecycle_gbit_s": 6.353501917159763,
+          "samples": 16,
+          "dominant_bytes": 1073741824,
+          "data_window_elapsed_ms": 1299.18,
+          "file_segment_metrics": {
+            "rawsocket_zero_copy_calls": 0,
+            "rawsocket_zero_copy_bytes": 0,
+            "buffered_file_segment_calls": 0,
+            "buffered_file_segment_bytes": 0
+          },
+          "transport_copy_bytes": {
+            "reason": "TLS copy behavior is not instrumented",
+            "status": "not_measured"
+          },
+          "client_max_rss_bytes": 194248704
+        }
+      ]
+    }
+  }
+}

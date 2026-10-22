@@ -799,6 +799,76 @@ Uint8List buildNativeFileSegmentPrefix(
   return prefix;
 }
 
+/// Replace the empty CBOR byte argument in a deferred FlatBuffers vector with
+/// a file-backed byte string. The vector length covers the CBOR header and the
+/// file bytes; the native writer supplies the file bytes without a Dart copy.
+@visibleForTesting
+Uint8List buildNativeFlatBuffersFileSegmentPrefix(
+  AbstractMessage message, {
+  required int fileLength,
+}) {
+  if (fileLength < 0) {
+    throw ArgumentError.value(fileLength, 'fileLength', 'must be non-negative');
+  }
+  final fragments = flatbuffers.Serializer().serializeFragments(message);
+  if (fragments == null ||
+      fragments.length != 3 ||
+      fragments[2].length != 2 ||
+      fragments[2][0] != 0x81 ||
+      fragments[2][1] != 0x40) {
+    throw StateError(
+      'FlatBuffers file chunk must contain one empty CBOR byte argument',
+    );
+  }
+  final control = fragments[0];
+  final vectorHeader = fragments[1];
+  final byteHeader = _cborBinaryHeader(fileLength);
+  final vectorLength = 1 + byteHeader.length + fileLength;
+  const maximumFrameBytes = 64 * 1024 * 1024;
+  if (control.length + vectorHeader.length + vectorLength > maximumFrameBytes) {
+    throw ArgumentError.value(
+      fileLength,
+      'fileLength',
+      'FlatBuffers frame exceeds the byte limit',
+    );
+  }
+  ByteData.sublistView(vectorHeader).setUint32(
+    vectorHeader.length - 4,
+    vectorLength,
+    Endian.little,
+  );
+  final prefix = Uint8List(
+    control.length + vectorHeader.length + 1 + byteHeader.length,
+  );
+  prefix.setRange(0, control.length, control);
+  prefix.setRange(
+    control.length,
+    control.length + vectorHeader.length,
+    vectorHeader,
+  );
+  final argumentOffset = control.length + vectorHeader.length;
+  prefix[argumentOffset] = 0x81;
+  prefix.setRange(
+    argumentOffset + 1,
+    prefix.length,
+    byteHeader,
+  );
+  return prefix;
+}
+
+Uint8List _nativeFileSegmentPrefix(
+  AbstractMessage message, {
+  required int serializerType,
+  required int fileLength,
+  required Uint8List Function(AbstractMessage) encode,
+}) => serializerType == SocketHelper.serializationFlatBuffers
+    ? buildNativeFlatBuffersFileSegmentPrefix(message, fileLength: fileLength)
+    : buildNativeFileSegmentPrefix(
+        encode(message),
+        serializerType: serializerType,
+        fileLength: fileLength,
+      );
+
 Uint8List _nativeFileSegmentSuffix(int serializerType) {
   return serializerType == SocketHelper.serializationJson
       ? Uint8List.fromList(const [0x22, 0x5d, 0x5d])
@@ -989,8 +1059,7 @@ class NativeRawSocketTransport extends _NativeTransportBase
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return _nativeSerializer != NativeMessageSerializer.flatbuffers &&
-        connectionId != null &&
+    return connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -1040,11 +1109,11 @@ class NativeRawSocketTransport extends _NativeTransportBase
     if (source.isClosed) {
       throw StateError('The native file source is already closed');
     }
-    final encoded = _encodeMessage(message);
-    final prefix = buildNativeFileSegmentPrefix(
-      encoded,
+    final prefix = _nativeFileSegmentPrefix(
+      message,
       serializerType: _serializerType,
       fileLength: length,
+      encode: _encodeMessage,
     );
     _runtime.sendMessageFileSegment(
       connectionId,
@@ -1085,10 +1154,11 @@ class NativeRawSocketTransport extends _NativeTransportBase
       length,
       e2ee.cipher,
     );
-    final prefix = buildNativeFileSegmentPrefix(
-      _encodeMessage(message),
+    final prefix = _nativeFileSegmentPrefix(
+      message,
       serializerType: _serializerType,
       fileLength: ciphertextLength,
+      encode: _encodeMessage,
     );
     _runtime.sendMessageNativeE2eeFileSegment(
       connectionId,
@@ -1230,8 +1300,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return _nativeSerializer != NativeMessageSerializer.flatbuffers &&
-        connectionId != null &&
+    return connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -1282,11 +1351,11 @@ class NativeWebSocketTransport extends _NativeTransportBase
       throw StateError('The native file source is already closed');
     }
     final serializerType = _fileSegmentSerializerType;
-    final encoded = _encodeMessage(message);
-    final prefix = buildNativeFileSegmentPrefix(
-      encoded,
+    final prefix = _nativeFileSegmentPrefix(
+      message,
       serializerType: serializerType,
       fileLength: length,
+      encode: _encodeMessage,
     );
     _runtime.sendMessageFileSegment(
       connectionId,
@@ -1327,10 +1396,11 @@ class NativeWebSocketTransport extends _NativeTransportBase
       length,
       e2ee.cipher,
     );
-    final prefix = buildNativeFileSegmentPrefix(
-      _encodeMessage(message),
+    final prefix = _nativeFileSegmentPrefix(
+      message,
       serializerType: _fileSegmentSerializerType,
       fileLength: ciphertextLength,
+      encode: _encodeMessage,
     );
     _runtime.sendMessageNativeE2eeFileSegment(
       connectionId,

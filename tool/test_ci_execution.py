@@ -21,6 +21,30 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CompositeSetupTests(unittest.TestCase):
+    def test_shared_native_jobs_use_one_fixed_rust_toolchain(self):
+        action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
+        rust_step = action.split('uses: dtolnay/rust-toolchain@stable', 1)[1].split(
+            '    - ', 1)[0]
+        pin = re.search(
+            r'(?m)^\s+toolchain:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$',
+            rust_step,
+        )
+        self.assertIsNotNone(pin)
+        # rust-toolchain.toml selects `stable` for bare cargo/rustc commands.
+        # The action must override it after installing the pinned toolchain.
+        selected = f'RUSTUP_TOOLCHAIN={pin.group(1)}'
+        self.assertIn(selected, action)
+        self.assertLess(action.index(selected), action.index('    - id: rust'))
+
+        workflow = (ROOT / '.github/workflows/dart.yml').read_text()
+        for start, end in (('  native-build:', '  fast:'),
+                           ('  verification:', '  mutation-gates:')):
+            job = workflow.split(start, 1)[1].split(end, 1)[0]
+            with self.subTest(job=start.strip()):
+                self.assertIn('uses: ./.github/actions/setup-ci', job)
+                self.assertIn("rust: 'true'", job)
+                self.assertNotIn('dtolnay/rust-toolchain', job)
+
     def test_nested_dart_setup_does_not_register_a_matcher_from_the_parent_path(self):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
         dart_step = action.split('uses: dart-lang/setup-dart@v1', 1)[1].split(
@@ -112,7 +136,7 @@ class RequiredGateTests(unittest.TestCase):
             capture_output=True, text=True, timeout=10)
 
     def test_required_gate_accepts_only_complete_success(self):
-        names = ('fast', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
+        names = ('fast', 'mqtt-qos0', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
                  'mutation-gates', 'mcp-mutations', 'browser-coverage')
         needs = {name: {'result': 'success'} for name in names}
         self.assertEqual(self.execute(needs).returncode, 0)
@@ -121,7 +145,9 @@ class RequiredGateTests(unittest.TestCase):
             broken['verification']['result'] = status
             with self.subTest(status=status):
                 self.assertNotEqual(self.execute(broken).returncode, 0)
-        for broken in ({}, {k: v for k, v in needs.items() if k != 'mcp-mutations'}):
+        for broken in ({},
+                       {k: v for k, v in needs.items() if k != 'mcp-mutations'},
+                       {k: v for k, v in needs.items() if k != 'mqtt-qos0'}):
             self.assertNotEqual(self.execute(broken).returncode, 0)
 
 

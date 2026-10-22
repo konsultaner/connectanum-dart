@@ -611,6 +611,13 @@ class WampFileReceiver {
       decodedKeywords = decoded.argumentsKeywords;
     }
     final chunk = bytes;
+    // FlatBuffers keeps the authenticated wire ciphertext alongside the
+    // decoded CBOR E2EE arguments. The decoded chunk is the file payload.
+    final hasDecodedE2eeChunk =
+        invocation.pptScheme == ConnectanumE2eeProfile.scheme &&
+        invocation.pptSerializer == ConnectanumE2eeProfile.serializer &&
+        invocation.pptCipher != null &&
+        bytes != null;
 
     void releaseChunkStorage() {
       if (chunk != null) {
@@ -620,7 +627,8 @@ class WampFileReceiver {
     }
 
     if (chunk == null ||
-        invocation.payload.transparentBinaryPayload != null ||
+        (invocation.payload.transparentBinaryPayload != null &&
+            !hasDecodedE2eeChunk) ||
         decodedKeywords?.isNotEmpty == true ||
         (invocation.progress && chunk.isEmpty)) {
       releaseChunkStorage();

@@ -290,6 +290,23 @@ typedef CtConnectionMaxRawsocketExponentDart = int Function(int);
 typedef CtConnectionProtocolNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionProtocolDart = int Function(int);
 
+typedef CtConnectionMqttVersionNative = ffi.Int32 Function(ffi.Int32);
+typedef CtConnectionMqttVersionDart = int Function(int);
+typedef CtMqttWakeNative = ffi.Void Function(ffi.Int32);
+typedef CtSetMqttWakeNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.NativeFunction<CtMqttWakeNative>>,
+    );
+typedef CtSetMqttWakeDart =
+    int Function(int, ffi.Pointer<ffi.NativeFunction<CtMqttWakeNative>>);
+typedef CtPollMqttChunkNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtPollMqttChunkDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+typedef CtSendMqttChunkNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtSendMqttChunkDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
 typedef CtConnectionCloseNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionCloseDart = int Function(int);
 
@@ -1373,6 +1390,30 @@ class CtFfiBindings {
           .lookupFunction<CtConnectionProtocolNative, CtConnectionProtocolDart>(
             'ct_connection_protocol',
           ),
+      ctConnectionMqttVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtConnectionMqttVersionNative,
+              CtConnectionMqttVersionDart
+            >('ct_connection_mqtt_version'),
+      ),
+      ctSetMqttWake = _tryLookup(
+        () => library.lookupFunction<CtSetMqttWakeNative, CtSetMqttWakeDart>(
+          'ct_set_mqtt_wakeup',
+        ),
+      ),
+      ctPollMqttChunk = _tryLookup(
+        () =>
+            library.lookupFunction<CtPollMqttChunkNative, CtPollMqttChunkDart>(
+              'ct_poll_mqtt_chunk',
+            ),
+      ),
+      ctSendMqttChunk = _tryLookup(
+        () =>
+            library.lookupFunction<CtSendMqttChunkNative, CtSendMqttChunkDart>(
+              'ct_send_mqtt_chunk',
+            ),
+      ),
       ctConnectionClose = library
           .lookupFunction<CtConnectionCloseNative, CtConnectionCloseDart>(
             'ct_connection_close',
@@ -1641,6 +1682,10 @@ class CtFfiBindings {
   final CtReloadTlsDart ctReloadTls;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionProtocolDart ctConnectionProtocol;
+  final CtConnectionMqttVersionDart? ctConnectionMqttVersion;
+  final CtSetMqttWakeDart? ctSetMqttWake;
+  final CtPollMqttChunkDart? ctPollMqttChunk;
+  final CtSendMqttChunkDart? ctSendMqttChunk;
   final CtConnectionCloseDart ctConnectionClose;
   final CtConnectionWebSocketProtocolDart ctConnectionWebSocketProtocol;
   final CtConnectionTakeHttpHandshakeDart ctConnectionTakeHttpHandshake;

@@ -192,6 +192,7 @@ where
 pub enum TransportProtocol {
     Rawsocket,
     Websocket,
+    Mqtt,
     Http,
     Http2,
     #[allow(dead_code)]
@@ -203,6 +204,7 @@ impl TransportProtocol {
         match self {
             TransportProtocol::Rawsocket => "rawsocket",
             TransportProtocol::Websocket => "websocket",
+            TransportProtocol::Mqtt => "mqtt",
             TransportProtocol::Http => "http",
             TransportProtocol::Http2 => "http2",
             TransportProtocol::Http3 => "http3",
@@ -274,6 +276,17 @@ impl EndpointRuntimeConfig {
         let mut protocols = sanitize_protocols(&endpoint.protocols);
         if protocols.is_empty() {
             protocols.push(TransportProtocol::Rawsocket);
+        }
+        if protocols.contains(&TransportProtocol::Mqtt)
+            && !endpoint
+                .host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|address| address.is_loopback())
+        {
+            return Err(Error::RouterConfigInvalid(format!(
+                "endpoint {}:{} anonymous MQTT requires a numeric loopback host",
+                endpoint.host, endpoint.port
+            )));
         }
         let exponent = endpoint
             .max_rawsocket_size_exponent
@@ -903,9 +916,10 @@ mod tests {
         for (protocol, expected) in [
             ("rawsocket", TransportProtocol::Rawsocket),
             ("websocket", TransportProtocol::Websocket),
+            ("mqtt", TransportProtocol::Mqtt),
         ] {
             let runtime = configured_runtime(json!({
-                "host": "localhost", "port": 8080, "tls_mode": "disabled",
+                "host": "127.0.0.1", "port": 8080, "tls_mode": "disabled",
                 "protocols": [protocol],
                 "http": {"alpn": ["h2"], "http3": {"enabled": true, "port": 0}}
             }));
@@ -1002,6 +1016,7 @@ mod tests {
         let protocols = [
             (TransportProtocol::Rawsocket, "rawsocket"),
             (TransportProtocol::Websocket, "websocket"),
+            (TransportProtocol::Mqtt, "mqtt"),
             (TransportProtocol::Http, "http"),
             (TransportProtocol::Http2, "http2"),
             (TransportProtocol::Http3, "http3"),
@@ -1009,13 +1024,29 @@ mod tests {
         for (selected, (protocol, name)) in protocols.iter().enumerate() {
             assert_eq!(protocol.identifier(), *name);
             let runtime = configured_runtime(json!({
-                "host": "localhost", "port": 8080, "tls_mode": "native",
+                "host": "127.0.0.1", "port": 8080, "tls_mode": "native",
                 "sni_certificates": [{"hostname": "localhost", "certificate_chain_pem": "CERT", "private_key_pem": "KEY"}],
                 "protocols": [name]
             }));
             for (candidate, (query, _)) in protocols.iter().enumerate() {
                 assert_eq!(runtime.supports_protocol(*query), candidate == selected);
             }
+        }
+    }
+
+    #[test]
+    fn mqtt_anonymous_listener_rejects_non_loopback_binding() {
+        for host in ["0.0.0.0", "::", "localhost"] {
+            let endpoint: EndpointConfig = serde_json::from_value(json!({
+                "host": host, "port": 1883, "tls_mode": "disabled",
+                "protocols": ["mqtt"]
+            }))
+            .unwrap();
+            assert!(matches!(
+                EndpointRuntimeConfig::try_from_endpoint(&endpoint),
+                Err(Error::RouterConfigInvalid(detail))
+                    if detail.contains("anonymous MQTT requires a numeric loopback host")
+            ));
         }
     }
 

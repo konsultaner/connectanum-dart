@@ -1,6 +1,6 @@
 # FlatBuffers and zero-copy native buffers
 
-Status: active. Started: 2026-10-03.
+Status: deferred in the MQTT worktree by the user's explicit MQTT milestone priority on 2026-10-14; the FlatBuffers work remains open. Started: 2026-10-03.
 
 ## ObjectBox adapter delivery (2026-10-19)
 

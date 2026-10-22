@@ -10,6 +10,31 @@ from check_coverage import GENERATED_FLATBUFFERS_SOURCES, findings, read_lcov, r
 
 
 class CoverageTests(unittest.TestCase):
+    def test_browser_enum_declaration_is_not_an_executable_line(self):
+        source = 'packages/connectanum_core/lib/src/mqtt/packet_type.dart'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / source
+            path.parent.mkdir(parents=True)
+            path.write_text('enum Kind {\n  publish;\n  int get wireValue => 3;\n}\n')
+            result = report({source: {1: 0, 2: 1, 3: 1}}, root, runtime='chrome')
+            self.assertEqual(result['files'][source]['percent'], 100)
+            self.assertEqual(result['rawOverall']['percent'], 200 / 3)
+            self.assertEqual(result['declarationLinesExcluded'], {source: [1]})
+            regression = report({source: {1: 0, 2: 1, 3: 0}}, root, runtime='chrome')
+            self.assertEqual(regression['files'][source]['percent'], 50)
+
+    def test_browser_inline_enum_values_are_not_executable(self):
+        source = 'packages/connectanum_core/lib/src/mqtt/version.dart'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / source
+            path.parent.mkdir(parents=True)
+            path.write_text('enum Version { v311, v5 }\nint get version => 5;\n')
+            result = report({source: {1: 0, 2: 1}}, root, runtime='chrome')
+            self.assertEqual(result['files'][source]['percent'], 100)
+            self.assertEqual(result['declarationLinesExcluded'], {source: [1]})
+
     def test_codecov_matches_verified_generated_binding_scope(self):
         config = (Path(__file__).resolve().parents[1] / 'codecov.yml').read_text()
         ignored = re.findall(r'^  - "([^"]+)"$', config, re.MULTILINE)
