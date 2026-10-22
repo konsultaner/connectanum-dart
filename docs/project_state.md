@@ -5,6 +5,17 @@ Last updated: 2026-10-22.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+The first native E2EE profile fails correctly at its operation-window guard:
+sampling is entirely before the actual MessagePack data interval, so no
+FlatBuffers comparison is accepted. Sources/native binary and shutdown remain
+verified. The diagnostic correction now captures the complete HTTP operation,
+then selects an interior five-second interval using independent VM-clock/wall
+observations and CLOCK_MONOTONIC anchors for native perf. Old failed data is not
+relabelled. Ten new interval/clock regressions and the affected profile/CI
+contracts (37 tests) pass; generated Dart syntax parses. Full hosted integration
+is pending. Native/full verification and local inference remain resource-blocked;
+lightweight Python mock/file contracts run independently without native code.
+
 The CPU profiler explicitly pins/records one native runtime thread, matching
 acceptance. Hosted fail-first `5b9f63c7` reproduces nine inherited parent threads
 in all 32 selection/mode combinations. Repair `80b16f4b` passes all 13 tests and

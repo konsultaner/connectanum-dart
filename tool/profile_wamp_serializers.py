@@ -58,6 +58,7 @@ CPU_PROBE = r'''
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 
 Future<void> main(List<String> args) async {
@@ -69,6 +70,18 @@ Future<void> main(List<String> args) async {
   final output = Directory(args[3]);
   final memory = args.length > 6 && args[6] == 'memory';
   final target = (jsonDecode(args[5]) as Map).cast<String, dynamic>();
+  final windowTool = Uri.parse(__PROFILE_WINDOW_TOOL_URI__).toFilePath();
+  Future<Map<String, int>> clockAnchor(VmService service) async {
+    final before = DateTime.now().microsecondsSinceEpoch;
+    final clock = (await service.getVMTimelineMicros()).timestamp!;
+    final after = DateTime.now().microsecondsSinceEpoch;
+    return {'wall_before_us': before, 'clock_us': clock, 'wall_after_us': after};
+  }
+  Future<Map<String, dynamic>> nativeClock() async {
+    final result = await Process.run('python3', [windowTool, '--clock']);
+    if (result.exitCode != 0) throw StateError('Native clock observation failed: ${result.stderr}');
+    return (jsonDecode(result.stdout as String) as Map).cast<String, dynamic>();
+  }
   final http = HttpClient()..badCertificateCallback = ((cert, host, port) => host == 'localhost');
   Future<Map<String, dynamic>> run(String codec, int milliseconds, String label) async {
     final scenario = {'transport': 'rawsocket', 'serializer': codec,
@@ -130,28 +143,98 @@ Future<void> main(List<String> args) async {
         }
       }
       await captureMemory('before_workload');
-      final pending = run(codec, 30000, 'profiled');
-      pending.ignore();
-      await Future<void>.delayed(const Duration(seconds: 3));
-      final starts = <String, int>{};
+      final beforeClocks = <String, Map<String, int>>{};
       for (final entry in services.entries) {
         for (final id in ids[entry.key]!) await entry.value.clearCpuSamples(id);
-        starts[entry.key] = (await entry.value.getVMTimelineMicros()).timestamp!;
+        beforeClocks[entry.key] = await clockAnchor(entry.value);
       }
-      final samplingStartedAtUs = DateTime.now().microsecondsSinceEpoch;
-      if (args[4].isNotEmpty) {
-        final data = '${output.path}/$codec-native.perf';
-        final result = await Process.run('sudo', ['-n', args[4], 'record', '-e', 'cpu-clock',
-          '-F', '999', '--call-graph', 'dwarf', '-p', pids.values.join(','), '-o', data, '--', 'sleep', '5']);
-        File('${output.path}/$codec-perf-record.log').writeAsStringSync('${result.stdout}\n${result.stderr}');
-        if (result.exitCode != 0) throw StateError('perf record exit ${result.exitCode}');
-      } else {
-        await Future<void>.delayed(const Duration(seconds: 5));
+      Process? perf;
+      Future<void>? perfOutput, perfErrors, perfStopping;
+      final perfLog = StringBuffer();
+      Future<void> stopPerf() => perfStopping ??= () async {
+        final child = perf;
+        if (child == null) return;
+        try { await child.stdin.close(); } catch (error) { perfLog.writeln(error); }
+        late int code;
+        try {
+          code = await child.exitCode.timeout(const Duration(seconds: 10));
+        } on TimeoutException {
+          child.kill(ProcessSignal.sigterm);
+          try {
+            code = await child.exitCode.timeout(const Duration(seconds: 5));
+          } on TimeoutException {
+            child.kill(ProcessSignal.sigkill);
+            code = await child.exitCode.timeout(const Duration(seconds: 5));
+          }
+        }
+        await Future.wait([if (perfOutput != null) perfOutput!, if (perfErrors != null) perfErrors!]);
+        File('${output.path}/$codec-perf-record.log').writeAsStringSync(perfLog.toString());
+        if (code != 0) throw StateError('perf record exit $code');
+      }();
+      final nativeBefore = args[4].isEmpty ? null : await nativeClock();
+      final afterClocks = <String, Map<String, int>>{};
+      Map<String, dynamic>? nativeAfter;
+      late Map<String, dynamic> report;
+      late int captureStartedAtUs, captureCompletedAtUs;
+      try {
+        if (args[4].isNotEmpty) {
+          final ready = Completer<void>();
+          final child = await Process.start('sudo', ['-n', args[4], 'record',
+            '--clockid', 'CLOCK_MONOTONIC', '-e', 'cpu-clock', '-F', '999', '--call-graph', 'dwarf',
+            '-p', pids.values.join(','), '-o', '${output.path}/$codec-native.perf', '--',
+            'python3', '-c', "import sys; print('PERF_READY', flush=True); sys.stdin.buffer.read(1)"]);
+          perf = child;
+          perfOutput = child.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach((line) {
+            perfLog.writeln(line);
+            if (line.trim() == 'PERF_READY' && !ready.isCompleted) ready.complete();
+          });
+          perfErrors = child.stderr.transform(utf8.decoder).forEach(perfLog.write);
+          unawaited(child.exitCode.then((code) {
+            if (!ready.isCompleted) ready.completeError(StateError('perf exited before readiness: $code'));
+          }));
+          await ready.future.timeout(const Duration(seconds: 15));
+        }
+        captureStartedAtUs = DateTime.now().microsecondsSinceEpoch;
+        report = await run(codec, 30000, 'profiled');
+        for (final entry in services.entries) {
+          afterClocks[entry.key] = await clockAnchor(entry.value);
+        }
+        nativeAfter = args[4].isEmpty ? null : await nativeClock();
+        captureCompletedAtUs = DateTime.now().microsecondsSinceEpoch;
+      } finally {
+        await stopPerf();
       }
+      final samples = report['samples'] as List;
+      final dataStartedAtUs = samples.map((s) => s['started_at_us'] as int).reduce((a, b) => a < b ? a : b);
+      final dataCompletedAtUs = samples.map((s) => s['completed_at_us'] as int).reduce((a, b) => a > b ? a : b);
+      final requestFile = File('${output.path}/$codec-window-request.json');
+      requestFile.writeAsStringSync(jsonEncode({
+        'capture_started_at_us': captureStartedAtUs, 'capture_completed_at_us': captureCompletedAtUs,
+        'data_started_at_us': dataStartedAtUs, 'data_completed_at_us': dataCompletedAtUs,
+        'vm_before': beforeClocks, 'vm_after': afterClocks,
+        'native_before': nativeBefore, 'native_after': nativeAfter,
+      }));
+      final windowFile = File('${output.path}/$codec-sampling-window.json');
+      final selection = await Process.run('python3', [windowTool, '--input', requestFile.path, '--output', windowFile.path]);
+      if (selection.exitCode != 0) throw StateError('CPU window selection failed: ${selection.stderr}');
+      final window = (jsonDecode(windowFile.readAsStringSync()) as Map).cast<String, dynamic>();
+      final ranges = window['vm_clock_ranges'] as Map;
       for (final entry in services.entries) {
-        final end = (await entry.value.getVMTimelineMicros()).timestamp!;
+        final range = ranges[entry.key] as Map;
+        final origin = range['origin_us'] as int, extent = range['extent_us'] as int;
+        var roleSamples = 0;
         for (final id in ids[entry.key]!) {
-          final cpu = await entry.value.getCpuSamples(id, starts[entry.key]!, end - starts[entry.key]!);
+          final cpu = await entry.value.getCpuSamples(id, origin, extent);
+          if (cpu.samples == null || cpu.sampleCount != cpu.samples!.length) {
+            throw StateError('CPU sample inventory is incomplete');
+          }
+          for (final sample in cpu.samples!) {
+            final timestamp = sample.timestamp;
+            if (timestamp == null || timestamp < origin || timestamp > origin + extent) {
+              throw StateError('CPU sample is outside the selected operation interval');
+            }
+          }
+          roleSamples += cpu.sampleCount ?? 0;
           File('${output.path}/$codec-${entry.key}-${id.replaceAll('/', '_')}.json')
             .writeAsStringSync(jsonEncode(cpu.toJson()));
           final functions = (cpu.functions ?? []).toList()
@@ -162,23 +245,15 @@ Future<void> main(List<String> args) async {
             'top': [for (final f in functions.take(25)) {'name': f.function?.name,
               'kind': f.kind, 'url': f.resolvedUrl, 'exclusive': f.exclusiveTicks, 'inclusive': f.inclusiveTicks}]}));
         }
+        if (roleSamples == 0) throw StateError('No CPU samples inside the operation interval for ${entry.key}');
       }
-      final samplingCompletedAtUs = DateTime.now().microsecondsSinceEpoch;
-      final report = await pending;
-      final samples = report['samples'] as List;
-      final dataStartedAtUs = samples.map((s) => s['started_at_us'] as int).reduce((a, b) => a < b ? a : b);
-      final dataCompletedAtUs = samples.map((s) => s['completed_at_us'] as int).reduce((a, b) => a > b ? a : b);
-      final covered = dataStartedAtUs <= samplingStartedAtUs && dataCompletedAtUs >= samplingCompletedAtUs;
-      File('${output.path}/$codec-sampling-window.json').writeAsStringSync(jsonEncode({
-        'sampling_started_at_us': samplingStartedAtUs, 'sampling_completed_at_us': samplingCompletedAtUs,
-        'data_started_at_us': dataStartedAtUs, 'data_completed_at_us': dataCompletedAtUs,
-        'sampling_inside_actual_data_window': covered,
-      }));
-      if (!covered) throw StateError('CPU sampling was outside the actual operation window');
       await captureMemory('after_workload');
       await captureMemory('after_gc_request');
       if (args[4].isNotEmpty) {
         final data = '${output.path}/$codec-native.perf';
+        final header = await Process.run('sudo', ['-n', args[4], 'report', '--header-only', '-i', data]);
+        File('${output.path}/$codec-native-header.txt').writeAsStringSync('${header.stdout}\n${header.stderr}');
+        if (header.exitCode != 0) throw StateError('perf header exit ${header.exitCode}');
         if (Platform.isLinux) {
           final pid = pids['router']!;
           final source = File('/tmp/perf-$pid.map');
@@ -194,15 +269,28 @@ Future<void> main(List<String> args) async {
         for (final scope in ['combined', 'router', 'client']) {
           for (final children in [false, true]) {
             final report = await Process.run('sudo', ['-n', args[4], 'report', '--stdio',
+              '--time', (window['native_clock_range'] as Map)['perf_time_range'] as String,
               if (scope != 'combined') ...['--pid', '${pids[scope]}'],
               if (!children) '--no-children', '--percent-limit', '0.1', '-i', data]);
             final suffix = scope == 'combined' ? '' : '-$scope';
             File('${output.path}/$codec-native$suffix-${children ? 'inclusive' : 'leaf'}.txt')
               .writeAsStringSync('${report.stdout}\n${report.stderr}');
             if (report.exitCode != 0) throw StateError('perf report $scope exit ${report.exitCode}');
+            if (scope == 'combined') {
+              final count = RegExp(r'#\s*Samples:\s*([0-9.]+)').firstMatch(report.stdout as String);
+              final rows = RegExp(r'^\s*([0-9.]+)%\s+\S', multiLine: true)
+                .allMatches(report.stdout as String)
+                .any((row) => (double.tryParse(row.group(1)!) ?? 0) > 0);
+              if (count == null || (double.tryParse(count.group(1)!) ?? 0) <= 0 || !rows) {
+                throw StateError('Native perf has no samples inside the operation interval');
+              }
+            }
           }
         }
       }
+      window['native_perf_scope'] = args[4].isEmpty ? 'not_measured' : 'whole-request raw capture; reports filtered to interior data interval';
+      window['profiles_verified'] = true;
+      windowFile.writeAsStringSync(jsonEncode(window));
     }
   } finally {
     http.close(force: true);
@@ -396,7 +484,8 @@ def profile(args):
         if 'http3' in listener['protocols']:
             listener['protocols'].remove('http3'); listener['http'].pop('http3', None)
     (output/'router.json').write_text(json.dumps(config, indent=2)+'\n')
-    (output/'probe.dart').write_text(CPU_PROBE)
+    (output/'probe.dart').write_text(CPU_PROBE.replace('__PROFILE_WINDOW_TOOL_URI__',
+                                                   json.dumps((root/'tool/wamp_profile_window.py').as_uri())))
     worker_uri = (root/'packages/connectanum_bench/tool/wamp_client_main.dart').as_uri()
     (output/'worker.dart').write_text(WORKER.replace('__WORKER_URI__', json.dumps(worker_uri)))
     env = {**os.environ, 'CONNECTANUM_SKIP_NATIVE_BUILD': '1', 'CONNECTANUM_BENCH_WAMP_REUSE_WORKER': '1',
@@ -462,6 +551,7 @@ def profile(args):
         audit = {'kind': 'cpu_profile_only_never_acceptance', 'case_id': args.profile_case,
                  'requested_configuration': target, 'head': head, 'inputs': inputs,
                  'native_runtime_threads': NATIVE_RUNTIME_THREADS,
+                 'cpu_window_scope': 'posthoc interior data interval; VM clocks calibrated independently; native perf CLOCK_MONOTONIC filtered',
                  'resolved_input_files': resolved_files,
                  'inputs_unchanged': not changed and head == after, 'changed': changed,
                  'native_library_sha256': library_digest, 'native_library_unchanged': digest(library) == library_digest,

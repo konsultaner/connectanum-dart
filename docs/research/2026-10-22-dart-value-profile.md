@@ -120,3 +120,43 @@ and actual capture remain pending. Accepted workloads and budgets do not change.
 Encrypted artifact `12441082513`, archive `encrypted-36a6.zip`, SHA256
 `9f47afe40b4f38ecf0a7fe8e03f3871281f20869762ddcf11d27fab50330aceb`,
 and `encrypted-36a6-independent-audit.json` retain the original costs and proof.
+
+## Operation-window synchronization
+
+E2EE run `39816020705` on `82f22eb3` correctly rejects its first MessagePack CPU
+capture. The old capture interval is `[1792687426334269, 1792687441029098]`,
+while real sample data spans `[1792687453665265, 1792687483669259]` in wall-clock
+microseconds. Sampling starts roughly 27 seconds before data; there is no
+FlatBuffers profile. Sources/native binary remain unchanged and server/process
+cleanup succeeds. Missing later snapshots are a consequence, not accepted data.
+The failed artifact `12443220393` has archive SHA256
+`85e01338ea5d54a870e406ad2d845ee2685842e67f6c80aae81bf5bc2a349263`.
+
+The repair records across the whole HTTP operation and reads CPU samples after
+the actual data window is known. It selects five seconds ending two seconds
+before the observed data end, with at least two seconds before its start.
+VM clocks are bracketed independently against wall time before/after the data.
+Conversion intersects the desired interval across the observed offset envelope;
+envelopes wider than 250 ms, backwards clocks, short data, incomplete capture or
+missing clocks reject the diagnostic. This assumes interior offsets remain in
+the observed endpoint envelope; the anchors and uncertainty are retained for
+review rather than claiming protection against unobserved wall-clock jumps.
+
+The installed `vm_service` 15.3.0 `getCpuSamples` API filters in its timeline
+clock, available through `getVMTimelineMicros`, rather than wall-clock timestamps.
+Native perf explicitly records CLOCK_MONOTONIC with separately observed Python
+monotonic/wall anchors; `perf report --time` selects the converted interval.
+Raw whole-request perf data is retained alongside filtered reports and headers.
+The recorder's owned control child waits for stdin EOF and is reaped before
+analysis; fixed startup/sleep assumptions are removed. VM sample timestamps and
+nonempty filtered native reports are checked before marking profiles verified.
+See the upstream [perf record clock option](https://man7.org/linux/man-pages/man1/perf-record.1.html)
+and [perf report time filter](https://man7.org/linux/man-pages/man1/perf-report.1.html).
+
+Ten interval regressions include the actual failed capture, delayed startup,
+independent clock domains, conservative bounds, drift, invalid values and missing
+observations. They pass with the 13 profile and 14 CI contract tests. Generated
+Dart syntax parses; native integration remains pending, and local model review
+is blocked by the preserved resource lease. Benchmark workloads, duration/sample
+floors, repetitions, timeouts and acceptance budgets are unchanged. These
+profiles remain diagnostic and cannot close performance acceptance.

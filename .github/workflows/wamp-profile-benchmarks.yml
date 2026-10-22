@@ -377,7 +377,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Verify CPU diagnostic contracts
-        run: python3 tool/test_profile_wamp_serializers.py
+        run: |
+          python3 tool/test_wamp_profile_window.py
+          python3 tool/test_profile_wamp_serializers.py
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: 3.13.5

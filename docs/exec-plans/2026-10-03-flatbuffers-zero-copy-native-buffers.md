@@ -4,6 +4,14 @@ Status: active. Started: 2026-10-03.
 
 ## Faithful payload timeout diagnosis (2026-10-22)
 
+- [x] Preserve failed E2EE profile 39816020705: MessagePack CPU sampling precedes
+  real data by about 27 seconds, correctly rejected; no FlatBuffers window.
+- [x] Replace assumed startup timing with complete-request capture and
+  conservative post-hoc selection. Ten clock/window regressions, 13 profile
+  contracts and 14 CI contracts pass; generated Dart syntax parses. Native perf
+  raw capture is retained; reports and VM samples select the data interior.
+- [ ] Run resulting-source E2EE integration and independently audit clocks,
+  selected timestamps, native filter/header, process cleanup and complete data.
 - [x] Independently audit completed `36a6df24` encrypted/progressive shard:
   240 rows, zero integrity gaps, 240 E2EE/160 transcode/120 native-crypto copy
   reconciliations, fixed processes/inputs and matching production binaries.
