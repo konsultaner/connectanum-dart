@@ -33,9 +33,7 @@ class FlatBufferFrame {
 FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
   final root = readWampFlatBufferFields(bytes);
   final tag = root['msg_type'] as int;
-  final name = wire.AnyMessageTypeId.values
-      .singleWhere((value) => value.value == tag)
-      .name;
+  final name = wire.AnyMessageTypeId.fromValue(tag).name;
   final body = root['msg'] as Map<String, Object?>;
   final encoded = root['metadata'] as Uint8List?;
   final dictionary = encoded == null ? null : decodeFlatBufferMetadata(encoded);

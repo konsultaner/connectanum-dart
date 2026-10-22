@@ -55,6 +55,12 @@ class LinuxStallTests(unittest.TestCase):
         self.assertNotIn('unrelated-file', json.dumps(result))
         self.assertNotIn('secretToken', json.dumps(result))
 
+    def test_tcp_info_receives_only_owned_socket_inventory_and_selected_ports(self):
+        with mock.patch.object(linux, 'capture_tcp_info', return_value={'sockets': []}) as capture:
+            result = linux.capture_linux_state(self.target, self.proc, application_ports=(8083,))
+        capture.assert_called_once_with(self.target, result['tcp'], (8083,), self.proc)
+        self.assertEqual([entry['inode'] for entry in capture.call_args.args[1]], [400])
+
     def test_changed_identity_rejects_observation_before_reading_descriptors(self):
         (self.proc / '200/stat').write_text(self.stat(200, 1))
         with mock.patch.object(linux.os, 'readlink', side_effect=AssertionError('must not inspect foreign PID')):

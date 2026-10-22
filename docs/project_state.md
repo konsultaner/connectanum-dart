@@ -5,47 +5,55 @@ Last updated: 2026-10-22.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-The current candidate adopts the measured Dart reader cache: two table views
-and one decoded string are stored inline, with the original `(offset, type)` and
-string-offset maps used for overflow. Validation, byte views and wire behavior
-are unchanged. The pre-adoption `bin/test-fast` on `de1b57f0` passes in 15m08s,
-with all 3,185 sources/four resolved inputs unchanged and a clean tree. Private
-baseline/candidate suites each pass 433 cases; current-source focused/full checks
-and hosted copy/timing renewal remain pending. Advisory review was attempted
-again but another native task acquired the shared lease after the precheck.
+The current candidate removes an extra copy of the fresh validated metadata
+map and uses the checked-in generated enum switch in Dart decoding. It retains
+the adopted two-table/one-string inline reader cache. Private baseline and
+candidate suites each pass 434 cases, including mutable ERROR metadata, independent
+messages, lazy payload access and re-encoding. Forty initial and 160 subsequent
+balanced component windows preserve wires/storage aliases. Eight worker processes
+per variant/shape measure about 382/392 fewer managed bytes and roughly 7% lower
+warm RESULT/CALL decode time. These are component results, never hosted parity.
+Resulting-source formatting, focused analysis and all 3,399 serializer cases
+pass with 3,193 source/resolved hashes fixed. Full verification and hosted
+renewal remain pending.
 
-Runtime `08efcd5b` passes frozen local `bin/verify` in 24m19s, including
-browser suites, with all 3,183 sources/four resolved inputs unchanged and a
-clean tree. Its 39 native FlatBuffers tests pass. Independent allocator audits
-verify matching compiler/lock/probes and 34 identical wires: decoding requests
-552–1,368 fewer bytes/1–3 fewer allocations, and encoding requests 720 fewer
-bytes in all ten fixtures. These are component savings, not parity acceptance.
+Before this follow-up, `dd6e674a` passes the resulting-source serializer directory
+(3,398 cases), focused analysis and full `bin/verify`, including Chrome/Wasm.
+The combined focused/analysis/full pipeline takes 23m30s, with all 3,186 sources
+and four resolved inputs unchanged and a clean tree. Advisory Qwen review finds
+no concrete reader/cache/map defect; reader lifetime is synchronous and local,
+and the checked-in generated `fromValue` factory is verified directly.
 
-Its renewed production copy proof also passes independent audit: four lifetime
-phases, 36 snapshot groups/108 post-GC observations, 120 owned-path cases and
-300 short rows, including E2EE/native crypto/transcode and all 32 no-copy
-observations. Public leases export no byte view and leave zero native owners
-before GC. Production exports contain no test-oracle symbols. All four recorded
-resolved-input hashes match independently retained contents.
+Its renewed production copy/lifetime run 39835442712 passes independent audit:
+four lifetime phases, 36 snapshot groups/108 post-GC observations, 120 owned-path
+cases and 300 short rows, including E2EE/native crypto/transcode and all 32
+no-copy observations. Public leases export no byte view and leave zero native
+owners before GC. Production exports contain no test oracles. All four recorded
+resolved hashes match independently retained contents; native/driver binaries
+match the preceding production proof.
 
-The strict candidate diagnostic completes 90 valid rows but retains six costs:
-Dart-value throughput/CPU/GC and RSS in all three construction modes. Every
-allocation/p95/p99 gate passes. The completed older `36a6df24` primary campaign
-has 1,440 rows, zero integrity gaps and 187 numerical failures; it is retained
-separately. Current full CI and full candidate campaigns continue. No budget,
-case, floor, repetition, baseline or deadline is waived.
+The `dd6e674a` strict diagnostic 39835447509 completes 90 valid rows with zero
+integrity findings and twelve numerical costs. Allocation and throughput pass
+in all three cases; CPU/latency/GC/RSS still have failures. Do not infer a causal
+change from the earlier runner's six-cost result. Its full primary campaign
+39835451321 and all three supplemental shards 39835455283 are observing.
+Only superseded run 39824883272 is canceled: a fresh snapshot verifies an
+unstarted pending job with no runner steps. Every started campaign is preserved.
+No budget, case, floor, repetition, baseline or deadline is waived.
 
-The adopted Dart reader-cache candidate has forty balanced
-component windows retain identical wires and storage aliases, saving about
-259 managed bytes per RESULT decode and 456 per CALL decode. Only two worker
-processes per variant/shape are measured, so timing remains inconclusive.
-All 433 selected cases pass separately on baseline and candidate configurations.
-The initial ByteBuffer-wrapper identity guard fails before measurement; a direct
-storage-alias check replaces it outside measurement and the failed bundle remains.
-Three shared-string/table/type/overflow regressions are now added to the repository.
-Their first baseline fast run reproduces five wrapper-inventory failures; adding
-all VM/browser serializer wrapper registrations restores all 87 tooling cases.
-The corrected full fast baseline subsequently passes before adoption.
+Native `08efcd5b` passes frozen local verification and all 39 conformance tests.
+Independent allocator audits verify matching compiler/lock/probes and 34
+identical wires: decoding requests 552–1,368 fewer bytes/1–3 fewer allocations,
+and encoding requests 720 fewer bytes in all ten fixtures. The completed older
+`36a6df24` primary campaign has 1,440 rows, zero integrity gaps and 187 costs,
+retained separately.
+
+The faithful 1-MiB TLS timeout remains unresolved. The next diagnostic adds
+bounded `ss` TCP_INFO/socket-memory snapshots for verified owned IPv4 loopback
+application sockets, with numeric tuple/inode checks and process identity checks.
+Its isolated 46-test staging suite and all 49 production-source capture
+contracts/14 CI contracts pass; real Linux smoke/replay remain pending. This changes observations, never the workload
+or performance acceptance. See the TCP diagnostic research note.
 
 Native source review finds no demonstrated defect. Qwen's hypothetical sorting/
 sharing concerns are checked against private storage, binary-position insertion,

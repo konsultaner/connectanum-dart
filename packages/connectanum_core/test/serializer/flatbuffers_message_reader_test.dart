@@ -37,6 +37,57 @@ Uint8List frameWithDictionary(
 
 void main() {
   _profileReaderCases();
+  test(
+    'mutable ERROR metadata stays independent across decodes and lazy payload access',
+    () {
+      final codec = flatbuffers.Serializer();
+      final dictionary = <String, Object?>{
+        'ppt_scheme': 'x_profile',
+        'ppt_serializer': 'flatbuffers',
+        '_extension': {
+          'nested': [1, 2],
+        },
+        '_null': null,
+      };
+      final source = frameWithDictionary(
+        'Error',
+        {
+          'request_type': 48,
+          'request': 1,
+          'error': 'com.error',
+          'args': Uint8List.fromList(
+            cbor.encode(
+              CborValue([
+                Uint8List.fromList([7, 8]),
+              ]),
+            ),
+          ),
+        },
+        dictionary,
+        7,
+      );
+      final first = codec.deserialize(source) as Error;
+      final second = codec.deserialize(source) as Error;
+      ((first.details['_extension'] as Map)['nested'] as List)[0] = 9;
+      first.details['_added'] = true;
+      expect(first.arguments!.single, [7, 8]);
+      expect(second.arguments!.single, [7, 8]);
+      expect(second.details, dictionary);
+      expect(readWampFlatBufferFrame(source).dictionary, dictionary);
+      expect(readWampFlatBufferFrame(codec.serialize(first)).dictionary, {
+        ...dictionary,
+        '_extension': {
+          'nested': [9, 2],
+        },
+        '_added': true,
+      });
+      expect(
+        readWampFlatBufferFrame(codec.serialize(second)).dictionary,
+        dictionary,
+      );
+    },
+  );
+
   test('public serializer handles null input and bounds malformed frames', () {
     expect(codec.deserialize(null), isNull);
     expect(() => codec.deserialize(Uint8List(0)), throwsFormatException);

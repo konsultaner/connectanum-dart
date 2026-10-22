@@ -370,5 +370,27 @@ class StallDiagnosticTests(unittest.TestCase):
         self.assertEqual((self.output / "keep").read_text(), "existing evidence")
 
 
+
+
+
+class ListenerPortTests(unittest.TestCase):
+    def test_application_ports_ignore_control_listener_and_deduplicate(self):
+        config = {'router': {'listeners': [
+            {'endpoint': '127.0.0.1:8080', 'protocols': ['http', 'http2']},
+            {'endpoint': '127.0.0.1:8083', 'protocols': ['rawsocket', 'websocket']},
+            {'endpoint': '[::1]:8083', 'protocols': ['websocket']},
+            {'endpoint': '127.0.0.1:8081', 'protocols': ['rawsocket']},
+        ]}}
+        self.assertEqual(diagnostic.application_listener_ports(config), [8081, 8083])
+
+    def test_non_numeric_nonloopback_ambiguous_and_zero_ports_are_rejected(self):
+        for endpoint in ['localhost:8083', '8.8.8.8:8083', '127.0.0.1:0',
+                         '127.0.0.1:65536', '127.0.0.1', 'user@127.0.0.1:8083',
+                         '127.0.0.1:8083/path', '127.0.0.1:8083?query']:
+            with self.subTest(endpoint=endpoint), self.assertRaises(ValueError):
+                diagnostic.application_listener_ports({'router': {'listeners': [
+                    {'endpoint': endpoint, 'protocols': ['websocket']}]}})
+
+
 if __name__ == "__main__":
     unittest.main()

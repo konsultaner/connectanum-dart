@@ -47,3 +47,27 @@ sources/four resolved inputs unchanged and a clean tree. Log SHA-256:
 The production reader matches the measured candidate methods and field order;
 the private marker is removed and declarations are formatted. Resulting-source
 checks, Linux copy/lifetime proofs and full performance acceptance remain pending.
+
+## Follow-up: fresh metadata maps and generated enum lookup
+
+After `dd6e674a` passes frozen full verification, a private candidate reuses the
+fresh validated `FlatBufferFrame.dictionary` in model decoding and uses the
+checked-in `AnyMessageTypeId.fromValue` switch. The original code copies that
+map and linearly scans enum values. Each frame decode owns its fresh dictionary;
+retention snapshots are still detached before the public mutable model returns.
+
+Both configurations pass 434 selected cases, including a new public ERROR
+metadata mutation, independent decode, lazy PPT and re-encoding regression.
+Qwen reports no concrete defect; synchronous reader scope and the generated
+factory are checked directly. Validation and wire/byte ownership are unchanged.
+
+The retained first forty windows and subsequent 160-window experiment agree.
+The latter uses four ABBA worker blocks per shape: eight independent workers
+per variant for both RESULT and CALL, four measured rounds of 100,000 decodes
+after warm-up, and a control window per worker. Median worker allocation saves
+about 382/392 bytes per decode; median worker warm decode time ratios are
+0.9251/0.9287. All wires and backing-storage aliases agree. All root, resolved
+and private source inputs remain fixed during each run. Raw receipts and
+worker-level selection are retained in `out/flatbuffers-resume-20261022/`
+under `message-reader-probe/`. These are local component results: they cannot
+accept whole-process CPU, RSS, GC, network performance or primary parity.

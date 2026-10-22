@@ -128,7 +128,7 @@ def redact_debug_text(value):
     )
 
 
-def capture_original_stacks(driver_pid, last_output, stop, driver_alive=lambda: True):
+def capture_original_stacks(driver_pid, last_output, stop, driver_alive=lambda: True, application_ports=()):
     snapshot = {"started_at_unix_seconds": time.time(), "last_output": redact_debug_text(last_output),
                 "roles": {}, "driver_alive_at_start": driver_alive(), "endpoint_source": "owned metrics observers"}
     private_uris = []
@@ -151,7 +151,7 @@ def capture_original_stacks(driver_pid, last_output, stop, driver_alive=lambda: 
                 if (type(vm.get("pid")) is not int or vm["pid"] != target.pid
                         or not identity_matches(target, PROC_ROOT)):
                     raise ValueError("VM endpoint does not match the owned process identity")
-                record["linux"] = capture_linux_state(target, PROC_ROOT)
+                record["linux"] = capture_linux_state(target, PROC_ROOT, application_ports=application_ports)
                 isolates = vm.get("isolates")
                 if not isinstance(isolates, list) or len(isolates) > 32:
                     raise ValueError("Invalid or excessive VM isolate inventory")
@@ -185,6 +185,21 @@ def capture_original_stacks(driver_pid, last_output, stop, driver_alive=lambda: 
         if path != "/":
             encoded = encoded.replace(path, "<vm-service-path>")
     return json.loads(redact_debug_text(encoded))
+
+
+def application_listener_ports(config):
+    ports = set()
+    for listener in config['router']['listeners']:
+        if not {'rawsocket', 'websocket'}.intersection(listener.get('protocols', [])):
+            continue
+        parsed = urllib.parse.urlsplit('//' + listener['endpoint'])
+        if (parsed.username is not None or parsed.password is not None
+                or parsed.path or parsed.query or parsed.fragment
+                or not ipaddress.ip_address(parsed.hostname or '').is_loopback
+                or parsed.port is None or not 0 < parsed.port < 65536):
+            raise ValueError('TCP_INFO application listener must use a numeric loopback endpoint')
+        ports.add(parsed.port)
+    return sorted(ports)
 
 
 def run(args, root=ROOT):
@@ -259,6 +274,7 @@ def run(args, root=ROOT):
     else:
         copied_scenario = output / "scenario.toml"
         copied_scenario.write_bytes(scenarios[0].read_bytes())
+    diagnostic_ports = application_listener_ports(config) if original else []
     ports = []
     if original:
         (output / "router.json").write_bytes(files["router_config"].read_bytes())
@@ -337,7 +353,8 @@ def run(args, root=ROOT):
             if now - progress_at < args.stall_seconds or count >= 3 or now - prior < args.stall_seconds:
                 continue
             captured[progress_at] = (count + 1, now)
-            snapshot = (capture_original_stacks(process.pid, line, stop, lambda: process.poll() is None)
+            snapshot = (capture_original_stacks(process.pid, line, stop, lambda: process.poll() is None,
+                                                    application_ports=diagnostic_ports)
                         if original else capture_stacks(output, line, stop, lambda: process.poll() is None))
             with activity_lock:
                 snapshot["progress_changed_during_capture"] = activity["at"] != progress_at

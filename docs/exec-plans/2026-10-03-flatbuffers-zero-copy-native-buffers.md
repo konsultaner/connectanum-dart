@@ -2,6 +2,32 @@
 
 Status: active. Started: 2026-10-03.
 
+## Metadata reuse and bounded TCP flow diagnosis (2026-10-22)
+
+- [x] Pass `dd6e674a` serializer cases/analysis and frozen full verification,
+  including Chrome/Wasm, with 3,186 sources/four resolved inputs unchanged.
+- [x] Audit its production lifetime/copy proof: 120 owned cases, 300 short
+  rows and all 32 no-copy observations; verify retained resolved contents.
+- [x] Audit its strict 90 rows: zero integrity gaps, twelve costs; allocation
+  and throughput pass in every case. Keep parity open.
+- [x] Measure private metadata-map reuse/generated enum switch: 160 balanced
+  windows, eight workers per variant/shape, identical wires/storage aliases,
+  about 382/392 fewer managed bytes and roughly 7% lower warm decode time.
+- [x] Pass 434 cases separately on baseline/candidate, including the public
+  ERROR map mutation/independent decode/lazy payload/re-encoding regression.
+- [x] Complete Qwen review; verify the generated switch and local synchronous
+  reader lifetime directly. No concrete finding remains.
+- [x] Adopt the exact measured behavior and prepare bounded owned-socket
+  TCP_INFO observations. Preserve the two failed private staging harness attempts;
+  corrected staging tests pass without changes to workloads or policy.
+- [x] Pass all 49 production-source capture contracts and 14 CI contracts.
+- [x] Pass resulting-source formatting, analysis and 3,399 serializer cases
+  with all 3,193 source/resolved inputs fixed.
+- [ ] Pass frozen full verification; run real Linux socket smoke and faithful
+  timeout replay.
+- [ ] Complete renewed CI/copy/strict timing, then primary acceptance on the
+  final runtime. Every started earlier campaign remains available separately.
+
 ## Fixed-schema native table allocation candidate (2026-10-22)
 
 - [x] Locate per-root/message BTreeMap allocation in the checked wire reader.
@@ -36,8 +62,10 @@ Status: active. Started: 2026-10-03.
 - [x] Pass complete pre-adoption `bin/test-fast` on `de1b57f0` in 15m08s with
   3,185 sources/four resolved inputs unchanged and a clean tree; adopt the exact
   measured methods/field order without the private marker.
-- [ ] Pass resulting-source focused/core checks, analysis and full verification;
-  renew hosted CI/copy/lifetime/strict and full timing.
+- [x] Pass `dd6e674a` resulting-source focused/core checks, analysis and full
+  verification; dispatch hosted CI/copy/lifetime/strict and full timing.
+  Copy proof and strict diagnostic are independently audited above; CI/full
+  campaigns remain open.
 - [ ] Run final primary/supplemental campaigns with source-qualified queues so
   independent hosted VMs can finish without waiting behind older revisions.
   Preserve every observation and all existing acceptance rules.

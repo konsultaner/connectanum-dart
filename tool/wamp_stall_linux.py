@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 
 from wamp_stall_vm_services import identity_matches
+from wamp_stall_tcp_info import capture_tcp_info
 
 
 def bounded_text(path, limit=2 * 1024 * 1024):
@@ -13,7 +14,7 @@ def bounded_text(path, limit=2 * 1024 * 1024):
     return value
 
 
-def capture_linux_state(target, proc_root=Path('/proc')):
+def capture_linux_state(target, proc_root=Path('/proc'), application_ports=()):
     if not identity_matches(target, proc_root):
         return {'error': 'owned process identity changed before Linux observation'}
     root = Path(proc_root) / str(target.pid)
@@ -83,6 +84,8 @@ def capture_linux_state(target, proc_root=Path('/proc')):
                 result['errors'].append({'record': family, 'error': type(error).__name__})
     except (OSError, ValueError) as error:
         result['errors'].append({'record': 'process', 'error': type(error).__name__})
+    if application_ports:
+        result['tcp_info'] = capture_tcp_info(target, result['tcp'], application_ports, proc_root)
     if not identity_matches(target, proc_root):
         return {'error': 'owned process identity changed during Linux observation'}
     return result

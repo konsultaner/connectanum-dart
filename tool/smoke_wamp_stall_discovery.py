@@ -82,7 +82,8 @@ def main():
                 break
             if observer.poll() is not None:
                 raise RuntimeError('Metrics observer exited before readiness')
-        snapshot = diagnostic.capture_original_stacks(os.getpid(), 'real discovery smoke', threading.Event())
+        snapshot = diagnostic.capture_original_stacks(os.getpid(), 'real discovery smoke', threading.Event(),
+                                                      application_ports=(urllib.parse.urlsplit(uri).port,))
         worker = snapshot['roles'].get('worker', {})
         if (worker.get('pid') != vm.pid or worker.get('observer_pid') != observer.pid or worker.get('error')
                 or not worker.get('isolates') or any('stack' not in entry for entry in worker['isolates'])):
@@ -90,6 +91,9 @@ def main():
         native = worker.get('linux', {})
         if native.get('error') or native.get('errors') or not native.get('threads') or not native.get('tcp'):
             raise RuntimeError('Owned Linux thread/socket observation failed: ' + json.dumps(native))
+        info = native.get('tcp_info', {})
+        if info.get('error') or info.get('errors') or not info.get('sockets'):
+            raise RuntimeError('Owned TCP_INFO observation failed: ' + json.dumps(info))
         token = urllib.parse.urlsplit(uri).path.strip('/')
         if uri in json.dumps(snapshot) or (token and token in json.dumps(snapshot)):
             raise RuntimeError('Authenticated VM endpoint was not redacted')

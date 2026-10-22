@@ -60,7 +60,8 @@ AbstractMessage _readMessage(
       }).contains(frame.name)) {
     throw const FormatException('Extended FlatBuffers metadata is required');
   }
-  final dictionary = Map<String, dynamic>.from(map ?? const {});
+  // Frame decoding creates a fresh, validated dictionary for this message.
+  final dictionary = map ?? <String, dynamic>{};
   int integer(String key) => fields[key] as int;
   String text(String key) => fields[key] as String;
   final AbstractMessage message;
