@@ -84,6 +84,15 @@ resulting-source [primary](https://github.com/konsultaner/connectanum-dart/actio
 and [supplemental](https://github.com/konsultaner/connectanum-dart/actions/runs/39792316277)
 campaigns remain queued/running behind retained observations.
 
+The resulting-source payload-size shard completes all 360 rows with zero
+integrity findings, all 60 no-copy observations, stable client/router processes
+and identical independently recomputed comparisons. Its production binaries
+match the copy proof; all original floors/repetitions remain. It retains 36
+performance costs, including about 19% lower throughput in the 10-KiB Dart-value
+RawSocket case. Profiling now accepts that exact canonical case; its new
+contracts/profile are pending validation. A passing full shard does not explain
+or waive the separately reproduced intermittent one-MiB stall.
+
 The passing historical replay is not a causal control: it uses URI entrypoint
 wrappers, ephemeral ports and disabled unused HTTP/3, and its resolved Cargo
 graphs differ (including Tokio 1.54.0 to 1.54.1). Both runs use JIT; AOT is not a
@@ -94,11 +103,18 @@ startup arguments, so stacks can be captured without changing application
 entrypoints or listener configuration. Scope discovery to the diagnostic driver's
 own descendants, verify PID identity, restrict endpoints to loopback and redact
 authentication URLs. Debug RPC can perturb scheduling and never accepts timing.
-The focused original-process contracts pass in Linux CI on `f0875fef`; its real
-authenticated Dart VM discovery smoke/full replay is still running. Local tests
-and companion review are blocked by another job's preserved resource lease. The
+The focused original-process contracts and real authenticated VM smoke pass on
+`f0875fef`. Its replay reproduces the same stall after 47/360 rows, with all
+3,178 tracked hashes, three lock contents, retained order/floors, native binaries,
+original configuration, recorded invariance flags and cleanup independently
+verified. Three router/client captures succeed, but all nine isolates return
+empty execution/async-continuation stacks. Deprecated `Stack.messages` cannot
+show queue state. Added bounded owned Linux thread/TCP observations and retention
+of the fourth resolved input (package configuration) are pending validation.
+Local tests, full verification and companion review remain blocked by another
+job's preserved resource lease; all local waits expire without execution. The
 initial fail-before attempt expired without executing; a reconstructed old-source
-regression check is queued and must not be described as a chronological
+regression check remains unexecuted and must not be described as a chronological
 fail-first pass. No causal runtime fix is claimed.
 
 The [Dart-value CPU/heap profile](https://github.com/konsultaner/connectanum-dart/actions/runs/39803478045)

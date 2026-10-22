@@ -17,6 +17,7 @@ import threading
 import urllib.request
 
 import run_wamp_serializer_campaign as campaign
+import wamp_serializer_extensions as extensions
 
 PROFILE_CASES = {
     case['id']: {'client_impl': case['client_impl'], 'payload_construction': case['construction']}
@@ -27,6 +28,13 @@ PROFILE_CASES = {
         'rpc_rawsocket_clear_native_pre_encoded_span',
     }
 }
+PROFILE_CASES.update({
+    case['id']: {'client_impl': case['client_impl'],
+                 'payload_construction': case['construction'],
+                 'payload_bytes': case['fields']['request_bytes']}
+    for case in extensions.cases_for_shard('payload_sizes')
+    if case['id'] == 'ext_08_payload_sizes'
+})
 DEFAULT_CASE = 'rpc_rawsocket_clear_native_native_buffer'
 
 
@@ -53,11 +61,11 @@ Future<void> main(List<String> args) async {
   final target = (jsonDecode(args[5]) as Map).cast<String, dynamic>();
   final http = HttpClient()..badCertificateCallback = ((cert, host, port) => host == 'localhost');
   Future<Map<String, dynamic>> run(String codec, int milliseconds, String label) async {
-    final scenario = {'transport': 'rawsocket', 'serializer': codec, ...target,
+    final scenario = {'transport': 'rawsocket', 'serializer': codec,
       'secure_transport': false, 'mode': 'rpc', 'uri': 'bench.rpc.echo',
       'iterations': 1000, 'minimum_duration_ms': milliseconds, 'concurrency': 1,
       'payload_bytes': 65536,
-      'ppt_scheme': 'x_connectanum_bench_typed', 'ppt_serializer': codec};
+      'ppt_scheme': 'x_connectanum_bench_typed', 'ppt_serializer': codec, ...target};
     final request = await http.postUrl(Uri.parse(args[0]));
     request.headers.contentType = ContentType.json;
     final bodyBytes = utf8.encode(jsonEncode(scenario));
@@ -409,9 +417,10 @@ def profile(args):
     try:
         if not ready.wait(120): raise RuntimeError('profiling server did not become ready')
         control = f'https://localhost:{ports[0]}/bench/wamp'
-        scenario = dict(transport='rawsocket', serializer='flatbuffers', **target, secure_transport=False,
+        scenario = dict(transport='rawsocket', serializer='flatbuffers', secure_transport=False,
                         mode='rpc', uri='bench.rpc.echo', iterations=10, concurrency=1, payload_bytes=65536,
                         ppt_scheme='x_connectanum_bench_typed', ppt_serializer='flatbuffers')
+        scenario.update(target)
         (output/'initial-request.json').write_text(json.dumps(scenario, indent=2)+'\n')
         request = urllib.request.Request(control, data=json.dumps(scenario).encode(), headers={'content-type': 'application/json'})
         with urllib.request.urlopen(request, context=ssl.create_default_context(cafile=str(root/'native/bench/bench_tls.crt')), timeout=120) as response:

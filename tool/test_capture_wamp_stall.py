@@ -94,6 +94,9 @@ class StallDiagnosticTests(unittest.TestCase):
         self.assertFalse((self.output / "router.dart").exists())
         self.assertFalse((self.output / "worker.dart").exists())
         self.assertTrue(result["files_unchanged"])
+        self.assertEqual(set(inputs['resolved_input_files']), set(diagnostic.LOCKS))
+        for name, path in inputs['resolved_input_files'].items():
+            self.assertEqual((self.output / path).read_bytes(), (self.root / name).read_bytes())
 
     def original_target(self):
         target = mock.Mock()
@@ -101,6 +104,14 @@ class StallDiagnosticTests(unittest.TestCase):
         target.identity.start_ticks = 100
         target.uri = "http://127.0.0.1:40000/secretToken=/"
         return target
+
+    def test_package_resolution_change_cannot_pass(self):
+        self.driver_script("Path('.dart_tool/package_config.json').write_text('changed')\n"
+                           "output.write_text(json.dumps({'workload':'first','samples':[{},{}],'data_window_elapsed_ms':50})+'\\n')\n")
+        code, result = self.execute()
+        self.assertEqual(code, 1)
+        self.assertFalse(result['locks_unchanged'])
+        self.assertEqual(result['changed_locks'], ['.dart_tool/package_config.json'])
 
     def test_original_capture_verifies_pid_before_stack_and_redacts_credentials(self):
         target = self.original_target()

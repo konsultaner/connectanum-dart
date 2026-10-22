@@ -31,10 +31,41 @@ The existing hosted payload diagnostic runs those checks before its original
 360-row replay. Debugger RPC can perturb scheduling; every result is diagnostic
 and cannot accept performance.
 
-At this checkpoint these new tests/smoke are not yet verified. Local validation
-is queued behind another task's exclusive resource lease; no lease is bypassed.
-The initial fail-before test attempt expires without running. The queued
-old-committed-source regression check, if it runs, is a reconstructed comparison
-after implementation, not a chronological fail-first claim. Local companion
-review is also blocked by the preserved resource lease. Runtime diagnosis and
-the unchanged primary performance gates remain open.
+## Original-process reproduction
+
+[Run 39803270108](https://github.com/konsultaner/connectanum-dart/actions/runs/39803270108)
+passes the focused contracts and real authenticated VM smoke on `f0875fef`.
+The original 360-row replay then fails after 47 rows on the same one-MiB TLS
+WebSocket Dart-value FlatBuffers workload, at the unchanged 300-second deadline.
+Independent audit verifies all 3,178 tracked source hashes, three resolved lock
+contents, original command/config/scenario paths, all retained order/floors,
+production binaries matching the copy proof, every recorded invariance flag and
+clean process/reader/monitor shutdown. The ignored package configuration is not
+recorded by this historical diagnostic; the follow-up retains and checks it too.
+
+All three captures verify live router/client VM identities and return stacks
+without errors. All nine application isolates have empty synchronous and async
+continuation stacks at these observations. This does not locate the suspended
+operation. `Stack.messages` is deprecated and always empty in the installed VM
+service protocol; it cannot establish that the message queues are empty. Source:
+`vm_service` 15.3.0 `Stack`/`getStack` API documentation. No worker crash is
+inferred from the later cleanup warning.
+
+The next diagnostic adds bounded Linux thread CPU/wait-channel observations and
+TCP queues for socket inodes held by those same owned targets. It retains only
+matching socket rows, not ordinary descriptor paths or unrelated process
+inventories, and rejects changed PID identities before/after observation. Limits,
+missing records and errors remain explicit. This is non-atomic observation,
+never performance acceptance. Focused contracts and the real smoke now check
+those observations; this follow-up is not yet behaviorally verified.
+
+Both local focused-validation waits and the full-verification wait expire at
+another task's preserved resource lease without executing. Local debug/review
+companions are likewise resource-blocked. No lock is bypassed, no chronological
+fail-first result is claimed, and the reconstructed old-source check remains
+pending. Runtime diagnosis and unchanged primary performance gates remain open.
+
+Artifact `12438351850`, archive SHA256
+`3b3dd2ef926b247ccadf18d18efb3c4e35b73dbc185f50c1ddc5ee2119713095`,
+all three captures and `original-process-f087-independent-audit.json` are retained
+under `out/flatbuffers-resume-20261022/`.

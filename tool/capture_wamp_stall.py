@@ -21,10 +21,12 @@ import urllib.request
 
 import run_wamp_serializer_campaign as campaign
 from wamp_stall_vm_services import discover_vm_services, identity_matches
+from wamp_stall_linux import capture_linux_state
 
 ROOT = Path(__file__).resolve().parents[1]
 PROC_ROOT = Path("/proc")
-LOCKS = ("pubspec.lock", "native/bench/Cargo.lock", "native/transport/Cargo.lock")
+LOCKS = ("pubspec.lock", "native/bench/Cargo.lock", "native/transport/Cargo.lock",
+         ".dart_tool/package_config.json")
 
 
 def digest(path):
@@ -149,6 +151,7 @@ def capture_original_stacks(driver_pid, last_output, stop, driver_alive=lambda: 
                 if (type(vm.get("pid")) is not int or vm["pid"] != target.pid
                         or not identity_matches(target, PROC_ROOT)):
                     raise ValueError("VM endpoint does not match the owned process identity")
+                record["linux"] = capture_linux_state(target, PROC_ROOT)
                 isolates = vm.get("isolates")
                 if not isinstance(isolates, list) or len(isolates) > 32:
                     raise ValueError("Invalid or excessive VM isolate inventory")
@@ -232,6 +235,14 @@ def run(args, root=ROOT):
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     inputs = source_inputs(root, output)
     locks = {name: digest(root / name) for name in LOCKS}
+    resolved_files = {}
+    for name, expected_hash in locks.items():
+        retained = output / "resolved-inputs" / name
+        retained.parent.mkdir(parents=True, exist_ok=True)
+        retained.write_bytes((root / name).read_bytes())
+        if digest(retained) != expected_hash:
+            raise ValueError("resolved input changed during preparation")
+        resolved_files[name] = str(retained.relative_to(output))
     if not original:
         write_wrappers(root, output)
     if files["scenario"].is_dir():
@@ -280,6 +291,7 @@ def run(args, root=ROOT):
               generated)]}
     provenance = {"kind": "stall_reproduction_never_acceptance", "mode": "original_processes" if original else "entrypoint_wrappers", "head": head, "inputs": inputs,
                   "resolved_locks": locks, "file_hashes": hashes, "command": command,
+                  "resolved_input_files": resolved_files,
                   "platform": platform.uname()._asdict(),
                   "rustup_toolchain_env": os.environ.get("RUSTUP_TOOLCHAIN"),
                   "scenario_files": [str(path) for path in scenarios],

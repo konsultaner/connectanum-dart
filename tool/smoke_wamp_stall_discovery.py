@@ -87,6 +87,9 @@ def main():
         if (worker.get('pid') != vm.pid or worker.get('observer_pid') != observer.pid or worker.get('error')
                 or not worker.get('isolates') or any('stack' not in entry for entry in worker['isolates'])):
             raise RuntimeError('Original-process discovery or stack capture failed: ' + json.dumps(snapshot))
+        native = worker.get('linux', {})
+        if native.get('error') or native.get('errors') or not native.get('threads') or not native.get('tcp'):
+            raise RuntimeError('Owned Linux thread/socket observation failed: ' + json.dumps(native))
         token = urllib.parse.urlsplit(uri).path.strip('/')
         if uri in json.dumps(snapshot) or (token and token in json.dumps(snapshot)):
             raise RuntimeError('Authenticated VM endpoint was not redacted')

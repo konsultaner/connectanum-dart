@@ -42,3 +42,21 @@ Evidence is retained under `out/flatbuffers-resume-20261022/`: artifact
 `344b03ae61523595bfe829b6e22b2159c8f04ffb3e31b429cb43e4e81e1f231c`,
 `dart-value-profile-f087-independent-audit.json`, and
 `dart-value-cpu-selected.json`. This is diagnosis only; issue #103 remains open.
+
+## Smaller-payload follow-up
+
+The current runtime's full payload shard completes 360 rows with zero integrity
+gaps and 60 no-copy observations, retaining 36 numerical costs. Its smallest
+case, `ext_08_payload_sizes`, uses symmetric **10-KiB** typed payloads, ordinary
+Dart values and clear RawSocket. FlatBuffers throughput ratio is about 0.8066,
+CPU ratio 1.0840 and allocation ratio 1.0251 against the better codec. This is a
+stronger case-specific regression than the 64-KiB diagnostic's near-parity
+throughput; it warrants its own profile before adopting a reader optimization.
+
+The profiling tool now accepts that canonical case and derives its byte count
+from the checked-in extension inventory. Warmup and instrumented requests use
+the same selected size. Existing defaults remain 64 KiB. New selection contracts
+and the hosted 10-KiB profile are pending; no primary/supplemental case, policy or
+benchmark workload changes. Payload artifact `12438197547` has archive SHA256
+`764867d44aa8f25a1f8a83e109010b2054b61e402c09e9c2ec794b242ea367ae`;
+the independently recomputed report is `payload-2de4-independent-audit.json`.

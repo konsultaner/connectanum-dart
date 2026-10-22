@@ -4,9 +4,24 @@ Status: active. Started: 2026-10-03.
 
 ## Faithful payload timeout diagnosis (2026-10-22)
 
-- [x] Pass hosted focused original-process contracts on `f0875fef`; Linux real
-  VM smoke/full replay are still running in run 39803270108. These diagnostics
+- [x] Audit current-runtime payload shard: all 360 rows, zero integrity gaps,
+  60 no-copy observations, stable processes, identical report and matching
+  production binaries; 36 performance costs remain. This pass does not explain
+  the separately reproduced intermittent stall.
+- [ ] Verify/profile exact canonical `ext_08_payload_sizes` (10-KiB Dart values,
+  clear RawSocket): about 19% throughput loss versus the better codec. The added
+  selection keeps existing 64-KiB defaults and every accepted workload unchanged.
+- [x] Pass hosted focused contracts and actual authenticated VM smoke on `f0875fef`.
+  Original-process run 39803270108 reproduces the same stall after 47/360 rows.
+  Audit all 3,178 sources, three lock contents, original command/config, retained
+  floors/order, production binaries, all invariance flags and cleanup. These diagnostics
   do not change production Dart/Rust, workloads or acceptance budgets.
+- [x] Inspect three verified router/client captures: all nine isolates return
+  empty execution/async-continuation stacks, without errors. No crash or empty
+  message queue is inferred; the protocol's `Stack.messages` is always empty.
+- [ ] Verify added bounded owned Linux thread/TCP observations and retention of
+  all four resolved inputs. Local unit/verify/model attempts remain resource-blocked;
+  hosted units/real VM smoke must pass before the next unchanged full replay.
 - [x] Independently audit Dart-value CPU/heap run 39803478045: 3,178 tracked
   sources/three resolved inputs fixed, 18 snapshots, actual 64-KiB request and
   clean shutdown. Profiling build flags differ from acceptance; no reader-map,
@@ -26,8 +41,10 @@ Status: active. Started: 2026-10-03.
   fail-before attempt expires at another task's preserved resource lease without
   executing; no chronological fail-first result is claimed. Companion review is
   likewise resource-blocked. Linux CI runs units before its real VM smoke.
-- [ ] Run focused tooling tests, real Linux discovery smoke and full original
-  360-row replay with unchanged floors/300s workload/19,800s campaign deadlines.
+- [x] Run hosted focused tooling tests, real Linux discovery smoke and the full
+  original schedule attempt, preserving the incomplete failed observation.
+- [ ] Complete the 360-row replay after a causal fix, with unchanged floors,
+  300s workload and 19,800s campaign deadlines.
 - [ ] Diagnose and reproduce any captured failure before changing runtime behavior.
 
 ## Native allocator owner follow-up (2026-10-22)

@@ -71,11 +71,22 @@ class ProfileSelectionTests(unittest.TestCase):
         target['client_impl'] = 'changed'
         self.assertEqual(profiler.profile_target(profiler.DEFAULT_CASE)['client_impl'], 'native')
 
+    def test_small_profile_matches_actual_canonical_symmetric_ten_kib_case(self):
+        case = next(c for c in profiler.extensions.cases_for_shard('payload_sizes')
+                    if c['id'] == 'ext_08_payload_sizes')
+        self.assertEqual((case['transport'], case['secure_transport'], case['mode'], case['payload_profile']),
+                         ('rawsocket', False, 'rpc', 'typed'))
+        target = profiler.profile_target(case['id'])
+        self.assertEqual(target['payload_bytes'], 10240)
+        self.assertEqual((case['fields']['request_bytes'], case['fields']['response_bytes']),
+                         (target['payload_bytes'], target['payload_bytes']))
+
     def test_warmup_probe_and_audit_agree_for_every_declared_case(self):
         expected = {
             'rpc_rawsocket_clear_dart_values': ('dart', 'values'),
             'rpc_rawsocket_clear_native_native_buffer': ('native', 'native_buffer'),
             'rpc_rawsocket_clear_native_pre_encoded_span': ('native', 'pre_encoded_span'),
+            'ext_08_payload_sizes': ('dart', 'values'),
         }
         self.assertEqual(set(profiler.PROFILE_CASES), set(expected))
         real_project = Path(profiler.__file__).resolve().parents[1]
@@ -92,6 +103,8 @@ class ProfileSelectionTests(unittest.TestCase):
                                             '--case', case_id, '--dart', 'unit-test-dart', *(['--perf', 'unit-test-perf'] if native else []),
                                             *(['--memory'] if memory else [])])
                 target = {'client_impl': implementation, 'payload_construction': construction}
+                if case_id == 'ext_08_payload_sizes':
+                    target['payload_bytes'] = 10240
                 warmups = []
                 probes = []
 
