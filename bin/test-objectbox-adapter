@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+cd_repo_root
+dart_workspace_bootstrap
+python3 tool/install_objectbox_test_library.py
+
+if [[ -z "${CONNECTANUM_NATIVE_LIB:-}" ]]; then
+  if native_runtime_supported && ensure_rust_env; then
+    build_native_ffi_test_release
+  else
+    printf 'ObjectBox network tests require CONNECTANUM_NATIVE_LIB or a supported Rust build host.\n' >&2
+    exit 1
+  fi
+fi
+
+cd packages/connectanum_objectbox_adapter
+CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test --concurrency=1 "$@"

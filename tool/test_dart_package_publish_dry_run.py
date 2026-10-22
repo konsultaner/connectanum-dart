@@ -469,6 +469,8 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertIn("- connectanum_core -> connectanum_client", result.stdout)
         self.assertIn("- connectanum_core -> connectanum_mcp", result.stdout)
         self.assertIn("- connectanum_client -> connectanum_mcp", result.stdout)
+        self.assertIn("- connectanum_core -> connectanum_objectbox_adapter", result.stdout)
+        self.assertIn("- connectanum_client -> connectanum_objectbox_adapter", result.stdout)
         self.assertIn("- connectanum_mcp -> connectanum_router", result.stdout)
         self.assertIn("- connectanum_router -> connectanum_auth_server", result.stdout)
         self.assertIn("- connectanum_auth_server -> connectanum_bench", result.stdout)
@@ -500,12 +502,14 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             "(packages/connectanum_client)",
             f"3. connectanum_mcp {EXPECTED_PACKAGE_VERSION} "
             "(packages/connectanum_mcp)",
-            f"4. connectanum_router {EXPECTED_PACKAGE_VERSION} "
+            f"4. connectanum_objectbox_adapter {EXPECTED_PACKAGE_VERSION} "
+            "(packages/connectanum_objectbox_adapter)",
+            f"5. connectanum_router {EXPECTED_PACKAGE_VERSION} "
             "(packages/connectanum_router)",
-            f"5. connectanum {EXPECTED_PACKAGE_VERSION} (packages/connectanum)",
-            f"6. connectanum_auth_server {EXPECTED_PACKAGE_VERSION} "
+            f"6. connectanum {EXPECTED_PACKAGE_VERSION} (packages/connectanum)",
+            f"7. connectanum_auth_server {EXPECTED_PACKAGE_VERSION} "
             "(packages/connectanum_auth_server)",
-            f"7. connectanum_bench {EXPECTED_PACKAGE_VERSION} "
+            f"8. connectanum_bench {EXPECTED_PACKAGE_VERSION} "
             "(packages/connectanum_bench)",
         )
         previous_index = -1

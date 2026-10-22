@@ -122,6 +122,11 @@
     "packages/connectanum_mcp/lib/src/tools/wamp_api.dart",
     "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
     "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart",
+    "packages/connectanum_objectbox_adapter/lib/src/adapter.dart",
+    "packages/connectanum_objectbox_adapter/lib/src/metrics.dart",
+    "packages/connectanum_objectbox_adapter/lib/src/native_compat.dart",
+    "packages/connectanum_objectbox_adapter/lib/src/native_receive.dart",
+    "packages/connectanum_objectbox_adapter/lib/src/schema.dart",
     "packages/connectanum_router/lib/src/native/ffi_bindings.dart",
     "packages/connectanum_router/lib/src/native/message_binding.dart",
     "packages/connectanum_router/lib/src/native/runtime.dart",
@@ -181,9 +186,12 @@
     "connectanum_client": 84.79,
     "connectanum_router": 82.18,
     "connectanum_auth_server": 98,
-    "connectanum_bench": 98
+    "connectanum_bench": 98,
+    "connectanum_objectbox_adapter": 96.19
   },
-  "componentPackages": ["connectanum_mcp"],
+  "componentPackages": [
+    "connectanum_mcp"
+  ],
   "components": {
     "connectanum_mcp_library": {
       "floor": 98,
@@ -205,7 +213,9 @@
     },
     "connectanum_mcp_cli": {
       "floor": 93.4,
-      "sources": ["packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"]
+      "sources": [
+        "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"
+      ]
     }
   },
   "files": {

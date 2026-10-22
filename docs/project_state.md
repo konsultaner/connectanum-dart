@@ -1,8 +1,8 @@
 # Project State
 
-Last updated: 2026-10-20.
+Last updated: 2026-10-22.
 Current milestone: [MQTT broker interoperability for Connectanum](https://github.com/konsultaner/connectanum-dart/milestone/2), explicitly prioritized by the user on 2026-10-14.
-Active plan: [MQTT broker interoperability execution plan](exec-plans/2026-10-14-mqtt-broker-interoperability.md) on `codex/mqtt-broker-interoperability` in a separate managed worktree based on GitHub master `73d840c9`.
+Active plan: [MQTT broker interoperability execution plan](exec-plans/2026-10-14-mqtt-broker-interoperability.md) on `codex/mqtt-broker-interoperability` in a separate managed worktree incorporating GitHub master `78f2b32b`.
 
 The [native FlatBuffers file checkpoint](benchmarks/wamp-flatbuffers-file-segments-2026-10-20/README.md) refreshes all 40 file workloads in the package README with three matched local passes (120 exact records) on an Apple M3 Ultra. FlatBuffers native RawSocket clear/E2EE file throughput improved from 2.277/0.593 to 22.378/20.888 Gbit/s sustained after `b6b79464` enabled native file-backed segments; WebSocket clear/E2EE improved from 2.291/0.594 to 22.156/19.182. Measured Dart-to-native transport copies for the 1 GiB FlatBuffers RawSocket clear/E2EE runs fell from about 1/2 GiB to about 16/22 KiB. The native segment matrix passes 378 cases and a live RawSocket/WebSocket clear/E2EE matrix passes four cases. The Dart buffered FlatBuffers rows remain near 1 Gbit/s. Eight native FlatBuffers rows are now in the canonical WAMP file diagnostic scenario. The [hosted Linux checkpoint](benchmarks/wamp-flatbuffers-hosted-linux-1c53c153-2026-10-20/README.md) passes all eight FlatBuffers file rows against the existing 2 Gbit/s data-window and lifecycle gates; the whole diagnostic remains red on Dart buffered JSON file and WebSocket fragmentation gates. A more specific FlatBuffers parity gate remains pending. The [prior four-serializer snapshot](benchmarks/wamp-four-serializer-2026-10-20/README.md) still backs the large RPC and fragmentation/Pub/Sub tables. Full local `bin/verify` passes at exit 0, including Chrome and Dart2Wasm.
 
@@ -129,8 +129,45 @@ The broader [`6ac3fb1e` hosted workflow](https://github.com/konsultaner/connecta
 
 The native TLS follow-up uses the same MQTT session owner behind the existing native TLS acceptor. Local Connectanum and Paho MQTT 5/3.1.1 TLS pub/sub, mixed MQTT/HTTPS and untrusted-certificate rejection tests pass. The [two secure Mosquitto-matched profiles](benchmarks/mqtt-native-tls-qos0-2026-10-14.md) have 200,000 exact ordered deliveries per pair, separate checked-in numeric budgets and TLS input hashes. At clean source `428d9daf`, MQTT 5/3.1.1 throughput ratios are 5.163/5.321, p95 0.123/0.120, p99 0.125/0.108 and CPU 0.783/0.746, with all 20 raw broker/client samples exact and duplicate-free. These local results are not cross-machine release claims. The expanded Python benchmark gate reaches exact 223/223 executable lines and the five scoped MQTT Dart sources reach 531/531. `bin/test-fast` and full `bin/verify` pass at exit 0 on this TLS candidate. Hosted secure CI remains pending, as do WebSocket, MQTT/WAMP routing, protocol completeness and controlled release gates.
 
+## ObjectBox adapter delivery (merged master)
+
+Completed delivery (2026-10-19): the separate
+[`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)
+is published to pub.dev. The live version API confirms publication at
+13:19:06 UTC. Source is in [PR #133](https://github.com/konsultaner/connectanum-dart/pull/133),
+branch `codex/objectbox-c-adapter`, based on released master `73d840c9`.
+The unrelated performance worktrees and primary mutation-runner checkout are
+preserved. No client/core version or native ABI changes are required.
+
+Fresh pristine-master `bin/test-fast` passes. Full canonical `bin/verify` passes
+at exit 0 on implementation head `ce1d40b5`, including Rust, Dart VM/native,
+isolated consumers and Chrome/Dart2Wasm (20 existing native-only browser skips).
+Analysis and all 32 adapter tests pass against actual ObjectBox 5.3.2 and the
+published Connectanum beta.8 native runtime, independently with hosted Dart
+dependencies and on hosted Linux/macOS/Windows. FlatBuffers/CBOR/MessagePack
+receive writes use zero additional adapter body copies. Modified bytes and
+expired routing handles safely fall back to counted copies. C roundtrips cover
+all eight physical pointer offsets and Dart-builder four-byte wide-vector
+layouts. Reads return owned snapshots; no transaction-borrowed DB view escapes.
+Adapter coverage is 354/368 lines (96.196%), gated at 96.19%; old floors are
+unchanged. Local native-lifetime/bounds review claims are checked against source.
+
+The strict archive dry run has zero warnings and excludes engine binaries.
+After publication, an isolated consumer with a fresh pub cache resolves the
+hosted package, passes analysis and a real C write/read smoke test with zero
+additional native-input adapter copies. All six downloaded library files match
+the published source, and the archive digest matches pub.dev metadata. Snapshots
+survive Store closure and `await`. Public evidence is in the checked ObjectBox
+adapter research; detailed logs remain under `out/objectbox-adapter-evidence/`.
+Two fail-first tooling fixtures (seven-package release order and missing mocked
+adapter command) are fixed; their 23 and 14 tests pass. Hosted Fast Checks,
+three-platform adapter tests and publish dry run pass on `ce1d40b5`; broader CI
+is still running without a known failure at this checkpoint. Protected-master
+review/merge remains separate from the explicitly authorized first publication.
+No FlatBuffers performance gate or unfinished milestone issue is waived.
+
 ## Prior FlatBuffers and release state (preserved)
-Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #100–#104 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
+Issues [#95](https://github.com/konsultaner/connectanum-dart/issues/95), [#96](https://github.com/konsultaner/connectanum-dart/issues/96), [#97](https://github.com/konsultaner/connectanum-dart/issues/97), [#98](https://github.com/konsultaner/connectanum-dart/issues/98) and [#99](https://github.com/konsultaner/connectanum-dart/issues/99) are complete. Issues #102 and #104 are also closed; #100, #101 and #103 remain open. PR [#105](https://github.com/konsultaner/connectanum-dart/pull/105) is merged at `0e585405`.
 
 Current follow-up (2026-10-09): integrate merged CI into the beta.8 release.
 The user merges PR #108 at master `759d3d4c`. Release PR #107 then has one
