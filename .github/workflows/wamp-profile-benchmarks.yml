@@ -115,8 +115,9 @@ jobs:
       fail-fast: false
       matrix:
         shard: ${{ fromJSON(inputs.campaign == 'flatbuffers_extensions' && '["protocol","payload_sizes","encrypted_progressive_results"]' || '["all"]') }}
+    # Each job keeps one hosted VM/process set; source revisions finish independently.
     concurrency:
-      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}', matrix.shard) || (inputs.campaign == 'flatbuffers_payload_focus' && 'flatbuffers-payload-focus' || (inputs.campaign == 'flatbuffers_primary' && 'flatbuffers-primary' || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic'))) }}
+      group: wamp-${{ matrix.shard != 'all' && format('flatbuffers-extension-{0}-{1}', matrix.shard, github.sha) || (inputs.campaign == 'flatbuffers_payload_focus' && 'flatbuffers-payload-focus' || (inputs.campaign == 'flatbuffers_primary' && format('flatbuffers-primary-{0}', github.sha) || (inputs.campaign == 'flatbuffers_payload_repro' && 'flatbuffers-payload-repro' || 'flatbuffers-paired-diagnostic'))) }}
       cancel-in-progress: false
 
     steps:

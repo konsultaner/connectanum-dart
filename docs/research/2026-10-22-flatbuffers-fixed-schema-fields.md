@@ -68,3 +68,18 @@ and socket-memory fields of [ss](https://man7.org/linux/man-pages/man8/ss.8.html
 with bounded collection and verified endpoint/inode identity. That additional
 collector and any transport-framing experiment remain unimplemented. A reduced
 90-row replay passes but cannot accept the full schedule or prove a causal fix.
+
+## Campaign scheduling follow-up
+
+Primary and supplemental job concurrency groups are now qualified by source
+revision. Each paired process set remains on its job's hosted VM; other revisions
+can finish independently. The declared workloads, process counts, floors,
+budgets, deadlines and comparisons are unchanged, and running observations are
+never cancelled. Absolute costs from different runners remain separate.
+
+[GitHub's concurrency contract](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)
+permits `github` context in job-group expressions and describes same-group
+pending replacement and `cancel-in-progress` behavior. The workflow keeps
+`cancel-in-progress: false`. [Standard hosted runners](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)
+use fresh VMs; these jobs retain their existing `ubuntu-24.04` selection.
+All 14 existing CI-execution contracts pass after the scheduling change.
