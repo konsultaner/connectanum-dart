@@ -824,6 +824,76 @@ void main() {
     },
   );
 
+  test('repeated native growth preserves the independent table wire', () {
+    int populate(fb.Builder builder) {
+      final offsets = <int>[];
+      for (var i = 0; i < 32; i++) {
+        offsets.add(
+          builder.writeString('field.$i.${List.filled(i + 1, 'x').join()}'),
+        );
+      }
+      builder.startTable(offsets.length);
+      for (var i = 0; i < offsets.length; i++) {
+        builder.addOffset(i, offsets[i]);
+      }
+      return builder.endTable();
+    }
+
+    final builder = allocator.flatBuffers(initialSize: 8);
+    addTearDown(builder.dispose);
+    final expected = fb.Builder(initialSize: 8);
+    expected.finish(populate(expected), 'OWNR');
+    builder.finish(populate(builder), 'OWNR');
+    expect(builder.allocationCount, greaterThanOrEqualTo(3));
+    final owner = builder.freeze();
+    addTearDown(owner.dispose);
+    builder.dispose();
+    expect(owner.bytes, expected.buffer);
+    expect(() => builder.putUint8(1), throwsStateError);
+  });
+
+  test('native input failure after growth leaves the builder disposable', () {
+    final builder = allocator.flatBuffers(initialSize: 8);
+    addTearDown(builder.dispose);
+    final failure = StateError('input failure after growth');
+    expect(
+      () => builder.writeListUint8(
+        _ReentrantBytes(() => throw failure, count: 4096),
+      ),
+      throwsA(same(failure)),
+    );
+    expect(builder.allocationCount, greaterThan(1));
+    expect(builder.dispose, returnsNormally);
+    expect(builder.freeze, throwsStateError);
+  });
+
+  test('native growth releases frozen, failed-input and reset owners', () async {
+    final source = await Isolate.resolvePackageUri(
+      Uri.parse('package:connectanum_client/native_buffers.dart'),
+    );
+    final result = await Process.run(
+      Platform.resolvedExecutable,
+      [
+        'run',
+        source!
+            .resolve(
+              '../test/transport/native/support/native_allocator_growth_probe.dart',
+            )
+            .toFilePath(),
+      ],
+      environment: {
+        'CONNECTANUM_NATIVE_LIB': NativeClientRuntime.instance().libraryPath,
+      },
+    );
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+    expect(
+      result.stdout,
+      contains(
+        'native-allocator-growth: frozen, failed-input and reset paths release all owners',
+      ),
+    );
+  }, timeout: const Timeout(Duration(seconds: 40)));
+
   test('growth copies are counted and all writes are guarded after freeze', () {
     final builder = allocator.flatBuffers(initialSize: 8);
     final model = wire.MessageObjectBuilder(
@@ -1006,10 +1076,11 @@ class _CapturingStruct extends fb.ObjectBuilder {
 }
 
 class _ReentrantBytes extends ListBase<int> {
-  _ReentrantBytes(this.callback);
+  _ReentrantBytes(this.callback, {this.count = 4});
   final void Function() callback;
+  final int count;
   @override
-  int get length => 4;
+  int get length => count;
   @override
   set length(int value) => throw UnsupportedError('Fixed test input');
   @override

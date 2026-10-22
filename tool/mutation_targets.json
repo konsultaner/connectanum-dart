@@ -820,6 +820,7 @@
     ],
     "supportFiles": [
       "packages/connectanum_client/test/transport/native/support/owned_buffer_gc_probe.dart",
+      "packages/connectanum_client/test/transport/native/support/native_allocator_growth_probe.dart",
       "packages/connectanum_client/test/transport/native/support/owned_buffer_abi_fixture.c",
       "packages/connectanum_client/test/transport/native/support/external_lease_actor_fixture.c",
       "packages/connectanum_client/test/transport/native/support/external_lease_gc_probe.dart",

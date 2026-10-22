@@ -2,6 +2,36 @@
 
 Status: active. Started: 2026-10-03.
 
+## Native allocator owner follow-up (2026-10-22)
+
+- [x] Measure a private first-owner slot with identity-map fallback, using the
+  external production heap/GC collector: 24 windows, matched wire/copy controls,
+  about 209 fewer managed bytes per FlatBuffers construction; CBOR/MessagePack
+  controls remain effectively unchanged.
+- [x] Verify all 20 baseline/candidate lifecycle cases with zero native owned
+  allocations/handles after each case, including freeze/resize failures.
+- [x] Retain 56 balanced construction-time observations and complete wires:
+  empty and one-KiB components improve; growth/one-MiB intervals overlap parity.
+  All 3,176 tracked/resolved root and 346 private source/config inputs remain
+  unchanged through the final isolated bundle.
+- [x] Pass frozen pre-adoption `bin/test-fast` in 15m20s with unchanged inputs;
+  adopt only owner tracking, preserving field order and all public contracts.
+- [x] Add independent wire and isolated immediate native-cleanup regressions;
+  all 49 focused ownership/frame/segment cases pass. Fix helper style notices;
+  clean analysis and isolated helper rerun pass.
+- [x] Validate 154 existing mutation proofs and regenerate the changed target's
+  inventory. Correct the retained wrong-path tooling invocation; 13 proof and
+  93 runner tests pass, with one pre-existing skip.
+- [x] Verify the added parent-process input-failure coverage case; all 50 final
+  ownership/frame/segment cases and clean analysis pass with all inputs fixed.
+- [x] Complete actual-source review: no demonstrated ownership defect; record
+  source-backed dispositions for withdrawn/inapplicable companion claims.
+- [ ] Finish frozen canonical verification and exact-head
+  hosted CI/copy/timing renewal. Complete full final-candidate parity campaigns;
+  retain running checkpoint `36a6df24` campaigns and all historical observations.
+
+Research: [Native owner tracking](../research/2026-10-22-native-flatbuffers-inline-owner.md).
+
 ## Full-campaign failure follow-up (2026-10-22)
 
 - [x] Confirm all 38 CI jobs pass on production source `f316941a`.
@@ -35,7 +65,24 @@ Status: active. Started: 2026-10-03.
   leak is established, and RSS/GC gates remain unresolved.
 - [x] Publish unchanged-reader component baseline `b1baf368`, run39779792736,
   and adopt the privately verified lazy cache without schema/ABI/budget changes.
-- [ ] Renew actual-source native/canonical/hosted verification and acceptance.
+- [x] Pass frozen `bin/verify` on `36a6df24` in 27m22s, with all 3,172 sources
+  and four resolved inputs unchanged, including Chrome/Dart2Wasm.
+- [x] Audit Linux component baseline/candidate: same compiler/lock/probe,
+  all 24 wires identical, one allocation/116 bytes saved on ordinary routing.
+- [x] Renew lifetime/copy proof: four phases, 120 owned cases, 300 short rows,
+  E2EE/native crypto/transcode and all 32 no-copy observations pass.
+- [x] Audit current strict 90-row timing: zero integrity gaps, three costs:
+  Dart GC confidence bounds and Dart/pre-encoded RSS. Every throughput,
+  latency, CPU and allocation comparison passes; copy binaries match.
+- [x] Audit historical full-schedule replay: all 360 rows and 60 no-copy flags,
+  unchanged inputs/locks/binaries and cleanup; no stall/capture, no causal fix.
+- [x] Reject private builder guard inlining after an external-controller
+  heap/GC-volume experiment finds no allocation reduction. Retain the earlier
+  inconclusive in-process probe and its profiler allocation overhead.
+- [x] Dispatch resulting-source full primary and supplemental campaigns,
+  runs 39784808712/39784813538; every original floor/budget remains.
+- [ ] Complete current-source hosted CI and independently audit final full
+  primary/supplemental results. Investigate measured remaining production costs.
 - [ ] Complete canonical/hosted verification and unchanged acceptance campaigns
   for any adopted production fix. Keep #103 open until primary parity passes.
 

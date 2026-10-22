@@ -100,3 +100,35 @@ and full unchanged primary/supplemental campaigns are required for any adopted
 cache change. The stack-capture replay and native-buffer profile investigate
 separate remaining execution and allocation failures. This research does not
 close #103 or the milestone.
+
+## Resulting-source evidence
+
+Source `36a6df24` passes frozen full `bin/verify` in 27m22s, with all 3,172
+source inputs and four resolved inputs unchanged, including browser verification.
+Linux baseline `b1baf368` and candidate `36a6df24` component artifacts verify all
+tracked hashes, the same resolved lock/compiler/probe and all 24 identical reader
+wires. The Linux ordinary CALL/PUBLISH/ERROR difference is one allocation and
+116 requested bytes; platform-dependent allocation sizes differ from the local
+table above. Both retain cold and ten steady observations for every frame.
+
+Renewed hosted lifetime/copy evidence passes all four phases, 120 owned-copy
+cases and 300 short inventory rows, including E2EE/native crypto/transcode and
+all 32 no-copy flags. The strict 90-row diagnostic has zero integrity gaps and
+three numerical failures: Dart-value GC confidence bounds and Dart-value/native
+pre-encoded RSS. All three throughput, latency, CPU and allocation comparisons
+pass; its production binary hashes match the copy proof exactly. This does not
+substitute for the running full primary and supplemental campaigns.
+
+The historical `3c954a92` replay completes the entire original 360-row payload
+schedule with no stall or stack capture, all 60 no-copy observations and verified
+source/locks/binaries/order/cleanup. Its VM wrappers make it diagnostic only.
+The earlier timeout remains unexplained and retained, never reported as fixed.
+
+A separate private guard-inlining attempt is not adopted. The first in-process
+VM allocation profile includes its own large JSON-decoding overhead and is
+inconclusive. The corrected external controller uses the unchanged production
+heap/GC-volume collector, 18 windows of 100,000 actual builder operations and six
+empty controls, matching wires/copy counters and fixed source/library inputs.
+`vm:prefer-inline` on both write guards changes no measurable allocation volume
+for FlatBuffers, CBOR or MessagePack. Its raw observations and failed/incomplete
+companion attempt remain retained alongside the successful narrowed retry.

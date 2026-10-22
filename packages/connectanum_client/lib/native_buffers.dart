@@ -938,10 +938,27 @@ final class _NativeAllocator extends fb.Allocator
     implements ffi.Finalizable, CopyObservedAllocator {
   _NativeAllocator(this.api);
   final NativeBufferAllocator api;
-  final Map<ByteData, _OwnedHandle> _owners = Map.identity();
+  // Most models need one allocation; retain identity tracking for overlapping
+  // allocations during growth and failed copies without allocating a map early.
+  ByteData? _firstData;
+  _OwnedHandle? _firstOwner;
+  Map<ByteData, _OwnedHandle>? _owners;
   ByteData? current;
   int growthCopiedBytes = 0;
   int allocations = 0;
+
+  _OwnedHandle? _ownerFor(ByteData data) =>
+      identical(_firstData, data) ? _firstOwner : _owners?[data];
+
+  _OwnedHandle? _removeOwner(ByteData data) {
+    if (identical(_firstData, data)) {
+      final owner = _firstOwner;
+      _firstData = null;
+      _firstOwner = null;
+      return owner;
+    }
+    return _owners?.remove(data);
+  }
 
   @override
   ByteData allocate(int size) {
@@ -956,7 +973,12 @@ final class _NativeAllocator extends fb.Allocator
       final data = alignedSize == 0
           ? ByteData(0)
           : ByteData.sublistView(info.base.asTypedList(alignedSize));
-      _owners[data] = owner;
+      if (_firstData == null) {
+        _firstData = data;
+        _firstOwner = owner;
+      } else {
+        (_owners ??= Map<ByteData, _OwnedHandle>.identity())[data] = owner;
+      }
       current = data;
       allocations++;
       return data;
@@ -968,7 +990,7 @@ final class _NativeAllocator extends fb.Allocator
 
   @override
   void deallocate(ByteData data) {
-    _owners.remove(data)?.dispose();
+    _removeOwner(data)?.dispose();
     if (identical(current, data)) current = null;
   }
 
@@ -982,9 +1004,9 @@ final class _NativeAllocator extends fb.Allocator
 
   NativeOwnedBuffer freeze(int used, int inputCopiedBytes) {
     final data = current!;
-    final owner = _owners[data]!;
+    final owner = _ownerFor(data)!;
     _check(api._freeze(owner.id, data.lengthInBytes - used, used));
-    _owners.remove(data);
+    _removeOwner(data);
     current = null;
     return NativeOwnedBuffer._(
       owner,
@@ -995,10 +1017,16 @@ final class _NativeAllocator extends fb.Allocator
   }
 
   void dispose() {
-    for (final owner in _owners.values) {
-      owner.dispose();
+    _firstOwner?.dispose();
+    _firstData = null;
+    _firstOwner = null;
+    final owners = _owners;
+    if (owners != null) {
+      for (final owner in owners.values) {
+        owner.dispose();
+      }
+      owners.clear();
     }
-    _owners.clear();
     current = null;
   }
 }
