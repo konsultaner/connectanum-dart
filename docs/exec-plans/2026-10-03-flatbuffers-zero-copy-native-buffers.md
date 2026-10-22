@@ -2,6 +2,42 @@
 
 Status: active. Started: 2026-10-03.
 
+## Full-campaign failure follow-up (2026-10-22)
+
+- [x] Confirm all 38 CI jobs pass on production source `f316941a`.
+- [x] Independently recompute all 1,440 primary rows: zero integrity gaps,
+  151 numerical failures; no budget or case is waived.
+- [x] Audit complete protocol and encrypted shards: 900 and 240 rows,
+  zero integrity gaps, 152 and 42 retained performance costs.
+- [x] Preserve the failed payload shard at 139/360 rows. The one-MiB TLS
+  WebSocket Dart-value FlatBuffers workload reaches its existing deadline;
+  the cleanup's worker-stopped warning does not prove an earlier crash.
+- [x] Dispatch unchanged full-schedule stack capture, run 39773158466.
+- [x] Reproduce and fix the local tooling liveness race: a process can exit
+  between `kill -0` and failed `ps`; recheck existence instead of reporting
+  live unconditionally. All 16 lab tests pass without deadline changes.
+- [x] Pass fresh complete precheck after the liveness repair: 15m03s, all
+  3,170 source inputs and four resolved inputs unchanged. Two baseline attempts retain failures:
+  an elapsed-time boundary and the optional-mirror warning. An isolated timing
+  rerun passes unchanged. A concurrent mutation campaign briefly blocks the
+  shared local lease; no lock is bypassed.
+- [x] Measure the original native string-cache allocation before changes. A
+  private lazy inline-prefix candidate removes one 108-byte allocation from
+  CALL/PUBLISH/ERROR, retains all 24 wires and payload spans, and passes 37 native
+  FlatBuffers tests. Original visit budgets and randomized overflow remain.
+- [x] Retain invalid shared-target timing, then repeat with isolated targets and
+  normal allocators. The lazy candidate avoids the eager-array control cost;
+  all 56 rows and allocation controls are retained, never primary acceptance.
+- [x] Add a reproducible reader allocation example to the existing hosted
+  component diagnostic; production reader still unchanged at this checkpoint.
+- [x] Audit the native-buffer profile: 3,173 source/dependency inputs and 18
+  snapshots. Builder objects disappear after the workload; no retained-builder
+  leak is established, and RSS/GC gates remain unresolved.
+- [ ] Publish the component baseline, adopt the verified cache candidate, and
+  renew actual-source native/canonical/hosted verification and acceptance.
+- [ ] Complete canonical/hosted verification and unchanged acceptance campaigns
+  for any adopted production fix. Keep #103 open until primary parity passes.
+
 ## Current opaque-header follow-up (2026-10-21)
 
 - [x] Complete native writer `7a2af782` CI: all 38 jobs pass.
@@ -45,6 +81,8 @@ Status: active. Started: 2026-10-03.
   evidence. Component results and historical passes cannot replace these gates.
 - [ ] Retain the required independent approving review for #130 before merging
   #100/#101; leave #103 and #132 open/draft until their acceptance is achieved.
+
+Research: [Native string cache](../research/2026-10-22-flatbuffers-inline-string-cache.md).
 
 Research: [Dart opaque terminal header](../research/2026-10-21-flatbuffers-opaque-terminal-header.md).
 

@@ -421,7 +421,7 @@ jobs:
           retention-days: 30
 
   linux-flatbuffers-encoder-component:
-    name: Native FlatBuffers encoder component diagnostic
+    name: Native FlatBuffers codec allocation diagnostic
     if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_encoder_component'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -448,7 +448,7 @@ jobs:
           paths = [p for p in paths if p and Path(p).is_file()]
           paths.append('native/transport/Cargo.lock')
           digest = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
-          data = {'kind': 'native_encoder_component_only_never_acceptance',
+          data = {'kind': 'native_codec_allocation_components_only_never_acceptance',
                   'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
                   'inputs': {p: digest(p) for p in paths}}
           Path('out/wamp-encoder-component/setup/inputs.json').write_text(json.dumps(data, indent=2)+'\n')
@@ -465,9 +465,16 @@ jobs:
             -- out/wamp-encoder-component/encoder-allocations \
             2> >(tee out/wamp-encoder-component/setup/build.log >&2) \
             | tee out/wamp-encoder-component/encoder-allocations.jsonl
+          cargo run --release --locked --manifest-path native/transport/Cargo.toml \
+            -p ct_core --example flatbuffers_reader_allocations \
+            -- out/wamp-encoder-component/reader-allocations \
+            2> >(tee out/wamp-encoder-component/setup/reader-build.log >&2) \
+            | tee out/wamp-encoder-component/reader-allocations.jsonl
           cp "$CARGO_TARGET_DIR/release/examples/flatbuffers_allocations" \
             out/wamp-encoder-component/setup/flatbuffers_allocations
-          sha256sum out/wamp-encoder-component/setup/flatbuffers_allocations \
+          cp "$CARGO_TARGET_DIR/release/examples/flatbuffers_reader_allocations" \
+            out/wamp-encoder-component/setup/flatbuffers_reader_allocations
+          sha256sum out/wamp-encoder-component/setup/{flatbuffers_allocations,flatbuffers_reader_allocations} \
             > out/wamp-encoder-component/setup/executable.sha256
       - name: Verify source and resolved-input invariance
         if: always()
@@ -490,8 +497,8 @@ jobs:
       - name: Explain component scope
         if: always()
         run: |
-          echo '## Native encoder component diagnostic' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Reports first-use allocation requests separately from ten steady observations and retains complete wires and borrowed-pointer assertions. Standard Rust dependencies and compiler remain unchanged. These are neither Dart allocation metrics nor performance, RSS, E2EE or copy-accounting acceptance; the original primary and supplemental campaigns remain required.' >> "$GITHUB_STEP_SUMMARY"
+          echo '## Native codec allocation diagnostic' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Reports first-use allocation requests separately from ten steady observations for both encoding and parsing, retaining complete wires, routing-field checks and borrowed-pointer assertions. Standard Rust dependencies and compiler remain unchanged. These are neither Dart allocation metrics nor performance, RSS, E2EE or copy-accounting acceptance; the original primary and supplemental campaigns remain required.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

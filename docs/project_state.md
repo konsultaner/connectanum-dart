@@ -1,21 +1,40 @@
 # Project State
 
-Last updated: 2026-10-21.
+Last updated: 2026-10-22.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Current working change removes the separate vector-header fragment for opaque
-Dart FlatBuffers payloads. It reuses the existing same-builder vector-reference
-API and returns the owned envelope plus the original body. Ordinary arguments,
-multiple vectors, schemas, public builder defaults and native ABI stay unchanged.
-A regression first observes the original three fragments instead of two. All
-134 focused contracts, all 3,395 serializer VM cases, analysis and all 154 existing
-mutation proofs then pass. All 67 fragment contracts pass in Chrome/Dart2Wasm from the canonical package
-directory. Frozen full `bin/verify` now passes on `f316941a` in 22m33s,
-including complete browser inventories, with all 3,170 tracked sources and four
-resolved inputs unchanged. Hosted lifetime/copy renewal also passes; full current
-CI and performance acceptance remain outstanding.
+The last production change `f316941a` passes all 38 CI jobs and frozen
+complete `bin/verify` (22m33s). Its full primary campaign now retains all 1,440
+rows with zero integrity findings and 151 numerical failures. Completed
+protocol/encrypted supplemental shards retain 900/240 rows, zero integrity gaps
+and 152/42 performance costs. The payload shard stops at 139/360 rows on the
+one-MiB TLS WebSocket Dart-value FlatBuffers case; no complete supplemental
+acceptance is claimed. A full unchanged stack-capture replay is running as
+[39773158466](https://github.com/konsultaner/connectanum-dart/actions/runs/39773158466).
+All primary/supplemental floors, cases and budgets remain unchanged.
+
+The current local precheck first exposes a tooling timing-boundary failure,
+then an optional-mirror warning race. A deterministic regression demonstrates
+that a process exiting between `kill -0` and failed `ps` is incorrectly reported
+live. The helper now rechecks existence; all 16 lab tests pass without changing
+deadlines, retries or parity policy. Fresh complete `bin/test-fast` then passes in 15m03s, with all 3,170 source
+inputs and four resolved inputs unchanged.
+Shared-machine lease contention is respected throughout. A private native
+string-cache candidate passes 37 FlatBuffers tests and preserves all 24 wires
+and payload spans. Ordinary CALL/PUBLISH/ERROR parsing removes one allocation
+and 108 requested bytes. Separate-target, normal-allocator timing retains the
+string-free control interval and faster CALL/PUBLISH components. These are not
+Dart allocation, RSS, GC or whole-workload acceptance. The reproducible reader
+probe is added to the existing hosted component diagnostic; production adoption
+and renewed acceptance remain pending. See the
+[string-cache research](research/2026-10-22-flatbuffers-inline-string-cache.md).
+
+The existing opaque FlatBuffers serializer retains the owned envelope and
+original body in two fragments, removing one header fragment/eight wire bytes.
+All 134 focused contracts, 3,395 serializer VM cases, 67 Chrome/Dart2Wasm fragment
+contracts and 154 existing static mutation proofs pass on that production source.
 
 The isolated public-serializer prototype verifies 93 cases, source identity,
 mutations through original aliases and exact aggregate-size boundaries. It
@@ -39,7 +58,7 @@ Short rows establish copy correctness only. Standard SDK/TLS/crypto internals
 remain explicitly unmeasured under the approved scope.
 
 Resulting-source [full CI 39533299518](https://github.com/konsultaner/connectanum-dart/actions/runs/39533299518)
-remains pending, with no failures observed at this checkpoint. Preceding `fe72c527`
+passes all 38 jobs. Preceding `fe72c527`
 and `7a2af782` each pass all 38 jobs. The exclusive local machine lease is
 preserved around native verification, model inference and performance probes.
 
@@ -58,7 +77,7 @@ primary and remaining supplemental shards continue separately. Its completed
 60 declared no-copy observations verified. Current-source
 [48-case/1,440-row primary](https://github.com/konsultaner/connectanum-dart/actions/runs/39534974873)
 and [50-case/1,500-row supplemental](https://github.com/konsultaner/connectanum-dart/actions/runs/39534977336)
-campaigns are queued. Complete final-candidate evidence remains required;
+campaigns finish with the failures recorded above. Complete final-candidate evidence remains required;
 no budget, floor, repetition or deadline is weakened, and absolute cross-shard
 costs are not pooled.
 
