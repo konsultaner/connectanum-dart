@@ -31,6 +31,7 @@ on:
           - flatbuffers_profile
           - flatbuffers_payload_repro
           - flatbuffers_payload_focus
+          - flatbuffers_kernel_probe_smoke
           - flatbuffers_native_view_probe
           - flatbuffers_encoder_component
           - flatbuffers_rss_control
@@ -798,3 +799,53 @@ jobs:
             !out/wamp-native-ppt-view/source.tar
           if-no-files-found: error
           retention-days: 30
+
+
+  flatbuffers-kernel-probe-smoke:
+    name: Private kernel probe availability smoke
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_kernel_probe_smoke'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install diagnostic tool and record environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/kernel-probe-smoke
+          test "$(uname -m)" = x86_64
+          uname -a | tee out/kernel-probe-smoke/kernel.txt
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bpftrace
+          bpftrace --version | tee out/kernel-probe-smoke/bpftrace-version.txt
+          sha256sum tool/tcp-prune-smoke.bt | tee out/kernel-probe-smoke/program-sha256.txt
+      - name: Inspect typed function and attach read-only smoke
+        shell: bash
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          sudo bpftrace -lv 'kfunc:tcp_prune_queue' > out/kernel-probe-smoke/probes.txt 2> out/kernel-probe-smoke/probes.stderr.txt
+          set +e
+          sudo bpftrace -q -c '/bin/sleep 2' tool/tcp-prune-smoke.bt > out/kernel-probe-smoke/trace.txt 2> out/kernel-probe-smoke/trace.stderr.txt
+          kernel_probe_status=$?
+          set -e
+          KERNEL_PROBE_STATUS=$kernel_probe_status python3 - <<'PYCODE'
+          from pathlib import Path
+          import json, os
+          p = Path('out/kernel-probe-smoke')
+          code = int(os.environ['KERNEL_PROBE_STATUS'])
+          text = (p / 'trace.txt').read_text()
+          ready = 'TCP_PRUNE_BEGIN' in text and 'TCP_PRUNE_END' in text
+          result = {'exit_code': code, 'begin_and_end': ready,
+                    'scope': 'Private read-only BTF availability/field/lifecycle smoke. No workload, kernel-path or performance acceptance.'}
+          (p / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+          print(json.dumps(result))
+          raise SystemExit(0 if code == 0 and ready else 1)
+          PYCODE
+      - name: Retain all smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-probe-smoke-${{ github.sha }}
+          path: out/kernel-probe-smoke
+          if-no-files-found: error
