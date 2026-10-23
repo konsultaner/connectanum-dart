@@ -75,9 +75,13 @@ Matching-version Ubuntu Azure source confirms the queued-memory clamp assignment
 and uses incoming `skb->len` in ingestion checks, differing from upstream's
 `truesize` check. Source does not prove the executed kernel path.
 
-Next evaluate bounded, borrowed batches for large unmasked WebSocket writes in
-private copies. Keep small/control paths, complete wire bytes and payload owners;
-test partial/error/flush/yield/cancellation behavior and discard failed streams.
+Private bounded, borrowed batches for large unmasked WebSocket writes pass all
+14 focused checks versus ten passes/four intended baseline failures. Full native
+conformance passes 402 unit/three integration tests. All 6,408 private inputs,
+actual-core markers and separate executable hashes are independently verified.
+The unchanged 90-row Linux focused replay 39892063835 runs on separate experiment
+commit `2be50a0b`; the current production runtime remains `984288cb`. Small/control
+paths, wire bytes and owners are preserved. Flush/yield overhead is unmeasured.
 Do not adopt a scheduling change without native conformance and Linux replay evidence.
 No SDK, sysctl, allocator, socket-buffer or acceptance-policy change is justified.
 See [TLS follow-up](research/2026-10-23-tls-receive-buffer-follow-up.md).

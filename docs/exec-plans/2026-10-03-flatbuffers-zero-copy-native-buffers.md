@@ -29,9 +29,14 @@ Status: active. Started: 2026-10-03.
 - [x] Inspect matching-version Ubuntu Azure source with checksum-matched package
   inputs and one-file patch selection; reject earlier helper failures. Preserve
   the distinction between source logic and an observed executed kernel path.
-- [ ] Evaluate bounded large unmasked WS writes privately: full wire identity,
+- [x] Evaluate bounded large unmasked WS writes privately: full wire identity,
   borrowed ranges, small paths, partial/error/Pending/flush/yield/cancellation and
-  connection-discard/owner-release tests; require actual Linux replay evidence.
+  connection-discard/owner-release tests. Baseline has ten passes/four intended
+  failures; candidate has 14 passes. Complete native suite passes 402 unit and
+  three integration tests, with 6,408 private inputs/separate binaries verified.
+- [ ] Audit Linux focused replay 39892063835 on separate experiment commit
+  `2be50a0b`; retain original 90-row schedule, floors and deadlines. No production
+  adoption before replay evidence; flush/yield overhead remains unmeasured.
 - [ ] Establish a causal TLS fix if reproduced; do not infer the Ubuntu kernel's
   behavior from upstream sources alone or change timeouts/socket/allocator policy.
 - [ ] Complete full primary/supplemental acceptance on the final runtime and full CI;

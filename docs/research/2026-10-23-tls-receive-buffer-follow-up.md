@@ -170,3 +170,30 @@ change, not a proven kernel fix. Partial-frame errors/cancellation must discard
 the connection and release owners; reusing a partial stream is not an acceptable
 test expectation. Native conformance and actual Linux replay evidence are required
 before adoption, followed by all unchanged primary/supplemental gates.
+
+## Private bounded-write candidate
+
+The private candidate writes unmasked payloads of at least 128 KiB in borrowed
+32 KiB batches, flushing each batch and yielding between them. It preserves one
+WS header/frame, opcode/FIN, small/control paths and the masked sibling. All 14
+writer checks pass; the baseline passes ten and fails exactly four new bounded/
+yield/flush checks. Full native conformance passes 402 unit and three integration
+tests. Independent audit verifies 6,408 private inputs, identical test fixtures,
+actual-core variant markers and separate executable hashes. Original tracked
+sources and four resolved inputs remain unchanged during these observations.
+
+The flush-failure check proves that queued/following/close frames are discarded
+and owners are released. A blocked write retains its owner until the whole writer
+task is discarded. Advisory advice to reuse a partial-frame stream is rejected.
+An initial review flush-count warning is also rejected after the model corrects
+itself and tests confirm unconditional flushing of all five chunks. Mutable
+writer ownership spans all awaits; frame writes cannot interleave through this
+function. Exact vendored TokioRustls flush drains ciphertext into the socket,
+without guaranteeing peer acknowledgment or receive-window recovery.
+
+The [Linux focused replay](https://github.com/konsultaner/connectanum-dart/actions/runs/39892063835)
+runs on separate experiment commit `2be50a0b78545033f2a9da300a7d597f11994ad2`,
+containing only this native writer change and its tests. Its original 90-row
+schedule, floors and deadlines remain unchanged. Production runtime `984288cb`
+is unchanged. Extra flush/yield costs and actual Linux improvement remain
+unmeasured; private functional success does not establish performance parity.
