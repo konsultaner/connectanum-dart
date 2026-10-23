@@ -817,13 +817,17 @@ jobs:
           test "$(uname -m)" = x86_64
           uname -a | tee out/kernel-probe-smoke/kernel.txt
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends bpftrace
+          sudo apt-get install -y --no-install-recommends bpftrace bpftool
           bpftrace --version | tee out/kernel-probe-smoke/bpftrace-version.txt
           sha256sum tool/tcp-prune-smoke.bt | tee out/kernel-probe-smoke/program-sha256.txt
       - name: Inspect live BTF type layouts
         shell: bash
         run: |
           set -euo pipefail
+          sudo bpftool btf dump file /sys/kernel/btf/vmlinux format c > out/kernel-probe-smoke/vmlinux.h
+          sha256sum /sys/kernel/btf/vmlinux > out/kernel-probe-smoke/btf-sha256.txt
+          bpftool version > out/kernel-probe-smoke/bpftool-version.txt
+          sudo bpftrace -lv 'struct inode*' > out/kernel-probe-smoke/inode-wildcard.txt 2> out/kernel-probe-smoke/inode-wildcard.stderr.txt
           sudo bpftrace -lv 'struct inode' > out/kernel-probe-smoke/inode.txt 2> out/kernel-probe-smoke/inode.stderr.txt
           sudo bpftrace -lv 'struct file' > out/kernel-probe-smoke/file.txt 2> out/kernel-probe-smoke/file.stderr.txt
           sudo bpftrace -lv 'struct socket' > out/kernel-probe-smoke/socket.txt 2> out/kernel-probe-smoke/socket.stderr.txt
