@@ -81,12 +81,28 @@ class ProfileSelectionTests(unittest.TestCase):
         self.assertEqual((case['fields']['request_bytes'], case['fields']['response_bytes']),
                          (target['payload_bytes'], target['payload_bytes']))
 
+    def test_private_control_profile_keeps_canonical_untyped_mode_and_fields(self):
+        case = next(c for c in profiler.extensions.cases_for_shard('protocol')
+                    if c['id'] == 'ext_00_small_control')
+        target = profiler.profile_target(case['id'])
+        self.assertEqual(case['payload_profile'], 'wamp_envelope_cbor_args')
+        self.assertEqual(target, {
+            'client_impl': case['client_impl'], 'payload_construction': case['construction'],
+            'transport': case['transport'], 'secure_transport': case['secure_transport'],
+            'mode': case['mode'], 'uri': case['fields']['path'],
+            'payload_bytes': case['fields']['request_bytes'], 'peer_count': case['fields']['peer_count'],
+            'ppt_scheme': None, 'ppt_serializer': None})
+        self.assertEqual(case['fields']['response_bytes'], target['payload_bytes'])
+        self.assertEqual(target['mode'], 'publish_ack')
+        self.assertEqual(target['payload_bytes'], 128)
+
     def test_warmup_probe_and_audit_agree_for_every_declared_case(self):
         expected = {
             'rpc_rawsocket_clear_dart_values': ('dart', 'values'),
             'rpc_rawsocket_clear_native_native_buffer': ('native', 'native_buffer'),
             'rpc_rawsocket_clear_native_pre_encoded_span': ('native', 'pre_encoded_span'),
             'ext_08_payload_sizes': ('dart', 'values'),
+            'ext_00_small_control': ('native', 'values'),
             'ext_44_encrypted_progressive_results': ('native', 'values'),
         }
         self.assertEqual(set(profiler.PROFILE_CASES), set(expected))
@@ -106,6 +122,10 @@ class ProfileSelectionTests(unittest.TestCase):
                 target = {'client_impl': implementation, 'payload_construction': construction}
                 if case_id == 'ext_08_payload_sizes':
                     target['payload_bytes'] = 10240
+                if case_id == 'ext_00_small_control':
+                    target.update(transport='rawsocket', secure_transport=False,
+                                  mode='publish_ack', uri='bench.wamp.topic', payload_bytes=128,
+                                  peer_count=1, ppt_scheme=None, ppt_serializer=None)
                 if case_id == 'ext_44_encrypted_progressive_results':
                     target.update(mode='progressive_rpc', payload_bytes=10240, event_timeout_ms=300000,
                                   peer_serializer='cbor', ppt_scheme='wamp', ppt_serializer='cbor',

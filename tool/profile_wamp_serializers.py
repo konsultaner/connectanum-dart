@@ -44,6 +44,19 @@ PROFILE_CASES.update({
     for case in extensions.cases_for_shard('encrypted_progressive_results')
     if case['id'] == 'ext_44_encrypted_progressive_results'
 })
+# Private diagnostic for a measured small-control regression. Derive every
+# workload field from the canonical case; explicitly disable typed PPT defaults.
+PROFILE_CASES.update({
+    case['id']: {'client_impl': case['client_impl'],
+                 'payload_construction': case['construction'],
+                 'transport': case['transport'], 'secure_transport': case['secure_transport'],
+                 'mode': case['mode'], 'uri': case['fields']['path'],
+                 'payload_bytes': case['fields']['request_bytes'],
+                 'peer_count': case['fields']['peer_count'],
+                 'ppt_scheme': None, 'ppt_serializer': None}
+    for case in extensions.cases_for_shard('protocol')
+    if case['id'] == 'ext_00_small_control'
+})
 DEFAULT_CASE = 'rpc_rawsocket_clear_native_native_buffer'
 NATIVE_RUNTIME_THREADS = 1
 
