@@ -844,7 +844,7 @@ jobs:
           PYCODE
       - name: Retain all smoke evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: kernel-probe-smoke-${{ github.sha }}
           path: out/kernel-probe-smoke
