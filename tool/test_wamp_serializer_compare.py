@@ -79,6 +79,16 @@ class WampSerializerCompareTest(unittest.TestCase):
             },
             "copy_metrics": {
                 "measurement_scope": compare.COPY_MEASUREMENT_SCOPE,
+                "encoded_wamp_volume": {
+                    "status": "measured",
+                    "measurement_scope": compare.ENCODED_WAMP_VOLUME_SCOPE,
+                    "accepted_bytes": 4000,
+                    "known_accepted_bytes": 4000,
+                    "components": {"client_dart": 1000, "router_dart": 0,
+                                   "client_native": 0, "router_native": 3000},
+                    "unknown_boundaries": [], "rejected_submissions": 0,
+                    "excludes": ["RawSocket/WebSocket framing", "TLS records", "network packet headers"],
+                },
                 "optimized_payload_copy_bytes": 0 if codec == "flatbuffers" else 512,
                 "builder_input_copy_bytes": 0,
                 "builder_growth_copy_bytes": 0,
@@ -297,6 +307,147 @@ class WampSerializerCompareTest(unittest.TestCase):
             "measured_runs": measured,
         }
 
+    def test_control_diagnostics_report_operation_rate_and_keep_costs_visible(self):
+        # Isolate metric/report classification; inventory/configuration have
+        # independent strict tests. These synthetic rows are never performance evidence.
+        from unittest import mock
+        manifest = self._campaign(flatbuffer_speed=900)
+        manifest['metadata']['campaign_kind'] = 'extension_diagnostic'
+        names = manifest['cases'][0]['workloads']
+        manifest['cases'] = [{**compare.extensions.extension_cases()[0], 'workloads': names}]
+        self.policy = json.loads((Path(__file__).parents[1] / 'native/bench/artifact_gate/wamp_flatbuffers_performance.json').read_text())
+        manifest['metadata']['policy_sha256'] = compare.hashlib.sha256((Path(__file__).parents[1] / 'native/bench/artifact_gate/wamp_flatbuffers_performance.json').read_bytes()).hexdigest()
+        first = None
+        for run in manifest['warmup_runs'] + manifest['measured_runs']:
+            p = self.root / run['results']
+            rows = [json.loads(line) for line in p.read_text().splitlines()]
+            first = first or rows[0]
+            for row in rows:
+                if row['wamp_configuration']['serializer'] == 'flatbuffers':
+                    row['data_window_elapsed_ms'] = 12000
+                row['samples'] = [dict(row['samples'][0], iteration=i, request_bytes=0, response_bytes=0) for i in range(1000)]
+            p.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+        manifest['execution'] = {'observed_process_pids': {
+            key: first[key]['pid'] for key in ('client_process_metrics', 'server_process_metrics')}}
+        with mock.patch.object(compare, '_campaign_findings', return_value=[]), \
+             mock.patch.object(compare.extensions, 'configuration_findings', return_value=[]):
+            result = compare.evaluate_campaign(manifest, self.root, self.policy)
+            self.assertEqual(result['status'], 'diagnostic_complete', result['findings'])
+            self.assertFalse(result['primary_acceptance_eligible'])
+            metrics = result['cases'][0]['metrics']
+            self.assertIn('operations_per_second', metrics)
+            self.assertNotIn('throughput_mbps', metrics)
+            self.assertFalse(metrics['operations_per_second']['passed'])
+            self.assertTrue(result['performance_findings'])
+            text = compare.render_markdown(result)
+            self.assertIn('Supplemental performance costs', text)
+            self.assertIn('never establishes primary acceptance', text)
+            p = self.root / manifest['measured_runs'][0]['results']
+            rows = [json.loads(line) for line in p.read_text().splitlines()]
+            rows[0]['copy_metrics'].pop('encoded_wamp_volume')
+            p.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+            invalid = compare.evaluate_campaign(manifest, self.root, self.policy)
+            self.assertEqual(invalid['status'], 'failed')
+            self.assertTrue(any('encoded WAMP' in item for item in invalid['findings']))
+
+    def test_primary_and_extensions_cannot_substitute_a_looser_policy(self):
+        for kind in ('primary', 'extension_diagnostic'):
+            manifest = copy.deepcopy(self.manifest)
+            manifest['metadata']['campaign_kind'] = kind
+            if kind == 'extension_diagnostic':
+                names = manifest['cases'][0]['workloads']
+                manifest['cases'] = [{**compare.extensions.extension_cases()[0], 'workloads': names}]
+            result = compare.evaluate_campaign(manifest, self.root, self.policy)
+            self.assertEqual(result['status'], 'failed')
+            self.assertTrue(any('unchanged checked-in performance policy' in f for f in result['findings']))
+
+    def test_declared_zero_copy_path_rejects_an_observed_copy(self):
+        run = self.manifest['measured_runs'][0]
+        path = self.root / run['results']
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        next(r for r in rows if r['wamp_configuration']['serializer'] == 'flatbuffers')['copy_metrics']['optimized_payload_copy_bytes'] = 1
+        path.write_text(''.join(json.dumps(row) + '\n' for row in rows))
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        self.assertEqual(result['status'], 'failed')
+        self.assertTrue(any('optimized payload boundary copied 1 bytes; expected zero' in f for f in result['findings']))
+
+    def test_primary_zero_copy_declarations_cannot_be_removed(self):
+        import run_wamp_serializer_campaign as campaign
+        manifest = copy.deepcopy(self.manifest)
+        manifest['metadata']['campaign_kind'] = 'primary'
+        manifest['cases'] = campaign.primary_cases()
+        self.assertFalse(any('avoidable' in f for f in compare._campaign_findings(manifest)))
+        required = [c for c in manifest['cases'] if c.get('zero_copy_codecs')]
+        self.assertEqual(len(required), 16)
+        required[0].pop('zero_copy_codecs')
+        self.assertTrue(any('avoidable' in f for f in compare._campaign_findings(manifest)))
+
+    def test_extension_inventory_cannot_omit_or_substitute_cases(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest['metadata']['campaign_kind'] = 'extension_diagnostic'
+        manifest['cases'] = compare.extensions.extension_cases()
+        self.assertFalse(any('50-case' in f for f in compare._campaign_findings(manifest)))
+        manifest['cases'][-1] = copy.deepcopy(manifest['cases'][0])
+        self.assertTrue(any('50-case' in f for f in compare._campaign_findings(manifest)))
+
+    def test_extension_shard_scope_cannot_masquerade_as_complete_inventory(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest['metadata']['campaign_kind'] = 'extension_diagnostic'
+        manifest['metadata']['diagnostic_inventory'] = compare.extensions.INVENTORY
+        manifest['metadata']['diagnostic_shard'] = 'protocol'
+        manifest['cases'] = compare.extensions.cases_for_shard('protocol')
+        self.assertFalse(any('inventory' in finding or 'shard' in finding for finding in compare._campaign_findings(manifest)))
+        del manifest['metadata']['diagnostic_shard']
+        self.assertTrue(any('50-case inventory' in finding for finding in compare._campaign_findings(manifest)))
+        manifest['metadata']['diagnostic_shard'] = 'payload_sizes'
+        self.assertTrue(any('inventory' in finding for finding in compare._campaign_findings(manifest)))
+        manifest['metadata']['campaign_kind'] = 'primary'
+        self.assertTrue(any('shard' in finding for finding in compare._campaign_findings(manifest)))
+
+    def test_encoded_volume_is_distinct_from_application_bytes(self):
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        self.assertEqual(result['status'], 'passed', result['findings'])
+        evidence = result['cases'][0]['evidence']['flatbuffers'][0]
+        self.assertNotIn('wire_bytes', evidence)
+        self.assertEqual(evidence['encoded_wamp_volume']['accepted_bytes'], 4000)
+        self.assertNotEqual(sum(evidence['application_bytes'].values()), 4000)
+
+    def test_human_report_keeps_all_encoded_volume_observations(self):
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+        text = compare.render_markdown(result)
+        self.assertIn('Serialized message volume', text)
+        self.assertIn('| primary-rpc-rawsocket-values | flatbuffers | 160.0 |', text)
+        self.assertIn('excludes RawSocket/WebSocket framing', text)
+        result['cases'][0]['evidence']['flatbuffers'][0].pop('encoded_wamp_volume')
+        self.assertIn('| primary-rpc-rawsocket-values | flatbuffers | unmeasured |',
+                      compare.render_markdown(result))
+
+    def test_encoded_volume_rejects_incomplete_or_forged_observations(self):
+        valid = self._report('test', 'flatbuffers', 1)['copy_metrics']['encoded_wamp_volume']
+        mutations = [
+            lambda x: x.pop('components'),
+            lambda x: x['components'].pop('client_dart'),
+            lambda x: x['components'].update(client_dart=True),
+            lambda x: x['components'].update(client_dart=1.0),
+            lambda x: x['components'].update(client_dart=-1),
+            lambda x: x['components'].update(client_dart=9007199254740992),
+            lambda x: x.update(accepted_bytes=4000.0),
+            lambda x: x.update(accepted_bytes=3999),
+            lambda x: x.update(known_accepted_bytes=3999),
+            lambda x: x.update(rejected_submissions=0.0),
+            lambda x: x.update(rejected_submissions=1),
+            lambda x: x.update(unknown_boundaries=['missing worker']),
+            lambda x: x.update(excludes=[]),
+            lambda x: x.update(measurement_scope='logical_application_bytes'),
+        ]
+        for mutate in mutations:
+            with self.subTest(mutation=mutate):
+                bad = copy.deepcopy(valid)
+                mutate(bad)
+                self.assertTrue(compare._encoded_wamp_volume_findings(bad, 'test'))
+        for missing in [None, [], {}, {'status': 'not_measured'}]:
+            self.assertTrue(compare._encoded_wamp_volume_findings(missing, 'test'))
+
     def test_accepts_paired_parity_and_zero_copy_evidence(self) -> None:
         result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
 
@@ -410,7 +561,7 @@ class WampSerializerCompareTest(unittest.TestCase):
                 "secure_transport": False, "construction": "native_buffer"}
         report = self._report("case_flatbuffers", "flatbuffers", 0)
         report["wamp_configuration"] = {
-            "serializer": "flatbuffers", "peer_serializer": None, "peer_count": 1,
+            "serializer": "flatbuffers", "peer_serializer": None, "peer_count": 1, "payload_bytes": 65536,
             "secure_transport": False, "ppt_scheme": "x_connectanum_bench_typed",
             "ppt_serializer": "flatbuffers", "payload_construction": "native_buffer",
             "ppt_cipher": None, "ppt_keyid": None,
@@ -585,6 +736,44 @@ class WampSerializerCompareTest(unittest.TestCase):
             report["client_process_metrics"]["peak_rss_during_bytes"]
             + report["server_process_metrics"]["peak_rss_during_bytes"],
         )
+
+    def test_reported_hwm_below_sampled_peak_preserves_the_sampled_metric(self):
+        report = self._report("case_flatbuffers", "flatbuffers", 0)
+        client = report["client_process_metrics"]
+        client["peak_rss_during_bytes"] = 150
+        client["max_rss_bytes"] = client["current_rss_bytes"] + 1
+
+        summary, findings = compare._summarize_report(
+            report, min_duration_ms=10_000, min_samples=25,
+            label="reported-hwm-distinct-from-sampled-peak",
+        )
+
+        self.assertEqual(findings, [])
+        self.assertEqual(summary["summed_sampled_peak_rss_bytes"], 186)
+        self.assertEqual(client["max_rss_bytes"], 55)
+
+    def test_reported_hwm_cannot_hide_a_sampled_peak_rss_regression(self):
+        for run in self.manifest["measured_runs"]:
+            path = self.root / run["results"]
+            reports = [json.loads(line) for line in path.read_text().splitlines()]
+            for report in reports:
+                if report["wamp_configuration"]["serializer"] != "flatbuffers":
+                    continue
+                for role in ("client_process_metrics", "server_process_metrics"):
+                    metrics = report[role]
+                    metrics["peak_rss_during_bytes"] += 200
+                    metrics["max_rss_bytes"] = metrics["current_rss_bytes"] + 1
+            path.write_text("".join(json.dumps(report) + "\n" for report in reports))
+
+        result = compare.evaluate_campaign(self.manifest, self.root, self.policy)
+
+        self.assertEqual(result["status"], "failed")
+        for case in result["cases"]:
+            metric = case["metrics"]["summed_sampled_peak_rss_bytes"]
+            self.assertFalse(metric["passed"])
+            self.assertGreater(metric["median_ratio"], 1.0)
+            self.assertTrue(all(row["flatbuffers"] == 490 for row in metric["observations"]))
+        self.assertFalse(any("max RSS is below final live RSS" in f for f in result["findings"]))
 
     def test_missing_resource_observations_never_render_as_parity(self) -> None:
         for run in self.manifest["measured_runs"]:

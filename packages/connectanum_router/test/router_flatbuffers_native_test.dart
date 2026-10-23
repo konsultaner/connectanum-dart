@@ -6,6 +6,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
+import 'package:connectanum_core/cbor_serializer.dart' as cbor;
+import 'package:cbor/cbor.dart' as cbor_wire;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
@@ -14,24 +16,30 @@ import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:test/test.dart';
 import 'support/native_lib.dart';
 
-class _FlatPeer {
-  _FlatPeer(this.socket) : input = StreamIterator(socket);
+class _WirePeer {
+  _WirePeer(this.socket, {this.flatbuffers = true})
+    : input = StreamIterator(socket),
+      codec = flatbuffers ? flat.Serializer() : cbor.Serializer();
   final Socket socket;
   final StreamIterator<Uint8List> input;
-  final codec = flat.Serializer();
+  final bool flatbuffers;
+  final core.AbstractSerializer codec;
   var profile = const flat.FlatBuffersSessionProfile.client();
   Uint8List pending = Uint8List(0);
   var offset = 0;
   var maxFrameLength = 0;
 
-  static Future<_FlatPeer> connect(int port) async {
-    final peer = _FlatPeer(await Socket.connect('127.0.0.1', port));
+  static Future<_WirePeer> connect(int port, {bool flatbuffers = true}) async {
+    final peer = _WirePeer(
+      await Socket.connect('127.0.0.1', port),
+      flatbuffers: flatbuffers,
+    );
     try {
-      peer.socket.add([0x7f, 0xf5, 0, 0]);
+      peer.socket.add([0x7f, flatbuffers ? 0xf5 : 0xf3, 0, 0]);
       await peer.socket.flush();
       final handshake = await peer.read(4);
       expect(handshake[0], 0x7f);
-      expect(handshake[1] & 15, 5);
+      expect(handshake[1] & 15, flatbuffers ? 5 : 3);
       peer.maxFrameLength = 1 << ((handshake[1] >> 4) + 9);
       expect(handshake.sublist(2), [0, 0]);
       return peer;
@@ -48,7 +56,7 @@ class _FlatPeer {
       if (offset == pending.length) {
         if (!await input.moveNext().timeout(const Duration(seconds: 5))) {
           throw StateError(
-            'FlatBuffers peer closed before the frame completed',
+            'Wire peer closed before the frame completed',
           );
         }
         pending = input.current;
@@ -64,8 +72,12 @@ class _FlatPeer {
   }
 
   Future<void> send(core.AbstractMessage message) async {
-    final next = profile.prepareOutgoing(message);
-    final bytes = codec.serialize(message);
+    final next = flatbuffers ? profile.prepareOutgoing(message) : profile;
+    await sendEncoded(codec.serialize(message));
+    profile = next;
+  }
+
+  Future<void> sendEncoded(Uint8List bytes) async {
     if (bytes.length > maxFrameLength) {
       throw StateError('Test frame exceeds negotiated maximum $maxFrameLength');
     }
@@ -76,7 +88,6 @@ class _FlatPeer {
     socket.add(header);
     socket.add(bytes);
     await socket.flush();
-    profile = next;
   }
 
   Future<core.AbstractMessage> next() async {
@@ -84,7 +95,7 @@ class _FlatPeer {
     expect(header[0], 0);
     final length = (header[1] << 16) | (header[2] << 8) | header[3];
     final message = codec.deserialize(await read(length))!;
-    profile = profile.acceptIncoming(message);
+    if (flatbuffers) profile = profile.acceptIncoming(message);
     return message;
   }
 
@@ -112,7 +123,7 @@ class _FlatPeer {
     if (authenticated) {
       expect((welcome as core.Welcome).details.authid, 'alice');
     }
-    expect(profile.isEstablished, isTrue);
+    if (flatbuffers) expect(profile.isEstablished, isTrue);
   }
 
   Future<void> close() async {
@@ -198,12 +209,12 @@ void main() {
             }
           },
         );
-        final peers = <_FlatPeer>[];
+        final peers = <_WirePeer>[];
         try {
           final port = binding.listeners.single.port;
-          final caller = await _FlatPeer.connect(port);
+          final caller = await _WirePeer.connect(port);
           peers.add(caller);
-          final callee = await _FlatPeer.connect(port);
+          final callee = await _WirePeer.connect(port);
           peers.add(callee);
           step = 'caller HELLO';
           await caller.hello(authenticated: authenticated);
@@ -318,6 +329,123 @@ void main() {
           expect(opaqueResult.callRequestId, 7);
           expect(opaqueResult.transparentBinaryPayload, binary);
           expect(opaqueResult.details.pptSerializer, 'flatbuffers');
+          step = 'internal retained PPT';
+          final internal = await binding.createInternalSession(
+            realmUri: 'realm1',
+          );
+          try {
+            final registered = await internal.register('com.profile.internal');
+            Uint8List? retained;
+            registered.onLazyInvokePayload((invocation) {
+              retained = invocation.packedPayloadBytes;
+              invocation.respondWith(
+                lazyPayload: invocation.payload,
+                options: core.YieldOptions(
+                  pptScheme: invocation.pptScheme,
+                  pptSerializer: invocation.pptSerializer,
+                ),
+              );
+            });
+            final cborCaller = await _WirePeer.connect(
+              port,
+              flatbuffers: false,
+            );
+            peers.add(cborCaller);
+            await cborCaller.hello(authenticated: authenticated);
+            for (final nullableField in ['ppt_cipher', 'ppt_keyid']) {
+              step = 'raw nullable PPT $nullableField';
+              final before = events
+                  .where(
+                    (event) =>
+                        event is Map &&
+                        event['type'] ==
+                            'worker_forward_native_internal_result',
+                  )
+                  .length;
+              final raw = Uint8List.fromList(
+                cbor_wire.cbor.encode(
+                  cbor_wire.CborValue([
+                    48,
+                    300,
+                    {
+                      'ppt_scheme': 'x_echo',
+                      'ppt_serializer': 'cbor',
+                      nullableField: null,
+                    },
+                    'com.profile.internal',
+                    [
+                      Uint8List.fromList([0x81, 1]),
+                    ],
+                  ]),
+                ),
+              );
+              await cborCaller.sendEncoded(raw);
+              final result = await cborCaller.next() as core.Result;
+              expect(result.details.pptScheme, 'x_echo');
+              expect(result.details.pptSerializer, 'cbor');
+              expect(result.wireArguments!.single, orderedEquals([0x81, 1]));
+              expect(
+                events.where(
+                  (event) =>
+                      event is Map &&
+                      event['type'] == 'worker_forward_native_internal_result',
+                ),
+                hasLength(before),
+              );
+            }
+            step = 'internal retained PPT';
+            for (final length in [0, 3, 65536]) {
+              final body = Uint8List.fromList(
+                List<int>.generate(length, (index) => index % 251),
+              );
+              final before = events
+                  .where(
+                    (event) =>
+                        event is Map &&
+                        event['type'] ==
+                            'worker_forward_native_internal_result',
+                  )
+                  .length;
+              await caller.send(
+                core.Call(
+                  90 + length,
+                  'com.profile.internal',
+                  options: core.CallOptions(
+                    pptScheme: 'opaque',
+                    pptSerializer: 'flatbuffers',
+                    custom: {'call_only': true},
+                  ),
+                )..transparentBinaryPayload = body,
+              );
+              final result = await caller.next() as core.Result;
+              expect(result.callRequestId, 90 + length);
+              expect(result.transparentBinaryPayload, orderedEquals(body));
+              expect(result.details.pptScheme, 'opaque');
+              expect(result.details.pptSerializer, 'flatbuffers');
+              expect(result.details.custom.containsKey('call_only'), isFalse);
+              expect(
+                events.where(
+                  (event) =>
+                      event is Map &&
+                      event['type'] == 'worker_forward_native_internal_result',
+                ),
+                hasLength(before + 1),
+              );
+              expect(retained, orderedEquals(body));
+              if (length > 0) {
+                expect(() => retained![0] = 0, throwsUnsupportedError);
+              }
+            }
+            await internal.close();
+            expect(
+              retained,
+              orderedEquals(List<int>.generate(65536, (index) => index % 251)),
+              reason:
+                  'borrowed body survives routing handle and internal session retirement',
+            );
+          } finally {
+            await internal.close();
+          }
           step = 'subscription';
           await callee.send(core.Subscribe(3, 'com.profile.events'));
           expect(await callee.next(), isA<core.Subscribed>());

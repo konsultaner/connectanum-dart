@@ -711,6 +711,15 @@ class NativeClientRuntime {
     }
   }
 
+  /// Records the Dart-to-native plaintext copy used to prepare an owned
+  /// encryption input. Native buffer encryption itself crosses no FFI byte
+  /// view and therefore records no additional bridge copy.
+  @internal
+  void recordE2eePlaintextInputCopy(int bytes) {
+    RangeError.checkNotNegative(bytes, 'bytes');
+    _e2eeDartToNativeCopiedBytesTotal += bytes;
+  }
+
   Uint8List decryptE2ee(
     int sessionHandle,
     Uint8List ciphertext, {
@@ -1346,6 +1355,23 @@ class NativeClientRuntime {
     } finally {
       calloc.free(info);
     }
+  }
+
+  /// Independent serialized-volume carriers alongside the unchanged codec map.
+  /// Older libraries remain usable, without advertising absent observations.
+  Map<String, int>? boundaryCodecCopyMetricsSnapshot() {
+    final copies = codecCopyMetricsSnapshot();
+    if (copies == null) return null;
+    return {
+      ...copies,
+      if (_bindings.ctEncodedWampBytesAccepted != null &&
+          _bindings.ctEncodedWampSendRejections != null) ...{
+        'encoded_wamp_volume_version': 1,
+        'encoded_wamp_bytes_accepted': _bindings.ctEncodedWampBytesAccepted!(),
+        'encoded_wamp_send_rejections':
+            _bindings.ctEncodedWampSendRejections!(),
+      },
+    };
   }
 
   /// Cumulative explicit native codec buffer operations, or unavailable.

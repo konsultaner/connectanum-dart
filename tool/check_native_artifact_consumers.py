@@ -19,7 +19,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 PROFILES = (
-    ("connectanum_client", "test/transport/native/flatbuffers_profile_test.dart", 10),
+    ("connectanum_client", "test/transport/native/flatbuffers_profile_test.dart", 14),
     ("connectanum_client", "test/transport/flatbuffers_transport_profile_vm_test.dart", 22),
     ("connectanum_router", "test/router_flatbuffers_native_test.dart", 2),
 )
@@ -102,7 +102,10 @@ def profile_results(log: str, expected_cases: int) -> dict:
             or any(event.get("result") != "success" or event.get("skipped") is not False
                    or type(event.get("hidden")) is not bool
                    for event in completed.values())):
-        raise ValueError("profile has failed, skipped, omitted or unfinished cases")
+        raise ValueError(
+            "profile has failed, skipped, omitted or unfinished cases "
+            f"(expected {expected_cases} public cases, observed {len(public)})"
+        )
     return {"passed_cases": len(public), "skipped_cases": 0, "runner_success": True}
 
 

@@ -1,0 +1,74 @@
+import 'dart:convert';
+import 'dart:developer';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart';
+import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/flatbuffers_serializer.dart' as fb;
+import 'package:connectanum_core/src/serializer/flatbuffers/message_projection.dart'
+    show dictionaryPlanProbeVariant;
+
+// Component only: model decoding with a 10-KiB byte vector, no transport/parity.
+Future<void> main(List<String> args) async {
+  final shape = args[0], count = int.parse(args[1]);
+  final body = Uint8List(10240)..[0] = 37;
+  final AbstractMessage message = shape == 'result'
+      ? Result(
+          7,
+          ResultDetails(
+            pptScheme: 'x_dictionary_probe',
+            pptSerializer: 'flatbuffers',
+          ),
+          arguments: [body],
+        )
+      : Call(
+          7,
+          'com.example.echo',
+          options: CallOptions(
+            pptScheme: 'x_dictionary_probe',
+            pptSerializer: 'flatbuffers',
+          ),
+          arguments: [body],
+        );
+  final codec = fb.Serializer();
+  final frame = codec.serialize(message);
+  Uint8List decodeBytes() {
+    final decoded = codec.deserialize(frame) as AbstractMessageWithPayload;
+    final bytes = decoded.arguments!.single as Uint8List;
+    if (bytes.length != body.length || bytes[0] != 37)
+      throw StateError('Payload changed');
+    return bytes;
+  }
+
+  final borrowed = decodeBytes();
+  final offset = borrowed.offsetInBytes - frame.offsetInBytes;
+  if (offset < 0 || offset + borrowed.length > frame.length)
+    throw StateError('Payload bounds changed');
+  frame[offset] = 38;
+  final aliases = borrowed[0] == 38;
+  frame[offset] = 37;
+  if (!aliases) throw StateError('Payload no longer aliases input');
+  int decode() => decodeBytes()[0];
+  for (var i = 0; i < 100000; i++) {
+    decode();
+  }
+  final info = await Service.getInfo();
+  stdout.writeln(
+    'PROBE_READY=${jsonEncode({'variant': dictionaryPlanProbeVariant, 'shape': shape, 'count': count, 'wire_sha256': sha256.convert(frame).toString(), 'wire_bytes': frame.length, 'payload_alias_verified': aliases, 'uri': info.serverUri.toString(), 'pid': pid})}',
+  );
+  await for (final command
+      in stdin.transform(utf8.decoder).transform(const LineSplitter())) {
+    if (command == 'quit') break;
+    var sum = 0;
+    final watch = Stopwatch()..start();
+    for (var i = 0; i < count; i++) {
+      sum += command == 'control' ? 37 : decode();
+    }
+    watch.stop();
+    if (sum != 37 * count) throw StateError('Checksum changed');
+    stdout.writeln(
+      'PROBE_DONE=${jsonEncode({'variant': dictionaryPlanProbeVariant, 'shape': shape, 'count': count, 'elapsed_us': watch.elapsedMicroseconds, 'checksum': sum, 'control': command == 'control'})}',
+    );
+  }
+}

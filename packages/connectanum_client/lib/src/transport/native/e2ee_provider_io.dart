@@ -14,6 +14,7 @@ import 'package:connectanum_core/flatbuffers_serializer.dart'
 import 'package:connectanum_client/native_buffers.dart';
 
 import 'e2ee_file_segment.dart';
+import 'e2ee_payload.dart';
 import 'native_transports_io.dart';
 import 'message_binding.dart';
 import 'runtime.dart';
@@ -74,7 +75,8 @@ abstract class _NativeWampE2eeCipherProvider
         WampE2eeProfileSupport,
         WampE2eeRuntimePayloadProvider,
         WampE2eeNegotiatedKeySelectionProvider,
-        NativeE2eeFileSegmentProvider {
+        NativeE2eeFileSegmentProvider,
+        NativeE2eePayloadPacker {
   _NativeWampE2eeCipherProvider({
     required Map<String, List<int>> keys,
     required String cipher,
@@ -205,6 +207,66 @@ abstract class _NativeWampE2eeCipherProvider
       ];
     } on NativeTransportException catch (error) {
       throw _mapNativeException('pack', options, error);
+    }
+  }
+
+  @override
+  NativeE2eeOwnedPayload? packNativePayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    final buffers = _runtime.nativeBuffers;
+    if (!buffers.supportsOwnedE2eeEncryption) return null;
+
+    _ensureOpen();
+    _verifyScheme(options);
+    _verifySerializer(options);
+    final typedPlaintext = _isTyped
+        ? _typedPlaintext(arguments, argumentsKeywords)
+        : null;
+    final segment = _prepareEncryption(options, runtimeContext: runtimeContext);
+    final plaintext =
+        typedPlaintext ??
+        PptCopyMetrics.measure<Uint8List>(
+          () => _serializer.serializePPT(
+            PPTPayload(
+              arguments: arguments,
+              argumentsKeywords: argumentsKeywords,
+            ),
+          ),
+        );
+
+    final builder = buffers.allocate(plaintext.length);
+    NativeOwnedBuffer? ownedPlaintext;
+    NativeOwnedBuffer? ownedCiphertext;
+    try {
+      builder.writeBytes(0, plaintext);
+      _runtime.recordE2eePlaintextInputCopy(plaintext.length);
+      ownedPlaintext = builder.freeze();
+      final ciphertext = _runtime.encryptE2eeBuffer(
+        segment.sessionHandle,
+        ownedPlaintext,
+        keyId: segment.keyId,
+        cipher: segment.cipher,
+      );
+      ownedCiphertext = ciphertext;
+      final payload = NativeE2eeOwnedPayload(
+        bytes: ciphertext.bytes,
+        storageOwner: ciphertext,
+        encoding: _isTyped
+            ? LazyPayloadEncoding.flatbuffers
+            : LazyPayloadEncoding.cbor,
+      );
+      ownedCiphertext = null;
+      return payload;
+    } on NativeTransportException catch (error) {
+      throw _mapNativeException('pack', options, error);
+    } finally {
+      ownedCiphertext?.dispose();
+      ownedPlaintext?.dispose();
+      builder.dispose();
     }
   }
 

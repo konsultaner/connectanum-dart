@@ -952,6 +952,7 @@ Future<({NativeHttpResponse response, List<Map<String, Object?>> events})>
 _fastCgiResponseFixture(
   Future<void> Function(Socket socket) respond, {
   Map<String, Object?> options = const {},
+  bool upstreamMayReset = false,
 }) async {
   final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
   final sockets = <Socket>[];
@@ -970,7 +971,18 @@ _fastCgiResponseFixture(
       );
       served.complete();
     } catch (error, stack) {
-      served.completeError(error, stack);
+      // An early rejection can reset unread response records instead of EOF.
+      // EPIPE: macOS/Linux; ECONNRESET: macOS/Linux/Windows.
+      // All response/reason assertions remain with the rejecting test case.
+      final peerClosed =
+          upstreamMayReset &&
+          error is SocketException &&
+          const {32, 54, 104, 10054}.contains(error.osError?.errorCode);
+      if (peerClosed) {
+        served.complete();
+      } else {
+        served.completeError(error, stack);
+      }
     }
   });
   // Observe failures immediately, while the router's reply is still pending.
@@ -7924,15 +7936,19 @@ void main() {
   );
 
   test('FastCGI enforces the cumulative stdout limit', () async {
-    final result = await _fastCgiResponseFixture((socket) async {
-      socket
-        ..add(
-          _testFastCgiRecord(6, Uint8List.fromList(utf8.encode('X: y\n\n'))),
-        )
-        ..add(_testFastCgiRecord(6, Uint8List.fromList([1, 2, 3, 4])))
-        ..add(_testFastCgiRecord(3, Uint8List(8)));
-      await socket.flush();
-    }, options: {'max_response_bytes': 9});
+    final result = await _fastCgiResponseFixture(
+      (socket) async {
+        socket
+          ..add(
+            _testFastCgiRecord(6, Uint8List.fromList(utf8.encode('X: y\n\n'))),
+          )
+          ..add(_testFastCgiRecord(6, Uint8List.fromList([1, 2, 3, 4])))
+          ..add(_testFastCgiRecord(3, Uint8List(8)));
+        await socket.flush();
+      },
+      options: {'max_response_bytes': 9},
+      upstreamMayReset: true,
+    );
     expect(result.response.status, 502);
     expect(
       _jsonResponseBody(result.response)['reason'],

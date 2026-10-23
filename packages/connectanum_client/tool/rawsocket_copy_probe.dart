@@ -232,15 +232,17 @@ Future<void> run(
     }
     final segmented = keepsBody && length == 65536;
     final bodyShouldBeReused = segmented && !partial;
-    final inputCopyBytes = segmented
-        ? fragments!.first.length + (partial ? length : 0)
-        : 0;
+    if (segmented) {
+      check(identical(fragments!.last, body), 'Body must end the frame');
+    }
+    final prefixBytes = segmented ? payload.length - length : 0;
+    final inputCopyBytes = segmented && partial ? length : 0;
     check(
       ownCopies.rawSocketFramePayloadCopiedBytes ==
               (segmented ? 0 : payload.length) &&
-          ownCopies.rawSocketFrameHeaderCopiedBytes == (segmented ? 0 : 4) &&
+          ownCopies.rawSocketFrameHeaderCopiedBytes == 4 &&
           ownCopies.rawSocketInputCopiedBytes == inputCopyBytes &&
-          ownCopies.rawSocketFragmentCoalesceCopiedBytes == 0 &&
+          ownCopies.rawSocketFragmentCoalesceCopiedBytes == prefixBytes &&
           ownCopies.rawSocketPreHandshakeQueueCopiedBytes == 0 &&
           ownCopies.webSocketFragmentCoalesceCopiedBytes == 0,
       'transport copy accounting differs',

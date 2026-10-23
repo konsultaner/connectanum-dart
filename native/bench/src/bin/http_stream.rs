@@ -514,6 +514,7 @@ fn run_bench_suite(
     if args.collect_wamp_vm_metrics {
         command
             .arg("--timeline_streams=GC")
+            .arg("--timeline_recorder=endless")
             .arg("--observe=0/127.0.0.1")
             .arg("--no-pause-isolates-on-exit");
     }
@@ -712,6 +713,8 @@ fn run_bench_suite(
                             "peer_serializer": prepared.peer_serializer,
                             "secure_transport": prepared.secure_transport,
                             "peer_count": prepared.peer_count,
+                            "payload_bytes": prepared.request_bytes,
+                            "websocket_fragment_size": prepared.websocket_fragment_size,
                             "in_flight_per_session": prepared.in_flight_per_session,
                             "ppt_scheme": prepared.ppt_scheme,
                             "ppt_serializer": prepared.ppt_serializer,
@@ -1986,9 +1989,18 @@ impl PreparedWorkload {
             }
             let (_, mode) = parse_wamp_protocol(&config.protocol)
                 .ok_or_else(|| anyhow!("minimum_duration_ms is only supported for WAMP"))?;
-            if !matches!(mode, BenchWampMode::Rpc | BenchWampMode::PubSub) {
+            if !matches!(
+                mode,
+                BenchWampMode::Rpc
+                    | BenchWampMode::PubSub
+                    | BenchWampMode::ProgressiveRpc
+                    | BenchWampMode::PublishAck
+                    | BenchWampMode::SubscribeCycle
+                    | BenchWampMode::RegisterCycle
+                    | BenchWampMode::CancelCycle
+            ) {
                 bail!(
-                    "workload {} minimum_duration_ms is supported for RPC and pub/sub only",
+                    "workload {} minimum_duration_ms is supported for RPC, pub/sub, progressive RPC and control cycles only",
                     config.name
                 );
             }
@@ -2404,11 +2416,12 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
     }
     if let Some(metrics) = &report.client_process_metrics {
         println!(
-            "  Client process {} RSS: before {} | current {} | peak {}",
+            "  Client process {} RSS: before {} | current {} | lifetime maximum {} | sampled window peak {}",
             metrics.pid,
             format_bytes(metrics.rss_before_bytes),
-            format_bytes(metrics.current_rss_bytes),
-            format_bytes(metrics.max_rss_bytes)
+            format_optional_bytes(metrics.current_rss_bytes),
+            format_optional_bytes(metrics.max_rss_bytes),
+            format_optional_bytes(metrics.peak_rss_during_bytes)
         );
     }
     if let Some(metrics) = &report.server_process_metrics {
@@ -2420,7 +2433,7 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
             format_optional_u64(metrics.allocated_bytes_delta),
             format_optional_u64(metrics.gc_count_delta),
             format_optional_u64(metrics.gc_pause_us_delta),
-            format_bytes(metrics.current_rss_bytes),
+            format_optional_bytes(metrics.current_rss_bytes),
             metrics
                 .peak_rss_during_bytes
                 .map_or_else(|| "unavailable".to_string(), format_bytes),
@@ -2625,6 +2638,10 @@ fn format_bytes(bytes: u64) -> String {
         unit += 1;
     }
     format!("{:.2} {}", value, UNITS[unit])
+}
+
+fn format_optional_bytes(value: Option<u64>) -> String {
+    value.map_or_else(|| "unavailable".to_string(), format_bytes)
 }
 
 fn format_optional_u64(value: Option<u64>) -> String {
@@ -6696,12 +6713,39 @@ mod tests {
 
         assert_eq!(metrics.pid, 42);
         assert_eq!(metrics.rss_before_bytes, 67_108_864);
-        assert_eq!(metrics.current_rss_bytes, 536_870_912);
-        assert_eq!(metrics.max_rss_bytes, 805_306_368);
+        assert_eq!(metrics.current_rss_bytes, Some(536_870_912));
+        assert_eq!(metrics.max_rss_bytes, Some(805_306_368));
         assert_eq!(
             parse_wamp_client_process_metrics(&json!({"samples": []})).unwrap(),
             None
         );
+    }
+
+    #[test]
+    fn wamp_process_metrics_keep_allocations_when_rss_endpoints_are_unavailable() {
+        for key in ["client_process_metrics", "server_process_metrics"] {
+            for (current, maximum) in [
+                (json!(null), json!(3)),
+                (json!(2), json!(null)),
+                (json!(null), json!(null)),
+            ] {
+                let response = json!({key: {"pid": 42, "rss_before_bytes": 1,
+                    "current_rss_bytes": current, "max_rss_bytes": maximum,
+                    "allocated_bytes_delta": 8192, "cpu_user_us_delta": 123}});
+                let metrics = if key == "client_process_metrics" {
+                    parse_wamp_client_process_metrics(&response)
+                } else {
+                    parse_wamp_server_process_metrics(&response)
+                }
+                .unwrap()
+                .unwrap();
+                let retained = serde_json::to_value(metrics).unwrap();
+                assert_eq!(retained["current_rss_bytes"], current);
+                assert_eq!(retained["max_rss_bytes"], maximum);
+                assert_eq!(retained["allocated_bytes_delta"], 8192);
+                assert_eq!(retained["cpu_user_us_delta"], 123);
+            }
+        }
     }
 
     #[test]
@@ -7111,7 +7155,7 @@ mod tests {
     }
 
     #[test]
-    fn minimum_duration_is_limited_to_positive_rpc_and_pubsub_workloads() {
+    fn minimum_duration_supports_positive_timed_operations() {
         let scenario: ScenarioFile = toml::from_str(
             r#"
 name = "timed"
@@ -7128,6 +7172,21 @@ minimum_duration_ms = 30
         .unwrap();
         let prepared = PreparedWorkload::from_config(&scenario.workloads[0]).unwrap();
         assert!(prepared.is_wamp());
+        for mode in [
+            "pubsub",
+            "progressive_rpc",
+            "publish_ack",
+            "subscribe_cycle",
+            "register_cycle",
+            "cancel_cycle",
+        ] {
+            let input = format!("name = \"timed\"\n[[workloads]]\nname = \"operation\"\nprotocol = \"wamp_rawsocket_{mode}\"\nminimum_duration_ms = 30\n");
+            let scenario: ScenarioFile = toml::from_str(&input).unwrap();
+            assert!(
+                PreparedWorkload::from_config(&scenario.workloads[0]).is_ok(),
+                "{mode}"
+            );
+        }
 
         let zero_duration: ScenarioFile = toml::from_str(
             r#"
@@ -7159,7 +7218,7 @@ minimum_duration_ms = 30
         let error = PreparedWorkload::from_config(&unsupported_mode.workloads[0])
             .err()
             .unwrap();
-        assert!(error.to_string().contains("RPC and pub/sub only"));
+        assert!(error.to_string().contains("control cycles only"));
     }
 
     #[test]

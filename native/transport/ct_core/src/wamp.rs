@@ -45,7 +45,7 @@ type ValueMap = BTreeMap<Value, Value>;
 pub struct Payload {
     pub args: Option<Bytes>,
     pub kwargs: Option<Bytes>,
-    /// Transparent FlatBuffers application data, independent of CBOR arguments.
+    /// Transparent binary application data, independent of ordinary arguments.
     pub transparent: Option<Bytes>,
 }
 
@@ -419,16 +419,19 @@ fn parse_value_message(
     raw_payload: RawFrame,
 ) -> Result<ParsedMessage, ParseError> {
     let value = deserialize_value(serializer, &raw_payload)?;
-    let seq = match value {
+    let mut seq = match value {
         Value::Seq(seq) => seq,
         _ => return Err(ParseError::ExpectedArray),
     };
     if seq.is_empty() {
         return Err(ParseError::MissingElement("message code"));
     }
-    let (code_value, rest) = seq.split_first().unwrap();
-    let code = value_as_u64(code_value, "message code")?;
-    let message = parse_value_parts(serializer, code, rest)?;
+    let code = value_as_u64(&seq[0], "message code")?;
+    let transparent = take_cbor_transparent_payload(serializer, code, &mut seq)?;
+    let mut message = parse_value_parts(serializer, code, &seq[1..])?;
+    if let Some(payload) = transparent {
+        replace_message_payload(&mut message, payload);
+    }
     Ok(ParsedMessage {
         message,
         raw: raw_payload,
@@ -559,13 +562,8 @@ fn cbor_payload(
     ranges: &[Range<usize>],
     spec: CborPayloadSpec,
 ) -> Result<Payload, ParseError> {
-    let args = cbor_payload_part(
-        raw_payload,
-        ranges.get(spec.args_index),
-        4,
-        spec.args_label,
-        ParseError::ExpectedList,
-    )?;
+    let (args, transparent) =
+        cbor_payload_args(raw_payload, ranges.get(spec.args_index), spec.args_label)?;
     let kwargs = cbor_payload_part(
         raw_payload,
         ranges.get(spec.kwargs_index),
@@ -573,11 +571,215 @@ fn cbor_payload(
         spec.kwargs_label,
         ParseError::ExpectedMap,
     )?;
+    if transparent.is_some() && kwargs.is_some() {
+        return Err(ParseError::Deserialize(
+            "transparent CBOR payload cannot include keyword arguments".into(),
+        ));
+    }
     Ok(Payload {
         args,
         kwargs,
-        transparent: None,
+        transparent,
     })
+}
+
+fn cbor_payload_args(
+    raw_payload: &RawFrame,
+    range: Option<&Range<usize>>,
+    label: &'static str,
+) -> Result<(Option<Bytes>, Option<Bytes>), ParseError> {
+    let Some(range) = range else {
+        return Ok((None, None));
+    };
+    let raw = raw_payload
+        .as_contiguous()
+        .expect("CBOR payload range parser requires a contiguous frame");
+    if range.start >= range.end || range.end > raw.len() {
+        return Err(ParseError::Deserialize(
+            "payload range exceeds message bounds".into(),
+        ));
+    }
+    let initial = raw[range.start];
+    if initial == 0xf6 {
+        return Ok((None, None));
+    }
+    match initial >> 5 {
+        4 => Ok((Some(raw_payload.slice_or_copy(range)?), None)),
+        2 => Ok((None, Some(cbor_binary_payload(raw_payload, range)?))),
+        _ => Err(ParseError::ExpectedList(label)),
+    }
+}
+
+/// The segmented decoder materializes CBOR byte strings as owned `Vec`s.
+/// Move that vector into the transparent payload rather than cloning it.
+fn take_cbor_transparent_payload(
+    serializer: Serializer,
+    code: u64,
+    values: &mut [Value],
+) -> Result<Option<Payload>, ParseError> {
+    if serializer != Serializer::Cbor {
+        return Ok(None);
+    }
+    let Some(spec) = cbor_payload_spec(code) else {
+        return Ok(None);
+    };
+    if values
+        .get(spec.args_index)
+        .is_some_and(|value| matches!(value, Value::Bytes(_)))
+        && values
+            .get(spec.kwargs_index)
+            .is_some_and(|value| !matches!(value, Value::Unit))
+    {
+        return Err(ParseError::Deserialize(
+            "transparent CBOR payload cannot include keyword arguments".into(),
+        ));
+    }
+    let Some(Value::Bytes(bytes)) = values.get_mut(spec.args_index) else {
+        return Ok(None);
+    };
+    let binary = std::mem::take(bytes);
+    codec_copy_metrics::record_parser_read_copy(binary.len());
+    values[spec.args_index] = Value::Unit;
+    Ok(Some(Payload {
+        transparent: Some(Bytes::from(binary)),
+        ..Payload::default()
+    }))
+}
+
+/// Extracts CBOR byte-string contents without copying definite strings. The
+/// native transparent-payload path uses a direct CBOR binary value in the
+/// WAMP arguments slot; it is semantically the same opaque byte payload as a
+/// FlatBuffers `payload` vector. Indefinite strings are uncommon on this path,
+/// but are accepted and coalesced with copy accounting.
+fn cbor_binary_payload(raw_payload: &RawFrame, range: &Range<usize>) -> Result<Bytes, ParseError> {
+    let raw = raw_payload
+        .as_contiguous()
+        .expect("CBOR payload range parser requires a contiguous frame");
+    let parse_header =
+        |offset: usize, limit: usize| -> Result<(usize, Option<usize>), ParseError> {
+            let initial = *raw.get(offset).ok_or_else(|| {
+                ParseError::Deserialize("unexpected end of CBOR byte string".into())
+            })?;
+            if initial >> 5 != 2 {
+                return Err(ParseError::Deserialize(
+                    "CBOR transparent payload is not a byte string".into(),
+                ));
+            }
+            let additional = initial & 0x1f;
+            let (header_len, length) = match additional {
+                0..=23 => (1, Some(usize::from(additional))),
+                24 => (2, Some(read_cbor_length(raw, offset, 1, limit)?)),
+                25 => (3, Some(read_cbor_length(raw, offset, 2, limit)?)),
+                26 => (5, Some(read_cbor_length(raw, offset, 4, limit)?)),
+                27 => (9, Some(read_cbor_length(raw, offset, 8, limit)?)),
+                31 => (1, None),
+                _ => {
+                    return Err(ParseError::Deserialize(
+                        "reserved CBOR byte-string additional information".into(),
+                    ));
+                }
+            };
+            if offset.saturating_add(header_len) > limit {
+                return Err(ParseError::Deserialize(
+                    "truncated CBOR byte-string header".into(),
+                ));
+            }
+            Ok((header_len, length))
+        };
+
+    let (header_len, length) = parse_header(range.start, range.end)?;
+    if let Some(length) = length {
+        let body_start = range
+            .start
+            .checked_add(header_len)
+            .ok_or_else(|| ParseError::Deserialize("CBOR payload range overflow".into()))?;
+        let body_end = body_start
+            .checked_add(length)
+            .ok_or_else(|| ParseError::Deserialize("CBOR payload range overflow".into()))?;
+        if body_end != range.end {
+            return Err(ParseError::Deserialize(
+                "invalid CBOR byte-string length".into(),
+            ));
+        }
+        return raw_payload.slice_or_copy(&(body_start..body_end));
+    }
+
+    let mut offset = range.start + header_len;
+    let mut chunks = Vec::new();
+    let mut byte_count = 0usize;
+    loop {
+        if offset >= range.end {
+            return Err(ParseError::Deserialize(
+                "unterminated CBOR byte string".into(),
+            ));
+        }
+        if raw[offset] == 0xff {
+            offset += 1;
+            break;
+        }
+        let (chunk_header_len, chunk_length) = parse_header(offset, range.end)?;
+        let chunk_length = chunk_length
+            .ok_or_else(|| ParseError::Deserialize("nested indefinite CBOR byte string".into()))?;
+        let body_start = offset
+            .checked_add(chunk_header_len)
+            .ok_or_else(|| ParseError::Deserialize("CBOR payload range overflow".into()))?;
+        let body_end = body_start
+            .checked_add(chunk_length)
+            .ok_or_else(|| ParseError::Deserialize("CBOR payload range overflow".into()))?;
+        if body_end > range.end {
+            return Err(ParseError::Deserialize(
+                "truncated CBOR byte-string chunk".into(),
+            ));
+        }
+        chunks.push(body_start..body_end);
+        byte_count = byte_count
+            .checked_add(chunk_length)
+            .ok_or_else(|| ParseError::Deserialize("CBOR payload size overflow".into()))?;
+        offset = body_end;
+    }
+    if offset != range.end {
+        return Err(ParseError::Deserialize(
+            "trailing bytes after CBOR byte string".into(),
+        ));
+    }
+    if chunks.len() == 1 {
+        let chunk = chunks.pop().expect("one chunk was checked above");
+        return raw_payload.slice_or_copy(&chunk);
+    }
+    if chunks.is_empty() {
+        return Ok(Bytes::new());
+    }
+    let mut bytes = Vec::with_capacity(byte_count);
+    for chunk in chunks {
+        bytes.extend_from_slice(&raw[chunk]);
+    }
+    codec_copy_metrics::record_parser_read_copy(byte_count);
+    Ok(Bytes::from(bytes))
+}
+
+fn read_cbor_length(
+    data: &[u8],
+    offset: usize,
+    byte_count: usize,
+    limit: usize,
+) -> Result<usize, ParseError> {
+    let start = offset
+        .checked_add(1)
+        .ok_or_else(|| ParseError::Deserialize("CBOR header offset overflow".into()))?;
+    let end = start
+        .checked_add(byte_count)
+        .ok_or_else(|| ParseError::Deserialize("CBOR header length overflow".into()))?;
+    if end > limit {
+        return Err(ParseError::Deserialize(
+            "truncated CBOR byte-string header".into(),
+        ));
+    }
+    let mut value = 0u64;
+    for byte in &data[start..end] {
+        value = (value << 8) | u64::from(*byte);
+    }
+    usize::try_from(value)
+        .map_err(|_| ParseError::Deserialize("CBOR byte-string exceeds usize".into()))
 }
 
 fn cbor_payload_part(
@@ -2776,6 +2978,102 @@ mod tests {
     }
 
     #[test]
+    fn cbor_invocation_accepts_transparent_binary_payload_without_copying() {
+        use serde_cbor::Value as CborValue;
+
+        let binary = vec![0x5a; 4096];
+        let value = CborValue::Array(vec![
+            CborValue::Integer(68),
+            CborValue::Integer(7),
+            CborValue::Integer(11),
+            CborValue::Map(BTreeMap::new()),
+            CborValue::Bytes(binary.clone()),
+        ]);
+        let bytes = Bytes::from(serde_cbor::to_vec(&value).assert_success());
+        let before = codec_copy_metrics::observed_on_current_thread();
+        let parsed = parse_message(Serializer::Cbor, bytes.clone()).assert_success();
+        let after = codec_copy_metrics::observed_on_current_thread();
+        assert_eq!(
+            after.parser_read_copy_bytes_total - before.parser_read_copy_bytes_total,
+            0,
+        );
+        match parsed.message {
+            WampMessage::Invocation { payload, .. } => {
+                assert_condition!(payload.args.is_none());
+                assert_condition!(payload.kwargs.is_none());
+                let transparent = payload
+                    .transparent
+                    .assert_expected("transparent invocation payload missing");
+                assert_eq!(transparent.as_ref(), binary.as_slice());
+                assert_slice_points_into(&parsed.raw, &transparent);
+            }
+            other => unexpected_message(other),
+        }
+    }
+
+    #[test]
+    fn cbor_invocation_accepts_indefinite_binary_payloads_and_segmented_frames() {
+        let bytes = Bytes::from_static(&[
+            0x9f, // indefinite WAMP message array
+            0x18, 0x44, // INVOCATION
+            0x07, // request id
+            0x0b, // registration id
+            0xa0, // details
+            0x5f, // indefinite byte string
+            0x42, 0xaa, 0xbb, // first chunk
+            0x42, 0xcc, 0xdd, // second chunk
+            0xff, // byte string break
+            0xff, // message array break
+        ]);
+        let contiguous_before = codec_copy_metrics::observed_on_current_thread();
+        let contiguous = parse_message(Serializer::Cbor, bytes.clone()).assert_success();
+        let contiguous_after = codec_copy_metrics::observed_on_current_thread();
+        assert_eq!(
+            contiguous_after.parser_read_copy_bytes_total
+                - contiguous_before.parser_read_copy_bytes_total,
+            4,
+        );
+        match contiguous.message {
+            WampMessage::Invocation { payload, .. } => assert_eq!(
+                payload
+                    .transparent
+                    .assert_expected("transparent invocation payload missing")
+                    .as_ref(),
+                &[0xaa, 0xbb, 0xcc, 0xdd],
+            ),
+            other => unexpected_message(other),
+        }
+
+        let parts = vec![bytes.slice(0..7), bytes.slice(7..10), bytes.slice(10..)];
+        let before = codec_copy_metrics::observed_on_current_thread();
+        let frame_before = raw_frame_copy_metrics::observed_on_current_thread();
+        let parsed = parse_message_segments(Serializer::Cbor, parts).assert_success();
+        let after = codec_copy_metrics::observed_on_current_thread();
+        let frame_after = raw_frame_copy_metrics::observed_on_current_thread();
+        assert_eq!(
+            after.parser_read_copy_bytes_total - before.parser_read_copy_bytes_total,
+            bytes.len() as u64 + 4,
+        );
+        assert_eq!(
+            frame_after.coalescing_copy_bytes_total - frame_before.coalescing_copy_bytes_total,
+            0,
+        );
+        match parsed.message {
+            WampMessage::Invocation { payload, .. } => {
+                assert_condition!(payload.args.is_none());
+                assert_eq!(
+                    payload
+                        .transparent
+                        .assert_expected("transparent invocation payload missing")
+                        .as_ref(),
+                    &[0xaa, 0xbb, 0xcc, 0xdd],
+                );
+            }
+            other => unexpected_message(other),
+        }
+    }
+
+    #[test]
     fn cbor_payload_preserves_missing_null_and_empty_semantics() {
         let missing = Bytes::from(
             serde_cbor::to_vec(&serde_json::json!([16, 1, {}, "com.example.topic"]))
@@ -2829,6 +3127,8 @@ mod tests {
 
     #[test]
     fn cbor_payload_rejects_wrong_argument_shapes() {
+        use serde_cbor::Value as CborValue;
+
         let wrong_args = Bytes::from(
             serde_cbor::to_vec(&serde_json::json!([
                 16,
@@ -2851,6 +3151,62 @@ mod tests {
         assert_condition!(matches!(
             parse_message(Serializer::Cbor, wrong_kwargs),
             Err(ParseError::ExpectedMap("publish.argumentsKw"))
+        ));
+
+        let mixed_transparent_and_keyword_payload = Bytes::from(
+            serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(16),
+                CborValue::Integer(1),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("com.example.topic".into()),
+                CborValue::Bytes(vec![1, 2, 3]),
+                CborValue::Map(BTreeMap::new()),
+            ]))
+            .assert_success(),
+        );
+        assert_condition!(matches!(
+            parse_message(Serializer::Cbor, mixed_transparent_and_keyword_payload),
+            Err(ParseError::Deserialize(message))
+                if message.contains("transparent CBOR payload")
+        ));
+
+        let segmented_transparent_and_keyword_payload = Bytes::from(
+            serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(68),
+                CborValue::Integer(7),
+                CborValue::Integer(11),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Bytes(vec![1, 2, 3]),
+                CborValue::Map(BTreeMap::new()),
+            ]))
+            .assert_success(),
+        );
+        let first_split = segmented_transparent_and_keyword_payload.len() / 3;
+        let second_split = segmented_transparent_and_keyword_payload.len() * 2 / 3;
+        let parts = vec![
+            segmented_transparent_and_keyword_payload.slice(0..first_split),
+            segmented_transparent_and_keyword_payload.slice(first_split..second_split),
+            segmented_transparent_and_keyword_payload.slice(second_split..),
+        ];
+        assert_condition!(matches!(
+            parse_message_segments(Serializer::Cbor, parts),
+            Err(ParseError::Deserialize(message))
+                if message.contains("transparent CBOR payload")
+        ));
+
+        let text_args = Bytes::from(
+            serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(68),
+                CborValue::Integer(7),
+                CborValue::Integer(11),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("not binary".into()),
+            ]))
+            .assert_success(),
+        );
+        assert_condition!(matches!(
+            parse_message(Serializer::Cbor, text_args),
+            Err(ParseError::ExpectedList("invocation.arguments"))
         ));
     }
 
@@ -3121,3 +3477,6 @@ mod tests {
         assert_condition!(matches!(err, ParseError::UnsupportedSerializer(_)));
     }
 }
+
+#[cfg(test)]
+mod flatbuffers_sparse_reader_tests;

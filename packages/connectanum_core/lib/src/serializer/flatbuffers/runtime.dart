@@ -2,6 +2,7 @@ import '../owned_copy_metrics.dart';
 import 'dart:typed_data';
 
 import 'package:flat_buffers/flat_buffers.dart' as fb;
+import 'byte_vector_builder.dart';
 
 const _wordBase = 4294967296;
 // WAMP IDs include 2^53 itself, which is exactly representable in JavaScript.
@@ -71,7 +72,7 @@ class FlatBufferUint8ListReader extends fb.Reader<List<int>> {
 }
 
 /// Internal builder with portable uint64 writes and a replaceable allocator.
-class WampFlatBufferBuilder extends fb.Builder
+class WampFlatBufferBuilder extends ByteViewFlatBufferBuilder
     implements CopyObservedByteVectorBuilder {
   factory WampFlatBufferBuilder({
     int initialSize = 1024,

@@ -11,13 +11,15 @@ import 'wire_writer.dart';
 /// Write a model directly into the supplied builder. The caller finishes and
 /// freezes the root, so a guarded native-backed builder can use the same path.
 /// References reuse vectors from this build without reading the model payload.
-/// Ordinary Dart values still need CBOR construction and a vector write.
+/// General Dart values still need CBOR construction and a vector write; a
+/// fragmented single binary argument can reuse its bytes after a CBOR prefix.
 int writeWampFlatBufferMessage(
   AbstractMessage message,
   fb.Builder builder, {
   FlatBufferByteVectorReference? argumentsVector,
   FlatBufferByteVectorReference? argumentsKeywordsVector,
   FlatBufferByteVectorReference? payloadVector,
+  LazyMessagePayload? lazyPayload,
   bool includeApplicationPayload = true,
   List<DeferredFlatBufferVector>? deferredVectors,
 }) {
@@ -27,7 +29,9 @@ int writeWampFlatBufferMessage(
       argumentsVector: argumentsVector,
       argumentsKeywordsVector: argumentsKeywordsVector,
       payloadVector: payloadVector,
+      lazyPayload: lazyPayload,
       includeApplicationPayload: includeApplicationPayload,
+      fragmentBinaryArguments: deferredVectors != null,
     ),
     builder,
     deferredVectors: deferredVectors,
@@ -40,11 +44,14 @@ Map<String, Object?> prepareWampFlatBufferMessage(
   FlatBufferByteVectorReference? argumentsVector,
   FlatBufferByteVectorReference? argumentsKeywordsVector,
   FlatBufferByteVectorReference? payloadVector,
+  LazyMessagePayload? lazyPayload,
   bool includeApplicationPayload = true,
+  bool fragmentBinaryArguments = false,
 }) {
   final projection = projectWampFlatBufferMessage(message);
   final fields = projection.fields;
   final body = fields['msg'] as Map<String, Object?>;
+  var validateArguments = true;
   if (projection.dictionary != null) {
     fields['metadata'] = encodeWampFlatBufferCbor(
       projection.dictionary,
@@ -63,7 +70,7 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       }
       return fields;
     }
-    final lazy = message.toLazyPayload();
+    final lazy = lazyPayload ?? message.toLazyPayload();
     final payload =
         payloadVector ??
         lazy.transparentBinaryPayload ??
@@ -77,29 +84,62 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       body['payload'] = payload;
       return fields;
     }
+    Map<String, dynamic>? wireKeywords;
+    var readKeywords = false;
     if (argumentsVector != null) {
       body['args'] = argumentsVector;
     } else if (lazy.encoding == LazyPayloadEncoding.cbor &&
         lazy.argumentsBytes != null) {
       body['args'] = lazy.argumentsBytes;
-    } else if (message.wireArguments != null) {
-      body['args'] = encodeWampFlatBufferCbor(message.wireArguments);
+    } else {
+      final arguments = message.wireArguments;
+      if (arguments != null) {
+        if (fragmentBinaryArguments &&
+            argumentsKeywordsVector == null &&
+            lazy.argumentsKeywordsBytes == null &&
+            arguments.length == 1 &&
+            arguments.single is Uint8List) {
+          wireKeywords = message.wireArgumentsKeywords;
+          readKeywords = true;
+          if (wireKeywords == null) {
+            // WAMP's args vector contains CBOR. A single binary argument can
+            // be represented by a short CBOR prefix plus its original bytes,
+            // including when those bytes are encrypted PPT ciphertext.
+            final bytes = arguments.single as Uint8List;
+            body['args'] = FlatBufferByteVectorParts([
+              _cborBinaryArgumentPrefix(bytes.length),
+              bytes,
+            ]);
+          }
+        }
+        if (body['args'] == null) {
+          body['args'] = encodeWampFlatBufferCbor(arguments);
+          // This CBOR array was built from bounded Dart values by the encoder.
+          // Raw lazy CBOR below still crosses the structural validator.
+          validateArguments = false;
+        }
+      }
     }
     if (argumentsKeywordsVector != null) {
       body['kwargs'] = argumentsKeywordsVector;
     } else if (lazy.encoding == LazyPayloadEncoding.cbor &&
         lazy.argumentsKeywordsBytes != null) {
       body['kwargs'] = lazy.argumentsKeywordsBytes;
-    } else if (message.wireArgumentsKeywords != null) {
-      body['kwargs'] = encodeWampFlatBufferCbor(message.wireArgumentsKeywords);
+    } else {
+      final keywords = readKeywords
+          ? wireKeywords
+          : message.wireArgumentsKeywords;
+      if (keywords != null) body['kwargs'] = encodeWampFlatBufferCbor(keywords);
     }
   } else if (argumentsVector != null ||
       argumentsKeywordsVector != null ||
       payloadVector != null) {
     throw ArgumentError('This WAMP message has no payload vectors');
   }
-  if (body['args'] case final Uint8List args) {
-    validateFlatBufferCbor(args, rootMajor: 4);
+  if (validateArguments) {
+    if (body['args'] case final Uint8List args) {
+      validateFlatBufferCbor(args, rootMajor: 4);
+    }
   }
   if (body['kwargs'] case final Uint8List kwargs) {
     validateFlatBufferCbor(
@@ -109,4 +149,20 @@ Map<String, Object?> prepareWampFlatBufferMessage(
     );
   }
   return fields;
+}
+
+Uint8List _cborBinaryArgumentPrefix(int length) {
+  if (length > 67108864) {
+    throw ArgumentError('FlatBuffers binary argument exceeds the byte limit');
+  }
+  if (length < 24) return Uint8List.fromList([0x81, 0x40 | length]);
+  if (length <= 255) return Uint8List.fromList([0x81, 0x58, length]);
+  if (length <= 65535) {
+    return Uint8List.fromList([0x81, 0x59, length >> 8, length & 255]);
+  }
+  final prefix = Uint8List(6)
+    ..[0] = 0x81
+    ..[1] = 0x5a;
+  ByteData.sublistView(prefix).setUint32(2, length, Endian.big);
+  return prefix;
 }

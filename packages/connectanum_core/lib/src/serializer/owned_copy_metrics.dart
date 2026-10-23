@@ -21,6 +21,8 @@ abstract final class OwnedCopyMetrics {
   static int _suspended = 0;
   static int _failedCopies = 0;
   static int _unmeasuredCopies = 0;
+  static int _encodedWampBytes = 0;
+  static int _rejectedWampSubmissions = 0;
   static final _bytes = List<int>.filled(OwnedCopyKind.values.length, 0);
   static const fields = [
     'clone_copy_bytes',
@@ -36,6 +38,64 @@ abstract final class OwnedCopyMetrics {
 
   static bool get enabled => _enabled;
   static void enable() => _enabled = true;
+
+  /// Serialized message volume accepted by the Dart send boundary. This is
+  /// separate from buffer copies and excludes transport headers and TLS records.
+  static void recordEncodedWampSubmission(Object payload) {
+    if (!_enabled) return;
+    if (payload is List<int>) {
+      _encodedWampBytes += payload.length;
+    } else if (payload is String) {
+      // Browser WebSocket sends a UTF-8 USVString. Count without encoding a
+      // second buffer; lone surrogates become three-byte replacement characters.
+      var bytes = 0;
+      for (var i = 0; i < payload.length; i++) {
+        final unit = payload.codeUnitAt(i);
+        if (unit < 0x80) {
+          bytes++;
+        } else if (unit < 0x800) {
+          bytes += 2;
+        } else if (unit >= 0xd800 &&
+            unit <= 0xdbff &&
+            i + 1 < payload.length &&
+            payload.codeUnitAt(i + 1) >= 0xdc00 &&
+            payload.codeUnitAt(i + 1) <= 0xdfff) {
+          bytes += 4;
+          i++;
+        } else {
+          bytes += 3;
+        }
+      }
+      _encodedWampBytes += bytes;
+    } else {
+      throw ArgumentError.value(
+        payload,
+        'payload',
+        'expected encoded bytes or text',
+      );
+    }
+  }
+
+  static void recordEncodedWampSubmissionLength(int length) {
+    if (_enabled) {
+      if (length < 0) throw ArgumentError.value(length, 'length');
+      _encodedWampBytes += length;
+    }
+  }
+
+  static void recordRejectedWampSubmission() {
+    if (_enabled) _rejectedWampSubmissions++;
+  }
+
+  /// Adds independent message-volume carriers without changing copy snapshots.
+  static Map<String, int>? boundarySnapshot() => !_enabled
+      ? null
+      : {
+          ...snapshot()!,
+          'encoded_wamp_volume_version': 1,
+          'encoded_wamp_bytes_accepted': _encodedWampBytes,
+          'encoded_wamp_send_rejections': _rejectedWampSubmissions,
+        };
 
   static void record(OwnedCopyKind kind, int bytes) {
     if (_enabled && _suspended == 0) {

@@ -275,10 +275,52 @@ void main() {
     message.addMsgOffset(helloOffset);
     builder.finish(message.finish());
     validateWampFlatBuffer(builder.buffer);
+    validateWampFlatBuffer(
+      builder.buffer,
+      limits: const WampFlatBufferValidationLimits(maxTables: 5),
+    );
+    expect(
+      () => validateWampFlatBuffer(
+        builder.buffer,
+        limits: const WampFlatBufferValidationLimits(maxTables: 4),
+      ),
+      throwsFormatException,
+    );
     expect(
       () => validateWampFlatBuffer(
         builder.buffer,
         limits: const WampFlatBufferValidationLimits(maxDepth: 3),
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('repeated same-schema tables consume their budget once', () {
+    final builder = runtime.WampFlatBufferBuilder();
+    final principal = wire.PrincipalObjectBuilder(
+      session: 1,
+      authid: 'alice',
+      authrole: 'member',
+    ).finish(builder);
+    final forward = builder.writeList([principal, principal, principal]);
+    final topic = builder.writeString('topic');
+    final publish = wire.PublishBuilder(builder)..begin();
+    publish.addRequest(7);
+    publish.addTopicOffset(topic);
+    publish.addForwardForOffset(forward);
+    final body = publish.finish();
+    final message = wire.MessageBuilder(builder)..begin();
+    message.addMsgType(wire.AnyMessageTypeId.Publish);
+    message.addMsgOffset(body);
+    builder.finish(message.finish());
+    validateWampFlatBuffer(
+      builder.buffer,
+      limits: const WampFlatBufferValidationLimits(maxTables: 3),
+    );
+    expect(
+      () => validateWampFlatBuffer(
+        builder.buffer,
+        limits: const WampFlatBufferValidationLimits(maxTables: 2),
       ),
       throwsFormatException,
     );

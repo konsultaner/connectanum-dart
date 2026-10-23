@@ -3,9 +3,15 @@ use super::{
     ParsedMessage, Payload, RawFrame, Serializer, ValueMap, WampMessage,
 };
 use serde_value::Value as CborValue;
+use std::sync::Arc;
 use wire::{Fields, Value};
 
 pub(super) fn parse(raw: RawFrame) -> Result<ParsedMessage, ParseError> {
+    parse_with_fields(raw).map(|(parsed, _)| parsed)
+}
+
+/// Retain the wire fields after the same complete validation used by `parse`.
+pub(super) fn parse_with_fields(raw: RawFrame) -> Result<(ParsedMessage, Arc<Fields>), ParseError> {
     if raw.len() > wire::MAX_BYTES {
         return Err(wire::invalid("byte limit"));
     }
@@ -44,7 +50,7 @@ pub(super) fn parse(raw: RawFrame) -> Result<ParsedMessage, ParseError> {
                 _ => return Err(wire::invalid("metadata dictionary")),
             }
         }
-        Some(Value::Null) if no_dictionary => ValueMap::new(),
+        None | Some(Value::Null) if no_dictionary => ValueMap::new(),
         _ => return Err(wire::invalid("metadata presence")),
     };
     let encoded_metadata = match fields.get("metadata") {
@@ -217,12 +223,15 @@ pub(super) fn parse(raw: RawFrame) -> Result<ParsedMessage, ParseError> {
         },
         _ => return Err(wire::invalid("unsupported message type")),
     };
-    Ok(ParsedMessage {
-        message,
-        raw: RawFrame::Contiguous(bytes),
-        serializer: Serializer::Flatbuffers,
-        encoded_metadata,
-    })
+    Ok((
+        ParsedMessage {
+            message,
+            raw: RawFrame::Contiguous(bytes),
+            serializer: Serializer::Flatbuffers,
+            encoded_metadata,
+        },
+        fields,
+    ))
 }
 fn integer(fields: &Fields, key: &'static str) -> Result<u64, ParseError> {
     match fields.get(key) {
@@ -260,7 +269,7 @@ fn challenge(body: &Fields) -> Result<String, ParseError> {
             }
             Ok(super::codec_copy_metrics::copy_codec_string(name))
         }
-        Some(Value::Null) => Ok(super::codec_copy_metrics::copy_codec_string(known)),
+        None | Some(Value::Null) => Ok(super::codec_copy_metrics::copy_codec_string(known)),
         _ => Err(wire::invalid("authentication method name")),
     }
 }

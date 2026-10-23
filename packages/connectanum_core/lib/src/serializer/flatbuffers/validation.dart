@@ -48,7 +48,7 @@ class _Validator {
   final Uint8List bytes;
   final ByteData data;
   final WampFlatBufferValidationLimits limits;
-  final Map<(int, int), int> tables = {};
+  final Map<Object, int> tables = {};
   var vectorElements = 0;
   var stringBytes = 0;
 
@@ -104,7 +104,7 @@ class _Validator {
 
   int table(int offset, int reference, int depth) {
     if (depth > limits.maxDepth) invalid('nesting depth limit');
-    final key = (offset, reference);
+    final key = _tableKey(offset, reference);
     final previous = tables[key];
     if (previous != null) {
       if (previous == 0) invalid('cyclic table');
@@ -248,3 +248,11 @@ class _Validator {
     }
   }
 }
+
+// Keep the full (offset, schema) identity without allocating a record for common
+// FlatBuffers offsets. The largest packed key is 2^48-1, exact on JS as well as
+// the VM. Unusual inputs retain the original record representation.
+Object _tableKey(int offset, int reference) =>
+    offset >= 0 && offset <= 0xffffffff && reference >= 0 && reference <= 0xffff
+    ? offset * 0x10000 + reference
+    : (offset, reference);

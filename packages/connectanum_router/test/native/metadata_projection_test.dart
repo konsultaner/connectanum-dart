@@ -10,6 +10,8 @@ import 'package:connectanum_client/src/transport/native/message_binding.dart'
     show materializeSessionMessage;
 import 'package:connectanum_client/src/transport/native/runtime.dart' as client;
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+import 'package:connectanum_core/json_serializer.dart' as json;
 import 'package:connectanum_router/src/native/ffi_bindings.dart'
     show CtFfiBindings, CtMessageInfo;
 import 'package:connectanum_router/src/native/runtime.dart';
@@ -21,6 +23,71 @@ import '../support/native_lib.dart';
 
 void main() {
   final path = resolveOrBuildNativeLib();
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    for (final code in [16, 48]) {
+      for (final shape in ['é', '漢', '😀', 'é漢😀', '', 'absent', 'null']) {
+        test(
+          '${serializer.name} code=$code UTF-8 metadata shape=$shape survives release',
+          () {
+            final runtime = NativeTransportRuntime(libraryPath: path)..start();
+            addTearDown(() {
+              runtime.shutdown();
+              runtime.dispose();
+            });
+            final expected = shape == 'absent' || shape == 'null'
+                ? null
+                : shape;
+            final details = <String, Object?>{
+              for (final key in [
+                'ppt_scheme',
+                'ppt_serializer',
+                'ppt_cipher',
+                'ppt_keyid',
+              ])
+                if (shape != 'absent') key: expected,
+            };
+            final uri = shape == '' || shape == 'absent' || shape == 'null'
+                ? 'com.ascii'
+                : 'com.é漢😀';
+            final handle = runtime.enqueueTestMessage(
+              connectionId: 9717,
+              serializer: serializer,
+              frame: _encode(serializer, [code, 41, details, uri]),
+            );
+            final incoming = NativeMessageHandleDecoder(
+              libraryPath: path,
+            ).materialize(handle);
+            final message = incoming.message;
+            incoming.dispose();
+            final actual = switch (message) {
+              Call m => (
+                m.procedure,
+                m.options?.pptScheme,
+                m.options?.pptSerializer,
+                m.options?.pptCipher,
+                m.options?.pptKeyId,
+              ),
+              Publish m => (
+                m.topic,
+                m.options?.pptScheme,
+                m.options?.pptSerializer,
+                m.options?.pptCipher,
+                m.options?.pptKeyId,
+              ),
+              _ => throw StateError('Unexpected message'),
+            };
+            expect(actual, (uri, expected, expected, expected, expected));
+          },
+          skip: path == null ? 'Native library unavailable' : null,
+        );
+      }
+    }
+  }
   final fields = <(int, String, bool? Function(AbstractMessage))>[
     (16, 'acknowledge', (m) => (m as Publish).options?.acknowledge),
     (16, 'exclude_me', (m) => (m as Publish).options?.excludeMe),
@@ -186,6 +253,9 @@ Uint8List _encode(NativeMessageSerializer serializer, Object value) =>
       NativeMessageSerializer.messagePack => msgpack.serialize(value),
       NativeMessageSerializer.cbor => Uint8List.fromList(
         cbor.cbor.encode(cbor.CborValue(value)),
+      ),
+      NativeMessageSerializer.flatbuffers => flatbuffers.Serializer().serialize(
+        json.Serializer().deserializeFromString(jsonEncode(value))!,
       ),
       _ => throw StateError('Unsupported test serializer'),
     };

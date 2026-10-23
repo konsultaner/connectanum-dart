@@ -1,6 +1,10 @@
 // Observe the core buffer operations without changing public codec APIs.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
+// Outgoing profile checks do not expose editable reconstructed messages.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/message_reader.dart'
+    show readWampFlatBufferProfileMessage;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
@@ -21,6 +25,7 @@ import '../abstract_transport.dart';
 import '../socket/socket_helper.dart';
 import '../websocket/websocket_transport_serialization.dart';
 import 'e2ee_file_segment.dart';
+import 'e2ee_payload.dart';
 import 'flatbuffers_payload_anchor.dart';
 import 'message_binding.dart';
 import 'message_protocol.dart';
@@ -136,7 +141,7 @@ abstract class _NativeTransportBase extends AbstractTransport
   _prepareEncodedBytes(Uint8List bytes) {
     final profile = _flatBuffersProfile;
     if (profile == null) return null;
-    final message = (_serializer as flatbuffers.Serializer).deserialize(bytes)!;
+    final message = readWampFlatBufferProfileMessage(bytes);
     return (
       profile: profile.prepareOutgoing(message, advertise: false),
       message: message,
@@ -153,6 +158,7 @@ abstract class _NativeTransportBase extends AbstractTransport
 
   bool _sendNativeFlatBufferPptPayload(
     AbstractMessage message,
+    int connectionId,
   ) {
     if (_nativeSerializer != NativeMessageSerializer.flatbuffers ||
         !nativeBuffers.supportsFlatBufferFrames ||
@@ -174,12 +180,19 @@ abstract class _NativeTransportBase extends AbstractTransport
       ),
       _ => (null, null, null, null),
     };
-    if (scheme == null ||
-        scheme.isEmpty ||
-        scheme == 'wamp' ||
-        serializer != 'flatbuffers' ||
-        cipher != null ||
-        keyId != null) {
+    final nativeWampE2ee =
+        scheme == 'wamp' &&
+        (serializer == 'cbor' || serializer == 'flatbuffers') &&
+        cipher != null &&
+        keyId != null;
+    final nativeOpaquePpt =
+        scheme != null &&
+        scheme.isNotEmpty &&
+        scheme != 'wamp' &&
+        serializer == 'flatbuffers' &&
+        cipher == null &&
+        keyId == null;
+    if (!nativeWampE2ee && !nativeOpaquePpt) {
       return false;
     }
 
@@ -197,6 +210,15 @@ abstract class _NativeTransportBase extends AbstractTransport
       return false;
     } on UnsupportedError {
       return false;
+    }
+
+    if (nativeBuffers.supportsSegmentedBuffers &&
+        _sendCanonicalNativeFlatBufferPptSegments(
+          message,
+          connectionId,
+          payloadOwner,
+        )) {
+      return true;
     }
 
     final builder = nativeBuffers.flatBuffers(initialSize: 1024);
@@ -220,7 +242,21 @@ abstract class _NativeTransportBase extends AbstractTransport
       control?.dispose();
     }
     try {
-      sendNativeFrame(frame, transfer: true);
+      // This control frame was just projected from the supplied message and
+      // validated by native composition. Reconstructing that same model is
+      // unnecessary; caller-supplied frames still use _prepareNativeFrame.
+      // Recheck the current phase after any model accessors have run.
+      if (_connectionId != connectionId) {
+        throw StateError(
+          'Transport connection changed during frame construction',
+        );
+      }
+      final nextProfile = _flatBuffersProfile?.prepareOutgoing(
+        message,
+        advertise: false,
+      );
+      nativeBuffers.sendFrame(connectionId, frame, transfer: true);
+      _commitSend(nextProfile, message);
       recordNativeFlatBufferPptSubmission(payloadOwner, payloadOwner.length);
       return true;
     } finally {
@@ -228,9 +264,78 @@ abstract class _NativeTransportBase extends AbstractTransport
     }
   }
 
+  bool _sendCanonicalNativeFlatBufferPptSegments(
+    AbstractMessage message,
+    int connectionId,
+    NativeOwnedBuffer payloadOwner,
+  ) {
+    const maximumFrameBytes = 64 * 1024 * 1024;
+    if (payloadOwner.length > maximumFrameBytes) {
+      return false;
+    }
+    final builder = nativeBuffers.flatBuffers(initialSize: 1024);
+    NativeOwnedBuffer? prefix;
+    try {
+      // The SDK builds backwards: this first word ends the prefix, directly
+      // before the separately retained body. The prefix alone is incomplete.
+      builder.putUint32(payloadOwner.length);
+      final vector = flatbuffers.FlatBufferByteVectorReference(
+        builder,
+        builder.offset,
+      );
+      // Keep the opaque body's logical wire offset eight-byte aligned even
+      // when all uint64 fields have their default values and are omitted.
+      builder.putFloat64(0.0);
+      builder.finish(
+        flatbuffers.writeWampFlatBufferMessage(
+          message,
+          builder,
+          payloadVector: vector,
+        ),
+      );
+      prefix = builder.freeze();
+      if (prefix.length + payloadOwner.length > maximumFrameBytes) {
+        return false;
+      }
+      final nextProfile = _flatBuffersProfile?.prepareOutgoing(
+        message,
+        advertise: false,
+      );
+      // Canonical projection and profile accessors may run user code. Public
+      // raw-frame submission keeps its independent structural/profile checks.
+      if (_connectionId != connectionId) {
+        throw StateError(
+          'Transport connection changed during frame construction',
+        );
+      }
+      nativeBuffers.sendSegments(connectionId, [prefix, payloadOwner]);
+      _commitSend(nextProfile, message);
+      recordNativeFlatBufferPptSubmission(payloadOwner, payloadOwner.length);
+      return true;
+    } finally {
+      builder.dispose();
+      prefix?.dispose();
+    }
+  }
+
   NativeOwnedBuffer? _nativeFlatBufferPayloadOwner(
     LazyMessagePayload payload,
-  ) => _nativePptPayloadOwner(payload, flatBuffersOnly: true)?.buffer;
+  ) {
+    final owner = payload.storageOwner;
+    if (owner is NativeE2eeOwnedPayload) {
+      final packed = payload.packedPayloadBytes;
+      if (identical(packed, owner.bytes) &&
+          owner.storageOwner is NativeOwnedBuffer) {
+        return owner.storageOwner as NativeOwnedBuffer;
+      }
+    }
+    final source = packedPayloadSourceOf(payload);
+    if (payload.encoding == LazyPayloadEncoding.flatbuffers &&
+        source is NativePptPayloadLease) {
+      return source.nativeOwnerFor(payload);
+    }
+    return _nativePptPayloadOwner(payload, flatBuffersOnly: true)?.buffer;
+  }
 
   ({NativeOwnedBuffer buffer, Uint8List bytes})? _nativePptPayloadOwner(
     LazyMessagePayload payload, {
@@ -240,6 +345,11 @@ abstract class _NativeTransportBase extends AbstractTransport
     Object? owner = payload.storageOwner ?? payload.anchor;
     var current = payload;
     while (seen.add(current)) {
+      final source = packedPayloadSourceOf(current);
+      if (!flatBuffersOnly && source is NativePptPayloadLease) {
+        final owner = source.nativeOwnerFor(current);
+        if (owner != null) return (buffer: owner, bytes: source.bytes);
+      }
       final packed = current.packedPayloadBytes;
       if ((!flatBuffersOnly ||
               current.encoding == LazyPayloadEncoding.flatbuffers) &&
@@ -564,7 +674,7 @@ abstract class _NativeTransportBase extends AbstractTransport
       throw StateError('Transport is not connected.');
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
-    if (_sendNativeFlatBufferPptPayload(message)) return;
+    if (_sendNativeFlatBufferPptPayload(message, connectionId)) return;
     if (_sendNativeEncodedPptPayload(message)) {
       _commitSend(nextProfile, message);
       return;
@@ -1359,7 +1469,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
       throw StateError('Transport is not connected.');
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
-    if (_sendNativeFlatBufferPptPayload(message)) return;
+    if (_sendNativeFlatBufferPptPayload(message, connectionId)) return;
     if ((_fragmentSize ?? 0) == 0 && _sendNativeEncodedPptPayload(message)) {
       _commitSend(nextProfile, message);
       return;

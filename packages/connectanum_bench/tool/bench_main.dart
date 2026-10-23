@@ -736,7 +736,7 @@ class _BenchControlRegistry {
       final ownedCopiesBefore = await binding.collectOwnedBufferCopies();
       final codecBefore = binding.runtime is NativeTransportRuntime
           ? (binding.runtime as NativeTransportRuntime)
-                .codecCopyMetricsSnapshot()
+                .boundaryCodecCopyMetricsSnapshot()
           : null;
       final rawFrameMetricsBefore = _routerRawFrameCopyMetrics(binding.runtime);
       final routerCopyMetricsBefore = _routerTransportCopyMetrics(
@@ -801,7 +801,7 @@ class _BenchControlRegistry {
           codecBefore,
           binding.runtime is NativeTransportRuntime
               ? (binding.runtime as NativeTransportRuntime)
-                    .codecCopyMetricsSnapshot()
+                    .boundaryCodecCopyMetricsSnapshot()
               : null,
         ),
       };
@@ -874,7 +874,9 @@ class _BenchControlRegistry {
       'current_rss_bytes':
           measured.currentRssBytes ??
           (!Platform.isLinux ? currentRssAtWindowEnd : null),
-      'max_rss_bytes': ProcessInfo.maxRss,
+      'max_rss_bytes':
+          rssSnapshot?.lifetimeMaxRssBytes ??
+          (!Platform.isLinux ? ProcessInfo.maxRss : null),
       'cpu_user_us_delta': measured.cpuUserMicros,
       'cpu_system_us_delta': measured.cpuSystemMicros,
       'allocated_bytes_delta': measured.allocatedBytes,
@@ -882,6 +884,9 @@ class _BenchControlRegistry {
       'gc_count_delta': measured.gcCount,
       'gc_pause_us_delta': measured.gcPauseMicros,
       'peak_rss_during_bytes': measured.peakRssBytes,
+      if (Platform.isLinux && rssSnapshot != null)
+        'rss_lifetime_max_read_attempts_bytes':
+            rssSnapshot.lifetimeMaxReadAttemptsBytes,
     };
   }
 

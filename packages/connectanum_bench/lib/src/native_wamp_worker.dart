@@ -56,12 +56,13 @@ class NativeWampWorkerProcessMetrics {
     this.gcCountDelta,
     this.gcPauseUsDelta,
     this.peakRssDuringBytes,
+    this.rssLifetimeMaxReadAttemptsBytes,
   });
 
   final int pid;
   final int rssBeforeBytes;
-  final int currentRssBytes;
-  final int maxRssBytes;
+  final int? currentRssBytes;
+  final int? maxRssBytes;
   final int? cpuUserUsDelta;
   final int? cpuSystemUsDelta;
   final int? allocatedBytesDelta;
@@ -69,14 +70,15 @@ class NativeWampWorkerProcessMetrics {
   final int? gcCountDelta;
   final int? gcPauseUsDelta;
   final int? peakRssDuringBytes;
+  final List<int?>? rssLifetimeMaxReadAttemptsBytes;
 
   factory NativeWampWorkerProcessMetrics.fromJson(
     Map<String, Object?> json,
   ) => NativeWampWorkerProcessMetrics(
     pid: (json['pid'] as num).toInt(),
     rssBeforeBytes: (json['rss_before_bytes'] as num).toInt(),
-    currentRssBytes: (json['current_rss_bytes'] as num).toInt(),
-    maxRssBytes: (json['max_rss_bytes'] as num).toInt(),
+    currentRssBytes: (json['current_rss_bytes'] as num?)?.toInt(),
+    maxRssBytes: (json['max_rss_bytes'] as num?)?.toInt(),
     cpuUserUsDelta: (json['cpu_user_us_delta'] as num?)?.toInt(),
     cpuSystemUsDelta: (json['cpu_system_us_delta'] as num?)?.toInt(),
     allocatedBytesDelta: (json['allocated_bytes_delta'] as num?)?.toInt(),
@@ -86,6 +88,10 @@ class NativeWampWorkerProcessMetrics {
     gcCountDelta: (json['gc_count_delta'] as num?)?.toInt(),
     gcPauseUsDelta: (json['gc_pause_us_delta'] as num?)?.toInt(),
     peakRssDuringBytes: (json['peak_rss_during_bytes'] as num?)?.toInt(),
+    rssLifetimeMaxReadAttemptsBytes:
+        json['rss_lifetime_max_read_attempts_bytes'] == null
+        ? null
+        : List<int?>.from(json['rss_lifetime_max_read_attempts_bytes'] as List),
   );
 
   Map<String, Object?> toJson() => {
@@ -102,6 +108,8 @@ class NativeWampWorkerProcessMetrics {
     if (gcCountDelta != null) 'gc_count_delta': gcCountDelta,
     if (gcPauseUsDelta != null) 'gc_pause_us_delta': gcPauseUsDelta,
     if (peakRssDuringBytes != null) 'peak_rss_during_bytes': peakRssDuringBytes,
+    if (rssLifetimeMaxReadAttemptsBytes != null)
+      'rss_lifetime_max_read_attempts_bytes': rssLifetimeMaxReadAttemptsBytes,
   };
 }
 
@@ -144,8 +152,8 @@ class NativeWampWorker {
   final String workerScriptPath;
   final bool enableVmMetrics;
 
-  /// Preserve JIT warmup for successful RPC/pub-sub campaigns. Other modes and
-  /// failures still recycle the helper to isolate late cancellation messages.
+  /// Preserve JIT warmup for successful RPC, pub/sub, progressive and control
+  /// operation campaigns. Other modes and failures still recycle the helper.
   final bool reuseSuccessfulWorkers;
   final String dartExecutable;
   final Duration _readyTimeout;
@@ -164,8 +172,8 @@ class NativeWampWorker {
       (await runWithMetrics(scenario)).samples;
 
   Future<NativeWampWorkerResult> runWithMetrics(WampScenario scenario) {
-    // Each scenario owns a fresh native runtime. Queue callers rather than
-    // letting one scenario's cleanup cancel another scenario's response.
+    // Serialize commands and cleanup, including reused workers, so one
+    // scenario's cleanup cannot cancel another scenario's response.
     final epoch = _closeEpoch;
     final result = _runTail.then((_) {
       if (epoch != _closeEpoch) {
@@ -216,8 +224,11 @@ class NativeWampWorker {
             pid: process.pid,
             rssBeforeBytes: process.rssBeforeBytes,
             currentRssBytes:
-                measured.currentRssBytes ?? process.currentRssBytes,
-            maxRssBytes: process.maxRssBytes,
+                measured.currentRssBytes ??
+                (!Platform.isLinux ? process.currentRssBytes : null),
+            maxRssBytes:
+                rssSnapshot.lifetimeMaxRssBytes ??
+                (!Platform.isLinux ? process.maxRssBytes : null),
             cpuUserUsDelta: measured.cpuUserMicros,
             cpuSystemUsDelta: measured.cpuSystemMicros,
             allocatedBytesDelta: measured.allocatedBytes,
@@ -225,6 +236,9 @@ class NativeWampWorker {
             gcCountDelta: measured.gcCount,
             gcPauseUsDelta: measured.gcPauseMicros,
             peakRssDuringBytes: measured.peakRssBytes,
+            rssLifetimeMaxReadAttemptsBytes: Platform.isLinux
+                ? rssSnapshot.lifetimeMaxReadAttemptsBytes
+                : null,
           );
         }
       }
@@ -242,12 +256,19 @@ class NativeWampWorker {
         await _stop(generation);
         rethrow;
       }
-      // Native cancel-cycle workloads can leave late interrupts/errors in flight.
-      // Recycle the helper between scenarios so those messages do not poison the
-      // next benchmark command in the same worker isolate.
-      if (!succeeded ||
-          !reuseSuccessfulWorkers ||
-          (scenario.mode != WampMode.rpc && scenario.mode != WampMode.pubsub)) {
+      // These modes await per-command session/registration cleanup. Successful
+      // campaign reuse keeps the same runtime; failures always discard it.
+      final reusableMode = switch (scenario.mode) {
+        WampMode.rpc ||
+        WampMode.pubsub ||
+        WampMode.progressiveRpc ||
+        WampMode.publishAck ||
+        WampMode.subscribeCycle ||
+        WampMode.registerCycle ||
+        WampMode.cancelCycle => true,
+        _ => false,
+      };
+      if (!succeeded || !reuseSuccessfulWorkers || !reusableMode) {
         await _stop(generation);
       }
     }
@@ -311,6 +332,7 @@ class NativeWampWorker {
       usesDirectExecutable ? workerScriptPath : dartExecutable,
       [
         if (enableVmMetrics) '--timeline_streams=GC',
+        if (enableVmMetrics) '--timeline_recorder=endless',
         if (enableVmMetrics) '--observe=0/127.0.0.1',
         if (enableVmMetrics) '--no-pause-isolates-on-exit',
         if (_usesPackageExecutable) 'run',

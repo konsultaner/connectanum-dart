@@ -142,6 +142,7 @@ class _ChunkSocket extends Stream<Uint8List> implements Socket {
   final writes = <List<int>>[];
   final submitted = <List<int>>[];
   var destroyCount = 0;
+  Object? submissionError;
 
   void feed(List<int> bytes) => _incoming.add(Uint8List.fromList(bytes));
 
@@ -160,6 +161,10 @@ class _ChunkSocket extends Stream<Uint8List> implements Socket {
 
   @override
   void add(List<int> bytes) {
+    final error = submissionError;
+    if (error != null) {
+      throw error;
+    }
     submitted.add(bytes);
     writes.add(List.of(bytes));
   }
@@ -305,16 +310,14 @@ void _segmentedSocketSends() {
             expect(copies.rawSocketFragmentCoalesceCopiedBytes, 0);
             expect(copies.knownOwnCopyBytes, payload.length + 4);
           } else {
-            expect(
-              socket.submitted,
-              hasLength(1 + fragments.where((p) => p.isNotEmpty).length),
-            );
+            expect(socket.submitted, hasLength(2));
             expect(socket.submitted.any((p) => identical(p, body)), true);
-            final metadataBytes = name == 'flatbuffers'
-                ? fragments.first.length
-                : 0;
-            expect(copies.rawSocketInputCopiedBytes, metadataBytes);
-            expect(copies.knownOwnCopyBytes, metadataBytes);
+            expect(fragments.last, same(body));
+            final metadataBytes = payload.length - body.length;
+            expect(copies.rawSocketFragmentCoalesceCopiedBytes, metadataBytes);
+            expect(copies.rawSocketFrameHeaderCopiedBytes, 4);
+            expect(copies.rawSocketInputCopiedBytes, 0);
+            expect(copies.knownOwnCopyBytes, metadataBytes + 4);
           }
         },
       );
@@ -477,14 +480,23 @@ void _nativeRangeSocketSends() {
               } else {
                 expect(parsed.arguments!.single, orderedEquals(body));
               }
+              expect(fragments.last, same(body));
+              final metadataBytes =
+                  fragments.fold<int>(
+                    0,
+                    (total, part) => total + part.length,
+                  ) -
+                  body.length;
               expect(
-                copies.knownOwnCopyBytes,
-                (name == 'flatbuffers' ? fragments.first.length : 0) +
-                    (storage == 'registered-native' ? 0 : length),
+                copies.rawSocketFragmentCoalesceCopiedBytes,
+                metadataBytes,
               );
+              expect(copies.rawSocketFrameHeaderCopiedBytes, 4);
+              final bodyCopies = storage == 'registered-native' ? 0 : length;
+              expect(copies.knownOwnCopyBytes, metadataBytes + 4 + bodyCopies);
               expect(
                 copies.rawSocketInputCopiedBytes,
-                copies.knownOwnCopyBytes,
+                bodyCopies,
               );
             },
           );
@@ -492,4 +504,163 @@ void _nativeRangeSocketSends() {
       }
     }
   }
+}
+
+void _boundedSocketPrefixes() {
+  for (final upgraded in [false, true]) {
+    final headerLength = upgraded ? 5 : 4;
+    for (final scenario in <(String, List<int>, int, int, bool)>[
+      ('empty prefix', [0], 0, 2, false),
+      (
+        'empty fragments between small chunks',
+        [0, 1024, 0, 1024],
+        2048,
+        2,
+        false,
+      ),
+      (
+        'exact cap',
+        [1024, 1024, 1024, 1024 - headerLength],
+        4096 - headerLength,
+        2,
+        false,
+      ),
+      ('whole fragment exceeds cap', [1024, 1024, 1024, 1024], 3072, 3, false),
+      ('first fragment exceeds cutoff', [1025, 1], 0, 4, false),
+      ('large fragment ends prefix', [1024, 1025, 1], 1024, 4, false),
+      ('failed prefix submission', [1024, 1], 1025, 0, true),
+    ]) {
+      final (label, sizes, copied, submissions, failSend) = scenario;
+      test('bounded socket prefix $label upgraded=$upgraded', () async {
+        final socket = _ChunkSocket();
+        final body = Uint8List(65536)..fillRange(0, 65536, 123);
+        final parts = <Uint8List>[
+          for (var i = 0; i < sizes.length; i++)
+            Uint8List(sizes[i])..fillRange(0, sizes[i], i + 1),
+          body,
+        ];
+        final snapshots = [for (final part in parts) Uint8List.fromList(part)];
+        final transport = SocketTransport(
+          'localhost',
+          12345,
+          _FragmentSerializer(parts),
+          SocketHelper.serializationCbor,
+          messageLengthExponent: upgraded
+              ? 30
+              : SocketHelper.maxMessageLengthExponent,
+        );
+        addTearDown(transport.close);
+        await IOOverrides.runZoned(
+          transport.open,
+          socketConnect:
+              (
+                host,
+                port, {
+                sourceAddress,
+                int sourcePort = 0,
+                timeout,
+              }) async => socket,
+        );
+        final subscription = transport.receive().listen((_) {});
+        addTearDown(subscription.cancel);
+        socket.feed(
+          SocketHelper.getInitialHandshake(
+            SocketHelper.maxMessageLengthExponent,
+            SocketHelper.serializationCbor,
+          ),
+        );
+        if (upgraded) {
+          await Future<void>.delayed(Duration.zero);
+          socket.feed(SocketHelper.getUpgradeHandshake(30));
+        }
+        await transport.onReady;
+        expect(transport.headerLength, headerLength);
+        socket.writes.clear();
+        socket.submitted.clear();
+        if (failSend) {
+          socket.submissionError = StateError(
+            'forced socket submission failure',
+          );
+        }
+        DartTransportCopyMetrics.beginWindow();
+        late DartTransportCopyMetricsSnapshot copies;
+        try {
+          if (failSend) {
+            expect(
+              () => transport.send(Call(7, 'com.prefix')),
+              throwsStateError,
+            );
+          } else {
+            transport.send(Call(7, 'com.prefix'));
+          }
+        } finally {
+          copies = DartTransportCopyMetrics.endWindow();
+        }
+        expect(copies.rawSocketFragmentCoalesceCopiedBytes, copied);
+        expect(
+          copies.rawSocketFrameHeaderCopiedBytes,
+          copied == 0 ? 0 : headerLength,
+        );
+        expect(copies.rawSocketInputCopiedBytes, 0);
+        expect(
+          copies.knownOwnCopyBytes,
+          copied + (copied == 0 ? 0 : headerLength),
+        );
+        if (failSend) {
+          expect(socket.submitted, isEmpty);
+          expect(socket.writes, isEmpty);
+          return;
+        }
+        final payload = (BytesBuilder(
+          copy: false,
+        )..addAllFragments(parts)).takeBytes();
+        final expected =
+            (BytesBuilder(copy: false)
+                  ..add(
+                    SocketHelper.buildMessageHeader(
+                      SocketHelper.messageWamp,
+                      payload.length,
+                      upgraded,
+                    ),
+                  )
+                  ..add(payload))
+                .takeBytes();
+        final wire = (BytesBuilder(
+          copy: false,
+        )..addAllFragments(socket.writes)).takeBytes();
+        expect(wire, orderedEquals(expected));
+        expect(socket.submitted, hasLength(submissions));
+        expect(socket.submitted.last, same(body));
+        expect(socket.submitted.first.length, lessThanOrEqualTo(4096));
+        if (copied != 0) {
+          final prefix = socket.submitted.first as Uint8List;
+          expect(prefix.offsetInBytes, 0);
+          expect(prefix.buffer.lengthInBytes, prefix.length);
+        }
+        for (var i = 0; i < parts.length; i++) {
+          expect(parts[i], orderedEquals(snapshots[i]));
+        }
+        final prefixSnapshot = List<int>.of(socket.submitted.first);
+        var remainingCopied = copied;
+        for (final part in parts) {
+          if (part.length <= remainingCopied) {
+            remainingCopied -= part.length;
+            part.fillRange(0, part.length, 0);
+          } else {
+            expect(socket.submitted.any((p) => identical(p, part)), true);
+          }
+        }
+        expect(socket.submitted.first, orderedEquals(prefixSnapshot));
+      });
+    }
+  }
+}
+
+class _FragmentSerializer extends cbor_serializer.Serializer {
+  _FragmentSerializer(this.parts);
+
+  final List<Uint8List> parts;
+
+  @override
+  List<Uint8List> serializeFragments(AbstractMessage message) => parts;
 }

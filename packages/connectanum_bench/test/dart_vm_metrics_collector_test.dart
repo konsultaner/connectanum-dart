@@ -142,6 +142,17 @@ void main() {
     },
   );
 
+  test('failed timeline clearing aborts the allocation window', () async {
+    final vm = await _VmFixture.start(unavailable: 'clearVMTimeline');
+    addTearDown(vm.close);
+    final collector = await DartVmMetricsCollector.connect(
+      serviceUri: vm.uri,
+      pid: vm.targetPid,
+    );
+    addTearDown(collector.close);
+    await expectLater(collector.beginWindow(), throwsA(isA<Exception>()));
+  });
+
   for (final unavailable in [
     'flags_disabled',
     'getVMTimelineFlags',
@@ -298,10 +309,12 @@ class _VmFixture {
         };
       case 'streamListen':
       case 'streamCancel':
+      case 'clearVMTimeline':
         return {'type': 'Success'};
       case 'getVMTimelineFlags':
         return {
           'type': 'TimelineFlags',
+          'recorderName': 'Endless',
           'recordedStreams': recorded,
           'availableStreams': ['Dart', 'GC'],
         };

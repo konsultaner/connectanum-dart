@@ -581,6 +581,36 @@ the separate INVOCATION single-binary-argument API; consumers must check the fla
 before choosing a selector. An absent or empty export has no owner, consistently
 with the existing byte-view ABI; flag 8 distinguishes present-empty from absent.
 
+The optional `ct_internal_ppt_handoff_version()` returns 2 for internal plaintext
+PPT borrowing. Bindings must also require the optional
+`ct_internal_ppt_handoff_eligible_v1_wide(handle)` and a positive result on the
+held CALL before creating a loan descriptor and before forwarding its reply.
+The query does not consume the handle or decode application data; it checks the
+original native metadata and body representation. Explicit null PPT fields are
+ineligible because typed nullable Dart fields lose their presence and the native
+result encoder may not recognize that body as PPT. These inputs use the existing
+copying path, preserving the reply's scheme. Valid sources retain their opaque
+body and PPT header contract. Invalid/expired handles return a negative status.
+
+Dart caches the library capability, requires wide handles, version 2 and the
+query export, and rejects missing or unknown families. The earlier marker-only
+version 1 falls back. Older version-1 bindings also fall back against version 2,
+preventing them from selecting an unsafe borrow on newer libraries. No C structure layout or remote negotiation
+changes. The optimization applies to CBOR, MessagePack and FlatBuffers.
+
+An internal plaintext reply may reuse the CALL loan only when its actual wire
+body is the original byte object and its PPT headers match an immutable snapshot
+of the received CALL. An opaque FlatBuffers body may be returned as the same
+single binary PPT argument. Replaced bodies, altered or removed headers, custom
+result details, active progressive replies, encryption and the reserved `wamp`
+scheme retain the ordinary path. A final unchanged reply after progress may
+reuse the loan. CALL-only options are not copied to RESULT details. Worker and
+callee each validate the contract; only primitive handle metadata crosses the
+isolate boundary. Independently owned read-only body views may outlive the
+routing handle, internal session and runtime; they never acquire ownership of
+foreign database memory. The boss releases a transferred loan on success or
+failure; cancellation follows the existing retained-CALL cleanup contract.
+
 Both Dart materializers and the payload-only CALL reader preserve opaque bytes
 separately from encoded CBOR args/kwargs. The session wrapper and final model
 reject contradictory presence metadata. Native receive views are read-only,

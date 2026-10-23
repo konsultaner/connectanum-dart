@@ -276,6 +276,22 @@ void main() {
     expect(call.hasLazyArguments, true);
   });
 
+  test('raw lazy CBOR arguments are validated before writing', () {
+    for (final bytes in [
+      <int>[0xa0], // A valid map is the wrong root type for args.
+      <int>[0x80, 0xff], // A valid array followed by a trailing break.
+    ]) {
+      final call = Call(1, 'com.proc')
+        ..setLazyPayload(
+          argumentsBytes: Uint8List.fromList(bytes),
+          argumentsDecoder: (_) =>
+              throw StateError('Unexpected materialization'),
+          encoding: LazyPayloadEncoding.cbor,
+        );
+      expect(() => encode(call), throwsFormatException);
+    }
+  });
+
   test('reuse an already-built vector without invoking the model decoder', () {
     final input = Uint8List.fromList(cbor.encode(CborValue([1, 'payload'])));
     final call = Call(1, 'com.proc')

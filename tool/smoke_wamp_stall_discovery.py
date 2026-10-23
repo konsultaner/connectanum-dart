@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Exercise original-process discovery with a real authenticated Linux Dart VM."""
+import argparse
+import json
+import os
+from pathlib import Path
+import queue
+import socket
+import subprocess
+import threading
+import time
+import urllib.parse
+
+import capture_wamp_stall as diagnostic
+from wamp_rss_memory import capture_target_memory
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def stop(process):
+    if process is None:
+        return
+    if process.stdin is not None and not process.stdin.closed:
+        try:
+            process.stdin.close()
+        except OSError:
+            pass
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+
+
+def capture_smoke_snapshot(output, vm_pid, observer_pid, uri, tcp_port):
+    snapshot = diagnostic.capture_original_stacks(
+        os.getpid(), 'real discovery smoke', threading.Event(), application_ports=(tcp_port,))
+    token = urllib.parse.urlsplit(uri).path.strip('/')
+    if uri in json.dumps(snapshot) or (token and token in json.dumps(snapshot)):
+        raise RuntimeError('Authenticated VM endpoint was not redacted')
+    (output / 'snapshot.json').write_text(json.dumps(snapshot, indent=2) + '\n')
+    worker = snapshot['roles'].get('worker', {})
+    if (worker.get('pid') != vm_pid or worker.get('observer_pid') != observer_pid or worker.get('error')
+            or not worker.get('isolates') or any('stack' not in entry for entry in worker['isolates'])):
+        raise RuntimeError('Original-process discovery or stack capture failed: ' + json.dumps(snapshot))
+    native = worker.get('linux', {})
+    if native.get('error') or native.get('errors') or not native.get('threads') or not native.get('tcp'):
+        raise RuntimeError('Owned Linux thread/socket observation failed: ' + json.dumps(native))
+    info = native.get('tcp_info', {})
+    if (info.get('error') or info.get('errors')
+            or not any(entry.get('local') == f'127.0.0.1:{tcp_port}'
+                       for entry in info.get('sockets', []))):
+        raise RuntimeError('Owned TCP_INFO observation failed: ' + json.dumps(info))
+
+
+def capture_smoke_memory(output, vm_pid, observer_pid, *, allocator_attribution=False):
+    try:
+        targets = diagnostic.discover_vm_services(os.getpid())
+        if len(targets) != 1 or targets[0].role != 'worker':
+            raise ValueError('Expected one owned smoke memory endpoint')
+        record = (capture_target_memory(targets[0], os.getpid(), vm_pid, allocator_attribution=True)
+                  if allocator_attribution else capture_target_memory(targets[0], os.getpid(), vm_pid))
+        if record['pid'] != vm_pid or record['observer_pid'] != observer_pid:
+            raise ValueError('Smoke memory owner differs from launched VM/observer')
+    except Exception as error:
+        record = {'error': type(error).__name__}
+    (output / 'memory.json').write_text(json.dumps(record, indent=2) + '\n')
+    if 'error' in record:
+        raise RuntimeError('Owned standard-VM memory API/maps smoke failed')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--dart', default='dart')
+    parser.add_argument('--memory-attribution', action='store_true')
+    parser.add_argument('--allocator-attribution', action='store_true')
+    args = parser.parse_args()
+    if not Path('/proc').is_dir():
+        raise ValueError('Real original-process discovery smoke requires Linux procfs')
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=False)
+    script = output / 'idle.dart'
+    script_source = """import 'dart:io';
+Future<void> main() async {
+  final listener = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final accepted = <Socket>[];
+  listener.listen((connection) {
+    accepted.add(connection);
+    stdout.writeln('TCP_ACCEPTED');
+  });
+  stdout.writeln('TCP_PORT=${listener.port}');
+  await stdin.drain<void>();
+  for (final connection in accepted) { connection.destroy(); }
+  await listener.close();
+}
+"""
+    if args.allocator_attribution:
+        script_source = (f'import {json.dumps((ROOT / "tool/wamp_allocator_probe.dart").as_uri())};\n'
+                         + script_source.replace('Future<void> main() async {',
+                                                 'Future<void> main() async {\n  registerAllocatorProbe();'))
+    script.write_text(script_source)
+    if args.allocator_attribution:
+        compiled = output / 'idle.dill'
+        with (output / 'kernel-compile.log').open('w') as log:
+            subprocess.run([args.dart, 'compile', 'kernel', str(script), '--output', str(compiled)],
+                           cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=120)
+        script = compiled
+    vm = observer = peer = None
+    readers = []
+    lines = queue.Queue()
+    def read(process, role):
+        with process.stdout as stream:
+            for line in stream:
+                lines.put((role, line.rstrip()))
+    def launch(command, role):
+        process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, text=True)
+        reader = threading.Thread(target=read, args=(process, role), daemon=True)
+        reader.start()
+        readers.append(reader)
+        return process
+    def next_line(deadline):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Smoke VM/observer readiness deadline expired')
+        return lines.get(timeout=remaining)
+    try:
+        vm = launch([args.dart, '--observe=0/127.0.0.1', '--no-pause-isolates-on-exit', str(script)], 'vm')
+        deadline = time.monotonic() + 45
+        uri = tcp_port = None
+        while uri is None or tcp_port is None:
+            role, line = next_line(deadline)
+            prefix = 'The Dart VM service is listening on '
+            if role == 'vm' and line.startswith(prefix):
+                uri = line[len(prefix):].strip()
+            if role == 'vm' and line.startswith('TCP_PORT='):
+                tcp_port = int(line[len('TCP_PORT='):])
+                if not 0 < tcp_port < 65536:
+                    raise ValueError('Smoke listener returned invalid port')
+        peer = socket.create_connection(('127.0.0.1', tcp_port), timeout=5)
+        while True:
+            role, line = next_line(deadline)
+            if role == 'vm' and line == 'TCP_ACCEPTED':
+                break
+        observer = launch([args.dart, '--packages=' + str(ROOT / '.dart_tool/package_config.json'),
+                           str(ROOT / 'packages/connectanum_bench/lib/src/dart_vm_metrics_observer_main.dart'),
+                           json.dumps({'service_uri': uri, 'pid': vm.pid, 'all_isolates': False})], 'observer')
+        while True:
+            role, line = next_line(deadline)
+            if role == 'observer' and line == 'READY':
+                break
+            if observer.poll() is not None:
+                raise RuntimeError('Metrics observer exited before readiness')
+        capture_smoke_snapshot(output, vm.pid, observer.pid, uri, tcp_port)
+        if args.allocator_attribution:
+            capture_smoke_memory(output, vm.pid, observer.pid, allocator_attribution=True)
+        elif args.memory_attribution:
+            capture_smoke_memory(output, vm.pid, observer.pid)
+        observer.stdin.write(json.dumps({'id': 1, 'command': 'close'}) + '\n')
+        observer.stdin.flush()
+        stop(observer)
+        stop(vm)
+        if observer.returncode != 0 or vm.returncode != 0:
+            raise RuntimeError('Smoke VM/observer did not exit cleanly')
+        print('Original-process VM discovery and authenticated stack capture passed; no benchmark acceptance.')
+    finally:
+        if peer is not None:
+            peer.close()
+        stop(observer)
+        stop(vm)
+        for reader in readers:
+            reader.join(timeout=5)
+        if any(reader.is_alive() for reader in readers):
+            raise RuntimeError('Smoke output reader did not stop')
+
+
+if __name__ == '__main__':
+    main()

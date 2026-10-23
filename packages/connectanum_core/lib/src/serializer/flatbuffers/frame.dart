@@ -33,9 +33,7 @@ class FlatBufferFrame {
 FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
   final root = readWampFlatBufferFields(bytes);
   final tag = root['msg_type'] as int;
-  final name = wire.AnyMessageTypeId.values
-      .singleWhere((value) => value.value == tag)
-      .name;
+  final name = wire.AnyMessageTypeId.fromValue(tag).name;
   final body = root['msg'] as Map<String, Object?>;
   final encoded = root['metadata'] as Uint8List?;
   final dictionary = encoded == null ? null : decodeFlatBufferMetadata(encoded);
@@ -64,7 +62,7 @@ FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
   final frame = FlatBufferFrame(bytes, name, body, dictionary);
   if (name == 'Challenge') frame.challengeMethod;
   if (name == 'Error' &&
-      !{16, 32, 34, 48, 64, 66, 68}.contains(body['request_type'])) {
+      !(const {16, 32, 34, 48, 64, 66, 68}).contains(body['request_type'])) {
     throw const FormatException('Unsupported ERROR request type');
   }
   if (name == 'Heartbeat') {
@@ -78,23 +76,21 @@ FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
       }
     }
   }
-  if (body.containsKey('payload')) {
-    final payload = body['payload'];
-    if (payload != null && (body['args'] != null || body['kwargs'] != null)) {
-      throw const FormatException(
-        'FlatBuffers payload conflicts with args/kwargs',
-      );
-    }
-    if (body['args'] case final Uint8List args) {
-      validateFlatBufferCbor(args, rootMajor: 4);
-    }
-    if (body['kwargs'] case final Uint8List kwargs) {
-      validateFlatBufferCbor(
-        kwargs,
-        rootMajor: 5,
-        rootStringDictionaryKeys: true,
-      );
-    }
+  final payload = body['payload'];
+  if (payload != null && (body['args'] != null || body['kwargs'] != null)) {
+    throw const FormatException(
+      'FlatBuffers payload conflicts with args/kwargs',
+    );
+  }
+  if (body['args'] case final Uint8List args) {
+    validateFlatBufferCbor(args, rootMajor: 4);
+  }
+  if (body['kwargs'] case final Uint8List kwargs) {
+    validateFlatBufferCbor(
+      kwargs,
+      rootMajor: 5,
+      rootStringDictionaryKeys: true,
+    );
   }
   return frame;
 }
@@ -114,29 +110,7 @@ void _agree(
   Map<String, Object?> expected,
   Map<String, dynamic> dictionary,
 ) {
-  final ignored =
-      switch (name) {
-        'Hello' => {'realm'},
-        'Authenticate' => {'signature'},
-        'Abort' || 'Goodbye' => {'reason'},
-        'Error' => {'request_type', 'error'},
-        'Publish' || 'Subscribe' => {'topic'},
-        'Event' => {'subscription', 'publication'},
-        'Call' || 'Register' => {'procedure'},
-        'Invocation' => {'registration'},
-        _ => <String>{},
-      }..addAll({
-        'session',
-        'request',
-        'args',
-        'kwargs',
-        'payload',
-        'method',
-        'method_name',
-      });
-  final spec = wampValidationTables.singleWhere((table) => table.name == name);
-  for (final field in spec.fields) {
-    if (ignored.contains(field.name)) continue;
+  for (final field in flatBufferDictionaryFields(name)) {
     final value = actual[field.name];
     final target = expected[field.name];
     if (field.kind == FlatBufferFieldKind.table &&

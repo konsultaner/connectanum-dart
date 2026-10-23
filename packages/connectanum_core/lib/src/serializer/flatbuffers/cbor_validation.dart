@@ -24,6 +24,30 @@ void validateFlatBufferCbor(
   bool stringDictionaryKeys = false,
   bool rootStringDictionaryKeys = false,
   FlatBufferCborLimits limits = const FlatBufferCborLimits(),
+}) => _validateFlatBufferCbor(
+  bytes,
+  rootMajor: rootMajor,
+  stringDictionaryKeys: stringDictionaryKeys,
+  rootStringDictionaryKeys: rootStringDictionaryKeys,
+  limits: limits,
+);
+
+/// Validate native metadata immediately. Tagged values keep eager decoding:
+/// semantic tag handlers can reject well-formed CBOR (for example bad dates).
+bool validateDeferredFlatBufferMetadata(Uint8List bytes) =>
+    !_validateFlatBufferCbor(
+      bytes,
+      rootMajor: 5,
+      stringDictionaryKeys: true,
+      limits: const FlatBufferCborLimits(maxBytes: 1048576),
+    ).hasTags;
+
+_Scanner _validateFlatBufferCbor(
+  Uint8List bytes, {
+  int? rootMajor,
+  bool stringDictionaryKeys = false,
+  bool rootStringDictionaryKeys = false,
+  FlatBufferCborLimits limits = const FlatBufferCborLimits(),
 }) {
   if (limits.maxBytes < 0 || limits.maxDepth < 1 || limits.maxItems < 1) {
     throw ArgumentError('Invalid CBOR validation limits');
@@ -41,17 +65,18 @@ void validateFlatBufferCbor(
   );
   scanner.value(0);
   if (scanner.cursor != bytes.length) scanner.invalid('trailing values');
+  return scanner;
 }
 
 Map<String, dynamic> decodeFlatBufferMetadata(Uint8List bytes) {
+  final scalar = _scalarMetadata(bytes);
+  if (scalar != null) return scalar;
   validateFlatBufferCbor(
     bytes,
     rootMajor: 5,
     stringDictionaryKeys: true,
     limits: const FlatBufferCborLimits(maxBytes: 1048576),
   );
-  final scalar = _scalarMetadata(bytes);
-  if (scalar != null) return scalar;
   try {
     return _normalize(cbor.decode(bytes)) as Map<String, dynamic>;
   } on Exception {
@@ -59,22 +84,30 @@ Map<String, dynamic> decodeFlatBufferMetadata(Uint8List bytes) {
   }
 }
 
-// The complete metadata span is validated before this shortcut. Complex values
-// retain the existing CBOR decoder and normalization semantics.
+// Scalar dictionaries are completely validated while materializing their values.
+// Complex values retain the existing full validation and CBOR normalization.
 Map<String, dynamic>? _scalarMetadata(Uint8List bytes) {
+  if (bytes.isEmpty || bytes.length > 1048576 || bytes.first ~/ 32 != 5) {
+    throw const FormatException('Invalid FlatBuffers CBOR container or size');
+  }
   final reader = _Scanner(
     bytes,
     const FlatBufferCborLimits(maxBytes: 1048576),
     true,
     false,
   );
+  reader.charge();
   final root = reader.byte();
   final count = root % 32 == 31 ? null : reader.length(root % 32);
   final result = <String, dynamic>{};
   var index = 0;
   while (count == null ? !reader.takeBreak() : index < count) {
+    reader.charge();
     final keyHeader = reader.byte();
+    if (keyHeader ~/ 32 != 3) reader.invalid('dictionary key');
     final key = reader.string(3, keyHeader % 32, key: true)!;
+    if (result.containsKey(key)) reader.invalid('duplicate dictionary key');
+    reader.charge();
     final initial = reader.byte();
     final major = initial ~/ 32;
     final info = initial % 32;
@@ -104,6 +137,7 @@ Map<String, dynamic>? _scalarMetadata(Uint8List bytes) {
     result[key] = value;
     index++;
   }
+  if (reader.cursor != bytes.length) reader.invalid('trailing values');
   return result;
 }
 
@@ -130,6 +164,7 @@ Object? _normalize(Object? value) {
 }
 
 class _Scanner {
+  bool hasTags = false;
   _Scanner(
     this.bytes,
     this.limits,
@@ -188,11 +223,35 @@ class _Scanner {
     return true;
   }
 
-  void utf8Range(int start, int end) {
+  bool utf8Range(int start, int end) {
+    var ascii = true;
     var index = start;
     while (index < end) {
+      if (index + 8 <= end) {
+        final blockEnd = index + 8;
+        // A multibyte lead or continuation byte sets a high bit and is left
+        // to the existing bytewise validator.
+        final highBits =
+            bytes[index] |
+            bytes[index + 1] |
+            bytes[index + 2] |
+            bytes[index + 3] |
+            bytes[index + 4] |
+            bytes[index + 5] |
+            bytes[index + 6] |
+            bytes[index + 7];
+        if (highBits < 128) {
+          index = blockEnd;
+          continue;
+        }
+        while (index < blockEnd && bytes[index] < 128) {
+          index++;
+        }
+      }
+      if (index >= end) break;
       final first = bytes[index++];
       if (first < 128) continue;
+      ascii = false;
       final int count;
       final int low;
       final int high;
@@ -220,6 +279,7 @@ class _Scanner {
         index++;
       }
     }
+    return ascii;
   }
 
   String? string(int major, int info, {bool key = false}) {
@@ -227,10 +287,11 @@ class _Scanner {
       final count = length(chunkInfo);
       final start = cursor;
       skip(count);
-      if (major == 3) utf8Range(start, cursor);
-      return key
-          ? utf8.decode(Uint8List.sublistView(bytes, start, cursor))
-          : null;
+      final ascii = major == 3 && utf8Range(start, cursor);
+      if (!key) return null;
+      return ascii
+          ? String.fromCharCodes(bytes, start, cursor)
+          : utf8.decode(Uint8List.sublistView(bytes, start, cursor));
     }
 
     if (info != 31) return chunk(info);
@@ -282,6 +343,7 @@ class _Scanner {
           index++;
         }
       case 6:
+        hasTags = true;
         if (depth >= limits.maxDepth) invalid('depth limit');
         if (info >= 24) skip(width(info));
         value(depth + 1);

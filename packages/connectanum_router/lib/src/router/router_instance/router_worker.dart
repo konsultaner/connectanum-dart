@@ -686,7 +686,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         }
         try {
           final counters = await copyFence.snapshot(
-            OwnedCopyMetrics.snapshot,
+            OwnedCopyMetrics.boundarySnapshot,
             timeout: budget,
           );
           respond({

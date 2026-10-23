@@ -12,7 +12,16 @@ pub(super) fn agree(
     dictionary: &ValueMap,
     reference: usize,
 ) -> Result<(), ParseError> {
-    let expected = project(name, dictionary, reference)?;
+    // Bound the reservation to avoid Vec growth exceeding small schema tables.
+    let capacity = if dictionary.is_empty() {
+        0
+    } else {
+        dictionary
+            .len()
+            .max(4)
+            .min(schema::TABLES[reference].fields.len())
+    };
+    let expected = project_into(name, dictionary, reference, Fields::with_capacity(capacity))?;
     for field in schema::TABLES[reference].fields {
         if ignored(name, field.name) {
             continue;
@@ -38,7 +47,7 @@ pub(super) fn agree(
                     Some(Value::Text(value)) => Some(Cbor::String(
                         super::codec_copy_metrics::copy_codec_string(value),
                     )),
-                    Some(Value::Null) => Some(Cbor::Unit),
+                    None | Some(Value::Null) => Some(Cbor::Unit),
                     _ => None,
                 };
                 if value.as_ref().is_none_or(|value| {
@@ -87,6 +96,14 @@ fn ignored(name: &str, key: &str) -> bool {
     }
 }
 fn get<'a>(map: &'a ValueMap, key: &str) -> Option<&'a Cbor> {
+    // Common control dictionaries contain only a few keys. Borrow their keys
+    // instead of allocating a temporary serde value for each schema field.
+    if map.len() <= 8 {
+        return map.iter().find_map(|(candidate, value)| match candidate {
+            Cbor::String(candidate) if candidate == key => Some(value),
+            _ => None,
+        });
+    }
     map.get(&Cbor::String(super::codec_copy_metrics::copy_codec_string(
         key,
     )))
@@ -139,7 +156,19 @@ fn enumeration(key: &str) -> Option<&'static [(&'static str, u64)]> {
     })
 }
 pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fields, ParseError> {
-    let mut result = Fields::new();
+    project_into(
+        name,
+        map,
+        reference,
+        Fields::with_capacity(schema::TABLES[reference].fields.len()),
+    )
+}
+fn project_into(
+    name: &str,
+    map: &ValueMap,
+    reference: usize,
+    mut result: Fields,
+) -> Result<Fields, ParseError> {
     for field in schema::TABLES[reference].fields {
         if ignored(name, field.name) {
             continue;
@@ -393,4 +422,103 @@ fn table_matches(reference: usize, actual: &Fields, expected: &Fields) -> Result
         }
     }
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::codec_copy_metrics;
+    use super::*;
+
+    #[test]
+    fn flatbuffers_metadata_lookup_preserves_exact_keys_and_borrowed_values() {
+        let queries = [
+            "",
+            "a",
+            "aa",
+            "a\0",
+            "é",
+            "e\u{301}",
+            "ppt_scheme",
+            "vendor",
+            "missing",
+            "PPT_scheme",
+        ];
+        for length in 0..24 {
+            for non_string_key in [false, true] {
+                let mut map = ValueMap::new();
+                for index in 0..length {
+                    let key = queries
+                        .get(index)
+                        .map(|v| (*v).to_owned())
+                        .unwrap_or_else(|| format!("vendor_{index}"));
+                    let value = match index % 3 {
+                        0 => Cbor::Unit,
+                        1 => Cbor::Bytes(vec![0xff, 0, 0x80]),
+                        _ => Cbor::Seq(vec![Cbor::Bool(false)]),
+                    };
+                    map.insert(Cbor::String(key), value);
+                }
+                if non_string_key {
+                    map.insert(Cbor::U64(1), Cbor::Unit);
+                }
+                for key in queries {
+                    let expected = map.get(&Cbor::String(key.to_owned()));
+                    let actual = get(&map, key);
+                    assert_eq!(actual, expected);
+                    if let (Some(actual), Some(expected)) = (actual, expected) {
+                        assert!(
+                            std::ptr::eq(actual, expected),
+                            "lookup must borrow the actual map entry"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn flatbuffers_small_metadata_lookup_copies_no_key_strings() {
+        for length in 0..10 {
+            let map = (0..length)
+                .map(|n| (Cbor::String(format!("key_{n}")), Cbor::U64(n)))
+                .collect();
+            let before = codec_copy_metrics::observed_on_current_thread();
+            for key in ["key_0", "key_7", "absent"] {
+                get(&map, key);
+            }
+            let after = codec_copy_metrics::observed_on_current_thread();
+            assert_eq!(
+                after.string_copy_bytes_total - before.string_copy_bytes_total,
+                if length <= 8 { 0 } else { 16 },
+                "bounded lookup should not allocate copied key strings"
+            );
+        }
+    }
+
+    #[test]
+    fn flatbuffers_small_ppt_projection_needs_no_key_copies() {
+        let map = ValueMap::from([
+            (
+                Cbor::String("ppt_scheme".into()),
+                Cbor::String("opaque".into()),
+            ),
+            (
+                Cbor::String("ppt_serializer".into()),
+                Cbor::String("flatbuffers".into()),
+            ),
+        ]);
+        let reference = schema::TABLES
+            .iter()
+            .position(|s| s.name == "Result")
+            .unwrap();
+        let before = codec_copy_metrics::observed_on_current_thread();
+        let body = project("Result", &map, reference).unwrap();
+        let after = codec_copy_metrics::observed_on_current_thread();
+        assert_eq!(body.get("ppt_scheme"), Some(&Value::Integer(4)));
+        assert_eq!(body.get("ppt_serializer"), Some(&Value::Integer(6)));
+        assert_eq!(
+            after.string_copy_bytes_total - before.string_copy_bytes_total,
+            0
+        );
+    }
 }

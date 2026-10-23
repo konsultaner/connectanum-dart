@@ -20,6 +20,33 @@ class FlatBufferByteVectorReference {
   final int offset;
 }
 
+/// Parts of one byte vector, kept separate until a contiguous view is requested.
+class FlatBufferByteVectorParts {
+  factory FlatBufferByteVectorParts(List<Uint8List> parts) {
+    final retained = List<Uint8List>.unmodifiable(parts);
+    var length = 0;
+    for (final part in retained) {
+      if (part.length > 67108864 - length) {
+        throw ArgumentError('FlatBuffers byte vector exceeds the byte limit');
+      }
+      length += part.length;
+    }
+    return FlatBufferByteVectorParts._(retained, length);
+  }
+  FlatBufferByteVectorParts._(this.parts, this.length);
+  final List<Uint8List> parts;
+  final int length;
+
+  Uint8List toBytes() {
+    if (parts.length == 1) return parts.single;
+    final builder = CopyAwareBytesBuilder();
+    for (final part in parts) {
+      builder.add(part);
+    }
+    return builder.takeBytes();
+  }
+}
+
 /// Write the pinned wire fields directly into a supplied builder. The message
 /// codec supplies the projected fields; this kernel does not encode metadata or
 /// application objects. The caller finishes/freezes the returned root offset.
@@ -126,9 +153,9 @@ class _Writer {
     final spec = wampValidationTables[reference];
     final names = _fieldNames[reference];
     if (fields.keys.any((key) => !names.contains(key))) invalid();
-    final offsets = <int, int>{};
-    final scalars = <int, int>{};
-    final borrowed = <int, Uint8List>{};
+    final offsets = List<int?>.filled(spec.fields.length, null);
+    final scalars = List<int?>.filled(spec.fields.length, null);
+    List<Object>? borrowed;
     for (var slot = 0; slot < spec.fields.length; slot++) {
       final field = spec.fields[slot];
       final value = fields[field.name];
@@ -163,36 +190,52 @@ class _Writer {
           if (deferredVectors != null &&
               field.kind == FlatBufferFieldKind.scalarVector &&
               field.width == 1 &&
-              {'args', 'kwargs', 'payload'}.contains(field.name) &&
-              value is Uint8List) {
+              (const {'args', 'kwargs', 'payload'}).contains(field.name) &&
+              (value is Uint8List || value is FlatBufferByteVectorParts)) {
             offsets[slot] = byteVector(const <int>[]);
-            borrowed[slot] = value;
+            final retained = borrowed ??= <Object>[];
+            retained
+              ..add(slot)
+              ..add(value);
           } else {
             offsets[slot] = vector(field, value);
           }
       }
     }
     builder.startTable(spec.fields.length);
-    for (final entry in offsets.entries) {
-      builder.addOffset(entry.key, entry.value);
+    for (var slot = 0; slot < offsets.length; slot++) {
+      final offset = offsets[slot];
+      if (offset != null) builder.addOffset(slot, offset);
     }
-    for (final entry in scalars.entries) {
-      switch (spec.fields[entry.key].width) {
+    for (var slot = 0; slot < scalars.length; slot++) {
+      final scalar = scalars[slot];
+      if (scalar == null) continue;
+      switch (spec.fields[slot].width) {
         case 1:
-          builder.addUint8(entry.key, entry.value);
+          builder.addUint8(slot, scalar);
         case 2:
-          builder.addUint16(entry.key, entry.value);
+          builder.addUint16(slot, scalar);
         case 4:
-          builder.addUint32(entry.key, entry.value);
+          builder.addUint32(slot, scalar);
         case 8:
-          builder.addUint64(entry.key, entry.value);
+          builder.addUint64(slot, scalar);
       }
     }
     final offset = builder.endTable();
-    for (final entry in borrowed.entries) {
-      deferredVectors!.add(
-        DeferredFlatBufferVector(offset, entry.key, entry.value),
-      );
+    if (borrowed != null) {
+      for (var index = 0; index < borrowed.length; index += 2) {
+        final slot = borrowed[index] as int;
+        final value = borrowed[index + 1];
+        deferredVectors!.add(
+          value is Uint8List
+              ? DeferredFlatBufferVector(offset, slot, value)
+              : DeferredFlatBufferVector.fragmented(
+                  offset,
+                  slot,
+                  value as FlatBufferByteVectorParts,
+                ),
+        );
+      }
     }
     return offset;
   }
@@ -259,14 +302,28 @@ class _Writer {
 
 /// A byte vector appended after the owned routing envelope has been finished.
 class DeferredFlatBufferVector {
-  DeferredFlatBufferVector(this.tableOffset, this.slot, this.bytes);
+  DeferredFlatBufferVector(this.tableOffset, this.slot, Uint8List bytes)
+    : _bytes = bytes,
+      _parts = null;
+  DeferredFlatBufferVector.fragmented(
+    this.tableOffset,
+    this.slot,
+    FlatBufferByteVectorParts parts,
+  ) : _parts = parts,
+      _bytes = null;
   final int tableOffset;
   final int slot;
-  final Uint8List bytes;
+  final Uint8List? _bytes;
+  final FlatBufferByteVectorParts? _parts;
+  int get length => _bytes?.length ?? _parts!.length;
+  Iterable<Uint8List> get parts => _parts?.parts ?? [_bytes!];
+
+  /// Explicit contiguous access coalesces a fragmented vector and observes it.
+  Uint8List get bytes => _bytes ?? _parts!.toBytes();
 }
 
 /// Patch forward offsets into the envelope and retain the exact body views.
-/// Only the small vector length/alignment headers are allocated here.
+/// Only small vector headers and encoding prefixes are allocated here.
 List<Uint8List> finishWampFlatBufferFragments(
   fb.Builder builder,
   int root,
@@ -302,7 +359,7 @@ List<Uint8List> finishWampFlatBufferFragments(
     }
     final padding = (12 - length % 8) % 8;
     final target = length + padding;
-    final nextLength = target + 4 + vector.bytes.length;
+    final nextLength = target + 4 + vector.length;
     if (nextLength > maximumBytes) {
       throw ArgumentError('FlatBuffers frame exceeds the byte limit');
     }
@@ -310,9 +367,9 @@ List<Uint8List> finishWampFlatBufferFragments(
     final header = Uint8List(padding + 4);
     ByteData.sublistView(
       header,
-    ).setUint32(padding, vector.bytes.length, Endian.little);
+    ).setUint32(padding, vector.length, Endian.little);
     fragments.add(header);
-    fragments.add(vector.bytes);
+    fragments.addAll(vector.parts);
     length = nextLength;
   }
   return fragments;

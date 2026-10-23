@@ -1069,7 +1069,11 @@ fn borrowed_e2ee_message_ciphertext(message: &StoredMessage) -> Result<&[u8], c_
         return Err(ERR_UNSUPPORTED);
     }
     if let Some(payload) = extract_transparent_payload(&message.message) {
-        if message.serializer != RawSocketSerializer::Flatbuffers || message.args.is_some() {
+        if !matches!(
+            message.serializer,
+            RawSocketSerializer::Flatbuffers | RawSocketSerializer::Cbor
+        ) || message.args.is_some()
+        {
             return Err(ERR_UNSUPPORTED);
         }
         return Ok(payload.as_ref());
@@ -5338,6 +5342,47 @@ fn store_parsed_message_wide(parsed: ct_core::ParsedMessage) -> i64 {
 #[no_mangle]
 pub extern "C" fn ct_flatbuffers_binding_version() -> c_uint {
     1
+}
+
+/// Version 2 requires the per-message v1 eligibility query before borrowing.
+/// Marker-only version 1 bindings must fall back: raw null PPT fields can lose
+/// their presence in typed nullable options. The wire and struct ABIs are unchanged.
+#[no_mangle]
+pub extern "C" fn ct_internal_ppt_handoff_version() -> c_uint {
+    2
+}
+
+// Typed nullable bindings cannot distinguish absent PPT fields from raw nulls.
+// Validate the immutable native message before borrowing through result-from-CALL.
+fn internal_plaintext_ppt_handoff_eligible(message: &StoredMessage) -> bool {
+    let WampMessage::Call {
+        payload, options, ..
+    } = &message.message
+    else {
+        return false;
+    };
+    for (key, value) in options {
+        match serde_value_str(key) {
+            Some("ppt_scheme") if serde_value_str(value) == Some("wamp") => return false,
+            // Even null entries are deliberately ineligible: Dart loses their presence.
+            Some("ppt_cipher" | "ppt_keyid") => return false,
+            _ => {}
+        }
+    }
+    binary_ppt_body(message.serializer, payload, options).is_some()
+}
+
+/// Optional v1 per-message eligibility, without consuming the held CALL or
+/// decoding application data. A marker alone is insufficient for borrowing.
+#[no_mangle]
+pub extern "C" fn ct_internal_ppt_handoff_eligible_v1_wide(handle: i64) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    super::message_handles::with_message(handle as u64, |message| {
+        i32::from(internal_plaintext_ppt_handoff_eligible(message))
+    })
+    .unwrap_or(ERR_INVALID_ARGUMENT)
 }
 
 /// Version 1 is the complete additive signed 64-bit message-handle family.
@@ -12119,5 +12164,137 @@ mod tests {
             .unwrap(),
             r#"{"fields":[91,{"trace_id":"unknown-1"}],"request_id":91}"#
         );
+    }
+    #[test]
+    fn internal_ppt_handoff_query_preserves_loan_and_rejects_raw_nulls() {
+        let _guard = test_guard();
+        assert_eq!(
+            ct_internal_ppt_handoff_eligible_v1_wide(0),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_internal_ppt_handoff_eligible_v1_wide(-1),
+            ERR_INVALID_ARGUMENT
+        );
+        let result = ct_core::parse_message(
+            RawSocketSerializer::Cbor,
+            Bytes::from(serde_cbor::to_vec(&json!([50, 1, {}])).unwrap()),
+        )
+        .unwrap();
+        let result_handle = store_parsed_message_wide(result);
+        assert_eq!(ct_internal_ppt_handoff_eligible_v1_wide(result_handle), 0);
+        ct_message_release_wide(result_handle);
+        for serializer in [RawSocketSerializer::Cbor, RawSocketSerializer::MessagePack] {
+            for scenario in [
+                "plain",
+                "without serializer",
+                "null serializer",
+                "null cipher",
+                "null keyid",
+                "cipher",
+                "keyid",
+                "wamp",
+                "ordinary",
+                "non-binary",
+                "extra argument",
+            ] {
+                let mut options = std::collections::BTreeMap::from([
+                    (
+                        SerdeValue::String("ppt_scheme".into()),
+                        SerdeValue::String("x_echo".into()),
+                    ),
+                    (
+                        SerdeValue::String("ppt_serializer".into()),
+                        SerdeValue::String("cbor".into()),
+                    ),
+                ]);
+                match scenario {
+                    "without serializer" => {
+                        options.remove(&SerdeValue::String("ppt_serializer".into()));
+                    }
+                    "null serializer" => {
+                        options.insert(
+                            SerdeValue::String("ppt_serializer".into()),
+                            SerdeValue::Unit,
+                        );
+                    }
+                    "null cipher" => {
+                        options.insert(SerdeValue::String("ppt_cipher".into()), SerdeValue::Unit);
+                    }
+                    "null keyid" => {
+                        options.insert(SerdeValue::String("ppt_keyid".into()), SerdeValue::Unit);
+                    }
+                    "cipher" => {
+                        options.insert(
+                            SerdeValue::String("ppt_cipher".into()),
+                            SerdeValue::String("aes256gcm".into()),
+                        );
+                    }
+                    "keyid" => {
+                        options.insert(
+                            SerdeValue::String("ppt_keyid".into()),
+                            SerdeValue::String("key".into()),
+                        );
+                    }
+                    "wamp" => {
+                        options.insert(
+                            SerdeValue::String("ppt_scheme".into()),
+                            SerdeValue::String("wamp".into()),
+                        );
+                    }
+                    "ordinary" => options.clear(),
+                    _ => {}
+                }
+                let mut args = vec![if scenario == "non-binary" {
+                    SerdeValue::String("text".into())
+                } else {
+                    SerdeValue::Bytes(vec![0x81, 1])
+                }];
+                if scenario == "extra argument" {
+                    args.push(SerdeValue::U64(2));
+                }
+                let wire = SerdeValue::Seq(vec![
+                    SerdeValue::U64(48),
+                    SerdeValue::U64(9),
+                    SerdeValue::Map(options),
+                    SerdeValue::String("bench.rpc.echo".into()),
+                    SerdeValue::Seq(args),
+                ]);
+                let raw = match serializer {
+                    RawSocketSerializer::Cbor => serde_cbor::to_vec(&wire).unwrap(),
+                    _ => rmp_serde::to_vec(&wire).unwrap(),
+                };
+                let parsed = ct_core::parse_message(serializer, Bytes::from(raw)).unwrap();
+                if scenario.starts_with("null ") {
+                    let WampMessage::Call {
+                        payload, options, ..
+                    } = &parsed.message
+                    else {
+                        unreachable!()
+                    };
+                    assert!(
+                        binary_ppt_body(serializer, payload, options).is_none(),
+                        "raw null is outside result-from-CALL's PPT recognition domain"
+                    );
+                }
+                let handle = store_parsed_message_wide(parsed);
+                assert!(handle > 0);
+                let expected = i32::from(matches!(scenario, "plain" | "without serializer"));
+                assert_eq!(
+                    ct_internal_ppt_handoff_eligible_v1_wide(handle),
+                    expected,
+                    "{serializer:?} {scenario}"
+                );
+                let alias = ct_message_retain_wide(handle);
+                assert!(alias > 0);
+                ct_message_release_wide(handle);
+                assert_eq!(ct_internal_ppt_handoff_eligible_v1_wide(alias), expected);
+                ct_message_release_wide(alias);
+                assert_eq!(
+                    ct_internal_ppt_handoff_eligible_v1_wide(alias),
+                    ERR_INVALID_ARGUMENT
+                );
+            }
+        }
     }
 }

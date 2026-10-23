@@ -107,6 +107,15 @@ Dart-to-native submission counter. The optimized path requires a nonempty PPT
 scheme other than `wamp`, a serializer, and no cipher/key ID. Explicit WebSocket
 fragment sizing continues through the regular fragment-size path.
 
+`buffer.leasePptPayload(encoding: ..., packedPayloadDecoder: ...)` adds an
+independently disposable reference and delays exporting a Dart byte view until
+one is needed. Use `lease.payload` with the same Session calls and dispose the
+lease after its last use. FlatBuffers has the schema-opaque convenience helper
+`leaseFlatBuffersPptPayload()`. Native CBOR/MessagePack fragment serialization
+still needs a Dart byte view to identify its native span; a lease does not
+promise to remove that export. Already exported views survive lease disposal.
+No native ABI version changes are required.
+
 Copied/replaced lists and untagged derived views use their supplied bytes through
 the regular serializer. A forged owner record cannot substitute an unrelated
 native allocation. The identity tag selects an optimization; it is not the

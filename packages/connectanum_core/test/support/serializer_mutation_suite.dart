@@ -15,6 +15,8 @@ import '../serializer/flatbuffers_byte_view_test.dart'
 import '../serializer/flatbuffers_validation_test.dart'
     as flatbuffers_validation;
 import '../serializer/flatbuffers_wire_writer_test.dart' as flatbuffers_writer;
+import '../serializer/flatbuffers_reader_cache_test.dart'
+    as flatbuffers_reader_cache;
 import '../serializer/flatbuffers_message_writer_test.dart'
     as flatbuffers_message_writer;
 import '../serializer/flatbuffers_cbor_validation_test.dart'
@@ -23,8 +25,12 @@ import '../serializer/flatbuffers_frame_test.dart' as flatbuffers_frame;
 import '../serializer/flatbuffers_fragments_test.dart' as flatbuffers_fragments;
 import '../serializer/flatbuffers_message_reader_test.dart'
     as flatbuffers_message_reader;
+import '../serializer/flatbuffers_metadata_encoding_test.dart'
+    as flatbuffers_metadata_encoding;
 import '../serializer/flatbuffers_metadata_roundtrip_test.dart'
     as flatbuffers_metadata_roundtrip;
+import '../serializer/flatbuffers_deferred_metadata_test.dart'
+    as flatbuffers_deferred_metadata;
 import '../serializer/flatbuffers_metadata_access_test.dart'
     as flatbuffers_metadata_access;
 import '../serializer/flatbuffers_session_profile_test.dart'
@@ -73,7 +79,9 @@ void main() {
   group('FlatBuffers frame', flatbuffers_frame.main);
   group('flatbuffers fragments', flatbuffers_fragments.main);
   group('FlatBuffers message reader', flatbuffers_message_reader.main);
+  group('FlatBuffers metadata encoding', flatbuffers_metadata_encoding.main);
   group('FlatBuffers metadata roundtrip', flatbuffers_metadata_roundtrip.main);
+  group('FlatBuffers deferred metadata', flatbuffers_deferred_metadata.main);
   group('FlatBuffers metadata access', flatbuffers_metadata_access.main);
   group('FlatBuffers session profile', flatbuffers_session_profile.main);
   group('JSON binary', json_binary.main);
@@ -95,4 +103,5 @@ void main() {
   group('PPT null values', ppt_nulls.main);
   group('resource limits', limits.main);
   group('handshake', handshake.main);
+  group('flatbuffers reader cache', flatbuffers_reader_cache.main);
 }

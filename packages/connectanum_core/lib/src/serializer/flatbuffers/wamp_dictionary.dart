@@ -267,129 +267,60 @@ class WampDictionaryCodec {
     return optionMap;
   }
 
-  static Map serializeCallOptions(CallOptions? options) {
-    var optionMap = {};
-    if (options != null) {
-      if (options.progress != null) {
-        optionMap.addEntries([MapEntry('progress', options.progress!)]);
-      }
-      if (options.receiveProgress != null) {
-        optionMap.addEntries([
-          MapEntry('receive_progress', options.receiveProgress!),
-        ]);
-      }
-      if (options.discloseMe != null) {
-        optionMap.addEntries([MapEntry('disclose_me', options.discloseMe!)]);
-      }
-      if (options.timeout != null) {
-        optionMap.addEntries([MapEntry('timeout', options.timeout!)]);
-      }
-      if (options.pptScheme != null) {
-        optionMap.addEntries([MapEntry('ppt_scheme', options.pptScheme!)]);
-      }
-      if (options.pptSerializer != null) {
-        optionMap.addEntries([
-          MapEntry('ppt_serializer', options.pptSerializer!),
-        ]);
-      }
-      if (options.pptCipher != null) {
-        optionMap.addEntries([MapEntry('ppt_cipher', options.pptCipher!)]);
-      }
-      if (options.pptKeyId != null) {
-        optionMap.addEntries([MapEntry('ppt_keyid', options.pptKeyId!)]);
-      }
-      if (options.custom.isNotEmpty) {
-        optionMap.addAll(options.custom);
-      }
-    }
-    return optionMap;
+  static Map<String, Object?> serializeCallOptions(CallOptions? options) {
+    if (options == null) return {};
+    return {
+      if (options.progress != null) 'progress': options.progress,
+      if (options.receiveProgress != null)
+        'receive_progress': options.receiveProgress,
+      if (options.discloseMe != null) 'disclose_me': options.discloseMe,
+      if (options.timeout != null) 'timeout': options.timeout,
+      if (options.pptScheme != null) 'ppt_scheme': options.pptScheme,
+      if (options.pptSerializer != null)
+        'ppt_serializer': options.pptSerializer,
+      if (options.pptCipher != null) 'ppt_cipher': options.pptCipher,
+      if (options.pptKeyId != null) 'ppt_keyid': options.pptKeyId,
+      ...options.custom,
+    };
   }
 
-  static Map serializeYieldOptions(YieldOptions? options) {
-    var optionsMap = {};
-    if (options != null) {
-      optionsMap.addEntries([MapEntry('progress', options.progress)]);
-      if (options.pptScheme != null) {
-        optionsMap.addEntries([MapEntry('ppt_scheme', options.pptScheme!)]);
-      }
-      if (options.pptSerializer != null) {
-        optionsMap.addEntries([
-          MapEntry('ppt_serializer', options.pptSerializer!),
-        ]);
-      }
-      if (options.pptCipher != null) {
-        optionsMap.addEntries([MapEntry('ppt_cipher', options.pptCipher!)]);
-      }
-      if (options.pptKeyId != null) {
-        optionsMap.addEntries([MapEntry('ppt_keyid', options.pptKeyId!)]);
-      }
-      if (options.custom.isNotEmpty) {
-        optionsMap.addAll(options.custom);
-      }
-    }
-    return optionsMap;
+  static Map<String, Object?> serializeYieldOptions(YieldOptions? options) {
+    if (options == null) return {};
+    return {
+      'progress': options.progress,
+      if (options.pptScheme != null) 'ppt_scheme': options.pptScheme,
+      if (options.pptSerializer != null)
+        'ppt_serializer': options.pptSerializer,
+      if (options.pptCipher != null) 'ppt_cipher': options.pptCipher,
+      if (options.pptKeyId != null) 'ppt_keyid': options.pptKeyId,
+      ...options.custom,
+    };
   }
 
-  static Map serializePublish(PublishOptions? options) {
-    var optionMap = {};
-    if (options != null) {
-      if (options.retain != null) {
-        optionMap.addEntries([MapEntry('retain', options.retain)]);
-      }
-      if (options.discloseMe != null) {
-        optionMap.addEntries([MapEntry('disclose_me', options.discloseMe)]);
-      }
-      if (options.acknowledge != null) {
-        optionMap.addEntries([MapEntry('acknowledge', options.acknowledge)]);
-      }
-      if (options.excludeMe != null) {
-        optionMap.addEntries([MapEntry('exclude_me', options.excludeMe)]);
-      }
-      if (options.exclude != null) {
-        optionMap.addEntries([MapEntry('exclude', options.exclude)]);
-      }
-      if (options.excludeAuthId != null) {
-        optionMap.addEntries([
-          MapEntry('exclude_authid', options.excludeAuthId),
-        ]);
-      }
-      if (options.excludeAuthRole != null) {
-        optionMap.addEntries([
-          MapEntry('exclude_authrole', options.excludeAuthRole),
-        ]);
-      }
-      if (options.eligible != null) {
-        optionMap.addEntries([MapEntry('eligible', options.eligible)]);
-      }
-      if (options.eligibleAuthId != null) {
-        optionMap.addEntries([
-          MapEntry('eligible_authid', options.eligibleAuthId),
-        ]);
-      }
-      if (options.eligibleAuthRole != null) {
-        optionMap.addEntries([
-          MapEntry('eligible_authrole', options.eligibleAuthRole),
-        ]);
-      }
-      if (options.pptScheme != null) {
-        optionMap.addEntries([MapEntry('ppt_scheme', options.pptScheme)]);
-      }
-      if (options.pptSerializer != null) {
-        optionMap.addEntries([
-          MapEntry('ppt_serializer', options.pptSerializer),
-        ]);
-      }
-      if (options.pptCipher != null) {
-        optionMap.addEntries([MapEntry('ppt_cipher', options.pptCipher)]);
-      }
-      if (options.pptKeyId != null) {
-        optionMap.addEntries([MapEntry('ppt_keyid', options.pptKeyId)]);
-      }
-      if (options.custom.isNotEmpty) {
-        optionMap.addAll(options.custom);
-      }
-    }
-    return optionMap;
+  static Map<String, Object?> serializePublish(PublishOptions? options) {
+    if (options == null) return {};
+    return {
+      if (options.retain != null) 'retain': options.retain,
+      if (options.discloseMe != null) 'disclose_me': options.discloseMe,
+      if (options.acknowledge != null) 'acknowledge': options.acknowledge,
+      if (options.excludeMe != null) 'exclude_me': options.excludeMe,
+      if (options.exclude != null) 'exclude': options.exclude,
+      if (options.excludeAuthId != null)
+        'exclude_authid': options.excludeAuthId,
+      if (options.excludeAuthRole != null)
+        'exclude_authrole': options.excludeAuthRole,
+      if (options.eligible != null) 'eligible': options.eligible,
+      if (options.eligibleAuthId != null)
+        'eligible_authid': options.eligibleAuthId,
+      if (options.eligibleAuthRole != null)
+        'eligible_authrole': options.eligibleAuthRole,
+      if (options.pptScheme != null) 'ppt_scheme': options.pptScheme,
+      if (options.pptSerializer != null)
+        'ppt_serializer': options.pptSerializer,
+      if (options.pptCipher != null) 'ppt_cipher': options.pptCipher,
+      if (options.pptKeyId != null) 'ppt_keyid': options.pptKeyId,
+      ...options.custom,
+    };
   }
 
   static Map<String, dynamic> serializeEventDetails(EventDetails details) {

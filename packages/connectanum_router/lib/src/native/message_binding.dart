@@ -115,12 +115,14 @@ AbstractMessage? bindMessageFromMetadata(
   String? stringE,
   Uint8List? argsBytes,
   Uint8List? kwargsBytes,
+  bool retainFlatBufferMetadata = true,
 }) {
   if ((flags & _metadataBindFlag) == 0) {
     return null;
   }
 
   final directBind = (flags & _directBindFlag) != 0;
+  var fullyRepresentedCallMetadata = false;
   AbstractMessage? message;
   if (messageCode == MessageTypes.codeHello) {
     message = stringA == null
@@ -264,7 +266,13 @@ AbstractMessage? bindMessageFromMetadata(
               ) ??
               (detailsBytes == null ? null : CallOptions())
         : _mapCallOptions(_decodeOptionalMapFragment(serializer, detailsBytes));
-    if (directBind && options != null) {
+    fullyRepresentedCallMetadata =
+        directBind &&
+        serializer == NativeMessageSerializer.flatbuffers &&
+        options != null &&
+        detailsBytes != null &&
+        _isFullyRepresentedPptCallMetadata(options, detailsBytes);
+    if (directBind && options != null && !fullyRepresentedCallMetadata) {
       _attachLazyCustomFieldsFromDetails(
         options,
         serializer,
@@ -386,7 +394,8 @@ AbstractMessage? bindMessageFromMetadata(
     final present = (flags & _transparentPayloadFlag) != 0;
     if (present != (transparentPayloadBytes != null) ||
         (present &&
-            (serializer != NativeMessageSerializer.flatbuffers ||
+            ((serializer != NativeMessageSerializer.flatbuffers &&
+                    serializer != NativeMessageSerializer.cbor) ||
                 message is! AbstractMessageWithPayload))) {
       throw ArgumentError('Invalid native transparent payload metadata');
     }
@@ -399,12 +408,142 @@ AbstractMessage? bindMessageFromMetadata(
     _applyLazyPayload(message, serializer, argsBytes, kwargsBytes);
   }
   if (message != null &&
+      retainFlatBufferMetadata &&
+      !fullyRepresentedCallMetadata &&
       serializer == NativeMessageSerializer.flatbuffers &&
       messageCode != MessageTypes.codeHeartbeat &&
       detailsBytes != null) {
-    flatbuffers.Serializer().retainMetadata(message, detailsBytes);
+    if (directBind &&
+        (message is Call || message is Publish || message is Yield)) {
+      final baseline = _NativeFlatBufferMetadataBaseline(
+        messageCode,
+        primaryId,
+        secondaryId,
+        detailNumberA,
+        flags,
+        detailsBytes,
+        stringA,
+        stringB,
+        stringC,
+        stringD,
+        stringE,
+      );
+      flatbuffers.Serializer().retainNativeMetadata(
+        message,
+        detailsBytes,
+        baseline.reconstruct,
+      );
+    } else {
+      flatbuffers.Serializer().retainMetadata(message, detailsBytes);
+    }
   }
   return message;
+}
+
+// Called only for freshly constructed CALL options, before a custom loader is
+// attached. With all other fields null, serializeCallOptions projects exactly
+// these two strings. Validate/match the complete dictionary without allocating
+// decoded keys, custom loaders or retained history. Other encodings/shapes keep
+// the normal bounded validation and retention path, including semantic tags.
+bool _isFullyRepresentedPptCallMetadata(CallOptions options, Uint8List bytes) {
+  final scheme = options.pptScheme;
+  final serializer = options.pptSerializer;
+  if (scheme == null ||
+      serializer == null ||
+      options.progress != null ||
+      options.receiveProgress != null ||
+      options.discloseMe != null ||
+      options.timeout != null ||
+      options.pptCipher != null ||
+      options.pptKeyId != null ||
+      bytes.isEmpty ||
+      bytes.length > 1048576 ||
+      bytes[0] != 0xa2) {
+    return false;
+  }
+  var offset = 1;
+  var fields = 0;
+  for (var index = 0; index < 2; index++) {
+    var field = 1;
+    var end = _asciiCborTextEnd(bytes, offset, 'ppt_scheme');
+    String expected;
+    if (end >= 0) {
+      expected = scheme;
+    } else {
+      field = 2;
+      end = _asciiCborTextEnd(bytes, offset, 'ppt_serializer');
+      if (end < 0) return false;
+      expected = serializer;
+    }
+    if (fields & field != 0) return false;
+    fields |= field;
+    offset = _asciiCborTextEnd(bytes, end, expected);
+    if (offset < 0) return false;
+  }
+  return fields == 3 && offset == bytes.length;
+}
+
+int _asciiCborTextEnd(Uint8List bytes, int offset, String expected) {
+  if (offset >= bytes.length) return -1;
+  final header = bytes[offset++];
+  if (header >> 5 != 3) return -1;
+  var length = header & 31;
+  if (length == 24) {
+    if (offset >= bytes.length) return -1;
+    length = bytes[offset++];
+  } else if (length == 25) {
+    if (offset + 2 > bytes.length) return -1;
+    length = (bytes[offset] << 8) | bytes[offset + 1];
+    offset += 2;
+  } else if (length > 23) {
+    return -1;
+  }
+  if (length != expected.length || offset + length > bytes.length) return -1;
+  for (var index = 0; index < length; index++) {
+    final unit = expected.codeUnitAt(index);
+    if (unit > 127 || bytes[offset + index] != unit) return -1;
+  }
+  return offset + length;
+}
+
+// Deliberately captures no application vectors or current mutable model. A
+// resend compares edits against the original native control fields and bytes.
+class _NativeFlatBufferMetadataBaseline {
+  _NativeFlatBufferMetadataBaseline(
+    this.messageCode,
+    this.primaryId,
+    this.secondaryId,
+    this.detailNumberA,
+    this.flags,
+    this.detailsBytes,
+    this.stringA,
+    this.stringB,
+    this.stringC,
+    this.stringD,
+    this.stringE,
+  );
+
+  final int messageCode, primaryId, secondaryId, detailNumberA, flags;
+  final Uint8List detailsBytes;
+  final String? stringA, stringB, stringC, stringD, stringE;
+
+  // The metadata dictionary projection is independent of application payloads.
+  // Clearing this flag avoids reconstructing or retaining the opaque body.
+  AbstractMessage reconstruct() => bindMessageFromMetadata(
+    NativeMessageSerializer.flatbuffers,
+    messageCode: messageCode,
+    primaryId: primaryId,
+    secondaryId: secondaryId,
+    detailNumberA: detailNumberA,
+    flags: flags & ~_transparentPayloadFlag,
+    detailsBytes: detailsBytes,
+    stringA: stringA,
+    stringB: stringB,
+    stringC: stringC,
+    stringD: stringD,
+    stringE: stringE,
+    retainFlatBufferMetadata: false,
+  )!;
 }
 
 Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {

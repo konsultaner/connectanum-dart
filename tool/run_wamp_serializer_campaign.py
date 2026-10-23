@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import wamp_serializer_compare as compare
+import wamp_serializer_extensions as extensions
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY = ROOT / "native/bench/artifact_gate/wamp_flatbuffers_performance.json"
@@ -40,6 +41,7 @@ def primary_cases() -> list[dict[str, Any]]:
             "id": case_id, "construction": construction, "mode": mode,
             "transport": transport, "secure_transport": secure, "client_impl": client,
             "workloads": {codec: f"{case_id}_{codec}" for codec in compare.CODECS},
+            "zero_copy_codecs": ["flatbuffers"] if client == "native" and construction != "values" else [],
         })
     return cases
 
@@ -79,7 +81,7 @@ def write_scenarios(output: Path, cases: list[dict[str, Any]], runs: list[dict[s
     directory = output / "scenarios"
     directory.mkdir()
     for run in runs:
-        lines = [f'name = {json.dumps(run["scenario"])}', 'description = "Paired typed WAMP serializer campaign"']
+        lines = [f'name = {json.dumps(run["scenario"])}', 'description = "Paired WAMP serializer campaign"']
         for name in run["order"]:
             case, codec = by_workload[name]
             fields = {
@@ -93,6 +95,10 @@ def write_scenarios(output: Path, cases: list[dict[str, Any]], runs: list[dict[s
                 "ppt_scheme": "x_connectanum_bench_typed", "ppt_serializer": codec,
                 "payload_construction": case["construction"],
             }
+            if "payload_profile" in case:
+                for key in ("ppt_scheme", "ppt_serializer", "payload_construction"):
+                    fields.pop(key, None)
+                fields.update(extensions.workload_fields(case, codec))
             lines.extend(["", "[[workloads]]", *(
                 f"{key} = {json.dumps(value)}" for key, value in fields.items()
             )])
@@ -146,7 +152,9 @@ def metadata(root: Path, args: argparse.Namespace, scenario_hash: str) -> dict[s
                 break
     lockfiles = ("pubspec.lock", "native/bench/Cargo.lock", "native/transport/Cargo.lock")
     return {
-        "campaign_kind": "diagnostic" if args.diagnostic else "primary",
+        "campaign_kind": "extension_diagnostic" if args.extension_diagnostics else "diagnostic" if args.diagnostic else "primary",
+        **({"diagnostic_inventory": extensions.INVENTORY} if args.extension_diagnostics else {}),
+        **({"diagnostic_shard": args.extension_shard} if getattr(args, "extension_shard", None) else {}),
         "source_revision": command_output(["git", "rev-parse", "HEAD"], root),
         "working_tree_clean": not command_output(["git", "status", "--porcelain"], root),
         "scenario_sha256": scenario_hash,
@@ -367,6 +375,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--campaign-timeout-seconds", type=float)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--diagnostic", action="store_true", help="Allow short/subset/dirty-tree runs; never acceptance evidence")
+    parser.add_argument("--extension-diagnostics", action="store_true", help="Declared 50-case supplemental inventory; requires --diagnostic; never primary acceptance")
+    parser.add_argument("--extension-shard", choices=extensions.SHARDS,
+                        help="One complete supplemental case batch; requires --extension-diagnostics; never full acceptance")
     parser.add_argument("--case", action="append", default=[], help="Exact case ID; requires --diagnostic")
     args = parser.parse_args(argv)
     output = args.output.resolve()
@@ -380,10 +391,20 @@ def main(argv: list[str] | None = None) -> int:
             not math.isfinite(args.campaign_timeout_seconds) or args.campaign_timeout_seconds <= 0
         )):
             raise compare.CampaignError("seed must be nonzero and campaign deadline must be positive")
-        cases = primary_cases()
+        if args.extension_diagnostics and not args.diagnostic:
+            raise compare.CampaignError("extension diagnostics require --diagnostic")
+        if args.extension_shard and (not args.extension_diagnostics or args.case):
+            raise compare.CampaignError("supplemental shards require --extension-diagnostics and cannot select individual cases")
+        if args.extension_diagnostics and any(getattr(args, key) != 1 for key in ("concurrency", "in_flight", "router_workers", "native_threads")):
+            raise compare.CampaignError("declared extensions require one session/in-flight/router worker/native thread")
+        if args.extension_diagnostics and sha256(args.policy) != sha256(POLICY):
+            raise compare.CampaignError("extension diagnostics require the unchanged checked-in policy")
+        cases = extensions.extension_cases() if args.extension_diagnostics else primary_cases()
+        if args.extension_shard:
+            cases = extensions.cases_for_shard(args.extension_shard)
         if args.case:
             if not args.diagnostic or not set(args.case) <= {case["id"] for case in cases}:
-                raise compare.CampaignError("case selection requires --diagnostic and exact primary case IDs")
+                raise compare.CampaignError("case selection requires --diagnostic and exact declared case IDs")
             cases = [case for case in cases if case["id"] in args.case]
         if not args.diagnostic:
             if platform.system() != "Linux":
@@ -436,6 +457,10 @@ def main(argv: list[str] | None = None) -> int:
             execute(output, manifest, runs, command, ROOT, timeout)
             after = metadata(ROOT, args, scenario_directory_hash(output / "scenarios"))
             keys = ("source_revision", "working_tree_clean", "scenario_sha256", "lockfiles_sha256", "artifacts_sha256", "router_config_sha256", "policy_sha256")
+            if args.extension_diagnostics:
+                keys += ("diagnostic_inventory",)
+            if args.extension_shard:
+                keys += ("diagnostic_shard",)
             manifest["metadata"]["inputs_unchanged"] = all(after[key] == manifest["metadata"][key] for key in keys)
             manifest["metadata"]["system_state_after"] = system_state()
             write_manifest(output, manifest)
@@ -443,7 +468,7 @@ def main(argv: list[str] | None = None) -> int:
             (output / "comparison.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
             (output / "comparison.md").write_text(compare.render_markdown(result))
             print(f"Comparison {result['status']}: {output / 'comparison.md'}")
-            return 0 if result["status"] == "passed" else 1
+            return 0 if result["status"] in ("passed", "diagnostic_complete", "diagnostic_shard_complete") else 1
     except (OSError, ValueError, KeyError, subprocess.SubprocessError, KeyboardInterrupt) as error:
         if manifest is not None:
             (output / "comparison-error.txt").write_text(f"Campaign incomplete or invalid: {error}\n")

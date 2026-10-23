@@ -35,6 +35,63 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertIn('set -euo pipefail', fast)
 
 
+class FlatbuffersDiagnosticModesTests(unittest.TestCase):
+    def test_rss_control_is_separate_from_acceptance_and_never_cancels_started_runs(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        block = workflow.split('  linux-flatbuffers-primary:', 1)[1].split('  merge-flatbuffers-extensions:', 1)[0]
+        self.assertIn('flatbuffers_rss_control', workflow.split('      profile_case:', 1)[0])
+        self.assertIn('python3 tool/test_diagnose_wamp_rss.py', block)
+        self.assertIn('python3 tool/diagnose_wamp_rss.py', block)
+        self.assertIn("format('flatbuffers-rss-control-{0}-{1}', github.sha, inputs.rss_case)", block)
+        self.assertIn('cancel-in-progress: false', block)
+        self.assertIn('This never establishes parity or replaces primary gates.', block)
+        runner = block.split('if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then', 1)[1].split('          diagnostic_args=()', 1)[0]
+        self.assertIn('exit 0', runner)
+        self.assertNotIn('run_wamp_serializer_campaign.py', runner)
+
+    def test_memory_attribution_is_opt_in_and_has_owned_linux_smoke_and_units(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        options = workflow.split('      memory_attribution:', 1)[1].split('      trace_socket_options:', 1)[0]
+        self.assertIn('default: false', options)
+        self.assertIn('python3 tool/test_wamp_rss_memory.py', workflow)
+        self.assertIn('if [[ "$INPUT_MEMORY_ATTRIBUTION" == true ]]; then', workflow)
+        self.assertIn('--output out/wamp-flatbuffers-primary/memory-smoke --memory-attribution', workflow)
+        self.assertIn('memory_args=(--memory-attribution)', workflow)
+
+    def test_optional_socket_trace_requires_explicit_diagnostic_input_and_real_smoke(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        self.assertIn('trace_socket_options:', workflow)
+        self.assertIn("inputs.trace_socket_options && (inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus')", workflow)
+        self.assertIn("if 'SO_RCVBUF' not in trace.read_text():", workflow)
+        self.assertIn("*(['--trace-socket-options'] if os.environ.get('INPUT_TRACE_SOCKET_OPTIONS') == 'true' else [])", workflow)
+
+    def test_allocator_attribution_is_opt_in_and_requires_real_owned_glibc_smoke(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        options = workflow.split('      allocator_attribution:', 1)[1].split('      trace_socket_options:', 1)[0]
+        self.assertIn('default: false', options)
+        self.assertIn('if [[ "$INPUT_ALLOCATOR_ATTRIBUTION" == true ]]; then', workflow)
+        self.assertIn('--output out/wamp-flatbuffers-primary/memory-smoke --allocator-attribution', workflow)
+        self.assertIn('memory_args=(--allocator-attribution)', workflow)
+
+    def test_canonical_tooling_gate_always_runs_diagnostic_regressions(self):
+        gate = (ROOT / 'bin/test-tooling').read_text()
+        for name in ('test_wamp_stall_vm_services.py', 'test_smoke_wamp_stall_discovery.py',
+                     'test_diagnose_wamp_rss.py', 'test_wamp_rss_memory.py'):
+            with self.subTest(name=name):
+                self.assertIn('python3 tool/' + name, gate)
+
+    def test_dictionary_component_requires_explicit_baseline_and_never_replaces_parity(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        self.assertIn('          - flatbuffers_dictionary_component', workflow)
+        self.assertIn('git fetch --no-tags --depth=1 origin "$INPUT_BASELINE_REF"', workflow)
+        self.assertIn('[[ "$INPUT_BASELINE_REF" =~ ^[0-9a-f]{40}$ ]]', workflow)
+        branch = workflow.split('if [[ "$INPUT_CAMPAIGN" == flatbuffers_dictionary_component ]]; then', 1)[1].split('fi\n', 1)[0]
+        self.assertIn('python3 tool/benchmark_flatbuffers_dictionary.py', branch)
+        self.assertIn('exit 0', branch)
+        self.assertNotIn('run_wamp_serializer_campaign.py', branch)
+        self.assertIn('python3 tool/test_benchmark_flatbuffers_dictionary.py', (ROOT / 'bin/test-tooling').read_text())
+
+
 class ShardingTests(unittest.TestCase):
     def inventory(self, count=23):
         return [{'file': 'packages/fixture/lib/a.dart', 'offset': index,

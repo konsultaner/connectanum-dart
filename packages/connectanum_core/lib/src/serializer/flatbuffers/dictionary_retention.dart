@@ -6,6 +6,7 @@ import 'package:connectanum_core/connectanum_core.dart';
 import '../../message/field_assignments.dart';
 import 'message_projection.dart';
 import 'cbor_encoding.dart';
+import 'cbor_validation.dart';
 
 final _retained = Expando<_RetainedDictionary>('FlatBuffers dictionary');
 const _equal = DeepCollectionEquality();
@@ -21,13 +22,32 @@ void retainWampFlatBufferDictionary(
     message,
     retainMetadata: false,
   ).dictionary!;
-  _retained[message] = _RetainedDictionary(
+  _retained[message] = _EagerRetainedDictionary(
     bytes,
     _snapshot(dictionary) as Map<String, Object?>,
     _snapshot(projection) as Map<String, Object?>,
     _modelIdentities(message),
   );
   for (final object in _retained[message]!.identities.values) {
+    if (object != null) observeWampFieldAssignments(object);
+  }
+}
+
+/// Retain immutable native control bytes without decoding them on a forwarding
+/// path. The factory reconstructs the initial control model without payloads.
+/// Validation must have completed before installing this deferred state.
+void retainNativeWampFlatBufferDictionary(
+  AbstractMessage message,
+  Uint8List bytes,
+  AbstractMessage Function() initialMessage,
+) {
+  final identities = _modelIdentities(message);
+  _retained[message] = _DeferredRetainedDictionary(
+    bytes,
+    initialMessage,
+    identities,
+  );
+  for (final object in identities.values) {
     if (object != null) observeWampFieldAssignments(object);
   }
 }
@@ -68,18 +88,60 @@ Map<String, Object?>? retainedWampFlatBufferDictionary(
   );
 }
 
-class _RetainedDictionary {
-  _RetainedDictionary(
+abstract class _RetainedDictionary {
+  Uint8List get owner;
+  Map<String, Object?> get original;
+  Map<String, Object?> get baseline;
+  Map<String, Object?> get identities;
+}
+
+class _EagerRetainedDictionary implements _RetainedDictionary {
+  _EagerRetainedDictionary(
     this.owner,
     this.original,
     this.baseline,
     this.identities,
   );
   // The original frame owner remains strongly held for the decoded model.
+  @override
   final Uint8List owner;
+  @override
   final Map<String, Object?> original;
+  @override
   final Map<String, Object?> baseline;
+  @override
   final Map<String, Object?> identities;
+}
+
+class _DeferredRetainedDictionary implements _RetainedDictionary {
+  _DeferredRetainedDictionary(
+    this.owner,
+    this._initialMessage,
+    this.identities,
+  );
+
+  @override
+  final Uint8List owner;
+  @override
+  final Map<String, Object?> identities;
+  AbstractMessage Function()? _initialMessage;
+
+  @override
+  late final Map<String, Object?> original =
+      _snapshot(decodeFlatBufferMetadata(owner)) as Map<String, Object?>;
+
+  @override
+  late final Map<String, Object?> baseline = _initialProjection();
+
+  Map<String, Object?> _initialProjection() {
+    final projection = projectWampFlatBufferMessage(
+      _initialMessage!(),
+      retainMetadata: false,
+    ).dictionary!;
+    final snapshot = _snapshot(projection) as Map<String, Object?>;
+    _initialMessage = null;
+    return snapshot;
+  }
 }
 
 Map<String, Object?> _merge(

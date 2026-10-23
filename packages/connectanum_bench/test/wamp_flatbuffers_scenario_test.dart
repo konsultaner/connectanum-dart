@@ -116,7 +116,7 @@ void main() {
       WampPayloadConstruction.preEncodedSpan,
     ]) {
       test(
-        'native ${codec.$1} $construction keeps its exact PPT span owner',
+        'native ${codec.$1} $construction leases its exact PPT span owner',
         () async {
           final session = _RecordingSession();
           final runner = WampWorkloadRunner(
@@ -147,14 +147,15 @@ void main() {
           expect(samples, hasLength(1));
           final payload = session.request!;
           expect(payload.encoding, codec.$3);
-          final anchor = payload.storageOwner;
-          expect(anchor, isA<({Object buffer, Uint8List bytes})>());
-          final ownerAnchor = anchor as ({Object buffer, Uint8List bytes});
-          final owner = ownerAnchor.buffer as native_buffers.NativeOwnedBuffer;
+          final lease = session.requestLease!;
+          expect(core.packedPayloadSourceOf(payload), same(lease));
+          expect(payload.storageOwner, same(lease));
           expect(session.ownerWasLiveDuringCall, isTrue);
-          expect(session.requestBytes, same(ownerAnchor.bytes));
-          expect(payload.packedPayloadBytes, same(ownerAnchor.bytes));
-          expect(owner.isDisposed, isTrue);
+          expect(session.exportedViewBeforeCall, isFalse);
+          expect(payload.packedPayloadBytes, same(session.requestBytes));
+          expect(lease.hasExportedByteView, isTrue);
+          expect(lease.isDisposed, isTrue);
+          expect(session.requestOwner!.isDisposed, isTrue);
           expect(session.closed, isTrue);
         },
         skip: skipNative,
@@ -202,6 +203,9 @@ void main() {
 
         expect(session.ownerWasLiveDuringCall, isTrue);
         expect(session.requestOwner!.isDisposed, isTrue);
+        expect(session.requestLease!.isDisposed, isTrue);
+        expect(session.requestLease!.hasExportedByteView, isFalse);
+        expect(session.exportedViewBeforeCall, isFalse);
         expect(session.closed, isTrue);
       },
       skip: skipNative,
@@ -212,6 +216,8 @@ void main() {
 class _RecordingSession implements WampSession {
   core.LazyMessagePayload? request;
   native_buffers.NativeOwnedBuffer? requestOwner;
+  native_buffers.NativePptPayloadLease? requestLease;
+  bool? exportedViewBeforeCall;
   Uint8List? requestBytes;
   bool ownerWasLiveDuringCall = false;
   bool throwOnCall = false;
@@ -232,17 +238,20 @@ class _RecordingSession implements WampSession {
     core.CallOptions? options,
   }) async {
     request = payload;
-    if (payload.storageOwner
-        case final ({Object buffer, Uint8List bytes}) storage) {
-      requestOwner = storage.buffer as native_buffers.NativeOwnedBuffer?;
-      requestBytes = storage.bytes;
+    final source = core.packedPayloadSourceOf(payload);
+    if (source is native_buffers.NativePptPayloadLease) {
+      requestLease = source;
+      requestOwner = source.nativeOwnerFor(payload);
+      exportedViewBeforeCall = source.hasExportedByteView;
     } else {
       requestOwner = payload.anchor as native_buffers.NativeOwnedBuffer?;
-      requestBytes = payload.packedPayloadBytes;
     }
     ownerWasLiveDuringCall = requestOwner?.isDisposed == false;
     this.options = options;
     if (throwOnCall) throw StateError('Simulated Session send rejection');
+    // Simulate a consumer reading the result, after recording that construction
+    // itself did not export a view. This view must survive lease disposal.
+    requestBytes = payload.packedPayloadBytes;
     return core.LazyResultPayload(
       callRequestId: 1,
       progress: false,

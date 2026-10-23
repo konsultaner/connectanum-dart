@@ -1080,6 +1080,66 @@ void main() {
     );
 
     test(
+      'native FlatBuffers client completes CBOR E2EE progressive file transfer',
+      () async {
+        for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+          final result = await harness!.nativeWorker.runWithMetrics(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              clientImplementation: WampClientImplementation.native,
+              serializer: WampSerializer.flatbuffers,
+              peerSerializer: WampSerializer.cbor,
+              mode: WampMode.fileTransfer,
+              uri: 'bench.file.flatbuffers_cbor_e2ee',
+              iterations: 2,
+              concurrency: 1,
+              payloadBytes: 65536,
+              fileChunkBytes: 8192,
+              pptScheme: 'wamp',
+              pptSerializer: 'cbor',
+              pptCipher: cipher,
+              pptKeyId: 'benchmark-key',
+            ),
+          );
+
+          expect(result.samples, hasLength(2), reason: cipher);
+          expect(
+            result.copyMetrics['known_e2ee_staging_copy_bytes'],
+            greaterThan(0),
+            reason: '$cipher must report the known E2EE staging copies',
+          );
+          final breakdownValue = result.copyMetrics['e2ee_copy_breakdown'];
+          expect(
+            breakdownValue,
+            isA<Map>(),
+            reason: '$cipher must return an E2EE staging breakdown',
+          );
+          final breakdown = breakdownValue! as Map;
+          expect(breakdown['coverage'], 'known_staging_only', reason: cipher);
+          expect(
+            breakdown['client_process_plaintext_staging_copy_bytes'],
+            greaterThan(0),
+            reason: '$cipher must report native plaintext staging',
+          );
+          expect(
+            breakdown['client_process_ciphertext_staging_copy_bytes'],
+            greaterThan(0),
+            reason: '$cipher must report native ciphertext staging',
+          );
+          expect(
+            (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
+            'not_measured',
+            reason:
+                '$cipher is only a staging subset; outer serializer/transcode '
+                'accounting remains a production copy-proof gate',
+          );
+        }
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'Dart CBOR file transfer uses native progressive invocation forwarding',
       () async {
         final samples = await harness!.runDart(

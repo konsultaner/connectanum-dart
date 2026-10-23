@@ -17,8 +17,18 @@ class _Reader {
   _Reader(this.bytes) : data = ByteData.sublistView(bytes);
   final Uint8List bytes;
   final ByteData data;
-  final tables = <(int, int), Map<String, Object?>>{};
-  final strings = <int, String>{};
+  // Most envelopes contain only the root and message tables. Keep their
+  // checked views inline; larger graphs retain the original typed map keys.
+  int _firstTableOffset = 0;
+  int _firstTableReference = 0;
+  Map<String, Object?>? _firstTable;
+  int _secondTableOffset = 0;
+  int _secondTableReference = 0;
+  Map<String, Object?>? _secondTable;
+  Map<(int, int), Map<String, Object?>>? _otherTables;
+  int _firstStringOffset = 0;
+  String? _firstString;
+  Map<int, String>? _otherStrings;
 
   int integer(int offset, int width) => switch (width) {
     1 => data.getUint8(offset),
@@ -45,26 +55,44 @@ class _Reader {
       field.values[1] == 1;
 
   Map<String, Object?> table(int offset, int reference) {
-    final key = (offset, reference);
-    final cached = tables[key];
+    final first = _firstTable;
+    if (first != null &&
+        offset == _firstTableOffset &&
+        reference == _firstTableReference)
+      return first;
+    final second = _secondTable;
+    if (second != null &&
+        offset == _secondTableOffset &&
+        reference == _secondTableReference)
+      return second;
+    final cached = _otherTables?[(offset, reference)];
     if (cached != null) return cached;
     final spec = wampValidationTables[reference];
     final vtable = offset - data.getInt32(offset, Endian.little);
     final vtableSize = data.getUint16(vtable, Endian.little);
     final output = <String, Object?>{};
-    tables[key] = output;
+    if (first == null) {
+      _firstTableOffset = offset;
+      _firstTableReference = reference;
+      _firstTable = output;
+    } else if (second == null) {
+      _secondTableOffset = offset;
+      _secondTableReference = reference;
+      _secondTable = output;
+    } else {
+      (_otherTables ??= {})[(offset, reference)] = output;
+    }
     for (var slot = 0; slot < spec.fields.length; slot++) {
       final field = spec.fields[slot];
       final entry = 4 + slot * 2;
       final relative = entry < vtableSize
           ? data.getUint16(vtable + entry, Endian.little)
           : 0;
+      // Keep scalar defaults; absent references resolve to null on map lookup.
       if (relative == 0) {
         if (field.kind == FlatBufferFieldKind.scalar) {
           final value = defaultScalar(spec.name, field.name);
           output[field.name] = boolean(field) ? value != 0 : value;
-        } else {
-          output[field.name] = null;
         }
         continue;
       }
@@ -90,13 +118,20 @@ class _Reader {
   }
 
   String string(int offset) {
-    final cached = strings[offset];
+    final first = _firstString;
+    if (first != null && offset == _firstStringOffset) return first;
+    final cached = _otherStrings?[offset];
     if (cached != null) return cached;
     final length = data.getUint32(offset, Endian.little);
     final value = utf8.decode(
       Uint8List.sublistView(bytes, offset + 4, offset + 4 + length),
     );
-    strings[offset] = value;
+    if (first == null) {
+      _firstStringOffset = offset;
+      _firstString = value;
+    } else {
+      (_otherStrings ??= {})[offset] = value;
+    }
     return value;
   }
 

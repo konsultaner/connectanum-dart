@@ -19,6 +19,7 @@ wamp_core.YieldOptions? yieldOptionsFromLazyInvocation(
 void respondEchoLazyInvocation(
   wamp_core.LazyInvocationPayload invocation, {
   Logger? logger,
+  bool progress = false,
 }) {
   logger?.fine(
     'RPC echo invoked requestId=${invocation.requestId} '
@@ -38,7 +39,11 @@ void respondEchoLazyInvocation(
       : invocation.payload;
   invocation.respondWith(
     lazyPayload: responsePayload,
-    options: yieldOptionsFromLazyInvocation(invocation),
+    options: progress
+        ? ((yieldOptionsFromLazyInvocation(invocation) ??
+                wamp_core.YieldOptions())
+            ..progress = true)
+        : yieldOptionsFromLazyInvocation(invocation),
   );
   logger?.fine('RPC echo responded requestId=${invocation.requestId}');
 }

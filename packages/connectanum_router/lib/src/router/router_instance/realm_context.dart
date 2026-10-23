@@ -267,6 +267,8 @@ class RealmContext {
     return completer.future;
   }
 
+  /// Removes a live invocation, or returns null if it is already gone.
+  /// State-store failures complete the future with an error.
   Future<PendingInvocation?> completeInvocation(int invocationId) async {
     final completer = Completer<PendingInvocation?>();
     final replyPort = ReceivePort();
@@ -288,6 +290,8 @@ class RealmContext {
     return completer.future;
   }
 
+  /// Refreshes a live invocation, returning false if it is already gone.
+  /// State-store failures complete the future with an error.
   Future<bool> touchInvocation(int invocationId) async {
     final completer = Completer<bool>();
     final replyPort = ReceivePort();

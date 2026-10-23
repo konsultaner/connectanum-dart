@@ -334,7 +334,100 @@ void main() {
       expect(broker.callCounts['bench.rpc.echo'], samples.length);
     });
 
-    test('rejects minimum-duration use outside RPC and pubsub', () async {
+    test(
+      'minimum duration covers actual samples after slow completion logging',
+      () async {
+        final broker = _FakeWampBroker();
+        final logger = Logger.detached('sample_span_duration_test')
+          ..level = Level.ALL;
+        var delayed = false;
+        final subscription = logger.onRecord.listen((record) {
+          if (!delayed && record.message.startsWith('RPC call done')) {
+            delayed = true;
+            final pause = Stopwatch()..start();
+            while (pause.elapsedMilliseconds < 80) {}
+          }
+        });
+        addTearDown(subscription.cancel);
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: logger,
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            inFlightPerSession: 1,
+            minimumDurationMs: 30,
+            payloadBytes: 16,
+          ),
+        );
+        expect(delayed, isTrue);
+        expect(
+          WampSampleWindow.fromSamples(samples)!.elapsedMs,
+          greaterThanOrEqualTo(30),
+        );
+        expect(broker.callCounts['bench.rpc.echo'], samples.length);
+      },
+    );
+
+    for (final mode in [
+      WampMode.progressiveRpc,
+      WampMode.publishAck,
+      WampMode.subscribeCycle,
+      WampMode.registerCycle,
+      WampMode.cancelCycle,
+    ]) {
+      test('minimum duration covers actual $mode operation samples', () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: Logger.detached('extension_duration_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.cbor,
+            mode: mode,
+            uri: 'bench.extension',
+            iterations: 1,
+            concurrency: 1,
+            minimumDurationMs: 30,
+            payloadBytes:
+                mode == WampMode.progressiveRpc || mode == WampMode.publishAck
+                ? 16
+                : 0,
+          ),
+        );
+        expect(samples.length, greaterThan(1));
+        expect(
+          WampSampleWindow.fromSamples(samples)!.elapsedMs,
+          greaterThanOrEqualTo(30),
+        );
+        expect(
+          samples.map((s) => s.iteration),
+          orderedEquals(List.generate(samples.length, (i) => i)),
+        );
+        expect(broker.registerAdds, broker.registerRemoves);
+        expect(
+          broker.subscribeRemoves,
+          greaterThanOrEqualTo(broker.subscribeAdds),
+        );
+        expect(broker._subscribers, isEmpty);
+        expect(broker._payloadSubscribers, isEmpty);
+        expect(broker._callbackSubscribers, isEmpty);
+        expect(broker._payloadCallbackSubscribers, isEmpty);
+        expect(broker._lazyRegistrations, isEmpty);
+      });
+    }
+
+    test('rejects minimum-duration authentication workloads', () async {
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => _FakeWampSession(_FakeWampBroker()),
         logger: Logger.detached('unsupported_minimum_duration_test'),
@@ -490,29 +583,44 @@ void main() {
       expect(releases, 1);
     });
 
-    test('warms up three-chunk progressive RPC workloads', () async {
-      final broker = _FakeWampBroker();
-      final runner = WampWorkloadRunner(
-        sessionFactory: (_) async => _FakeWampSession(broker),
-        logger: Logger.detached('progressive_rpc_test'),
-        eventTimeout: const Duration(seconds: 1),
-      );
-      final samples = await runner.run(
-        WampScenario(
-          transport: WampTransport.rawsocket,
-          serializer: WampSerializer.json,
-          mode: WampMode.progressiveRpc,
-          uri: 'bench.progressive',
-          iterations: 2,
-          concurrency: 1,
-          payloadBytes: 16,
-        ),
-      );
+    test(
+      'warms up three-chunk RPC input and three-result output streams',
+      () async {
+        final broker = _FakeWampBroker();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => _FakeWampSession(broker),
+          logger: Logger.detached('progressive_rpc_test'),
+          eventTimeout: const Duration(seconds: 1),
+        );
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.json,
+            mode: WampMode.progressiveRpc,
+            uri: 'bench.progressive',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 16,
+          ),
+        );
 
-      expect(samples, hasLength(2));
-      expect(samples.every((sample) => sample.requestBytes == 48), isTrue);
-      expect(broker.callCounts['bench.progressive.worker.0'], 3);
-    });
+        expect(samples, hasLength(2));
+        expect(samples.every((sample) => sample.requestBytes == 48), isTrue);
+        expect(samples.every((sample) => sample.responseBytes == 48), isTrue);
+        expect(broker.progressiveReplyFlags, [
+          true,
+          true,
+          false,
+          true,
+          true,
+          false,
+          true,
+          true,
+          false,
+        ]);
+        expect(broker.callCounts['bench.progressive.worker.0'], 3);
+      },
+    );
 
     test('executes timeout RPC workloads only for timeout errors', () async {
       final broker = _FakeWampBroker();
@@ -1757,6 +1865,7 @@ wamp_core.LazyEventPayload _bufferEvent(int worker, {int? iteration}) =>
     ).toLazyEventPayload();
 
 class _FakeWampBroker {
+  final progressiveReplyFlags = <bool>[];
   _FakeWampBroker({
     this.dropMetadata = false,
     this.callDelay = Duration.zero,
@@ -2490,7 +2599,7 @@ class _FakeWampSession implements WampSession, WampFileSession {
         requestId: requestId,
         registrationId: 1,
         progress: progress,
-        receiveProgress: false,
+        receiveProgress: options?.receiveProgress ?? false,
         payload: wamp_core.LazyMessagePayload.materialized(
           arguments: chunkArguments,
         ),
@@ -2504,21 +2613,23 @@ class _FakeWampSession implements WampSession, WampFileSession {
               String? errorUri,
               wamp_core.YieldOptions? options,
             }) {
-              responseClosed = true;
+              final progressive = options?.progress == true;
+              responseClosed = isError || !progressive;
+              _broker.progressiveReplyFlags.add(progressive);
               if (isError) {
                 controller.addError(StateError(errorUri ?? 'unknown'));
               } else {
                 controller.add(
                   wamp_core.Result(
                     requestId,
-                    wamp_core.ResultDetails(progress: false),
+                    wamp_core.ResultDetails(progress: progressive),
                     arguments: lazyPayload?.arguments ?? arguments,
                     argumentsKeywords:
                         lazyPayload?.argumentsKeywords ?? argumentsKeywords,
                   ),
                 );
               }
-              unawaited(controller.close());
+              if (responseClosed) unawaited(controller.close());
             },
       );
       Future.sync(() => handler(invocation)).catchError(controller.addError);

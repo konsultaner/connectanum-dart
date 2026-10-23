@@ -1,7 +1,7 @@
 //! Checked access to the pinned schema. Byte vectors retain their Bytes owner.
 use super::{flatbuffers_schema as schema, ParseError};
 use bytes::Bytes;
-use std::{collections::BTreeMap, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 pub(super) const MAX_BYTES: usize = 64 * 1024 * 1024;
 const MAX_INTEGER: u64 = 9_007_199_254_740_992;
@@ -30,7 +30,66 @@ pub(super) struct TableSpec {
     pub name: &'static str,
     pub fields: &'static [FieldSpec],
 }
-pub(super) type Fields = BTreeMap<&'static str, Value>;
+// Keys come only from the pinned schema. A sorted contiguous table avoids
+// allocating B-tree nodes for each small root/message dictionary. Application
+// dictionaries keep their existing maps and are not stored here.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct Fields(Vec<(&'static str, Value)>);
+impl Fields {
+    pub(super) fn new() -> Self {
+        Self::default()
+    }
+    pub(super) fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
+    }
+    pub(super) fn get(&self, key: &str) -> Option<&Value> {
+        self.0
+            .binary_search_by_key(&key, |(name, _)| *name)
+            .ok()
+            .map(|index| &self.0[index].1)
+    }
+    pub(super) fn get_mut(&mut self, key: &str) -> Option<&mut Value> {
+        let index = self.0.binary_search_by_key(&key, |(name, _)| *name).ok()?;
+        Some(&mut self.0[index].1)
+    }
+    pub(super) fn remove(&mut self, key: &str) -> Option<Value> {
+        let index = self.0.binary_search_by_key(&key, |(name, _)| *name).ok()?;
+        Some(self.0.remove(index).1)
+    }
+    pub(super) fn insert(&mut self, key: &'static str, value: Value) -> Option<Value> {
+        match self.0.binary_search_by_key(&key, |(name, _)| *name) {
+            Ok(index) => Some(std::mem::replace(&mut self.0[index].1, value)),
+            Err(index) => {
+                self.0.insert(index, (key, value));
+                None
+            }
+        }
+    }
+    pub(super) fn keys(&self) -> impl Iterator<Item = &&'static str> {
+        self.0.iter().map(|(name, _)| name)
+    }
+}
+impl IntoIterator for Fields {
+    type Item = (&'static str, Value);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+impl Extend<(&'static str, Value)> for Fields {
+    fn extend<T: IntoIterator<Item = (&'static str, Value)>>(&mut self, values: T) {
+        for (key, value) in values {
+            self.insert(key, value);
+        }
+    }
+}
+impl<const N: usize> From<[(&'static str, Value); N]> for Fields {
+    fn from(values: [(&'static str, Value); N]) -> Self {
+        let mut fields = Self::with_capacity(N);
+        fields.extend(values);
+        fields
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Value {
     Null,
@@ -51,8 +110,8 @@ pub(super) fn read(bytes: Bytes) -> Result<Arc<Fields>, ParseError> {
     }
     let mut reader = Reader {
         bytes,
-        tables: HashMap::new(),
-        strings: HashMap::new(),
+        tables: TableCache::default(),
+        strings: StringCache::default(),
         string_bytes: 0,
         elements: 0,
     };
@@ -60,10 +119,87 @@ pub(super) fn read(bytes: Bytes) -> Result<Arc<Fields>, ParseError> {
     Ok(reader.table(root, schema::ROOT, 1)?.1)
 }
 
+type CachedTable = (usize, Option<Arc<Fields>>);
+
+// The common root/message pair fits here. Larger graphs retain randomized
+// HashMap lookup instead of paying an unbounded linear search cost.
+#[derive(Default)]
+struct TableCache {
+    inline: [Option<((usize, usize), CachedTable)>; 4],
+    used: usize,
+    overflow: Option<HashMap<(usize, usize), CachedTable>>,
+}
+impl TableCache {
+    fn get(&self, key: &(usize, usize)) -> Option<&CachedTable> {
+        for (candidate, value) in self.inline[..self.used].iter().flatten() {
+            if candidate == key {
+                return Some(value);
+            }
+        }
+        self.overflow.as_ref()?.get(key)
+    }
+    fn insert(&mut self, key: (usize, usize), value: CachedTable) {
+        for (candidate, existing) in self.inline[..self.used].iter_mut().flatten() {
+            if *candidate == key {
+                *existing = value;
+                return;
+            }
+        }
+        if self.used < self.inline.len() {
+            self.inline[self.used] = Some((key, value));
+            self.used += 1;
+        } else {
+            self.overflow
+                .get_or_insert_with(HashMap::new)
+                .insert(key, value);
+        }
+    }
+    fn len(&self) -> usize {
+        self.used + self.overflow.as_ref().map_or(0, HashMap::len)
+    }
+}
+
+// Common messages have only a few wire strings. Keep their offsets inline;
+// larger graphs retain randomized lookup rather than an unbounded linear scan.
+#[derive(Default)]
+struct StringCache {
+    inline: Option<[Option<(usize, Arc<str>)>; 4]>,
+    used: usize,
+    overflow: Option<HashMap<usize, Arc<str>>>,
+}
+impl StringCache {
+    fn get(&self, key: &usize) -> Option<&Arc<str>> {
+        let inline = self.inline.as_ref()?;
+        for (candidate, value) in inline[..self.used].iter().flatten() {
+            if candidate == key {
+                return Some(value);
+            }
+        }
+        self.overflow.as_ref()?.get(key)
+    }
+    fn insert(&mut self, key: usize, value: Arc<str>) {
+        let inline = self.inline.get_or_insert_with(Default::default);
+        for (candidate, existing) in inline[..self.used].iter_mut().flatten() {
+            if *candidate == key {
+                *existing = value;
+                return;
+            }
+        }
+        if self.used < inline.len() {
+            inline[self.used] = Some((key, value));
+            self.used += 1;
+        } else {
+            self.overflow
+                .get_or_insert_with(HashMap::new)
+                .insert(key, value);
+        }
+    }
+}
+
 struct Reader {
     bytes: Bytes,
-    tables: HashMap<(usize, usize), (usize, Option<Arc<Fields>>)>,
-    strings: HashMap<usize, Arc<str>>,
+    tables: TableCache,
+    strings: StringCache,
     string_bytes: usize,
     elements: usize,
 }
@@ -140,7 +276,22 @@ impl Reader {
         let spec = schema::TABLES
             .get(reference)
             .ok_or_else(|| invalid("table type"))?;
-        let mut fields = Fields::new();
+        // All vtable bytes are bounded/aligned above. Scalars retain declared
+        // defaults; absent optional references need no temporary Fields entry.
+        let capacity = if spec.fields.len() <= 4 {
+            spec.fields.len()
+        } else {
+            spec.fields
+                .iter()
+                .enumerate()
+                .try_fold(0usize, |count, (slot, field)| {
+                    let entry = 4 + slot * 2;
+                    let present = field.kind == Kind::Scalar
+                        || (entry < vtable_size && self.uint(vtable + entry, 2)? != 0);
+                    Ok::<_, ParseError>(count + usize::from(present))
+                })?
+        };
+        let mut fields = Fields::with_capacity(capacity);
         let mut height = 1;
         let mut union_tag = 0;
         for (slot, field) in spec.fields.iter().enumerate() {
@@ -208,7 +359,10 @@ impl Reader {
                     }
                 }
             };
-            fields.insert(field.name, value);
+            // Value decoding/validation above is unconditional for every field.
+            if !matches!(&value, Value::Null) {
+                fields.insert(field.name, value);
+            }
         }
         let fields = Arc::new(fields);
         self.tables
@@ -287,6 +441,177 @@ impl Reader {
 #[cfg(test)]
 mod copy_tests {
     use super::*;
+
+    #[test]
+    fn schema_fields_preserve_sorted_map_lookup_replacement_and_extension() {
+        use std::collections::BTreeMap;
+        for spec in schema::TABLES {
+            for reverse in [false, true] {
+                let mut fields = Fields::with_capacity(spec.fields.len());
+                let mut expected = BTreeMap::new();
+                let mut entries: Vec<_> = spec.fields.iter().enumerate().collect();
+                if reverse {
+                    entries.reverse();
+                }
+                for (index, field) in entries {
+                    let value = Value::Integer(index as u64);
+                    assert_eq!(
+                        fields.insert(field.name, value.clone()),
+                        expected.insert(field.name, value)
+                    );
+                }
+                assert_eq!(
+                    fields.keys().copied().collect::<Vec<_>>(),
+                    expected.keys().copied().collect::<Vec<_>>()
+                );
+                assert_eq!(fields.get("not_a_pinned_field"), None);
+                for (key, value) in &expected {
+                    assert_eq!(fields.get(key), Some(value));
+                }
+                let mut replacements = Fields::new();
+                if let Some(field) = spec.fields.first() {
+                    replacements.insert(field.name, Value::Integer(123));
+                }
+                fields.extend(replacements.clone());
+                expected.extend(replacements);
+                assert_eq!(
+                    fields.clone().into_iter().collect::<BTreeMap<_, _>>(),
+                    expected
+                );
+                let mut reordered = Fields::new();
+                reordered.extend(fields.clone().into_iter().rev());
+                assert_eq!(fields, reordered);
+                assert!(fields.get_mut("not_a_pinned_field").is_none());
+                assert_eq!(fields.remove("not_a_pinned_field"), None);
+                for field in spec.fields {
+                    *fields.get_mut(field.name).unwrap() = Value::Integer(456);
+                    expected.insert(field.name, Value::Integer(456));
+                    assert_eq!(fields.remove(field.name), expected.remove(field.name));
+                    assert_eq!(
+                        fields.keys().copied().collect::<Vec<_>>(),
+                        expected.keys().copied().collect::<Vec<_>>()
+                    );
+                }
+                assert_eq!(fields, Fields::new());
+            }
+        }
+    }
+
+    #[test]
+    fn fields_duplicate_keys_replace_values_without_copying_borrowed_bytes() {
+        let bytes = Bytes::from_static(b"payload");
+        let nested = Arc::new(Fields::from([("args", Value::Bytes(bytes.clone()))]));
+        let mut fields = Fields::from([
+            ("request", Value::Integer(1)),
+            ("msg", Value::Table(nested.clone())),
+            ("request", Value::Integer(2)),
+        ]);
+        assert_eq!(fields.get("request"), Some(&Value::Integer(2)));
+        assert_eq!(
+            fields.insert("request", Value::Null),
+            Some(Value::Integer(2))
+        );
+        let Value::Table(table) = fields.get("msg").unwrap() else {
+            panic!("table");
+        };
+        assert!(Arc::ptr_eq(table, &nested));
+        let Value::Bytes(retained) = table.get("args").unwrap() else {
+            panic!("bytes");
+        };
+        assert_eq!(retained.as_ptr(), bytes.as_ptr());
+    }
+    #[test]
+    fn string_cache_keeps_small_sets_inline_and_aliases_after_overflow() {
+        let mut cache = StringCache::default();
+        assert!(cache.inline.is_none());
+        let mut values = Vec::new();
+        for offset in 0..12 {
+            let value: Arc<str> = format!("value-{offset}").into();
+            cache.insert(offset, value.clone());
+            assert!(Arc::ptr_eq(cache.get(&offset).unwrap(), &value));
+            if offset < 4 {
+                assert!(cache.overflow.is_none());
+            }
+            values.push(value);
+        }
+        assert_eq!(cache.used, 4);
+        assert_eq!(cache.overflow.as_ref().unwrap().len(), 8);
+        for (offset, value) in values.iter().enumerate() {
+            assert!(Arc::ptr_eq(cache.get(&offset).unwrap(), value));
+        }
+        assert!(cache.get(&12).is_none());
+        for offset in [0, 11] {
+            let replacement: Arc<str> = "replacement".into();
+            cache.insert(offset, replacement.clone());
+            assert!(Arc::ptr_eq(cache.get(&offset).unwrap(), &replacement));
+        }
+        assert_eq!(cache.used, 4);
+        assert_eq!(cache.overflow.as_ref().unwrap().len(), 8);
+    }
+
+    #[test]
+    fn cached_strings_preserve_the_original_visit_budget() {
+        let text = "x".repeat(512 * 1024);
+        let mut bytes = (text.len() as u32).to_le_bytes().to_vec();
+        bytes.extend_from_slice(text.as_bytes());
+        bytes.push(0);
+        let mut reader = Reader {
+            bytes: Bytes::from(bytes),
+            tables: TableCache::default(),
+            strings: StringCache::default(),
+            string_bytes: 0,
+            elements: 0,
+        };
+        let Value::Text(first) = reader.string(0).unwrap() else {
+            panic!("text");
+        };
+        let Value::Text(second) = reader.string(0).unwrap() else {
+            panic!("text");
+        };
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(reader.string_bytes, 1024 * 1024);
+        assert!(reader
+            .string(0)
+            .unwrap_err()
+            .to_string()
+            .contains("string budget"));
+    }
+
+    #[test]
+    fn malformed_strings_are_rejected_before_cache_overflow_allocation() {
+        for (last_byte, terminator, reason) in [(0xff, 0, "UTF-8"), (b'x', 1, "string terminator")]
+        {
+            let mut bytes = Vec::new();
+            let mut offsets = Vec::new();
+            for index in 0..5 {
+                while bytes.len() % 4 != 0 {
+                    bytes.push(0);
+                }
+                offsets.push(bytes.len());
+                bytes.extend_from_slice(&1_u32.to_le_bytes());
+                bytes.push(if index == 4 { last_byte } else { b'a' + index });
+                bytes.push(if index == 4 { terminator } else { 0 });
+            }
+            let mut reader = Reader {
+                bytes: Bytes::from(bytes),
+                tables: TableCache::default(),
+                strings: StringCache::default(),
+                string_bytes: 0,
+                elements: 0,
+            };
+            for offset in &offsets[..4] {
+                reader.string(*offset).unwrap();
+            }
+            assert!(reader.strings.overflow.is_none());
+            assert!(reader
+                .string(offsets[4])
+                .unwrap_err()
+                .to_string()
+                .contains(reason));
+            assert!(reader.strings.overflow.is_none());
+        }
+    }
+
     #[test]
     fn string_reader_observes_storage_once_and_retains_cached_aliases() {
         for text in ["", "écho", "routing.name"] {
@@ -295,8 +620,8 @@ mod copy_tests {
             bytes.push(0);
             let mut reader = Reader {
                 bytes: Bytes::from(bytes),
-                tables: HashMap::new(),
-                strings: HashMap::new(),
+                tables: TableCache::default(),
+                strings: StringCache::default(),
                 string_bytes: 0,
                 elements: 0,
             };

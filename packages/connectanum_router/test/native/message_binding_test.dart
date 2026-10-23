@@ -167,6 +167,58 @@ void _flatBuffersMetadataContracts() {
       );
     }
   }
+  for (final code in [8, 16, 48, 70]) {
+    test('CBOR router binds transparent payload for message $code', () {
+      final backing = Uint8List.fromList([99, 98, 1, 2, 3, 97]);
+      final bytes = Uint8List.sublistView(backing, 2, 5);
+      final value = _expectMessage<AbstractMessageWithPayload>(
+        _validFrame(
+          () => metadata(
+            code,
+            serializer: NativeMessageSerializer.cbor,
+            flags: 17 | (1 << 8),
+            opaque: bytes,
+          ),
+        ),
+      );
+      expect(value.transparentBinaryPayload, same(bytes));
+      expect(
+        value.transparentBinaryPayload?.offsetInBytes,
+        bytes.offsetInBytes,
+      );
+      expect(value.transparentBinaryPayload?.length, 3);
+      expect(value.arguments, isNull);
+      expect(value.argumentsKeywords, isNull);
+    });
+  }
+  test('CBOR router rejects invalid transparent payload metadata', () {
+    expect(
+      () => metadata(
+        16,
+        serializer: NativeMessageSerializer.cbor,
+        flags: 17 | (1 << 8),
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => metadata(
+        16,
+        serializer: NativeMessageSerializer.cbor,
+        flags: 17,
+        opaque: Uint8List(0),
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => metadata(
+        34,
+        serializer: NativeMessageSerializer.cbor,
+        flags: 17 | (1 << 8),
+        opaque: Uint8List(0),
+      ),
+      throwsArgumentError,
+    );
+  });
   for (final flagged in [false, true]) {
     test('FlatBuffers router rejects inconsistent opaque flag=$flagged', () {
       expect(
@@ -182,7 +234,6 @@ void _flatBuffersMetadataContracts() {
   for (final serializer in [
     NativeMessageSerializer.json,
     NativeMessageSerializer.messagePack,
-    NativeMessageSerializer.cbor,
     NativeMessageSerializer.ubjson,
   ]) {
     test('FlatBuffers router rejects opaque payload for $serializer', () {

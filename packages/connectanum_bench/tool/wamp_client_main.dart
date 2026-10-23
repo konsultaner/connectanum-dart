@@ -137,13 +137,14 @@ Future<void> main(List<String> args) async {
         final scenario = WampScenario.fromJson(
           Map<String, Object?>.from(jsonDecode(trimmed) as Map),
         );
-        final ownedCopiesBefore = core_buffers.OwnedCopyMetrics.snapshot();
+        final ownedCopiesBefore =
+            core_buffers.OwnedCopyMetrics.boundarySnapshot();
         final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
         final copyMetricsBefore = nativeRuntime.transportCopyMetricsSnapshot();
         final e2eeMetricsBefore = nativeRuntime.e2eeCopyMetricsSnapshot();
         final rawFrameMetricsBefore = nativeRuntime
             .rawFrameCopyMetricsSnapshot();
-        final codecBefore = nativeRuntime.codecCopyMetricsSnapshot();
+        final codecBefore = nativeRuntime.boundaryCodecCopyMetricsSnapshot();
         final rssBeforeBytes = ProcessInfo.currentRss;
         late final List<WampSample> samples;
         late final DartTransportCopyMetricsSnapshot dartCopyMetrics;
@@ -210,13 +211,13 @@ Future<void> main(List<String> args) async {
               'native_codec_copy_breakdown': {
                 'client': codecCopyMetricsDelta(
                   codecBefore,
-                  nativeRuntime.codecCopyMetricsSnapshot(),
+                  nativeRuntime.boundaryCodecCopyMetricsSnapshot(),
                 ),
               },
               'dart_owned_buffer_copy_breakdown': {
                 'client': ownedBufferCopyMetricsDelta(
                   ownedCopiesBefore,
-                  core_buffers.OwnedCopyMetrics.snapshot(),
+                  core_buffers.OwnedCopyMetrics.boundarySnapshot(),
                 ),
               },
             },

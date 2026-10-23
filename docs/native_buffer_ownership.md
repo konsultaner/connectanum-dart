@@ -59,6 +59,37 @@ the negotiated session profile before submission. Other payloads continue
 through the regular serializer. The payload schema and its identity remain the
 application's responsibility.
 
+For explicit lifetime control, use `buffer.leaseFlatBuffersPptPayload()` and
+pass `lease.payload` to the same Session APIs. The lease retains its own native
+reference, so the producer can be disposed first. Eligible native FlatBuffers
+CALL/PUBLISH sends do not export a Dart application-byte view. Dispose the lease
+after its last asynchronous use. For example:
+
+```dart
+final lease = producer.leaseFlatBuffersPptPayload();
+producer.dispose();
+try {
+  await session.callLazyPayload(
+    'com.entity.store',
+    payload: lease.payload,
+    options: CallOptions(
+      pptScheme: 'x_my_entity',
+      pptSerializer: 'flatbuffers',
+    ),
+  ).first;
+} finally {
+  lease.dispose();
+}
+```
+
+Application reads and safe serializer/foreign-library fallbacks export a cached,
+independently owned read-only view. Those exported and derived views remain
+valid after disposal and can keep the native allocation alive until collection.
+Disposal before any export prevents later byte access. Mutable message-argument
+access and transparent-payload replacement drop the native source optimization;
+detached `toOwned` copies drop source identity entirely. Existing `as...Payload`
+helpers retain their reusable exported-view contract.
+
 `NativeOwnedBuffer.asPptPayload` also retains encoded CBOR/MessagePack PPT with
 an explicit lazy decoder. Native CBOR/MessagePack CALL/PUBLISH paths now reuse
 that exact span through the optional owned-segment ABI. Only newly serialized
@@ -388,3 +419,15 @@ Run `python3 tool/run_native_guardmalloc.py --output out/native-guardmalloc` on
 macOS to generate `out/native-guardmalloc/report.json` and the per-group logs.
 The CI job publishes these records as the `native-ownership-guardmalloc` artifact.
 Hosted acceptance requires a successful execution on the feature commit.
+
+
+Canonical native FlatBuffers PPT Call/Publish sends may use the existing owned
+segment ABI to queue a native prefix together with the frozen application buffer.
+The private prefix ends at the vector length word; the combined wire frame keeps
+the payload eight-byte aligned. This bypasses re-parsing an envelope produced by
+the canonical writer. Caller-supplied frames keep their existing validation.
+Both allocations remain retained through the native write/flush, while caller
+body handles remain valid after either acceptance or rejection. Libraries without
+the optional segment ABI keep the existing frame-composition path. The full-frame
+64 MiB bound and session-profile checks still apply. This does not extend foreign
+storage or database transaction lifetimes.
