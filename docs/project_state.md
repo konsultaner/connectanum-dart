@@ -5,6 +5,21 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Latest FlatBuffers acceptance status (2026-10-23): the pushed source is
+`236d25e5`. Its hosted encrypted-progressive shard rejects transparent CBOR in
+the native E2EE decrypt bridge. The working tree now allows that borrowed
+transparent payload for CBOR and FlatBuffers, with a public native-session
+regression for both ciphers and a receive-frame pointer-identity assertion.
+`bin/test-fast` passes on this change, including 2,009 live WAMP cases and the
+ObjectBox adapter tests. Full `bin/verify` also passes on the corrected working
+tree, including Chrome/Dart2Wasm and consumer smokes. Replacement exact-head
+hosted workflows are pending. The old source's copy proof failed before
+collecting evidence due to runner HTTP 500
+(`owned_groups: []`); this is not copy-accounting acceptance. Milestone issues
+#100, #101 and #103 remain open, PR #132 remains draft, and no performance-parity
+claim is made. SDK/TLS/crypto dependency internals remain explicitly unmeasured
+under the approved standard-SDK scope.
+
 Current performance and copy-accounting follow-up is in the working tree on
 `codex/flatbuffers-performance-parity`. It makes control-message fragment
 preflight cheaper, reduces FlatBuffers writer/envelope allocations, accelerates

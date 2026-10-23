@@ -301,6 +301,18 @@ fn encrypted_message(ciphertext: &[u8], opaque: bool) -> StoredMessage {
     parsed_message_value(parse_message(RawSocketSerializer::Flatbuffers, wire).unwrap())
 }
 
+fn encrypted_cbor_transparent_message(ciphertext: &[u8]) -> StoredMessage {
+    let wire = serde_cbor::to_vec(&serde_cbor::Value::Array(vec![
+        serde_cbor::Value::Integer(68),
+        serde_cbor::Value::Integer(1),
+        serde_cbor::Value::Integer(2),
+        serde_cbor::Value::Map(Default::default()),
+        serde_cbor::Value::Bytes(ciphertext.to_vec()),
+    ]))
+    .unwrap();
+    parsed_message_value(parse_message(RawSocketSerializer::Cbor, Bytes::from(wire)).unwrap())
+}
+
 fn plaintext(direct: bool) -> Vec<u8> {
     let value = if direct {
         serde_cbor::Value::Bytes(vec![0, 255, 37])
@@ -445,7 +457,7 @@ fn flatbuffers_e2ee_rejects_mixed_or_truncated_ciphertext() {
         Err(ERR_UNSUPPORTED)
     ));
     let mut wrong_serializer = encrypted_message(&ciphertext, true);
-    wrong_serializer.serializer = RawSocketSerializer::Cbor;
+    wrong_serializer.serializer = RawSocketSerializer::Json;
     assert!(matches!(
         decrypt_e2ee_message_payload_owned(wrong_serializer, &key, 2),
         Err(ERR_UNSUPPORTED)
@@ -476,7 +488,7 @@ fn flatbuffers_e2ee_separate_ciphertext_allocation_uses_copy_fallback() {
 }
 
 #[test]
-fn flatbuffers_e2ee_borrowed_api_decrypts_both_ciphers_without_consuming_handle() {
+fn transparent_e2ee_borrowed_api_decrypts_both_ciphers_without_consuming_handle() {
     let _guard = crate::tests::test_guard();
     let key = [59; 32];
     let keyring = ct_e2ee_keyring_new();
@@ -485,7 +497,7 @@ fn flatbuffers_e2ee_borrowed_api_decrypts_both_ciphers_without_consuming_handle(
         SUCCESS
     );
     let session = ct_e2ee_session_new(keyring, ptr::null(), 0);
-    for opaque in [true, false] {
+    for representation in [0, 1, 2] {
         for cipher in [1, 2] {
             let plaintext = plaintext(true);
             let ciphertext = if cipher == 1 {
@@ -493,9 +505,13 @@ fn flatbuffers_e2ee_borrowed_api_decrypts_both_ciphers_without_consuming_handle(
             } else {
                 encrypt_e2ee_aes256_gcm_payload(&key, &plaintext).unwrap()
             };
-            let handle =
-                super::super::message_handles::insert(encrypted_message(&ciphertext, opaque))
-                    .unwrap();
+            let message = match representation {
+                0 => encrypted_message(&ciphertext, true),
+                1 => encrypted_message(&ciphertext, false),
+                2 => encrypted_cbor_transparent_message(&ciphertext),
+                _ => unreachable!("all representations are enumerated"),
+            };
+            let handle = super::super::message_handles::insert(message).unwrap();
             let mut output = CtExternalByteBuffer {
                 ptr: ptr::null_mut(),
                 len: 0,
@@ -523,4 +539,28 @@ fn flatbuffers_e2ee_borrowed_api_decrypts_both_ciphers_without_consuming_handle(
     }
     assert_eq!(ct_e2ee_session_release(session), SUCCESS);
     assert_eq!(ct_e2ee_keyring_release(keyring), SUCCESS);
+}
+
+#[test]
+fn cbor_transparent_e2ee_payload_decrypts_with_both_ciphers() {
+    let key = [83; 32];
+    for cipher in [1, 2] {
+        let application = plaintext(true);
+        let ciphertext = if cipher == 1 {
+            encrypt_e2ee_payload(&key, &application).unwrap()
+        } else {
+            encrypt_e2ee_aes256_gcm_payload(&key, &application).unwrap()
+        };
+
+        let message = encrypted_cbor_transparent_message(&ciphertext);
+        let raw = message.raw.as_contiguous().unwrap();
+        let raw_range = raw.as_ptr() as usize..raw.as_ptr() as usize + raw.len();
+        let borrowed = borrowed_e2ee_message_ciphertext(&message).unwrap();
+        assert!(raw_range.contains(&(borrowed.as_ptr() as usize)));
+        assert!(borrowed.as_ptr() as usize + borrowed.len() <= raw_range.end);
+        let result = decrypt_e2ee_message_payload_owned(message, &key, cipher).unwrap();
+
+        assert_eq!(&result.bytes[result.range], &[0, 255, 37]);
+        assert_eq!(result.kind, CT_E2EE_DECRYPTED_PAYLOAD_DIRECT_BINARY);
+    }
 }

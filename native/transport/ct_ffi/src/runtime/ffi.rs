@@ -1069,7 +1069,11 @@ fn borrowed_e2ee_message_ciphertext(message: &StoredMessage) -> Result<&[u8], c_
         return Err(ERR_UNSUPPORTED);
     }
     if let Some(payload) = extract_transparent_payload(&message.message) {
-        if message.serializer != RawSocketSerializer::Flatbuffers || message.args.is_some() {
+        if !matches!(
+            message.serializer,
+            RawSocketSerializer::Flatbuffers | RawSocketSerializer::Cbor
+        ) || message.args.is_some()
+        {
             return Err(ERR_UNSUPPORTED);
         }
         return Ok(payload.as_ref());

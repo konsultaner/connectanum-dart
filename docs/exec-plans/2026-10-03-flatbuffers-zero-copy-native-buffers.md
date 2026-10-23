@@ -51,9 +51,25 @@ Status: active. Started: 2026-10-03.
   negative flag/bytes, unsupported-serializer and non-payload tests. The focused
   client/router suites pass. Full `bin/verify` passes on `86c963a3`, including
   native suites, all 2,009 live WAMP cases, Chrome/Dart2Wasm and consumer smokes.
-- [ ] Push `86c963a3` and repeat exact-head CI, production E2EE/transcode copy
-  proof, unchanged strict primary and every supplemental campaign. Do not claim
-  performance parity until those hosted reports pass.
+- [x] Fix the native E2EE decrypt bridge to accept a borrowed transparent CBOR
+  ciphertext alongside FlatBuffers. Verify the ciphertext remains a slice of
+  the receive frame and decrypts through the public native session API with
+  XSalsa20-Poly1305 and AES-GCM. Focused Rust tests and `bin/test-fast` pass,
+  including all 2,009 live WAMP integration cases and ObjectBox adapter tests.
+- [x] Complete `bin/test-fast` and full `bin/verify` on the corrected E2EE
+  bridge. Both pass, including all 2,009 live WAMP cases, native FFI tests,
+  Chrome/Dart2Wasm, ObjectBox and consumer-package smoke checks.
+- [ ] Commit/push the corrected source, then rerun exact-head CI, unchanged
+  strict primary, every supplemental campaign and the production E2EE/transcode
+  copy proof. Keep all timing and copy gates unchanged.
+- [ ] Audit source `236d25e5` campaigns: CI `40006741037`, strict primary
+  `40006740922`, supplemental shards `40006740888` and production copy proof
+  `40006741342`. The encrypted-progressive shard hit the native CBOR E2EE
+  rejection. The copy proof stopped on runner HTTP 500 before recording owned
+  groups. These runs do not accept the milestone.
+- [x] Push parser/binder commits `e0f5d141` and `86c963a3` (current remote
+  descendant `236d25e5`); initial exact-head campaigns have been dispatched.
+  The CBOR E2EE bridge fix and replacement campaigns remain outstanding below.
 - [ ] Audit exact-source CI `39992992607`, strict primary `39992996231`,
   supplemental campaigns `39992999450` and production copy proof
   `39993003404`, including their input/binary hashes. These runs belong to
