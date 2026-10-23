@@ -2,6 +2,31 @@
 
 Status: active. Started: 2026-10-03.
 
+## Current acceptance and TLS follow-up (2026-10-23)
+
+- [x] Pass frozen full `bin/verify` on `984288cb` in 23m08s, including Chrome/Wasm,
+  with 3,202 sources/four resolved inputs fixed and a clean tree; fresh baseline
+  `bin/test-fast` also passes with identical sources/resolution.
+- [x] Audit both Linux components: 491 Dart cases per variant/160 rows/32 workers/
+  128 allocation windows; RESULT/CALL ratios 0.93782/0.91738 and about 456/812 fewer
+  managed bytes. Native 24 reader/ten encoder rows, same wires/nonregressing requests.
+- [x] Audit current production copy/lifetime: 120 owned/300 short cases/all 32
+  no-copy observations, 36 groups/108 post-GC, public owners zero before forced GC.
+- [x] Retain strict90's eight numerical costs despite all CPU/allocation passing;
+  retain current supplemental payload's 20-row and prior55's 139-row TLS failures.
+- [x] Audit current Dart profile; exclude ordinary-no-PPT proposal before measuring
+  because primary values already use typed PPT. Exclude getter annotation after
+  76 functional checks per variant/160 valid rows show no stable meaningful gain.
+- [x] Add bounded allowlisted namespace TCP prune/collapse/window/pressure counters;
+  reproduce missing/malformed/oversized/permission failures before implementation.
+- [x] Pass 30 owned Linux/service/TCP, 28 capture, eight smoke and 20 CI execution
+  contracts; resolve advisory review against explicit ASCII/uint64/failure tests.
+- [ ] Pass resulting-source tests/review/full verification and real Linux diagnostics.
+- [ ] Establish a causal TLS fix if reproduced; do not infer the Ubuntu kernel's
+  behavior from upstream sources alone or change timeouts/socket/allocator policy.
+- [ ] Complete full primary/supplemental acceptance on the final runtime and full CI;
+  retain every started observation and required independent PR approval.
+
 ## Temporary table allocation follow-up (2026-10-23)
 
 - [x] Pass baseline bin/test-fast on `2646ee69`, with 3,201 sources/four resolved
@@ -21,8 +46,9 @@ Status: active. Started: 2026-10-03.
 - [x] Pass resulting-source analysis, 3,456 serializer and 39 native cases;
   actual-source allocator rows match the audited candidate, with all 3,202 source/
   four resolved hashes unchanged. Seven component/20 CI contracts and 154 proofs pass.
-- [ ] Complete frozen full verification on the resulting committed source.
-- [ ] Pass Linux component, production lifetime/copy proof and strict diagnostic.
+- [x] Complete frozen full verification on the resulting committed source.
+- [x] Pass Linux components and production lifetime/copy proof.
+- [ ] Pass strict diagnostic; current 90 rows retain eight numerical costs.
 - [ ] Complete unchanged full primary and supplemental gates on the final runtime;
   preserve every earlier started observation and required independent PR review.
 
@@ -53,7 +79,7 @@ Status: active. Started: 2026-10-03.
   rows, zero integrity findings, all 244 numerical costs retained separately.
 - [ ] Complete resulting-source full CI and unchanged complete primary and
   supplemental gates; candidate runs 39874517410/39874520570 are observing.
-- [ ] Evaluate native agreement capacity and Dart sparse internal-table storage
+- [x] Evaluate native agreement capacity and Dart sparse internal-table storage
   with component/functional evidence before adoption, retaining CBOR validation,
   shared aliases, scalar defaults and independently mutable public metadata.
 

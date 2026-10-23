@@ -14,6 +14,35 @@ def bounded_text(path, limit=2 * 1024 * 1024):
     return value
 
 
+def tcp_ext_counters(text):
+    """Select cumulative namespace counters, never individual socket evidence."""
+    selected = (
+        'PruneCalled', 'RcvPruned', 'OfoPruned', 'TCPRcvCollapsed',
+        'TCPRcvQDrop', 'TCPBacklogDrop', 'TCPRcvCoalesce', 'TCPAutoCorking',
+        'TCPMemoryPressures', 'TCPMemoryPressuresChrono',
+        'TCPWantZeroWindowAdv', 'TCPToZeroWindowAdv', 'TCPFromZeroWindowAdv',
+        'TCPZeroWindowDrop', 'TCPWinProbe',
+    )
+    pairs = [line.split()[1:] for line in text.splitlines()
+             if line.split() and line.split()[0] == 'TcpExt:']
+    if len(pairs) != 2:
+        raise ValueError('missing or repeated TCP counter rows')
+    names, values = pairs
+    if not names or len(names) != len(values) or len(set(names)) != len(names):
+        raise ValueError('invalid TCP counter header/value pairs')
+    if any(not name.isascii() or not name.isalnum() or not name[0].isalpha()
+           for name in names):
+        raise ValueError('invalid TCP counter name')
+    if any(not value.isascii() or not value.isdecimal() or len(value) > 20
+           or int(value) > 18446744073709551615 for value in values):
+        raise ValueError('invalid unsigned TCP counter')
+    counters = {name: int(value) for name, value in zip(names, values)
+                if name in selected}
+    return {'scope': 'network namespace cumulative totals; may include other flows; not per-socket attribution',
+            'counters': counters,
+            'missing_fields': [name for name in selected if name not in counters]}
+
+
 def capture_tcp_environment(root, proc_root):
     """Read fixed TCP policy/counters; global values are explicitly separate."""
     result = {'scope': 'read-only observer network namespace policy, host memory and owned network namespace counters',
@@ -33,6 +62,11 @@ def capture_tcp_environment(root, proc_root):
             result['records'][name] = bounded_text(path, 4096).strip()
         except (OSError, ValueError) as error:
             result['errors'].append({'record': name, 'error': type(error).__name__})
+    try:
+        result['records']['namespace_tcp_ext'] = tcp_ext_counters(
+            bounded_text(root / 'net/netstat', 64 * 1024))
+    except (OSError, ValueError) as error:
+        result['errors'].append({'record': 'namespace_tcp_ext', 'error': type(error).__name__})
     try:
         memory = bounded_text(proc_root / 'meminfo', 16384)
         result['records']['host_memory'] = {

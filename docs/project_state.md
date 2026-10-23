@@ -5,7 +5,7 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-The new unverified runtime follow-up removes absent optional reference entries
+Verified runtime `984288cb` removes absent optional reference entries
 from internal Dart wire tables and bounds native agreement's temporary field
 reservation. Public CBOR metadata, scalar defaults, wire/ABI and payload owners
 are preserved. Private Dart baseline/candidate each pass 491 checks, and an
@@ -23,9 +23,47 @@ contracts and 154 mutation proofs. Resulting-source analysis exits 0, all 3,456
 serializer cases and 39 native conformance cases pass; actual-source reader/
 encoder requests match the audited private candidate exactly. All 3,202 source
 and four resolved hashes stay fixed. Qwen questions are resolved by source and
-negative controls; GLM has no confirmed correctness finding. Full verification,
-Linux component/copy proof and unchanged complete timing gates remain required.
+negative controls; GLM has no confirmed correctness finding. The unchanged
+complete timing gates remain required.
 See [temporary table research](research/2026-10-23-flatbuffers-temporary-tables.md).
+
+Frozen full `bin/verify` on `984288cb` passes in 23m08s, including Chrome/Wasm,
+with 3,202 sources/four resolved inputs unchanged and a clean tree. A fresh
+`bin/test-fast` also passes with identical source/resolution. Both Linux components
+pass independent audits. Dart baseline/candidate each pass 491 cases; 160 raw
+rows/32 fresh workers/128 allocation windows preserve wires and aliases.
+RESULT/CALL decode ratios are 0.93782/0.91738, about 456/812 fewer managed bytes.
+Native readers retain every cold/repeated count without request increases;
+24 reader/ten encoder rows have 34 identical wires. These are component results.
+
+Renewed production proof 39882163712 passes all source/content/lifetime audits:
+120 owned cases, 300 short rows/all 32 no-copy observations, 36 groups/108 post-GC.
+All public leases have zero owners before forced GC. Current strict 39882166630
+has 90 valid rows/zero integrity findings but eight numerical costs. Allocation
+and CPU pass all three cases; Dart-value GC, latency/RSS and remaining RSS/p99
+gates fail. Full primary 39882169066 and supplemental 39882172130 continue.
+Its payload shard fails after 20 valid rows at the original ext18 FlatBuffers TLS
+300000-ms deadline. The earlier runtime55 payload shard fails after 139 rows at
+the same case/deadline; all completed rows and failures remain retained.
+
+Profile 39884174360 passes source/window/native-clock/18-snapshot audit. An
+ordinary-no-PPT fragmentation proposal is excluded before observation because
+the failing primary values already use typed PPT. A generated getter annotation
+experiment passes 76 cases per variant and 160 component rows but has mixed
+timing/essentially unchanged allocation; it is also excluded. No production
+follow-up is adopted from either experiment.
+
+Current work targets the recurring TLS receive-window failure. Traced original
+replay 39883379996 and untraced focused 39885378060 preserve all original limits.
+Upstream kernel code supplies a clamp lead, not a proven Ubuntu Azure cause.
+The diagnostic now adds bounded, allowlisted namespace TCP prune/collapse
+counters with explicit failures. All five new groups fail before repair; 86
+focused ownership/capture/smoke/CI contracts pass afterward. Advisory review has
+no confirmed defect; resulting-source full verification/Linux validation remain.
+No SDK, sysctl, allocator, socket-buffer or acceptance-policy change is justified.
+See [TLS follow-up](research/2026-10-23-tls-receive-buffer-follow-up.md).
+
+## Earlier checkpoints (historical)
 
 The preceding runtime candidate `55ae6f4d` derives immutable dictionary-field plans once
 from the pinned schema and shares them between projection and frame agreement.
@@ -60,12 +98,6 @@ full: 50 distinct cases/1,500 rows, all original floors, input/native hashes,
 raw/per-pass equality and exact comparison recomputation, zero integrity findings
 and 244 reported numerical costs. These diagnostic costs remain visible and
 cannot substitute for primary acceptance. Absolute cross-shard costs are not pooled.
-
-Two private allocation leads are under evaluation, with no further runtime edit:
-native agreement reserves a full schema table for few/no projected values; Dart
-wire tables store absent optional fields as null entries. Any sparse Dart map
-must preserve non-null args/kwargs validation independently of payload-key
-presence. Public mutable CBOR metadata and scalar/default checks remain required.
 
 The preceding fully verified runtime `c0aef5fa` removes an extra copy of the fresh validated metadata
 map and uses the checked-in generated enum switch in Dart decoding. It retains

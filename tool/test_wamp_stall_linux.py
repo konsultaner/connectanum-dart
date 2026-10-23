@@ -103,6 +103,88 @@ class LinuxStallTests(unittest.TestCase):
 
 
 class TcpEnvironmentTests(unittest.TestCase):
+    def tcp_snapshot(self, directory, text):
+        proc = Path(directory)
+        path = proc / '42/net/netstat'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+        return linux.capture_tcp_environment(proc / '42', proc)
+
+    def test_tcp_counters_use_owned_namespace_and_retain_only_known_integer_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proc = Path(directory)
+            other = proc / 'net/netstat'
+            other.parent.mkdir()
+            other.write_text('TcpExt: PruneCalled\nTcpExt: 999\n')
+            snapshot = self.tcp_snapshot(directory,
+                'IpExt: Other\nIpExt: 8\n'
+                'TcpExt: PruneCalled RcvPruned TCPRcvCollapsed UnknownFixture\n'
+                'TcpExt: 3 0 18446744073709551615 918273\n')
+            self.assertEqual((proc / '42/net/netstat').read_text().splitlines()[-1],
+                             'TcpExt: 3 0 18446744073709551615 918273')
+        record = snapshot['records']['namespace_tcp_ext']
+        self.assertEqual(record['counters'], {
+            'PruneCalled': 3, 'RcvPruned': 0, 'TCPRcvCollapsed': 18446744073709551615})
+        self.assertTrue(all(type(value) is int for value in record['counters'].values()))
+        self.assertIn('TCPMemoryPressures', record['missing_fields'])
+        self.assertNotIn('RcvPruned', record['missing_fields'])
+        self.assertNotIn('UnknownFixture', repr(record))
+        self.assertIn('namespace', record['scope'])
+        self.assertIn('cumulative', record['scope'])
+
+    def test_missing_tcp_fields_remain_missing_instead_of_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = self.tcp_snapshot(directory, 'TcpExt: PruneCalled\nTcpExt: 0\n')
+        record = snapshot['records']['namespace_tcp_ext']
+        self.assertEqual(record['counters'], {'PruneCalled': 0})
+        self.assertIn('RcvPruned', record['missing_fields'])
+        self.assertNotIn('PruneCalled', record['missing_fields'])
+
+    def test_malformed_tcp_pairs_fail_explicitly_without_partial_or_raw_records(self):
+        for text in (
+            '', 'TcpExt: PruneCalled\n', 'TcpExt:\nTcpExt:\n',
+            'TcpExt: 1\nTcpExt: 1\n',
+            'TcpExt: PruneCalled\nTcpExt: ١\n',
+            'TcpExt: PruneCalled RcvPruned\nTcpExt: 1\n',
+            'TcpExt: PruneCalled PruneCalled\nTcpExt: 1 2\n',
+            'TcpExt: PruneCalled\nTcpExt: 1\nTcpExt: 2\n',
+            'TcpExt: PruneCalled\nTcpExt: -1\n',
+            'TcpExt: PruneCalled\nTcpExt: 1.0\n',
+            'TcpExt: PruneCalled\nTcpExt: not-a-counter\n',
+            'TcpExt: PruneCalled\nTcpExt: 18446744073709551616\n',
+            'TcpExt: PruneCalled UnknownFixture\nTcpExt: 1 malformed\n',
+        ):
+            with self.subTest(text=text), tempfile.TemporaryDirectory() as directory:
+                snapshot = self.tcp_snapshot(directory, text)
+            self.assertNotIn('namespace_tcp_ext', snapshot['records'])
+            self.assertIn({'record': 'namespace_tcp_ext', 'error': 'ValueError'}, snapshot['errors'])
+            self.assertNotIn('not-a-counter', repr(snapshot))
+
+    def test_tcp_counter_record_limit_is_inclusive_and_never_unbounded(self):
+        prefix = 'TcpExt: PruneCalled\nTcpExt: 7\n'
+        for size in (65536, 65537):
+            with self.subTest(size=size), tempfile.TemporaryDirectory() as directory:
+                snapshot = self.tcp_snapshot(directory, prefix + ' ' * (size - len(prefix)))
+            if size == 65536:
+                self.assertEqual(snapshot['records']['namespace_tcp_ext']['counters']['PruneCalled'], 7)
+            else:
+                self.assertNotIn('namespace_tcp_ext', snapshot['records'])
+                self.assertIn({'record': 'namespace_tcp_ext', 'error': 'ValueError'}, snapshot['errors'])
+
+    def test_missing_or_unreadable_tcp_table_is_unavailable_without_namespace_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proc = Path(directory)
+            other = proc / 'net/netstat'
+            other.parent.mkdir()
+            other.write_text('TcpExt: PruneCalled\nTcpExt: 999\n')
+            snapshot = linux.capture_tcp_environment(proc / '42', proc)
+            self.assertNotIn('namespace_tcp_ext', snapshot['records'])
+            self.assertIn({'record': 'namespace_tcp_ext', 'error': 'FileNotFoundError'}, snapshot['errors'])
+            with mock.patch.object(linux, 'bounded_text', side_effect=PermissionError):
+                snapshot = linux.capture_tcp_environment(proc / '42', proc)
+            self.assertNotIn('namespace_tcp_ext', snapshot['records'])
+            self.assertIn({'record': 'namespace_tcp_ext', 'error': 'PermissionError'}, snapshot['errors'])
+
     def test_fixed_read_only_records_and_explicit_missing_fields(self):
         with tempfile.TemporaryDirectory() as directory:
             proc = Path(directory)
