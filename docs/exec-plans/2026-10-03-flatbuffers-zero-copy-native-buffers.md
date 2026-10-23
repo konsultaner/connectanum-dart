@@ -23,7 +23,8 @@ Status: active. Started: 2026-10-03.
   no-copy observations, 36 groups/108 post-GC and public owners zero before GC.
 - [x] Audit strict90: 90 valid rows/zero integrity findings/seven numerical costs.
   Retain RSS, Dart-value GC confidence/throughput and pre-encoded latency failures.
-- [ ] Complete current CI, causal TLS repair and unchanged primary/supplemental
+- [x] Complete current CI 39893888135: all 38 jobs pass.
+- [ ] Complete causal TLS repair and unchanged primary/supplemental
   gates on the final runtime; preserve every started observation and budget.
 
 ## Current acceptance and TLS follow-up (2026-10-23)
@@ -62,6 +63,13 @@ Status: active. Started: 2026-10-03.
   `2be50a0b`: three/90 rows, original ext18 CBOR TLS deadline, three qualified
   captures/six owned socket records, worker rb35,812/peer window35,840. Exclude
   scheduling candidate; never adopt it as a fix. No observation is canceled.
+- [x] Audit actual live BTF-derived inode layout, exact program render and Linux
+  attach/owned cleanup. Pass 34 private contracts and actual two-second UID/env/
+  argv/STOP/EOF smoke; deliberately failed observer cannot cancel sibling dummy.
+- [x] Audit historical runtime55 full primary: 1,440 rows/zero integrity findings,
+  exact comparison and 207 numerical failures. No current acceptance.
+- [ ] Observe original current-runtime focused90 under the private read-only probe;
+  match actual events to owned inode/tuple, preserve failures and every limit.
 - [ ] Establish a causal TLS fix if reproduced; do not infer the Ubuntu kernel's
   behavior from upstream sources alone or change timeouts/socket/allocator policy.
 - [ ] Complete full primary/supplemental acceptance on the final runtime and full CI;

@@ -235,3 +235,44 @@ only its verified process group. Eleven mocked contracts pass. Advice that
 the adjacent-marker regression test. The two-second duration is an observation
 after readiness, not a readiness assumption. These prototypes remain excluded
 from production, workload measurements and performance acceptance.
+
+
+## Live BTF and independent observer lifecycle
+
+The raw running-kernel BTF is now retained (6,841,206 bytes; SHA-256
+`95782433dc426daf8ebeb0acc1b04aed8f87168f67c1266f4d267aba7c22a8bf`).
+Its actual `inode` type is 624 bytes, with unsigned 64-bit `i_ino` at bit 512.
+A bounded reader verifies these types, widths, alignment and encoding before
+rendering a private C prefix from this exact live layout. It does not guess an
+offset or substitute an empty tracer listing as layout proof. Failed package,
+syntax and declaration-order attempts remain retained and excluded.
+
+[Smoke 39901297005](https://github.com/konsultaner/connectanum-dart/actions/runs/39901297005)
+on separate private commit `3727f73a` passes independent BTF/program recomputation,
+actual post-attachment notification, bounded output/no-loss checks and graceful
+SIGINT cleanup. Thirty-four parser/renderer/lifecycle/IPC/supervisor contracts
+pass. Its root observer owns only the tracer; an independent unprivileged
+supervisor launches the two-second dummy with unchanged UID 1001, environment,
+cwd and argv. Actual EOF and STOP both end the tracer cleanly. A deliberately
+failed observer exits 9 while the sibling dummy still completes successfully;
+the wrapper correctly retains the observer failure. No WAMP workload has yet
+run under this observer, and there are zero real prune events in these smokes.
+Archive SHA: `f7a89bd50d88d5d1c1659f99a94d509d5474f76f709b68da79ec5e5946ac9cf5`.
+
+The [versioned timestamp contract](https://github.com/bpftrace/bpftrace/blob/v0.20.2/docs/reference_guide.md#36-nsecs-timestamps-and-time-deltas)
+defaults bare `nsecs` to boot time. The private program explicitly selects
+`nsecs(monotonic)` so event times share Python's monotonic domain. The actual
+Linux compile/attach smoke verifies that spelling. Matching owned inode/tuple,
+entry/exit counts, lost events and source inputs remain required for an actual
+flow interpretation. Advisory findings are checked against source and regressions;
+none establishes a correctness defect in the final private controller.
+
+The preceding runtime55 full primary is independently audited: 1,440 rows across
+48 cases, three warmups/seven measured passes, original sample/duration floors,
+retained policy/locks/scenarios/binaries and exact comparison recomputation.
+It has zero integrity findings and 207 numerical failures. Raw SHA:
+`553cbbc095a0b0850d6da6555341b7ef13227a967d022bbce79ec0554294c412`.
+This is failed historical acceptance, never evidence for current runtime parity.
+The older syscall-traced payload replay reports 360 completed rows, whereas its
+untraced counter successor reports failure after 179; their complete raw audits
+remain pending. Instrumented success alone does not establish a repair.

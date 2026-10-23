@@ -26,7 +26,7 @@ copy/lifetime proof also passes all audits: 120 owned/300 short cases/all 32
 no-copy observations, 36 groups/108 post-GC, public owners zero before forced GC.
 Strict90 has 90 valid rows/zero integrity findings but seven numerical costs:
 all CPU/allocation pass; RSS, Dart-value GC confidence/throughput and pre-encoded
-p95/p99 remain blockers. Current CI 39893888135 is running without known failures.
+p95/p99 remain blockers. Current CI 39893888135 passes all 38 jobs.
 The previous diagnostic CI is superseded; no started benchmark is canceled.
 
 Verified runtime `984288cb` removes absent optional reference entries
@@ -113,6 +113,16 @@ adopted; the failure now also reproduces on CBOR. Runtime `984288cb` full CI
 known failures. Keep the TLS blocker and all completed observations visible.
 No SDK, sysctl, allocator, socket-buffer or acceptance-policy change is justified.
 See [TLS follow-up](research/2026-10-23-tls-receive-buffer-follow-up.md).
+
+The private kernel observer now passes independently audited Linux lifecycle,
+BTF-render, explicit monotonic clock, original UID/environment/argv and STOP/EOF
+proofs. Thirty-four private contracts pass; deliberate observer failure does not
+cancel the two-second sibling dummy. No real workload/prune path is proved yet.
+The current-runtime focused replay 39901646493 is building separately, preserving
+all original 90 rows/floors/deadlines. Current CI 39893888135 passes all 38 jobs.
+The older runtime55 primary is now fully audited: 1,440 rows/zero integrity findings,
+207 numerical costs, exact recomputation. It grants no current acceptance. See the
+[Linux observer evidence](research/2026-10-23-tls-receive-buffer-follow-up.md#live-btf-and-independent-observer-lifecycle).
 
 ## Earlier checkpoints (historical)
 
