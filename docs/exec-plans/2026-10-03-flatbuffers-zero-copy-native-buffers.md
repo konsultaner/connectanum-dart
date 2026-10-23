@@ -2,6 +2,41 @@
 
 Status: active. Started: 2026-10-03.
 
+## CBOR E2EE progressive file-transfer receiver (2026-10-23)
+
+- [x] Reproduce the production copy-proof failure from run `40013307815` on
+  source `dfc18733`: a native FlatBuffers client sending progressive CBOR E2EE
+  file chunks was rejected as `connectanum.error.file.invalid_chunk`. The run
+  stopped after 17/72 cases without a complete `owned_groups` inventory, so it
+  provides no copy-accounting acceptance.
+- [x] Trace the false rejection to the receiver's raw
+  `transparentBinaryPayload` check. `toPayload()` had already decoded the CBOR
+  WAMP arguments and applied PPT decryption, while retaining the transparent
+  view marker. Remove that redundant representation check and validate the
+  decoded one-binary-argument shape, keywords, nonempty progressive chunks,
+  declared size, per-chunk limit, total accepted bytes, buffer limit and final
+  digest as before.
+- [x] Add a live regression for a native FlatBuffers client with a CBOR peer,
+  progressive file transfer and native E2EE. Both XSalsa20-Poly1305 and
+  AES-GCM pass. Assert nonzero known E2EE staging, plaintext staging and
+  ciphertext staging for each cipher; keep the worker-local full E2EE metric
+  labelled partial because outer serializer and transcode copies are measured
+  by the production copy proof.
+- [x] Complete `bin/test-fast`, the focused integration regression and all 91
+  VM file-transfer tests on the current working tree.
+- [x] Complete full `bin/verify` on this working tree. Formatting, native/Rust
+  suites, 2,010 live WAMP benchmark cases, router tests, Chrome/Dart2Wasm and
+  consumer smokes pass at exit 0. The final defensive assertion on the returned
+  E2EE breakdown is covered by the focused live regression.
+- [ ] Commit and push the fix, then repeat exact-head CI, the unchanged strict
+  primary campaign, every supplemental campaign and the production E2EE,
+  transcode and native-crypto copy proof. The strict parity and complete owned
+  path copy gates are unchanged; SDK/TLS/crypto dependency internals remain
+  explicitly unmeasured.
+- [ ] Audit all fresh exact-head reports and resolve any measured failures.
+  Keep PR #132 draft and issues #100, #101 and #103 open until performance
+  parity and complete Connectanum-owned copy acceptance pass.
+
 ## Performance, profiling and E2EE copy accounting (2026-10-23)
 
 - [x] Repair the CPU profiler's worker launch: use the declared package

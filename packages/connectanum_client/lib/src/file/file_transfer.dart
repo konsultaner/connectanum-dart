@@ -619,8 +619,11 @@ class WampFileReceiver {
       digest_factory.releaseNativeFileChunkMessage(invocation.payload.anchor);
     }
 
+    // CBOR may keep a one-binary-argument chunk as a transparent wire view.
+    // `toPayload()` above has already decoded it and applied PPT decryption
+    // when enabled, so validate the resulting WAMP arguments instead of
+    // rejecting that view.
     if (chunk == null ||
-        invocation.payload.transparentBinaryPayload != null ||
         decodedKeywords?.isNotEmpty == true ||
         (invocation.progress && chunk.isEmpty)) {
       releaseChunkStorage();

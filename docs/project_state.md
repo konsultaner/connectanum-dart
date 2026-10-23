@@ -5,19 +5,24 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Latest FlatBuffers acceptance status (2026-10-23): source `a4336fcc` is pushed
-to PR #132. It extends the native E2EE decrypt bridge to accept borrowed
-transparent CBOR ciphertext alongside FlatBuffers. Both ciphers pass through
-the public native session API, and the regression confirms the ciphertext
-slice points into the receive frame. `bin/test-fast` and `bin/verify` pass on
-this code, including 2,009 live WAMP cases, ObjectBox adapter tests,
-Chrome/Dart2Wasm and consumer smokes. Replacement exact-head hosted workflows
-are pending. The predecessor's copy proof failed before collecting evidence due
-to runner HTTP 500
-(`owned_groups: []`); this is not copy-accounting acceptance. Milestone issues
-#100, #101 and #103 remain open, PR #132 remains draft, and no performance-parity
-claim is made. SDK/TLS/crypto dependency internals remain explicitly unmeasured
-under the approved standard-SDK scope.
+Latest FlatBuffers acceptance status (2026-10-23): PR #132 is still draft and
+milestone issues #100, #101 and #103 remain open. The working tree fixes a
+cross-serializer E2EE progressive file-transfer rejection: the CBOR decoder
+retains a transparent-binary marker after `toPayload()` has decoded the
+arguments, and the file receiver incorrectly rejected that marker before
+checking the decoded one-binary-argument shape. The receiver now validates the
+decoded arguments and retains its keyword, empty-chunk, declared-size,
+per-chunk, buffer-limit and digest checks. A live native FlatBuffers client to
+CBOR peer regression passes with XSalsa20-Poly1305 and AES-GCM; it also asserts
+that known native E2EE plaintext/ciphertext staging copies are counted. The
+focused VM file-transfer suite passes (91 tests), and `bin/test-fast` passes on
+this working tree. Full `bin/verify` also passes, including native/Rust tests,
+2,010 live WAMP benchmark cases, router suites, Chrome/Dart2Wasm and consumer
+smokes. Exact-source hosted campaigns are pending. The previous copy-proof run
+on `dfc18733` failed at this file-transfer case and recorded no owned groups,
+so it is not acceptance evidence. No performance-parity or complete-copy claim
+is made. SDK/TLS/crypto dependency internals remain explicitly unmeasured under
+the approved standard-SDK scope.
 
 Current performance and copy-accounting follow-up is in the working tree on
 `codex/flatbuffers-performance-parity`. It makes control-message fragment
