@@ -5,6 +5,26 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Current performance investigation: CI 39893888135 passes all 38 jobs; runtime
+remains `629001a6`. Kernel replay 39901646493 fails after 19 valid rows at the
+original ext18 FlatBuffers deadline. Independent audit verifies 3,215 sources,
+four resolved inputs, current production binaries and three qualified owned
+captures; client rb is 2,072 bytes. Its read-only trace is explicitly incomplete
+at the 1 MiB log bound (8962 retained records/missing END). No complete kernel
+path is accepted. Private retry 39903748528 changes only the bounded diagnostic
+cap to 64 MiB; 35 lifecycle/parser/controller contracts and the old-cap negative
+control pass. Original benchmark limits remain unchanged.
+
+Canonical small-control profile 39902735265 passes source/request/window/native
+clock/18-snapshot/cleanup audits on separate private commit `9a522ab0`. It profiles
+publish/ack, native values, clear RawSocket, 128 bytes and untyped arguments.
+Its small sample counts do not prove a dominant codec hotspot; common send/FFI
+work dominates. Native table cache already has four inline slots. The concrete
+remaining allocation lead is native reader storage of absent optional null fields.
+An equivalent sparse-field variant is being evaluated privately, with exact
+scalar defaults, Map-null/CBOR semantics and all structural limits preserved.
+No runtime candidate is adopted from these diagnostics yet.
+
 Current follow-up packs common validator `(offset, schema)` memo keys into exact
 integers, with original-record fallback outside the packed domain. Validation,
 wire/ABI and owners are unchanged. Private baseline/candidate each pass 501

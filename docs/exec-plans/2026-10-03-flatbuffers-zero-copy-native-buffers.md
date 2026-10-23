@@ -2,6 +2,26 @@
 
 Status: active. Started: 2026-10-03.
 
+## Native sparse reader and complete kernel observation (2026-10-23)
+
+- [x] Audit current-runtime focused19 failure: original ext18 FB deadline, 3,215
+  source/four resolved/current binaries, three qualified captures with rb2072.
+  Reject incomplete 1MiB kernel trace; preserve all retained records and failure.
+- [x] Reproduce old metadata cap loss; pass35 private contracts with bounded64MiB
+  cap. Dispatch unchanged focused retry39903748528; no observation canceled.
+- [x] Audit canonical ext00 publish/ack128 untyped CPU profile39902735265:
+  exact requests/source/windows/native clock/18 memory snapshots/cleanup.
+  Retain small sample and instrumentation limits; existing cache alreadyinline4.
+- [ ] Complete fresh baseline bin/test-fast with frozen source/resolution.
+- [ ] Privately omit absent native reference fields and reserve exact present/
+  scalar-default capacity after full vtable bounds. Preserve all wire validation.
+- [ ] Test baseline/candidate/incomplete controls, especially missing metadata
+  kinds and Map.value default null versus CBOR Unit; preserve alias/schema budgets.
+- [ ] Verify separate actual-core markers, all cold/repeated allocator inputs and
+  byte-identical wires with no request regression; review before adoption.
+- [ ] Complete retry kernel event/count/owned tuple/clock audit before a causal
+  transport repair; then renew unchanged complete acceptance on final runtime.
+
 ## Validator memo keys (2026-10-23)
 
 - [x] Verify baseline code/resolution equality with fully verified `f2dbdfa4`.

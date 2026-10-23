@@ -276,3 +276,41 @@ This is failed historical acceptance, never evidence for current runtime parity.
 The older syscall-traced payload replay reports 360 completed rows, whereas its
 untraced counter successor reports failure after 179; their complete raw audits
 remain pending. Instrumented success alone does not establish a repair.
+
+
+## First current-runtime probe replay
+
+[Run39901646493](https://github.com/konsultaner/connectanum-dart/actions/runs/39901646493)
+fails after 19 valid rows on ext18 FlatBuffers under the original deadline.
+Independent benchmark audit verifies all3,215 sources/four resolved contents,
+current production binaries, schedule/floors and cleanup. Three qualified
+captures retain six owned socket records; worker receive buffer stays2,072bytes.
+The probe itself shuts down gracefully with zero reported lost-event errors but
+hits its1MiB retained-output cap, leaving8962 records and no END/counter summary.
+`truncated=true`, `passed=false` are preserved; no complete event/count/cause
+proof is accepted. Archive SHA:
+`4287e0538e54f1872c6ef96f6e8960280ffb4ec9c0174e669ed58b47cb906cb5`.
+The private retry raises only the bounded per-stream metadata cap to64MiB and
+records that bound; the old cap fails the new retention regression, and all35
+private contracts pass. No workload, runtime, timeout or acceptance rule changes.
+
+The completed older replays are now independently audited. Traced9842 retains
+360 valid rows,45 qualified captures/90 owned socket records and worker rb131072
+throughout, with the full586,660,815-byte syscall trace hash/count verified.
+Untraced counter-f2 retains179 valid rows then the original ext18 FlatBuffers
+failure, three qualified captures/six owned records and worker rb2072. Success
+under syscall instrumentation remains perturbed and grants no fix/acceptance.
+Older9842 supplemental protocol900/encrypted240 rows also pass input/raw/exact
+comparison audits with151/46 numerical failures; its payload20-row failure stays
+retained. No absolute metrics are pooled across shards/runners.
+
+[Canonical control profile39902735265](https://github.com/konsultaner/connectanum-dart/actions/runs/39902735265)
+on separate private9a522ab0 passes complete source/request/window/native-clock,
+18-memory-snapshot and cleanup audits. It keeps ext00's actual publish/ack,
+native values, clear RawSocket,128bytes and untyped payload settings. FlatBuffers
+has43 client/364 router VM samples; codec-specific native samples are sparse.
+Common send/FFI/scheduling work dominates, and the native table cache already
+has four inline slots. Heap counter intervals include instrumentation and
+non-data time; do not pool isolate views or claim per-operation allocation from
+these snapshots. A native sparse optional-field storage candidate is still
+private and requires semantic/allocator/wire controls before adoption.
