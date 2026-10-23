@@ -17,7 +17,7 @@ kfunc:tcp_prune_queue {
     $inode = $sk->sk_socket->file->f_inode->i_ino;
     if (@before[tid, $inode].0 != 0) { @duplicates = count(); }
     @entries = count();
-    @before[tid, $inode] = (nsecs, $sk->sk_rcvbuf,
+    @before[tid, $inode] = (nsecs(monotonic), $sk->sk_rcvbuf,
       $sk->sk_backlog.rmem_alloc.counter, $sk->sk_userlocks,
       args.in_skb->len, args.in_skb->truesize);
   }
@@ -33,7 +33,7 @@ kretfunc:tcp_prune_queue {
     $before = @before[tid, $inode];
     @exits = count();
     printf("TCP_PRUNE %llu %llu %llu %llu %u %u %u %u %lld %lld %lld %lld %u %u %u %lld\n",
-      $before.0, nsecs, $inode, $sk->__sk_common.skc_net.net->ns.inum,
+      $before.0, nsecs(monotonic), $inode, $sk->__sk_common.skc_net.net->ns.inum,
       $sk->__sk_common.skc_rcv_saddr, $sk->__sk_common.skc_daddr,
       $sk->__sk_common.skc_num, $sk->__sk_common.skc_dport,
       $before.1, $sk->sk_rcvbuf, $before.2, $sk->sk_backlog.rmem_alloc.counter,
