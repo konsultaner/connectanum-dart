@@ -819,7 +819,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends bpftrace
           bpftrace --version | tee out/kernel-probe-smoke/bpftrace-version.txt
-          sha256sum tool/tcp-prune-smoke.bt | tee out/kernel-probe-smoke/program-sha256.txt
+          sha256sum tool/tcp-prune-smoke.bt | tee out/kernel-probe-smoke/template-sha256.txt
       - name: Inspect live BTF type layouts
         shell: bash
         run: |
@@ -832,6 +832,16 @@ jobs:
           sudo bpftrace -lv 'struct file' > out/kernel-probe-smoke/file.txt 2> out/kernel-probe-smoke/file.stderr.txt
           sudo bpftrace -lv 'struct socket' > out/kernel-probe-smoke/socket.txt 2> out/kernel-probe-smoke/socket.stderr.txt
           sudo bpftrace -lv 'struct socket_alloc' > out/kernel-probe-smoke/socket-alloc.txt 2> out/kernel-probe-smoke/socket-alloc.stderr.txt
+      - name: Verify bounded private readers and render actual live field layout
+        if: inputs.campaign == 'flatbuffers_kernel_probe_smoke'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tool/test_inspect_btf_types.py -v
+          python3 tool/test_render_tcp_prune_program.py -v
+          python3 tool/test_tcp_probe_lifecycle_smoke.py -v
+          python3 tool/inspect-btf-types.py out/kernel-probe-smoke/vmlinux.btf --output out/kernel-probe-smoke/live-types.json
+          python3 tool/render-tcp-prune-program.py --btf out/kernel-probe-smoke/vmlinux.btf --template tool/tcp-prune-smoke.bt --output out/kernel-probe-smoke/rendered.bt
       - name: Inspect typed function and attach read-only smoke
         if: inputs.campaign == 'flatbuffers_kernel_probe_smoke'
         shell: bash
@@ -840,7 +850,7 @@ jobs:
           set -euo pipefail
           sudo bpftrace -lv 'kfunc:tcp_prune_queue' > out/kernel-probe-smoke/probes.txt 2> out/kernel-probe-smoke/probes.stderr.txt
           set +e
-          sudo bpftrace -q -c '/bin/sleep 2' tool/tcp-prune-smoke.bt > out/kernel-probe-smoke/trace.txt 2> out/kernel-probe-smoke/trace.stderr.txt
+          sudo bpftrace -q -c '/bin/sleep 2' out/kernel-probe-smoke/rendered.bt > out/kernel-probe-smoke/trace.txt 2> out/kernel-probe-smoke/trace.stderr.txt
           kernel_probe_status=$?
           set -e
           KERNEL_PROBE_STATUS=$kernel_probe_status python3 - <<'PYCODE'
@@ -856,6 +866,13 @@ jobs:
           print(json.dumps(result))
           raise SystemExit(0 if code == 0 and ready else 1)
           PYCODE
+      - name: Prove actual readiness and owned tracer cleanup
+        if: inputs.campaign == 'flatbuffers_kernel_probe_smoke'
+        shell: bash
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          sudo /usr/bin/python3 tool/tcp-probe-lifecycle-smoke.py --program out/kernel-probe-smoke/rendered.bt --output out/kernel-probe-smoke/lifecycle > out/kernel-probe-smoke/lifecycle-driver.log 2> out/kernel-probe-smoke/lifecycle-driver.stderr.txt
       - name: Retain all smoke evidence
         if: always()
         uses: actions/upload-artifact@v7
