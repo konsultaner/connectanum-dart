@@ -1,5 +1,5 @@
 // Private, read-only, x86-64 Linux BTF availability smoke. No acceptance claim.
-config = { max_map_keys = 128; }
+config = { max_map_keys = 128 }
 
 BEGIN {
   @entries = count();
