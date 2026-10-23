@@ -675,7 +675,7 @@ void _flatbuffersOpaqueContracts(String? path, bool legacy) {
   for (final invalid in ['missing bytes', 'missing flag', 'wrong serializer']) {
     test('opaque native metadata rejects $invalid before lazy delivery', () {
       final serializer = invalid == 'wrong serializer'
-          ? NativeMessageSerializer.cbor
+          ? NativeMessageSerializer.json
           : NativeMessageSerializer.flatbuffers;
       final bytes = invalid == 'missing bytes' ? null : Uint8List(0);
       final flags =
@@ -714,6 +714,86 @@ void _flatbuffersOpaqueContracts(String? path, bool legacy) {
       );
     });
   }
+  test(
+    'CBOR transparent payload metadata is accepted by client and router',
+    () {
+      final bytes = Uint8List.fromList([0, 255, 1, 2]);
+      final flags =
+          NativeMessageMetadata.flagMetadataBind |
+          NativeMessageMetadata.flagTransparentPayload;
+      final clientMessage =
+          bindSessionMessage(
+                client_protocol.NativeMessageSerializer.cbor,
+                Uint8List(0),
+                metadata: NativeMessageMetadata(
+                  messageCode: 50,
+                  primaryId: 1,
+                  secondaryId: 0,
+                  detailNumberA: 0,
+                  detailNumberB: 0,
+                  flags: flags,
+                  transparentPayloadBytes: bytes,
+                ),
+              )
+              as AbstractMessageWithPayload;
+      final routerMessage =
+          router_binding.bindMessageFromMetadata(
+                NativeMessageSerializer.cbor,
+                messageCode: 48,
+                primaryId: 1,
+                secondaryId: 0,
+                detailNumberA: 0,
+                flags: flags,
+                stringA: 'com.proc',
+                transparentPayloadBytes: bytes,
+              )
+              as AbstractMessageWithPayload;
+      expect(clientMessage.transparentBinaryPayload, same(bytes));
+      expect(routerMessage.transparentBinaryPayload, same(bytes));
+    },
+  );
+  test(
+    'CBOR transparent payload metadata rejects mismatched flags before lazy delivery',
+    () {
+      for (final mismatch in ['missing bytes', 'missing flag']) {
+        final flags =
+            NativeMessageMetadata.flagMetadataBind |
+            (mismatch == 'missing flag'
+                ? 0
+                : NativeMessageMetadata.flagTransparentPayload);
+        final bytes = mismatch == 'missing bytes' ? null : Uint8List(0);
+        expect(
+          () => bindSessionMessage(
+            client_protocol.NativeMessageSerializer.cbor,
+            Uint8List(0),
+            metadata: NativeMessageMetadata(
+              messageCode: 50,
+              primaryId: 1,
+              secondaryId: 0,
+              detailNumberA: 0,
+              detailNumberB: 0,
+              flags: flags,
+              transparentPayloadBytes: bytes,
+            ),
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          () => router_binding.bindMessageFromMetadata(
+            NativeMessageSerializer.cbor,
+            messageCode: 48,
+            primaryId: 1,
+            secondaryId: 0,
+            detailNumberA: 0,
+            flags: flags,
+            stringA: 'com.proc',
+            transparentPayloadBytes: bytes,
+          ),
+          throwsArgumentError,
+        );
+      }
+    },
+  );
   final codec = flat.Serializer();
   final wireCases = <List<Object?>>[
     [16, 1, <String, Object?>{}, 'com.topic'],

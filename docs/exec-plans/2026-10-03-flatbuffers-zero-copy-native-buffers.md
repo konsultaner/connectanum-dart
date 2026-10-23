@@ -46,6 +46,10 @@ Status: active. Started: 2026-10-03.
   Indefinite strings count only the chunks that must be coalesced. Focused Rust
   parser tests, native-message metadata tests and `bin/test-fast` pass, including
   all 2,009 live WAMP integration cases. Full `bin/verify` remains pending.
+- [x] Extend the client and router native metadata binders to accept the same
+  borrowed transparent payload view for CBOR. Add positive subview/lifetime and
+  negative flag/bytes, unsupported-serializer and non-payload tests. The focused
+  client/router suites pass; final full `bin/verify` remains pending.
 - [ ] Audit exact-source CI `39992992607`, strict primary `39992996231`,
   supplemental campaigns `39992999450` and production copy proof
   `39993003404`, including their input/binary hashes. These runs belong to

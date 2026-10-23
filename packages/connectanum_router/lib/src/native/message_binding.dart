@@ -394,7 +394,8 @@ AbstractMessage? bindMessageFromMetadata(
     final present = (flags & _transparentPayloadFlag) != 0;
     if (present != (transparentPayloadBytes != null) ||
         (present &&
-            (serializer != NativeMessageSerializer.flatbuffers ||
+            ((serializer != NativeMessageSerializer.flatbuffers &&
+                    serializer != NativeMessageSerializer.cbor) ||
                 message is! AbstractMessageWithPayload))) {
       throw ArgumentError('Invalid native transparent payload metadata');
     }

@@ -20,7 +20,9 @@ Fresh `bin/test-fast` and full `bin/verify` passed on source `7621f701`, includi
 the full native, 2,009-case WAMP, Chrome/Dart2Wasm and consumer smoke suites.
 The current worktree adds a CBOR transparent-binary parser compatibility repair;
 its focused Rust tests and `bin/test-fast` pass, including all 2,009 live WAMP
-integration cases. Current-tree full `bin/verify` remains pending.
+integration cases. The client and router metadata binders also now accept the
+borrowed CBOR payload view and have focused acceptance, lifetime and rejection
+tests. Current-tree full `bin/verify` remains pending.
 The unchanged strict run on the previous source
 [`39953423478`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953423478)
 completed all 1,440 rows and failed 139 numerical performance gates, with no
@@ -34,15 +36,15 @@ previous-source production copy proof
 [`39953447152`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953447152)
 passed 120 owned E2EE/transcode/native-crypto rows under
 `connectanum_buffer_boundaries_v1`; SDK/TLS/crypto dependency internals remain
-explicitly unmeasured. Commit `7621f701` is now pushed to PR #132. Its exact-
-source CI [`39992992607`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992992607),
-production E2EE/transcode copy proof
-[`39993003404`](https://github.com/konsultaner/connectanum-dart/actions/runs/39993003404),
-strict primary [`39992996231`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992996231),
-and full supplemental campaigns
-[`39992999450`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992999450)
-are queued or running. No performance gate is waived and milestone acceptance
-is not complete.
+explicitly unmeasured. Commit `7621f701` is pushed to PR #132. Its exact-source
+CI [`39992992607`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992992607)
+has passed; the production E2EE/transcode copy proof
+[`39993003404`](https://github.com/konsultaner/connectanum-dart/actions/runs/39993003404)
+failed on the CBOR parser, while strict primary
+[`39992996231`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992996231)
+and supplemental [`39992999450`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992999450)
+remain in progress. These runs do not accept the current worktree. No performance
+gate is waived and milestone acceptance is not complete.
 
 The `7621f701` production copy run failed when a live FlatBuffers client sent an
 opaque E2EE payload through a CBOR WAMP peer: the Rust CBOR parser expected an
