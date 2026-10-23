@@ -123,6 +123,9 @@ class LifecycleTests(unittest.TestCase):
     def test_ordered_complete_trace_and_owned_cleanup_can_pass(self):
         self.assertEqual(self.smoke(b'TCP_PRUNE_BEGIN\nTCP_PRUNE_END\n'), 0)
 
+    def test_stdout_lost_events_cannot_pass_a_complete_trace(self):
+        self.assertEqual(self.smoke(b'TCP_PRUNE_BEGIN\nLost 2 events\nTCP_PRUNE_END\n'), 1)
+
     def test_reversed_or_duplicate_markers_are_not_a_complete_trace(self):
         for text in [b'TCP_PRUNE_END\nTCP_PRUNE_BEGIN\n', b'TCP_PRUNE_BEGIN\nTCP_PRUNE_BEGIN\nTCP_PRUNE_END\n']:
             self.assertEqual(self.smoke(text), 1)

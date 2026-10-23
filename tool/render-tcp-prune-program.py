@@ -39,7 +39,7 @@ def render(data, template):
                    '  unsigned long long observed_ino;\n'
                    '};\n')
     source = template.replace(expression, '((struct ct_probe_inode *)$sk->sk_socket->file->f_inode)->observed_ino')
-    source = source.replace('config = { max_map_keys = 128 }\n', 'config = { max_map_keys = 128 }\n\n' + declaration, 1)
+    source = declaration + '\n' + source
     source = '// Complete running-kernel BTF SHA256: ' + result['sha256'] + '\n' + source
     evidence = {'btf_sha256': result['sha256'], 'btf_bytes': result['bytes'],
                 'inode_type_id': inode['id'], 'inode_size': inode['size_or_type'],

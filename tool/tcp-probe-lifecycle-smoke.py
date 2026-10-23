@@ -41,7 +41,7 @@ def read_output(pipe, path, ready, state, lock, is_stderr):
                     with lock:
                         state['ready_at_monotonic_ns'] = time.monotonic_ns()
                     ready.set()
-                if is_stderr and any(word in line.lower() for word in [b'lost ', b'error:', b'warning:']):
+                if any(word in line.lower() for word in [b'lost ', b'error:', b'warning:']):
                     record_error(state, lock, line.decode(errors='replace').strip())
     except Exception as failure:
         record_error(state, lock, type(failure).__name__ + ': ' + str(failure)[:256])

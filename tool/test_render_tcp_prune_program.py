@@ -39,5 +39,9 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             renderer.render(self.fixture.blob(), self.template.replace('->i_ino', '->other'))
 
+    def test_c_declaration_precedes_bpftrace_config_and_probes(self):
+        source, _ = renderer.render(self.fixture.blob(), self.template)
+        self.assertLess(source.index('struct ct_probe_inode'), source.index('config ='))
+
 if __name__ == '__main__':
     unittest.main()
