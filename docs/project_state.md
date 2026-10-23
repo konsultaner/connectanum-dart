@@ -59,7 +59,26 @@ Upstream kernel code supplies a clamp lead, not a proven Ubuntu Azure cause.
 The diagnostic now adds bounded, allowlisted namespace TCP prune/collapse
 counters with explicit failures. All five new groups fail before repair; 86
 focused ownership/capture/smoke/CI contracts pass afterward. Advisory review has
-no confirmed defect; resulting-source full verification/Linux validation remain.
+no confirmed defect. Frozen full `bin/verify` on diagnostic head `f2dbdfa4` passes
+in 22m36s, including Chrome/Wasm, with 3,203 sources/four resolved inputs fixed
+and a clean tree. Its complete CI 39888953092 is running; preceding runtime55 CI
+39874541986 passes all 38 jobs.
+
+Both untraced focused replays reproduce the original ext18 deadline. Run
+39885378060 has 72 valid rows/three qualified owned socket pairs, client buffer
+1,138 bytes, peer window 2,048 and about 9.85 KB/s continuing transfer. The
+counter-enabled run 39886982363 has four valid rows/three qualified pairs,
+client buffer 30,603, peer window 30,720 and 99.9–100% sender window limitation.
+Its namespace totals retain seven prune calls/four receive prunes/24 collapses
+and zero TCP memory-pressure events; these totals are not per-socket attribution.
+Matching-version Ubuntu Azure source confirms the queued-memory clamp assignment
+and uses incoming `skb->len` in ingestion checks, differing from upstream's
+`truesize` check. Source does not prove the executed kernel path.
+
+Next evaluate bounded, borrowed batches for large unmasked WebSocket writes in
+private copies. Keep small/control paths, complete wire bytes and payload owners;
+test partial/error/flush/yield/cancellation behavior and discard failed streams.
+Do not adopt a scheduling change without native conformance and Linux replay evidence.
 No SDK, sysctl, allocator, socket-buffer or acceptance-policy change is justified.
 See [TLS follow-up](research/2026-10-23-tls-receive-buffer-follow-up.md).
 

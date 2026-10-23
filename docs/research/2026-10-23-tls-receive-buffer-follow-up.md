@@ -109,3 +109,64 @@ limit, and missing/permission failures. Advisory review has no confirmed defect;
 ASCII guards and intentional safe failure behavior are checked directly rather
 than relying on model statements. Full resulting-source verification and real
 Linux validation remain required.
+
+## Resulting-source verification and positive replays
+
+Frozen `bin/verify` on diagnostic head `f2dbdfa4` passes in 1,356.37 seconds,
+including Chrome/Dart2Wasm, with 3,203 source/four resolved hashes fixed and a
+clean tree. Log SHA-256:
+`684ffdab9c61c2f10a93c7d35e5b4923ca561b2d823a64c44a606b466606b753`.
+Full CI 39888953092 is running; preceding runtime55 CI passes all 38 jobs.
+
+[Untraced focused run 39885378060](https://github.com/konsultaner/connectanum-dart/actions/runs/39885378060)
+fails at 72/90 rows on ext18 FlatBuffers, preserving original processes/order/
+floors/deadline and cleanup. Independent audit verifies all 3,202 sources/four
+resolved contents and matching production binaries. All three snapshots qualify;
+six socket records match owned inodes/tuples. The client receive buffer stays at
+1,138 bytes and peer send window at 2,048. Received bytes grow by approximately
+9,873/9,850 bytes per second across consecutive captures. Memory PSI is zero
+and about 13 GB is available during capture; this does not rule out an earlier
+transient event. The warning about a stopped worker follows driver teardown.
+
+[Counter-enabled run 39886982363](https://github.com/konsultaner/connectanum-dart/actions/runs/39886982363)
+fails at four/90 rows on the same ext18 workload. All 3,203 sources/four resolved
+contents, production binaries, original limits and cleanup pass independent
+audit. Three snapshots qualify, with six owned socket records and no partial or
+changing-progress captures. Receive buffer is 30,603 bytes, peer window 30,720;
+the sender is 99.9–100% receive-window limited while bytes continue to advance.
+All 15 allowlisted counters are present as uint64 values. Namespace totals show
+PruneCalled=7, RcvPruned=4, TCPRcvCollapsed=24 and zero memory-pressure events;
+the prune/collapse totals stay constant during these late captures. They cannot
+identify the socket responsible or establish when its buffer changed.
+
+## Matching distribution source
+
+The captured kernel identifies itself as `6.17.0-1022-azure`, build `#22-Ubuntu`
+from 2026-07-27. The official `linux-azure-6.17` source version is
+`6.17.0-1022.22`; its published tag
+`Ubuntu-azure-6.17-6.17.0-1022.22` peels to
+`b0db0e77d0d6d28cda0d262a66e079dc0a90143f` in the Vcs-Git named by the
+[source descriptor](https://security.ubuntu.com/ubuntu/pool/main/l/linux-azure-6.17/linux-azure-6.17_6.17.0-1022.22.dsc).
+The official archive/diff match the descriptor's SHA-256 values:
+
+- Original archive: `a5623ec5af79da8807e1467e43a1888461c7a445fb1e17533fe45f0fdf4394e3`.
+- Distribution diff: `cb0154101fc7e337228a00c1caae7760b88afcb033f75c01756b3669dd376c54`.
+- Selected patched TCP input file: `d6f37f7335f624283cd4c66c88851ca430fd14cbfe97afbb90535808a0b54550`.
+
+Only the normalized TCP input file's 1,558-byte patch is applied, with exit zero
+and no fuzz. Earlier multi-file-selection and function-extraction helper failures
+remain rejected; all tracked repository files still match verification afterward.
+The matching distribution uses queued allocation plus incoming `skb->len` for
+`tcp_can_ingest`, rather than upstream's incoming `truesize`. Its clamp can still
+assign the receive buffer from queued allocation alone. This makes the upstream
+lead more specific, but neither descriptor PGP signatures nor running kernel
+machine code are independently verified, and source inspection does not identify
+the code path executed by this connection.
+
+The next private experiment bounds large unmasked WebSocket write batches while
+borrowing original payload slices. It must retain exact WS bytes/opcode/FIN and
+existing small/control paths. Flush/yield cadence is a candidate scheduling
+change, not a proven kernel fix. Partial-frame errors/cancellation must discard
+the connection and release owners; reusing a partial stream is not an acceptable
+test expectation. Native conformance and actual Linux replay evidence are required
+before adoption, followed by all unchanged primary/supplemental gates.

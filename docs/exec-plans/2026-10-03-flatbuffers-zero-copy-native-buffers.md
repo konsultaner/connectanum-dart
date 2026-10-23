@@ -21,7 +21,17 @@ Status: active. Started: 2026-10-03.
   reproduce missing/malformed/oversized/permission failures before implementation.
 - [x] Pass 30 owned Linux/service/TCP, 28 capture, eight smoke and 20 CI execution
   contracts; resolve advisory review against explicit ASCII/uint64/failure tests.
-- [ ] Pass resulting-source tests/review/full verification and real Linux diagnostics.
+- [x] Pass resulting-source full verification on `f2dbdfa4` in 22m36s, including
+  Chrome/Wasm, with 3,203 source/four resolved hashes fixed and a clean tree.
+- [x] Audit both untraced focused failures: 72/four valid rows, three qualified
+  owned socket pairs each, original limits/cleanup; counter-enabled captures keep
+  all 15 known counters and explicit namespace scope with no missing fields.
+- [x] Inspect matching-version Ubuntu Azure source with checksum-matched package
+  inputs and one-file patch selection; reject earlier helper failures. Preserve
+  the distinction between source logic and an observed executed kernel path.
+- [ ] Evaluate bounded large unmasked WS writes privately: full wire identity,
+  borrowed ranges, small paths, partial/error/Pending/flush/yield/cancellation and
+  connection-discard/owner-release tests; require actual Linux replay evidence.
 - [ ] Establish a causal TLS fix if reproduced; do not infer the Ubuntu kernel's
   behavior from upstream sources alone or change timeouts/socket/allocator policy.
 - [ ] Complete full primary/supplemental acceptance on the final runtime and full CI;
