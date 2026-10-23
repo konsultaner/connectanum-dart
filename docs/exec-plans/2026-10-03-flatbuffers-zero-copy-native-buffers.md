@@ -59,9 +59,10 @@ Status: active. Started: 2026-10-03.
 - [x] Complete `bin/test-fast` and full `bin/verify` on the corrected E2EE
   bridge. Both pass, including all 2,009 live WAMP cases, native FFI tests,
   Chrome/Dart2Wasm, ObjectBox and consumer-package smoke checks.
-- [ ] Commit/push the corrected source, then rerun exact-head CI, unchanged
-  strict primary, every supplemental campaign and the production E2EE/transcode
-  copy proof. Keep all timing and copy gates unchanged.
+- [x] Commit and push the corrected, fully verified source as `a4336fcc`.
+- [ ] Rerun exact-head CI, unchanged strict primary, every supplemental
+  campaign and the production E2EE/transcode copy proof. Keep all timing and
+  copy gates unchanged.
 - [ ] Audit source `236d25e5` campaigns: CI `40006741037`, strict primary
   `40006740922`, supplemental shards `40006740888` and production copy proof
   `40006741342`. The encrypted-progressive shard hit the native CBOR E2EE
