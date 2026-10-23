@@ -47,7 +47,7 @@ pub(super) fn agree(
                     Some(Value::Text(value)) => Some(Cbor::String(
                         super::codec_copy_metrics::copy_codec_string(value),
                     )),
-                    Some(Value::Null) => Some(Cbor::Unit),
+                    None | Some(Value::Null) => Some(Cbor::Unit),
                     _ => None,
                 };
                 if value.as_ref().is_none_or(|value| {

@@ -5,25 +5,39 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Current performance investigation: CI 39893888135 passes all 38 jobs; runtime
-remains `629001a6`. Kernel replay 39901646493 fails after 19 valid rows at the
-original ext18 FlatBuffers deadline. Independent audit verifies 3,215 sources,
-four resolved inputs, current production binaries and three qualified owned
-captures; client rb is 2,072 bytes. Its read-only trace is explicitly incomplete
-at the 1 MiB log bound (8962 retained records/missing END). No complete kernel
-path is accepted. Private retry 39903748528 changes only the bounded diagnostic
-cap to 64 MiB; 35 lifecycle/parser/controller contracts and the old-cap negative
-control pass. Original benchmark limits remain unchanged.
+Current performance follow-up: the native reader now omits absent optional
+reference entries and reserves scalar/present-field storage for larger tables.
+All structural validation, scalar defaults, CBOR Map-null agreement, required
+metadata and known authentication methods remain preserved. Separate private
+baseline/candidate builds each pass 399 unit/three integration cases; incomplete
+Map-null and metadata controls fail the intended semantic tests. Independently
+audited 76 allocator inputs/836 cold and repeated observations retain 56 exact
+wires with no request increase. Common 1-KiB reads save 224–616 requested bytes.
 
-Canonical small-control profile 39902735265 passes source/request/window/native
-clock/18-snapshot/cleanup audits on separate private commit `9a522ab0`. It profiles
-publish/ack, native values, clear RawSocket, 128 bytes and untyped arguments.
-Its small sample counts do not prove a dominant codec hotspot; common send/FFI
-work dominates. Native table cache already has four inline slots. The concrete
-remaining allocation lead is native reader storage of absent optional null fields.
-An equivalent sparse-field variant is being evaluated privately, with exact
-scalar defaults, Map-null/CBOR semantics and all structural limits preserved.
-No runtime candidate is adopted from these diagnostics yet.
+The selected short-table variant has 160 balanced component observations across
+ten inputs. Nine paired CPU medians improve; challenge retains a 0.04% cost.
+These are component measurements, not parity acceptance. A further early-skip
+variant is excluded with all its observations retained. Actual-source native
+format/tests and 34 allocator/wire comparisons pass with 3,205 source/four
+resolved hashes fixed. Final full verification, CI, copy/lifetime proof and the
+unchanged complete performance campaigns are pending for this runtime.
+See [native sparse-reader evidence](research/2026-10-23-flatbuffers-native-sparse-reader.md).
+
+The preceding runtime `629001a6` passes all 38 CI jobs but retains seven strict90
+numerical failures. Completed old primary `984288cb` is independently audited:
+1,440 rows, zero integrity findings and 143 numerical costs. Its supplemental
+protocol/encrypted shards have 900/240 valid rows and 151/46 numerical costs;
+its payload shard retains the original TLS failure. No cross-run totals grant
+current-runtime acceptance and no started observation has been canceled.
+
+Complete read-only kernel replay 39903748528 retains 90 valid workload rows and
+44,784 paired prune events without truncation or loss. Every event is labelled
+unowned because that successful run produced no stall-triggered FD witness.
+It establishes no kernel cause or transport fix. Separate two-second Linux smoke
+39910831712 now independently matches the connect hook to the actual unprivileged
+FD inode/PID/tuple/network namespace and verifies graceful cleanup. Applying that
+ownership witness to the original workload remains pending; no socket-buffer,
+SDK, sysctl, allocator-policy or acceptance-budget change is justified.
 
 Current follow-up packs common validator `(offset, schema)` memo keys into exact
 integers, with original-record fallback outside the packed domain. Validation,

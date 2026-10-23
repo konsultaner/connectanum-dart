@@ -12,15 +12,31 @@ Status: active. Started: 2026-10-03.
 - [x] Audit canonical ext00 publish/ack128 untyped CPU profile39902735265:
   exact requests/source/windows/native clock/18 memory snapshots/cleanup.
   Retain small sample and instrumentation limits; existing cache alreadyinline4.
-- [ ] Complete fresh baseline bin/test-fast with frozen source/resolution.
-- [ ] Privately omit absent native reference fields and reserve exact present/
-  scalar-default capacity after full vtable bounds. Preserve all wire validation.
-- [ ] Test baseline/candidate/incomplete controls, especially missing metadata
-  kinds and Map.value default null versus CBOR Unit; preserve alias/schema budgets.
-- [ ] Verify separate actual-core markers, all cold/repeated allocator inputs and
-  byte-identical wires with no request regression; review before adoption.
-- [ ] Complete retry kernel event/count/owned tuple/clock audit before a causal
-  transport repair; then renew unchanged complete acceptance on final runtime.
+- [x] Complete fresh baseline bin/test-fast on frozen `ca020025`: exit 0,
+  3,204 source/four resolved hashes fixed, 14m55s.
+- [x] Privately omit absent native references; exact capacity for larger tables,
+  full capacity for schemas of at most four fields. Preserve all validation.
+- [x] Baseline/candidate each pass 399 unit/three integration cases. Correct the
+  initial invalid Map-null fixture; incomplete Map and metadata controls then
+  fail semantic assertions, with separate actual-core markers and build targets.
+- [x] Audit 76 allocator inputs/836 cold and repeated observations/56 identical
+  wires; no request regression. Audit 160 balanced timing rows/ten inputs.
+  Nine CPU medians improve; challenge's 0.04% cost remains explicit. Exclude the
+  further early-skip variant without discarding its observations.
+- [x] Adopt selected tested source and semantic tests. Actual-source native
+  format/tests and 34 allocator/wire observations match the private candidate;
+  3,205 source/four resolved hashes remain fixed. Resolve final advisory review.
+- [x] Complete full kernel replay audit: 90 valid rows/44,784 paired events,
+  no trace loss/truncation; all events remain unowned without FD witnesses.
+- [x] Audit separate two-second connect-hook ownership smoke: actual unprivileged
+  FD inode/PID/tuple/namespace and monotonic clock match, graceful cleanup.
+- [ ] Complete full resulting-runtime bin/verify, all CI jobs and renewed
+  production copy/lifetime proof, retaining E2EE/transcode boundary scope.
+- [ ] Review/integrate private ownership witness into original focused replay;
+  attribute events before proposing any causal TLS repair.
+- [ ] Pass unchanged complete primary/supplemental performance acceptance on the
+  final runtime. No case, floor, repetition, deadline or better-codec comparison
+  is waived; independent approval of PR #130 remains required.
 
 ## Validator memo keys (2026-10-23)
 

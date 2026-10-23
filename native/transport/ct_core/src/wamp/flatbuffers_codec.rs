@@ -50,7 +50,7 @@ pub(super) fn parse_with_fields(raw: RawFrame) -> Result<(ParsedMessage, Arc<Fie
                 _ => return Err(wire::invalid("metadata dictionary")),
             }
         }
-        Some(Value::Null) if no_dictionary => ValueMap::new(),
+        None | Some(Value::Null) if no_dictionary => ValueMap::new(),
         _ => return Err(wire::invalid("metadata presence")),
     };
     let encoded_metadata = match fields.get("metadata") {
@@ -269,7 +269,7 @@ fn challenge(body: &Fields) -> Result<String, ParseError> {
             }
             Ok(super::codec_copy_metrics::copy_codec_string(name))
         }
-        Some(Value::Null) => Ok(super::codec_copy_metrics::copy_codec_string(known)),
+        None | Some(Value::Null) => Ok(super::codec_copy_metrics::copy_codec_string(known)),
         _ => Err(wire::invalid("authentication method name")),
     }
 }

@@ -276,7 +276,22 @@ impl Reader {
         let spec = schema::TABLES
             .get(reference)
             .ok_or_else(|| invalid("table type"))?;
-        let mut fields = Fields::with_capacity(spec.fields.len());
+        // All vtable bytes are bounded/aligned above. Scalars retain declared
+        // defaults; absent optional references need no temporary Fields entry.
+        let capacity = if spec.fields.len() <= 4 {
+            spec.fields.len()
+        } else {
+            spec.fields
+                .iter()
+                .enumerate()
+                .try_fold(0usize, |count, (slot, field)| {
+                    let entry = 4 + slot * 2;
+                    let present = field.kind == Kind::Scalar
+                        || (entry < vtable_size && self.uint(vtable + entry, 2)? != 0);
+                    Ok::<_, ParseError>(count + usize::from(present))
+                })?
+        };
+        let mut fields = Fields::with_capacity(capacity);
         let mut height = 1;
         let mut union_tag = 0;
         for (slot, field) in spec.fields.iter().enumerate() {
@@ -344,7 +359,10 @@ impl Reader {
                     }
                 }
             };
-            fields.insert(field.name, value);
+            // Value decoding/validation above is unconditional for every field.
+            if !matches!(&value, Value::Null) {
+                fields.insert(field.name, value);
+            }
         }
         let fields = Arc::new(fields);
         self.tables

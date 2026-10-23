@@ -3121,3 +3121,6 @@ mod tests {
         assert_condition!(matches!(err, ParseError::UnsupportedSerializer(_)));
     }
 }
+
+#[cfg(test)]
+mod flatbuffers_sparse_reader_tests;

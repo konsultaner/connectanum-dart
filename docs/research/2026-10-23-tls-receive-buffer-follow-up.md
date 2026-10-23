@@ -3,6 +3,32 @@
 Runtime: `984288cbc511f48b3dc48704384b6d8ad9276a1a`. This note records passing
 components and remaining failures; it does not accept performance parity.
 
+## Complete trace and ownership follow-up
+
+[Focused replay 39903748528](https://github.com/konsultaner/connectanum-dart/actions/runs/39903748528)
+completes all 90 original rows on runtime `629001a6`. Independent audits verify
+3,215 sources/four resolved contents, production binaries, original case order,
+floors/deadlines/copy guards and cleanup. The 64-MiB bounded metadata observer
+retains 5,301,013 bytes and 44,784 paired prune events, with complete counts/END,
+no loss/truncation/errors and graceful owned SIGINT cleanup. No stall occurred,
+so there are no FD witnesses: every event remains explicitly unowned. Successful
+instrumented replay is not a repair or performance acceptance.
+
+[Ownership smoke 39910831712](https://github.com/konsultaner/connectanum-dart/actions/runs/39910831712)
+on private commit `32b4d960` independently verifies the new read-only
+`kretfunc:tcp_v4_connect` record against an actual unprivileged socket FD. Its
+PID, inode, loopback tuple, network namespace and explicit monotonic timestamp
+match direct `fstat`, `/proc/self/fd`, socket endpoint and namespace observations.
+The live BTF render and all six private source hashes are independently checked.
+The observer stops gracefully; the original unprivileged dummy is its sibling.
+This is a two-second positive ownership smoke with no WAMP or prune event. It
+does not establish a cause. A reviewed original-workload replay is still needed;
+RX/softirq execution-context PID alone cannot identify the socket owner.
+
+Retained archive SHA-256:
+- complete trace: `d24b75aa1fb85423a7b9c0af48b48e4ccf895d8fe6abb41c6e59cfc2cc518561`;
+- ownership smoke: `2e607dc46639357de7627f3e240ca0110c6649847891ddbce60e0c46e9fa9f54`.
+
 ## Verified checkpoint
 
 Frozen `bin/verify` passes in 1,387.78 seconds, including Chrome/Dart2Wasm, with
