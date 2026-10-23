@@ -882,6 +882,16 @@ jobs:
         run: |
           set -euo pipefail
           python3 tool/smoke-tcp-probe-supervisor.py --program out/kernel-probe-smoke/rendered.bt --output out/kernel-probe-smoke/controlled-smoke > out/kernel-probe-smoke/controlled-smoke.log 2> out/kernel-probe-smoke/controlled-smoke.stderr.txt
+      - name: Prove direct unprivileged socket ownership from typed connect return
+        if: inputs.campaign == 'flatbuffers_kernel_probe_smoke'
+        shell: bash
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          python3 tool/test_render_tcp_owner_program.py -v
+          sudo bpftrace -lv 'kretfunc:tcp_v4_connect' > out/kernel-probe-smoke/connect-prototype.txt 2> out/kernel-probe-smoke/connect-prototype.stderr.txt
+          python3 tool/render-tcp-owner-program.py --btf out/kernel-probe-smoke/vmlinux.btf --template tool/tcp-prune-owner-smoke.bt --output out/kernel-probe-smoke/owner.bt
+          python3 tool/smoke-tcp-owner.py --program out/kernel-probe-smoke/owner.bt --output out/kernel-probe-smoke/owner-proof > out/kernel-probe-smoke/owner-proof.log 2> out/kernel-probe-smoke/owner-proof.stderr.txt
       - name: Retain all smoke evidence
         if: always()
         uses: actions/upload-artifact@v7
