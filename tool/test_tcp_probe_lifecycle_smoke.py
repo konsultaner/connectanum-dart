@@ -60,11 +60,23 @@ class LifecycleTests(unittest.TestCase):
 
     def test_output_cap_and_error_list_are_bounded_while_pipe_is_drained(self):
         raw = (b'x' * (probe.LINE_CAP + 1)) * 400
-        data, state, ready = self.read(raw)
-        self.assertEqual(len(data), probe.CAP)
+        with mock.patch.object(probe, 'CAP', 8192):
+            data, state, ready = self.read(raw)
+        self.assertEqual(len(data), 8192)
         self.assertTrue(state['truncated'])
         self.assertGreater(state['error_count'], 8)
         self.assertEqual(len(state['errors']), 8)
+        self.assertFalse(ready)
+
+    def test_reproduction_beyond_old_one_mib_cap_is_retained_under_new_bound(self):
+        # Real e7b3 Linux trace exceeded1MiB; retain that failed observation.
+        raw = b'bounded metadata line\n' * 60000
+        self.assertGreater(len(raw), 1024 * 1024)
+        data, state, ready = self.read(raw)
+        self.assertTrue(data == raw, 'complete metadata must survive beyond the old1MiB bound')
+        self.assertEqual(probe.CAP, 64 * 1024 * 1024)
+        self.assertFalse(state['truncated'])
+        self.assertEqual(state['error_count'], 0)
         self.assertFalse(ready)
 
     def test_lost_events_and_warnings_fail_explicitly(self):

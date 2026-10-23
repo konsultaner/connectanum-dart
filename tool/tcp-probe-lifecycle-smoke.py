@@ -13,7 +13,7 @@ import threading
 import time
 
 READY = b'__BPFTRACE_NOTIFY_PROBES_ATTACHED\n'
-CAP = 1024 * 1024
+CAP = 64 * 1024 * 1024
 LINE_CAP = 4096
 
 
@@ -183,7 +183,7 @@ def run_smoke(program, output, control_descriptor=None, max_seconds=20000):
     except OSError:
         program_unchanged = False
     result = {'command': command, 'version': version, 'program_sha256': program_hash,
-              'program_unchanged': program_unchanged,
+              'program_unchanged': program_unchanged, 'per_stream_output_cap_bytes': CAP,
               'observer_pid': os.getpid(), 'observer_uid': os.getuid(), 'stop_reason': stop_reason,
               'control_max_seconds': max_seconds if control_descriptor is not None else None, 'tracer_launcher_pid': process.pid,
               'started_monotonic_ns': started, 'finished_monotonic_ns': time.monotonic_ns(),
