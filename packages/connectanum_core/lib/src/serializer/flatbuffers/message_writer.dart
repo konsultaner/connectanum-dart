@@ -47,6 +47,7 @@ Map<String, Object?> prepareWampFlatBufferMessage(
   final projection = projectWampFlatBufferMessage(message);
   final fields = projection.fields;
   final body = fields['msg'] as Map<String, Object?>;
+  var validateArguments = true;
   if (projection.dictionary != null) {
     fields['metadata'] = encodeWampFlatBufferCbor(
       projection.dictionary,
@@ -112,7 +113,12 @@ Map<String, Object?> prepareWampFlatBufferMessage(
             ]);
           }
         }
-        body['args'] ??= encodeWampFlatBufferCbor(arguments);
+        if (body['args'] == null) {
+          body['args'] = encodeWampFlatBufferCbor(arguments);
+          // This CBOR array was built from bounded Dart values by the encoder.
+          // Raw lazy CBOR below still crosses the structural validator.
+          validateArguments = false;
+        }
       }
     }
     if (argumentsKeywordsVector != null) {
@@ -131,8 +137,10 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       payloadVector != null) {
     throw ArgumentError('This WAMP message has no payload vectors');
   }
-  if (body['args'] case final Uint8List args) {
-    validateFlatBufferCbor(args, rootMajor: 4);
+  if (validateArguments) {
+    if (body['args'] case final Uint8List args) {
+      validateFlatBufferCbor(args, rootMajor: 4);
+    }
   }
   if (body['kwargs'] case final Uint8List kwargs) {
     validateFlatBufferCbor(
