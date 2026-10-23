@@ -331,3 +331,329 @@ async fn websocket_writer_file_failure_stops_before_following_frame_or_close() {
         assert_eq!(fixture.finish().await, expected);
     }
 }
+
+#[derive(Default)]
+struct BatchWriteTrace {
+    bytes: Vec<u8>,
+    offers: Vec<(usize, usize)>,
+    vectored: usize,
+    flushes: usize,
+    blocked: bool,
+}
+
+struct BatchWriteSink {
+    trace: Arc<Mutex<BatchWriteTrace>>,
+    vectored: bool,
+    maximum: usize,
+    pending_once: bool,
+    error_once: Option<io::ErrorKind>,
+    zero_once: bool,
+    fail_flush: bool,
+    stall_after: Option<usize>,
+}
+
+impl BatchWriteSink {
+    fn new(vectored: bool) -> Self {
+        Self {
+            trace: Arc::new(Mutex::new(BatchWriteTrace::default())),
+            vectored,
+            maximum: usize::MAX,
+            pending_once: false,
+            error_once: None,
+            zero_once: false,
+            fail_flush: false,
+            stall_after: None,
+        }
+    }
+}
+
+impl AsyncWrite for BatchWriteSink {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        bytes: &[u8],
+    ) -> std::task::Poll<io::Result<usize>> {
+        let this = self.get_mut();
+        if this.pending_once {
+            this.pending_once = false;
+            cx.waker().wake_by_ref();
+            return std::task::Poll::Pending;
+        }
+        if let Some(error) = this.error_once.take() {
+            return std::task::Poll::Ready(Err(error.into()));
+        }
+        if this.zero_once {
+            this.zero_once = false;
+            return std::task::Poll::Ready(Ok(0));
+        }
+        let mut trace = this.trace.lock().unwrap();
+        if this
+            .stall_after
+            .is_some_and(|limit| trace.bytes.len() >= limit)
+        {
+            trace.blocked = true;
+            return std::task::Poll::Pending;
+        }
+        trace.offers.push((bytes.as_ptr() as usize, bytes.len()));
+        let written = bytes.len().min(this.maximum);
+        trace.bytes.extend_from_slice(&bytes[..written]);
+        std::task::Poll::Ready(Ok(written))
+    }
+
+    fn poll_write_vectored(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        bytes: &[io::IoSlice<'_>],
+    ) -> std::task::Poll<io::Result<usize>> {
+        let this = self.get_mut();
+        this.trace.lock().unwrap().vectored += 1;
+        let first = bytes
+            .iter()
+            .find(|part| !part.is_empty())
+            .map(|part| part.as_ref())
+            .unwrap_or(&[]);
+        std::pin::Pin::new(this).poll_write(cx, first)
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        self.vectored
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
+        self.trace.lock().unwrap().flushes += 1;
+        std::task::Poll::Ready(if self.fail_flush {
+            Err(io::ErrorKind::BrokenPipe.into())
+        } else {
+            Ok(())
+        })
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<io::Result<()>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+}
+
+fn batch_payload(length: usize) -> Vec<u8> {
+    (0..length)
+        .map(|index| (index.wrapping_mul(17) & 255) as u8)
+        .collect()
+}
+
+#[tokio::test]
+async fn large_unmasked_bounded_borrowed_writes_preserve_full_wire_and_partial_progress() {
+    let payload = batch_payload(128 * 1024 + 17);
+    for vectored in [false, true] {
+        for (opcode, fin) in [(0x2, true), (0x0, false)] {
+            let (header, _) = websocket_frame_header(opcode, fin, payload.len(), false);
+            let mut sink = BatchWriteSink::new(vectored);
+            sink.maximum = 8191;
+            sink.pending_once = true;
+            write_unmasked_websocket_frame(&mut sink, &header, &payload, &mut Vec::new())
+                .await
+                .unwrap();
+            let trace = sink.trace.lock().unwrap();
+            assert_eq!(
+                decode(&trace.bytes, false),
+                vec![(opcode | if fin { 0x80 } else { 0 }, payload.clone())]
+            );
+            assert!(trace.offers.iter().all(|(_, length)| *length <= 32 * 1024));
+            for (address, length) in &trace.offers {
+                assert!(
+                    (*address >= header.as_ptr() as usize
+                        && address + length <= header.as_ptr() as usize + header.len())
+                        || (*address >= payload.as_ptr() as usize
+                            && address + length <= payload.as_ptr() as usize + payload.len())
+                );
+            }
+            assert_eq!(trace.flushes, 5);
+            assert_eq!(trace.vectored, 0);
+        }
+    }
+}
+
+#[tokio::test]
+async fn large_unmasked_threshold_and_small_control_paths_remain_frame_identical() {
+    for length in [0, 3, 65536, 128 * 1024 - 1, 128 * 1024, 128 * 1024 + 1] {
+        let payload = batch_payload(length);
+        let (header, _) = websocket_frame_header(0x2, true, length, false);
+        let mut sink = BatchWriteSink::new(true);
+        write_unmasked_websocket_frame(&mut sink, &header, &payload, &mut Vec::new())
+            .await
+            .unwrap();
+        let trace = sink.trace.lock().unwrap();
+        assert_eq!(decode(&trace.bytes, false), vec![(0x82, payload)]);
+        if length < 128 * 1024 {
+            assert_eq!(trace.flushes, 0);
+            if length > 0 {
+                assert!(trace.vectored > 0);
+            }
+        } else {
+            assert!(trace.offers.iter().all(|(_, bytes)| *bytes <= 32 * 1024));
+            assert!(trace.flushes >= 4);
+        }
+    }
+    let payload = b"ping";
+    let (header, _) = websocket_frame_header(0x9, true, payload.len(), false);
+    let mut sink = BatchWriteSink::new(true);
+    write_unmasked_websocket_frame(&mut sink, &header, payload, &mut Vec::new())
+        .await
+        .unwrap();
+    let trace = sink.trace.lock().unwrap();
+    assert_eq!(decode(&trace.bytes, false), vec![(0x89, payload.to_vec())]);
+    assert_eq!(trace.flushes, 0);
+}
+
+#[tokio::test]
+async fn large_unmasked_zero_and_interrupted_writes_remain_errors() {
+    let payload = batch_payload(128 * 1024 + 1);
+    let (header, _) = websocket_frame_header(0x2, true, payload.len(), false);
+    for vectored in [false, true] {
+        for error in [
+            io::ErrorKind::Interrupted,
+            io::ErrorKind::BrokenPipe,
+            io::ErrorKind::WriteZero,
+        ] {
+            let mut sink = BatchWriteSink::new(vectored);
+            if error == io::ErrorKind::WriteZero {
+                sink.zero_once = true;
+            } else {
+                sink.error_once = Some(error);
+            }
+            let result =
+                write_unmasked_websocket_frame(&mut sink, &header, &payload, &mut Vec::new()).await;
+            assert_eq!(result.unwrap_err().kind(), error);
+            assert!(sink.trace.lock().unwrap().bytes.is_empty());
+        }
+    }
+}
+
+struct BatchNoopWake;
+impl std::task::Wake for BatchNoopWake {
+    fn wake(self: Arc<Self>) {}
+}
+
+#[tokio::test]
+async fn large_unmasked_write_yields_before_completing_even_when_sink_is_always_ready() {
+    let payload = batch_payload(256 * 1024);
+    let (header, _) = websocket_frame_header(0x2, true, payload.len(), false);
+    let mut sink = BatchWriteSink::new(true);
+    let trace = sink.trace.clone();
+    let mut scratch = Vec::new();
+    let mut future = Box::pin(write_unmasked_websocket_frame(
+        &mut sink,
+        &header,
+        &payload,
+        &mut scratch,
+    ));
+    let first = {
+        let waker = std::task::Waker::from(Arc::new(BatchNoopWake));
+        let mut context = std::task::Context::from_waker(&waker);
+        std::future::Future::poll(future.as_mut(), &mut context)
+    };
+    assert!(first.is_pending());
+    assert_eq!(trace.lock().unwrap().bytes.len(), header.len() + 32 * 1024);
+    assert_eq!(trace.lock().unwrap().flushes, 1);
+    future.await.unwrap();
+    assert_eq!(
+        decode(&trace.lock().unwrap().bytes, false),
+        vec![(0x82, payload)]
+    );
+}
+
+struct BatchOwnedPayload {
+    bytes: Vec<u8>,
+    drops: Arc<std::sync::atomic::AtomicUsize>,
+}
+impl AsRef<[u8]> for BatchOwnedPayload {
+    fn as_ref(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+impl Drop for BatchOwnedPayload {
+    fn drop(&mut self) {
+        self.drops.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+fn owned_batch_payload(length: usize, drops: &Arc<std::sync::atomic::AtomicUsize>) -> Bytes {
+    Bytes::from_owner(BatchOwnedPayload {
+        bytes: batch_payload(length),
+        drops: drops.clone(),
+    })
+}
+
+#[tokio::test]
+async fn large_unmasked_flush_failure_closes_queue_without_following_or_close_frame_and_releases_owners(
+) {
+    let drops = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut sink = BatchWriteSink::new(true);
+    sink.fail_flush = true;
+    let trace = sink.trace.clone();
+    let payload = owned_batch_payload(256 * 1024, &drops);
+    let (header, _) = websocket_frame_header(0x2, true, payload.len(), false);
+    let (sender, receiver) = mpsc::channel(2);
+    let (closed, mut signals) = mpsc::unbounded_channel();
+    assert!(sender.try_send(OutboundFrame::message(payload)).is_ok());
+    assert!(sender
+        .try_send(OutboundFrame::message(owned_batch_payload(3, &drops)))
+        .is_ok());
+    let _abort = spawn_websocket_writer(
+        tokio::runtime::Handle::current(),
+        ConnectionId(99),
+        rawsocket::Serializer::Flatbuffers,
+        sink,
+        receiver,
+        closed,
+        false,
+    );
+    assert_eq!(
+        time::timeout(Duration::from_secs(5), signals.recv())
+            .await
+            .unwrap(),
+        Some(ConnectionTaskSignal::WriterClosed)
+    );
+    assert_eq!(
+        time::timeout(Duration::from_secs(5), signals.recv())
+            .await
+            .unwrap(),
+        None
+    );
+    assert!(sender.is_closed());
+    assert_eq!(drops.load(Ordering::SeqCst), 2);
+    let state = trace.lock().unwrap();
+    assert_eq!(state.bytes.len(), header.len() + 32 * 1024);
+    assert_eq!(&state.bytes[..header.len()], &header);
+    assert_eq!(&state.bytes[header.len()..], &batch_payload(32 * 1024));
+    assert_eq!(state.flushes, 1);
+}
+
+#[tokio::test]
+async fn large_unmasked_pending_write_retains_owner_until_whole_task_cancellation() {
+    let drops = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let payload = owned_batch_payload(256 * 1024, &drops);
+    let (header, _) = websocket_frame_header(0x2, true, payload.len(), false);
+    let mut sink = BatchWriteSink::new(true);
+    sink.maximum = 32 * 1024;
+    sink.stall_after = Some(header.len() + 32 * 1024);
+    let trace = sink.trace.clone();
+    let task = tokio::spawn(async move {
+        write_unmasked_websocket_frame(&mut sink, &header, &payload, &mut Vec::new()).await
+    });
+    time::timeout(Duration::from_secs(5), async {
+        while !trace.lock().unwrap().blocked {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(drops.load(Ordering::SeqCst), 0);
+    task.abort();
+    assert!(task.await.unwrap_err().is_cancelled());
+    assert_eq!(drops.load(Ordering::SeqCst), 1);
+}

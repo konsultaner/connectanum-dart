@@ -114,6 +114,8 @@ const HTTP3_DATAGRAM_BUFFER_BYTES: usize = 8 * 1024 * 1024;
 const HTTP3_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
 const WEBSOCKET_MASK_CHUNK_SIZE: usize = 1024 * 1024;
 const WEBSOCKET_COALESCE_FRAME_SIZE: usize = 64 * 1024;
+const WEBSOCKET_LARGE_WRITE_THRESHOLD: usize = 128 * 1024;
+const WEBSOCKET_WRITE_BATCH_SIZE: usize = 32 * 1024;
 const FILE_SEGMENT_BUFFER_SIZE: usize = 4 * 1024 * 1024;
 const BASE64_FILE_SEGMENT_INPUT_SIZE: usize =
     FILE_SEGMENT_BUFFER_SIZE - (FILE_SEGMENT_BUFFER_SIZE % 3);
@@ -4809,6 +4811,20 @@ async fn write_unmasked_websocket_frame<W: AsyncWrite + Unpin>(
 ) -> io::Result<()> {
     if payload.is_empty() {
         return writer.write_all(header).await;
+    }
+    if payload.len() >= WEBSOCKET_LARGE_WRITE_THRESHOLD {
+        // Bound a large frame's write poll while retaining the original bytes.
+        // Each batch drains before yielding; the WS header and frame stay intact.
+        writer.write_all(header).await?;
+        let mut chunks = payload.chunks(WEBSOCKET_WRITE_BATCH_SIZE);
+        while let Some(chunk) = chunks.next() {
+            writer.write_all(chunk).await?;
+            writer.flush().await?;
+            if chunks.len() != 0 {
+                tokio::task::yield_now().await;
+            }
+        }
+        return Ok(());
     }
     if writer.is_write_vectored() {
         let mut header_offset = 0usize;
