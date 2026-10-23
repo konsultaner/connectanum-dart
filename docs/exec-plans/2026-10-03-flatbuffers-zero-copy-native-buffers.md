@@ -45,11 +45,15 @@ Status: active. Started: 2026-10-03.
   decoder path and counts both its input read and decoded body materialization.
   Indefinite strings count only the chunks that must be coalesced. Focused Rust
   parser tests, native-message metadata tests and `bin/test-fast` pass, including
-  all 2,009 live WAMP integration cases. Full `bin/verify` remains pending.
+  all 2,009 live WAMP integration cases.
 - [x] Extend the client and router native metadata binders to accept the same
   borrowed transparent payload view for CBOR. Add positive subview/lifetime and
   negative flag/bytes, unsupported-serializer and non-payload tests. The focused
-  client/router suites pass; final full `bin/verify` remains pending.
+  client/router suites pass. Full `bin/verify` passes on `86c963a3`, including
+  native suites, all 2,009 live WAMP cases, Chrome/Dart2Wasm and consumer smokes.
+- [ ] Push `86c963a3` and repeat exact-head CI, production E2EE/transcode copy
+  proof, unchanged strict primary and every supplemental campaign. Do not claim
+  performance parity until those hosted reports pass.
 - [ ] Audit exact-source CI `39992992607`, strict primary `39992996231`,
   supplemental campaigns `39992999450` and production copy proof
   `39993003404`, including their input/binary hashes. These runs belong to
@@ -57,9 +61,10 @@ Status: active. Started: 2026-10-03.
   parser, strict/supplemental runs are still active, and CI is queued.
   Dependency SDK/TLS/crypto internals remain explicitly unmeasured under the
   approved standard-SDK scope.
-- [ ] Commit the parser repair, pass canonical `bin/verify`, and repeat exact-
-  source CI, production copy/lifetime proof, strict primary and every unchanged
-  supplemental campaign on that new head.
+- [x] Commit the parser and router binding repair as `e0f5d141` and `86c963a3`;
+  `bin/verify` passes on `86c963a3`.
+- [ ] Repeat exact-source CI, production copy/lifetime proof, strict primary and
+  every unchanged supplemental campaign on the pushed head.
 - [ ] Fix any measured regressions and repeat the complete campaigns after every
   source change. Do not close #100, #101 or #103 or claim performance parity
   until all current-source acceptance criteria pass.

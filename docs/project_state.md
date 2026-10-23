@@ -22,7 +22,10 @@ The current worktree adds a CBOR transparent-binary parser compatibility repair;
 its focused Rust tests and `bin/test-fast` pass, including all 2,009 live WAMP
 integration cases. The client and router metadata binders also now accept the
 borrowed CBOR payload view and have focused acceptance, lifetime and rejection
-tests. Current-tree full `bin/verify` remains pending.
+tests. Full `bin/verify` passes on `86c963a3`, including native suites, all 2,009
+live WAMP integration cases, Chrome/Dart2Wasm and consumer-package smoke checks.
+The exact-head hosted performance and copy-accounting campaigns remain pending;
+no parity claim follows from local verification.
 The unchanged strict run on the previous source
 [`39953423478`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953423478)
 completed all 1,440 rows and failed 139 numerical performance gates, with no
