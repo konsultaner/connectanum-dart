@@ -15,11 +15,35 @@ sources/four resolved contents, selected package variants, identical wires and
 payload aliases, 160 raw rows/32 fresh workers/128 measured windows and managed
 allocation proofs. RESULT/CALL median decode ratios are 0.82056/0.83085, with
 about 80 fewer managed bytes per decode. This is component evidence only;
-resulting-source full verification/CI, renewed copy proof and unchanged complete
-primary/supplemental parity gates remain required. Formatting, 154 mutation
-proofs and 107 focused Python contracts pass. Local baseline bin/test-fast,
-analysis and companion review remain machine-resource-lease blocked; no local
-Dart tests or advisory approval are claimed.
+frozen resulting-source `bin/verify` on docs-only successor `02840d2d` passes
+in 22m54s, including Chrome/Wasm, with 3,201 sources/four resolved inputs fixed
+and a clean tree. Qwen review finds no demonstrated defect; const schema and
+absence of public exports are verified directly. Hosted Fast Checks, binding,
+GuardMalloc and shared FFI build pass; the complete CI matrix remains pending.
+The renewed production copy/lifetime proof 39874511303 passes independent audit:
+3,201 sources/four retained hash-identical resolved contents, 36 groups/108 post-GC
+observations, 120 owned cases/300 short rows and all 32 no-copy observations,
+including E2EE/native crypto/transcodes. Native binaries match the preceding proof.
+
+Strict candidate run 39874514230 has 90 independently validated rows and no
+integrity findings. Throughput, p95/p99, CPU and allocation pass in all three
+cases. Two gates remain: Dart-value GC confidence upper bound 1.13284 (median
+0.91619), and pre-encoded RSS median 1.01949. Native-buffer passes every metric.
+These runner-specific changes do not establish a causal RSS fix. Candidate full
+primary 39874517410 and supplemental 39874520570 remain observing. No acceptance
+budget, case, floor or observation is waived.
+
+The preceding-runtime supplemental 39852994229 is now independently audited in
+full: 50 distinct cases/1,500 rows, all original floors, input/native hashes,
+raw/per-pass equality and exact comparison recomputation, zero integrity findings
+and 244 reported numerical costs. These diagnostic costs remain visible and
+cannot substitute for primary acceptance. Absolute cross-shard costs are not pooled.
+
+Two private allocation leads are under evaluation, with no further runtime edit:
+native agreement reserves a full schema table for few/no projected values; Dart
+wire tables store absent optional fields as null entries. Any sparse Dart map
+must preserve non-null args/kwargs validation independently of payload-key
+presence. Public mutable CBOR metadata and scalar/default checks remain required.
 
 The preceding fully verified runtime `c0aef5fa` removes an extra copy of the fresh validated metadata
 map and uses the checked-in generated enum switch in Dart decoding. It retains

@@ -61,3 +61,31 @@ per decode. Nested windows are not independent replicates. This establishes a
 component improvement, not transport/PPT performance parity. Renewed production
 copy/lifetime, complete primary/supplemental gates and resulting-source full
 verification/CI remain required. No floors or acceptance budgets change.
+
+
+## Resulting-source verification and strict diagnostic
+
+Frozen `bin/verify` on docs-only successor 02840d2ddea5dda9736f49fee09c86061a140bd2
+passes in 1,373.69 seconds, including Chrome/Wasm, with all 3,201 sources/four
+resolved inputs unchanged and a clean tree. Log SHA-256:
+8cd8ececc7d693e5bafaea882c670b8db4047a4ad8cc3fa47bd58238e6777843.
+Qwen review finds no demonstrated defect; the helper is not publicly exported
+and the pinned specs are const. Hosted full CI remains pending.
+
+[Renewed copy/lifetime run](https://github.com/konsultaner/connectanum-dart/actions/runs/39874511303)
+passes independent input/binary/raw/cleanup audits: 36 snapshot groups/108
+post-GC observations, 120 owned cases, 300 short rows/all 32 no-copy observations,
+including E2EE/native crypto/transcodes. All four resolved hashes match retained
+independently audited component contents; native binaries remain identical.
+Artifact 12467638509 SHA-256:
+f5d6b91dbfac1952475c1ef2ad9cfe6dff4284a90fa2c4f50534e8e1b488c80d.
+
+[Strict diagnostic](https://github.com/konsultaner/connectanum-dart/actions/runs/39874514230)
+has 90 valid independently recomputed rows/zero integrity findings. All three
+cases pass throughput, p95/p99, CPU and allocation. Dart-value GC median is
+0.91619 but its confidence upper bound 1.13284 fails; pre-encoded RSS median
+1.01949 fails. Native-buffer passes every metric. This runner-specific result
+neither establishes a causal RSS fix nor accepts primary parity. Artifact
+12468378270 SHA-256:
+0523468bab22ae7768af2d631e53758d4de5c0045cd11fa431546341c504a75e.
+Full candidate primary/supplemental observations remain required and preserved.

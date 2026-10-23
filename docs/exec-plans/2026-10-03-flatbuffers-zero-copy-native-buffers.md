@@ -18,8 +18,20 @@ Status: active. Started: 2026-10-03.
   Independently audit 160 raw rows/32 workers, matching wires/aliases, all inputs
   and allocation proofs. RESULT/CALL decode ratios 0.82056/0.83085, about 80 fewer
   managed bytes/decode. Local companion/verification remain machine-lease blocked.
-- [ ] Complete resulting-source full verification/CI, copy/lifetime proof and
-  unchanged complete primary/supplemental gates; no closure from a component.
+- [x] Pass frozen `bin/verify` on `02840d2d` in 22m54s, including Chrome/Wasm;
+  all 3,201 sources/four resolved inputs fixed, clean tree. Qwen review has no
+  demonstrated finding; verify schema constness and no public helper export.
+- [x] Audit renewed copy/lifetime 39874511303: 36 groups/108 post-GC, 120 owned,
+  300 short rows/all 32 no-copy cases, exact source/resolved/native hashes.
+- [x] Audit strict 39874514230: 90 valid rows, all timing/CPU/allocation pass;
+  retain Dart GC CI-high 1.13284 and pre-encoded RSS point 1.01949 as failures.
+- [x] Audit preceding-runtime full supplemental 39852994229: 50 cases/1,500
+  rows, zero integrity findings, all 244 numerical costs retained separately.
+- [ ] Complete resulting-source full CI and unchanged complete primary and
+  supplemental gates; candidate runs 39874517410/39874520570 are observing.
+- [ ] Evaluate native agreement capacity and Dart sparse internal-table storage
+  with component/functional evidence before adoption, retaining CBOR validation,
+  shared aliases, scalar defaults and independently mutable public metadata.
 
 ## Fresh-process result and passive memory attribution (2026-10-22)
 
