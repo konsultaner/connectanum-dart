@@ -212,3 +212,26 @@ raw SHA is `93b5d2b3c9ce53ccebb85fb3871263aa9a3d38f5773ba5cb4c6677f51b7a8117`.
 The candidate is excluded and never adopted. This demonstrates that bounded
 write/flush/yield batches are insufficient and that the recurring failure also
 affects CBOR; it does not establish that the candidate caused a new regression.
+
+## Read-only kernel observation preparation
+
+The matching host exposes typed BTF `tcp_prune_queue(sk, in_skb)` entry/return
+probes under bpftrace 0.20.2. This is availability evidence, not an executed-path
+observation. Two private pre-workload smokes fail before attachment: first a
+configuration trailing-semicolon syntax error, then unavailable `inode.i_ino`
+through the tracer's BTF view. Both failed artifacts are retained. Live type
+inspection returns empty inode/file/socket listings but a socket-allocation
+definition; a canonical running-kernel BTF dump is requested before changing
+field access. No inode offset or per-flow cause is guessed.
+
+The pinned [bpftrace implementation](https://github.com/bpftrace/bpftrace/blob/v0.20.2/src/bpftrace.cpp)
+emits its test-framework attachment notification after both hook-attachment
+passes; `BEGIN` executes earlier. A private lifecycle prototype uses that exact
+version/notification and tests bounded readers and owned-process cleanup before
+any real replay. Advisory review correctly flags indirect sudo signal forwarding;
+the revised smoke makes its root controller own the tracer directly and escalates
+only its verified process group. Eleven mocked contracts pass. Advice that
+`readline` combines newline-delimited messages is rejected by its actual API and
+the adjacent-marker regression test. The two-second duration is an observation
+after readiness, not a readiness assumption. These prototypes remain excluded
+from production, workload measurements and performance acceptance.

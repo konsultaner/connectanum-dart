@@ -14,8 +14,17 @@ Status: active. Started: 2026-10-03.
   RESULT/CALL time ratios 0.98961/0.99163 are component evidence only.
 - [x] Resolve advisory review; adopt exact tested runtime bytes without probes.
   Pass analysis, 3,457 serializer cases and eight component-isolation contracts.
-- [ ] Complete frozen full verification, hosted component/CI/copy proof and all
-  unchanged primary/supplemental gates on the final runtime.
+- [x] Pass frozen full verification on `629001a6` in 22m43s, including Chrome/Wasm,
+  with 3,204 source/four resolved hashes fixed and a clean tree.
+- [x] Audit Linux component: 492 cases per variant/160 rows/32 workers/128 allocation
+  windows/204 private hashes. RESULT/CALL ratios 1.00671/0.96892 retain the RESULT
+  cost; managed savings about 65/63 bytes. No end-to-end causal speed claim.
+- [x] Audit renewed production copy/lifetime: 120 owned/300 short cases/all 32
+  no-copy observations, 36 groups/108 post-GC and public owners zero before GC.
+- [x] Audit strict90: 90 valid rows/zero integrity findings/seven numerical costs.
+  Retain RSS, Dart-value GC confidence/throughput and pre-encoded latency failures.
+- [ ] Complete current CI, causal TLS repair and unchanged primary/supplemental
+  gates on the final runtime; preserve every started observation and budget.
 
 ## Current acceptance and TLS follow-up (2026-10-23)
 

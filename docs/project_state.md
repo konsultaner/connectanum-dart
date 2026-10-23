@@ -13,8 +13,21 @@ three cases including real table-budget undercount. Audited 160 rows/32 fresh
 workers/128 allocation windows save about 63–65 managed bytes per decode, with
 RESULT/CALL time ratios 0.98961/0.99163. These are component results. Actual-source
 analysis, all 3,457 serializer cases and eight isolation contracts pass; runtime
-bytes equal the audited candidate. Full/hosted verification and unchanged complete
+bytes equal the audited candidate. Hosted CI and unchanged complete
 acceptance remain pending. See [validator-key evidence](research/2026-10-23-flatbuffers-validator-keys.md).
+
+Runtime `629001a6` now passes frozen `bin/verify` in 22m43s, including Chrome/Wasm,
+with all 3,204 source/four resolved hashes fixed and a clean tree. Its Linux
+decoder component passes independent source/content/window audit: 492 tests per
+variant, 160 rows/32 workers/128 allocation windows and 204 private hashes.
+Managed savings persist at about 65/63 bytes per RESULT/CALL decode. Linux timing
+ratios are 1.00671/0.96892; RESULT's 0.67% cost stays visible. Current production
+copy/lifetime proof also passes all audits: 120 owned/300 short cases/all 32
+no-copy observations, 36 groups/108 post-GC, public owners zero before forced GC.
+Strict90 has 90 valid rows/zero integrity findings but seven numerical costs:
+all CPU/allocation pass; RSS, Dart-value GC confidence/throughput and pre-encoded
+p95/p99 remain blockers. Current CI 39893888135 is running without known failures.
+The previous diagnostic CI is superseded; no started benchmark is canceled.
 
 Verified runtime `984288cb` removes absent optional reference entries
 from internal Dart wire tables and bounds native agreement's temporary field
@@ -72,7 +85,7 @@ counters with explicit failures. All five new groups fail before repair; 86
 focused ownership/capture/smoke/CI contracts pass afterward. Advisory review has
 no confirmed defect. Frozen full `bin/verify` on diagnostic head `f2dbdfa4` passes
 in 22m36s, including Chrome/Wasm, with 3,203 sources/four resolved inputs fixed
-and a clean tree. Its complete CI 39888953092 is running; preceding runtime55 CI
+and a clean tree. Its CI 39888953092 is superseded by current-runtime CI; preceding runtime55 CI
 39874541986 passes all 38 jobs.
 
 Both untraced focused replays reproduce the original ext18 deadline. Run
