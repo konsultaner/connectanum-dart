@@ -44,6 +44,24 @@ PROFILE_CASES.update({
     for case in extensions.cases_for_shard('encrypted_progressive_results')
     if case['id'] == 'ext_44_encrypted_progressive_results'
 })
+PROFILE_CASES.update({
+    case['id']: {
+        'client_impl': case['client_impl'],
+        'payload_construction': case['construction'],
+        'mode': case['mode'],
+        'payload_bytes': case['fields']['request_bytes'],
+        'transport': case['transport'],
+        'secure_transport': case['secure_transport'],
+        'uri': case['fields']['path'],
+        'peer_count': case['fields']['peer_count'],
+        'ppt_scheme': case['fields'].get('ppt_scheme'),
+        'ppt_serializer': case['fields'].get('ppt_serializer'),
+        'ppt_cipher': case['fields'].get('ppt_cipher'),
+        'ppt_keyid': case['fields'].get('ppt_keyid'),
+    }
+    for case in extensions.extension_cases()
+    if case['id'] in {'ext_07_small_control', 'ext_22_progressive'}
+})
 DEFAULT_CASE = 'rpc_rawsocket_clear_native_native_buffer'
 NATIVE_RUNTIME_THREADS = 1
 
@@ -298,18 +316,6 @@ Future<void> main(List<String> args) async {
   }
 }
 '''
-WORKER = r'''
-import 'dart:developer';
-import 'dart:io';
-import __WORKER_URI__ as worker;
-Future<void> main(List<String> args) async {
-  final uri = (await Service.getInfo()).serverUri!;
-  File(Platform.environment['CONNECTANUM_BENCH_PROFILE_WORKER_URI']!).writeAsStringSync(uri.toString());
-  await worker.main(args);
-}
-'''
-
-
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -486,8 +492,6 @@ def profile(args):
     (output/'router.json').write_text(json.dumps(config, indent=2)+'\n')
     (output/'probe.dart').write_text(CPU_PROBE.replace('__PROFILE_WINDOW_TOOL_URI__',
                                                    json.dumps((root/'tool/wamp_profile_window.py').as_uri())))
-    worker_uri = (root/'packages/connectanum_bench/tool/wamp_client_main.dart').as_uri()
-    (output/'worker.dart').write_text(WORKER.replace('__WORKER_URI__', json.dumps(worker_uri)))
     env = {**os.environ, 'CONNECTANUM_SKIP_NATIVE_BUILD': '1', 'CONNECTANUM_BENCH_WAMP_REUSE_WORKER': '1',
            'CONNECTANUM_BENCH_WAMP_VM_METRICS': '1', 'CONNECTANUM_NATIVE_LIB': str(library),
            'CONNECTANUM_NATIVE_RUNTIME_THREADS': str(NATIVE_RUNTIME_THREADS),
@@ -495,7 +499,7 @@ def profile(args):
     router_symbols = bool(args.perf and platform.system() == 'Linux')
     command = [args.dart, *(['--generate-perf-events-symbols'] if router_symbols else []), '--observe=0/127.0.0.1', '--profiler', '--no-pause-isolates-on-exit',
                'run', 'packages/connectanum_bench/tool/bench_main.dart', '--router-config', str(output/'router.json'),
-               '--wamp-worker', str(output/'worker.dart')]
+               '--wamp-worker', 'connectanum_bench:wamp_client_worker']
     process = subprocess.Popen(command, cwd=root, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, start_new_session=True)
     ready = threading.Event()

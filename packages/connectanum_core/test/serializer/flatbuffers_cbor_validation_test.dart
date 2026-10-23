@@ -38,6 +38,44 @@ void main() {
       throwsFormatException,
     );
   });
+  test('UTF-8 scan validates code points at ASCII block boundaries', () {
+    for (var offset = 0; offset < 16; offset++) {
+      final valid = List<int>.filled(24, 0x61)
+        ..setRange(offset, offset + 2, [0xc3, 0xa9]);
+      validateFlatBufferCbor(
+        bytes([0x78, valid.length, ...valid]),
+        rootMajor: 3,
+      );
+
+      final invalid = List<int>.filled(24, 0x61)
+        ..setRange(offset, offset + 2, [0xc3, 0x41]);
+      expect(
+        () => validateFlatBufferCbor(
+          bytes([0x78, invalid.length, ...invalid]),
+          rootMajor: 3,
+        ),
+        throwsFormatException,
+        reason: 'invalid continuation byte at offset $offset',
+      );
+    }
+
+    final mixed = List<int>.filled(40, 0x61)
+      ..setRange(7, 9, [0xc3, 0xa9])
+      ..setRange(19, 23, [0xf0, 0x9f, 0xa7, 0xaa])
+      ..setRange(31, 34, [0xe2, 0x82, 0xac]);
+    validateFlatBufferCbor(bytes([0x78, mixed.length, ...mixed]), rootMajor: 3);
+
+    final truncated = List<int>.filled(33, 0x61)
+      ..setRange(31, 33, [0xe2, 0x82]);
+    expect(
+      () => validateFlatBufferCbor(
+        bytes([0x78, truncated.length, ...truncated]),
+        rootMajor: 3,
+      ),
+      throwsFormatException,
+      reason: 'a truncated multibyte sequence after earlier code points',
+    );
+  });
   _singlePassMetadataCases();
   group('scalar metadata decoding', _scalarMetadataDecodeCases);
   test(

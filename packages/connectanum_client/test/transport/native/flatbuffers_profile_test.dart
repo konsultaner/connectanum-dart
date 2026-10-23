@@ -550,6 +550,63 @@ void main() {
   );
 
   test(
+    'Session sends native-owned encrypted CBOR without copying ciphertext',
+    () async {
+      final peer = await _Peer.start('ppt-echo');
+      final client = transport(peer);
+      final runtime = NativeClientRuntime.instance();
+      final provider = NativeWampCborAes256GcmProvider.single(
+        keyId: 'native-session-key',
+        key: List<int>.generate(32, (index) => index + 1),
+      );
+      try {
+        expect(client.nativeBuffers.supportsOwnedE2eeEncryption, isTrue);
+        await client.open();
+        await client.onReady.timeout(const Duration(seconds: 5));
+        final session = await Session.start(
+          'realm',
+          client,
+          e2eeProvider: provider,
+        );
+        final before = runtime.transportCopyMetricsSnapshot();
+        final application = Uint8List.fromList(
+          List<int>.generate(1024, (index) => index & 255),
+        );
+        final result = await session
+            .callLazyPayload(
+              'com.entity.read',
+              payload: core.LazyMessagePayload.materialized(
+                arguments: [application],
+              ),
+              options: CallOptions(
+                pptScheme: 'wamp',
+                pptSerializer: 'cbor',
+              ),
+            )
+            .first
+            .timeout(const Duration(seconds: 5));
+        final copied = runtime.transportCopyMetricsSnapshot().deltaFrom(before);
+
+        expect(result.arguments, [application]);
+        expect(result.details.pptCipher, 'aes256gcm');
+        expect(result.details.pptKeyId, 'native-session-key');
+        expect(
+          copied.dartToNativeCopiedBytesTotal,
+          0,
+          reason: 'native ciphertext and its FlatBuffers vector stay owned',
+        );
+        await session.close();
+        await session.onGoodbye.timeout(const Duration(seconds: 5));
+        expect(await peer.close(), [1, 48, 6]);
+      } finally {
+        provider.release();
+        await client.close();
+        await peer.dispose();
+      }
+    },
+  );
+
+  test(
     'Session sends native-owned typed FlatBuffers PPT as a retained frame',
     () async {
       final peer = await _Peer.start('ppt-echo');
@@ -1032,6 +1089,8 @@ Future<void> _peerMain(Map<String, Object?> config) async {
                   ResultDetails(
                     pptScheme: message.options?.pptScheme,
                     pptSerializer: message.options?.pptSerializer,
+                    pptCipher: message.options?.pptCipher,
+                    pptKeyId: message.options?.pptKeyId,
                   ),
                   arguments: message.arguments,
                   argumentsKeywords: message.argumentsKeywords,

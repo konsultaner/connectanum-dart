@@ -25,6 +25,7 @@ import '../abstract_transport.dart';
 import '../socket/socket_helper.dart';
 import '../websocket/websocket_transport_serialization.dart';
 import 'e2ee_file_segment.dart';
+import 'e2ee_payload.dart';
 import 'flatbuffers_payload_anchor.dart';
 import 'message_binding.dart';
 import 'message_protocol.dart';
@@ -179,12 +180,19 @@ abstract class _NativeTransportBase extends AbstractTransport
       ),
       _ => (null, null, null, null),
     };
-    if (scheme == null ||
-        scheme.isEmpty ||
-        scheme == 'wamp' ||
-        serializer != 'flatbuffers' ||
-        cipher != null ||
-        keyId != null) {
+    final nativeWampE2ee =
+        scheme == 'wamp' &&
+        (serializer == 'cbor' || serializer == 'flatbuffers') &&
+        cipher != null &&
+        keyId != null;
+    final nativeOpaquePpt =
+        scheme != null &&
+        scheme.isNotEmpty &&
+        scheme != 'wamp' &&
+        serializer == 'flatbuffers' &&
+        cipher == null &&
+        keyId == null;
+    if (!nativeWampE2ee && !nativeOpaquePpt) {
       return false;
     }
 
@@ -313,6 +321,14 @@ abstract class _NativeTransportBase extends AbstractTransport
   NativeOwnedBuffer? _nativeFlatBufferPayloadOwner(
     LazyMessagePayload payload,
   ) {
+    final owner = payload.storageOwner;
+    if (owner is NativeE2eeOwnedPayload) {
+      final packed = payload.packedPayloadBytes;
+      if (identical(packed, owner.bytes) &&
+          owner.storageOwner is NativeOwnedBuffer) {
+        return owner.storageOwner as NativeOwnedBuffer;
+      }
+    }
     final source = packedPayloadSourceOf(payload);
     if (payload.encoding == LazyPayloadEncoding.flatbuffers &&
         source is NativePptPayloadLease) {

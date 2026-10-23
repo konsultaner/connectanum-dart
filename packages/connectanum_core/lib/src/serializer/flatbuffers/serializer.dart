@@ -13,6 +13,8 @@ import 'message_writer.dart';
 import 'runtime.dart';
 import 'wire_writer.dart';
 
+const _flatBufferEnvelopeReserveBytes = 512;
+
 /// The pinned Connectanum WAMP FlatBuffers binding.
 ///
 /// Dynamic WAMP arguments use CBOR vectors inside a FlatBuffers envelope.
@@ -28,10 +30,10 @@ class Serializer extends AbstractSerializer {
     for (final value in body.values) {
       if (value is Uint8List) vectorBytes += value.length;
     }
-    // Encoding already produced these vectors. Reserve their bytes once instead
-    // of growing a small envelope to twice the large application payload size.
+    // Encoding already produced these vectors. Reserve their bytes once and
+    // keep the fixed envelope allowance small for control-heavy WAMP traffic.
     final builder = WampFlatBufferBuilder(
-      initialSize: vectorBytes > 1024 ? (vectorBytes + 1024 + 7) & ~7 : 1024,
+      initialSize: (vectorBytes + _flatBufferEnvelopeReserveBytes + 7) & ~7,
     );
     builder.finish(writeWampFlatBufferFields(fields, builder));
     final bytes = builder.buffer;
@@ -50,14 +52,29 @@ class Serializer extends AbstractSerializer {
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is! AbstractMessageWithPayload) return null;
+    final lazyPayload = message.toLazyPayload();
+    if (lazyPayload.transparentBinaryPayload == null &&
+        !lazyPayload.hasPackedPayloadBytes &&
+        !lazyPayload.hasEncodedArguments &&
+        !lazyPayload.hasEncodedArgumentsKeywords &&
+        lazyPayload.arguments == null &&
+        lazyPayload.argumentsKeywords == null) {
+      // Payload-capable control messages are common in CALL/CANCEL and
+      // REGISTER/INVOCATION cycles. Avoid projecting and building them here
+      // only to return null and have the transport serialize them again.
+      return null;
+    }
     final fields = prepareWampFlatBufferMessage(
       message,
+      lazyPayload: lazyPayload,
       fragmentBinaryArguments: true,
     );
     final body = fields['msg'] as Map<String, Object?>;
     final payload = body['payload'];
     if (payload is Uint8List) {
-      final builder = WampFlatBufferBuilder();
+      final builder = WampFlatBufferBuilder(
+        initialSize: _flatBufferEnvelopeReserveBytes,
+      );
       // The builder grows backwards. An empty vector written first places its
       // length word at the end of the envelope, directly before the body span.
       final vector = builder.writeListUint8(const <int>[]);
@@ -79,7 +96,9 @@ class Serializer extends AbstractSerializer {
       // at an eight-byte wire boundary.
       body['payload'] = payload;
     }
-    final builder = WampFlatBufferBuilder();
+    final builder = WampFlatBufferBuilder(
+      initialSize: _flatBufferEnvelopeReserveBytes,
+    );
     final vectors = <DeferredFlatBufferVector>[];
     final root = writeWampFlatBufferFields(
       fields,

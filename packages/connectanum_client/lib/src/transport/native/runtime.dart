@@ -711,6 +711,15 @@ class NativeClientRuntime {
     }
   }
 
+  /// Records the Dart-to-native plaintext copy used to prepare an owned
+  /// encryption input. Native buffer encryption itself crosses no FFI byte
+  /// view and therefore records no additional bridge copy.
+  @internal
+  void recordE2eePlaintextInputCopy(int bytes) {
+    RangeError.checkNotNegative(bytes, 'bytes');
+    _e2eeDartToNativeCopiedBytesTotal += bytes;
+  }
+
   Uint8List decryptE2ee(
     int sessionHandle,
     Uint8List ciphertext, {

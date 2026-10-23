@@ -81,12 +81,29 @@ class ProfileSelectionTests(unittest.TestCase):
         self.assertEqual((case['fields']['request_bytes'], case['fields']['response_bytes']),
                          (target['payload_bytes'], target['payload_bytes']))
 
+    def test_control_and_progressive_profiles_match_declared_workloads(self):
+        cases = {case['id']: case for case in profiler.extensions.extension_cases()}
+        for case_id in ('ext_07_small_control', 'ext_22_progressive'):
+            case = cases[case_id]
+            target = profiler.profile_target(case_id)
+            self.assertEqual(target['client_impl'], case['client_impl'])
+            self.assertEqual(target['payload_construction'], case['construction'])
+            self.assertEqual(target['mode'], case['mode'])
+            self.assertEqual(target['payload_bytes'], case['fields']['request_bytes'])
+            self.assertEqual(target['transport'], case['transport'])
+            self.assertEqual(target['secure_transport'], case['secure_transport'])
+            self.assertEqual(target['uri'], case['fields']['path'])
+            self.assertIsNone(target['ppt_scheme'])
+            self.assertIsNone(target['ppt_serializer'])
+
     def test_warmup_probe_and_audit_agree_for_every_declared_case(self):
         expected = {
             'rpc_rawsocket_clear_dart_values': ('dart', 'values'),
             'rpc_rawsocket_clear_native_native_buffer': ('native', 'native_buffer'),
             'rpc_rawsocket_clear_native_pre_encoded_span': ('native', 'pre_encoded_span'),
             'ext_08_payload_sizes': ('dart', 'values'),
+            'ext_07_small_control': ('native', 'values'),
+            'ext_22_progressive': ('native', 'values'),
             'ext_44_encrypted_progressive_results': ('native', 'values'),
         }
         self.assertEqual(set(profiler.PROFILE_CASES), set(expected))
@@ -110,12 +127,17 @@ class ProfileSelectionTests(unittest.TestCase):
                     target.update(mode='progressive_rpc', payload_bytes=10240, event_timeout_ms=300000,
                                   peer_serializer='cbor', ppt_scheme='wamp', ppt_serializer='cbor',
                                   ppt_cipher='xsalsa20poly1305', ppt_keyid='bench-key')
+                if case_id in ('ext_07_small_control', 'ext_22_progressive'):
+                    target.update(profiler.profile_target(case_id))
                 warmups = []
                 probes = []
 
                 def launch(command, **kwargs):
                     self.assertEqual('--generate-perf-events-symbols' in command, requested)
                     self.assertEqual(kwargs['env'].get('CONNECTANUM_NATIVE_RUNTIME_THREADS'), '1')
+                    worker_option = command.index('--wamp-worker')
+                    self.assertEqual(command[worker_option + 1],
+                                     'connectanum_bench:wamp_client_worker')
 
                     Path(kwargs['env']['CONNECTANUM_BENCH_PROFILE_WORKER_URI']).write_text(
                         'http://127.0.0.1:2/test/')
@@ -142,6 +164,7 @@ class ProfileSelectionTests(unittest.TestCase):
                     self.assertEqual(dart_args[4], 'unit-test-perf' if native else '')
                     self.assertEqual(dart_args[3], str(output.resolve()))
                     self.assertTrue((output / 'probe.dart').is_file())
+                    self.assertFalse((output / 'worker.dart').exists())
                     if mode == 'complete':
                         for codec in ('cbor', 'msgpack', 'flatbuffers'):
                             (output / f'{codec}-router.perf-map').write_text('1000 10 fixture symbol; never real samples\n')

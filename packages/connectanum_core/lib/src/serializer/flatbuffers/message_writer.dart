@@ -19,6 +19,7 @@ int writeWampFlatBufferMessage(
   FlatBufferByteVectorReference? argumentsVector,
   FlatBufferByteVectorReference? argumentsKeywordsVector,
   FlatBufferByteVectorReference? payloadVector,
+  LazyMessagePayload? lazyPayload,
   bool includeApplicationPayload = true,
   List<DeferredFlatBufferVector>? deferredVectors,
 }) {
@@ -28,6 +29,7 @@ int writeWampFlatBufferMessage(
       argumentsVector: argumentsVector,
       argumentsKeywordsVector: argumentsKeywordsVector,
       payloadVector: payloadVector,
+      lazyPayload: lazyPayload,
       includeApplicationPayload: includeApplicationPayload,
       fragmentBinaryArguments: deferredVectors != null,
     ),
@@ -42,6 +44,7 @@ Map<String, Object?> prepareWampFlatBufferMessage(
   FlatBufferByteVectorReference? argumentsVector,
   FlatBufferByteVectorReference? argumentsKeywordsVector,
   FlatBufferByteVectorReference? payloadVector,
+  LazyMessagePayload? lazyPayload,
   bool includeApplicationPayload = true,
   bool fragmentBinaryArguments = false,
 }) {
@@ -67,7 +70,7 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       }
       return fields;
     }
-    final lazy = message.toLazyPayload();
+    final lazy = lazyPayload ?? message.toLazyPayload();
     final payload =
         payloadVector ??
         lazy.transparentBinaryPayload ??

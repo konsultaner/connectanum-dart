@@ -5,16 +5,35 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Current performance follow-up: a single binary argument in a FlatBuffers WAMP
-message can now be emitted as its CBOR prefix plus the original byte view,
-including WAMP E2EE ciphertext. This avoids first building a temporary CBOR
-byte string and then copying it into a FlatBuffers vector. The CBOR `args`
-vector and PPT metadata remain identical to contiguous serialization; messages
-with keywords, already-encoded lazy CBOR and other argument shapes keep their
-existing paths. Fail-first coverage and focused FlatBuffers/E2EE tests pass,
-including real AES-GCM and XSalsa20-Poly1305 encrypt/decrypt round trips. The
-full `bin/test-fast` rerun and resulting-source `bin/verify`, CI, copy/lifetime
-proof, and complete performance campaigns are still pending.
+Current performance and copy-accounting follow-up is in the working tree on
+`codex/flatbuffers-performance-parity`. It makes control-message fragment
+preflight cheaper, reduces FlatBuffers writer/envelope allocations, accelerates
+ASCII-heavy CBOR UTF-8 validation while retaining bytewise validation for
+multibyte sequences, and adds native-owned E2EE plaintext/ciphertext accounting
+for typed FlatBuffers as well as CBOR. The profiler worker now runs through its
+package executable, so VM profiles can resolve package imports; exact
+`ext_07_small_control` and `ext_22_progressive` profiles completed. Component
+UTF-8 timings improved on ASCII and sparse-Unicode input, but they are not
+end-to-end parity evidence.
+
+Fresh `bin/test-fast` and full `bin/verify` pass on the current working tree,
+including the full native, 2,009-case WAMP, Chrome/Dart2Wasm and consumer smoke
+suites. The unchanged strict run on the previous source
+[`39953423478`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953423478)
+completed all 1,440 rows and failed 139 numerical performance gates, with no
+integrity findings. Supplemental run
+[`39953434939`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953434939)
+completed all 50 cases/1,500 rows in diagnostic mode with 234 numerical
+findings; it does not establish primary acceptance. The successful CI
+[`39953531177`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953531177)
+is also for the previous source and does not accept this working tree. The
+previous-source production copy proof
+[`39953447152`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953447152)
+passed 120 owned E2EE/transcode/native-crypto rows under
+`connectanum_buffer_boundaries_v1`; SDK/TLS/crypto dependency internals remain
+explicitly unmeasured. Current-source hosted CI, copy proof, and unchanged full
+primary/supplemental performance campaigns remain pending. No performance gate
+is waived and milestone acceptance is not complete.
 
 The exact `844a7913` baseline E2EE/progressive-results shard completed with 44
 numerical performance findings across eight cases and no integrity findings;

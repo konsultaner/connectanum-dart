@@ -227,6 +227,28 @@ class _Scanner {
     var ascii = true;
     var index = start;
     while (index < end) {
+      if (index + 8 <= end) {
+        final blockEnd = index + 8;
+        // A multibyte lead or continuation byte sets a high bit and is left
+        // to the existing bytewise validator.
+        final highBits =
+            bytes[index] |
+            bytes[index + 1] |
+            bytes[index + 2] |
+            bytes[index + 3] |
+            bytes[index + 4] |
+            bytes[index + 5] |
+            bytes[index + 6] |
+            bytes[index + 7];
+        if (highBits < 128) {
+          index = blockEnd;
+          continue;
+        }
+        while (index < blockEnd && bytes[index] < 128) {
+          index++;
+        }
+      }
+      if (index >= end) break;
       final first = bytes[index++];
       if (first < 128) continue;
       ascii = false;

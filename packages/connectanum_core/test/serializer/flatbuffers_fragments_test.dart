@@ -15,6 +15,18 @@ import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 Uint8List join(List<Uint8List> fragments) =>
     (BytesBuilder(copy: false)..addAllFragments(fragments)).takeBytes();
 
+class _CountingPayloadCall extends Call {
+  _CountingPayloadCall() : super(1, 'com.example.echo');
+
+  int lazyPayloadReads = 0;
+
+  @override
+  LazyMessagePayload toLazyPayload({Object? anchor}) {
+    lazyPayloadReads++;
+    return super.toLazyPayload(anchor: anchor);
+  }
+}
+
 extension on BytesBuilder {
   void addAllFragments(List<Uint8List> fragments) {
     for (final fragment in fragments) {
@@ -44,6 +56,16 @@ void expectCallVectorsAligned(Uint8List joined) {
 void main() {
   _typedBinaryFragmentCases();
   final codec = flatbuffers.Serializer();
+  test('payload-free calls skip fragment projection before serialization', () {
+    final message = _CountingPayloadCall();
+    expect(codec.serializeFragments(message), isNull);
+    expect(message.lazyPayloadReads, 1);
+
+    final encoded = codec.serialize(message);
+    expect(message.lazyPayloadReads, 2);
+    expect(codec.deserialize(encoded), isA<Call>());
+  });
+
   test('large encoded opaque body can remain an original send fragment', () {
     final bytes = Uint8List(65536);
     final message = Call(

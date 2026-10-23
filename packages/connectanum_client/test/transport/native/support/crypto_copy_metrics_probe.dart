@@ -4,7 +4,10 @@ import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart';
 import 'package:connectanum_client/native_buffers.dart';
+import 'package:connectanum_client/src/transport/native/e2ee_payload.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
+import 'package:connectanum_core/cbor_serializer.dart' as cbor;
+import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 
 void _equal(Object? actual, Object? expected, String label) {
   if (actual != expected) throw StateError('$label: $actual != $expected');
@@ -227,7 +230,138 @@ void main(List<String> args) {
     } finally {
       provider.release();
     }
+
+    final sessionProvider = NativeWampCborAes256GcmProvider.single(
+      keyId: 'owned-session-metrics',
+      key: Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
+    );
+    NativeOwnedBuffer? sessionCiphertextOwner;
+    try {
+      final options = PublishOptions(
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+      );
+      final application = Uint8List.fromList(
+        List<int>.generate(1024, (index) => (index * 17) & 255),
+      );
+      final arguments = <dynamic>[application];
+      final plaintext = cbor.Serializer().serializePPT(
+        PPTPayload(arguments: arguments),
+      );
+      final before = runtime.e2eeCopyMetricsSnapshot();
+      final packed = (sessionProvider as NativeE2eePayloadPacker)
+          .packNativePayload(arguments, null, options);
+      if (packed == null) {
+        throw StateError('Owned Session E2EE packing is unavailable');
+      }
+      sessionCiphertextOwner = packed.storageOwner as NativeOwnedBuffer;
+      final delta = runtime.e2eeCopyMetricsSnapshot().deltaFrom(before);
+      _equal(
+        delta.dartToNativeCopiedBytesTotal,
+        plaintext.length,
+        'Session E2EE plaintext input',
+      );
+      _equal(
+        delta.nativeToDartCopiedBytesTotal,
+        0,
+        'Session E2EE ciphertext output',
+      );
+      _equal(
+        delta.plaintextStagingCopyBytesTotal,
+        plaintext.length,
+        'Session E2EE native plaintext staging',
+      );
+      _equal(
+        delta.ciphertextStagingCopyBytesTotal,
+        0,
+        'Session E2EE ciphertext staging',
+      );
+      _equal(delta.nonceTagCopyBytesTotal, 28, 'Session E2EE nonce/tag');
+      _equal(
+        packed.bytes.length,
+        plaintext.length + 28,
+        'Session E2EE ciphertext size',
+      );
+      final decoded = sessionProvider.unpackPayload(<dynamic>[
+        packed.bytes,
+      ], options);
+      _equal(
+        (decoded.arguments!.single as List).join(','),
+        application.join(','),
+        'Session E2EE ciphertext round trip',
+      );
+    } finally {
+      sessionCiphertextOwner?.dispose();
+      sessionProvider.release();
+    }
+
+    final typedSessionProvider = NativeWampFlatBuffersAes256GcmProvider.single(
+      keyId: 'owned-flatbuffer-session-metrics',
+      key: Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
+    );
+    NativeOwnedBuffer? typedSessionCiphertextOwner;
+    try {
+      final options = PublishOptions(
+        pptScheme: 'wamp',
+        pptSerializer: 'flatbuffers',
+      );
+      final application = Uint8List.fromList(
+        List<int>.generate(1024, (index) => (index * 17) & 255),
+      );
+      final arguments = <dynamic>[application];
+      final plaintext = flatbuffers.Serializer().serializePPT(
+        PPTPayload(arguments: arguments),
+      );
+      final before = runtime.e2eeCopyMetricsSnapshot();
+      final packed = (typedSessionProvider as NativeE2eePayloadPacker)
+          .packNativePayload(arguments, null, options);
+      if (packed == null) {
+        throw StateError('Owned typed Session E2EE packing is unavailable');
+      }
+      typedSessionCiphertextOwner = packed.storageOwner as NativeOwnedBuffer;
+      final delta = runtime.e2eeCopyMetricsSnapshot().deltaFrom(before);
+      _equal(
+        delta.dartToNativeCopiedBytesTotal,
+        plaintext.length,
+        'typed Session E2EE plaintext input',
+      );
+      _equal(
+        delta.nativeToDartCopiedBytesTotal,
+        0,
+        'typed Session E2EE ciphertext output',
+      );
+      _equal(
+        delta.plaintextStagingCopyBytesTotal,
+        plaintext.length,
+        'typed Session E2EE native plaintext staging',
+      );
+      _equal(
+        delta.ciphertextStagingCopyBytesTotal,
+        0,
+        'typed Session E2EE ciphertext staging',
+      );
+      _equal(delta.nonceTagCopyBytesTotal, 28, 'typed Session E2EE nonce/tag');
+      _equal(
+        packed.bytes.length,
+        plaintext.length + 28,
+        'typed Session E2EE ciphertext size',
+      );
+      _equal(packed.encoding.name, 'flatbuffers', 'typed Session encoding');
+      final decoded = typedSessionProvider.unpackPayload(<dynamic>[
+        packed.bytes,
+      ], options);
+      _equal(
+        (decoded.arguments!.single as List).join(','),
+        application.join(','),
+        'typed Session E2EE ciphertext round trip',
+      );
+    } finally {
+      typedSessionCiphertextOwner?.dispose();
+      typedSessionProvider.release();
+    }
     print('crypto-copy-metrics: exact native and Dart bridge deltas passed');
+    print('crypto-copy-metrics: native Session E2EE owner deltas passed');
+    print('crypto-copy-metrics: native typed Session E2EE owner deltas passed');
   } finally {
     if (session != null) runtime.releaseE2eeSession(session);
     runtime.releaseE2eeKeyring(keyring);

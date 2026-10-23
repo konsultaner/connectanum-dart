@@ -153,9 +153,9 @@ class _Writer {
     final spec = wampValidationTables[reference];
     final names = _fieldNames[reference];
     if (fields.keys.any((key) => !names.contains(key))) invalid();
-    final offsets = <int, int>{};
-    final scalars = <int, int>{};
-    final borrowed = <int, Object>{};
+    final offsets = List<int?>.filled(spec.fields.length, null);
+    final scalars = List<int?>.filled(spec.fields.length, null);
+    List<Object>? borrowed;
     for (var slot = 0; slot < spec.fields.length; slot++) {
       final field = spec.fields[slot];
       final value = fields[field.name];
@@ -193,40 +193,49 @@ class _Writer {
               (const {'args', 'kwargs', 'payload'}).contains(field.name) &&
               (value is Uint8List || value is FlatBufferByteVectorParts)) {
             offsets[slot] = byteVector(const <int>[]);
-            borrowed[slot] = value;
+            final retained = borrowed ??= <Object>[];
+            retained
+              ..add(slot)
+              ..add(value);
           } else {
             offsets[slot] = vector(field, value);
           }
       }
     }
     builder.startTable(spec.fields.length);
-    for (final entry in offsets.entries) {
-      builder.addOffset(entry.key, entry.value);
+    for (var slot = 0; slot < offsets.length; slot++) {
+      final offset = offsets[slot];
+      if (offset != null) builder.addOffset(slot, offset);
     }
-    for (final entry in scalars.entries) {
-      switch (spec.fields[entry.key].width) {
+    for (var slot = 0; slot < scalars.length; slot++) {
+      final scalar = scalars[slot];
+      if (scalar == null) continue;
+      switch (spec.fields[slot].width) {
         case 1:
-          builder.addUint8(entry.key, entry.value);
+          builder.addUint8(slot, scalar);
         case 2:
-          builder.addUint16(entry.key, entry.value);
+          builder.addUint16(slot, scalar);
         case 4:
-          builder.addUint32(entry.key, entry.value);
+          builder.addUint32(slot, scalar);
         case 8:
-          builder.addUint64(entry.key, entry.value);
+          builder.addUint64(slot, scalar);
       }
     }
     final offset = builder.endTable();
-    for (final entry in borrowed.entries) {
-      final value = entry.value;
-      deferredVectors!.add(
-        value is Uint8List
-            ? DeferredFlatBufferVector(offset, entry.key, value)
-            : DeferredFlatBufferVector.fragmented(
-                offset,
-                entry.key,
-                value as FlatBufferByteVectorParts,
-              ),
-      );
+    if (borrowed != null) {
+      for (var index = 0; index < borrowed.length; index += 2) {
+        final slot = borrowed[index] as int;
+        final value = borrowed[index + 1];
+        deferredVectors!.add(
+          value is Uint8List
+              ? DeferredFlatBufferVector(offset, slot, value)
+              : DeferredFlatBufferVector.fragmented(
+                  offset,
+                  slot,
+                  value as FlatBufferByteVectorParts,
+                ),
+        );
+      }
     }
     return offset;
   }

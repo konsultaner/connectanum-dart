@@ -2,6 +2,43 @@
 
 Status: active. Started: 2026-10-03.
 
+## Performance, profiling and E2EE copy accounting (2026-10-23)
+
+- [x] Repair the CPU profiler's worker launch: use the declared package
+  executable so spawned isolates resolve workspace packages. The profile tool
+  tests pass (14 cases), and exact `ext_07_small_control` and
+  `ext_22_progressive` CPU profiles complete with clean worker shutdown and
+  source/input hashes.
+- [x] Profile the representative workloads. Small control is dominated by
+  router dispatch/timers; progressive handling includes CBOR UTF-8 scanning and
+  encoding. Profiling remains diagnostic and is not parity evidence.
+- [x] Reduce FlatBuffers table bookkeeping and envelope reserve allocations,
+  skip fragment projection for payload-free control messages, and optimize
+  ASCII-block validation without changing multibyte validation. Boundary tests
+  include multibyte sequences at every block offset and malformed/truncated
+  sequences; the component microbenchmark improves ASCII and sparse-Unicode
+  scans. No end-to-end performance claim follows from these measurements.
+- [x] Preserve native-owned ciphertext and its owner through native Session
+  sends for both CBOR and typed FlatBuffers E2EE. Count Dart-to-native
+  plaintext input, Rust plaintext staging, nonce/tag, ciphertext staging and
+  output copies separately. Add real AES-GCM, exact counter and retained-owner
+  tests, plus production probe coverage for typed FlatBuffers.
+- [x] Pass `bin/test-fast` and full `bin/verify` on the current working tree,
+  including Rust/native suites, 2,009 live WAMP integration cases, Chrome/
+  Dart2Wasm and package consumer smoke checks.
+- [x] Complete previous-source strict run `39953423478` on `9d9c26fc`: all
+  1,440 rows are present and eligible, with zero integrity findings but 139
+  numerical performance-gate findings. Complete supplemental run
+  `39953434939`: all 50 cases/1,500 rows are present in diagnostic mode, with
+  234 numerical findings. Keep these results as old-source evidence; neither
+  accepts the current working tree.
+- [ ] Commit and push the verified working tree; complete fresh exact-source CI
+  and production E2EE/transcode copy/lifetime proofs. Dependency SDK/TLS/crypto
+  internals remain explicitly unmeasured under the approved standard-SDK scope.
+- [ ] Run unchanged exact-source strict primary and all supplemental campaigns.
+  Fix measured regressions and repeat; do not close #100, #101 or #103 or claim
+  performance parity until their current-source acceptance criteria pass.
+
 ## Encrypted binary arguments as CBOR fragments (2026-10-23)
 
 - [x] Reproduce the missing zero-copy path with a fail-first regression: an
@@ -17,13 +54,21 @@ Status: active. Started: 2026-10-03.
 - [x] Test 23/24-byte CBOR-prefix boundaries, exact vector equivalence, PPT
   metadata retention, and real AES-GCM/XSalsa20-Poly1305 decrypt round trips.
   Focused writer, fragment and E2EE suites pass.
-- [ ] Complete the fresh `bin/test-fast`, full `bin/verify`, resulting-source
-  CI, and production copy/lifetime proof before evaluating this runtime.
-- [ ] Complete strict primary and all supplemental comparisons on this exact
-  runtime. Do not waive throughput, latency, CPU, allocation, GC, RSS or copy
-  gates. Baseline `844a7913` E2EE results have 44 numerical findings across
-  eight cases and no integrity findings; its extension protocol and primary
-  campaigns were still running when this change was prepared.
+- [x] Complete fresh `bin/test-fast` and full `bin/verify` on commit `9d9c26fc`;
+  both exit 0, including native router and Chrome/Dart2Wasm coverage.
+- [x] Complete the exact-head production copy/lifetime proof in run
+  `39953447152`: 120 owned rows (96 E2EE, 120 transcode, 48 native crypto),
+  unchanged source/binary hashes and clean process shutdown. Its 300 short rows
+  remain diagnostics, not timing acceptance. Dependency internals stay labelled
+  unmeasured under the approved standard-SDK scope.
+- [x] Previous-source CI `39953531177`, copy/lifetime proof `39953447152`, strict
+  primary `39953423478`, and supplemental run `39953434939` complete on
+  `9d9c26fc`. The old primary has 139 numerical findings; supplemental has 234.
+- [ ] Complete replacement CI, copy/lifetime proof and unchanged strict
+  primary/supplemental runs on the current working-tree source. Keep throughput,
+  latency, CPU, allocation, GC, RSS and copy gates unchanged; do not claim parity
+  until the reports pass. Baseline `844a7913` E2EE results have 44 numerical
+  findings across eight cases and no integrity findings.
 
 ## Native sparse reader and complete kernel observation (2026-10-23)
 
