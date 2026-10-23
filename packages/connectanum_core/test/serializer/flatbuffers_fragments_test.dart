@@ -67,6 +67,48 @@ void main() {
     expect(fragments, isNotNull);
     expect(fragments!.any((part) => identical(part, bytes)), true);
   });
+  test('encrypted WAMP binary arguments remain original send fragments', () {
+    for (final length in [23, 24, 10240]) {
+      final ciphertext = Uint8List.fromList(
+        List<int>.generate(length, (index) => index & 0xff),
+      );
+      final message = Call(
+        42,
+        'com.probe',
+        options: CallOptions(
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+          pptCipher: 'aes256gcm',
+          pptKeyId: 'bench-key',
+        ),
+        arguments: [ciphertext],
+      );
+
+      final fragments = codec.serializeFragments(message)!;
+      expect(fragments.any((part) => identical(part, ciphertext)), true);
+
+      final fragmented = join(fragments);
+      final contiguous = codec.serialize(message);
+      validateWampFlatBuffer(fragmented);
+      final fragmentedWire = wire.Message(fragmented).msg as wire.Call;
+      final contiguousWire = wire.Message(contiguous).msg as wire.Call;
+      expect(fragmentedWire.args, contiguousWire.args);
+      final decodedFragmented = codec.deserialize(fragmented) as Call;
+      final decodedContiguous = codec.deserialize(contiguous) as Call;
+      expect(decodedFragmented.arguments, [ciphertext]);
+      expect(decodedFragmented.arguments, decodedContiguous.arguments);
+      expect(codec.metadataFor(decodedFragmented), codec.metadataFor(message));
+      final metadata = codec.metadataFor(decodedFragmented);
+      expect(metadata['ppt_scheme'], 'wamp');
+      expect(metadata['ppt_serializer'], 'cbor');
+      expect(metadata['ppt_cipher'], 'aes256gcm');
+      expect(metadata['ppt_keyid'], 'bench-key');
+      expect(
+        metadata,
+        codec.metadataFor(decodedContiguous),
+      );
+    }
+  });
 
   for (final length in [0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 23, 65536]) {
     for (final shape in ['full', 'partial', 'readonly']) {
@@ -467,49 +509,53 @@ void _typedBinaryFragmentCases() {
       }
     }
   });
-  test(
-    'typed PPT fragment selection follows effective metadata and crypto flags',
-    () {
-      final payload = Uint8List.fromList([1, 2, 3]);
-      final codec = flatbuffers.Serializer();
-      for (final metadata in <Map<String, dynamic>>[
-        {},
-        {'ppt_scheme': '', 'ppt_serializer': 'flatbuffers'},
-        {'ppt_scheme': 'wamp', 'ppt_serializer': 'flatbuffers'},
-        {'ppt_scheme': 'x_typed', 'ppt_serializer': 'cbor'},
-        {
-          'ppt_scheme': 'x_typed',
-          'ppt_serializer': 'flatbuffers',
-          'ppt_cipher': 'xsalsa20poly1305',
-        },
-        {
-          'ppt_scheme': 'x_typed',
-          'ppt_serializer': 'flatbuffers',
-          'ppt_keyid': 'key',
-        },
-      ]) {
-        final message = call(payload);
-        codec.retainMetadataValues(message, metadata);
-        final fragments = codec.serializeFragments(message)!;
-        expect(
-          fragments.any((part) => identical(part, payload)),
-          isFalse,
-          reason: '$metadata',
-        );
-      }
-      final message = Call(7, 'com.proc', arguments: [payload]);
-      codec.retainMetadataValues(message, {
+  test('binary argument fragments preserve effective PPT metadata', () {
+    final payload = Uint8List.fromList([1, 2, 3]);
+    final codec = flatbuffers.Serializer();
+    for (final metadata in <Map<String, dynamic>>[
+      {},
+      {'ppt_scheme': '', 'ppt_serializer': 'flatbuffers'},
+      {'ppt_scheme': 'wamp', 'ppt_serializer': 'flatbuffers'},
+      {'ppt_scheme': 'x_typed', 'ppt_serializer': 'cbor'},
+      {
         'ppt_scheme': 'x_typed',
         'ppt_serializer': 'flatbuffers',
-      });
+        'ppt_cipher': 'xsalsa20poly1305',
+      },
+      {
+        'ppt_scheme': 'x_typed',
+        'ppt_serializer': 'flatbuffers',
+        'ppt_keyid': 'key',
+      },
+    ]) {
+      final message = call(payload);
+      codec.retainMetadataValues(message, metadata);
+      final fragments = codec.serializeFragments(message)!;
       expect(
-        codec
-            .serializeFragments(message)!
-            .any((part) => identical(part, payload)),
+        fragments.any((part) => identical(part, payload)),
         isTrue,
+        reason: '$metadata',
       );
-    },
-  );
+      final encoded = join(fragments);
+      validateWampFlatBuffer(encoded);
+      expect(
+        (codec.deserialize(encoded) as Call).wireArguments!.single,
+        payload,
+        reason: '$metadata',
+      );
+    }
+    final message = Call(7, 'com.proc', arguments: [payload]);
+    codec.retainMetadataValues(message, {
+      'ppt_scheme': 'x_typed',
+      'ppt_serializer': 'flatbuffers',
+    });
+    expect(
+      codec
+          .serializeFragments(message)!
+          .any((part) => identical(part, payload)),
+      isTrue,
+    );
+  });
   test('typed PPT fragmentation preserves explicit and lazy kwargs', () {
     final payload = Uint8List.fromList([1, 2, 3]);
     final codec = flatbuffers.Serializer();

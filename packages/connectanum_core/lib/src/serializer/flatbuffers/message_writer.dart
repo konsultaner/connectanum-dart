@@ -11,7 +11,8 @@ import 'wire_writer.dart';
 /// Write a model directly into the supplied builder. The caller finishes and
 /// freezes the root, so a guarded native-backed builder can use the same path.
 /// References reuse vectors from this build without reading the model payload.
-/// Ordinary Dart values still need CBOR construction and a vector write.
+/// General Dart values still need CBOR construction and a vector write; a
+/// fragmented single binary argument can reuse its bytes after a CBOR prefix.
 int writeWampFlatBufferMessage(
   AbstractMessage message,
   fb.Builder builder, {
@@ -90,22 +91,17 @@ Map<String, Object?> prepareWampFlatBufferMessage(
     } else {
       final arguments = message.wireArguments;
       if (arguments != null) {
-        final dictionary = projection.dictionary;
-        final scheme = dictionary?['ppt_scheme'];
         if (fragmentBinaryArguments &&
             argumentsKeywordsVector == null &&
             lazy.argumentsKeywordsBytes == null &&
             arguments.length == 1 &&
-            arguments.single is Uint8List &&
-            scheme is String &&
-            scheme.isNotEmpty &&
-            scheme != 'wamp' &&
-            dictionary?['ppt_serializer'] == 'flatbuffers' &&
-            dictionary?['ppt_cipher'] == null &&
-            dictionary?['ppt_keyid'] == null) {
+            arguments.single is Uint8List) {
           wireKeywords = message.wireArgumentsKeywords;
           readKeywords = true;
           if (wireKeywords == null) {
+            // WAMP's args vector contains CBOR. A single binary argument can
+            // be represented by a short CBOR prefix plus its original bytes,
+            // including when those bytes are encrypted PPT ciphertext.
             final bytes = arguments.single as Uint8List;
             body['args'] = FlatBufferByteVectorParts([
               _cborBinaryArgumentPrefix(bytes.length),
@@ -154,7 +150,7 @@ Map<String, Object?> prepareWampFlatBufferMessage(
 
 Uint8List _cborBinaryArgumentPrefix(int length) {
   if (length > 67108864) {
-    throw ArgumentError('Typed FlatBuffers PPT payload exceeds the byte limit');
+    throw ArgumentError('FlatBuffers binary argument exceeds the byte limit');
   }
   if (length < 24) return Uint8List.fromList([0x81, 0x40 | length]);
   if (length <= 255) return Uint8List.fromList([0x81, 0x58, length]);

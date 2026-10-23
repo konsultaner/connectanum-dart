@@ -2,6 +2,29 @@
 
 Status: active. Started: 2026-10-03.
 
+## Encrypted binary arguments as CBOR fragments (2026-10-23)
+
+- [x] Reproduce the missing zero-copy path with a fail-first regression: an
+  encrypted WAMP binary argument was re-encoded as CBOR, then copied again into
+  its FlatBuffers vector.
+- [x] Use the exact `ext_44_encrypted_progressive_results` CPU profile at
+  `844a7913`. It has 810 client Dart samples and confirms copy work in the
+  inner CBOR/E2EE path; profiling is perturbative and never parity evidence.
+- [x] Let the FlatBuffers fragment path represent one binary argument as its
+  CBOR prefix plus original bytes, regardless of PPT metadata. Preserve the
+  outer FlatBuffers schema, the exact contiguous CBOR `args` bytes, keyword and
+  lazy-CBOR paths, byte limits, and buffer-owner contract.
+- [x] Test 23/24-byte CBOR-prefix boundaries, exact vector equivalence, PPT
+  metadata retention, and real AES-GCM/XSalsa20-Poly1305 decrypt round trips.
+  Focused writer, fragment and E2EE suites pass.
+- [ ] Complete the fresh `bin/test-fast`, full `bin/verify`, resulting-source
+  CI, and production copy/lifetime proof before evaluating this runtime.
+- [ ] Complete strict primary and all supplemental comparisons on this exact
+  runtime. Do not waive throughput, latency, CPU, allocation, GC, RSS or copy
+  gates. Baseline `844a7913` E2EE results have 44 numerical findings across
+  eight cases and no integrity findings; its extension protocol and primary
+  campaigns were still running when this change was prepared.
+
 ## Native sparse reader and complete kernel observation (2026-10-23)
 
 - [x] Audit current-runtime focused19 failure: original ext18 FB deadline, 3,215

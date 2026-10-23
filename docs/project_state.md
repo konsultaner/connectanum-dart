@@ -5,6 +5,24 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Current performance follow-up: a single binary argument in a FlatBuffers WAMP
+message can now be emitted as its CBOR prefix plus the original byte view,
+including WAMP E2EE ciphertext. This avoids first building a temporary CBOR
+byte string and then copying it into a FlatBuffers vector. The CBOR `args`
+vector and PPT metadata remain identical to contiguous serialization; messages
+with keywords, already-encoded lazy CBOR and other argument shapes keep their
+existing paths. Fail-first coverage and focused FlatBuffers/E2EE tests pass,
+including real AES-GCM and XSalsa20-Poly1305 encrypt/decrypt round trips. The
+full `bin/test-fast` rerun and resulting-source `bin/verify`, CI, copy/lifetime
+proof, and complete performance campaigns are still pending.
+
+The exact `844a7913` baseline E2EE/progressive-results shard completed with 44
+numerical performance findings across eight cases and no integrity findings;
+the original strict gates remain unchanged. Its diagnostic CPU profile is
+source/input clean and shows Dart byte-copy work in the inner CBOR/E2EE path;
+that profile is diagnostic only. Exact-head primary and protocol campaigns
+for `844a7913` are still running and do not include the new working-tree change.
+
 Current performance follow-up: the native reader now omits absent optional
 reference entries and reserves scalar/present-field storage for larger tables.
 All structural validation, scalar defaults, CBOR Map-null agreement, required
