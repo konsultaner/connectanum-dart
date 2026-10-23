@@ -2680,62 +2680,69 @@ void _flatBuffersMetadataContracts() {
     },
   );
 
-  for (final code in [8, 16, 36, 48, 50, 68, 70]) {
-    for (final empty in [false, true]) {
-      test(
-        'native FlatBuffers opaque span stays borrowed code=$code empty=$empty',
-        () {
-          final bytes = Uint8List.fromList(empty ? [] : [1, 2, 3]);
-          final value = _validFrame(
-            () => NativeSessionMessage(
-              serializer: NativeMessageSerializer.flatbuffers,
-              metadata: _metadata(
-                messageCode: code,
-                primaryId: 17,
-                secondaryId: 29,
-                flags:
-                    NativeMessageMetadata.flagDirectBind |
-                    NativeMessageMetadata.flagTransparentPayload,
-                transparentPayloadBytes: bytes,
+  for (final serializer in [
+    NativeMessageSerializer.flatbuffers,
+    NativeMessageSerializer.cbor,
+  ]) {
+    for (final code in [8, 16, 36, 48, 50, 68, 70]) {
+      for (final empty in [false, true]) {
+        test(
+          'native $serializer transparent span stays borrowed code=$code empty=$empty',
+          () {
+            final bytes = Uint8List.fromList(empty ? [] : [1, 2, 3]);
+            final value = _validFrame(
+              () => NativeSessionMessage(
+                serializer: serializer,
+                metadata: _metadata(
+                  messageCode: code,
+                  primaryId: 17,
+                  secondaryId: 29,
+                  flags:
+                      NativeMessageMetadata.flagDirectBind |
+                      NativeMessageMetadata.flagTransparentPayload,
+                  transparentPayloadBytes: bytes,
+                ),
               ),
-            ),
-          );
-          expect(value.transparentBinaryPayload, same(bytes));
-          expect(value.arguments, isNull);
-          expect(value.argumentsKeywords, isNull);
-          if ([8, 36, 50, 68].contains(code)) {
-            final model = _expectMessage<AbstractMessageWithPayload>(
-              _validFrame(value.materialize),
             );
-            expect(model.id, code);
-            expect(model.transparentBinaryPayload, same(bytes));
-            expect(model.arguments, isNull);
-            expect(model.argumentsKeywords, isNull);
-          }
-        },
-      );
+            expect(value.transparentBinaryPayload, same(bytes));
+            expect(value.arguments, isNull);
+            expect(value.argumentsKeywords, isNull);
+            if ([8, 36, 50, 68].contains(code)) {
+              final model = _expectMessage<AbstractMessageWithPayload>(
+                _validFrame(value.materialize),
+              );
+              expect(model.id, code);
+              expect(model.transparentBinaryPayload, same(bytes));
+              expect(model.arguments, isNull);
+              expect(model.argumentsKeywords, isNull);
+            }
+          },
+        );
+      }
     }
   }
 
   for (final flagged in [false, true]) {
-    test('native opaque payload rejects inconsistent flag=$flagged', () {
-      expect(
-        () => NativeSessionMessage(
-          serializer: NativeMessageSerializer.flatbuffers,
-          metadata: _metadata(
-            messageCode: MessageTypes.codeResult,
-            flags: flagged ? NativeMessageMetadata.flagTransparentPayload : 0,
-            transparentPayloadBytes: flagged ? null : Uint8List(0),
+    test(
+      'native FlatBuffers opaque payload rejects inconsistent flag=$flagged',
+      () {
+        expect(
+          () => NativeSessionMessage(
+            serializer: NativeMessageSerializer.flatbuffers,
+            metadata: _metadata(
+              messageCode: MessageTypes.codeResult,
+              flags: flagged ? NativeMessageMetadata.flagTransparentPayload : 0,
+              transparentPayloadBytes: flagged ? null : Uint8List(0),
+            ),
           ),
-        ),
-        throwsArgumentError,
-      );
-    });
+          throwsArgumentError,
+        );
+      },
+    );
   }
   for (final serializer in [
     NativeMessageSerializer.json,
     NativeMessageSerializer.messagePack,
-    NativeMessageSerializer.cbor,
     NativeMessageSerializer.ubjson,
   ]) {
     test('native opaque payload rejects serializer $serializer', () {

@@ -16,9 +16,12 @@ package executable, so VM profiles can resolve package imports; exact
 UTF-8 timings improved on ASCII and sparse-Unicode input, but they are not
 end-to-end parity evidence.
 
-Fresh `bin/test-fast` and full `bin/verify` pass on the current working tree,
-including the full native, 2,009-case WAMP, Chrome/Dart2Wasm and consumer smoke
-suites. The unchanged strict run on the previous source
+Fresh `bin/test-fast` and full `bin/verify` passed on source `7621f701`, including
+the full native, 2,009-case WAMP, Chrome/Dart2Wasm and consumer smoke suites.
+The current worktree adds a CBOR transparent-binary parser compatibility repair;
+its focused Rust tests and `bin/test-fast` pass, including all 2,009 live WAMP
+integration cases. Current-tree full `bin/verify` remains pending.
+The unchanged strict run on the previous source
 [`39953423478`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953423478)
 completed all 1,440 rows and failed 139 numerical performance gates, with no
 integrity findings. Supplemental run
@@ -31,9 +34,26 @@ previous-source production copy proof
 [`39953447152`](https://github.com/konsultaner/connectanum-dart/actions/runs/39953447152)
 passed 120 owned E2EE/transcode/native-crypto rows under
 `connectanum_buffer_boundaries_v1`; SDK/TLS/crypto dependency internals remain
-explicitly unmeasured. Current-source hosted CI, copy proof, and unchanged full
-primary/supplemental performance campaigns remain pending. No performance gate
-is waived and milestone acceptance is not complete.
+explicitly unmeasured. Commit `7621f701` is now pushed to PR #132. Its exact-
+source CI [`39992992607`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992992607),
+production E2EE/transcode copy proof
+[`39993003404`](https://github.com/konsultaner/connectanum-dart/actions/runs/39993003404),
+strict primary [`39992996231`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992996231),
+and full supplemental campaigns
+[`39992999450`](https://github.com/konsultaner/connectanum-dart/actions/runs/39992999450)
+are queued or running. No performance gate is waived and milestone acceptance
+is not complete.
+
+The `7621f701` production copy run failed when a live FlatBuffers client sent an
+opaque E2EE payload through a CBOR WAMP peer: the Rust CBOR parser expected an
+arguments list and rejected the direct binary payload, causing the native
+worker to close the request. One supplemental encrypted-progressive shard hit
+the same parser error. These observations are retained against that exact
+source; its strict primary and other supplemental shards are still running,
+and its CI remains queued. The worktree now accepts that transparent binary
+representation in contiguous and segmented CBOR parsing, keeps definite
+contiguous payloads borrowed, and accounts for unavoidable segmented decode
+copies. No performance or current-source copy acceptance follows yet.
 
 The exact `844a7913` baseline E2EE/progressive-results shard completed with 44
 numerical performance findings across eight cases and no integrity findings;

@@ -32,12 +32,33 @@ Status: active. Started: 2026-10-03.
   `39953434939`: all 50 cases/1,500 rows are present in diagnostic mode, with
   234 numerical findings. Keep these results as old-source evidence; neither
   accepts the current working tree.
-- [ ] Commit and push the verified working tree; complete fresh exact-source CI
-  and production E2EE/transcode copy/lifetime proofs. Dependency SDK/TLS/crypto
-  internals remain explicitly unmeasured under the approved standard-SDK scope.
-- [ ] Run unchanged exact-source strict primary and all supplemental campaigns.
-  Fix measured regressions and repeat; do not close #100, #101 or #103 or claim
-  performance parity until their current-source acceptance criteria pass.
+- [x] Commit and push the verified source as `7621f701`. Dispatch exact-source
+  CI `39992992607`, strict primary `39992996231`, supplemental campaigns
+  `39992999450`, and production E2EE/transcode copy proof `39993003404`.
+- [x] Audit the production proof failure on `7621f701`: a live FlatBuffers
+  E2EE/progressive RPC crossed a CBOR WAMP peer, whose Rust parser rejected
+  the transparent binary value as `ExpectedList("invocation.arguments")`.
+  The encrypted-progressive supplemental shard reproduced the same parser
+  rejection. Preserve both failures against that exact source.
+- [x] Repair CBOR transparent-binary parsing in the current worktree. Contiguous
+  definite payloads borrow the input span; segmented parsing retains its old
+  decoder path and counts both its input read and decoded body materialization.
+  Indefinite strings count only the chunks that must be coalesced. Focused Rust
+  parser tests, native-message metadata tests and `bin/test-fast` pass, including
+  all 2,009 live WAMP integration cases. Full `bin/verify` remains pending.
+- [ ] Audit exact-source CI `39992992607`, strict primary `39992996231`,
+  supplemental campaigns `39992999450` and production copy proof
+  `39993003404`, including their input/binary hashes. These runs belong to
+  `7621f701`; its copy proof failed, one supplemental shard failed on the CBOR
+  parser, strict/supplemental runs are still active, and CI is queued.
+  Dependency SDK/TLS/crypto internals remain explicitly unmeasured under the
+  approved standard-SDK scope.
+- [ ] Commit the parser repair, pass canonical `bin/verify`, and repeat exact-
+  source CI, production copy/lifetime proof, strict primary and every unchanged
+  supplemental campaign on that new head.
+- [ ] Fix any measured regressions and repeat the complete campaigns after every
+  source change. Do not close #100, #101 or #103 or claim performance parity
+  until all current-source acceptance criteria pass.
 
 ## Encrypted binary arguments as CBOR fragments (2026-10-23)
 

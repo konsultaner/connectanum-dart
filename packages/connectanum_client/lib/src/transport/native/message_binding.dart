@@ -515,9 +515,12 @@ void _applyNativeTransparentPayload(
     NativeMessageMetadata.flagTransparentPayload,
   );
   final bytes = metadata.transparentPayloadBytes;
+  final supportsTransparentPayload =
+      serializer == NativeMessageSerializer.flatbuffers ||
+      serializer == NativeMessageSerializer.cbor;
   if (present != (bytes != null) ||
       (present &&
-          (serializer != NativeMessageSerializer.flatbuffers ||
+          (!supportsTransparentPayload ||
               message is! AbstractMessageWithPayload ||
               !{16, 36, 48, 50, 68, 70, 8}.contains(metadata.messageCode)))) {
     throw ArgumentError('Invalid native transparent payload metadata');
