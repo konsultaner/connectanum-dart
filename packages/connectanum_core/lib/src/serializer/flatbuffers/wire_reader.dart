@@ -88,12 +88,11 @@ class _Reader {
       final relative = entry < vtableSize
           ? data.getUint16(vtable + entry, Endian.little)
           : 0;
+      // Keep scalar defaults; absent references resolve to null on map lookup.
       if (relative == 0) {
         if (field.kind == FlatBufferFieldKind.scalar) {
           final value = defaultScalar(spec.name, field.name);
           output[field.name] = boolean(field) ? value != 0 : value;
-        } else {
-          output[field.name] = null;
         }
         continue;
       }

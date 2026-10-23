@@ -12,7 +12,16 @@ pub(super) fn agree(
     dictionary: &ValueMap,
     reference: usize,
 ) -> Result<(), ParseError> {
-    let expected = project(name, dictionary, reference)?;
+    // Bound the reservation to avoid Vec growth exceeding small schema tables.
+    let capacity = if dictionary.is_empty() {
+        0
+    } else {
+        dictionary
+            .len()
+            .max(4)
+            .min(schema::TABLES[reference].fields.len())
+    };
+    let expected = project_into(name, dictionary, reference, Fields::with_capacity(capacity))?;
     for field in schema::TABLES[reference].fields {
         if ignored(name, field.name) {
             continue;
@@ -147,7 +156,19 @@ fn enumeration(key: &str) -> Option<&'static [(&'static str, u64)]> {
     })
 }
 pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fields, ParseError> {
-    let mut result = Fields::with_capacity(schema::TABLES[reference].fields.len());
+    project_into(
+        name,
+        map,
+        reference,
+        Fields::with_capacity(schema::TABLES[reference].fields.len()),
+    )
+}
+fn project_into(
+    name: &str,
+    map: &ValueMap,
+    reference: usize,
+    mut result: Fields,
+) -> Result<Fields, ParseError> {
     for field in schema::TABLES[reference].fields {
         if ignored(name, field.name) {
             continue;

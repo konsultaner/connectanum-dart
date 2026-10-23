@@ -5,7 +5,29 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-The runtime candidate `55ae6f4d` derives immutable dictionary-field plans once
+The new unverified runtime follow-up removes absent optional reference entries
+from internal Dart wire tables and bounds native agreement's temporary field
+reservation. Public CBOR metadata, scalar defaults, wire/ABI and payload owners
+are preserved. Private Dart baseline/candidate each pass 491 checks, and an
+incomplete negative control fails 52 CBOR cases. Native variants use separate
+builds and actual-core markers; 39 existing cases plus marker checks pass, all
+76 allocator inputs retain every cold/repeated observation without request
+increases, and all 56 emitted wires match. Common native reads request 672–1,176
+fewer bytes/up to one fewer allocation. The empty-capacity prototype's 56-byte
+Abort regression is fixed by schema capping; the unproven shared-target comparison
+is excluded. These are components, not Linux RSS/timing acceptance.
+
+Baseline bin/test-fast passes on docs head `2646ee69` with all 3,201 sources/four
+resolved inputs unchanged. The current follow-up passes seven component-isolation contracts, 20 CI execution
+contracts and 154 mutation proofs. Resulting-source analysis exits 0, all 3,456
+serializer cases and 39 native conformance cases pass; actual-source reader/
+encoder requests match the audited private candidate exactly. All 3,202 source
+and four resolved hashes stay fixed. Qwen questions are resolved by source and
+negative controls; GLM has no confirmed correctness finding. Full verification,
+Linux component/copy proof and unchanged complete timing gates remain required.
+See [temporary table research](research/2026-10-23-flatbuffers-temporary-tables.md).
+
+The preceding runtime candidate `55ae6f4d` derives immutable dictionary-field plans once
 from the pinned schema and shares them between projection and frame agreement.
 It removes repeated full-schema scans/filtering in two Dart modules without
 changing value/default/type checks, wire schema, native ABI or byte ownership.

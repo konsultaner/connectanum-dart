@@ -2,6 +2,30 @@
 
 Status: active. Started: 2026-10-03.
 
+## Temporary table allocation follow-up (2026-10-23)
+
+- [x] Pass baseline bin/test-fast on `2646ee69`, with 3,201 sources/four resolved
+  inputs fixed, after full verification on runtime `55ae6f4d`/docs `02840d2d`.
+- [x] Stage sparse internal Dart tables with unconditional vector validation;
+  baseline/candidate each pass 491 cases, incomplete variant fails 52 CBOR cases.
+- [x] Verify fresh/mutable public metadata, scalar/default/false/zero values,
+  exact byte aliases and all seven payload-bearing message tables.
+- [x] Reject native shared-target comparison without proven variant selection;
+  use disjoint builds plus actual-core markers checked outside measurements.
+- [x] Retain/fix empty-capacity Abort request regression through schema capping;
+  audit all 76 inputs/cold/repeat counts, same outcomes and 56 identical wires.
+- [x] Adopt only audited runtime methods and semantic tests; pass seven strict
+  component module-isolation tests and all 154 existing mutation proofs.
+- [x] Resolve Qwen questions by source/negative controls; GLM has no confirmed
+  finding. Correct its baseline wording: old code rejected malformed CBOR.
+- [x] Pass resulting-source analysis, 3,456 serializer and 39 native cases;
+  actual-source allocator rows match the audited candidate, with all 3,202 source/
+  four resolved hashes unchanged. Seven component/20 CI contracts and 154 proofs pass.
+- [ ] Complete frozen full verification on the resulting committed source.
+- [ ] Pass Linux component, production lifetime/copy proof and strict diagnostic.
+- [ ] Complete unchanged full primary and supplemental gates on the final runtime;
+  preserve every earlier started observation and required independent PR review.
+
 ## Dictionary-field plan candidate (2026-10-23)
 
 - [x] Use audited 10-KiB profile stacks and 360-row current-runtime payload costs

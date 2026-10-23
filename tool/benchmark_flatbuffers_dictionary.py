@@ -21,7 +21,7 @@ from dart_heap_allocation_evidence import allocation_evidence
 ROOT = Path(__file__).resolve().parents[1]
 CORE = 'packages/connectanum_core/lib/'
 TARGETS = tuple(CORE + 'src/serializer/flatbuffers/' + name
-                for name in ('frame.dart', 'message_projection.dart'))
+                for name in ('frame.dart', 'message_projection.dart', 'wire_reader.dart'))
 SUITES = ('binding', 'validation', 'wire_writer', 'frame', 'message_reader',
           'metadata_roundtrip', 'fragments', 'copy_retention', 'metadata_access',
           'deferred_metadata', 'metadata_encoding', 'reader_cache')
@@ -31,8 +31,9 @@ def prepare(root, output, baseline):
     if not re.fullmatch('[0-9a-f]{40}', baseline):
         raise ValueError('Component baseline must be an explicit full commit SHA')
     changed = subprocess.check_output(['git', 'diff', '--name-only', baseline, 'HEAD', '--', CORE], cwd=root, text=True).splitlines()
-    if set(changed) != set(TARGETS):
-        raise ValueError('Component must isolate exactly the two dictionary reader modules')
+    allowed = (set(TARGETS[:2]), {TARGETS[0], TARGETS[2]}, set(TARGETS))
+    if set(changed) not in allowed:
+        raise ValueError('Component must isolate dictionary agreement/projection or sparse table decoding')
     config_path = root / '.dart_tool/package_config.json'
     original = json.loads(config_path.read_text())
     test = next(package for package in original['packages'] if package['name'] == 'test')

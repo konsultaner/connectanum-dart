@@ -76,23 +76,21 @@ FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
       }
     }
   }
-  if (body.containsKey('payload')) {
-    final payload = body['payload'];
-    if (payload != null && (body['args'] != null || body['kwargs'] != null)) {
-      throw const FormatException(
-        'FlatBuffers payload conflicts with args/kwargs',
-      );
-    }
-    if (body['args'] case final Uint8List args) {
-      validateFlatBufferCbor(args, rootMajor: 4);
-    }
-    if (body['kwargs'] case final Uint8List kwargs) {
-      validateFlatBufferCbor(
-        kwargs,
-        rootMajor: 5,
-        rootStringDictionaryKeys: true,
-      );
-    }
+  final payload = body['payload'];
+  if (payload != null && (body['args'] != null || body['kwargs'] != null)) {
+    throw const FormatException(
+      'FlatBuffers payload conflicts with args/kwargs',
+    );
+  }
+  if (body['args'] case final Uint8List args) {
+    validateFlatBufferCbor(args, rootMajor: 4);
+  }
+  if (body['kwargs'] case final Uint8List kwargs) {
+    validateFlatBufferCbor(
+      kwargs,
+      rootMajor: 5,
+      rootStringDictionaryKeys: true,
+    );
   }
   return frame;
 }

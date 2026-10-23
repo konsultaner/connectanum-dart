@@ -57,6 +57,16 @@ class ComponentTests(unittest.TestCase):
             self.summarize(self.rows(), findings=['incomplete evidence'])
 
     def test_private_configs_resolve_every_package_and_bind_both_actual_core_variants(self):
+        self._assert_private_configs(component.TARGETS[:2])
+
+    def test_sparse_decoder_pair_preserves_private_package_and_baseline_isolation(self):
+        self._assert_private_configs((component.CORE + 'src/serializer/flatbuffers/frame.dart',
+                                     component.CORE + 'src/serializer/flatbuffers/wire_reader.dart'))
+
+    def test_cumulative_decoder_changes_preserve_private_package_isolation(self):
+        self._assert_private_configs(component.TARGETS)
+
+    def _assert_private_configs(self, changed):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'with spaces'
             output = root / 'output'
@@ -76,8 +86,10 @@ class ComponentTests(unittest.TestCase):
                 {'name': 'other', 'rootUri': '../other/', 'packageUri': 'lib/'},
             ]}))
             def reply(command, **kwargs):
-                if command[:2] == ['git', 'diff']: return '\n'.join(component.TARGETS)
-                if command[:2] == ['git', 'show']: return b'baseline source\n'
+                if command[:2] == ['git', 'diff']: return '\n'.join(changed)
+                if command[:2] == ['git', 'show']:
+                    name = command[-1].split(':', 1)[1]
+                    return b'baseline source\n' if name in changed else b'candidate source\n'
                 raise AssertionError(command)
             with mock.patch.object(component.subprocess, 'check_output', side_effect=reply):
                 actual = component.prepare(root, output, 'a' * 40)
@@ -89,14 +101,19 @@ class ComponentTests(unittest.TestCase):
                 self.assertTrue(all(p['rootUri'].startswith('file:') for p in packages))
                 projection = output / variant / 'core/lib/src/serializer/flatbuffers/message_projection.dart'
                 self.assertIn(f"dictionaryPlanProbeVariant = '{variant}'", projection.read_text())
-                self.assertTrue(projection.read_text().startswith(variant + ' source'))
+                for name in component.TARGETS:
+                    expected = 'baseline' if variant == 'baseline' and name in changed else 'candidate'
+                    path = output / variant / 'core/lib' / name.removeprefix(component.CORE)
+                    self.assertTrue(path.read_text().startswith(expected + ' source'))
             self.assertIn('actual private core variant is selected', (output / 'private-tests.dart').read_text())
 
     def test_baseline_must_be_full_explicit_and_core_diff_must_be_isolated(self):
-        with mock.patch.object(component.subprocess, 'check_output', return_value='unrelated.dart'):
-            for baseline in ('HEAD~1', 'a' * 39, 'a' * 40):
-                with self.subTest(baseline=baseline), self.assertRaises(ValueError):
-                    component.prepare(Path('/not-used'), Path('/not-used'), baseline)
+        for changed in ('unrelated.dart', '', component.TARGETS[0],
+                        '\n'.join((*component.TARGETS, component.CORE + 'unrelated.dart'))):
+            with mock.patch.object(component.subprocess, 'check_output', return_value=changed):
+                for baseline in ('HEAD~1', 'a' * 39, 'a' * 40):
+                    with self.subTest(baseline=baseline, changed=changed), self.assertRaises(ValueError):
+                        component.prepare(Path('/not-used'), Path('/not-used'), baseline)
 
 
 if __name__ == '__main__':
