@@ -197,3 +197,18 @@ containing only this native writer change and its tests. Its original 90-row
 schedule, floors and deadlines remain unchanged. Production runtime `984288cb`
 is unchanged. Extra flush/yield costs and actual Linux improvement remain
 unmeasured; private functional success does not establish performance parity.
+
+The completed replay fails after three valid rows at
+`ext_18_payload_sizes_cbor`, under the original 300000-ms deadline. Independent
+audit verifies all 3,203 sources/four resolved contents, retained production
+input binary hashes, unchanged driver, original schedule/floors and cleanup.
+Its modified native library differs from the control as expected. Three captures
+qualify, with six owned socket records and no partial/changing-progress capture.
+Worker receive buffer is 35,812 bytes, peer window 35,840, with continuing transfer.
+The namespace records six prune calls/two receive prunes/25 collapses and zero TCP
+memory-pressure events; these are still not per-socket attribution. Archive SHA
+is `f5dac5c1dcfd99e4aaece36ebc465b0fe6eda9fa6c5eb93b6f1489fe7ca68207`;
+raw SHA is `93b5d2b3c9ce53ccebb85fb3871263aa9a3d38f5773ba5cb4c6677f51b7a8117`.
+The candidate is excluded and never adopted. This demonstrates that bounded
+write/flush/yield batches are insufficient and that the recurring failure also
+affects CBOR; it does not establish that the candidate caused a new regression.

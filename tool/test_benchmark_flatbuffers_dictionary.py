@@ -64,7 +64,11 @@ class ComponentTests(unittest.TestCase):
                                      component.CORE + 'src/serializer/flatbuffers/wire_reader.dart'))
 
     def test_cumulative_decoder_changes_preserve_private_package_isolation(self):
+        self._assert_private_configs(component.TARGETS[:3])
         self._assert_private_configs(component.TARGETS)
+
+    def test_validator_key_change_preserves_actual_private_baseline_source(self):
+        self._assert_private_configs((component.CORE + 'src/serializer/flatbuffers/validation.dart',))
 
     def _assert_private_configs(self, changed):
         with tempfile.TemporaryDirectory() as directory:

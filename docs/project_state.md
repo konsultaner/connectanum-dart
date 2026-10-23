@@ -5,6 +5,17 @@ Last updated: 2026-10-23.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Current follow-up packs common validator `(offset, schema)` memo keys into exact
+integers, with original-record fallback outside the packed domain. Validation,
+wire/ABI and owners are unchanged. Private baseline/candidate each pass 501
+functional checks and 63 JS/63 Wasm checks; an unsafe offset-only control fails
+three cases including real table-budget undercount. Audited 160 rows/32 fresh
+workers/128 allocation windows save about 63–65 managed bytes per decode, with
+RESULT/CALL time ratios 0.98961/0.99163. These are component results. Actual-source
+analysis, all 3,457 serializer cases and eight isolation contracts pass; runtime
+bytes equal the audited candidate. Full/hosted verification and unchanged complete
+acceptance remain pending. See [validator-key evidence](research/2026-10-23-flatbuffers-validator-keys.md).
+
 Verified runtime `984288cb` removes absent optional reference entries
 from internal Dart wire tables and bounds native agreement's temporary field
 reservation. Public CBOR metadata, scalar defaults, wire/ABI and payload owners
@@ -79,10 +90,14 @@ Private bounded, borrowed batches for large unmasked WebSocket writes pass all
 14 focused checks versus ten passes/four intended baseline failures. Full native
 conformance passes 402 unit/three integration tests. All 6,408 private inputs,
 actual-core markers and separate executable hashes are independently verified.
-The unchanged 90-row Linux focused replay 39892063835 runs on separate experiment
-commit `2be50a0b`; the current production runtime remains `984288cb`. Small/control
-paths, wire bytes and owners are preserved. Flush/yield overhead is unmeasured.
-Do not adopt a scheduling change without native conformance and Linux replay evidence.
+The unchanged 90-row Linux focused replay 39892063835 on separate experiment
+commit `2be50a0b` fails after three valid rows at ext18 CBOR's original TLS deadline.
+Its 3,203 sources/four resolved inputs, original limits/binaries and cleanup are
+audited. Three qualified captures retain six owned socket records: worker buffer
+35,812 bytes/peer window 35,840. The scheduling candidate is excluded and never
+adopted; the failure now also reproduces on CBOR. Runtime `984288cb` full CI
+39882176722 passes all 38 jobs; diagnostic CI 39888953092 is still running without
+known failures. Keep the TLS blocker and all completed observations visible.
 No SDK, sysctl, allocator, socket-buffer or acceptance-policy change is justified.
 See [TLS follow-up](research/2026-10-23-tls-receive-buffer-follow-up.md).
 

@@ -2,6 +2,21 @@
 
 Status: active. Started: 2026-10-03.
 
+## Validator memo keys (2026-10-23)
+
+- [x] Verify baseline code/resolution equality with fully verified `f2dbdfa4`.
+- [x] Stage exact integer keys with record fallback; preserve all validation and
+  same-offset/different-schema identity. Reject initial fixture-import failure.
+- [x] Pass 501 functional/63 JS/63 Wasm checks per variant; unsafe offset-only
+  control fails three cases, including actual table-budget undercount.
+- [x] Audit 160 rows/32 fresh workers/128 allocation windows, exact wires/aliases
+  and source/resolution/package/window guards. Save about 63–65 bytes/decode;
+  RESULT/CALL time ratios 0.98961/0.99163 are component evidence only.
+- [x] Resolve advisory review; adopt exact tested runtime bytes without probes.
+  Pass analysis, 3,457 serializer cases and eight component-isolation contracts.
+- [ ] Complete frozen full verification, hosted component/CI/copy proof and all
+  unchanged primary/supplemental gates on the final runtime.
+
 ## Current acceptance and TLS follow-up (2026-10-23)
 
 - [x] Pass frozen full `bin/verify` on `984288cb` in 23m08s, including Chrome/Wasm,
@@ -34,9 +49,10 @@ Status: active. Started: 2026-10-03.
   connection-discard/owner-release tests. Baseline has ten passes/four intended
   failures; candidate has 14 passes. Complete native suite passes 402 unit and
   three integration tests, with 6,408 private inputs/separate binaries verified.
-- [ ] Audit Linux focused replay 39892063835 on separate experiment commit
-  `2be50a0b`; retain original 90-row schedule, floors and deadlines. No production
-  adoption before replay evidence; flush/yield overhead remains unmeasured.
+- [x] Audit Linux focused replay 39892063835 on separate experiment commit
+  `2be50a0b`: three/90 rows, original ext18 CBOR TLS deadline, three qualified
+  captures/six owned socket records, worker rb35,812/peer window35,840. Exclude
+  scheduling candidate; never adopt it as a fix. No observation is canceled.
 - [ ] Establish a causal TLS fix if reproduced; do not infer the Ubuntu kernel's
   behavior from upstream sources alone or change timeouts/socket/allocator policy.
 - [ ] Complete full primary/supplemental acceptance on the final runtime and full CI;
