@@ -1,0 +1,64 @@
+// Private, read-only, x86-64 Linux BTF availability smoke. No acceptance claim.
+config = { max_map_keys = 128 }
+
+BEGIN {
+  @connects = count();
+  @entries = count();
+  @exits = count();
+  @duplicates = count();
+  printf("TCP_PRUNE_BEGIN\n");
+}
+
+kfunc:tcp_prune_queue {
+  $sk = args.sk;
+  if ($sk->__sk_common.skc_family == 2 &&
+      $sk->__sk_common.skc_rcv_saddr == 16777343 &&
+      $sk->__sk_common.skc_daddr == 16777343 &&
+      ($sk->__sk_common.skc_num == 8083 || $sk->__sk_common.skc_dport == 37663)) {
+    $inode = $sk->sk_socket->file->f_inode->i_ino;
+    if (@before[tid, $inode].0 != 0) { @duplicates = count(); }
+    @entries = count();
+    @before[tid, $inode] = (nsecs(monotonic), $sk->sk_rcvbuf,
+      $sk->sk_backlog.rmem_alloc.counter, $sk->sk_userlocks,
+      args.in_skb->len, args.in_skb->truesize);
+  }
+}
+
+kretfunc:tcp_prune_queue {
+  $sk = args.sk;
+  if ($sk->__sk_common.skc_family == 2 &&
+      $sk->__sk_common.skc_rcv_saddr == 16777343 &&
+      $sk->__sk_common.skc_daddr == 16777343 &&
+      ($sk->__sk_common.skc_num == 8083 || $sk->__sk_common.skc_dport == 37663)) {
+    $inode = $sk->sk_socket->file->f_inode->i_ino;
+    $before = @before[tid, $inode];
+    @exits = count();
+    printf("TCP_PRUNE %llu %llu %llu %llu %u %u %u %u %lld %lld %lld %lld %u %u %u %lld\n",
+      $before.0, nsecs(monotonic), $inode, $sk->__sk_common.skc_net.net->ns.inum,
+      $sk->__sk_common.skc_rcv_saddr, $sk->__sk_common.skc_daddr,
+      $sk->__sk_common.skc_num, $sk->__sk_common.skc_dport,
+      $before.1, $sk->sk_rcvbuf, $before.2, $sk->sk_backlog.rmem_alloc.counter,
+      $before.3, $before.4, $before.5, retval);
+    delete(@before[tid, $inode]);
+  }
+}
+
+END { printf("TCP_PRUNE_END\n"); }
+
+
+// tcp_v4_connect returns in the initiating process context, unlike RX softirq.
+// Ownership is independently checked against an actual unprivileged socket FD.
+kretfunc:tcp_v4_connect {
+  $sk = args.sk;
+  if (retval == 0 && $sk->__sk_common.skc_family == 2 &&
+      $sk->__sk_common.skc_rcv_saddr == 16777343 &&
+      $sk->__sk_common.skc_daddr == 16777343 &&
+      $sk->__sk_common.skc_dport == 37663) {
+    $inode = $sk->sk_socket->file->f_inode->i_ino;
+    @connects = count();
+    printf("TCP_CONNECT %llu %u %llu %llu %u %u %u %u %lld\n",
+      nsecs(monotonic), pid, $inode, $sk->__sk_common.skc_net.net->ns.inum,
+      $sk->__sk_common.skc_rcv_saddr, $sk->__sk_common.skc_daddr,
+      $sk->__sk_common.skc_num, $sk->__sk_common.skc_dport, retval);
+  }
+}
