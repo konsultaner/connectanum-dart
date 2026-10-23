@@ -58,6 +58,11 @@ on:
         required: false
         default: false
         type: boolean
+      trace_kernel_prune:
+        description: Private read-only owned-flow kernel prune observer, focused diagnostic only
+        required: false
+        default: false
+        type: boolean
       trace_socket_options:
         description: Trace socket options in the original-process payload diagnostic only
         required: false
@@ -175,6 +180,28 @@ jobs:
           python3 tool/test_diagnose_wamp_rss.py
           python3 tool/test_ci_execution.py
 
+      - name: Prepare read-only kernel observer and prove independent dummy lifecycle
+        if: inputs.trace_kernel_prune && inputs.campaign == 'flatbuffers_payload_focus'
+        shell: bash
+        timeout-minutes: 10
+        run: |
+          set -euo pipefail
+          mkdir -p out/wamp-flatbuffers-primary/kernel-probe
+          test "$(uname -m)" = x86_64
+          uname -a > out/wamp-flatbuffers-primary/kernel-probe/kernel.txt
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bpftrace
+          bpftrace --version > out/wamp-flatbuffers-primary/kernel-probe/version.txt
+          sudo head -c 33554433 /sys/kernel/btf/vmlinux > out/wamp-flatbuffers-primary/kernel-probe/vmlinux.btf
+          sha256sum out/wamp-flatbuffers-primary/kernel-probe/vmlinux.btf > out/wamp-flatbuffers-primary/kernel-probe/btf-sha256.txt
+          python3 tool/test_inspect_btf_types.py -v
+          python3 tool/test_render_tcp_prune_program.py -v
+          python3 tool/test_tcp_probe_lifecycle_smoke.py -v
+          python3 tool/test_tcp_probe_control.py -v
+          python3 tool/test_supervise_tcp_probe.py -v
+          python3 tool/inspect-btf-types.py out/wamp-flatbuffers-primary/kernel-probe/vmlinux.btf --output out/wamp-flatbuffers-primary/kernel-probe/live-types.json
+          python3 tool/render-tcp-prune-program.py --btf out/wamp-flatbuffers-primary/kernel-probe/vmlinux.btf --template tool/tcp-prune-smoke.bt --output out/wamp-flatbuffers-primary/kernel-probe/rendered.bt
+          python3 tool/smoke-tcp-probe-supervisor.py --program out/wamp-flatbuffers-primary/kernel-probe/rendered.bt --output out/wamp-flatbuffers-primary/kernel-probe/dummy > out/wamp-flatbuffers-primary/kernel-probe/dummy.log 2> out/wamp-flatbuffers-primary/kernel-probe/dummy.stderr.txt
       - name: Prepare owned socket-option trace
         if: inputs.trace_socket_options && (inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus')
         run: |
@@ -262,6 +289,7 @@ jobs:
           INPUT_EXTENSION_SHARD: ${{ matrix.shard }}
           INPUT_BASELINE_REF: ${{ inputs.baseline_ref }}
           INPUT_TRACE_SOCKET_OPTIONS: ${{ inputs.trace_socket_options }}
+          INPUT_TRACE_KERNEL_PRUNE: ${{ inputs.trace_kernel_prune }}
           INPUT_RSS_CASE: ${{ inputs.rss_case }}
           INPUT_MEMORY_ATTRIBUTION: ${{ inputs.memory_attribution }}
           INPUT_ALLOCATOR_ATTRIBUTION: ${{ inputs.allocator_attribution }}
@@ -362,7 +390,7 @@ jobs:
               sys.executable, 'tool/smoke_wamp_stall_discovery.py',
               '--output', str(root / 'original-process-smoke'),
           ], check=True)
-          raise SystemExit(subprocess.run([
+          capture_command = [
               sys.executable, 'tool/capture_wamp_stall.py',
               '--scenario', str(root / 'campaign/scenarios'),
               '--driver', str(root / 'setup/http_stream'),
@@ -373,7 +401,18 @@ jobs:
               *(['--trace-socket-options'] if os.environ.get('INPUT_TRACE_SOCKET_OPTIONS') == 'true' else []),
               '--control-base', 'https://127.0.0.1:8080/bench',
               '--max-seconds', '19800',
-          ]).returncode)
+          ]
+          if os.environ.get('INPUT_TRACE_KERNEL_PRUNE') == 'true':
+              if os.environ.get('INPUT_CAMPAIGN') != 'flatbuffers_payload_focus':
+                  raise SystemExit('Private kernel observer only supports focused diagnostic')
+              command = [sys.executable, 'tool/supervise-tcp-probe.py',
+                         '--root-observer', 'tool/tcp-probe-lifecycle-smoke.py',
+                         '--program', str(root / 'kernel-probe/rendered.bt'),
+                         '--output', str(root / 'kernel-observation'),
+                         '--max-seconds', '20000', '--', *capture_command]
+          else:
+              command = capture_command
+          raise SystemExit(subprocess.run(command).returncode)
           PY
           fi
 
