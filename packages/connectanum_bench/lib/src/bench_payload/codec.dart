@@ -11,6 +11,7 @@ import 'generated/workload_payload_connectanum.bench_generated.dart' as schema;
 /// or cross-worker payloads. The body is deterministic across codec variants.
 abstract final class BenchPayloadCodec {
   static const fileIdentifier = 'CBEN';
+  static final Uint32List _expectedBodyWords = _buildExpectedBodyWords();
 
   static Map<String, Object?> dynamicValue({
     required int worker,
@@ -224,12 +225,7 @@ abstract final class BenchPayloadCodec {
     if (actual == null || actual.length != bodyBytes) {
       throw const FormatException('Benchmark payload body length mismatch');
     }
-    for (var index = 0; index < bodyBytes; index += 1) {
-      final expected = (index * 31 + worker * 17 + iteration * 29) & 0xff;
-      if (actual[index] != expected) {
-        throw FormatException('Benchmark payload body mismatch at byte $index');
-      }
-    }
+    _verifyBody(actual, worker: worker, iteration: iteration);
   }
 
   static bool matchesIdentity(
@@ -268,12 +264,61 @@ abstract final class BenchPayloadCodec {
     if (actual is! List<int> || actual.length != bodyBytes) {
       throw const FormatException('Benchmark payload body length mismatch');
     }
-    for (var index = 0; index < bodyBytes; index += 1) {
-      final expected = (index * 31 + worker * 17 + iteration * 29) & 0xff;
+    _verifyBody(actual, worker: worker, iteration: iteration);
+  }
+
+  static void _verifyBody(
+    List<int> actual, {
+    required int worker,
+    required int iteration,
+  }) {
+    if (actual is Uint8List) {
+      final data = ByteData.sublistView(actual);
+      var expected = (worker * 17 + iteration * 29) & 0xff;
+      var index = 0;
+      for (; index + 4 <= actual.length; index += 4) {
+        if (data.getUint32(index, Endian.little) !=
+            _expectedBodyWords[expected]) {
+          for (var byte = 0; byte < 4; byte += 1) {
+            final offset = index + byte;
+            if (data.getUint8(offset) != ((expected + byte * 31) & 0xff)) {
+              throw FormatException(
+                'Benchmark payload body mismatch at byte $offset',
+              );
+            }
+          }
+        }
+        expected = (expected + 124) & 0xff;
+      }
+      for (; index < actual.length; index += 1) {
+        if (data.getUint8(index) != expected) {
+          throw FormatException(
+            'Benchmark payload body mismatch at byte $index',
+          );
+        }
+        expected = (expected + 31) & 0xff;
+      }
+      return;
+    }
+
+    var expected = (worker * 17 + iteration * 29) & 0xff;
+    for (var index = 0; index < actual.length; index += 1) {
       if (actual[index] != expected) {
         throw FormatException('Benchmark payload body mismatch at byte $index');
       }
+      expected = (expected + 31) & 0xff;
     }
+  }
+
+  static Uint32List _buildExpectedBodyWords() {
+    final words = Uint32List(256);
+    for (var start = 0; start < words.length; start += 1) {
+      final second = (start + 31) & 0xff;
+      final third = (start + 62) & 0xff;
+      final fourth = (start + 93) & 0xff;
+      words[start] = start | (second << 8) | (third << 16) | (fourth << 24);
+    }
+    return words;
   }
 
   static void _checkIdentity(int worker, int iteration) {

@@ -432,6 +432,100 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('checks each FlatBuffers body byte in aligned word groups', () {
+    const worker = 7;
+    const iteration = 19;
+    const bodyBytes = 15;
+    final bytes = BenchPayloadCodec.encodeDart(
+      worker: worker,
+      iteration: iteration,
+      bodyBytes: bodyBytes,
+    );
+    final bodyOffset = _findSubsequence(
+      bytes,
+      BenchPayloadCodec.body(
+        worker: worker,
+        iteration: iteration,
+        length: bodyBytes,
+      ),
+    );
+
+    for (final offset in [0, 1, 2, 3, 4, bodyBytes - 1]) {
+      final corrupted = Uint8List.fromList(bytes)
+        ..[bodyOffset + offset] ^= 0xff;
+      expect(
+        () => BenchPayloadCodec.verify(
+          bytes: corrupted,
+          worker: worker,
+          iteration: iteration,
+          bodyBytes: bodyBytes,
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('byte $offset'),
+          ),
+        ),
+      );
+    }
+  });
+
+  test('checks unaligned read-only typed bodies without copying', () {
+    const worker = 31;
+    const iteration = 47;
+    const bodyBytes = 65539;
+    final expected = BenchPayloadCodec.body(
+      worker: worker,
+      iteration: iteration,
+      length: bodyBytes,
+    );
+    final backing = Uint8List(bodyBytes + 2)
+      ..setRange(1, bodyBytes + 1, expected);
+    final view = Uint8List.sublistView(
+      backing,
+      1,
+      bodyBytes + 1,
+    ).asUnmodifiableView();
+    final value = <String, Object?>{
+      'worker': worker,
+      'iteration': iteration,
+      'body': view,
+    };
+
+    BenchPayloadCodec.verifyDynamic(
+      value: value,
+      worker: worker,
+      iteration: iteration,
+      bodyBytes: bodyBytes,
+    );
+    BenchPayloadCodec.verifyDynamic(
+      value: {...value, 'body': expected.toList()},
+      worker: worker,
+      iteration: iteration,
+      bodyBytes: bodyBytes,
+    );
+    expect(() => view[0] = 0, throwsUnsupportedError);
+
+    const corruptedOffset = 32770;
+    backing[corruptedOffset + 1] ^= 0xff;
+    expect(
+      () => BenchPayloadCodec.verifyDynamic(
+        value: value,
+        worker: worker,
+        iteration: iteration,
+        bodyBytes: bodyBytes,
+      ),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('byte $corruptedOffset'),
+        ),
+      ),
+    );
+  });
 }
 
 int _findSubsequence(List<int> bytes, List<int> sequence) {

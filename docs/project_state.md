@@ -15,6 +15,21 @@ smokes. A repeated local serialization probe improved the tested FlatBuffers
 control path by about 12% and dynamic values path by about 6–7%; this is
 directional macOS component evidence, not benchmark acceptance.
 
+Current exact-head candidate update (2026-10-27): the VM FlatBuffers byte-vector
+writer now uses the typed view's bulk `setRange` path. The benchmark payload
+verifier checks `Uint8List` bodies in little-endian word groups, then checks an
+affected word byte-by-byte to preserve precise corruption diagnostics; generic
+lists retain the original byte-wise path. Tests cover every byte lane, tails,
+unaligned read-only typed views and the generic-list fallback. Focused tests,
+`bin/test-fast`, full `bin/verify` and `git diff --check` pass locally, including
+the 2,012-case live WAMP suite and Chrome/Dart2Wasm. This is validation, not
+performance acceptance. The exact-head strict campaign `40483279866` on the
+preceding source `8c38f7fe` completed 1,440 rows with zero integrity findings
+but 160 numerical parity findings. The new candidate still needs exact-head CI,
+the unchanged strict primary and supplemental campaigns, and the production
+native-view/E2EE/transcode copy proof. PR #132 remains draft and issues #100,
+#101 and #103 stay open until all of their criteria pass.
+
 The latest exact-head strict Linux report,
 [`40021090649`](https://github.com/konsultaner/connectanum-dart/actions/runs/40021090649),
 is still for the preceding source `715897a6` and fails its unchanged point

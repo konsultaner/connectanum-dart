@@ -614,7 +614,7 @@ class ByteViewFlatBufferBuilder implements fb.Builder {
             _buf.offsetInBytes + _buf.lengthInBytes - result + 4,
             values.length,
           )
-          .setAll(0, values);
+          .setRange(0, values.length, values);
     } else {
       var tail = result - _sizeofUint32;
       for (final value in values) {

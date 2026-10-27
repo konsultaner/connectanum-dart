@@ -2,6 +2,29 @@
 
 Status: active. Started: 2026-10-03.
 
+## Exact-head verifier and byte-vector candidate (2026-10-27)
+
+- [x] Change the VM FlatBuffers byte-vector bulk copy from `setAll` to
+  `setRange`; retain the existing copying and ownership contract.
+- [x] Speed benchmark body verification for `Uint8List` using little-endian
+  32-bit groups and a precomputed expected-word table. On a mismatching word,
+  check constituent bytes so reports retain the exact corrupt offset. Keep
+  generic `List<int>` verification byte-wise.
+- [x] Test word-lane and trailing-byte corruption, unaligned read-only typed
+  views without a body copy, and the generic-list fallback.
+- [x] Run focused serializer and benchmark tests, `bin/test-fast`, full
+  `bin/verify`, and `git diff --check`; local VM, Chrome/Dart2Wasm, Rust/native,
+  live WAMP and consumer checks pass. The live integration matrix completed all
+  2,012 cases. These checks do not establish performance parity.
+- [ ] Commit and push this candidate; run exact-head CI, the unchanged strict
+  primary campaign, all supplemental shards and the production native-view /
+  E2EE / transcode copy proof.
+- [ ] Audit every report, resolve all policy findings without changing the
+  checked-in thresholds or workload definitions, and verify all previously
+  measured codec paths remain non-regressing.
+- [ ] Keep PR #132 in draft and issues #100, #101 and #103 open until their
+  complete copy-accounting and performance acceptance criteria are satisfied.
+
 ## Current performance optimization candidate (2026-10-27)
 
 - [x] On source `715897a6`, retain the strict result from run `40021090649`:
