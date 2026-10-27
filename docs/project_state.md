@@ -1,9 +1,29 @@
 # Project State
 
-Last updated: 2026-10-23.
+Last updated: 2026-10-27.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
+
+Performance follow-up (2026-10-27): the candidate on
+`codex/flatbuffers-performance-parity` now avoids temporary maps in common
+FlatBuffers message projection, returns already-typed schema maps directly
+while retaining schema-field validation, and reduces the fixed builder reserve
+from 512 to 256 bytes. Focused serializer/copy tests and full `bin/verify`
+passed, including the live WAMP, native/Rust, Chrome/Dart2Wasm and consumer
+smokes. A repeated local serialization probe improved the tested FlatBuffers
+control path by about 12% and dynamic values path by about 6–7%; this is
+directional macOS component evidence, not benchmark acceptance.
+
+The latest exact-head strict Linux report,
+[`40021090649`](https://github.com/konsultaner/connectanum-dart/actions/runs/40021090649),
+is still for the preceding source `715897a6` and fails its unchanged point
+parity gates. The profile diagnostic
+[`40475920641`](https://github.com/konsultaner/connectanum-dart/actions/runs/40475920641)
+failed at `perf record` with exit 255 and is not profiling evidence. The new
+candidate still needs exact-head CI, complete E2EE/transcode/native-crypto copy
+proof, strict primary and supplemental campaigns. PR #132 remains draft and
+issues #100, #101 and #103 remain open; no milestone acceptance is claimed.
 
 Latest FlatBuffers acceptance status (2026-10-23): PR #132 is still draft and
 milestone issues #100, #101 and #103 remain open. The working tree fixes a

@@ -2,6 +2,30 @@
 
 Status: active. Started: 2026-10-03.
 
+## Current performance optimization candidate (2026-10-27)
+
+- [x] On source `715897a6`, retain the strict result from run `40021090649`:
+  all 48 cases/336 metric rows are present with zero integrity findings, but
+  200 point-estimate performance findings remain. The metric thresholds and
+  better-of-CBOR/MessagePack comparisons are unchanged.
+- [x] Avoid ephemeral maps in common FlatBuffers WAMP message projections and
+  return already-typed schema maps without a cast view or redundant key-type
+  scan. Schema field-name and value validation remain active.
+- [x] Reduce the FlatBuffers envelope reserve from 512 to 256 bytes, using the
+  existing initial-capacity path and retaining builder growth/copy accounting.
+- [x] Run focused FlatBuffers message, fragment and copy-accounting tests, then
+  full `bin/verify`; all passed on this candidate. A repeated local macOS
+  serialization probe showed ~12% lower small-control time and ~6–7% lower
+  dynamic-value time. Treat these as component diagnostics only.
+- [ ] Commit and push the candidate, then run exact-head hosted CI and the
+  complete production E2EE/transcode/native-crypto copy proof.
+- [ ] Run the unchanged complete strict primary and all supplemental campaigns.
+  Audit every row and resolve all numerical failures; do not lower thresholds,
+  omit scenarios or convert diagnostics into acceptance.
+- [ ] Keep PR #132 draft and issues #100, #101 and #103 open until exact-head
+  performance and copy acceptance pass. Profile run `40475920641` failed at
+  Linux `perf record` (exit 255), so it provides no FlatBuffers profile.
+
 ## CBOR E2EE progressive file-transfer receiver (2026-10-23)
 
 - [x] Reproduce the production copy-proof failure from run `40013307815` on

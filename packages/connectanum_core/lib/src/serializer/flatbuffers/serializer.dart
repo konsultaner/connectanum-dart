@@ -13,7 +13,7 @@ import 'message_writer.dart';
 import 'runtime.dart';
 import 'wire_writer.dart';
 
-const _flatBufferEnvelopeReserveBytes = 512;
+const _flatBufferEnvelopeReserveBytes = 256;
 
 /// The pinned Connectanum WAMP FlatBuffers binding.
 ///
@@ -31,7 +31,7 @@ class Serializer extends AbstractSerializer {
       if (value is Uint8List) vectorBytes += value.length;
     }
     // Encoding already produced these vectors. Reserve their bytes once and
-    // keep the fixed envelope allowance small for control-heavy WAMP traffic.
+    // leave a bounded envelope allowance without retaining excess capacity.
     final builder = WampFlatBufferBuilder(
       initialSize: (vectorBytes + _flatBufferEnvelopeReserveBytes + 7) & ~7,
     );

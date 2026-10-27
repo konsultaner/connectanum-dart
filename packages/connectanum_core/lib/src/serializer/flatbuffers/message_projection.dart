@@ -117,40 +117,34 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
         throw ArgumentError('Unsupported ERROR request type');
       }
       name = 'Error';
-      body.addAll({
-        'request_type': message.requestTypeId,
-        'request': message.requestId,
-        'error': message.error,
-      });
+      body['request_type'] = message.requestTypeId;
+      body['request'] = message.requestId;
+      body['error'] = message.error;
       dictionary = map(message.details);
     case Publish():
       name = 'Publish';
-      body.addAll({'request': message.requestId, 'topic': message.topic});
+      body['request'] = message.requestId;
+      body['topic'] = message.topic;
       dictionary = WampDictionaryCodec.serializePublish(message.options);
     case Published():
       name = 'Published';
-      body.addAll({
-        'request': message.publishRequestId,
-        'publication': message.publicationId,
-      });
+      body['request'] = message.publishRequestId;
+      body['publication'] = message.publicationId;
     case Subscribe():
       name = 'Subscribe';
-      body.addAll({'request': message.requestId, 'topic': message.topic});
+      body['request'] = message.requestId;
+      body['topic'] = message.topic;
       dictionary = map(
         WampDictionaryCodec.serializeSubscribeOptions(message.options),
       );
     case Subscribed():
       name = 'Subscribed';
-      body.addAll({
-        'request': message.subscribeRequestId,
-        'subscription': message.subscriptionId,
-      });
+      body['request'] = message.subscribeRequestId;
+      body['subscription'] = message.subscriptionId;
     case Unsubscribe():
       name = 'Unsubscribe';
-      body.addAll({
-        'request': message.requestId,
-        'subscription': message.subscriptionId,
-      });
+      body['request'] = message.requestId;
+      body['subscription'] = message.subscriptionId;
     case Unsubscribed():
       name = 'Unsubscribed';
       body['request'] = message.unsubscribeRequestId;
@@ -161,17 +155,13 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
       };
     case Event():
       name = 'Event';
-      body.addAll({
-        'subscription': message.subscriptionId,
-        'publication': message.publicationId,
-      });
+      body['subscription'] = message.subscriptionId;
+      body['publication'] = message.publicationId;
       dictionary = WampDictionaryCodec.serializeEventDetails(message.details);
     case Call():
       name = 'Call';
-      body.addAll({
-        'request': message.requestId,
-        'procedure': message.procedure,
-      });
+      body['request'] = message.requestId;
+      body['procedure'] = message.procedure;
       dictionary = WampDictionaryCodec.serializeCallOptions(message.options);
     case Cancel():
       name = 'Cancel';
@@ -194,35 +184,27 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
       };
     case Register():
       name = 'Register';
-      body.addAll({
-        'request': message.requestId,
-        'procedure': message.procedure,
-      });
+      body['request'] = message.requestId;
+      body['procedure'] = message.procedure;
       dictionary = map(
         WampDictionaryCodec.serializeRegisterOptions(message.options),
       );
     case Registered():
       name = 'Registered';
-      body.addAll({
-        'request': message.registerRequestId,
-        'registration': message.registrationId,
-      });
+      body['request'] = message.registerRequestId;
+      body['registration'] = message.registrationId;
     case Unregister():
       name = 'Unregister';
-      body.addAll({
-        'request': message.requestId,
-        'registration': message.registrationId,
-      });
+      body['request'] = message.requestId;
+      body['registration'] = message.registrationId;
     case Unregistered():
       name = 'Unregistered';
       body['request'] = message.unregisterRequestId;
       dictionary = {};
     case Invocation():
       name = 'Invocation';
-      body.addAll({
-        'request': message.requestId,
-        'registration': message.registrationId,
-      });
+      body['request'] = message.requestId;
+      body['registration'] = message.registrationId;
       dictionary = WampDictionaryCodec.serializeInvocationDetails(
         message.details,
       );
@@ -238,15 +220,13 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
       dictionary = WampDictionaryCodec.serializeYieldOptions(message.options);
     case Heartbeat():
       name = 'Heartbeat';
-      body.addAll({
-        'ping': message.ping,
-        'incoming': message.incoming,
-        'outgoing': message.outgoing,
-        'presence':
-            (message.ping == null ? 0 : 1) |
-            (message.incoming == null ? 0 : 2) |
-            (message.outgoing == null ? 0 : 4),
-      });
+      body['ping'] = message.ping;
+      body['incoming'] = message.incoming;
+      body['outgoing'] = message.outgoing;
+      body['presence'] =
+          (message.ping == null ? 0 : 1) |
+          (message.incoming == null ? 0 : 2) |
+          (message.outgoing == null ? 0 : 4);
       dictionary = map(message.details);
     default:
       throw UnsupportedError(

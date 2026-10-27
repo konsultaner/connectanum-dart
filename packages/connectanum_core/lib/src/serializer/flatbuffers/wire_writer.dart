@@ -145,6 +145,7 @@ class _Writer {
   }
 
   Map<String, Object?> dictionary(Object? value) {
+    if (value is Map<String, Object?>) return value;
     if (value is! Map || value.keys.any((key) => key is! String)) invalid();
     return value.cast<String, Object?>();
   }
