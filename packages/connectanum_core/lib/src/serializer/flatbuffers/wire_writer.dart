@@ -146,16 +146,22 @@ class _Writer {
 
   Map<String, Object?> dictionary(Object? value) {
     if (value is Map<String, Object?>) return value;
-    if (value is! Map || value.keys.any((key) => key is! String)) invalid();
+    if (value is! Map) invalid();
+    for (final key in value.keys) {
+      if (key is! String) invalid();
+    }
     return value.cast<String, Object?>();
   }
 
   int table(int reference, Map<String, Object?> fields) {
     final spec = wampValidationTables[reference];
     final names = _fieldNames[reference];
-    if (fields.keys.any((key) => !names.contains(key))) invalid();
-    final offsets = List<int?>.filled(spec.fields.length, null);
-    final scalars = List<int?>.filled(spec.fields.length, null);
+    for (final key in fields.keys) {
+      if (!names.contains(key)) invalid();
+    }
+    // Schema kinds distinguish offsets from scalars when emitting the table,
+    // so one nullable scratch list replaces separate offset/scalar lists.
+    final values = List<int?>.filled(spec.fields.length, null);
     List<Object>? borrowed;
     for (var slot = 0; slot < spec.fields.length; slot++) {
       final field = spec.fields[slot];
@@ -174,17 +180,17 @@ class _Writer {
       }
       switch (field.kind) {
         case FlatBufferFieldKind.scalar:
-          scalars[slot] = integer(field, value);
+          values[slot] = integer(field, value);
         case FlatBufferFieldKind.string:
           if (value is! String) invalid();
-          offsets[slot] = builder.writeString(value);
+          values[slot] = builder.writeString(value);
         case FlatBufferFieldKind.table:
-          offsets[slot] = table(field.reference, dictionary(value));
+          values[slot] = table(field.reference, dictionary(value));
         case FlatBufferFieldKind.union:
           final tagField = spec.fields[slot - 1];
           final tag = integer(tagField, fields[tagField.name] ?? 0);
           if (tag == 0 || tag >= field.values.length) invalid();
-          offsets[slot] = table(field.values[tag], dictionary(value));
+          values[slot] = table(field.values[tag], dictionary(value));
         case FlatBufferFieldKind.scalarVector:
         case FlatBufferFieldKind.stringVector:
         case FlatBufferFieldKind.tableVector:
@@ -193,24 +199,30 @@ class _Writer {
               field.width == 1 &&
               (const {'args', 'kwargs', 'payload'}).contains(field.name) &&
               (value is Uint8List || value is FlatBufferByteVectorParts)) {
-            offsets[slot] = byteVector(const <int>[]);
+            values[slot] = byteVector(const <int>[]);
             final retained = borrowed ??= <Object>[];
             retained
               ..add(slot)
               ..add(value);
           } else {
-            offsets[slot] = vector(field, value);
+            values[slot] = vector(field, value);
           }
       }
     }
     builder.startTable(spec.fields.length);
-    for (var slot = 0; slot < offsets.length; slot++) {
-      final offset = offsets[slot];
-      if (offset != null) builder.addOffset(slot, offset);
+    for (var slot = 0; slot < values.length; slot++) {
+      final value = values[slot];
+      if (value != null &&
+          spec.fields[slot].kind != FlatBufferFieldKind.scalar) {
+        builder.addOffset(slot, value);
+      }
     }
-    for (var slot = 0; slot < scalars.length; slot++) {
-      final scalar = scalars[slot];
-      if (scalar == null) continue;
+    for (var slot = 0; slot < values.length; slot++) {
+      final scalar = values[slot];
+      if (scalar == null ||
+          spec.fields[slot].kind != FlatBufferFieldKind.scalar) {
+        continue;
+      }
       switch (spec.fields[slot].width) {
         case 1:
           builder.addUint8(slot, scalar);

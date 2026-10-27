@@ -4,6 +4,8 @@ import 'package:cbor/cbor.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart'
     as wire;
+import 'package:connectanum_core/src/serializer/flatbuffers/cbor_encoding.dart'
+    show tryEncodeWampFlatBufferScalarKeywordMap;
 import 'package:connectanum_core/src/serializer/flatbuffers/message_writer.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/runtime.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/validation.dart';
@@ -250,6 +252,135 @@ void main() {
     },
   );
 
+  test('small scalar keyword maps use the compact CBOR wire form', () {
+    final result = wire.Message(
+      encode(Call(14, 'com.proc', argumentsKeywords: {'a': 1})),
+    );
+    final kwargs = (result.msg as wire.Call).kwargs!;
+    expect(kwargs, [0xa1, 0x61, 0x61, 0x01]);
+    expect(cbor.decode(kwargs).toObject(), {'a': 1});
+  });
+
+  test('small scalar argument arrays use the compact CBOR wire form', () {
+    final result = wire.Message(
+      encode(Call(14, 'com.proc', arguments: [1, 'a', null, true])),
+    );
+    final args = (result.msg as wire.Call).args!;
+    expect(args, [0x84, 0x01, 0x61, 0x61, 0xf6, 0xf5]);
+    expect(cbor.decode(args).toObject(), [1, 'a', null, true]);
+  });
+
+  test('complex argument arrays preserve nested maps and binary values', () {
+    final bytes = Uint8List.fromList([1, 2]);
+    final result = wire.Message(
+      encode(
+        Call(
+          14,
+          'com.proc',
+          arguments: [
+            {
+              'nested': {1: 'value'},
+            },
+            bytes,
+          ],
+        ),
+      ),
+    );
+    final args = (result.msg as wire.Call).args!;
+    expect(args, [
+      0x82, // Two WAMP positional arguments.
+      0xa1, 0x66, 0x6e, 0x65, 0x73, 0x74, 0x65, 0x64,
+      0xa1, 0x01, 0x65, 0x76, 0x61, 0x6c, 0x75, 0x65,
+      0x42, 0x01, 0x02, // Uint8List remains a CBOR byte string.
+    ]);
+    expect(cbor.decode(args).toObject(), [
+      {
+        'nested': {1: 'value'},
+      },
+      [1, 2],
+    ]);
+  });
+
+  test('scalar argument arrays fall back when an item is a byte vector', () {
+    final result = wire.Message(
+      encode(
+        Call(
+          14,
+          'com.proc',
+          arguments: [
+            1,
+            Uint8List.fromList([2]),
+          ],
+        ),
+      ),
+    );
+    final args = (result.msg as wire.Call).args!;
+    expect(args, [0x82, 0x01, 0x41, 0x02]);
+    expect(cbor.decode(args).toObject(), [
+      1,
+      [2],
+    ]);
+  });
+
+  test('keyword scalar fast path falls back outside its validated subset', () {
+    expect(
+      tryEncodeWampFlatBufferScalarKeywordMap({
+        'nested': [1],
+      }),
+      isNull,
+    );
+    expect(tryEncodeWampFlatBufferScalarKeywordMap({'wide': 1 << 40}), isNull);
+    expect(tryEncodeWampFlatBufferScalarKeywordMap({'unicode': 'λ'}), isNull);
+  });
+
+  test(
+    'keyword scalar fast path encodes integer header boundaries exactly',
+    () {
+      for (final entry in <String, int>{
+        'small': 65535,
+        'unsigned': 4294967295,
+        'negative': -65536,
+        'signed': -4294967296,
+      }.entries) {
+        final encoded = tryEncodeWampFlatBufferScalarKeywordMap({
+          entry.key: entry.value,
+        })!;
+        final key = entry.key.codeUnits;
+        final major = entry.value < 0 ? 0x20 : 0;
+        final magnitude = entry.value < 0 ? -1 - entry.value : entry.value;
+        final header = magnitude <= 65535
+            ? <int>[major | 25, magnitude >> 8, magnitude & 0xff]
+            : <int>[
+                major | 26,
+                (magnitude >> 24) & 0xff,
+                (magnitude >> 16) & 0xff,
+                (magnitude >> 8) & 0xff,
+                magnitude & 0xff,
+              ];
+        expect(encoded, [0xa1, 0x60 | key.length, ...key, ...header]);
+        expect(cbor.decode(encoded).toObject(), {entry.key: entry.value});
+      }
+    },
+  );
+
+  test('complex keyword maps preserve numeric keys in nested maps', () {
+    final result = wire.Message(
+      encode(
+        Call(
+          14,
+          'com.proc',
+          argumentsKeywords: {
+            'nested': {1: 'value'},
+          },
+        ),
+      ),
+    );
+    final kwargs = (result.msg as wire.Call).kwargs!;
+    expect(cbor.decode(kwargs).toObject(), {
+      'nested': {1: 'value'},
+    });
+  });
+
   test('absent and empty argument vectors remain distinct', () {
     final absent = wire.Message(encode(Call(1, 'com.proc'))).msg as wire.Call;
     final empty =
@@ -285,6 +416,22 @@ void main() {
         ..setLazyPayload(
           argumentsBytes: Uint8List.fromList(bytes),
           argumentsDecoder: (_) =>
+              throw StateError('Unexpected materialization'),
+          encoding: LazyPayloadEncoding.cbor,
+        );
+      expect(() => encode(call), throwsFormatException);
+    }
+  });
+
+  test('raw lazy CBOR keyword maps are validated before writing', () {
+    for (final bytes in [
+      <int>[0x80], // A valid array is the wrong root type for kwargs.
+      <int>[0xa0, 0xff], // A valid map followed by a trailing break.
+    ]) {
+      final call = Call(1, 'com.proc')
+        ..setLazyPayload(
+          argumentsKeywordsBytes: Uint8List.fromList(bytes),
+          argumentsKeywordsDecoder: (_) =>
               throw StateError('Unexpected materialization'),
           encoding: LazyPayloadEncoding.cbor,
         );

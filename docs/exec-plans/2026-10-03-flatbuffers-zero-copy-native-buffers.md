@@ -2,6 +2,23 @@
 
 Status: active. Started: 2026-10-03.
 
+## WAMP serializer compatibility
+
+The current [WAMP Internet-Draft](https://wamp-proto.org/wamp_latest_ietf.html)
+requires an implementation to support at least one serializer; its Basic
+Profile defines JSON, MessagePack and CBOR bindings, while the Advanced Profile
+may define more. The draft also lists FlatBuffers as a RawSocket serializer and
+as an E2EE `ppt_serializer`. This supports integrating FlatBuffers alongside
+the existing session serializers without adding an ObjectBox-specific wire
+format. The draft is experimental and can change.
+
+The WAMP repository's [issue #355](https://github.com/wamp-proto/wamp-proto/issues/355)
+discusses FlatBuffers as an additional serializer and points to Autobahn's
+WAMP-message schemas, but remains open with “Needs consensus” and describes
+that implementation as alpha. Treat that issue as historical precedent, not a
+normative recommendation. The current draft is the stronger compatibility
+reference.
+
 ## Exact-head verifier and byte-vector candidate (2026-10-27)
 
 - [x] Change the VM FlatBuffers byte-vector bulk copy from `setAll` to
@@ -16,16 +33,133 @@ Status: active. Started: 2026-10-03.
   `bin/verify`, and `git diff --check`; local VM, Chrome/Dart2Wasm, Rust/native,
   live WAMP and consumer checks pass. The live integration matrix completed all
   2,012 cases. These checks do not establish performance parity.
-- [ ] Commit and push this candidate; run exact-head CI, the unchanged strict
-  primary campaign, all supplemental shards and the production native-view /
-  E2EE / transcode copy proof.
+- [x] Commit and push this candidate as `1101f91b38051871694722a3c29e45b7975ec4cf`.
+  Dispatch exact-head CI `40526111656`, strict primary `40526116631`,
+  supplemental shards `40526122419` and native-view/E2EE/transcode copy proof
+  `40526128344`.
+- [x] Complete the production copy proof: 120 live owned-path cases include
+  96 E2EE rows, 120 transcode rows and 48 native-crypto rows. The 300-row
+  inventory includes all 32 zero-avoidable-payload-copy checks. The report is
+  copy-correctness evidence only and does not claim performance acceptance.
+  Close issues #100 and #101 under the approved standard-SDK scope; SDK/TLS/
+  crypto dependency internals remain explicitly unmeasured.
+- [x] Audit the failed `payload_sizes` shard in supplemental run
+  `40526122419`: job `122266082173` completed three passes, then the next
+  1-MiB FlatBuffers RPC produced no samples and timed out at the unchanged
+  300-second workload deadline. Three earlier 1-MiB FlatBuffers RPC passes
+  completed at roughly 28.4–28.9 ms average latency. Retain this as a liveness
+  failure with incomplete data, not as a parity result.
+- [x] Reproduce the same 1-MiB TLS WebSocket stall in focused diagnostic run
+  `40548781096` on the unchanged candidate. The three-case schedule stops at
+  17/90 rows and retains three owned-process snapshots. They match router
+  socket inode 31937 (`127.0.0.1:8083`) to client socket inode 32841
+  (`127.0.0.1:58712`). Across the 120-second capture, the router remains
+  100% receive-window-limited with `snd_wnd=3072`; its unsent queue grows from
+  120,182 to 441,806 bytes. The client reports `rb2072`, and acknowledged
+  bytes continue at about 14.8 KiB/s. Application threads are idle and VM
+  stacks expose no runnable frames. Host memory pressure and the sampled TCP
+  prune/collapse counters remain unchanged. This confirms severe receive-window
+  backpressure on the owned connection, not an application deadlock or proof
+  of the kernel mechanism that shrank the window. The preceding first 1-MiB
+  FlatBuffers warm-up in this same replay did complete 1,000 RPCs at 24.65 ms
+  average; the next FlatBuffers warm-up stalled after the adjacent CBOR and
+  MessagePack passes. This confirms the failure is intermittent. The capture is
+  diagnostic and cannot establish acceptance.
+- [x] Pass exact-head CI `40526111656`: all 38 jobs succeeded.
+- [x] Audit supplemental `protocol` shard `40526122419`: all 30 cases have
+  three warmups and seven measured repetitions, exact source
+  `1101f91b38051871694722a3c29e45b7975ec4cf`, unchanged inputs, no overlap and
+  zero integrity findings. The diagnostic emits 157 performance findings.
+  All eight small-control operations/second point estimates are below the
+  faster binary baseline; CPU and p95 miss 26/30 rows, p99 misses 23/30, summed
+  peak RSS misses 27/30, and throughput misses 18/22. This shard is not primary
+  acceptance, but its measured regressions remain unresolved and must be
+  considered before claiming the requested benchmark parity.
+- [x] Audit supplemental `encrypted_progressive_results` shard
+  `40526122419`: all eight cases have three warmups and seven measured
+  repetitions on the exact source, with unchanged inputs, no overlap and zero
+  integrity findings. The report has 46 numerical performance findings,
+  including CPU misses in all eight cases and throughput misses in six. All
+  applicable FlatBuffers rows contain numeric E2EE and transcode totals, with
+  no unknown owned-copy boundaries; explicitly unmeasured SDK/TLS/crypto
+  dependency internals follow the approved scope. This is diagnostic evidence,
+  not parity acceptance.
+- [x] Complete the exact-source retry of the incomplete `payload_sizes` job,
+  run attempt 2, job `122381957515`. It completed the 36-row warm-up and one
+  1-MiB MessagePack WebSocket measured case, then the FlatBuffers WebSocket
+  request timed out. The native worker stopped while the router still had one
+  invocation pending. No workload, timeout or gate was changed.
+- [x] Rerun supplemental aggregation (`122393472680`); it failed because the
+  payload-size shard lacked the remaining measured cases, so no complete
+  50-case inventory was produced.
+- [x] Obtain usable diagnostic CPU attribution. The exact-candidate hosted
+  profile `40557646345` failed at `perf record` exit 255 before capturing
+  FlatBuffers samples. A repeated local no-perf Dart VM profile of
+  `ext_07_small_control` has a clean source audit (`1101f91b`, no changed
+  inputs). Its FlatBuffers client isolate retained 295 VM CPU samples; sampled
+  stacks include `serializeFragments`, `prepareWampFlatBufferMessage`,
+  `encodeWampFlatBufferCbor`, `wire_writer.table`, and
+  `projectWampFlatBufferMessage`. The three 30-second client runs contain
+  11,209 MessagePack, 11,203 FlatBuffers, and 11,332 CBOR operations. Mean
+  operation latency is 2.669 ms, 2.673 ms, and 2.643 ms respectively; client
+  allocated-byte deltas are 462,641,920, 567,256,560, and 534,461,216. This is
+  local macOS diagnostic evidence, not hosted parity acceptance; inclusive
+  sample counts overlap and are not percentages of CPU time.
+- [x] Finish the unchanged strict primary (`40526116631`): all 48 cases were
+  analyzed, with 225 numerical parity-gate findings. This is a failed
+  acceptance run, not evidence of an integrity or copy-accounting failure.
+- [ ] Rerun the full exact-source strict and supplemental campaigns after the
+  current working-tree candidate is committed and pushed.
 - [ ] Audit every report, resolve all policy findings without changing the
   checked-in thresholds or workload definitions, and verify all previously
   measured codec paths remain non-regressing.
-- [ ] Keep PR #132 in draft and issues #100, #101 and #103 open until their
-  complete copy-accounting and performance acceptance criteria are satisfied.
+- [ ] Keep PR #132 in draft and issue #103 open until strict parity and
+  supplemental performance acceptance criteria are satisfied.
 
-## Current performance optimization candidate (2026-10-27)
+Current hosted receive-window evidence: [focused capture run
+40548781096](https://github.com/konsultaner/connectanum-dart/actions/runs/40548781096).
+It uses the same candidate and Linux 6.17 runner family as the incomplete
+payload shard. Existing older-source syscall tracing found no application
+`SO_RCVBUF` or `TCP_WINDOW_CLAMP` calls, but that does not prove the cause on
+this candidate. No socket option, kernel policy, workload, timeout or
+acceptance budget has been changed.
+
+## Profile-directed serializer allocation candidate (working tree, 2026-10-27)
+
+- [x] Add bounded CBOR fast paths for short scalar argument arrays and small
+  ASCII scalar keyword maps. Nested values, wide integers, Unicode, byte
+  strings, and raw/pre-encoded input retain the regular encoder and structural
+  validation path. Tests assert exact CBOR bytes, integer header boundaries,
+  and nested-map/binary fallback behavior, including a byte vector beside a
+  scalar argument.
+- [x] Project schema dictionary fields directly into the message body and
+  combine per-table scalar/offset scratch storage while retaining schema
+  field-name and value checks.
+- [x] Pass the focused FlatBuffers writer suite (54 tests), `bin/test-fast`,
+  full `bin/verify`, and `git diff --check`. The fast and full verification
+  runs include all 2,012 live WAMP integration cases, native/Rust tests,
+  Chrome/Dart2Wasm and consumer-package smokes. The full verification preceded
+  the final test-only byte-vector fallback case; the focused 54-test suite
+  passed afterward.
+- [x] Capture the current working tree with the no-perf `ext_07_small_control`
+  diagnostic. Source inputs did not change during capture, but the report's
+  Git HEAD is parent `1101f91b`; this local single-pass profile is not
+  exact-head hosted acceptance. MessagePack/FlatBuffers/CBOR measured 11,024/
+  10,742/10,896 operations, or 367.45/358.04/363.17 ops/s. Mean latency was
+  2.714/2.787/2.748 ms and p95 was 3.633/3.865/3.742 ms. Client allocation
+  deltas were 455,219,248/449,822,256/514,003,200 bytes. FlatBuffers allocation
+  is within 1.2% of MessagePack in this run, but throughput and tail latency
+  are still lower; the run is noisy diagnostic evidence only.
+- [ ] Commit/push this candidate, then repeat exact-source CI, the unchanged
+  strict primary, all supplemental shards, and the production
+  E2EE/transcode/native-crypto copy proof. The preceding local profile predates
+  the final nullable-scratch and integer-boundary-test correction; it remains
+  directional evidence only.
+- [ ] Keep PR #132 draft and issue #103 open until hosted parity and copy
+  acceptance pass. The earlier exact-source copy proof closed #100 and #101;
+  rerun it for this candidate before claiming those results cover this source.
+
+## Prior performance optimization candidate (2026-10-27)
 
 - [x] On source `715897a6`, retain the strict result from run `40021090649`:
   all 48 cases/336 metric rows are present with zero integrity findings, but

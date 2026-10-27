@@ -137,3 +137,46 @@ capture, while stall-14 changes progress and is excluded from interval claims.
 No partial snapshot is substituted. The earlier narrow-window timeout is not
 reproduced here. Intrusive tracing changes scheduling, so this successful replay
 neither explains/fixes the earlier intermittent failure nor accepts performance.
+
+## Same-source Linux 6.17 receive-window capture (2026-10-27)
+
+The focused [hosted capture run 40548781096](https://github.com/konsultaner/connectanum-dart/actions/runs/40548781096)
+uses candidate `1101f91b38051871694722a3c29e45b7975ec4cf` and the original
+1-MiB secure WebSocket RPC. It stops at 17/90 diagnostic rows and retains three
+owned-process captures 60 seconds apart. The client socket is matched to its
+router peer by tuple and inode in every capture. On the router socket,
+`snd_wnd=3072`, `rwnd_limited=100%`, and a TCP persist timer remains active;
+unsent data grows from 120,182 to 441,806 bytes. The client reports
+`skmem rb2072`, and router acknowledgements continue at about 14.8 KiB/s.
+Threads are idle and VM stacks expose no runnable application frames. The
+observed failure is severe receive-window backpressure with slow progress, not
+a demonstrated application deadlock. In the same replay, the first 1-MiB
+FlatBuffers warm-up completed all 1,000 RPCs at 24.65 ms average; the next
+FlatBuffers warm-up stalled after adjacent CBOR and MessagePack passes. The
+reproduction is intermittent, not a deterministic inability to encode this
+payload size.
+
+Linux `ss(8)` defines `rb` as the receive-memory limit and `rcv_space` as an
+internal autotuning helper; neither is the advertised peer window. Linux
+`TCP_INFO` defines `snd_wnd` as the peer's advertised receive window after
+scaling and `rwnd_limited` as time limited by that window. The matching kernel
+source's `tcp_prune_queue` calls `tcp_clamp_window` when an incoming skb cannot
+fit; that helper can reduce `sk_rcvbuf` to current receive allocation when the
+socket is not locked or under global memory pressure. This is a plausible
+mechanism for the small `rb`, but these snapshots do not show that the function
+ran on the matched socket: sampled namespace prune/collapse counters are
+unchanged and cannot attribute an earlier event to this flow. The current run
+did not include syscall tracing, and an older-source trace without
+`SO_RCVBUF`/`TCP_WINDOW_CLAMP` calls is not exact-candidate evidence.
+
+The next causal diagnostic, if needed, is an owned-flow BTF trace from before
+the payload workload begins, recording `tcp_prune_queue`/`tcp_clamp_window`
+entries and socket-buffer state for the matched tuple. A same-source
+`setsockopt` trace can separately exclude application buffer changes. Such
+instrumentation perturbs scheduling and never substitutes for the unchanged
+performance acceptance runs. No source, socket option, kernel setting,
+workload, deadline or acceptance budget is changed by this observation.
+
+Sources: [Linux `ss(8)` field definitions](https://man7.org/linux/man-pages/man8/ss.8.html),
+[Linux 6.17 TCP input implementation](https://github.com/torvalds/linux/blob/v6.17/net/ipv4/tcp_input.c),
+[Linux 6.17 TCP_INFO ABI](https://github.com/torvalds/linux/blob/v6.17/include/uapi/linux/tcp.h).

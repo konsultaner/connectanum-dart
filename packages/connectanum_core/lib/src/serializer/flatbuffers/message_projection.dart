@@ -237,7 +237,7 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
     dictionary = retainedWampFlatBufferDictionary(message, dictionary);
   }
   if (dictionary != null && name != 'Heartbeat') {
-    body.addAll(projectFlatBufferDictionary(name, dictionary));
+    projectFlatBufferDictionaryInto(name, dictionary, body);
   }
   return FlatBufferMessageProjection({
     'msg_type': _messageTags[name]!,
@@ -280,6 +280,16 @@ Map<String, Object?> projectFlatBufferDictionary(
   Map<String, Object?> dictionary,
 ) {
   final fields = <String, Object?>{};
+  projectFlatBufferDictionaryInto(name, dictionary, fields);
+  return fields;
+}
+
+/// Project schema fields into [fields] without an intermediate map.
+void projectFlatBufferDictionaryInto(
+  String name,
+  Map<String, Object?> dictionary,
+  Map<String, Object?> fields,
+) {
   for (final field in flatBufferDictionaryFields(name)) {
     final value =
         field.name == 'extra' && (name == 'Challenge' || name == 'Authenticate')
@@ -365,7 +375,6 @@ Map<String, Object?> projectFlatBufferDictionary(
         _invalid(field.name);
     }
   }
-  return fields;
 }
 
 Map<String, Object?> _roles(

@@ -52,6 +52,7 @@ Map<String, Object?> prepareWampFlatBufferMessage(
   final fields = projection.fields;
   final body = fields['msg'] as Map<String, Object?>;
   var validateArguments = true;
+  var validateKeywords = true;
   if (projection.dictionary != null) {
     fields['metadata'] = encodeWampFlatBufferCbor(
       projection.dictionary,
@@ -129,7 +130,17 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       final keywords = readKeywords
           ? wireKeywords
           : message.wireArgumentsKeywords;
-      if (keywords != null) body['kwargs'] = encodeWampFlatBufferCbor(keywords);
+      if (keywords != null) {
+        final scalar = tryEncodeWampFlatBufferScalarKeywordMap(keywords);
+        if (scalar != null) {
+          body['kwargs'] = scalar;
+          // This narrow encoder validates its complete scalar map. Raw lazy
+          // bytes and complex maps still use the structural validator below.
+          validateKeywords = false;
+        } else {
+          body['kwargs'] = encodeWampFlatBufferCbor(keywords);
+        }
+      }
     }
   } else if (argumentsVector != null ||
       argumentsKeywordsVector != null ||
@@ -141,12 +152,14 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       validateFlatBufferCbor(args, rootMajor: 4);
     }
   }
-  if (body['kwargs'] case final Uint8List kwargs) {
-    validateFlatBufferCbor(
-      kwargs,
-      rootMajor: 5,
-      rootStringDictionaryKeys: true,
-    );
+  if (validateKeywords) {
+    if (body['kwargs'] case final Uint8List kwargs) {
+      validateFlatBufferCbor(
+        kwargs,
+        rootMajor: 5,
+        rootStringDictionaryKeys: true,
+      );
+    }
   }
   return fields;
 }

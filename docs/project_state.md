@@ -5,6 +5,16 @@ Last updated: 2026-10-27.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+WAMP serializer compatibility (2026-10-27): the current WAMP draft requires an
+implementation to support at least one serializer, lists JSON, MessagePack and
+CBOR in the Basic Profile, and allows additional bindings in the Advanced
+Profile. It also lists FlatBuffers for RawSocket and as an E2EE payload
+serializer. WAMP issue #355 is an open historical discussion marked “Needs
+consensus” (its Crossbar/Autobahn implementation was described as alpha), so it
+is precedent rather than a normative endorsement. This project integrates
+FlatBuffers beside existing serializers, with no ObjectBox-specific wire
+format. See [WAMP serializer compatibility](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md#wamp-serializer-compatibility).
+
 Performance follow-up (2026-10-27): the candidate on
 `codex/flatbuffers-performance-parity` now avoids temporary maps in common
 FlatBuffers message projection, returns already-typed schema maps directly
@@ -25,22 +35,91 @@ unaligned read-only typed views and the generic-list fallback. Focused tests,
 the 2,012-case live WAMP suite and Chrome/Dart2Wasm. This is validation, not
 performance acceptance. The exact-head strict campaign `40483279866` on the
 preceding source `8c38f7fe` completed 1,440 rows with zero integrity findings
-but 160 numerical parity findings. The new candidate still needs exact-head CI,
-the unchanged strict primary and supplemental campaigns, and the production
-native-view/E2EE/transcode copy proof. PR #132 remains draft and issues #100,
-#101 and #103 stay open until all of their criteria pass.
+but 160 numerical parity findings. The candidate is committed as
+`1101f91b38051871694722a3c29e45b7975ec4cf`. Exact-source CI
+[`40526111656`](https://github.com/konsultaner/connectanum-dart/actions/runs/40526111656)
+passed all 38 jobs. The strict primary
+[`40526116631`](https://github.com/konsultaner/connectanum-dart/actions/runs/40526116631)
+completed all 48 cases but failed 225 numerical parity gates; the supplemental campaign
+[`40526122419`](https://github.com/konsultaner/connectanum-dart/actions/runs/40526122419)
+also failed because its payload-size retry and complete inventory were
+incomplete. The exact-source production copy proof
+[`40526128344`](https://github.com/konsultaner/connectanum-dart/actions/runs/40526128344)
+passed: 120 live owned-path cases cover 96 E2EE rows, 120 transcode rows and 48
+native-crypto rows; its 300-row inventory includes all 32 zero-avoidable-copy
+checks. Issues #100 and #101 were closed with this evidence under the approved
+standard-Dart-SDK scope; SDK/TLS/crypto dependency internals remain explicitly
+unmeasured. Supplemental run `40526122419` has an incomplete
+`payload_sizes` shard (`122266082173`): after three complete passes, the next
+1-MiB FlatBuffers RPC produced no samples and timed out at the configured
+300-second workload deadline (330-second control request deadline), with one
+router invocation pending. The three earlier 1-MiB FlatBuffers RPC passes
+completed in roughly 28.4–28.9 ms average latency. This timeout is a liveness
+failure, not a parity comparison. The `protocol` supplemental shard in run
+`40526122419` has since completed all 30 cases (three warmups, seven measured
+repetitions each) on the exact source with clean inputs and no overlap or
+integrity findings. Its diagnostic comparison records 157 performance
+findings: all eight small-control operations/second comparisons are below the
+faster binary baseline, and point estimates miss parity for 26/30 CPU, 26/30
+p95 latency, 23/30 p99 latency, 27/30 summed peak RSS and 18/22 throughput
+rows. This shard is explicitly ineligible for primary acceptance, but its
+measured costs remain to be resolved; it is not parity evidence. The
+`encrypted_progressive_results` shard completed all eight cases on this exact
+source with clean inputs, no overlap and zero integrity findings. It reports
+46 performance findings: CPU misses all eight cases; throughput, p95/p99,
+allocation/GC and summed peak RSS have additional misses. Its numeric E2EE and
+transcode totals are present for all FlatBuffers cases, with no unknown owned
+copy boundaries; dependency internals remain explicitly unmeasured under the
+approved scope. The aggregate job cannot publish a complete inventory because
+the first payload-size shard stopped at 38/50 cases (1,140 rows). A retry of
+only that failed shard is running as attempt 2, job `122381957515`; the
+aggregator will also need rerunning. A separate CPU-profile job failed before
+capturing FlatBuffers samples because hosted `perf record` exited 255. The
+repeated local no-perf Dart VM profile of `ext_07_small_control` has a clean
+source audit on `1101f91b` with no changed inputs. It retained 295 FlatBuffers
+client CPU samples and 11,203 measured operations (11,209 MessagePack and
+11,332 CBOR); mean latency was 2.673 ms for FlatBuffers, 2.669 ms for
+MessagePack, and 2.643 ms for CBOR. Client allocation deltas were 567,256,560,
+462,641,920, and 534,461,216 bytes respectively. Sample stacks include
+FlatBuffers `serializeFragments`, `prepareWampFlatBufferMessage`,
+`encodeWampFlatBufferCbor`, `wire_writer.table`, and
+`projectWampFlatBufferMessage`. This local macOS diagnostic does not replace
+hosted parity acceptance, and inclusive stack counts overlap.
+A focused same-source Linux diagnostic
+[`40548781096`](https://github.com/konsultaner/connectanum-dart/actions/runs/40548781096)
+also reproduces the stall at 17/90 rows. Three owned socket snapshots show the
+router 100% receive-window-limited (`snd_wnd=3072`) while its unsent queue grows
+from 120,182 to 441,806 bytes; the matched client socket reports `rb2072`, with
+slow but continuing acknowledgements around 14.8 KiB/s. Process threads remain
+idle, and sampled host-memory-pressure/TCP-prune counters do not change. This
+localizes the current symptom to severe TCP receive-window backpressure, but
+does not prove what shrinks the buffer or establish a fix. In the focused replay,
+the first 1-MiB FlatBuffers warm-up completed 1,000 RPCs at 24.65 ms average;
+the next warm-up stalled after the neighboring CBOR and MessagePack passes,
+confirming intermittency. No socket, kernel, workload, timeout or acceptance
+setting has been altered. Exact-source CI
+[`40526111656`](https://github.com/konsultaner/connectanum-dart/actions/runs/40526111656)
+passed all 38 jobs. The strict primary and payload-size retry have both
+completed unsuccessfully; aggregation has no complete inventory. PR #132
+remains draft and #103 remains open; no performance acceptance is claimed.
 
-The latest exact-head strict Linux report,
-[`40021090649`](https://github.com/konsultaner/connectanum-dart/actions/runs/40021090649),
-is still for the preceding source `715897a6` and fails its unchanged point
-parity gates. The profile diagnostic
-[`40475920641`](https://github.com/konsultaner/connectanum-dart/actions/runs/40475920641)
-failed at `perf record` with exit 255 and is not profiling evidence. The new
-candidate still needs exact-head CI, complete E2EE/transcode/native-crypto copy
-proof, strict primary and supplemental campaigns. PR #132 remains draft and
-issues #100, #101 and #103 remain open; no milestone acceptance is claimed.
+Current working-tree performance candidate (2026-10-27): bounded CBOR scalar
+argument and keyword paths, direct projection into the WAMP body map, and a
+single per-table scratch array reduce allocation while retaining fallback
+validation for complex and raw payloads. The focused writer suite passes 54
+tests, including exact integer header boundaries and binary fallback beside a
+scalar. `bin/test-fast`, full `bin/verify` and `git diff --check` pass; the live
+WAMP matrix completed 2,012 cases, and Rust/native, Chrome/Dart2Wasm and
+consumer smokes passed. The 54-test focused run followed the full verify, whose
+writer suite had 53 cases. A prior
+no-perf local `ext_07_small_control` run measured FlatBuffers allocation 1.2%
+below MessagePack, but throughput was 2.6% lower, mean latency 2.7% higher and
+p95 6.4% higher. That run predates the last scratch-state correction and is
+directional evidence only. Exact-head hosted CI, strict parity, supplemental
+workloads and refreshed E2EE/transcode copy proof remain pending; no
+performance acceptance is claimed.
 
-Latest FlatBuffers acceptance status (2026-10-23): PR #132 is still draft and
+Historical FlatBuffers acceptance status (2026-10-23): PR #132 is still draft and
 milestone issues #100, #101 and #103 remain open. The working tree fixes a
 cross-serializer E2EE progressive file-transfer rejection: the CBOR decoder
 retains a transparent-binary marker after `toPayload()` has decoded the
