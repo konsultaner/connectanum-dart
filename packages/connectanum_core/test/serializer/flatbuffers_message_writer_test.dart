@@ -329,7 +329,11 @@ void main() {
       }),
       isNull,
     );
-    expect(tryEncodeWampFlatBufferScalarKeywordMap({'wide': 1 << 40}), isNull);
+    // A wide literal avoids Dart2JS's 32-bit bitwise-shift behavior.
+    expect(
+      tryEncodeWampFlatBufferScalarKeywordMap({'wide': 1000000000000}),
+      isNull,
+    );
     expect(tryEncodeWampFlatBufferScalarKeywordMap({'unicode': 'λ'}), isNull);
   });
 
