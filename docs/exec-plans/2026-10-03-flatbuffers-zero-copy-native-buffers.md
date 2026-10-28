@@ -19,6 +19,28 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Shared deterministic body generation (2026-10-28)
+
+- [x] Pass full local `bin/verify` on `1c80fbf4` and confirm runtime hosted CI
+  `40693398693` passes on `28642b03`.
+- [x] Resolve Linux client CPU-clock samples from successful capture
+  `40705845411`, attempt 2. Preserve attempt 1's transient perf startup failure.
+  Shared body generation occupies 314/1135 FlatBuffers client samples, with
+  ambiguous reused JIT ranges and non-JIT samples kept separate.
+- [x] Before changing the loop, pass independent arithmetic-reference tests over
+  all 256 seeds, word tails, large bodies, high identities and buffer independence.
+- [x] Fill four successive deterministic bytes per little-endian word across
+  every codec; preserve the byte loop on other hosts and for the final tail.
+  All 36 payload-codec tests and targeted analysis pass. No workload bytes,
+  copy counters, benchmark cases, measurement floors or acceptance budgets change.
+- [x] Run the repeated local 64-KiB public-API component probe: median candidate/
+  reference time ratio 0.617 versus 0.999 before. These timings are diagnostic.
+  Local companion use remains blocked by the native-mutation resource lease.
+- [ ] Pass full verification, exact-source hosted CI/copy proof and paired
+  diagnostic. Resolve every remaining performance failure, including RSS.
+- [ ] Pass the full unchanged primary campaign and supplemental accounting
+  before closing #103 or the milestone and making PR #132 ready.
+
 ## Client JIT attribution and allocator evidence (2026-10-28)
 
 - [x] Retain failed Linux capture `40703182372`: the worker-as-executable proxy
@@ -47,9 +69,10 @@ reference.
   symbol flag; its real-worker startup attempt rejects that platform-specific
   flag. Linux capture remains required. Local model testing/review is blocked
   by an active native-mutation resource lease; do not bypass that lease.
-- [ ] Capture Linux router and client JIT maps, resolve the hot client addresses
-  and select a measured production improvement. Keep runtime code and all
-  acceptance gates unchanged by this diagnostic-only work.
+- [x] Capture Linux router/client JIT maps in `40705845411`, attempt 2, on
+  `1c80fbf4`, with source/launcher/binary hashes unchanged. Resolve hot shared
+  body-generation samples; preserve reused-address ambiguity. The diagnostic
+  changes no runtime behavior or acceptance gate.
 
 ## Typed PPT envelope alignment (2026-10-28)
 
@@ -57,7 +80,7 @@ reference.
   native/VM, live router and Chrome/Dart2Wasm suites. Its production copy proof
   `40693403608` passes 120 live cases/300 inventory rows and 32 no-copy checks
   with unchanged source/binary receipts. Earlier `9204be2c` CI `40679539974`
-  passes; current CI `40693398693` remains pending.
+  passes; current CI `40693398693` also passes.
 - [x] Audit source `28642b03` diagnostic `40693409305`: 90 rows, eight numerical
   failures, no integrity findings beyond explicit diagnostic ineligibility.
   Both native modes pass throughput, latency, CPU, allocation and GC; all three

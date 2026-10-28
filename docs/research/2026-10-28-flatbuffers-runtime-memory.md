@@ -52,3 +52,28 @@ can be matched to each PID's JIT map even when a report displays unresolved
 module-relative addresses. The fields follow the
 [perf-script documentation](https://man7.org/linux/man-pages/man1/perf-script.1.html).
 Reused JIT address ranges remain an explicit attribution limitation.
+
+
+## Resolved client CPU samples
+
+[Capture 40705845411, attempt 2](https://github.com/konsultaner/connectanum-dart/actions/runs/40705845411/attempts/2)
+on `1c80fbf4331c6e732d24bdc4638d53c83eb9a463` retains both process maps and
+absolute samples, with source/launcher/binary integrity verified. Attempt 1's
+perf startup exit 255 is retained separately; the successful retry is the same
+source and profiling configuration, not performance acceptance.
+
+Matching exclusive CPU-clock sample addresses to unambiguous JIT ranges gives:
+
+| Client codec | Samples | Body generation | Body verification | Byte-array allocation | Ambiguous JIT address |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| FlatBuffers | 1135 | 314 | 137 | 74 | 16 |
+| MessagePack | 1164 | 251 | 387 | 18 | 28 |
+| CBOR | 2389 | 159 | 104 | 46 | 25 |
+
+These are sample counts, not normalized per-operation timings. CBOR also spends
+1291 samples in `Uint8List._slowSetRange`. Keep outside-JIT samples separate;
+reused address ranges with different names cannot be assigned confidently.
+The shared deterministic body loop is a measured optimization candidate across
+all three codecs. Its word-fill candidate preserves the arithmetic reference,
+input identities and copy-accounting semantics. Only the unchanged paired
+campaign can determine whether that change improves performance parity.

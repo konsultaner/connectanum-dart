@@ -18,6 +18,79 @@ import 'support/native_library.dart';
 
 void main() {
   final nativeLibrary = nativeBenchTestLibrary();
+  test(
+    'body preserves its arithmetic byte sequence for every seed and tail',
+    () {
+      for (var iteration = 0; iteration < 256; iteration++) {
+        for (final length in [
+          ...List.generate(18, (index) => index),
+          23,
+          24,
+          25,
+          31,
+          32,
+          33,
+          255,
+          256,
+          257,
+          4097,
+        ]) {
+          final bytes = BenchPayloadCodec.body(
+            worker: 0,
+            iteration: iteration,
+            length: length,
+          );
+          expect(
+            bytes,
+            orderedEquals(
+              List.generate(
+                length,
+                (index) => (iteration * 29 + index * 31) & 0xff,
+              ),
+            ),
+            reason: 'iteration=$iteration length=$length',
+          );
+          expect(bytes.offsetInBytes, 0);
+          expect(bytes.buffer.lengthInBytes, length);
+        }
+      }
+    },
+  );
+
+  test(
+    'large bodies preserve high identities and independent mutable storage',
+    () {
+      for (final worker in [0, 7, 0xffffffff]) {
+        for (final iteration in [0, 11, 0xffffffff]) {
+          for (final length in [65535, 65536, 65537]) {
+            final bytes = BenchPayloadCodec.body(
+              worker: worker,
+              iteration: iteration,
+              length: length,
+            );
+            expect(
+              bytes,
+              orderedEquals(
+                List.generate(
+                  length,
+                  (index) => (worker * 17 + iteration * 29 + index * 31) & 0xff,
+                ),
+              ),
+              reason: 'worker=$worker iteration=$iteration length=$length',
+            );
+            final other = BenchPayloadCodec.body(
+              worker: worker,
+              iteration: iteration,
+              length: length,
+            );
+            bytes[0] ^= 0xff;
+            expect(other[0], (worker * 17 + iteration * 29) & 0xff);
+          }
+        }
+      }
+    },
+  );
+
   test('managed typed fixture observes its byte-vector input copy', () {
     OwnedCopyMetrics.enable();
     final before = OwnedCopyMetrics.snapshot()!;

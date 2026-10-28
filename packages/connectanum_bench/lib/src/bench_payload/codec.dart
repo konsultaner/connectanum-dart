@@ -32,7 +32,16 @@ abstract final class BenchPayloadCodec {
     RangeError.checkValueInInterval(length, 0, 64 * 1024 * 1024, 'length');
     final bytes = Uint8List(length);
     var value = (worker * 17 + iteration * 29) & 0xff;
-    for (var index = 0; index < length; index++) {
+    var index = 0;
+    if (Endian.host == Endian.little && length >= 4) {
+      final words = bytes.buffer.asUint32List(0, length >> 2);
+      for (var word = 0; word < words.length; word++) {
+        words[word] = _expectedBodyWords[value];
+        value = (value + 124) & 0xff;
+      }
+      index = words.length << 2;
+    }
+    for (; index < length; index++) {
       bytes[index] = value;
       value = (value + 31) & 0xff;
     }
