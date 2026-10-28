@@ -12,8 +12,12 @@ Add it to all four lists and the suite. All 87 verification-tool tests and all
 3,651 shared serializer-suite tests now pass. Extend metadata-edit regressions
 to newly introduced false/zero control fields after a simple-PPT read. Runtime
 files and proof IDs/hashes remain unchanged. Full verification is restarting.
-The companion lease clears: Qwen confirms the inventory cause; broader GLM/Qwen
-review requests reach their deadlines, so a narrower review is running.
+The companion lease clears: Qwen confirms the inventory cause. Broader GLM/Qwen
+requests time out; a completed narrow Qwen review reports no concrete findings.
+Its two hypothetical concerns are excluded by the exact two-key guard and safe
+encoding fallback. A test-only follow-up uses legal zero trustlevel rather than
+the rejected zero publisher ID; all 1,982 client/core and 3,651 serializer-suite
+cases pass after that fixture correction. No product validation is weakened.
 
 Verification follow-up (2026-10-28): `66282e65` local verify and hosted Fast
 Checks fail at the source-bound mutation-proof preflight. Revalidate the three

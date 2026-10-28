@@ -65,8 +65,8 @@ void main() {
               details.progress = false;
               introduced['progress'] = false;
             } else if (details is core.EventDetails) {
-              details.publisher = 0;
-              introduced['publisher'] = 0;
+              details.trustlevel = 0;
+              introduced['trustlevel'] = 0;
             } else if (details is core.InvocationDetails) {
               details.timeout = 0;
               introduced['timeout'] = 0;

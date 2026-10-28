@@ -29,7 +29,12 @@ reference.
   read. Product runtime and source-bound mutation proofs remain unchanged.
 - [x] Obtain the now-reachable Qwen debugger's inventory diagnosis and verify it
   against the failing assertions. Broad GLM review/Qwen test planning requests
-  time out; they do not count as completed review. A bounded review is pending.
+  time out; they do not count as completed review. A completed bounded Qwen
+  review reports no concrete findings. The exact dictionary guard excludes
+  additional keys, and encoding fallbacks preserve payload-view semantics.
+- [x] Correct the new zero-value fixture: zero publisher IDs remain invalid;
+  legal zero trustlevel exercises the intended round-trip. Pass all 1,982
+  client/core cases and rerun all 3,651 serializer-suite cases successfully.
 - [ ] Pass full local verification and replacement hosted CI.
 
 ## Source-bound mutation proof renewal (2026-10-28)
