@@ -5,6 +5,17 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Verification follow-up (2026-10-28): `66282e65` local verify and hosted Fast
+Checks fail at the source-bound mutation-proof preflight. Revalidate the three
+unchanged mutations rather than bypassing the gate: a private seven-mutation
+run with an empty equivalents file retains exactly those three survivors and
+kills four neighboring controls; clean/restored baselines and every mutation
+input hash pass. Its unadjusted 57.14% score correctly fails the unchanged 95%
+gate. Renew only those three IDs/source hashes, preserving their reasons. The
+normal preflight now validates all 157 proofs. Extend native control-guard tests
+to cover every scalar string slot as well as additional flags. Runtime source
+is unchanged by this verification repair; full verification is restarting.
+
 Current candidate (2026-10-28): simple typed-PPT metadata on received RESULT,
 EVENT and INVOCATION messages no longer creates redundant dictionary snapshots.
 The ordinary Dart reader checks the complete two-string logical dictionary;

@@ -19,6 +19,24 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Source-bound mutation proof renewal (2026-10-28)
+
+- [x] Reproduce the `66282e65` local/hosted Fast Checks preflight failure. The
+  client file change shifts three unchanged mutation sites and invalidates the
+  old source hashes. Preserve the failure; do not waive the gate.
+- [x] Map each old mutation to an identical original/replacement/operator in
+  unchanged source blocks. Recheck cache validation, root string-key policy
+  call sites and null-to-integer conversion semantics; existing reasons hold.
+- [x] Execute all seven mutations at the three sites in a private source
+  snapshot with no equivalents. Exactly the three proven-equivalent mutations
+  survive; four controls are assertion-killed. Clean/restored tests and all
+  mutation input hashes pass. The expected raw 57.14%/95% failure is not a
+  production acceptance report. Renew only those three IDs/hashes/reasons.
+- [x] Pass the normal preflight: 157 proofs across 14 targets/11 sources.
+  Extend the client guard regression to every native string slot and flag.
+- [ ] Pass full local verification and replacement hosted CI. Runtime files
+  remain identical to `66282e65`; retain its separate copy/performance runs.
+
 ## Complete simple-PPT metadata models (2026-10-28)
 
 - [x] Audit diagnostic `40710916340` on `8fdc0ad0`: 90 rows, eight numerical

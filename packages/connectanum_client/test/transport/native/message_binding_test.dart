@@ -105,7 +105,20 @@ void main() {
         final encoded = Uint8List.fromList(
           cbor.cbor.encode(cbor.CborValue(dictionary)),
         );
-        for (final flag in [2, 4, 8, 32, 64, 128]) {
+        for (final guard in <Object>[
+          2,
+          4,
+          8,
+          32,
+          64,
+          128,
+          'stringA',
+          'stringB',
+          'stringC',
+          'stringD',
+          'stringE',
+        ]) {
+          final flag = guard is int ? guard : 0;
           final message = bindMessage(
             NativeMessageSerializer.flatbuffers,
             Uint8List(0),
@@ -115,15 +128,29 @@ void main() {
               secondaryId: 19,
               flags: NativeMessageMetadata.flagDirectBind | flag,
               detailsBytes: encoded,
-              stringA: code == 50 ? 'x_application' : null,
-              stringB: code == 50 ? 'flatbuffers' : 'x_application',
-              stringC: code == 50 ? null : 'flatbuffers',
+              stringA: guard == 'stringA'
+                  ? 'native-control'
+                  : code == 50
+                  ? 'x_application'
+                  : null,
+              stringB: guard == 'stringB'
+                  ? 'native-control'
+                  : code == 50
+                  ? 'flatbuffers'
+                  : 'x_application',
+              stringC: guard == 'stringC'
+                  ? 'native-control'
+                  : code == 50
+                  ? null
+                  : 'flatbuffers',
+              stringD: guard == 'stringD' ? 'native-control' : null,
+              stringE: guard == 'stringE' ? 'native-control' : null,
             ),
           );
           expect(
             flatbuffers.Serializer().metadataFor(message),
             dictionary,
-            reason: 'flag=$flag',
+            reason: 'guard=$guard',
           );
         }
       },

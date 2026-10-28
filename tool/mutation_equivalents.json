@@ -1,15 +1,15 @@
 {
   "client-message-binding-vm": {
-    "57fca13500365e53b4db": {
-      "sourceHash": "8698b93b6e2491cf76c74fe73b5dc759e2fb5c6c0663e4ed395b3d1e25bc3826",
+    "9f1bbeee06449f75ed08": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
       "reason": "Forcing the validation-cache miss condition true only repeats CBOR validation on an exact, owner-retained immutable span that the native FlatBuffers reader already validated under the same root and string-key policy. Revalidation is deterministic and has no observable result change; it only adds CPU work, which remains covered by the unchanged performance acceptance campaign."
     },
-    "e425f6d05d02e15fca15": {
-      "sourceHash": "8698b93b6e2491cf76c74fe73b5dc759e2fb5c6c0663e4ed395b3d1e25bc3826",
+    "dced6a236cac55fb694c": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
       "reason": "Changing the default rootStringDictionaryKeys value affects no call outcome: every root-map call site passes true explicitly, while the only call using the default has rootMajor 4. The scanner applies this option only to a root map at depth zero, so true is inert for that argument-list path."
     },
-    "9f897d79d68772374560": {
-      "sourceHash": "8698b93b6e2491cf76c74fe73b5dc759e2fb5c6c0663e4ed395b3d1e25bc3826",
+    "8cd936a3f18917b68c95": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
       "reason": "Removing the early null check in _asInt leaves null to fall through both numeric type checks and reach the same final return null. For every non-null input the original condition was false, so all return values and side effects remain identical."
     }
   },
