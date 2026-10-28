@@ -273,16 +273,18 @@ Future<void> main(List<String> args) async {
         File('${output.path}/$codec-native-header.txt').writeAsStringSync('${header.stdout}\n${header.stderr}');
         if (header.exitCode != 0) throw StateError('perf header exit ${header.exitCode}');
         if (Platform.isLinux) {
-          final pid = pids['router']!;
-          final source = File('/tmp/perf-$pid.map');
-          if (!source.existsSync()) throw StateError('Router JIT symbol map missing for PID $pid');
-          final mapping = source.readAsBytesSync();
-          if (mapping.isEmpty) throw StateError('Router JIT symbol map empty for PID $pid');
-          File('${output.path}/$codec-router.perf-map').writeAsBytesSync(mapping);
-          File('${output.path}/$codec-router-perf-symbols.json').writeAsStringSync(jsonEncode({
-            'pid': pid, 'source': source.path, 'status': 'retained',
-            'captured_at_us': DateTime.now().microsecondsSinceEpoch,
-          }));
+          for (final role in ['router', 'client']) {
+            final pid = pids[role]!;
+            final source = File('/tmp/perf-$pid.map');
+            if (!source.existsSync()) throw StateError('$role JIT symbol map missing for PID $pid');
+            final mapping = source.readAsBytesSync();
+            if (mapping.isEmpty) throw StateError('$role JIT symbol map empty for PID $pid');
+            File('${output.path}/$codec-$role.perf-map').writeAsBytesSync(mapping);
+            File('${output.path}/$codec-$role-perf-symbols.json').writeAsStringSync(jsonEncode({
+              'pid': pid, 'source': source.path, 'status': 'retained',
+              'captured_at_us': DateTime.now().microsecondsSinceEpoch,
+            }));
+          }
         }
         for (final scope in ['combined', 'router', 'client']) {
           for (final children in [false, true]) {
@@ -419,15 +421,14 @@ def memory_snapshot_audit(output: Path, router_pid: int, requested: bool, linux:
     return result
 
 
-def router_symbol_map_audit(output: Path, pid: int, requested: bool) -> dict:
+def _symbol_map_audit(output: Path, pid: int, requested: bool, role: str) -> dict:
     result = {'requested': requested, 'status': 'not_requested', 'maps': [], 'findings': [],
-              'client_jit_symbols': 'not_requested',
               'limitation': 'A perf map snapshot does not guarantee complete unwinding or unique JIT address history.'}
     if not requested:
         return result
     for codec in ('cbor', 'msgpack', 'flatbuffers'):
-        path = output / f'{codec}-router.perf-map'
-        metadata = output / f'{codec}-router-perf-symbols.json'
+        path = output / f'{codec}-{role}.perf-map'
+        metadata = output / f'{codec}-{role}-perf-symbols.json'
         try:
             info = json.loads(metadata.read_text())
             if not isinstance(info, dict):
@@ -458,6 +459,41 @@ def router_symbol_map_audit(output: Path, pid: int, requested: bool) -> dict:
             result['findings'].append(f'{codec}: {error}')
     result['status'] = 'retained' if not result['findings'] else 'incomplete'
     return result
+
+
+def router_symbol_map_audit(output: Path, pid: int, requested: bool) -> dict:
+    return {**_symbol_map_audit(output, pid, requested, 'router'),
+            'client_jit_symbols': 'not_requested'}
+
+
+def client_symbol_map_audit(output: Path, router_pid: int, requested: bool) -> dict:
+    if not requested:
+        return _symbol_map_audit(output, 0, False, 'client')
+    try:
+        pids = [json.loads((output / f'{codec}-client-perf-symbols.json').read_text())['pid']
+                for codec in ('cbor', 'msgpack', 'flatbuffers')]
+        if any(type(pid) is not int or pid <= 0 or pid == router_pid for pid in pids) or len(set(pids)) != 1:
+            raise ValueError('client PID must be stable, positive and distinct from router PID')
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return {'requested': True, 'status': 'incomplete', 'maps': [], 'findings': [str(error)]}
+    return _symbol_map_audit(output, pids[0], True, 'client')
+
+
+def write_profile_worker_launcher(output: Path, dart: str) -> Path:
+    launcher = output / 'profile-client'
+    launcher.write_text('''#!/usr/bin/env python3
+import os, sys
+dart = ''' + repr(dart) + '''
+args = sys.argv[1:]
+split = args.index('--realm')
+prefixes = ('--timeline_streams=', '--timeline_recorder=', '--observe=')
+if any(not (flag.startswith(prefixes) or flag == '--no-pause-isolates-on-exit') for flag in args[:split]):
+    raise SystemExit('Unexpected diagnostic worker VM flag')
+os.execvp(dart, [dart, '--generate-perf-events-symbols', *args[:split],
+               'run', 'connectanum_bench:wamp_client_worker', *args[split:]])
+''')
+    launcher.chmod(0o700)
+    return launcher
 
 
 def profile(args):
@@ -497,9 +533,11 @@ def profile(args):
            'CONNECTANUM_NATIVE_RUNTIME_THREADS': str(NATIVE_RUNTIME_THREADS),
            'CONNECTANUM_BENCH_PROFILE_WORKER_URI': str(output/'worker-uri.txt')}
     router_symbols = bool(args.perf and platform.system() == 'Linux')
+    worker = write_profile_worker_launcher(output, args.dart) if router_symbols else None
+    worker_hash = digest(worker) if worker else None
     command = [args.dart, *(['--generate-perf-events-symbols'] if router_symbols else []), '--observe=0/127.0.0.1', '--profiler', '--no-pause-isolates-on-exit',
                'run', 'packages/connectanum_bench/tool/bench_main.dart', '--router-config', str(output/'router.json'),
-               '--wamp-worker', 'connectanum_bench:wamp_client_worker']
+               '--wamp-worker', str(worker) if worker else 'connectanum_bench:wamp_client_worker']
     process = subprocess.Popen(command, cwd=root, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, start_new_session=True)
     ready = threading.Event()
@@ -551,6 +589,9 @@ def profile(args):
         changed = [p for p, h in inputs.items() if not (root/p).is_file() or digest(root/p) != h]
         after = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
         symbols = router_symbol_map_audit(output, process.pid, router_symbols)
+        client_symbols = client_symbol_map_audit(output, process.pid, router_symbols)
+        symbols['client_jit_symbols'] = client_symbols['status']
+        launcher_unchanged = worker is None or (worker.is_file() and digest(worker) == worker_hash)
         memory = memory_snapshot_audit(output, process.pid, args.memory, platform.system() == 'Linux')
         audit = {'kind': 'cpu_profile_only_never_acceptance', 'case_id': args.profile_case,
                  'requested_configuration': target, 'head': head, 'inputs': inputs,
@@ -560,6 +601,9 @@ def profile(args):
                  'inputs_unchanged': not changed and head == after, 'changed': changed,
                  'native_library_sha256': library_digest, 'native_library_unchanged': digest(library) == library_digest,
                  'router_perf_symbols': symbols,
+                 'client_perf_symbols': client_symbols,
+                 'client_launcher': {'path': worker.name if worker else None,
+                                     'sha256': worker_hash, 'unchanged': launcher_unchanged},
                  'memory_snapshots': memory,
                  'platform': platform.uname()._asdict(), 'perf': args.perf or 'not_measured',
                  'perf_version': subprocess.check_output([args.perf, '--version'], text=True).strip() if args.perf else None,
@@ -568,9 +612,9 @@ def profile(args):
                  'process_group_stopped': group_stopped, 'interference_observations': interference,
                  'dart_version': subprocess.check_output([args.dart, '--version'], text=True).strip(),
                  'rust_flags': os.environ.get('RUSTFLAGS'),
-                 'limitation': 'Profiling perturbs execution. Router JIT maps and per-PID reports are retained for Linux perf; symbols/unwinding may remain incomplete. Client JIT symbols are not requested. Dart samples can include native/blocking stacks and are not CPU-cycle attribution.'}
+                 'limitation': 'Profiling perturbs execution. Router/client JIT maps and per-PID reports are retained for Linux perf; symbols/unwinding may remain incomplete. Dart samples can include native/blocking stacks and are not CPU-cycle attribution.'}
         (output/'source-audit.json').write_text(json.dumps(audit, indent=2)+'\n')
-    return status or process.returncode or (0 if audit['inputs_unchanged'] and audit['native_library_unchanged'] and group_stopped and not interference and not symbols['findings'] and not memory['findings'] else 1)
+    return status or process.returncode or (0 if audit['inputs_unchanged'] and audit['native_library_unchanged'] and launcher_unchanged and group_stopped and not interference and not symbols['findings'] and not client_symbols['findings'] and not memory['findings'] else 1)
 
 
 if __name__ == '__main__':

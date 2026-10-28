@@ -3,6 +3,7 @@
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -136,8 +137,11 @@ class ProfileSelectionTests(unittest.TestCase):
                     self.assertEqual('--generate-perf-events-symbols' in command, requested)
                     self.assertEqual(kwargs['env'].get('CONNECTANUM_NATIVE_RUNTIME_THREADS'), '1')
                     worker_option = command.index('--wamp-worker')
-                    self.assertEqual(command[worker_option + 1],
-                                     'connectanum_bench:wamp_client_worker')
+                    worker = command[worker_option + 1]
+                    self.assertEqual(worker, str(output.resolve() / 'profile-client') if requested
+                                     else 'connectanum_bench:wamp_client_worker')
+                    if requested:
+                        self.assertTrue(os.access(worker, os.X_OK))
 
                     Path(kwargs['env']['CONNECTANUM_BENCH_PROFILE_WORKER_URI']).write_text(
                         'http://127.0.0.1:2/test/')
@@ -167,9 +171,10 @@ class ProfileSelectionTests(unittest.TestCase):
                     self.assertFalse((output / 'worker.dart').exists())
                     if mode == 'complete':
                         for codec in ('cbor', 'msgpack', 'flatbuffers'):
-                            (output / f'{codec}-router.perf-map').write_text('1000 10 fixture symbol; never real samples\n')
-                            (output / f'{codec}-router-perf-symbols.json').write_text(json.dumps({
-                                'pid': 12345, 'source': '/tmp/perf-12345.map', 'status': 'retained'}))
+                            for role, pid in [('router', 12345), ('client', 23456)]:
+                                (output / f'{codec}-{role}.perf-map').write_text('1000 10 fixture symbol; never real samples\n')
+                                (output / f'{codec}-{role}-perf-symbols.json').write_text(json.dumps({
+                                    'pid': pid, 'source': f'/tmp/perf-{pid}.map', 'status': 'retained'}))
                     return SimpleNamespace(returncode=0)
 
                 def checked(command, **kwargs):
@@ -224,6 +229,68 @@ class ProfileSelectionTests(unittest.TestCase):
                 self.assertEqual(len(audit['router_perf_symbols']['maps']), 3 if mode == 'complete' else 0)
                 self.assertEqual(audit['probe_exit'], 0)
                 self.assertEqual(bool(audit['router_perf_symbols']['findings']), mode == 'missing')
+                self.assertEqual(audit['client_perf_symbols']['requested'], requested)
+                self.assertEqual(audit['client_perf_symbols']['status'],
+                                 'retained' if mode == 'complete' else 'incomplete' if requested else 'not_requested')
+                self.assertTrue(audit['client_launcher']['unchanged'])
+
+
+class ClientSymbolMapTests(unittest.TestCase):
+    def fixture(self, output):
+        for codec in ('cbor', 'msgpack', 'flatbuffers'):
+            (output / f'{codec}-client.perf-map').write_text('1000 10 fixture client symbol\n')
+            (output / f'{codec}-client-perf-symbols.json').write_text(json.dumps({
+                'pid': 23456, 'source': '/tmp/perf-23456.map', 'status': 'retained'}))
+
+    def test_client_maps_have_distinct_stable_pid_and_complete_symbols(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            self.fixture(output)
+            result = profiler.client_symbol_map_audit(output, 12345, True)
+            self.assertEqual(result['status'], 'retained')
+            self.assertEqual({row['pid'] for row in result['maps']}, {23456})
+            self.assertEqual(len(result['maps']), 3)
+
+    def test_missing_foreign_and_malformed_client_maps_fail_closed(self):
+        for defect in ['missing', 'router PID', 'changed PID', 'foreign source', 'malformed map']:
+            with self.subTest(defect=defect), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory)
+                self.fixture(output)
+                meta = output / 'cbor-client-perf-symbols.json'
+                data = json.loads(meta.read_text())
+                if defect == 'missing': meta.unlink()
+                elif defect == 'router PID': data['pid'] = 12345
+                elif defect == 'changed PID': data['pid'] = 34567
+                elif defect == 'foreign source': data['source'] = '/tmp/perf-9.map'
+                elif defect == 'malformed map': (output / 'cbor-client.perf-map').write_text('not a symbol\n')
+                if defect != 'missing': meta.write_text(json.dumps(data))
+                result = profiler.client_symbol_map_audit(output, 12345, True)
+                self.assertEqual(result['status'], 'incomplete')
+                self.assertTrue(result['findings'])
+
+    def test_unrequested_client_maps_are_not_read(self):
+        result = profiler.client_symbol_map_audit(Path('/not/a/profile'), 12345, False)
+        self.assertEqual(result['status'], 'not_requested')
+
+    @unittest.skipUnless(os.name == 'posix', 'Linux profiling launcher')
+    def test_launcher_preserves_vm_and_worker_arguments_without_shell_parsing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            dart = output / "fake dart with 'quotes'"
+            dart.write_text(f'#!{sys.executable}\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n')
+            dart.chmod(0o700)
+            launcher = profiler.write_profile_worker_launcher(output, str(dart))
+            vm = ['--timeline_streams=GC', '--timeline_recorder=endless',
+                  '--observe=0/127.0.0.1', '--no-pause-isolates-on-exit']
+            worker = ['--realm', 'realm with spaces', '--targets-json', '{"literal":"$()`"}']
+            result = subprocess.run([str(launcher), *vm, *worker], text=True, capture_output=True, check=True)
+            self.assertEqual(json.loads(result.stdout),
+                             ['--generate-perf-events-symbols', *vm, 'run',
+                              'connectanum_bench:wamp_client_worker', *worker])
+            rejected = subprocess.run([str(launcher), '--unexpected-option', *worker],
+                                      text=True, capture_output=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Unexpected diagnostic worker VM flag', rejected.stderr)
 
 
 class MemorySnapshotAuditTests(unittest.TestCase):

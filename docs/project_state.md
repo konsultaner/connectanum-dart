@@ -5,6 +5,34 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Current investigation (2026-10-28): allocator diagnostic `40696555847` completes
+six fresh process pairs on `28642b03`, with similar live glibc arena estimates
+across codecs but different cached VM pages/free bins. This is attribution only,
+not evidence that RSS is all free memory or that parity passes. Current CPU
+profile `40698440958` leaves hot client addresses unresolved; its tooling retained
+only router JIT maps. The diagnostic now requests and audits both client/router
+maps without changing product code, benchmark cases or gates. All 18 profiling
+tests pass. Linux capture is pending; the symbol flag is unavailable on macOS.
+Local companion tests/review are blocked by a native-mutation resource lease.
+
+Current verified product source (2026-10-28): full local `bin/verify` passes on
+`28642b03`, including Rust, VM/native, live WAMP/router, consumers and browser
+suites. Production copy proof `40693403608` also passes on that exact source:
+120 live cases, 300 inventory rows and all 32 documented zero-avoidable-copy
+checks, with unchanged source/binary receipts. E2EE/transcode observations are
+complete under the approved owned-boundary scope. Hosted CI `40679539974` passes
+on the earlier `9204be2c`; current CI `40693398693` remains pending.
+
+Diagnostic `40693409305` completes 90 rows without integrity findings, but eight
+numerical gates fail. Native-buffer and pre-encoded modes pass throughput,
+latency, CPU, allocation and GC; peak RSS fails in all three cases. Dart values
+also fail CPU/GC and small throughput/latency comparisons. Previous diagnostic
+`40691719068` had six numerical failures; retain both, accept neither as parity.
+The layout probe confirms ordinary Dart body offset 196 (word-aligned), versus
+the old 202. The probe restores its source exactly and is never acceptance.
+Allocator attribution `40696555847` and updated Dart-values CPU profiling
+`40698440958` are queued. Keep #103 open and PR #132 draft until full acceptance.
+
 Typed PPT routing follow-up (2026-10-28): the first full verification of
 `647517fa` reproduced MessagePack fallback failures for opaque INVOCATION/EVENT
 messages with custom metadata. That fallback wrote a bare binary value where

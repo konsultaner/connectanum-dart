@@ -78,7 +78,8 @@ to Dart and Rust, and reads their emitted CALLs with the upstream Python reader.
 The typed-payload fixture nests a pre-encoded `wamp.proto.Message` FlatBuffer as
 opaque application data, with `PPTScheme.OPAQUE`, `PPTSerializer.FLATBUFFERS` and
 explicit schema metadata. It proves byte preservation without requiring a
-database entity schema; actual typed/PPT session support remains issue #101.
+database entity schema. Typed PPT sessions and explicit FlatBuffers E2EE profiles
+are supported; see [the ownership contract](native_buffer_ownership.md).
 
 Coverage reports keep the two compiler-generated Dart artifacts in raw file
 totals and `generatedArtifacts`, separately from the handwritten-code gate.
@@ -103,6 +104,19 @@ they are not separate messages. The layouts can differ while using the same
 pinned binding. Keep backing owners and immutable contents valid until the
 transport completes its local write. Ordinary Dart arguments still require CBOR
 encoding, and an external database lease needs the adapter's own lifetime policy.
+
+For a nonempty custom PPT scheme with `ppt_serializer: flatbuffers`, exactly
+one `Uint8List` argument and no kwargs, cipher or key ID, the serializer writes
+the existing opaque payload vector directly. Fragmented output retains that
+exact encoded buffer without an additional CBOR array/byte-string wrapper.
+Other argument shapes and reserved `wamp` encryption keep their existing paths;
+older wrapped typed frames remain readable.
+
+A raw deserialized direct envelope exposes `transparentBinaryPayload` rather
+than a wrapped argument list. Session APIs expose the application arguments;
+raw codec consumers can use `decodeLazyPayloadView` with the message's PPT
+metadata. Opaque payload views are read-only and borrow the input storage, which
+must remain valid and unchanged for their lifetime.
 
 The ordinary RawSocket transport frames small fragments in one payload copy and
 submits large fragments separately. Linux pointer checks verify that full/read-only

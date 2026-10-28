@@ -19,8 +19,45 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Client JIT attribution and allocator evidence (2026-10-28)
+
+- [x] Audit allocator run `40696555847` on verified product source `28642b03`.
+  Six fresh process pairs complete without forced GC or allocator tuning.
+  Live glibc arena estimates are similar across codecs; cached VM pages and
+  free allocator bins differ. These non-atomic snapshots cannot identify all
+  resident memory or establish parity. Do not subtract free bins from RSS.
+- [x] Capture current Dart-values CPU profile `40698440958`. Its VM samples
+  include native/blocking stacks; hot client perf addresses remain unresolved
+  because the existing diagnostic retains only router JIT maps.
+- [x] Extend only the diagnostic launcher to request client JIT symbols on
+  Linux, preserving the existing VM/worker arguments without shell parsing.
+  Keep per-codec client maps, PID/source/hash attribution and launcher integrity.
+  Reject missing, malformed, foreign or changing client PID maps.
+- [x] Pass all 18 profiling-tool tests. Local macOS cannot validate the Linux-only
+  symbol flag; its real-worker startup attempt rejects that platform-specific
+  flag. Linux capture remains required. Local model testing/review is blocked
+  by an active native-mutation resource lease; do not bypass that lease.
+- [ ] Capture Linux router and client JIT maps, resolve the hot client addresses
+  and select a measured production improvement. Keep runtime code and all
+  acceptance gates unchanged by this diagnostic-only work.
+
 ## Typed PPT envelope alignment (2026-10-28)
 
+- [x] Pass full local `bin/verify` on corrected source `28642b03`, including
+  native/VM, live router and Chrome/Dart2Wasm suites. Its production copy proof
+  `40693403608` passes 120 live cases/300 inventory rows and 32 no-copy checks
+  with unchanged source/binary receipts. Earlier `9204be2c` CI `40679539974`
+  passes; current CI `40693398693` remains pending.
+- [x] Audit source `28642b03` diagnostic `40693409305`: 90 rows, eight numerical
+  failures, no integrity findings beyond explicit diagnostic ineligibility.
+  Both native modes pass throughput, latency, CPU, allocation and GC; all three
+  fail RSS. Dart values retain additional CPU/GC/throughput/latency failures.
+  Preserve the preceding six-failure diagnostic `40691719068` as well.
+- [x] Confirm ordinary Dart body offset 196 after promotion, versus the old
+  unaligned 202. Restore the privately instrumented runner byte-for-byte; the
+  short macOS probe is never performance acceptance.
+- [ ] Inspect allocator attribution `40696555847` and current Dart-values CPU
+  profile `40698440958`, then choose the next measured production improvement.
 - [x] Reproduce mixed MessagePack custom-metadata routing failures during full
   verification of `647517fa`. Its fallback emits bare binary arguments; reuse
   the existing JSON singleton list view for MessagePack without mutating the

@@ -199,6 +199,7 @@ evaluates the loader and copies the resulting graph.
 | Boundary | Behavior |
 | --- | --- |
 | Ordinary Dart value encoding | Constructs encoded bytes; binary vectors copy supplied input bytes. |
+| Ordinary typed FlatBuffers PPT singleton | Uses the existing opaque vector for eligible custom PPT. Contiguous output writes the vector; fragmented output retains the original encoded buffer without a CBOR wrapper. Native submission ownership remains a separate boundary. |
 | Native construction | Writes in native storage; growth copies are reported separately. |
 | Immutable native frame composition | Retains application spans without flattening them; control assembly still writes bytes. |
 | Owned/native frame submission | Transfers or retains ownership without a Dart-to-native application copy. |
