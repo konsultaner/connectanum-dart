@@ -19,6 +19,117 @@ import 'package:test/test.dart';
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  for (final code in [36, 50, 68]) {
+    for (final extra in <Map<String, Object?>>[
+      {},
+      {
+        'extension': {
+          'bytes': Uint8List.fromList([1, 2, 3]),
+        },
+      },
+      if (code == 50) {'progress': false},
+      {'ppt_cipher': null},
+    ]) {
+      test(
+        'FlatBuffers direct PPT metadata preserves edits code=$code extra=$extra',
+        () {
+          final dictionary = <String, Object?>{
+            'ppt_scheme': 'x_application',
+            'ppt_serializer': 'flatbuffers',
+            ...extra,
+          };
+          final bytes = Uint8List.fromList(
+            cbor.cbor.encode(cbor.CborValue(dictionary)),
+          );
+          final message = bindMessage(
+            NativeMessageSerializer.flatbuffers,
+            Uint8List(0),
+            metadata: _metadata(
+              messageCode: code,
+              primaryId: 17,
+              secondaryId: 19,
+              flags: NativeMessageMetadata.flagDirectBind,
+              detailsBytes: bytes,
+              stringA: code == 50 ? 'x_application' : null,
+              stringB: code == 50 ? 'flatbuffers' : 'x_application',
+              stringC: code == 50 ? null : 'flatbuffers',
+            ),
+          );
+          final PPTOptions details = switch (message) {
+            Event value => value.details,
+            Result value => value.details,
+            Invocation value => value.details,
+            _ => throw StateError('unexpected message'),
+          };
+          final serializer = flatbuffers.Serializer();
+          expect(serializer.metadataFor(message), dictionary);
+          details.pptScheme = 'x_changed';
+          expect(serializer.metadataFor(message), {
+            ...dictionary,
+            'ppt_scheme': 'x_changed',
+          });
+          final custom = switch (details) {
+            EventDetails value => value.custom,
+            ResultDetails value => value.custom,
+            InvocationDetails value => value.custom,
+            _ => throw StateError('unexpected details'),
+          };
+          custom['added'] = 7;
+          final roundTrip = serializer.deserialize(
+            serializer.serialize(message),
+          )!;
+          expect(serializer.metadataFor(roundTrip), {
+            ...dictionary,
+            'ppt_scheme': 'x_changed',
+            'added': 7,
+          });
+          if (extra.containsKey('extension')) {
+            bytes.fillRange(0, bytes.length, 0);
+            expect(serializer.metadataFor(message)['extension'], {
+              'bytes': [1, 2, 3],
+            });
+          }
+        },
+      );
+    }
+  }
+
+  for (final code in [36, 50, 68]) {
+    test(
+      'FlatBuffers PPT fast path preserves native control guards code=$code',
+      () {
+        final dictionary = {
+          'ppt_scheme': 'x_application',
+          'ppt_serializer': 'flatbuffers',
+        };
+        final encoded = Uint8List.fromList(
+          cbor.cbor.encode(cbor.CborValue(dictionary)),
+        );
+        for (final flag in [2, 4, 8, 32, 64, 128]) {
+          final message = bindMessage(
+            NativeMessageSerializer.flatbuffers,
+            Uint8List(0),
+            metadata: _metadata(
+              messageCode: code,
+              primaryId: 17,
+              secondaryId: 19,
+              flags: NativeMessageMetadata.flagDirectBind | flag,
+              detailsBytes: encoded,
+              stringA: code == 50 ? 'x_application' : null,
+              stringB: code == 50 ? 'flatbuffers' : 'x_application',
+              stringC: code == 50 ? null : 'flatbuffers',
+            ),
+          );
+          expect(
+            flatbuffers.Serializer().metadataFor(message),
+            dictionary,
+            reason: 'flag=$flag',
+          );
+        }
+      },
+    );
+  }
+
   test('untrusted native FlatBuffers argument bytes still get validated', () {
     final message =
         bindSessionMessage(

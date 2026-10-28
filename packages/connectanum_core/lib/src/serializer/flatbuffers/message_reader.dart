@@ -184,10 +184,19 @@ AbstractMessage _readMessage(
       ),
     );
   }
-  if (retainApplicationMetadata || (message is! Call && message is! Publish)) {
+  // These freshly reconstructed details fully represent both dictionary keys.
+  // Explicit defaults, nulls, other fields and custom metadata retain history.
+  final fullyRepresentedPpt =
+      (message is Result || message is Event || message is Invocation) &&
+      dictionary.length == 2 &&
+      dictionary['ppt_scheme'] is String &&
+      dictionary['ppt_serializer'] is String;
+  if (!fullyRepresentedPpt &&
+      (retainApplicationMetadata ||
+          (message is! Call && message is! Publish))) {
     retainWampFlatBufferDictionary(message, frame.bytes, frame.dictionary);
   } else {
-    // Preserve projection checks; only snapshots and assignment observers go.
+    // Preserve projection checks; only redundant snapshots and observers go.
     projectWampFlatBufferMessage(message, retainMetadata: false);
   }
   return message;

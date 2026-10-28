@@ -77,3 +77,47 @@ The shared deterministic body loop is a measured optimization candidate across
 all three codecs. Its word-fill candidate preserves the arithmetic reference,
 input identities and copy-accounting semantics. Only the unchanged paired
 campaign can determine whether that change improves performance parity.
+
+
+## Shared construction and metadata follow-up
+
+[Diagnostic 40710916340](https://github.com/konsultaner/connectanum-dart/actions/runs/40710916340)
+on `8fdc0ad00f2c3d49d401fe8304d9e378d35705d1` completes all 90 rows with no
+integrity findings beyond diagnostic ineligibility. Native-buffer construction
+passes all seven numerical comparisons. Eight findings remain elsewhere:
+Dart-value CPU/p95/p99/RSS/throughput, and pre-encoded RSS plus GC/p99 confidence
+limits. Keep all observations; the shared word-fill optimization is not parity.
+[Owned-copy proof](https://github.com/konsultaner/connectanum-dart/actions/runs/40710922147)
+passes 120 live cases, 300 inventory rows and 32 zero-avoidable-copy observations,
+including complete owned E2EE/transcode accounting and unchanged input receipts.
+
+A private local live control varies only the public router worker poll interval,
+checking every echoed 64-KiB byte. With the original 1-ms interval, 100-RPC means
+are 4.8–5.4 ms; a 10-ms interval gives 23.7–24.2 ms; zero interval gives
+0.5–0.9 ms after warmup. These macOS controls show a shared scheduling floor.
+The busy zero-interval control is not a production recommendation and changes
+neither campaign configuration nor acceptance criteria.
+
+The next candidate removes redundant retained dictionaries only when a fresh
+RESULT/EVENT/INVOCATION model completely represents the two-text PPT dictionary.
+Native binding also matches the whole bounded CBOR span and guards every other
+native control field/flag. Other dictionaries retain existing semantics and
+validation; payload vectors and their lifetime anchors are unaffected.
+
+Local source-compiled kernel probes run before/after/after/before, each with nine
+20,000-operation passes, discarding the first four passes in every process:
+
+| Component | Baseline run medians (microseconds) | Candidate run medians | Ratio of median run times |
+| --- | --- | --- | ---: |
+| Native RESULT binding | 30868, 30638 | 2057, 2145 | 0.068 |
+| Dart RESULT reader | 53185, 53402 | 39732, 39314 | 0.742 |
+
+The native baseline/candidate kernels have SHA-256
+`f903bd24c94dfefd9c5e6d484bffed1f1de5adf4533c7a95288919e79a6ae35f` and
+`d58e3f5cef8b973994b216549b920f1216ef5159e624e36ff1285bad0736521c`.
+The Dart-reader baseline uses the `8fdc0ad0` reader with imports rewritten to
+package URIs; its baseline/candidate kernel hashes are
+`f5efa073803f8c90b35b1b38ee1feb0935f0558e8b16f712b7c8b89025368912` and
+`23851fae73ad0ff2d134bf1cc765bcee0807ca7b21583b4df2b828eacdba1cc2`.
+These control-only component timings are diagnostic, not throughput, latency,
+CPU, GC or RSS acceptance for a WAMP workload.

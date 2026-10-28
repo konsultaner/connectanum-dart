@@ -19,6 +19,35 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Complete simple-PPT metadata models (2026-10-28)
+
+- [x] Audit diagnostic `40710916340` on `8fdc0ad0`: 90 rows, eight numerical
+  failures, diagnostic ineligibility only. Native-buffer passes every numerical
+  comparison; Dart values and pre-encoded spans remain blockers. Preserve all
+  preceding failed observations and the unchanged budgets/case inventory.
+- [x] Audit production copy proof `40710922147`: 120 live cases, 300 inventory
+  rows, 32 zero-avoidable-copy checks, source/binaries unchanged. E2EE/transcode
+  accounting remains complete within the approved standard-SDK scope.
+- [x] Pass `bin/test-fast` on `8fdc0ad0`. Supersede its full verify during tooling
+  checks for the metadata follow-up; claim no frozen-source full pass for it.
+- [x] Identify eager FlatBuffers metadata history on complete two-field PPT
+  RESULT/EVENT/INVOCATION models. Share the router's bounded ASCII matcher with
+  native clients; guard all additional native flags/fields. The Dart reader
+  recognizes the already-validated two-string logical dictionary. Preserve
+  projection checks, payload anchors, extra fields/defaults/nulls and fallbacks.
+- [x] Pass 1,948 client/1,896 router binding cases, 54 core metadata/retention
+  cases and 37 browser cases. Cover source mutation, model edits, Unicode,
+  field order/header boundaries, malformed/truncated/duplicate/tagged bytes,
+  custom dictionaries and explicit null/false values. Local companion review
+  remains blocked by the native-mutation resource lease.
+- [x] Run precompiled before/after component probes in B/A/A/B order: median
+  run-time ratios 0.068 for native RESULT binding and 0.742 for the Dart reader.
+  These local component timings cannot replace the strict paired campaign.
+- [ ] Finish full local verification and exact-source CI, owned-copy proof and
+  paired diagnostic. Fix every remaining performance failure, including RSS.
+- [ ] Pass the full unchanged primary and supplemental campaigns before
+  closing #103/the milestone or changing PR #132 out of draft.
+
 ## Shared deterministic body generation (2026-10-28)
 
 - [x] Pass full local `bin/verify` on `1c80fbf4` and confirm runtime hosted CI
