@@ -45,3 +45,10 @@ contains unresolved hot client perf addresses. Retain client JIT symbols, as
 already done for the router, before attributing those samples to an operation.
 Dart VM samples can include native/blocking stacks and are not CPU-cycle
 attribution. Keep every failed observation and all declared budgets unchanged.
+
+The diagnostic also retains PID-filtered `perf script` output for the same
+interior operation interval, including absolute instruction addresses. These
+can be matched to each PID's JIT map even when a report displays unresolved
+module-relative addresses. The fields follow the
+[perf-script documentation](https://man7.org/linux/man-pages/man1/perf-script.1.html).
+Reused JIT address ranges remain an explicit attribution limitation.

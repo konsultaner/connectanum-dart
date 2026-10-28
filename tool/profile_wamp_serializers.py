@@ -306,6 +306,16 @@ Future<void> main(List<String> args) async {
               }
             }
           }
+          if (scope != 'combined') {
+            final trace = await Process.run('sudo', ['-n', args[4], 'script',
+              '--time', (window['native_clock_range'] as Map)['perf_time_range'] as String,
+              '--pid', '${pids[scope]}', '-F', 'pid,tid,time,ip,sym,dso', '-i', data]);
+            File('${output.path}/$codec-native-$scope-script.txt')
+              .writeAsStringSync('${trace.stdout}\n${trace.stderr}');
+            if (trace.exitCode != 0 || (trace.stdout as String).trim().isEmpty) {
+              throw StateError('Native perf script $scope is missing or failed (${trace.exitCode})');
+            }
+          }
         }
       }
       window['native_perf_scope'] = args[4].isEmpty ? 'not_measured' : 'whole-request raw capture; reports filtered to interior data interval';
