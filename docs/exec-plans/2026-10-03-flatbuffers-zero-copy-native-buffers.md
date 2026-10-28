@@ -19,6 +19,28 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Final sample JSON projection (2026-10-28)
+
+- [x] Verify `5f54fe7d` with full local `bin/verify`. Production copy proof
+  `40774536906` passes 120 live / 300 inventory / 32 no-avoidable-copy checks
+  with unchanged inputs/binaries and the approved standard-SDK scope.
+- [x] Preserve diagnostic `40774531252`: 90 rows, six numerical findings;
+  native-buffer passes every metric, pre-encoded spans miss only RSS, and
+  Dart values miss GC/p95/p99/RSS/throughput. Do not relax any gate.
+- [x] Replace temporary named maps and private positional lists with read-only
+  sample projections at the final standard JSON encoder. Keep public snapshots,
+  all observations, worker negotiation, workloads and measured windows intact.
+- [x] Pass 119 focused schema/boundary/lifecycle cases, clean analysis, the
+  nine-pair live HTTP smoke and 167 source-bound mutation-proof checks.
+- [x] Compare actual-source AOT components: identical named/positional JSON
+  bytes; HTTP peak RSS 56.4–56.5 -> 43.8–43.9 MB and positional worker RSS
+  28.4–28.8 -> 25.7 MB for 20,000 samples. Do not call this WAMP acceptance.
+- [ ] Complete full benchmark/local verification and final-source hosted CI,
+  copy proof and paired diagnostic. Local companion requests are blocked by
+  the active native-mutation resource lease; record that review limitation.
+- [ ] Pass all 48 primary and 50 supplemental cases on final source before
+  closing #103/milestone or marking PR #132 ready.
+
 ## Interrupt native router idle polling (2026-10-28)
 
 - [x] Pass full local `bin/verify` on `c705b5bd`. Confirm current hosted Fast

@@ -5,45 +5,49 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Latest local verification checkpoint: `2f92dcc7` passes full `bin/verify`,
+Latest completed verification checkpoint: `5f54fe7d` passes full `bin/verify`,
 including Rust, VM/native, live router/consumer and Chrome/WebAssembly. Copy
-proof `40759868387` passes 120 live / 300 inventory / 32 no-avoidable-copy
+proof `40774536906` passes 120 live / 300 inventory / 32 no-avoidable-copy
 checks with unchanged inputs and binaries; 96 live E2EE and 120 live transcode
 cases remain covered under the approved standard-SDK scope.
 
-Paired diagnostic `40759863991` completes 90 rows with seven numeric findings:
-Dart-values CPU/GC/p95/p99/throughput and peak RSS for both native construction
-modes. Native-buffer/pre-encoded throughput improves 3.9%/2.4%; CPU, allocation,
-GC and both latency metrics pass. Their RSS point ratios remain 1.006378 and
-1.011142. Dart-values RSS now passes (0.997086), but throughput is 0.990235,
-CPU 1.001236, GC 1.100881, p95 1.005814 and p99 1.021390. Keep all reports.
-#103 and the milestone stay open and PR #132 stays draft; no gate is relaxed.
+Paired diagnostic `40774531252` completes 90 rows with six numeric findings.
+Native-buffer passes all seven metrics (throughput 1.049983, CPU 0.970064,
+RSS 0.996422). Pre-encoded spans pass six metrics, missing RSS (1.016250).
+Dart values pass allocation and CPU, missing GC (1.045137), p95 (1.004196),
+p99 (1.032258), RSS (1.013950) and throughput (0.997372). Diagnostic
+ineligibility is the only other finding. Keep all reports and unchanged gates.
+#103 and the milestone stay open and PR #132 stays draft.
 
-Inspect source-preserving Dart-values CPU capture `40763175368` and fresh
-native-buffer memory attribution `40763180032` before another behavior change.
-They run on the same frozen source. Hosted CI `40759920152` is entirely green. Preceding `40748136642` is also
-entirely green. Exact-source performance acceptance remains open.
+Hosted CI `40774541328` is running without a reported failure; preceding
+`40759920152` and `40748136642` are entirely green. Final-source full primary
+and supplemental acceptance remain required. CPU capture `40763175368` and
+fresh memory attribution `40763180032` informed the native reply change.
 
-The next native reply candidate uses the pinned generated Result/Message
-builders for exact two-string typed-PPT RESULT dictionaries. It preserves the
-complete standard CBOR dictionary, all generic validation/fallback shapes,
-source payload ownership and the generic writer's conservative table/vector
-budget. No new ABI, public API or application schema is introduced. The
-pre-change `bin/test-fast` passes. All ten focused native encoder regressions
-pass, including metadata/ID/body limits, Unicode and CBOR length transitions,
-extended/invalid controls, payload owner lifetime and actual copy counters.
-Full `bin/verify` is running. Final-source hosted evidence remains required.
+The native reply checkpoint uses pinned generated Result/Message builders for
+exact two-string typed-PPT RESULT dictionaries, preserving complete CBOR,
+generic validation/fallback, conservative schema budgets and source ownership.
+Ten focused encoder regressions and full verification pass. The final GLM
+review reports no concrete findings. Component observations reduce allocator
+requests from 18/1,969 to 6/458 calls/bytes and preserve native/Dart decoding;
+these observations do not establish end-to-end performance acceptance.
 
-The private prototype reduces reply allocator requests from 18/1,969 to 6/458
-calls/bytes and 200,000 encodes from 256.8–266.6 to 47.0–48.8 ms. Both native
-and Dart decode all 65,536 bytes and controls correctly; legal table placement
-differs. These component results do not establish performance acceptance.
-The corrected bound is derived from the pinned table sizes, preserving the
-existing conservative limit in addition to the physical frame limit. Tests
-compare the generic writer's own normalization, avoiding a false assumption
-about exact in-memory serde number variants. The completed final GLM review reports no concrete findings; source inspection
-excludes its misplaced dead-code annotation concern (only generated types are
-allowed dead code).
+The next candidate lazily projects retained sample models only at final JSON
+encoding. Public named sample snapshots and mutable positional snapshots stay
+unchanged; the private positional_v1 worker path uses a read-only projection.
+All 13 fields, omitted nulls, explicit zero, wide integers, standard numeric
+spellings and error behavior remain covered. The 119 focused tests, clean
+analysis, all nine live HTTP codec/construction pairs and 167 mutation-proof
+checks pass. Full benchmark and `bin/verify` suites are running.
+
+The actual-source AOT HTTP component preserves all 7,000,013 JSON bytes and
+SHA-256 8c2657e54d10cdf069fb29410d0f32de6b5752cd7136051452cdba9152464882;
+20,000-sample peak RSS falls from 56.4–56.5 to 43.8–43.9 MB, with no reliable
+encoding-time change. Worker positional output preserves all 1,180,013 bytes
+and hash, reducing component peak RSS from 28.4–28.8 to 25.7 MB. These are
+component observations only; final-source paired measurements remain required.
+Local companion review/test planning is blocked by an active native-mutation
+resource lease. Do not claim those requests completed or bypass the lease.
 
 The shared HTTP change uses the standard SDK JsonUtf8Encoder directly
 instead of creating a JSON string, UTF-8 bytes and another Uint8List copy.

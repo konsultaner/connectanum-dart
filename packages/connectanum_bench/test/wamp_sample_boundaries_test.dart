@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:connectanum_bench/src/wamp_sample_json.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_router/src/router/http/http_context.dart';
 import 'package:test/test.dart';
@@ -43,11 +44,19 @@ void main() {
       final sample = WampSample.fromJson(named);
       expect(WampSample.workerRecordEncoding, 'positional_v1');
       expect(sample.toWorkerRecord(), positional);
+      expect(
+        jsonEncode(wampSampleWorkerRecordForJsonEncoding(sample)),
+        jsonEncode(positional),
+      );
       final decoded = WampSample.fromWorkerRecord(
         (jsonDecode(jsonEncode(positional)) as List).cast<Object?>(),
       );
       expect(decoded.toJson(), named);
       expect(jsonEncode(decoded), jsonEncode(named));
+      expect(
+        jsonEncode(wampSamplesForJsonEncoding([decoded])),
+        jsonEncode([named]),
+      );
     });
 
     test(
@@ -67,6 +76,16 @@ void main() {
           expect(
             WampSample.fromWorkerRecord(sample.toWorkerRecord()).toJson(),
             fields,
+            reason: 'mask=$mask',
+          );
+          expect(
+            jsonEncode(wampSampleWorkerRecordForJsonEncoding(sample)),
+            jsonEncode(sample.toWorkerRecord()),
+            reason: 'mask=$mask',
+          );
+          expect(
+            jsonEncode(wampSamplesForJsonEncoding([sample])),
+            jsonEncode([fields]),
             reason: 'mask=$mask',
           );
         }
@@ -164,6 +183,92 @@ void main() {
     });
 
     test(
+      'JSON projection is read only while public snapshots remain mutable',
+      () {
+        final sample = WampSample.fromJson(named);
+        final projection = wampSamplesForJsonEncoding([sample]);
+        final list = (projection as dynamic).toJson() as List<Object>;
+        final map = list.single as Map<String, Object?>;
+        expect(map, named);
+        expect(map.keys, orderedEquals(named.keys));
+        expect(map.length, named.length);
+        expect(map.isEmpty, isFalse);
+        expect(map['unknown'], isNull);
+        final Object nonStringKey = 7;
+        expect(map[nonStringKey], isNull);
+        expect(() => map['worker'] = 99, throwsUnsupportedError);
+        expect(map.clear, throwsUnsupportedError);
+        expect(() => map.remove('worker'), throwsUnsupportedError);
+        expect(() => list[0] = Object(), throwsUnsupportedError);
+        expect(() => list.length = 0, throwsUnsupportedError);
+        sample.toJson()['worker'] = 99;
+        expect(map['worker'], named['worker']);
+        expect(jsonEncode(projection), jsonEncode([named]));
+        expect(jsonEncode(wampSamplesForJsonEncoding([])), '[]');
+      },
+    );
+
+    test(
+      'worker JSON view preserves row length, nulls and read-only ownership',
+      () {
+        final sample = WampSample.fromJson(named);
+        final view = wampSampleWorkerRecordForJsonEncoding(sample);
+        expect(view, positional);
+        expect(view.length, 13);
+        expect(() => view[-1], throwsRangeError);
+        expect(() => view[13], throwsRangeError);
+        expect(() => view[0] = 99, throwsUnsupportedError);
+        expect(() => view.length = 0, throwsUnsupportedError);
+        sample.toWorkerRecord()[0] = 99;
+        expect(view[0], named['worker']);
+      },
+    );
+
+    test('both JSON projections reject nonfinite model numbers', () {
+      for (final number in [double.nan, double.infinity, -double.infinity]) {
+        final sample = WampSample(
+          worker: 0,
+          iteration: 0,
+          latencyMs: number,
+          requestBytes: 0,
+          responseBytes: 0,
+        );
+        for (final projection in [
+          wampSamplesForJsonEncoding([sample]),
+          wampSampleWorkerRecordForJsonEncoding(sample),
+        ]) {
+          expect(
+            () => jsonEncode(projection),
+            throwsA(isA<JsonUnsupportedObjectError>()),
+          );
+          expect(
+            () => JsonUtf8Encoder().convert(projection),
+            throwsA(isA<JsonUnsupportedObjectError>()),
+          );
+        }
+      }
+    });
+
+    test('JSON projection preserves null omission and numeric spelling', () {
+      final fields = <String, Object?>{
+        ...named,
+        for (final key in named.keys.skip(5)) key: null,
+      };
+      final sample = WampSample.fromJson(fields);
+      expect(
+        jsonEncode(wampSamplesForJsonEncoding([sample])),
+        jsonEncode([sample.toJson()]),
+      );
+      for (final latency in [0.0, -0.0, 1e-100, 1e100]) {
+        final sample = WampSample.fromJson({...named, 'latency_ms': latency});
+        expect(
+          jsonEncode(wampSamplesForJsonEncoding([sample])),
+          jsonEncode([sample.toJson()]),
+        );
+      }
+    });
+
+    test(
       'HTTP response models cross an isolate and retain named JSON bytes',
       () async {
         final samples = List.generate(
@@ -173,20 +278,25 @@ void main() {
             'iteration': index,
           }),
         );
-        final payload = HttpResponseUtil.json(
-          requestId: 71,
-          status: 200,
-          body: {'samples': samples},
-        );
-        final bytes = await _encodeHttpResponseInIsolate(
-          payload.toKeywordArguments(),
-        );
-        expect(
-          utf8.decode(bytes),
-          jsonEncode({
-            'samples': samples.map((sample) => sample.toJson()).toList(),
-          }),
-        );
+        for (final model in <Object>[
+          samples,
+          wampSamplesForJsonEncoding(samples),
+        ]) {
+          final payload = HttpResponseUtil.json(
+            requestId: 71,
+            status: 200,
+            body: {'samples': model},
+          );
+          final bytes = await _encodeHttpResponseInIsolate(
+            payload.toKeywordArguments(),
+          );
+          expect(
+            utf8.decode(bytes),
+            jsonEncode({
+              'samples': samples.map((sample) => sample.toJson()).toList(),
+            }),
+          );
+        }
       },
     );
   });

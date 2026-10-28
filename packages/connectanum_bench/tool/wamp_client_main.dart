@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
+import 'package:connectanum_bench/src/wamp_sample_json.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_bench/src/e2ee_copy_metrics.dart';
 import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
@@ -240,7 +241,9 @@ Future<void> main(List<String> args) async {
               },
             },
             toEncodable: compactSamples
-                ? (object) => (object as WampSample).toWorkerRecord()
+                ? (object) => wampSampleWorkerRecordForJsonEncoding(
+                    object as WampSample,
+                  )
                 : null,
           ),
         );

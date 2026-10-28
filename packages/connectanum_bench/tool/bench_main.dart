@@ -25,6 +25,7 @@ import 'package:connectanum_bench/src/owned_pipeline_copy_metrics.dart';
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
+import 'package:connectanum_bench/src/wamp_sample_json.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
 Future<void> main(List<String> args) async {
@@ -823,9 +824,8 @@ class _BenchControlRegistry {
       final dataWindow = WampSampleWindow.fromSamples(samples);
       context.sendJson(
         body: {
-          // Preserve the immutable models through internal routing; the final
-          // JSON encoder projects one sample at a time without map staging.
-          'samples': samples,
+          // Preserve every model through routing and project fields lazily.
+          'samples': wampSamplesForJsonEncoding(samples),
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
           'copy_metrics': mergeOwnedPipelineCopyMetrics(
