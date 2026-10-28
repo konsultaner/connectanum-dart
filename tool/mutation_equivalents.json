@@ -11,6 +11,46 @@
     "8cd936a3f18917b68c95": {
       "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
       "reason": "Removing the early null check in _asInt leaves null to fall through both numeric type checks and reach the same final return null. For every non-null input the original condition was false, so all return values and side effects remain identical."
+    },
+    "4a92cbaca9adc0ba593d": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Changing the second allowedFlags union to intersection makes allowedFlags zero: (16 | 1) & 256 == 0. Every candidate that passes the preceding direct-bind check has flag bit 1, so the unexpected-flags check now rejects it. This only disables the simple-PPT optimization. The unchanged eager dictionary decoder, custom-field loader and retained dictionary preserve the same bounded two-string metadata and subsequent edits; malformed or other metadata already takes that fallback. Extra allocations/CPU remain subject to the unchanged performance campaign."
+    },
+    "a313bb8f28f9c3bb36cd": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Changing the first allowedFlags union to intersection makes allowedFlags 256: (16 & 1) | 256 == 256. Every candidate that passes the preceding direct-bind check has flag bit 1 outside this mask, so it is rejected. Only the simple-PPT optimization is disabled. The unchanged eager decoder and retention path reconstruct the same complete two-string dictionary, including later model edits. Malformed/extended metadata already falls back; extra allocations/CPU remain covered by the unchanged performance campaign."
+    },
+    "3c0302e609730110c695": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the RESULT-code test false prevents RESULT from matching either following EVENT/INVOCATION code, so it returns false. EVENT and INVOCATION still take their original branch; every other code still returns false. Only valid simple RESULT PPT dictionaries change from the no-snapshot path to the unchanged eager decoder and retention path. Their complete dictionary already equals the fresh model; values, validation, custom fields and subsequent edits are preserved. The added work remains subject to performance acceptance."
+    },
+    "fc7ae3b3b9531b489c95": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the RESULT extra-string guard true returns false for all RESULT candidates; other message codes are unchanged. This can only disable the optimization, never admit new metadata. The original fast path accepts only an exact bounded two-string PPT dictionary matching fresh model fields; the unchanged eager decoder/retention fallback produces the same values, validation and later edits. Additional work remains covered by the performance acceptance campaign."
+    },
+    "c5ceea95490aca5a86ac": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the EVENT/INVOCATION-code test false returns false for both codes and for every previously rejected code; RESULT is handled earlier and unchanged. It only replaces the valid simple-PPT fast path with the existing eager decode/retention path. The exact dictionary matches the fresh model, so logical metadata, errors, custom fields and later edits are unchanged. Added decoding and snapshots remain subject to the performance campaign."
+    },
+    "a48ff3a05f2176eb9448": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Replacing the disjunction between equality with the distinct EVENT and INVOCATION codes by conjunction is always false. RESULT is handled earlier; all remaining inputs return false. This disables only the EVENT/INVOCATION simple-PPT optimization. Their exact bounded two-string dictionaries have the same logical values and later edits under the unchanged eager decoder/retained-dictionary fallback. Added work remains covered by performance acceptance."
+    },
+    "84e958b6680127121407": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the EVENT/INVOCATION extra-string guard true rejects every candidate in that branch; RESULT and rejected codes are unchanged. It never broadens the fast path. For the original exact two-string PPT match, eager decoding and dictionary retention reconstruct the same fresh model and preserve subsequent edits; malformed and extended dictionaries already use that fallback. Extra allocations/CPU remain subject to the unchanged performance campaign."
+    },
+    "754fc688d91bc2589bc9": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Changing the fullyRepresentedPptMetadata default has no effect: the private _bindFromMetadataFields has exactly one call site, in _bindFromMetadata, which always explicitly supplies the computed boolean. No invocation uses this default and no function tear-off escapes."
+    },
+    "bd2f87cbcece05ddf8c0": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing argsBytes == null false supplies a decoder closure when argumentsBytes is null. AbstractMessageWithPayload.setLazyPayload installs arguments and its decoder only when BOTH argumentsBytes and argumentsDecoder are non-null. Thus the extra unused closure cannot run or escape; all existing arguments and kwargs, errors, ownership and encoding remain unchanged. Non-null argument spans take exactly the original closure."
+    },
+    "6fd6ac18329ac7674841": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing kwargsBytes == null false supplies a keyword decoder closure when argumentsKeywordsBytes is null. AbstractMessageWithPayload.setLazyPayload installs keyword bytes and decoder only when BOTH are non-null. The unused closure cannot run or escape and does not replace any state. Non-null keyword spans and all arguments, errors, ownership and encoding remain unchanged."
     }
   },
   "client-websocket-web": {

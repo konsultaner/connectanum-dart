@@ -3833,4 +3833,41 @@ void _deferredBindingContracts() {
     expect(message.e2eeRuntimeContext, same(context));
     expect(message.toLazyPayload().hasEncodedArguments, isTrue);
   });
+
+  for (final operation in ['restore', 'retain']) {
+    test(
+      'ordinary binding $operation preserves the incoming native anchor',
+      () {
+        final meta = _typedBindingMetadata(MessageTypes.codeInvocation);
+        final context = WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.inbound,
+          messageType: WampE2eeMessageType.invocation,
+          realm: 'incoming',
+          payloadAnchor: Object(),
+        );
+        final payload = LazyMessagePayload.materialized(
+          arguments: [
+            Uint8List.fromList([7, 8, 9]),
+          ],
+          e2eeRuntimeContext: context,
+        );
+        final message = NativeSessionMessage(
+          serializer: NativeMessageSerializer.json,
+          metadata: meta,
+        );
+        if (operation == 'restore') {
+          message.restoreLazyPayload(payload);
+        } else {
+          message.retainLazyPayload(payload);
+        }
+        expect(message.hasModifiedNativeWirePayload, isFalse);
+        expect(message.e2eeRuntimeContext, same(context));
+        expect(message.toLazyPayload().e2eeRuntimeContext, same(context));
+        expect(
+          message.toLazyPayload().e2eeRuntimeContext!.payloadAnchor,
+          same(context.payloadAnchor),
+        );
+      },
+    );
+  }
 }
