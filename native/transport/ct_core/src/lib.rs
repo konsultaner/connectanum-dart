@@ -2459,8 +2459,11 @@ impl ListenerRegistry {
         let accept_value = websocket_accept_value(&handshake.sec_websocket_key);
         let mut stream = handshake.into_stream();
         write_websocket_handshake_response(&mut stream, &accept_value, Some("mqtt")).await?;
-        // Let the kernel coalesce adjacent small MQTT WebSocket publications.
-        let _ = stream.set_nodelay(false);
+        // Coalesce small cleartext MQTT WebSocket publications. TLS sockets
+        // retain TCP_NODELAY to avoid delayed ACKs on sparse TLS records.
+        if stream.is_plain_tcp() {
+            let _ = stream.set_nodelay(false);
+        }
         self.register_mqtt_stream_connection(
             handle,
             listener_id,

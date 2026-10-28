@@ -147,6 +147,10 @@ impl IoStream {
         }
     }
 
+    pub(crate) fn is_plain_tcp(&self) -> bool {
+        matches!(&self.inner, StreamInner::Tcp(_))
+    }
+
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub(crate) fn try_clone_plain_fd(&self) -> io::Result<Option<OwnedFd>> {
         match &self.inner {
