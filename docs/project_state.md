@@ -14,6 +14,11 @@ only router JIT maps. The diagnostic now requests and audits both client/router
 maps without changing product code, benchmark cases or gates. All 18 profiling
 tests pass. Linux capture is pending; the symbol flag is unavailable on macOS.
 Local companion tests/review are blocked by a native-mutation resource lease.
+Linux attempt `40703182372` correctly rejects the first proxy as an AOT worker.
+The corrected diagnostic wraps only the Dart executable and keeps the source
+worker/VM-metrics guard. All 18 profile tests pass; a local live passthrough-proxy
+smoke completes six RPC rows and correctly fails the short timing policy.
+The complete tooling suite passes. Fresh Linux symbol capture is pending.
 
 Current verified product source (2026-10-28): full local `bin/verify` passes on
 `28642b03`, including Rust, VM/native, live WAMP/router, consumers and browser

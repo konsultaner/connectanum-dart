@@ -21,6 +21,16 @@ reference.
 
 ## Client JIT attribution and allocator evidence (2026-10-28)
 
+- [x] Retain failed Linux capture `40703182372`: the worker-as-executable proxy
+  correctly trips the existing source-worker VM-metrics guard. Preserve that
+  guard. Use a profiling-only Dart-executable override instead, keeping the
+  normal `connectanum_bench:wamp_client_worker` entry point and VM arguments.
+  Regression assertions reproduce the wrong entry point before the correction.
+- [x] Pass the revised 18 profile tests and targeted analysis. A short local
+  live RPC smoke with a passthrough Dart proxy completes six rows and records
+  the original VM/source-worker arguments. Its short-run policy rejection is
+  expected; neither it nor the Linux-symbol-unavailable macOS attempt is parity.
+- [x] Pass the complete `bin/test-tooling` suite after the client-map changes.
 - [x] Audit allocator run `40696555847` on verified product source `28642b03`.
   Six fresh process pairs complete without forced GC or allocator tuning.
   Live glibc arena estimates are similar across codecs; cached VM pages and

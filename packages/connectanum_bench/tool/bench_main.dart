@@ -417,6 +417,12 @@ class _BenchControlRegistry {
       secureWampTargets: secureWampTargets,
       nativeLibraryPath: nativeLibraryPath,
       workerScriptPath: workerScriptPath,
+      // CPU diagnostics can wrap Dart while preserving the source-worker and
+      // VM-metrics contracts. Ordinary campaigns retain the default executable.
+      dartExecutable:
+          Platform.environment['CONNECTANUM_BENCH_PROFILE_WORKER_URI'] == null
+          ? null
+          : Platform.environment['CONNECTANUM_BENCH_PROFILE_DART_EXECUTABLE'],
       enableVmMetrics: enableVmMetrics,
       reuseSuccessfulWorkers:
           Platform.environment['CONNECTANUM_BENCH_WAMP_REUSE_WORKER'] == '1',

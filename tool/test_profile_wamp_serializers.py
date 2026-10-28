@@ -138,10 +138,11 @@ class ProfileSelectionTests(unittest.TestCase):
                     self.assertEqual(kwargs['env'].get('CONNECTANUM_NATIVE_RUNTIME_THREADS'), '1')
                     worker_option = command.index('--wamp-worker')
                     worker = command[worker_option + 1]
-                    self.assertEqual(worker, str(output.resolve() / 'profile-client') if requested
-                                     else 'connectanum_bench:wamp_client_worker')
+                    self.assertEqual(worker, 'connectanum_bench:wamp_client_worker')
                     if requested:
-                        self.assertTrue(os.access(worker, os.X_OK))
+                        proxy = kwargs['env']['CONNECTANUM_BENCH_PROFILE_DART_EXECUTABLE']
+                        self.assertEqual(proxy, str(output.resolve() / 'profile-client'))
+                        self.assertTrue(os.access(proxy, os.X_OK))
 
                     Path(kwargs['env']['CONNECTANUM_BENCH_PROFILE_WORKER_URI']).write_text(
                         'http://127.0.0.1:2/test/')
@@ -279,14 +280,14 @@ class ClientSymbolMapTests(unittest.TestCase):
             dart = output / "fake dart with 'quotes'"
             dart.write_text(f'#!{sys.executable}\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n')
             dart.chmod(0o700)
-            launcher = profiler.write_profile_worker_launcher(output, str(dart))
+            launcher = profiler.write_profile_dart_launcher(output, str(dart))
             vm = ['--timeline_streams=GC', '--timeline_recorder=endless',
                   '--observe=0/127.0.0.1', '--no-pause-isolates-on-exit']
-            worker = ['--realm', 'realm with spaces', '--targets-json', '{"literal":"$()`"}']
+            worker = ['run', 'connectanum_bench:wamp_client_worker', '--realm',
+                      'realm with spaces', '--targets-json', '{"literal":"$()`"}']
             result = subprocess.run([str(launcher), *vm, *worker], text=True, capture_output=True, check=True)
             self.assertEqual(json.loads(result.stdout),
-                             ['--generate-perf-events-symbols', *vm, 'run',
-                              'connectanum_bench:wamp_client_worker', *worker])
+                             ['--generate-perf-events-symbols', *vm, *worker])
             rejected = subprocess.run([str(launcher), '--unexpected-option', *worker],
                                       text=True, capture_output=True)
             self.assertNotEqual(rejected.returncode, 0)

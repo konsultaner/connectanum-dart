@@ -489,18 +489,19 @@ def client_symbol_map_audit(output: Path, router_pid: int, requested: bool) -> d
     return _symbol_map_audit(output, pids[0], True, 'client')
 
 
-def write_profile_worker_launcher(output: Path, dart: str) -> Path:
+def write_profile_dart_launcher(output: Path, dart: str) -> Path:
     launcher = output / 'profile-client'
     launcher.write_text('''#!/usr/bin/env python3
 import os, sys
 dart = ''' + repr(dart) + '''
 args = sys.argv[1:]
-split = args.index('--realm')
+split = args.index('run')
 prefixes = ('--timeline_streams=', '--timeline_recorder=', '--observe=')
 if any(not (flag.startswith(prefixes) or flag == '--no-pause-isolates-on-exit') for flag in args[:split]):
     raise SystemExit('Unexpected diagnostic worker VM flag')
-os.execvp(dart, [dart, '--generate-perf-events-symbols', *args[:split],
-               'run', 'connectanum_bench:wamp_client_worker', *args[split:]])
+if args[split + 1] != 'connectanum_bench:wamp_client_worker':
+    raise SystemExit('Unexpected diagnostic source worker')
+os.execvp(dart, [dart, '--generate-perf-events-symbols', *args])
 ''')
     launcher.chmod(0o700)
     return launcher
@@ -543,11 +544,13 @@ def profile(args):
            'CONNECTANUM_NATIVE_RUNTIME_THREADS': str(NATIVE_RUNTIME_THREADS),
            'CONNECTANUM_BENCH_PROFILE_WORKER_URI': str(output/'worker-uri.txt')}
     router_symbols = bool(args.perf and platform.system() == 'Linux')
-    worker = write_profile_worker_launcher(output, args.dart) if router_symbols else None
+    worker = write_profile_dart_launcher(output, args.dart) if router_symbols else None
     worker_hash = digest(worker) if worker else None
+    if worker:
+        env['CONNECTANUM_BENCH_PROFILE_DART_EXECUTABLE'] = str(worker)
     command = [args.dart, *(['--generate-perf-events-symbols'] if router_symbols else []), '--observe=0/127.0.0.1', '--profiler', '--no-pause-isolates-on-exit',
                'run', 'packages/connectanum_bench/tool/bench_main.dart', '--router-config', str(output/'router.json'),
-               '--wamp-worker', str(worker) if worker else 'connectanum_bench:wamp_client_worker']
+               '--wamp-worker', 'connectanum_bench:wamp_client_worker']
     process = subprocess.Popen(command, cwd=root, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, text=True, start_new_session=True)
     ready = threading.Event()
