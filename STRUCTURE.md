@@ -233,3 +233,10 @@ counts staging and owned read snapshots, and keeps ObjectBox ownership outside
 core/client/router. It publishes as a separate package and uses the application's
 existing ObjectBox Store and native engine. The adapter does not synchronize
 relations or expose database memory across asynchronous work.
+
+Benchmark worker IPC can negotiate `positional_v1` observations through
+`NativeWampWorker` and `tool/wamp_client_main.dart`. The 13-field records reuse
+`WampSample` validators and reconstruct the existing named public JSON. Old
+workers/supervisors retain the named form; malformed versions/rows fail closed.
+The negotiated representation removes repeated field-name maps from the active
+benchmark processes without dropping observations or changing WAMP payloads.

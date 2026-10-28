@@ -202,7 +202,12 @@ class NativeWampWorker {
       // A child can fail while flush is suspended, before the response is awaited.
       completer.future.ignore();
       final stdin = generation.process!.stdin;
-      stdin.writeln(jsonEncode(scenario.toJson()));
+      stdin.writeln(
+        jsonEncode({
+          ...scenario.toJson(),
+          'sample_encoding': WampSample.workerRecordEncoding,
+        }),
+      );
       await stdin.flush();
       final response = await completer.future;
       final error = response.error;
@@ -570,13 +575,30 @@ class _WorkerResponse {
 
   factory _WorkerResponse.fromJson(Map<String, Object?> json) {
     final rawSamples = json['samples'];
-    return _WorkerResponse(
-      samples: rawSamples is List
+    final List<WampSample> samples;
+    if (json.containsKey('sample_encoding')) {
+      if (json['sample_encoding'] != WampSample.workerRecordEncoding ||
+          rawSamples is! List) {
+        throw const FormatException('Unsupported WAMP worker sample encoding');
+      }
+      samples = rawSamples
+          .map((row) {
+            if (row is! List) {
+              throw const FormatException('Invalid positional_v1 WAMP sample');
+            }
+            return WampSample.fromWorkerRecord(row);
+          })
+          .toList(growable: false);
+    } else {
+      samples = rawSamples is List
           ? rawSamples
                 .cast<Map<String, Object?>>()
                 .map(WampSample.fromJson)
                 .toList(growable: false)
-          : const <WampSample>[],
+          : const <WampSample>[];
+    }
+    return _WorkerResponse(
+      samples: samples,
       fileSegmentMetrics: NativeWampWorkerFileSegmentMetrics.fromJson(
         Map<String, Object?>.from(
           json['file_segment_metrics'] as Map? ?? const <String, Object?>{},

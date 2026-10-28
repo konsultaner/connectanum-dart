@@ -3940,6 +3940,9 @@ enum WampMode {
 }
 
 class WampSample {
+  /// Internal worker IPC version; public reports retain named JSON fields.
+  static const workerRecordEncoding = 'positional_v1';
+
   factory WampSample({
     required int worker,
     required int iteration,
@@ -4033,6 +4036,45 @@ class WampSample {
       completedAtUs: _readOptionalJsonInt(json['completed_at_us']),
     );
   }
+
+  /// Reads the complete fixed-version worker record without a field-name map.
+  factory WampSample.fromWorkerRecord(List<Object?> row) {
+    if (row.length != 13) {
+      throw const FormatException('Invalid positional_v1 WAMP sample length');
+    }
+    return WampSample._(
+      worker: _readJsonInt(row[0]),
+      iteration: _readJsonInt(row[1]),
+      latencyMs: _readJsonDouble(row[2]),
+      requestBytes: _readJsonInt(row[3]),
+      responseBytes: _readJsonInt(row[4]),
+      payloadPreparationUs: _readOptionalJsonInt(row[5]),
+      nativeBuilderInputCopiedBytes: _readOptionalJsonInt(row[6]),
+      nativeBuilderGrowthCopiedBytes: _readOptionalJsonInt(row[7]),
+      nativePptFrameSubmissions: _readOptionalCopyCount(row[8]),
+      nativePptPayloadBytes: _readOptionalCopyCount(row[9]),
+      nativePptPayloadReusedBytes: _readOptionalCopyCount(row[10]),
+      startedAtUs: _readOptionalJsonInt(row[11]),
+      completedAtUs: _readOptionalJsonInt(row[12]),
+    );
+  }
+
+  /// Lossless worker-only field order, identified by [workerRecordEncoding].
+  List<Object?> toWorkerRecord() => [
+    worker,
+    iteration,
+    latencyMs,
+    requestBytes,
+    responseBytes,
+    payloadPreparationUs,
+    nativeBuilderInputCopiedBytes,
+    nativeBuilderGrowthCopiedBytes,
+    nativePptFrameSubmissions,
+    nativePptPayloadBytes,
+    nativePptPayloadReusedBytes,
+    startedAtUs,
+    completedAtUs,
+  ];
 
   Map<String, Object?> toJson() => {
     'worker': worker,

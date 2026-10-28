@@ -12,6 +12,108 @@ import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('reused worker accepts legacy and versioned sample responses', () async {
+    final fixture = await _WorkerFixture.create(reuseSuccessfulWorkers: true);
+    final legacy = jsonDecode(_response) as Map<String, Object?>;
+    final expected = (legacy['samples'] as List).cast<Map<String, Object?>>();
+    final compact = {
+      ...legacy,
+      'sample_encoding': WampSample.workerRecordEncoding,
+      'samples': expected
+          .map(WampSample.fromJson)
+          .map((sample) => sample.toWorkerRecord())
+          .toList(),
+    };
+    for (final response in [legacy, compact, compact, legacy]) {
+      await fixture.response.writeAsString(jsonEncode(response));
+      final result = await fixture.worker.runWithMetrics(_scenario());
+      expect(result.samples.map((sample) => sample.toJson()), expected);
+      expect(
+        result.fileSegmentMetrics.toJson(),
+        legacy['file_segment_metrics'],
+      );
+      expect(result.processMetrics!.toJson(), legacy['process_metrics']);
+      expect(result.copyMetrics, legacy['copy_metrics'] ?? const {});
+    }
+    expect(fixture.pids, hasLength(1));
+    await fixture.worker.close();
+    await fixture.expectNoLiveChildren();
+  }, skip: Platform.isWindows);
+
+  test(
+    'positional rows require opt-in and cannot silently become legacy samples',
+    () async {
+      final fixture = await _WorkerFixture.create(reuseSuccessfulWorkers: true);
+      await fixture.response.writeAsString(
+        jsonEncode({
+          'samples': [List<Object?>.filled(13, 0)],
+        }),
+      );
+      await expectLater(
+        fixture.worker.runWithMetrics(_scenario()),
+        throwsA(isA<TypeError>()),
+      );
+      await fixture.expectNoLiveChildren();
+      await fixture.response.writeAsString(_response);
+      expect(
+        (await fixture.worker.runWithMetrics(_scenario())).samples,
+        hasLength(1),
+      );
+      expect(fixture.pids, hasLength(2));
+      await fixture.worker.close();
+      await fixture.expectNoLiveChildren();
+    },
+    skip: Platform.isWindows,
+  );
+
+  for (final invalid in <(String, Map<String, Object?>)>[
+    for (final marker in <Object?>[null, 1, '', 'positional_v2', true])
+      ('marker=$marker', {'sample_encoding': marker, 'samples': []}),
+    ('missing rows', {'sample_encoding': WampSample.workerRecordEncoding}),
+    (
+      'non-array rows',
+      {'sample_encoding': WampSample.workerRecordEncoding, 'samples': {}},
+    ),
+    (
+      'named row under positional header',
+      {
+        'sample_encoding': WampSample.workerRecordEncoding,
+        'samples': [{}],
+      },
+    ),
+    (
+      'truncated row',
+      {
+        'sample_encoding': WampSample.workerRecordEncoding,
+        'samples': [
+          [1, 2],
+        ],
+      },
+    ),
+  ]) {
+    test(
+      'invalid worker sample ${invalid.$1} fails and cleans up before recovery',
+      () async {
+        final fixture = await _WorkerFixture.create(
+          reuseSuccessfulWorkers: true,
+        );
+        await fixture.response.writeAsString(jsonEncode(invalid.$2));
+        await expectLater(
+          fixture.worker.runWithMetrics(_scenario()),
+          throwsFormatException,
+        );
+        await fixture.expectNoLiveChildren();
+        await fixture.response.writeAsString(_response);
+        final recovered = await fixture.worker.runWithMetrics(_scenario());
+        expect(recovered.samples, hasLength(1));
+        expect(fixture.pids, hasLength(2));
+        await fixture.worker.close();
+        await fixture.expectNoLiveChildren();
+      },
+      skip: Platform.isWindows,
+    );
+  }
+
   for (var turns = 0; turns < 6; turns++) {
     test(
       'close settles a scenario during ready handoff ($turns microtasks)',

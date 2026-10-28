@@ -12,7 +12,7 @@ is running with no reported failures; the earlier repair-only `40735216483`
 is superseded, retaining its partial reports. The client mutation repair in
 `81f06e1f` adds two ordinary-anchor regressions and ten source-proven equivalents;
 its 49-mutation unexempted control kills all four newly targeted ownership
-mutations and retains all ten equivalents. The full 95% hosted gate is pending.
+mutations and retains all ten equivalents. The full hosted client mutation gate now passes without a threshold change.
 
 Paired diagnostic `40736188467` completes all 90 rows and reduces numerical
 findings from eight to four. Throughput, CPU, allocation, GC and p95 pass for
@@ -40,15 +40,40 @@ claim they completed. The bounded earlier GLM design review and Qwen mutation
 proof review completed; speculative lost-wake concerns are excluded by the
 immediate initial arm/scan and lifetime tests.
 
-Next shared measurement-cost improvement: avoid eager per-operation JSON-map
-lists in worker output and duplicate maps while decoding worker results. Every
-sample, metric, workload and measurement window remains the same. An AOT
-20,000-sample old/new/new/old component control emits identical 7,000,013-byte
-JSON (SHA-256 `8c2657e54d10cdf069fb29410d0f32de6b5752cd7136051452cdba9152464882`)
-and reduces peak RSS from about 58.5 to 55.3 MB without GC/allocator tuning.
-This isolated component is not WAMP acceptance. Clean analysis, all 118 focused worker/sample tests, the complete 2,807-case benchmark suite and the 167-proof preflight pass for this sample-staging change. Native byte-view exports
-already report their lengths through the standard SDK finalizer; there is no
-source evidence for changing native ownership/accounting on that hypothesis.
+Shared sample-staging checkpoint `aa090feb` passes 118 focused tests, all
+2,807 benchmark cases, analysis and the 167-proof preflight. Its paired run
+`40743480042` completes 90 rows with four numerical findings: Dart-values
+throughput/p95/RSS and pre-encoded RSS. Native-buffer passes all seven metrics.
+CPU/allocation/GC/p99 pass throughout. Keep that report as well as `7a5bdc76`.
+
+The next candidate uses negotiated, lossless positional records only for private
+benchmark worker IPC. Named public sample fields, payloads, observations,
+workloads, time/resource windows and gates stay intact. New supervisors request
+`positional_v1`; old workers can still return named maps, and new workers use
+named maps for supervisors without the request. Unknown response versions,
+malformed rows and invalid copy observations fail closed with worker cleanup.
+All 13 fields, null/zero semantics and wide integers are preserved.
+
+The actual encoder/decoder AOT component emits the same public-sample JSON hash
+`8c2657e54d10cdf069fb29410d0f32de6b5752cd7136051452cdba9152464882` for 20,000
+records. Private IPC shrinks from 7,000,013 to 1,180,013 bytes; peak component
+RSS falls from 85.5–86.0 to 31.2 MB and encode/decode time from 65.9–67.0 to
+16.5–17.0 ms. These are component results, not WAMP acceptance. Focused record
+schema/compatibility/recovery tests and the full 2,823-case benchmark suite pass
+before two additional boundary regressions; all 127 final focused cases pass. Final full verification is pending.
+GLM test planning and exact-source review complete. Review hypotheses about
+optional-null omission and copy-count parsing match the unchanged named-field
+contract and validators, already covered by tests. All response metadata is
+JSON primitives/maps and the encoded model list is typed. Source inspection
+and existing SDK byte-view finalizers exclude the earlier unaccounted-byte-view
+hypothesis; no native lifetime, GC or allocator setting changes on that basis.
+
+Fresh memory/allocator control `40740363467` completes six process pairs with
+unchanged inputs. FlatBuffers summed peak medians are about 542/560 MB,
+CBOR 518/515 MB and MessagePack 574/571 MB. Snapshots do not identify a native
+payload leak; do not subtract free/cache buckets from measured RSS. A local
+judge's concurrency interpretation is incorrect: in-flight concurrency stays
+fixed; completed-operation and retained-observation counts differ by codec.
 
 Verification inventory repair (2026-10-28): the next full verification on
 `cb0c44aa` reproduces five assertions in the serializer mutation inventory test:

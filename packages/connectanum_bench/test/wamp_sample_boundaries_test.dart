@@ -4,6 +4,163 @@ import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('versioned worker sample records', () {
+    const named = <String, Object?>{
+      'worker': 3,
+      'iteration': 7,
+      'latency_ms': 1.25,
+      'request_bytes': 4294967296,
+      'response_bytes': 4294967297,
+      'payload_preparation_us': 11,
+      'native_builder_input_copied_bytes': 13,
+      'native_builder_growth_copied_bytes': 17,
+      'native_ppt_frame_submissions': 19,
+      'native_ppt_payload_bytes': 23,
+      'native_ppt_payload_reused_bytes': 29,
+      'started_at_us': 9007199254740993,
+      'completed_at_us': 9007199254742243,
+    };
+    const positional = <Object?>[
+      3,
+      7,
+      1.25,
+      4294967296,
+      4294967297,
+      11,
+      13,
+      17,
+      19,
+      23,
+      29,
+      9007199254740993,
+      9007199254742243,
+    ];
+
+    test('golden order preserves every public field and wide integer', () {
+      final sample = WampSample.fromJson(named);
+      expect(WampSample.workerRecordEncoding, 'positional_v1');
+      expect(sample.toWorkerRecord(), positional);
+      final decoded = WampSample.fromWorkerRecord(
+        (jsonDecode(jsonEncode(positional)) as List).cast<Object?>(),
+      );
+      expect(decoded.toJson(), named);
+      expect(jsonEncode(decoded), jsonEncode(named));
+    });
+
+    test(
+      'all nullable combinations preserve omitted fields and explicit zero',
+      () {
+        final optional = named.keys.skip(5).toList();
+        for (var mask = 0; mask < 256; mask++) {
+          final fields = Map<String, Object?>.from(named);
+          for (var i = 0; i < optional.length; i++) {
+            if (mask & (1 << i) == 0) {
+              fields.remove(optional[i]);
+            } else {
+              fields[optional[i]] = 0;
+            }
+          }
+          final sample = WampSample.fromJson(fields);
+          expect(
+            WampSample.fromWorkerRecord(sample.toWorkerRecord()).toJson(),
+            fields,
+            reason: 'mask=$mask',
+          );
+        }
+      },
+    );
+
+    test('record input and output cannot mutate a parsed sample', () {
+      final row = List<Object?>.from(positional);
+      final sample = WampSample.fromWorkerRecord(row);
+      row[0] = 99;
+      sample.toWorkerRecord()[1] = 99;
+      expect(sample.toJson(), named);
+    });
+
+    test('numeric JSON spellings match named-field parsing', () {
+      final row = positional.map((value) {
+        return value is int && value <= 9007199254740991
+            ? value.toDouble()
+            : value;
+      }).toList();
+      expect(WampSample.fromWorkerRecord(row).toJson(), named);
+    });
+
+    test('rejects truncated and extended records', () {
+      for (var length = 0; length <= 15; length++) {
+        if (length == 13) continue;
+        expect(
+          () => WampSample.fromWorkerRecord(List<Object?>.filled(length, 0)),
+          throwsFormatException,
+          reason: 'length=$length',
+        );
+      }
+    });
+
+    test('record numbers follow named-field validation', () {
+      for (var index = 0; index < positional.length; index++) {
+        for (final invalid in <Object?>[
+          '1',
+          true,
+          [],
+          {},
+          if (index < 5) null,
+        ]) {
+          final row = List<Object?>.from(positional)..[index] = invalid;
+          expect(
+            () => WampSample.fromWorkerRecord(row),
+            throwsFormatException,
+            reason: 'index=$index value=$invalid',
+          );
+        }
+      }
+      for (final index in [8, 9, 10]) {
+        for (final invalid in [
+          -1,
+          1.5,
+          double.nan,
+          double.infinity,
+          9007199254740992.0,
+        ]) {
+          final row = List<Object?>.from(positional)..[index] = invalid;
+          expect(
+            () => WampSample.fromWorkerRecord(row),
+            throwsFormatException,
+            reason: 'copy index=$index value=$invalid',
+          );
+        }
+      }
+    });
+
+    test('many records preserve every observation and public JSON byte', () {
+      final originals = List.generate(
+        2048,
+        (index) => WampSample.fromJson({
+          ...named,
+          'iteration': index,
+          'native_ppt_frame_submissions': index,
+          'started_at_us': 1000000 + index * 2000,
+          'completed_at_us': 1001250 + index * 2000,
+        }),
+      );
+      final wire = jsonEncode(
+        originals,
+        toEncodable: (value) => (value as WampSample).toWorkerRecord(),
+      );
+      final restored = (jsonDecode(wire) as List)
+          .cast<List<Object?>>()
+          .map(WampSample.fromWorkerRecord)
+          .toList(growable: false);
+      expect(restored, hasLength(originals.length));
+      expect(jsonEncode(restored), jsonEncode(originals));
+      expect(
+        WampSampleWindow.fromSamples(restored)!.toJson(),
+        WampSampleWindow.fromSamples(originals)!.toJson(),
+      );
+    });
+  });
+
   group('sample JSON boundary', () {
     test('numeric JSON spellings preserve all values and timing units', () {
       final sample = WampSample.fromJson(

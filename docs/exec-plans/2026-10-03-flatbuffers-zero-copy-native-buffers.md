@@ -4252,3 +4252,36 @@ edits preserve default JSON encoding and consume only JSON-decoder maps; every
 sample remains present. A broader companion request reports no concrete finding,
 but the exact-patch narrow retries hit output limits; do not claim those retries
 completed. Re-measure the unchanged diagnostic policy on the committed candidate.
+
+## Negotiated compact worker observations (2026-10-28)
+
+`aa090feb` diagnostic `40743480042` retains four numerical findings after all
+90 rows complete: Dart-values throughput/p95/RSS and pre-encoded RSS. All
+native-buffer metrics and all CPU/allocation/GC/p99 comparisons pass. Keep both
+its report and the distinct four-findings `7a5bdc76` report; do not loosen gates.
+
+The next source candidate makes private worker observation IPC positional and
+versioned. Parent requests `sample_encoding: positional_v1`; no request keeps
+legacy named output. Parent accepts old named workers and rejects malformed or
+unknown marked responses, with failed-process cleanup/recovery. Every one of
+13 sample values survives; public JSON, copy counters, workloads and measurement
+windows are unchanged. Optional zero/null and wide integer semantics reuse the
+named decoder's validators. This reduces actual common process work in the
+existing measurement window rather than excluding it.
+
+The actual-method AOT component preserves the 20,000-record public JSON SHA-256,
+reduces internal bytes 7,000,013→1,180,013, peak RSS 85.5–86.0→31.2 MB, and
+encode/decode time 65.9–67.0→16.5–17.0 ms. These are isolated component observations.
+All 125 initial focused cases and the complete 2,823-case benchmark suite pass;
+two additional schema boundary tests follow. Local GLM test planning and exact
+source review complete. Its null/copy-validator suggestions do not describe a
+change from the named contract; source inspection and regressions verify that.
+Run final full verification and fresh paired/copy evidence on the committed
+candidate before acceptance. No native owner or SDK/allocator policy changes.
+
+The full hosted client mutation target in `40736889265` now passes its unchanged
+95% assertion gate. The compact IPC candidate passes 127 final focused cases,
+including numeric spellings and unmarked positional-row rejection/recovery;
+the complete benchmark suite passed 2,823 cases before those test-only additions.
+Its final legacy producer branch delegates to the original standard JSON encoder.
+Freeze this source and complete full verification plus fresh hosted evidence.

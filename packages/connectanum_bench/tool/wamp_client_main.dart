@@ -134,9 +134,15 @@ Future<void> main(List<String> args) async {
         break;
       }
       try {
-        final scenario = WampScenario.fromJson(
-          Map<String, Object?>.from(jsonDecode(trimmed) as Map),
-        );
+        final request = Map<String, Object?>.from(jsonDecode(trimmed) as Map);
+        final sampleEncoding = request['sample_encoding'];
+        if (sampleEncoding != null &&
+            sampleEncoding != WampSample.workerRecordEncoding) {
+          throw const FormatException('Unsupported worker sample encoding');
+        }
+        final compactSamples =
+            sampleEncoding == WampSample.workerRecordEncoding;
+        final scenario = WampScenario.fromJson(request);
         final ownedCopiesBefore =
             core_buffers.OwnedCopyMetrics.boundarySnapshot();
         final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
@@ -176,60 +182,67 @@ Future<void> main(List<String> args) async {
           nativeRuntime.rawFrameCopyMetricsSnapshot(),
         );
         stdout.writeln(
-          jsonEncode({
-            // The encoder calls toJson one sample at a time, avoiding a second
-            // retained list containing every sample's temporary dictionary.
-            'samples': samples,
-            'file_segment_metrics': {
-              'rawsocket_zero_copy_calls':
-                  fileMetrics.rawSocketZeroCopyCallsTotal,
-              'rawsocket_zero_copy_bytes':
-                  fileMetrics.rawSocketZeroCopyBytesTotal,
-              'buffered_file_segment_calls':
-                  fileMetrics.bufferedFileSegmentCallsTotal,
-              'buffered_file_segment_bytes':
-                  fileMetrics.bufferedFileSegmentBytesTotal,
-            },
-            'copy_metrics': {
-              ..._copyMetricsFor(
-                scenario,
-                samples,
-                copyMetrics,
-                dartCopyMetrics,
-                e2eeMetrics,
-                portableE2eeMetrics,
-                pptMetrics,
-                rawFrameMetrics,
-                nativeTransportWindow: nativeTransportWindow,
-              ),
-              'native_crypto_copy_breakdown': nativeCryptoCopyMetricsDelta(
-                e2eeMetricsBefore,
-                e2eeMetricsAfter,
-                active:
-                    scenario.pptScheme == 'wamp' &&
-                    scenario.clientImplementation ==
-                        WampClientImplementation.native,
-              ),
-              'native_codec_copy_breakdown': {
-                'client': codecCopyMetricsDelta(
-                  codecBefore,
-                  nativeRuntime.boundaryCodecCopyMetricsSnapshot(),
-                ),
+          jsonEncode(
+            {
+              // Private IPC avoids repeating field names for every observation.
+              // The supervisor restores unchanged named fields in public reports.
+              if (compactSamples)
+                'sample_encoding': WampSample.workerRecordEncoding,
+              'samples': samples,
+              'file_segment_metrics': {
+                'rawsocket_zero_copy_calls':
+                    fileMetrics.rawSocketZeroCopyCallsTotal,
+                'rawsocket_zero_copy_bytes':
+                    fileMetrics.rawSocketZeroCopyBytesTotal,
+                'buffered_file_segment_calls':
+                    fileMetrics.bufferedFileSegmentCallsTotal,
+                'buffered_file_segment_bytes':
+                    fileMetrics.bufferedFileSegmentBytesTotal,
               },
-              'dart_owned_buffer_copy_breakdown': {
-                'client': ownedBufferCopyMetricsDelta(
-                  ownedCopiesBefore,
-                  core_buffers.OwnedCopyMetrics.boundarySnapshot(),
+              'copy_metrics': {
+                ..._copyMetricsFor(
+                  scenario,
+                  samples,
+                  copyMetrics,
+                  dartCopyMetrics,
+                  e2eeMetrics,
+                  portableE2eeMetrics,
+                  pptMetrics,
+                  rawFrameMetrics,
+                  nativeTransportWindow: nativeTransportWindow,
                 ),
+                'native_crypto_copy_breakdown': nativeCryptoCopyMetricsDelta(
+                  e2eeMetricsBefore,
+                  e2eeMetricsAfter,
+                  active:
+                      scenario.pptScheme == 'wamp' &&
+                      scenario.clientImplementation ==
+                          WampClientImplementation.native,
+                ),
+                'native_codec_copy_breakdown': {
+                  'client': codecCopyMetricsDelta(
+                    codecBefore,
+                    nativeRuntime.boundaryCodecCopyMetricsSnapshot(),
+                  ),
+                },
+                'dart_owned_buffer_copy_breakdown': {
+                  'client': ownedBufferCopyMetricsDelta(
+                    ownedCopiesBefore,
+                    core_buffers.OwnedCopyMetrics.boundarySnapshot(),
+                  ),
+                },
+              },
+              'process_metrics': {
+                'pid': pid,
+                'rss_before_bytes': rssBeforeBytes,
+                'current_rss_bytes': ProcessInfo.currentRss,
+                'max_rss_bytes': ProcessInfo.maxRss,
               },
             },
-            'process_metrics': {
-              'pid': pid,
-              'rss_before_bytes': rssBeforeBytes,
-              'current_rss_bytes': ProcessInfo.currentRss,
-              'max_rss_bytes': ProcessInfo.maxRss,
-            },
-          }),
+            toEncodable: compactSamples
+                ? (object) => (object as WampSample).toWorkerRecord()
+                : null,
+          ),
         );
         await stdout.flush();
       } catch (error, stackTrace) {

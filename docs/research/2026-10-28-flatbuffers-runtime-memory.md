@@ -216,3 +216,39 @@ Observed peak RSS is 58,474,496/58,523,648 bytes with eager staging and
 55,328,768/55,345,152 bytes with per-item encoding. Times are 35,988/36,419 and
 36,226/36,312 microseconds respectively. These are isolated component results,
 not WAMP RSS or performance acceptance. No GC or allocator adjustment is used.
+
+
+## Lossless worker observation representation
+
+The lazy-map follow-up `aa090feb` still retains four findings in
+[its paired run](https://github.com/konsultaner/connectanum-dart/actions/runs/40743480042):
+Dart-values throughput/p95/RSS and pre-encoded RSS. Native-buffer passes all
+seven comparisons; CPU/allocation/GC/p99 pass for every case. Preserve both
+this observation and the different four-findings readiness report.
+
+A further AOT control uses the actual 13-field worker record encoder/decoder.
+For 20,000 samples, named JSON IPC is 7,000,013 bytes and positional IPC is
+1,180,013 bytes. Reconstructed named sample JSON has the same SHA-256 as above.
+Old/new/new/old encode/decode timings are 65,875/16,971/16,527/67,016 microseconds;
+peak process RSS is 85,983,232/31,178,752/31,211,520/85,540,864 bytes. This models
+the common worker/controller serialization stages, not the WAMP payload protocol.
+The output retains every observation; its size reduction comes from encoding
+field positions once rather than repeating names. No accepted workload, gate,
+measurement window or resource observation is removed. These component numbers
+cannot establish WAMP memory or timing acceptance.
+
+The worker capability is negotiated per request/response as `positional_v1`.
+Supervisors accept named output from older workers. New workers use the original
+named output when the supervisor does not request the capability. A declared
+unknown version, malformed row, or invalid copy counter fails the scenario and
+cleans up its worker before recovery. Public report fields and timestamps keep
+their named representation and established null/zero rules.
+
+[Fresh native-buffer memory attribution](https://github.com/konsultaner/connectanum-dart/actions/runs/40740363467)
+completes six process pairs without changed inputs. Summed peak medians are
+542/560 MB for FlatBuffers, 518/515 MB for CBOR and 574/571 MB for MessagePack.
+At the retained before-last-report snapshots, native external usage is negligible
+outside the baseline router state. Heap capacities and free allocator bins differ;
+those are not proof of payload leakage or reclaimable resident bytes. Keep the
+RSS gate unchanged. A local judge incorrectly equates higher completed request
+volume with more concurrent requests; concurrency is fixed in these scenarios.
