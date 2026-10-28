@@ -30,7 +30,7 @@ MQTT_BENCHMARK_REPORT = (
     REPO_ROOT
     / "docs"
     / "benchmarks"
-    / "mqtt-hosted-pr128-055e5739.json"
+    / "mqtt-hosted-pr128-2dea8b8e.json"
 )
 WAMP_BENCHMARK_SUMMARY = (
     REPO_ROOT
@@ -155,7 +155,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 "Delivery pass" if summary["gate"] == "correctness"
                 else ("Pass" if summary["passed"] else "**Fail**"),
             )
-        self.assertIn("mqtt-hosted-pr128-055e5739.json", mqtt_table)
+        self.assertIn("mqtt-hosted-pr128-2dea8b8e.json", mqtt_table)
         self.assertIn("mqtt-hosted-amd-fccc7566.json", mqtt_table)
         self.assertIn("Intel Xeon 6973P-C | — | — | — | 5.000 | Fail", mqtt_table)
         self.assertIn("| Required limit | ≥0.700 | ≥0.700 | ≥0.750 | ≤4.000 | — |", mqtt_table)
