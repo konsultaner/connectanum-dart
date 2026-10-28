@@ -5,18 +5,30 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Native FlatBuffers decode optimization (2026-10-28): the native client now
+Native FlatBuffers decode optimization (2026-10-28): commit
+[`b27ccc9d`](https://github.com/konsultaner/connectanum-dart/commit/b27ccc9d5ee087d11776ce0bbe7a838c21c0bfaf)
 reuses CBOR validation already performed by Rust for the same retained,
 read-only argument/keyword spans, with root-policy matching and validation
 fallbacks. The public Dart reader does not cache evidence for caller-mutable
-input. Focused tests and full `bin/verify` pass locally, including VM,
-Chrome/Dart2Wasm, live WAMP, E2EE/copy accounting and consumer checks. This
-working-tree candidate is not yet committed or measured by hosted acceptance.
-The previous exact-head strict run
-[`40609839226`](https://github.com/konsultaner/connectanum-dart/actions/runs/40609839226)
-is still running on predecessor `ab09d134` and cannot accept this candidate.
-PR #132 remains draft and issue #103 remains open pending exact-head CI, copy
-proof, profile and the unchanged strict/supplemental performance gates.
+input. Focused tests and full local `bin/verify` pass. Exact-head profile
+[`40635434105`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635434105)
+and production copy proof
+[`40635434337`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635434337)
+pass; the copy report covers 120 live owned cases (96 E2EE, 120 transcode and
+48 native-crypto rows) plus a 300-row short inventory with 32 zero-avoidable-
+payload-copy cases. The profile no longer lists `validateFlatBufferCbor` in
+the sampled client top frames. Exact-head CI
+[`40635344231`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344231)
+has one mutation assertion-gate failure: adjusted score 94.66% against the
+unchanged 95% requirement. The report identifies three behaviorally equivalent
+survivors; source-hash-pinned justifications have been added locally and
+replaying that report against the existing gate yields 95.20%. Exact-head CI
+must be rerun with those justifications before it is accepted. Strict primary
+[`40635344416`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344416)
+and supplemental campaigns
+[`40635435979`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635435979)
+are in progress. PR #132 remains draft and issue #103 remains open until the
+unchanged performance gates and a passing exact-head CI run are complete.
 
 WAMP serializer compatibility (2026-10-27): the current WAMP draft requires an
 implementation to support at least one serializer, lists JSON, MessagePack and

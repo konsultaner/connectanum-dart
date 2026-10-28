@@ -176,12 +176,45 @@ acceptance budget has been changed.
 - [x] Pass focused VM and Chrome/Dart2Wasm regressions, `bin/test-fast`, full
   `bin/verify`, formatting and `git diff --check`. Full verification includes
   Rust/native, live WAMP, E2EE/copy-accounting and consumer checks.
-- [ ] Commit and push, then run exact-head CI, production E2EE/transcode/native
-  copy proof, hosted profiling, strict primary parity and every supplemental
-  workload. The still-running strict job `40609839226` measures predecessor
-  `ab09d134`, not this candidate.
-- [ ] Keep PR #132 draft and issue #103 open until the unchanged strict parity
-  gates pass and complete Connectanum-owned copy accounting is reported.
+- [x] Commit and push the candidate as
+  `b27ccc9d5ee087d11776ce0bbe7a838c21c0bfaf`.
+- [x] Pass the exact-head CPU profile
+  [`40635434105`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635434105).
+  The `ext_22_progressive` FlatBuffers client top frames no longer include
+  `validateFlatBufferCbor`; UTF-8 conversion and typed-buffer growth are the
+  highest sampled frames. This is diagnostic, not performance acceptance.
+- [x] Pass production copy proof
+  [`40635434337`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635434337):
+  120 live owned cases include 96 E2EE rows, 120 transcode rows and 48
+  native-crypto rows. Its 300-row short inventory records all 32
+  zero-avoidable-payload-copy cases. Short rows intentionally fail the timing
+  policy and do not establish performance, allocation, GC or RSS acceptance.
+- [x] Audit the exact-head CI mutation-gate failure in run
+  [`40635344231`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344231).
+  Its `client-message-binding-vm` target has adjusted assertion score 94.656%
+  against the unchanged 95% threshold; conventional mutation score is 95.611%.
+  There are no baseline/test execution errors. Three surviving mutations are
+  behaviorally equivalent: removing `_asInt`'s null fast return reaches the
+  same `return null`; changing the root-string-key default is inert for every
+  call site; and forcing the validation-cache miss branch repeats validation
+  over the same immutable span that Rust already validated, changing CPU cost
+  only. No threshold or workload was changed.
+- [x] Add source-hash-pinned equivalence reasons for those three reported
+  mutation IDs in `tool/mutation_equivalents.json`. The equivalence preflight
+  validates 157 proofs; 106 focused mutation-runner tests pass. Replaying the
+  exact hosted mutation report with those reasons gives an adjusted assertion
+  score of 95.202% and passes the existing gate.
+- [ ] Complete exact-head CI after committing the equivalence-proof update.
+  The current run has one mutation-gate failure; other completed jobs passed
+  and the last coverage/browser-mutation jobs are still running.
+- [ ] Complete the unchanged strict primary
+  [`40635344416`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344416)
+  and all supplemental shards
+  [`40635435979`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635435979).
+  Both runs target this exact source commit; do not change thresholds or
+  workloads.
+- [ ] Keep PR #132 draft and issue #103 open until hosted CI and strict
+  performance acceptance pass.
 
 ## Prior performance optimization candidate (2026-10-27)
 
