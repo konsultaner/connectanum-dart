@@ -279,3 +279,24 @@ correctness checks, not a performance result. The first private setup attempt
 timed out because its readiness match ignored Dart's build-hook prefix; the
 harness was corrected and its failed control log retained. Source and gates
 were not changed to accommodate it.
+
+
+### Recovering leaf addresses without successful unwinding
+
+Capture `40763175368` retains primary instruction addresses in the original
+perf data even when its call-chain text contains empty samples. The Linux
+[UAPI sample layout](https://github.com/torvalds/linux/blob/master/include/uapi/linux/perf_event.h)
+places the instruction address, PID/TID and timestamp before optional
+call-chain/stack data. A private, bounded single-event reader uses that layout
+and matches every existing per-PID/window sample count with zero LOST events;
+JIT reuse remains explicitly ambiguous. It does not reconstruct missing stacks
+or establish performance acceptance. For future exports the perf
+[hide-call-graph option](https://github.com/torvalds/linux/blob/master/tools/perf/Documentation/perf-script.txt)
+can preserve leaf output independently of stack unwinding. A 6.12 reader rejects
+the current 7.0 recording; retain that failed offline attempt.
+
+Fresh six-pair memory control `40763180032` has unchanged inputs and source
+`2f92dcc7`. FlatBuffers peak medians are 436/422 MB, CBOR 375/387 MB and
+MessagePack 411/457 MB. Main/VM-service heap capacity and cached regions differ
+between snapshots. Neither subtracting cache/free memory nor interpreting
+ordinary heap-used counters as fully retained live objects is justified.

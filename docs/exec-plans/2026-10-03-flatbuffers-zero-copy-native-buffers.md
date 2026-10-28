@@ -4322,3 +4322,89 @@ surrogate fixture gap; add actual lone-surrogate cases. Source/tests reject its
 unchecked-cast suggestion and Qwen's incorrect map-key/error expectations.
 Full local verification is running; freeze and remeasure the committed source.
 All copy counts, complete observations, workloads and acceptance gates remain.
+
+`2f92dcc7` full local verification passes, including Chrome/WebAssembly. Its
+production copy proof `40759868387` passes 120 live/300 inventory/32 no-avoidable
+copy checks with unchanged inputs/binaries. Paired `40759863991` completes
+90 rows with seven numeric findings: Dart-values CPU/GC/p95/p99/throughput;
+native-buffer and pre-encoded RSS (1.006378/1.011142). Native throughput ratios
+are 1.039422/1.024165 and their CPU/allocation/GC/p95/p99 pass. Dart-values RSS
+passes but throughput is 0.990235 and CPU 1.001236. No acceptance is claimed.
+Preserve every prior failed report and all budgets. Capture the actual Dart-
+values path in `40763175368` and fresh read-only native memory attribution in
+`40763180032` before choosing a further runtime change. Keep source frozen.
+
+## Measured native reply candidate (2026-10-28)
+
+Current `2f92dcc7` remains the frozen production source. Hosted CI
+`40759920152` has 35 successful jobs and no failures; VM coverage and client
+mutation remain. Its preceding `40748136642` is entirely green. CPU capture
+`40763175368` and fresh read-only native memory control `40763180032` complete.
+The latter retains six process pairs with unchanged inputs, with FlatBuffers
+summed peak medians 436/422 MB, CBOR 375/387 MB and MessagePack 411/457 MB.
+These diagnostic process baselines remain distinct from primary acceptance.
+
+Current perf call-chain export loses leaf instruction addresses when unwind
+fails. A private reader of the original PERF_RECORD_SAMPLE layout recovers all
+six PID/window sample sets exactly (1,730/4,198 FB, 1,781/3,982 MessagePack,
+2,982/2,223 CBOR), with zero recorded lost samples. Preserve JIT-address-reuse
+ambiguity. ELF/mapping attribution finds 315 FB versus 252 MessagePack router
+leaf samples in ct_ffi, with VM/kernel work dominant. The temporary older perf
+6.12 Linux container rejects the 7.0 record format; it is removed and its error
+retained. No SDK, GC, allocator or measurement-window setting changed.
+
+Reject speculative fixes: actual RawSocket normalization-copy counters are
+zero for all codecs; bounded prefix coalescing occurs on every typed send;
+Bytes cloning is shared ownership, not a payload memcpy. Args/binary duplicate
+exports concern INVOCATION, not these RESULT RPC cases. The completed local
+judge suggests those unsupported possibilities; source and measurements
+exclude them. Private actual-code AOT payload roundtrip is FB 48–51 us,
+MessagePack 56–57 us. The Dart envelope writer is only about 1.5 us. Neither
+component is acceptance.
+
+A private native prototype in `/tmp/connectanum-simple-result-prototype`
+uses the pinned generated Result/Message builders for exact two-string PPT
+RESULT dictionaries, retaining the original opaque payload. Its final version
+uses the standard serde_cbor writer with exact bounded staging capacity; no
+retained-metadata hint or new public API is needed. It preserves all dictionary
+content and fallback for extended controls, typed mismatches, ordinary args or
+kwargs. Bounds cover IDs, metadata, whole frame and vector alignment. Actual
+old/new/new/old 200,000-iteration component observations fall from 256.8–266.6
+to 47.0–48.8 ms and from 18/1,969 to 6/458 allocator requests/bytes per reply.
+Both outputs have the same length and decode identically in native and Dart,
+including all 65,536 bytes; output bytes differ in legal table placement.
+
+Before adopting, complete the current pre-change `bin/test-fast`, add native
+regressions for full logical equivalence against the original generic writer,
+UTF-8/CBOR length transitions, ID/frame/metadata bounds, extended/invalid
+controls and payload lifetime/pointer identity. Use the existing CodecAllocator
+and record every metadata vector/growth copy, including failed fast attempts.
+Qwen test planning completes; correct its false expectations that fallback
+emits no frame, cloned Bytes changes its pointer, and the inclusive frame limit
+must reject equality. Keep whitespace and unknown nonempty schemes intact.
+Run focused native tests, current-library Dart interoperability and full
+verification, then freeze and rerun paired/copy evidence. No acceptance gates
+or workloads change, and #103/milestone stay open until full acceptance.
+
+The pre-change `bin/test-fast` passes, as does complete hosted `40759920152`
+on `2f92dcc7`. The private prototype first exposes a missing generated-module
+production gate and missing private test fixtures; copy fixtures and enable the
+already-pinned generated module without editing it. The first new assertions
+incorrectly assumed strict serde-value identity and that the old writer accepts
+an exactly 64MiB physical frame; source inspection shows normalization and an
+additional conservative estimate. Preserve both behaviors. Derive that budget
+from the actual pinned Result/Message table sizes, and independently discover
+the generic boundary in the regression rather than mirroring the formula.
+All ten focused native encoder tests then pass on the adopted source. Full
+verification is running in `/tmp/connectanum-simple-result-full-verify.log`.
+The completed first GLM review's allocator uncertainty is excluded by source
+instrumentation and the growth regression; add an explicit checked u32 vector
+length conversion as well. The final exact-patch review is running. No acceptance
+claim or gate/workload changes. The generated module remains private to ct_core.
+
+The final exact-patch GLM review completes with no concrete findings. Its
+residual dead-code comment misplaces a generated-module attribute; handwritten
+helper code is not exempted. Native source now has the explicit checked vector
+length and schema-derived generic budget. Retain prior private failed setup/
+assertion logs. Full verification and exact-source hosted measurements remain
+required before acceptance; no claim follows from the component improvement.

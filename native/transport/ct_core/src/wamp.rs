@@ -10,8 +10,7 @@ use crate::rawsocket::Serializer;
 
 #[cfg(test)]
 mod flatbuffers_conformance_tests;
-#[cfg(test)]
-#[allow(unused_imports)]
+#[allow(dead_code, unused_imports)]
 mod flatbuffers_generated;
 
 mod codec_copy_metrics;
