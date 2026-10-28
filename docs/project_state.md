@@ -5,6 +5,49 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+CI repair pushed (2026-10-28): `81f06e1f` adds ordinary native-message
+restore/retain anchor regressions and ten individually source-bound equivalent
+proofs. A private 49-mutation run with no exemptions preserves all ten proposed
+equivalents, kills all four newly targeted ownership mutations by assertions,
+and kills 22 neighboring controls (four mutations cannot compile). Clean and
+restored baselines pass. Its raw 57.78% score correctly fails the unchanged 95%
+gate; this selected diagnostic is not full-target acceptance. All 1,950 client
+binding tests and the 167-proof preflight pass. A bounded Qwen proof review has
+no concrete findings. Hosted full CI `40735216483` is queued. Runtime source
+remains identical to `66282e65`; native wake work is still a separate candidate.
+
+Current verified checkpoint (2026-10-28): full local `bin/verify` passes on
+`c705b5bd`, including Rust, VM/native, live WAMP/router, consumers and browser
+suites. Hosted CI `40719790400` completes with a client-message-binding mutation-gate
+failure (93.58% adjusted score; 95% required). Other verification jobs pass
+apart from the canceled GuardMalloc job. Repair that gate before resuming the
+native wake candidate. Runtime source remains identical to `66282e65`.
+Both production copy proofs `40716750991` and `40718047424` pass the full
+120-live/300-inventory/32-zero-avoidable-copy checks with unchanged receipts.
+
+Latest runtime diagnostic `40716746367` completes 90 rows and retains eight
+numerical findings, with diagnostic ineligibility only. Every throughput gate
+passes; native-buffer passes all seven numerical comparisons. Dart values fail
+CPU/GC/p95/RSS; pre-encoded spans fail p95/RSS and GC/p99 confidence limits.
+The new CPU capture `40720372509` succeeds, with much lower body-loop samples
+and substantial router VM/kernel scheduling samples. These profiles are not
+acceptance. Keep every earlier report and all existing budgets unchanged.
+
+Native readiness candidate (2026-10-28): coalesced WAMP-message-ready
+notifications interrupt router idle pacing without consuming messages or
+transferring ownership. Existing timer/default interval and old-library support
+remain. Three Rust notifier tests, three FFI publication/shutdown tests, clean
+Dart analysis and all 776 focused serial router/native/bridge/live-PPT tests
+pass. Long-poll FlatBuffers/CBOR/MessagePack RPCs pass with the candidate and
+all fail the same deadline with an unchanged old-library negative control;
+normal old-library polling cases pass. A bounded GLM design review confirms
+callback teardown; its suggested pre-registration wake concern is excluded by
+the unconditional immediate arm/scan before the first wait. See research notes
+for the separate pre-existing cross-isolate legacy callback crash and serial
+verification configuration. Full verification and exact-source hosted results
+are pending. #103/milestone remain open; PR #132 remains draft until the full
+unchanged primary and final supplemental acceptance campaigns pass.
+
 Verification inventory repair (2026-10-28): the next full verification on
 `cb0c44aa` reproduces five assertions in the serializer mutation inventory test:
 the new matcher test is missing from four support lists and the shared suite.

@@ -19,6 +19,29 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Interrupt native router idle polling (2026-10-28)
+
+- [x] Pass full local `bin/verify` on `c705b5bd`. Confirm current hosted Fast
+  Checks/binding/shared-build pass; fix any remaining CI failure before features.
+- [x] Audit `40716746367`: all throughput gates and all native-buffer numerical
+  gates pass; eight findings remain across Dart values/pre-encoded spans. Both
+  exact-runtime copy proofs `40716750991`/`40718047424` pass 120/300/32 inventories.
+- [x] Audit CPU capture `40720372509` and the byte-verified live poll control.
+  Preserve raw observations. Keep cases, polling defaults and budgets unchanged.
+- [ ] Add coalesced optional native readiness notification after successful
+  RawSocket/WebSocket queue publication, re-armed before router polling. Use
+  one synchronized nullable callback and preserve timer fallback.
+- [ ] Add a lifecycle-safe Dart broadcast bridge using NativeCallable.listener.
+  Detect the optional ABI as a pair, unregister before closing the callable,
+  ignore stale notifications and support cancel/relisten/shutdown/restart.
+- [ ] Connect router pacing, cancel abandoned idle timers, and verify queued/
+  in-flight wakes without transferring payloads or owners. Reproduce the old
+  scheduling floor with a deliberately long poll interval before the change.
+- [ ] Test native registration/coalescing/re-arm/unregister races, actual queue
+  publication, old ABI, process exit and a bounded live RPC with a long fallback.
+- [ ] Pass full verification/CI/copy proof and unchanged paired diagnostic;
+  then pass full primary and supplemental acceptance before closing #103.
+
 ## Serializer test inventory repair (2026-10-28)
 
 - [x] Reproduce the five missing-inventory assertions during full verification
@@ -4172,3 +4195,33 @@ for both processes and all rows satisfy current <= sampled peak. It is a
 640-sample wiring smoke, below the 1,000-sample acceptance floor. The same smoke retains
 `transport_copy_bytes: not_measured` for Dart-managed callers; copy attribution,
 the full campaign, hosted exact-head CI and every issue acceptance remain open.
+
+## Client mutation CI repair (2026-10-28)
+
+Hosted `40719790400` finishes with the client metadata mutation target at
+93.58%, below its unchanged 95% threshold. Pause the uncommitted native wake
+candidate. Reproduce the surviving mutations from its retained artifact. Add
+ordinary native-message restore/retain anchor regressions and individually
+justify only source-proven equivalents: strictly disabling the simple-PPT
+optimization, an explicitly supplied private default, and null-byte decoder
+closures that cannot install or run. Revalidate with clean/restored baselines
+and neighboring controls before pushing. The new tests and proofs do not
+change runtime source, ownership rules, performance gates or test thresholds.
+
+The CI repair is pushed separately as `81f06e1f`. All 1,950 client binding tests
+and 167 proof checks pass. The unexempted 49-mutation revalidation retains all
+ten proposed equivalents, kills all four new ownership controls by assertions
+and 22 neighbors; four are compile errors. Clean/restored baselines pass, and
+its raw 57.78% score correctly fails 95%. Full hosted CI `40735216483` is queued.
+The runtime remains unchanged from `66282e65` for that repair.
+
+The separate readiness candidate passes three Rust notifier tests and three
+FFI publication/shutdown tests. All 776 focused serial Dart router, native
+runtime, bridge and live typed-PPT cases pass, with clean analysis. The three
+long-poll live RPC deadlines fail against an unchanged old-library negative
+control and pass with the candidate; normal old-library polling cases pass.
+A GLM review's pre-registration lost-wake hypothesis is excluded by the
+immediate initial arm/scan; generation/teardown synchronization is retained.
+Record the independent pre-existing cross-isolate legacy callback crash in
+research notes. Complete full verification before using hosted measurements as
+acceptance; keep all earlier reports and unchanged budgets.

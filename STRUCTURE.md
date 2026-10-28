@@ -56,6 +56,9 @@ unmeasured; the Tokio observation is not yet exposed through C/Dart metrics. See
 - **Streaming primitives (`http_stream.rs`, `http_body.rs`)**  
   Provide zero-copy handles for inbound bodies and outbound responses. HTTP/1.1 ingress now parses headers/bodies with `BytesMut`, keeps buffered bodies as `Bytes` inside `HttpBodyHandle`, and preserves prefetched bytes when switching from handshake parsing to the streaming reader. HTTP/2 and HTTP/3 readers use the shared `StreamingBodyState` and now enqueue received `Bytes` chunks directly instead of cloning into temporary `Vec`s, while decoded HTTP/2/HTTP/3 request metadata stays byte-backed across `ct_core -> ct_ffi` instead of being flattened to `String`s and recopied for FFI storage. Response writers use bounded Tokio channels sized by `RESPONSE_STREAM_BUFFER`.
 
+- **Native WAMP readiness (`ct_core/src/message_ready.rs`)**
+  Coalesces a process-wide void signal after RawSocket/WebSocket queue publication. The optional v1 FFI pair is resolved together by `message_ready_notifications.dart`; its broadcast `NativeCallable.listener` wakes router idle pacing without changing payload ownership, queue consumption, the default poll interval or old-library support. Removal synchronizes with in-flight native calls before callback storage closes.
+
 - **FFI surface (`ct_ffi/src/runtime`)**  
   Stores every handshake/body/stream in lock-free maps and exposes them as integer handles (`ct_connection_take_http_handshake`, `ct_http_body_stream_read`, etc.). Lifecycle telemetry (`ct_connection_poll_http_event`) and aggregate counters (`ct_router_metrics_snapshot`) flow through the same layer. WebSocket upgrades now expose the negotiated subprotocol via `ct_connection_websocket_protocol` so Dart can forward it to workers/metrics. Test-only helpers (feature `ffi-test`) let us seed HTTP/3 handshakes/events directly from Rust integration tests.
 

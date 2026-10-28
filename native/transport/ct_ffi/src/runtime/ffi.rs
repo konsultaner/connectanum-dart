@@ -8263,6 +8263,18 @@ pub extern "C" fn ct_forward_error_from_error_wide(
     }
 }
 
+/// Optional coalesced WAMP queue wake signal. Remove before closing a callable.
+#[no_mangle]
+pub extern "C" fn ct_set_message_ready_callback_v1(callback: Option<extern "C" fn()>) {
+    ct_core::set_message_ready_callback(callback);
+}
+
+/// Arm before polling queues; existing messages remain available to poll/wait.
+#[no_mangle]
+pub extern "C" fn ct_arm_message_ready_callback_v1() {
+    ct_core::arm_message_ready_callback();
+}
+
 #[no_mangle]
 pub extern "C" fn ct_set_on_listener_started(callback: extern "C" fn(c_int, c_int)) {
     register_listener_callback(callback);

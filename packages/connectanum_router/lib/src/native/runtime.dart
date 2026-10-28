@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
@@ -12,6 +13,13 @@ import 'package:meta/meta.dart';
 
 import 'ffi_bindings.dart';
 import 'message_binding.dart';
+import 'message_ready_notifications.dart';
+
+/// Optional wake signal for native WAMP queues; polling remains the fallback.
+abstract interface class NativeRuntimeWithMessageReadyNotifications {
+  Stream<void> get messageReadyNotifications;
+  void armMessageReadyNotifications();
+}
 
 abstract class NativeRuntime {
   void start();
@@ -2368,7 +2376,8 @@ class NativeTransportRuntime
         NativeRuntimeWithHandles,
         NativeRuntimeWithConfiguredListeners,
         NativeRuntimeWithRouterConfiguration,
-        NativeRuntimeWithInternalCallForwarding {
+        NativeRuntimeWithInternalCallForwarding,
+        NativeRuntimeWithMessageReadyNotifications {
   /// Loads `ct_ffi` and creates the process-wide native transport runtime.
   factory NativeTransportRuntime({String? libraryPath}) {
     if (_instance != null) {
@@ -2415,6 +2424,13 @@ class NativeTransportRuntime
         'ct_reload_router_tls',
       );
   final _MessageBindings _messageBindings;
+  late final _messageReady = NativeMessageReadyNotifications(_library);
+
+  @override
+  Stream<void> get messageReadyNotifications => _messageReady.events;
+
+  @override
+  void armMessageReadyNotifications() => _messageReady.arm();
   RandomAccessFile? _runtimeLock;
 
   static NativeTransportRuntime? _instance;
@@ -2440,6 +2456,7 @@ class NativeTransportRuntime
 
   /// Releases Dart-side callbacks and process-wide runtime ownership.
   void dispose() {
+    _messageReady.dispose();
     _releaseRuntimeLock();
     if (_instance == this) {
       _instance = null;
@@ -2511,6 +2528,7 @@ class NativeTransportRuntime
     _acquireRuntimeLock();
     try {
       _checkZero(_bindings.ctStartRuntime(), 'Failed to start runtime');
+      _messageReady.resume();
     } catch (_) {
       _releaseRuntimeLock();
       rethrow;
@@ -2520,6 +2538,7 @@ class NativeTransportRuntime
   /// Stops the native runtime and releases its process-wide lock.
   @override
   void shutdown() {
+    _messageReady.suspend();
     try {
       _checkZero(_bindings.ctShutdown(), 'Failed to shutdown runtime');
     } finally {

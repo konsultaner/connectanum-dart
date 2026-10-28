@@ -218,7 +218,10 @@ class _Harness {
   final peers = <_Peer>[];
   int get port => binding.listeners.single.port;
 
-  static _Harness start(String library) {
+  static _Harness start(
+    String library, {
+    Duration workerPollInterval = const Duration(milliseconds: 1),
+  }) {
     final settings =
         (RouterSettingsBuilder()
               ..addRealmFromBuilder(
@@ -261,6 +264,7 @@ class _Harness {
           settings: settings,
         ).start(
           runtime,
+          workerPollInterval: workerPollInterval,
           onEvent: (event) {
             if (event is Map &&
                 event['type'] is String &&
@@ -301,6 +305,51 @@ void main() {
       CtFfiBindings(
         ffi.DynamicLibrary.open(library),
       ).supportsPlaintextPptHandoff;
+  for (final codec in ['flatbuffers', 'cbor', 'msgpack']) {
+    test('native readiness wakes long-poll $codec typed RPC', () async {
+      final harness = _Harness.start(
+        library!,
+        workerPollInterval: const Duration(seconds: 1),
+      );
+      try {
+        final mode = _modes.first;
+        final caller = await harness.connect(codec, library, mode);
+        final callee = await harness.connect(codec, library, mode);
+        final registration = await callee.session.register('com.wake.echo');
+        registration.onInvoke((invocation) {
+          invocation.respondWith(
+            arguments: invocation.arguments,
+            options: core.YieldOptions(
+              pptScheme: mode.scheme,
+              pptSerializer: mode.serializer,
+            ),
+          );
+        });
+        final expected = _application(71);
+        final result = await caller.session
+            .call(
+              'com.wake.echo',
+              arguments: [expected],
+              options: core.CallOptions(
+                pptScheme: mode.scheme,
+                pptSerializer: mode.serializer,
+              ),
+            )
+            .first
+            .timeout(const Duration(milliseconds: 500));
+        mode.expectApplication(
+          result.arguments,
+          result.argumentsKeywords,
+          expected,
+          71,
+        );
+        expect(harness.errors, isEmpty);
+      } finally {
+        await harness.close();
+      }
+    }, skip: library == null ? 'Native transport artifact unavailable' : false);
+  }
+
   for (final serializer in ['flatbuffers', 'cbor', 'msgpack']) {
     for (final scenario in [
       'unchanged',

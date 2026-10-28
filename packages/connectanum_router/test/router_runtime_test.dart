@@ -723,6 +723,29 @@ class _HttpCleanupRuntime extends _HandleRuntime {
   }
 }
 
+class _WakingHandleRuntime extends _HandleRuntime
+    implements NativeRuntimeWithMessageReadyNotifications {
+  final ready = StreamController<void>.broadcast(sync: true);
+  Completer<void> nextPoll = Completer<void>();
+  int arms = 0;
+  int polls = 0;
+  bool polledWithoutArming = false;
+
+  @override
+  Stream<void> get messageReadyNotifications => ready.stream;
+
+  @override
+  void armMessageReadyNotifications() => arms++;
+
+  @override
+  int pollConnection(int listenerId) {
+    if (arms <= polls) polledWithoutArming = true;
+    polls++;
+    if (!nextPoll.isCompleted) nextPoll.complete();
+    return super.pollConnection(listenerId);
+  }
+}
+
 class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
   final Map<int, Queue<int>> _pendingHandles = {};
   int _nextHandle = 1;
@@ -5327,6 +5350,76 @@ void main() {
             pollInterval: const Duration(seconds: 1),
           )
           .timeout(const Duration(milliseconds: 200));
+    });
+
+    test(
+      'native readiness arms before scanning and releases its subscription',
+      () async {
+        final runtime = _WakingHandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.disabled,
+                maxRawSocketSizeExponent: 16,
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithMinWorkers(0),
+        );
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _idleWorkerEntryPoint,
+          workerPollInterval: const Duration(seconds: 30),
+        );
+        addTearDown(binding.dispose);
+        addTearDown(runtime.ready.close);
+        await runtime.nextPoll.future.timeout(const Duration(seconds: 1));
+        expect(runtime.ready.hasListener, isTrue);
+        expect(runtime.polledWithoutArming, isFalse);
+        final initialPolls = runtime.polls;
+        runtime.nextPoll = Completer<void>();
+        runtime.ready.add(null);
+        await runtime.nextPoll.future.timeout(
+          const Duration(milliseconds: 500),
+        );
+        expect(runtime.polls, greaterThan(initialPolls));
+        expect(runtime.polledWithoutArming, isFalse);
+        await binding.dispose();
+        expect(runtime.ready.hasListener, isFalse);
+      },
+    );
+
+    test('early wake cancels the idle fallback timer', () async {
+      final timers = <Timer>[];
+      try {
+        await runZoned(
+          () async {
+            final pacer = RouterBossLoopPacer();
+            final wait = pacer.waitForNextTick(
+              didWork: false,
+              pollInterval: const Duration(seconds: 30),
+            );
+            pacer.requestWake();
+            await wait;
+            expect(timers, hasLength(1));
+            expect(timers.single.isActive, isFalse);
+          },
+          zoneSpecification: ZoneSpecification(
+            createTimer: (self, parent, zone, duration, callback) {
+              final timer = parent.createTimer(zone, duration, callback);
+              timers.add(timer);
+              return timer;
+            },
+          ),
+        );
+      } finally {
+        for (final timer in timers) {
+          timer.cancel();
+        }
+      }
     });
 
     test('wakes an idle wait from queued or in-flight work', () async {
@@ -17162,7 +17255,7 @@ void main() {
         );
         for (final id in [85, 86]) {
           runtime.setConnectionProtocol(id, NativeConnectionProtocol.http3);
-          if (id != 85 || !failHandshake)
+          if (id != 85 || !failHandshake) {
             runtime.enqueueHttp3Handshake(
               id,
               NativeHttp3Handshake.synthetic(
@@ -17172,6 +17265,7 @@ void main() {
                 },
               ),
             );
+          }
           runtime.enqueueHandle(binding.listeners.single.listenerId, id);
         }
         await _waitUntil(

@@ -121,3 +121,60 @@ package URIs; its baseline/candidate kernel hashes are
 `23851fae73ad0ff2d134bf1cc765bcee0807ca7b21583b4df2b828eacdba1cc2`.
 These control-only component timings are diagnostic, not throughput, latency,
 CPU, GC or RSS acceptance for a WAMP workload.
+
+
+## Native router wake direction
+
+Full local verification passes on `c705b5bd`; product runtime is unchanged from
+`66282e65`. [Its paired diagnostic](https://github.com/konsultaner/connectanum-dart/actions/runs/40716746367)
+passes all throughput and native-buffer numerical gates, but retains eight
+findings across Dart values/pre-encoded spans. [Current CPU capture](https://github.com/konsultaner/connectanum-dart/actions/runs/40720372509)
+resolves 80 FlatBuffers/101 MessagePack body-loop exclusive client samples,
+versus 314/251 before word-fill changes. These separate intrusive captures are
+not normalized performance acceptance. Router samples include substantial VM,
+context-switch and kernel scheduling work. The live polling control above
+supports investigating native readiness notification rather than busy polling.
+
+Use an additive, coalesced void notification only after a native WAMP message
+has entered its existing queue. Arm before polling: arrivals already queued are
+read by the scan; later arrivals wake idle pacing. Notifications do not consume
+messages or transfer payload memory. Keep the timer/default interval and older-
+library fallback. Synchronize callback invocation and removal; unregister native
+before closing the Dart listener, and ignore stale lifecycle generations.
+
+The [Dart NativeCallable.listener contract](https://api.dart.dev/dart-ffi/NativeCallable/NativeCallable.listener.html)
+supports arbitrary native threads and asynchronous void delivery to the creating
+isolate. It keeps that isolate alive until closed. The [close contract](https://api.dart.dev/dart-ffi/NativeCallable/close.html)
+forbids subsequent native invocation, so callback removal must synchronize with
+in-flight invocations before close. A broadcast bridge avoids replacing another
+router's subscription. Test cancellation/restart, callback races and clean
+process exit; retain fallback polling as a correctness backstop.
+
+
+The native readiness candidate passes three coalescing/race/removal unit tests,
+two live RawSocket/WebSocket FFI publication/removal cases and a native shutdown
+registration test. Dart bridge tests cover incomplete optional symbol pairs,
+multiple subscribers, stale queued events, cancellation/restart and a subprocess
+that exits with an uncancelled subscription after bridge disposal. Live typed
+RPC tests for FlatBuffers, CBOR and MessagePack complete within 500 ms with a
+one-second fallback interval. All three time out against a byte-identical
+legacy DLL snapshot lacking the v1 symbols; ordinary legacy polling cases pass.
+The legacy snapshot SHA-256 is
+`72432ae71e017dd4d8bc465d9c10069ae6fe7ea21eef02d8abf7b0c90b0203f2`.
+
+A bounded GLM lifecycle review accepts invocation/removal synchronization but
+suggests a pre-registration lost-wake concern. Source inspection and the router
+pacer test disprove that scenario: `_loop` always arms and scans immediately
+on start, before its first 30-second fallback wait. Queue contents are never
+consumed by a notification, and arrivals during that scan get a new signal.
+Clearing coalescing state on registration therefore does not lose queued work.
+No notification replay or changed polling default is needed.
+
+A root-level parallel test invocation also reproduces a pre-existing VM abort:
+constructing a second native router wrapper in another isolate overwrites a
+process-global legacy `Pointer.fromFunction` connection callback. The same
+minimal repro aborts with the old DLL, without either readiness symbol. This is
+separate from the new asynchronous listener. Canonical router verification uses
+its package `dart_test.yaml` concurrency of one; 775 cases pass serially before
+the added fake-runtime readiness test. Do not interpret parallel execution as
+supported ownership of one native router runtime across isolates.

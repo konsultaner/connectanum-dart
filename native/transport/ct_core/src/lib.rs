@@ -60,6 +60,8 @@ mod http_body;
 mod http_stream;
 mod io_stream;
 mod ktls;
+mod message_ready;
+pub use message_ready::{arm_message_ready_callback, set_message_ready_callback};
 mod platform;
 mod protocol;
 mod rawsocket;
@@ -3541,6 +3543,7 @@ fn spawn_connection_reader(
                         if frame_tx.send(parsed).await.is_err() {
                             break;
                         }
+                        message_ready::notify_message_ready();
                     }
                     Err(err) => {
                         eprintln!(
@@ -3915,6 +3918,7 @@ fn spawn_websocket_reader(
                             );
                             break;
                         }
+                        message_ready::notify_message_ready();
                     }
                 }
                 WebSocketFrame::Ping(payload) => {
@@ -5360,6 +5364,8 @@ pub fn reload_router_tls(config: &[u8], listener_ids: &[ListenerId]) -> Result<u
 
 /// Gracefully shuts down the runtime and aborts all listener tasks.
 pub fn shutdown() -> Result<(), Error> {
+    // Stop notifications before taking runtime locks or joining native readers.
+    message_ready::set_message_ready_callback(None);
     let manager = RuntimeManager::global();
     let mut guard = manager
         .state

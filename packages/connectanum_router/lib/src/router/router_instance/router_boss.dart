@@ -44,12 +44,13 @@ final class RouterBossLoopPacer {
       return;
     }
 
+    final timer = Timer(delay, () {
+      if (!wakeCompleter.isCompleted) wakeCompleter.complete();
+    });
     try {
-      await Future.any<void>(<Future<void>>[
-        Future<void>.delayed(delay),
-        wakeCompleter.future,
-      ]);
+      await wakeCompleter.future;
     } finally {
+      timer.cancel();
       if (identical(_wakeCompleter, wakeCompleter)) {
         _wakeCompleter = null;
       }
@@ -171,6 +172,7 @@ class _RouterBoss {
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
+  StreamSubscription<void>? _messageReadySubscription;
   int _nextWorkerIndex = 0;
   int _nextWorkerId = 1;
   int _nextPendingWorkerToken = -1;
@@ -204,6 +206,11 @@ class _RouterBoss {
   void start() {
     if (_running) {
       return;
+    }
+    if (runtime case NativeRuntimeWithMessageReadyNotifications notifier) {
+      _messageReadySubscription = notifier.messageReadyNotifications.listen(
+        (_) => _loopPacer.requestWake(),
+      );
     }
     _running = true;
     _loopFuture = _loop();
@@ -316,23 +323,32 @@ class _RouterBoss {
   }
 
   Future<void> _loop() async {
-    while (_running) {
-      var didWork = false;
-      didWork = await _ensureMinimumWorkers() || didWork;
-      for (final listener in listeners) {
-        didWork = await _acceptConnections(listener) || didWork;
+    try {
+      while (_running) {
+        if (runtime case NativeRuntimeWithMessageReadyNotifications notifier) {
+          notifier.armMessageReadyNotifications();
+        }
+        var didWork = false;
+        didWork = await _ensureMinimumWorkers() || didWork;
+        for (final listener in listeners) {
+          didWork = await _acceptConnections(listener) || didWork;
+        }
+        didWork = _dispatchMessages() || didWork;
+        didWork = _expireIdleConnections() || didWork;
+        didWork = _drainHttpRequests() || didWork;
+        didWork = _drainHttp2Requests() || didWork;
+        didWork = _drainHttp3Requests() || didWork;
+        didWork = _drainHttpConnectionEvents() || didWork;
+        didWork = _emitRouterMetrics() || didWork;
+        await _loopPacer.waitForNextTick(
+          didWork: didWork,
+          pollInterval: pollInterval,
+        );
       }
-      didWork = _dispatchMessages() || didWork;
-      didWork = _expireIdleConnections() || didWork;
-      didWork = _drainHttpRequests() || didWork;
-      didWork = _drainHttp2Requests() || didWork;
-      didWork = _drainHttp3Requests() || didWork;
-      didWork = _drainHttpConnectionEvents() || didWork;
-      didWork = _emitRouterMetrics() || didWork;
-      await _loopPacer.waitForNextTick(
-        didWork: didWork,
-        pollInterval: pollInterval,
-      );
+    } finally {
+      final subscription = _messageReadySubscription;
+      _messageReadySubscription = null;
+      await subscription?.cancel();
     }
   }
 

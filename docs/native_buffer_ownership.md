@@ -432,3 +432,22 @@ body handles remain valid after either acceptance or rejection. Libraries withou
 the optional segment ABI keep the existing frame-composition path. The full-frame
 64 MiB bound and session-profile checks still apply. This does not extend foreign
 storage or database transaction lifetimes.
+
+The optional `ct_set_message_ready_callback_v1` and
+`ct_arm_message_ready_callback_v1` pair wakes the router when a complete native
+RawSocket or WebSocket WAMP message has entered its existing queue. The void
+signal carries no pointer, message, lease or ownership transfer. Re-arm before
+scanning queues: existing messages are found by the scan, and later arrivals
+wake the idle timer. Notifications coalesce until re-armed; all subscribers in
+one runtime share a broadcast listener. Libraries missing either symbol keep
+the existing polling fallback and interval.
+
+Native callback invocation, removal and re-arming use the same mutex. Callbacks
+must return promptly without re-entering these functions or runtime shutdown.
+The Dart bridge uses an asynchronous `NativeCallable.listener`, unregisters it
+before closing executable callback storage, and ignores queued notifications
+from previous lifecycle generations. Shutdown removes the callback before
+joining native readers; restart registers a new listener when needed. A router
+starts with an immediate queue scan, so arrivals before listener registration
+do not require a retrospective notification. Payload lifetime and copy counters
+remain governed by the existing message handles.
