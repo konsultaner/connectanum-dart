@@ -5,35 +5,43 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Latest verified benchmark checkpoint: `e72638be` passes full local `bin/verify`
-and production copy proof `40748144948` (120 live / 300 inventory / 32 no-copy
-checks, unchanged inputs and binaries). Runtime CI `40736889265` on `7a5bdc76`
-is entirely green, including the repaired client mutation gate (95.0998%).
-Current-source CI `40748136642` remains in progress without a reported failure.
+Latest local verification checkpoint: `ebb7bff1` passes full `bin/verify`.
+Its paired diagnostic `40754675709` completes 90 rows with seven numeric
+findings: Dart-values CPU/GC confidence/p95/RSS/throughput, native-buffer p99
+confidence, and pre-encoded RSS. Native-buffer and pre-encoded each pass six
+of seven metrics. Preserve all earlier reports, including `e72638be`'s eleven
+findings in `40748141357`; component improvements do not establish parity.
+#103 and the milestone stay open and PR #132 stays draft.
 
-Its paired diagnostic `40748141357` completes 90 rows but retains eleven numeric
-findings: Dart-values CPU/p95/p99/RSS/throughput; native-buffer CPU/p95/p99
-confidence/throughput; pre-encoded p95/RSS. Allocation and GC pass throughout;
-native-buffer RSS passes. Preserve this report and the two four-finding
-predecessors; the compact component numbers do not establish parity. #103 and
-the milestone stay open and PR #132 stays draft.
+The next shared HTTP change uses the standard SDK JsonUtf8Encoder directly
+instead of creating a JSON string, UTF-8 bytes and another Uint8List copy.
+Both public payload encoding and native submission retain the declared byte
+contract, with a typed-list fallback for other SDK implementations. Exact
+Unicode (including lone surrogates), chunk-boundary, numbers, nested toJson,
+output isolation, unsupported-value and cycle-error regressions pass; the
+native test checks response bytes and recovery after rejected JSON. All 63
+focused cases, 167 mutation-proof checks and the nine-pair live HTTP smoke
+pass. Full verification is running. No SDK/GC/allocator settings change.
 
-Next shared reporting improvement retains immutable WampSample models through
-the public HTTP response relay until the existing final JSON encoder. This
-avoids eagerly projecting every sample to maps that the internal relay then
-recursively clones. The public named JSON and complete observations remain.
-An actual HTTP smoke passes all nine codec/construction combinations; a 2,048-
-sample isolate-transfer regression checks identical named JSON bytes. Analysis
-and all 58 sample-boundary cases pass. The first private smoke setup mistakenly
-required a bare READY line; it was corrected to accept the existing Dart hook
-prefix, and the failed readiness-control log is retained. No product readiness
-behavior changed. Full verification and fresh paired evidence of this reporting
-change remain required. All workload and acceptance budgets are unchanged.
+A 20,000-sample AOT component emits identical 7,000,013 bytes and SHA-256
+8c2657e54d10cdf069fb29410d0f32de6b5752cd7136051452cdba9152464882.
+Old/fused/fused/old peak RSS is 76.5/56.3/56.3/76.4 MB and encoding time
+47.9/39.2/39.5/54.4 ms. These are component results, not acceptance.
+The GLM source review identifies the paired-surrogate test gap, now covered
+by explicit lone surrogates. Its proposed unchecked cast is rejected because
+the SDK return type is List<int>. The Qwen test-planning claims about integer
+map keys/numeric errors are corrected against actual standard-encoder tests.
+
+Latest production copy proof `40748144948` passes on `e72638be`: 120 live /
+300 inventory / 32 no-avoidable-copy checks, unchanged inputs and binaries.
+Runtime CI `40736889265` on `7a5bdc76` is entirely green, including the repaired
+client mutation gate (95.0998%). Current CI `40748136642` is still running
+without a reported failure. Workload, resource windows and all gates stay fixed.
 
 Current runtime source: `7a5bdc764eb1ee66b3777f25de63ee690772a949`.
 Full local `bin/test-fast` and `bin/verify` pass, including Rust, VM/native,
 router/consumer integration and Chrome/WebAssembly. Hosted CI `40736889265`
-is running with no reported failures; the earlier repair-only `40735216483`
+is entirely green; the earlier repair-only `40735216483`
 is superseded, retaining its partial reports. The client mutation repair in
 `81f06e1f` adds two ordinary-anchor regressions and ten source-proven equivalents;
 its 49-mutation unexempted control kills all four newly targeted ownership

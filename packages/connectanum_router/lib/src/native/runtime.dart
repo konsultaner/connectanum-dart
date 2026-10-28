@@ -3972,7 +3972,8 @@ class NativeTransportRuntime
         return Uint8List.fromList(encoding.encode(textBody.text));
       case NativeHttpResponseBodyKind.json:
         final jsonBody = body as NativeHttpResponseJson;
-        return Uint8List.fromList(utf8.encode(jsonEncode(jsonBody.value)));
+        final bytes = JsonUtf8Encoder().convert(jsonBody.value);
+        return bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
       case NativeHttpResponseBodyKind.file:
         final fileBody = body as NativeHttpResponseFile;
         return File(fileBody.path).readAsBytesSync();

@@ -322,7 +322,8 @@ class HttpResponsePayload {
         final encoding = Encoding.getByName(encodingName) ?? utf8;
         return Uint8List.fromList(encoding.encode(text));
       case HttpResponseBodyKind.json:
-        return Uint8List.fromList(utf8.encode(jsonEncode(bodyJson)));
+        final bytes = JsonUtf8Encoder().convert(bodyJson);
+        return bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
       case HttpResponseBodyKind.file:
         return null;
     }

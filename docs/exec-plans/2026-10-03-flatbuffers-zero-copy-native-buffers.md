@@ -4303,3 +4303,22 @@ actual server smoke passes all nine codec/construction pairs with complete
 sample fields. Initial readiness-control timeout was a private harness issue
 (Dart hook prefix before READY), fixed without product changes. Run full
 verification and paired diagnostics on the committed reporting candidate.
+
+## Standard HTTP JSON byte encoding (2026-10-28)
+
+`ebb7bff1` passes full local verification. Diagnostic `40754675709` completes
+90 rows with seven numerical findings: Dart-values CPU/GC confidence/p95/RSS/
+throughput, native-buffer p99 confidence and pre-encoded RSS. Keep this and all
+prior reports; no point/confidence threshold or resource window is weakened.
+
+Replace the shared HTTP string/UTF-8/Uint8List staging with standard SDK
+JsonUtf8Encoder, preserving the declared Uint8List result through a checked
+fallback. No SDK, GC or allocator tuning. A 20,000-sample AOT old/fused/fused/
+old control preserves all 7,000,013 bytes and SHA-256 while reducing peak RSS
+76.4–76.5→56.3 MB and encoding time 47.9–54.4→39.2–39.5 ms. Component only.
+All 63 focused public/native HTTP cases, 167 proof checks and nine live HTTP
+codec/construction combinations pass. GLM review catches a valid paired-
+surrogate fixture gap; add actual lone-surrogate cases. Source/tests reject its
+unchecked-cast suggestion and Qwen's incorrect map-key/error expectations.
+Full local verification is running; freeze and remeasure the committed source.
+All copy counts, complete observations, workloads and acceptance gates remain.
