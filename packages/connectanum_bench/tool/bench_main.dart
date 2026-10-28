@@ -823,7 +823,9 @@ class _BenchControlRegistry {
       final dataWindow = WampSampleWindow.fromSamples(samples);
       context.sendJson(
         body: {
-          'samples': samples.map((sample) => sample.toJson()).toList(),
+          // Preserve the immutable models through internal routing; the final
+          // JSON encoder projects one sample at a time without map staging.
+          'samples': samples,
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
           'copy_metrics': mergeOwnedPipelineCopyMetrics(

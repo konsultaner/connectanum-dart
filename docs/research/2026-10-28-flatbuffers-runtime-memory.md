@@ -252,3 +252,30 @@ outside the baseline router state. Heap capacities and free allocator bins diffe
 those are not proof of payload leakage or reclaimable resident bytes. Keep the
 RSS gate unchanged. A local judge incorrectly equates higher completed request
 volume with more concurrent requests; concurrency is fixed in these scenarios.
+
+
+## Public HTTP relay staging
+
+The compact-record candidate `e72638be` passes full local verification and
+[owned-copy proof](https://github.com/konsultaner/connectanum-dart/actions/runs/40748144948).
+Its [paired report](https://github.com/konsultaner/connectanum-dart/actions/runs/40748141357)
+retains eleven numerical findings, so neither the isolated component reduction
+nor earlier four-finding reports establish parity. Keep every report unchanged.
+
+The final public response still projected all samples to dictionaries before
+`HttpInvocationContext.sendJson`. Internal transfer/materialization recursively
+copies list/map entries but preserves ordinary immutable Dart objects. The
+existing native HTTP JSON path eventually calls the standard jsonEncode, which
+can project each sample's existing toJson at that point. Keeping the models
+therefore removes redundant per-field map staging/cloning while retaining the
+same complete named output and measurement scope.
+
+An isolate-transfer regression with 2,048 samples checks exact named JSON bytes
+through HttpResponsePayload. A real local server, using private ports and a
+copied configuration, returns all samples/fields for each of FlatBuffers,
+MessagePack and CBOR under values/native-buffer/pre-encoded construction.
+Every echoed payload is validated by the unchanged workload runner. These are
+correctness checks, not a performance result. The first private setup attempt
+timed out because its readiness match ignored Dart's build-hook prefix; the
+harness was corrected and its failed control log retained. Source and gates
+were not changed to accommodate it.

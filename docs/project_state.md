@@ -5,6 +5,31 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Latest verified benchmark checkpoint: `e72638be` passes full local `bin/verify`
+and production copy proof `40748144948` (120 live / 300 inventory / 32 no-copy
+checks, unchanged inputs and binaries). Runtime CI `40736889265` on `7a5bdc76`
+is entirely green, including the repaired client mutation gate (95.0998%).
+Current-source CI `40748136642` remains in progress without a reported failure.
+
+Its paired diagnostic `40748141357` completes 90 rows but retains eleven numeric
+findings: Dart-values CPU/p95/p99/RSS/throughput; native-buffer CPU/p95/p99
+confidence/throughput; pre-encoded p95/RSS. Allocation and GC pass throughout;
+native-buffer RSS passes. Preserve this report and the two four-finding
+predecessors; the compact component numbers do not establish parity. #103 and
+the milestone stay open and PR #132 stays draft.
+
+Next shared reporting improvement retains immutable WampSample models through
+the public HTTP response relay until the existing final JSON encoder. This
+avoids eagerly projecting every sample to maps that the internal relay then
+recursively clones. The public named JSON and complete observations remain.
+An actual HTTP smoke passes all nine codec/construction combinations; a 2,048-
+sample isolate-transfer regression checks identical named JSON bytes. Analysis
+and all 58 sample-boundary cases pass. The first private smoke setup mistakenly
+required a bare READY line; it was corrected to accept the existing Dart hook
+prefix, and the failed readiness-control log is retained. No product readiness
+behavior changed. Full verification and fresh paired evidence of this reporting
+change remain required. All workload and acceptance budgets are unchanged.
+
 Current runtime source: `7a5bdc764eb1ee66b3777f25de63ee690772a949`.
 Full local `bin/test-fast` and `bin/verify` pass, including Rust, VM/native,
 router/consumer integration and Chrome/WebAssembly. Hosted CI `40736889265`

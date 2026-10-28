@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_router/src/router/http/http_context.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -159,6 +162,33 @@ void main() {
         WampSampleWindow.fromSamples(originals)!.toJson(),
       );
     });
+
+    test(
+      'HTTP response models cross an isolate and retain named JSON bytes',
+      () async {
+        final samples = List.generate(
+          2048,
+          (index) => WampSample.fromJson({
+            ...named,
+            'iteration': index,
+          }),
+        );
+        final payload = HttpResponseUtil.json(
+          requestId: 71,
+          status: 200,
+          body: {'samples': samples},
+        );
+        final bytes = await _encodeHttpResponseInIsolate(
+          payload.toKeywordArguments(),
+        );
+        expect(
+          utf8.decode(bytes),
+          jsonEncode({
+            'samples': samples.map((sample) => sample.toJson()).toList(),
+          }),
+        );
+      },
+    );
   });
 
   group('sample JSON boundary', () {
@@ -326,6 +356,12 @@ void main() {
     });
   });
 }
+
+Future<Uint8List> _encodeHttpResponseInIsolate(Map<String, Object?> kwargs) =>
+    Isolate.run(
+      () =>
+          HttpResponsePayload.fromKeywordArguments(kwargs)!.encodeBodyBytes()!,
+    );
 
 Map<String, Object?> _json() => {
   'worker': 2,

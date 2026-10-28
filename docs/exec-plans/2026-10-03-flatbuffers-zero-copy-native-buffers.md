@@ -4285,3 +4285,21 @@ including numeric spellings and unmarked positional-row rejection/recovery;
 the complete benchmark suite passed 2,823 cases before those test-only additions.
 Its final legacy producer branch delegates to the original standard JSON encoder.
 Freeze this source and complete full verification plus fresh hosted evidence.
+
+## Public HTTP observation staging (2026-10-28)
+
+Full local verification and copy proof `40748144948` pass on `e72638be`; the
+runtime checkpoint `7a5bdc76` is fully green in hosted `40736889265`. Current
+`40748136642` is still running without a reported failure. Paired `40748141357`
+completes 90 rows with eleven numeric findings. Keep it and both earlier
+four-finding reports; no component optimization establishes acceptance.
+
+The public report still eagerly creates a map per observation before internal
+routing recursively clones map entries. Retain immutable sample models until
+the existing HTTP JSON encoder instead. The relay's transfer/materialization
+functions preserve plain Dart objects, and the final encoder uses toJson.
+A 2,048-sample cross-isolate HTTP payload test preserves named JSON bytes; an
+actual server smoke passes all nine codec/construction pairs with complete
+sample fields. Initial readiness-control timeout was a private harness issue
+(Dart hook prefix before READY), fixed without product changes. Run full
+verification and paired diagnostics on the committed reporting candidate.
