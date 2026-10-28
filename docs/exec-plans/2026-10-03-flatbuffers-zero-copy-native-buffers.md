@@ -19,6 +19,30 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Aligned typed payload reads (2026-10-28)
+
+- [x] Pass full local `bin/verify` on `3950a6b1`, owned-copy proof
+  `40674234871` and CPU profile `40674238323`. Hosted CI `40674226241` remains
+  pending, with no current failure.
+- [x] Audit diagnostic `40674230759`: all three throughput gates pass; nine
+  CPU/latency/RSS comparisons still fail, plus diagnostic-only ineligibility.
+  There are no other integrity findings. Keep all declared budgets unchanged.
+- [x] Add a shared aligned little-endian typed-word verification path. Preserve
+  ByteData reads for unaligned/other-endian input and byte-precise corruption
+  diagnostics for both paths. No payload bytes, tails or workload operations
+  are skipped.
+- [x] Pass all 34 payload-codec tests and targeted analysis. Check all bytes of
+  a read-only nonzero-offset view with matching prefix guards; a wrong-origin
+  negative control accepts a corrupted first word that the real reader rejects.
+  A bounded local GLM review reports no findings.
+- [x] Replay the public verification APIs locally on 64-KiB canonical payloads.
+  Candidate/baseline timing ratios are 0.554 FlatBuffers, 0.548 CBOR and 0.991
+  unaligned MessagePack. This is a component probe, not performance acceptance.
+- [ ] Complete frozen-source full verification, hosted CI and the three-case
+  paired diagnostic for this candidate.
+- [ ] Once diagnostic parity is credible, run the full 48-case primary and
+  complete supplemental campaign, audit reports and resolve every policy failure.
+
 ## Scalar-string processing and CBOR count correction (2026-10-28)
 
 - [x] Confirm exact-source CI `40649318425` passes on `fed23eb6`.
@@ -55,8 +79,9 @@ reference.
   `_NativeAllocator.allocate` and counted copies in `resize`; local GLM review
   identifies no ownership change. Keep the potential extra growth for metadata
   in the 256–1,024-byte band visible in subsequent measurements.
-- [ ] Complete full local verification and hosted CI on the simpler
+- [x] Complete full local verification on `3950a6b1` with the simpler
   all-builder ASCII option, smaller native reserve and browser-fixture correction.
+- [ ] Finish hosted CI `40674226241` on that source.
 - [ ] Resolve the focused performance gaps, then repeat exact-source primary
   and supplemental acceptance campaigns without changing the policy.
 - [ ] Resolve remaining performance failures before marking PR #132 ready,

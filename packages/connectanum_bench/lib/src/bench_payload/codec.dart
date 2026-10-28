@@ -273,25 +273,34 @@ abstract final class BenchPayloadCodec {
     required int iteration,
   }) {
     if (actual is Uint8List) {
-      final data = ByteData.sublistView(actual);
+      final length = actual.length;
+      final wordEnd = length & ~3;
       var expected = (worker * 17 + iteration * 29) & 0xff;
       var index = 0;
-      for (; index + 4 <= actual.length; index += 4) {
-        if (data.getUint32(index, Endian.little) !=
-            _expectedBodyWords[expected]) {
-          for (var byte = 0; byte < 4; byte += 1) {
-            final offset = index + byte;
-            if (data.getUint8(offset) != ((expected + byte * 31) & 0xff)) {
-              throw FormatException(
-                'Benchmark payload body mismatch at byte $offset',
-              );
-            }
+      if (Endian.host == Endian.little && (actual.offsetInBytes & 3) == 0) {
+        final words = actual.buffer.asUint32List(
+          actual.offsetInBytes,
+          wordEnd ~/ 4,
+        );
+        for (var word = 0; word < words.length; word += 1) {
+          if (words[word] != _expectedBodyWords[expected]) {
+            _verifyBodyWord(actual, word * 4, expected);
           }
+          expected = (expected + 124) & 0xff;
         }
-        expected = (expected + 124) & 0xff;
+        index = wordEnd;
+      } else {
+        final data = ByteData.sublistView(actual);
+        for (; index < wordEnd; index += 4) {
+          if (data.getUint32(index, Endian.little) !=
+              _expectedBodyWords[expected]) {
+            _verifyBodyWord(actual, index, expected);
+          }
+          expected = (expected + 124) & 0xff;
+        }
       }
-      for (; index < actual.length; index += 1) {
-        if (data.getUint8(index) != expected) {
+      for (; index < length; index += 1) {
+        if (actual[index] != expected) {
           throw FormatException(
             'Benchmark payload body mismatch at byte $index',
           );
@@ -307,6 +316,17 @@ abstract final class BenchPayloadCodec {
         throw FormatException('Benchmark payload body mismatch at byte $index');
       }
       expected = (expected + 31) & 0xff;
+    }
+  }
+
+  static void _verifyBodyWord(List<int> actual, int index, int expected) {
+    for (var byte = 0; byte < 4; byte += 1) {
+      final offset = index + byte;
+      if (actual[offset] != ((expected + byte * 31) & 0xff)) {
+        throw FormatException(
+          'Benchmark payload body mismatch at byte $offset',
+        );
+      }
     }
   }
 

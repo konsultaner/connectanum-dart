@@ -5,6 +5,26 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Aligned payload-reader candidate (2026-10-28): all three throughput point gates
+pass in the 90-row diagnostic
+[`40674230759`](https://github.com/konsultaner/connectanum-dart/actions/runs/40674230759)
+on `3950a6b1`, but nine CPU/latency/RSS gates still fail. Full local `bin/verify`
+passes on that checkpoint; exact-source production copy proof `40674234871`
+and CPU profile `40674238323` also pass. Hosted CI `40674226241` is pending,
+with no failure reported so far.
+
+The next candidate uses an aligned `Uint32List` view for little-endian typed
+payload verification across all codecs. Unaligned/other-endian buffers retain
+ByteData reads; every byte, tail and exact mismatch offset remains checked.
+All 34 payload-codec tests pass, including every corruption position in an
+aligned read-only subview with matching prefix guards. A wrong-origin negative
+control accepts corruption that the real implementation rejects at byte zero.
+Analysis and a bounded local GLM review pass. A repeated local 64-KiB public-API
+probe records candidate/baseline verification-time ratios of 0.554 for
+FlatBuffers, 0.548 for CBOR and 0.991 for unaligned MessagePack. These component
+timings are diagnostic, not hosted performance acceptance. Full verification,
+new-source CI and a fresh paired campaign remain pending; #103 remains open.
+
 Current performance checkpoint (2026-10-28): hosted CI
 [`40649318425`](https://github.com/konsultaner/connectanum-dart/actions/runs/40649318425)
 passes on `fed23eb6`, including the corrected browser-coverage deadline.

@@ -451,7 +451,7 @@ void main() {
       ),
     );
 
-    for (final offset in [0, 1, 2, 3, 4, bodyBytes - 1]) {
+    for (var offset = 0; offset < bodyBytes; offset += 1) {
       final corrupted = Uint8List.fromList(bytes)
         ..[bodyOffset + offset] ^= 0xff;
       expect(
@@ -470,6 +470,68 @@ void main() {
         ),
       );
     }
+  });
+
+  test('checks every byte of an aligned read-only subview with guards', () {
+    const worker = 31;
+    const iteration = 47;
+    const bodyBytes = 19;
+    const prefixBytes = 4;
+    final expected = BenchPayloadCodec.body(
+      worker: worker,
+      iteration: iteration,
+      length: bodyBytes,
+    );
+    // A matching first word before the view catches readers that accidentally
+    // start at the buffer origin and skip the view's first corrupted word.
+    final backing = Uint8List(bodyBytes + 8)
+      ..setRange(0, prefixBytes, expected)
+      ..setRange(prefixBytes, prefixBytes + bodyBytes, expected)
+      ..setRange(prefixBytes + bodyBytes, bodyBytes + 8, expected);
+    final view = Uint8List.sublistView(
+      backing,
+      prefixBytes,
+      prefixBytes + bodyBytes,
+    ).asUnmodifiableView();
+    final value = <String, Object?>{
+      'worker': worker,
+      'iteration': iteration,
+      'body': view,
+    };
+    BenchPayloadCodec.verifyDynamic(
+      value: value,
+      worker: worker,
+      iteration: iteration,
+      bodyBytes: bodyBytes,
+    );
+    for (var offset = 0; offset < bodyBytes; offset += 1) {
+      backing[prefixBytes + offset] ^= 0xff;
+      expect(
+        () => BenchPayloadCodec.verifyDynamic(
+          value: value,
+          worker: worker,
+          iteration: iteration,
+          bodyBytes: bodyBytes,
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('byte $offset'),
+          ),
+        ),
+      );
+      backing[prefixBytes + offset] ^= 0xff;
+    }
+    expect(view, orderedEquals(expected));
+    expect(
+      backing.take(prefixBytes),
+      orderedEquals(expected.take(prefixBytes)),
+    );
+    expect(
+      backing.skip(prefixBytes + bodyBytes),
+      orderedEquals(expected.take(4)),
+    );
   });
 
   test('checks unaligned read-only typed bodies without copying', () {
