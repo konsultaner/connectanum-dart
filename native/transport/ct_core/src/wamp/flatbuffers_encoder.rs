@@ -86,17 +86,17 @@ pub fn compose_segments(control: Bytes, supplied: Payload) -> Result<Vec<Bytes>,
 
 fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
     let mut controls = Fields::with_capacity(4);
-    let (name, dictionary, payload): (&str, Option<&ValueMap>, Option<&Payload>) = match message {
+    let (name, dictionary, payload, tag) = match message {
         WampMessage::Hello { realm, details } => {
             text(&mut controls, "realm", realm);
-            ("Hello", Some(details), None)
+            ("Hello", Some(details), None, 1)
         }
         WampMessage::Welcome {
             session_id,
             details,
         } => {
             integer(&mut controls, "session", *session_id);
-            ("Welcome", Some(details), None)
+            ("Welcome", Some(details), None, 2)
         }
         WampMessage::Abort {
             reason,
@@ -104,7 +104,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
             payload,
         } => {
             text(&mut controls, "reason", reason);
-            ("Abort", Some(details), Some(payload))
+            ("Abort", Some(details), Some(payload), 3)
         }
         WampMessage::Challenge { auth_method, extra } => {
             if auth_method.is_empty() {
@@ -120,11 +120,11 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
                     .unwrap_or(0) as u64,
             );
             text(&mut controls, "method_name", auth_method);
-            ("Challenge", Some(extra), None)
+            ("Challenge", Some(extra), None, 4)
         }
         WampMessage::Authenticate { signature, extra } => {
             text(&mut controls, "signature", signature);
-            ("Authenticate", Some(extra), None)
+            ("Authenticate", Some(extra), None, 5)
         }
         WampMessage::Goodbye {
             reason,
@@ -132,7 +132,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
             payload,
         } => {
             text(&mut controls, "reason", reason);
-            ("Goodbye", Some(details), Some(payload))
+            ("Goodbye", Some(details), Some(payload), 6)
         }
         WampMessage::Heartbeat {
             details,
@@ -152,7 +152,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
                 }
             }
             integer(&mut controls, "presence", presence);
-            ("Heartbeat", Some(details), None)
+            ("Heartbeat", Some(details), None, 26)
         }
         WampMessage::Error {
             request_type,
@@ -167,7 +167,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
             integer(&mut controls, "request_type", *request_type);
             integer(&mut controls, "request", *request_id);
             text(&mut controls, "error", error);
-            ("Error", Some(details), Some(payload))
+            ("Error", Some(details), Some(payload), 7)
         }
         WampMessage::Publish {
             request_id,
@@ -177,7 +177,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             text(&mut controls, "topic", topic);
-            ("Publish", Some(options), Some(payload))
+            ("Publish", Some(options), Some(payload), 8)
         }
         WampMessage::Published {
             request_id,
@@ -185,7 +185,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             integer(&mut controls, "publication", *publication_id);
-            ("Published", None, None)
+            ("Published", None, None, 9)
         }
         WampMessage::Subscribe {
             request_id,
@@ -194,7 +194,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             text(&mut controls, "topic", topic);
-            ("Subscribe", Some(options), None)
+            ("Subscribe", Some(options), None, 10)
         }
         WampMessage::Subscribed {
             request_id,
@@ -202,7 +202,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             integer(&mut controls, "subscription", *subscription_id);
-            ("Subscribed", None, None)
+            ("Subscribed", None, None, 11)
         }
         WampMessage::Unsubscribe {
             request_id,
@@ -210,14 +210,14 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             integer(&mut controls, "subscription", *subscription_id);
-            ("Unsubscribe", None, None)
+            ("Unsubscribe", None, None, 12)
         }
         WampMessage::Unsubscribed {
             request_id,
             details,
         } => {
             integer(&mut controls, "request", *request_id);
-            ("Unsubscribed", Some(details), None)
+            ("Unsubscribed", Some(details), None, 13)
         }
         WampMessage::Event {
             subscription_id,
@@ -227,7 +227,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "subscription", *subscription_id);
             integer(&mut controls, "publication", *publication_id);
-            ("Event", Some(details), Some(payload))
+            ("Event", Some(details), Some(payload), 14)
         }
         WampMessage::Call {
             request_id,
@@ -237,14 +237,14 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             text(&mut controls, "procedure", procedure);
-            ("Call", Some(options), Some(payload))
+            ("Call", Some(options), Some(payload), 16)
         }
         WampMessage::Cancel {
             request_id,
             options,
         } => {
             integer(&mut controls, "request", *request_id);
-            ("Cancel", Some(options), None)
+            ("Cancel", Some(options), None, 17)
         }
         WampMessage::Result {
             request_id,
@@ -252,7 +252,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
             payload,
         } => {
             integer(&mut controls, "request", *request_id);
-            ("Result", Some(details), Some(payload))
+            ("Result", Some(details), Some(payload), 18)
         }
         WampMessage::Register {
             request_id,
@@ -261,7 +261,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             text(&mut controls, "procedure", procedure);
-            ("Register", Some(options), None)
+            ("Register", Some(options), None, 19)
         }
         WampMessage::Registered {
             request_id,
@@ -269,7 +269,7 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             integer(&mut controls, "registration", *registration_id);
-            ("Registered", None, None)
+            ("Registered", None, None, 20)
         }
         WampMessage::Unregister {
             request_id,
@@ -277,14 +277,14 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             integer(&mut controls, "registration", *registration_id);
-            ("Unregister", None, None)
+            ("Unregister", None, None, 21)
         }
         WampMessage::Unregistered {
             request_id,
             details,
         } => {
             integer(&mut controls, "request", *request_id);
-            ("Unregistered", Some(details), None)
+            ("Unregistered", Some(details), None, 22)
         }
         WampMessage::Invocation {
             request_id,
@@ -294,14 +294,14 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
         } => {
             integer(&mut controls, "request", *request_id);
             integer(&mut controls, "registration", *registration_id);
-            ("Invocation", Some(details), Some(payload))
+            ("Invocation", Some(details), Some(payload), 23)
         }
         WampMessage::Interrupt {
             request_id,
             options,
         } => {
             integer(&mut controls, "request", *request_id);
-            ("Interrupt", Some(options), None)
+            ("Interrupt", Some(options), None, 24)
         }
         WampMessage::Yield {
             request_id,
@@ -309,19 +309,27 @@ fn fields(message: &WampMessage) -> Result<Fields, ParseError> {
             payload,
         } => {
             integer(&mut controls, "request", *request_id);
-            ("Yield", Some(options), Some(payload))
+            ("Yield", Some(options), Some(payload), 25)
         }
         WampMessage::Unknown { .. } => return Err(wire::invalid("unsupported message type")),
     };
-    let reference = schema::TABLES
-        .iter()
-        .position(|table| table.name == name)
-        .ok_or_else(|| wire::invalid("message table"))?;
-    let tag = schema::TABLES[schema::ROOT].fields[1]
-        .values
-        .iter()
-        .position(|value| *value == reference as i64)
-        .ok_or_else(|| wire::invalid("union discriminator"))?;
+    // FlatBuffers union tags are already known from the message variant. Use
+    // that tag as the schema union index instead of scanning all tables and
+    // then scanning the union references for this table.
+    let union = &schema::TABLES[schema::ROOT].fields[1];
+    let reference = usize::try_from(
+        *union
+            .values
+            .get(tag)
+            .ok_or_else(|| wire::invalid("union discriminator"))?,
+    )
+    .map_err(|_| wire::invalid("union discriminator"))?;
+    if schema::TABLES
+        .get(reference)
+        .is_none_or(|table| table.name != name)
+    {
+        return Err(wire::invalid("message table"));
+    }
     let mut body = if let Some(dictionary) = dictionary {
         validate_dictionary(dictionary)?;
         if name == "Heartbeat" {

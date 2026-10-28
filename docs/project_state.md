@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-10-27.
+Last updated: 2026-10-28.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
@@ -103,7 +103,7 @@ passed all 38 jobs. The strict primary and payload-size retry have both
 completed unsuccessfully; aggregation has no complete inventory. PR #132
 remains draft and #103 remains open; no performance acceptance is claimed.
 
-Current working-tree performance candidate (2026-10-27): bounded CBOR scalar
+Current working-tree performance candidate (2026-10-28): bounded CBOR scalar
 argument and keyword paths, direct projection into the WAMP body map, and a
 single per-table scratch array reduce allocation while retaining fallback
 validation for complex and raw payloads. The focused writer suite passes 54
@@ -118,6 +118,18 @@ p95 6.4% higher. That run predates the last scratch-state correction and is
 directional evidence only. Exact-head hosted CI, strict parity, supplemental
 workloads and refreshed E2EE/transcode copy proof remain pending; no
 performance acceptance is claimed.
+
+Latest exact-head optimization candidate (based on `4f630715`, working tree):
+the native FlatBuffers encoder selects the union table directly from the WAMP
+message tag, with a schema-name guard, instead of scanning all schema tables
+and union entries. Dart projection now reuses an already-typed
+`Map<String, Object?>` while preserving the copy fallback for other map types;
+the downstream projection and encoding paths only read that map. `bin/test-fast`
+and full `bin/verify` both pass on this candidate, including Rust/native,
+E2EE/copy accounting, live WAMP, Chrome/Dart2Wasm and consumer checks. Hosted
+performance, supplemental and production copy evidence still refer to older
+source revisions; no performance acceptance is claimed until exact-head runs
+cover these changes.
 
 Historical FlatBuffers acceptance status (2026-10-23): PR #132 is still draft and
 milestone issues #100, #101 and #103 remain open. The working tree fixes a

@@ -124,7 +124,7 @@ payload shard. Existing older-source syscall tracing found no application
 this candidate. No socket option, kernel policy, workload, timeout or
 acceptance budget has been changed.
 
-## Profile-directed serializer allocation candidate (working tree, 2026-10-27)
+## Profile-directed serializer allocation candidate (working tree, 2026-10-28)
 
 - [x] Add bounded CBOR fast paths for short scalar argument arrays and small
   ASCII scalar keyword maps. Nested values, wide integers, Unicode, byte
@@ -158,6 +158,23 @@ acceptance budget has been changed.
 - [ ] Keep PR #132 draft and issue #103 open until hosted parity and copy
   acceptance pass. The earlier exact-source copy proof closed #100 and #101;
   rerun it for this candidate before claiming those results cover this source.
+
+## Native dispatch and typed dictionary reuse (working tree, 2026-10-28)
+
+- [x] Replace per-message schema-table and union-reference scans in the Rust
+  FlatBuffers encoder with direct union-tag lookup, retaining a table-name
+  guard so schema drift fails closed.
+- [x] Reuse already-typed Dart metadata maps in message projection while
+  retaining the detached-map fallback for other map types. Call sites only
+  read the projected dictionary or snapshot it before retention.
+- [x] Pass focused serializer tests, `bin/test-fast`, full `bin/verify`,
+  formatting and `git diff --check`. Full verification includes Rust/native,
+  live WAMP, E2EE/copy-accounting, Chrome/Dart2Wasm and consumer checks.
+- [ ] Commit and push, then run exact-head CI, production E2EE/transcode/native
+  copy accounting, strict primary parity and all supplemental workloads.
+  Existing hosted runs on `4f630715` and earlier do not validate this tree.
+- [ ] Keep PR #132 draft and issue #103 open until the unchanged strict parity
+  gates pass and complete Connectanum-owned copy accounting is reported.
 
 ## Prior performance optimization candidate (2026-10-27)
 

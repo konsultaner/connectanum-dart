@@ -66,8 +66,12 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
   String name;
   final body = <String, Object?>{};
   Map<String, Object?>? dictionary;
-  Map<String, Object?> map(Map? value) =>
-      value == null ? {} : Map<String, Object?>.from(value);
+  Map<String, Object?> map(Map? value) {
+    if (value == null) return {};
+    if (value is Map<String, Object?>) return value;
+    return Map<String, Object?>.from(value);
+  }
+
   switch (message) {
     case Hello():
       name = 'Hello';
