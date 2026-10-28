@@ -5,6 +5,17 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Browser coverage timeout correction (2026-10-28): exact-head CI
+[`40643065271`](https://github.com/konsultaner/connectanum-dart/actions/runs/40643065271)
+ran all 5,099 core browser tests but hit the hard 1,200-second command deadline
+before coverage collection completed. Its preceding successful run took 19m32s
+for 5,098 tests, leaving negligible runner-variation margin. `bin/test-browser-coverage`
+now keeps the same tests and coverage gates with a bounded 1,800-second
+core-suite deadline. Shell syntax, `git diff --check`, `bin/test-fast` and full
+`bin/verify` pass locally; hosted exact-head validation of the timeout
+adjustment is pending. This does not change FlatBuffers performance
+acceptance; the strict primary and E2EE/protocol campaigns remain in progress.
+
 Native FlatBuffers decode optimization (2026-10-28): commit
 [`b27ccc9d`](https://github.com/konsultaner/connectanum-dart/commit/b27ccc9d5ee087d11776ce0bbe7a838c21c0bfaf)
 reuses CBOR validation already performed by Rust for the same retained,
@@ -19,11 +30,14 @@ pass; the copy report covers 120 live owned cases (96 E2EE, 120 transcode and
 payload-copy cases. The profile no longer lists `validateFlatBufferCbor` in
 the sampled client top frames. Exact-head CI
 [`40635344231`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344231)
-has one mutation assertion-gate failure: adjusted score 94.66% against the
+had one mutation assertion-gate failure: adjusted score 94.66% against the
 unchanged 95% requirement. The report identifies three behaviorally equivalent
-survivors; source-hash-pinned justifications have been added locally and
-replaying that report against the existing gate yields 95.20%. Exact-head CI
-must be rerun with those justifications before it is accepted. Strict primary
+survivors; source-hash-pinned justifications are committed in `c4d1e613`, and
+replaying the report against the existing gate yields 95.20%. New exact-head CI
+[`40643065271`](https://github.com/konsultaner/connectanum-dart/actions/runs/40643065271)
+has no other failure reported so far, but its browser coverage job exceeded the
+old timeout after all tests passed. The corrected deadline needs a hosted rerun.
+Strict primary
 [`40635344416`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344416)
 and supplemental campaigns
 [`40635435979`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635435979)

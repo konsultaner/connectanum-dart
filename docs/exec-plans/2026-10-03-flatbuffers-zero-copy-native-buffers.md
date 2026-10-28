@@ -19,6 +19,21 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Hosted browser-coverage timeout correction (2026-10-28)
+
+- [x] Keep the core browser test suite and coverage policy unchanged while
+  extending its hard command deadline from 1,200 to 1,800 seconds. Exact-head
+  CI `40643065271` completed all 5,099 core browser tests but reached the old
+  deadline before coverage collection completed; its preceding successful run
+  took 19m32s for 5,098 tests.
+- [x] Run shell syntax validation, `git diff --check`, `bin/test-fast` and
+  full `bin/verify`; all pass on this working tree.
+- [ ] Complete hosted exact-head CI after this deadline correction.
+- [ ] Preserve strict performance acceptance. The exact-source primary and
+  E2EE/protocol benchmark campaigns are still running; the payload-size
+  diagnostic alone showed strong 1-MiB results but unresolved 10–100-KiB
+  parity misses and cannot close issue #103.
+
 ## Exact-head verifier and byte-vector candidate (2026-10-27)
 
 - [x] Change the VM FlatBuffers byte-vector bulk copy from `setAll` to

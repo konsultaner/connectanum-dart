@@ -17,9 +17,9 @@ fi
 mkdir -p "$coverage_root"
 (
   cd packages/connectanum_core
-  # The full crypto/serializer suite approaches 15 minutes on hosted runners.
-  # Keep a bounded deadline with room for the observed runner variation.
-  run_command_with_timeout "Core browser coverage" 1200 dart test test \
+  # The full crypto/serializer suite can take 20 minutes on hosted runners.
+  # Allow normal runner variation without letting a stalled run hang indefinitely.
+  run_command_with_timeout "Core browser coverage" 1800 dart test test \
     -p chrome --compiler=dart2js --concurrency=1 --timeout=5m \
     --coverage="$coverage_root/raw/core"
 )
