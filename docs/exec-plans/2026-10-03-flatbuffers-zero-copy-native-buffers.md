@@ -19,6 +19,29 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Strict parity checkpoint and RSS decision (2026-10-29)
+
+- [x] Pass complete local verification on `cd54760c`, including all 2,832
+  benchmark cases and Chrome/WebAssembly. Production proof `40784345437` passes
+  120 live / 300 inventory / 32 no-avoidable-copy with unchanged inputs/binaries.
+- [x] Preserve diagnostic `40784342071`: 90 rows, four numeric misses (three RSS
+  points and Dart-values p99 confidence). All throughput/CPU/allocation/GC/p95
+  gates pass. Do not discard the preceding two-RSS-miss report or waive gates.
+- [x] Audit fresh read-only Dart-values memory capture `40783409254`, six pairs,
+  unchanged inputs. Identical FB fresh-process peak medians span 388–421 MiB;
+  logical heap Used buckets include garbage. No retained leak is established.
+- [x] Keep the private generated CALL prototype unadopted: its ~0.3 us/frame
+  saving and variable component RSS are insufficient to identify the blocker.
+- [x] Confirm preceding `40774541328` CI entirely green. Dispatch exact-current
+  CI `40788573756`; `40780584962` has all 37 test jobs green, rollup queued.
+- [ ] Receive the user's RSS-budget decision. Until explicitly authorized,
+  preserve exact point parity and the existing confidence gate. The proposed
+  alternative applies the existing 5% band to RSS only; other gates stay fixed.
+- [ ] Complete exact-final-source CI, full primary and all 50 supplemental cases.
+  Supersede old-source `40782047961`, preserving partial artifacts after
+  cancellation; final-runtime supplemental `40789946129` is dispatched on
+  `cd54760c`. No report is cancelled because of a measured result.
+
 ## Direct worker JSON UTF-8 encoding (2026-10-29)
 
 - [x] Preserve `3a825a76` full `bin/verify` exit-0 checkpoint and its

@@ -5,61 +5,69 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Latest paired checkpoint: `3a825a76` completes 90 rows in diagnostic
-`40780577426`, reducing numerical findings from six to two. Throughput, CPU,
-allocation, GC, p95 and p99 pass for all three construction modes. Native-buffer
-passes every metric. Dart-values RSS remains 1.012515 (95% CI
-1.001365–1.018414); pre-encoded RSS remains 1.007746 (0.995263–1.017255).
-Diagnostic ineligibility is the sole other finding. Preserve all reports and
-unchanged gates; #103/milestone remain open and PR #132 remains draft.
+Latest frozen source: `cd54760c3f53ba26793f82159da266252407c440`.
+Full `bin/verify` passes at exit 0, including Rust/FFI, VM/native, all 2,832
+benchmark tests, 5,118 router tests, consumer smoke and Chrome/WebAssembly.
+All 121 focused boundary/lifecycle tests, clean analysis, nine live HTTP pairs,
+real worker Unicode/error/LF/STOP checks and 167 mutation proofs pass.
 
-Production copy proof `40780581127` passes on the same source: 120 live cases
-(96 E2EE, 120 transcode, 48 native crypto), 300 inventory rows and 32
-no-avoidable-payload-copy checks, with unchanged inputs and binaries. The
-approved standard-SDK scope and unmeasured dependency internals are unchanged.
+Production proof `40784345437` passes 120 live (96 E2EE, 120 transcode,
+48 native crypto), 300 inventory and 32 no-avoidable-copy checks, with unchanged
+inputs and binaries. The approved standard-SDK scope remains unchanged.
 
-Frozen `3a825a76` passes full `bin/verify` at exit 0, including Rust/FFI,
-client, benchmark/router/consumer and Chrome/WebAssembly. It also passes all
-2,830 benchmark cases, 119 focused schema/boundary/lifecycle tests, clean
-analysis, nine live HTTP pairs and 167 mutation proofs. Hosted CI
-`40780584962` is running without a reported failure; preceding `40774541328`
-is still running without a reported failure. Earlier complete
-`40759920152`/`40748136642` are green.
+Paired diagnostic `40784342071` completes all 90 rows and retains four numeric
+failures: RSS for Dart values/native-buffer/pre-encoded (1.000681/1.012930/
+1.006311) and Dart-values p99 confidence (point 0.995501, upper CI 1.083333).
+Throughput, CPU, allocation, GC and p95 pass throughout; both native modes pass
+p99. Diagnostic ineligibility is the sole other finding. Preserve the preceding
+`3a825a76` two-RSS-failure report and all older failed reports; do not select a
+lucky run, relax a gate or claim primary acceptance. #103/milestone remain open
+and PR #132 remains draft.
 
-The candidate lazily projects retained samples at final standard JSON encoding,
-avoiding temporary named maps and private positional lists. Public mutable
-snapshots, all 13 fields, optional-null omission, explicit zero, wide integers,
-standard numeric spellings, worker negotiation and all observations are intact.
-Actual-source AOT components preserve all named/positional JSON bytes. Named
-response peak RSS falls 56.4–56.5 -> 43.8–43.9 MB; positional worker RSS falls
-28.4–28.8 -> 25.7 MB for 20,000 samples. These remain component evidence only.
+Complete hosted CI `40774541328` is green. Newer `40780584962` on `3a825a76`
+has all 37 test jobs green with its final rollup queued. Exact-current-source
+CI `40788573756` is running without a reported failure. Supersede supplemental
+`40782047961` on older `3a825a76` after the worker UTF-8 follow-up: retain its
+partial artifacts, cancel the obsolete-source jobs and dispatch final-runtime
+50-case supplemental `40789946129` on `cd54760c`. No result-based cancellation
+or gate change is involved; all 50 cases remain required.
 
-Fresh Dart-values memory/allocator attribution `40783409254` and all 50
-supplemental cases `40782047961` are queued on frozen `3a825a76`. Inspect actual
-memory buckets before another runtime change; do not force GC, trim allocators,
-change workloads/windows or waive the remaining RSS point failures. Final
-48-case primary and complete supplemental acceptance are still required.
+Fresh read-only Dart-values capture `40783409254` completes six process pairs
+with unchanged inputs. Chronological summed sampled-peak medians are
+FB/CBOR/MP/MP/CBOR/FB = 388.29/393.81/420.05/421.07/397.57/420.86 MiB.
+The before-last-report worker Used heap buckets include garbage and vary
+39.41–63.20 MiB for FB. Page Cache varies too. Do not subtract free/cache
+buckets, force GC, tune SDK/allocators or infer a retained payload leak from
+these observations. See the checked-in runtime-memory research.
 
-Local companions were blocked by an active mutation-resource lease at edit
-and initial review time. The lease has cleared: Qwen debug confirms the
-numeric-comparison failure; artifact inspection identifies the two RSS misses.
-Qwen review wrongly assumes public optional null fields must be present; the
-unchanged `WampSample.toJson` and all 256 nullable combinations disprove that
-premise and its derived containsKey/length claims. Five required non-null keys
-make `isEmpty == false` correct. The bounded GLM semantic review reaches its token limit and is incomplete;
-do not claim it passed.
+The worker candidate removes JSON-string staging with the standard UTF-8
+encoder; named/positional JSON, every observation, LF framing, flushes and error
+recovery remain intact. Actual-source AOT components preserve all 1,180,013
+bytes/hash and reduce 20,000-record peak RSS 28.15–28.16 -> 25.56 MB and encode
+time 12.47–13.63 -> 7.74–8.16 ms. These remain component evidence only.
 
-The next follow-up encodes worker responses directly with the standard SDK
-JsonUtf8Encoder, replacing JSON-string staging before stdout UTF-8 encoding.
-The same named/positional callback, all response fields, one LF terminator,
-flushes and error recovery are preserved. All 121 focused cases, clean analysis
-and nine live HTTP pairs pass. Exact Unicode (including a lone surrogate),
-wide integers, nulls, empty samples, nonfinite/unsupported values and cycles
-retain standard JSON behavior. An actual-source 20,000-record AOT control emits
-identical 1,180,013 bytes/hash and lowers peak RSS 28.15–28.16 -> 25.56 MB;
-encoding falls 12.47–13.63 -> 7.74–8.16 ms. These are component results only.
-Full local verification is running. New local test-planning/review attempts
-are again blocked by the active native-mutation resource lease.
+A private generated Dart CALL-table prototype preserves exact 176-byte controls
+and reduces 200,000 envelope encodes from 182.6–204.7 to 126.0–134.2 ms.
+Its roughly 0.3 us/frame saving and inconsistent component RSS do not establish
+an end-to-end hotspot. It is not adopted; production runtime remains frozen.
+A separate actual-view word-read probe shows no meaningful difference between
+mutable Uint8List, read-only Uint8List and decoded FB views (10,000 complete
+64-KiB checks: 268–276 ms across all modes). Keep view safety unchanged.
+No additional production optimization is adopted on these component results.
+
+Local companions briefly became reachable. Qwen debug identifies the numeric
+comparison failure. Its earlier review assumes optional null fields must be
+present, contrary to the unchanged toJson and all 256-combination tests; derived
+containsKey/length findings do not apply. Five required keys guarantee a
+nonempty map. The GLM semantic review hits its token limit and is incomplete.
+Subsequent worker test/review requests remain blocked by the native-mutation
+resource lease; do not claim them completed.
+
+A user decision is pending about RSS acceptance: retain exact point parity or
+apply the already-declared 5% band to both the point and its confidence bound,
+leaving all other gates unchanged. No policy change is authorized yet. Continue
+under the current strict policy until an explicit answer arrives. Final-source
+48-case primary and complete 50-case supplemental evidence are still required.
 
 Native reply checkpoint `5f54fe7d` uses pinned generated Result/Message builders
 for exact two-string typed-PPT RESULT dictionaries, preserving complete CBOR,

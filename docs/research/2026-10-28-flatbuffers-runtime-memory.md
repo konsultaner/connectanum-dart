@@ -300,3 +300,30 @@ Fresh six-pair memory control `40763180032` has unchanged inputs and source
 MessagePack 411/457 MB. Main/VM-service heap capacity and cached regions differ
 between snapshots. Neither subtracting cache/free memory nor interpreting
 ordinary heap-used counters as fully retained live objects is justified.
+
+
+## Fresh Dart-values attribution on `3a825a76`
+
+Hosted read-only control `40783409254` completes all six fresh process pairs
+with unchanged inputs (661.64 s). The case is
+`rpc_rawsocket_clear_dart_values`, distinct from earlier native-buffer captures.
+The chronological summed sampled-peak RSS medians are: FlatBuffers 388.29 MiB,
+CBOR 393.81 MiB, MessagePack 420.05 MiB, MessagePack 421.07 MiB, CBOR
+397.57 MiB, FlatBuffers 420.86 MiB. These are diagnostic observations, not paired
+primary acceptance, and the two FlatBuffers observations differ materially.
+
+Before-last-report VM main-isolate Used buckets on the worker are
+39.41/63.20 MiB for FlatBuffers, 38.79/44.33 MiB for CBOR and
+58.44/57.94 MiB for MessagePack. These include garbage and must not be called
+retained live application data. VM Page Cache ranges from 5.5 to 30.5 MiB
+across observed roles; the profiler bucket is 18.77 MiB throughout. Do not
+subtract cache/free buckets from the RSS gate, force GC or change allocator/SDK
+settings to improve a report. No monotonic payload-owner leak is established.
+
+The next source-preserving paired report on `cd54760c` determines whether
+removing worker JSON-string staging resolves the two previous RSS point
+failures. Its actual-source AOT component preserves all 1,180,013 JSON bytes
+and reduces 20,000-record peak RSS from 28.15–28.16 to 25.56 MB; this remains
+component evidence rather than WAMP acceptance. Production proof `40784345437`
+passes 120 live / 300 inventory / 32 no-avoidable-copy checks on that source,
+including 96 live E2EE and 120 transcode cases, with unchanged inputs/binaries.
