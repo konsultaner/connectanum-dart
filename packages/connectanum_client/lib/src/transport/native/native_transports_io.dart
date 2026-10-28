@@ -32,6 +32,9 @@ import 'message_protocol.dart';
 import 'runtime.dart';
 
 const _nativeReceiveBatchSize = 32;
+// Common opaque CALL/PUBLISH prefixes fit here. Larger routing metadata grows
+// through the same guarded native allocator.
+const _nativeFlatBufferControlReserveBytes = 256;
 
 @visibleForTesting
 List<int> collectNativeReceiveBatch(
@@ -221,7 +224,9 @@ abstract class _NativeTransportBase extends AbstractTransport
       return true;
     }
 
-    final builder = nativeBuffers.flatBuffers(initialSize: 1024);
+    final builder = nativeBuffers.flatBuffers(
+      initialSize: _nativeFlatBufferControlReserveBytes,
+    );
     NativeOwnedBuffer? control;
     late final NativeFlatBufferFrame frame;
     try {
@@ -273,7 +278,9 @@ abstract class _NativeTransportBase extends AbstractTransport
     if (payloadOwner.length > maximumFrameBytes) {
       return false;
     }
-    final builder = nativeBuffers.flatBuffers(initialSize: 1024);
+    final builder = nativeBuffers.flatBuffers(
+      initialSize: _nativeFlatBufferControlReserveBytes,
+    );
     NativeOwnedBuffer? prefix;
     try {
       // The SDK builds backwards: this first word ends the prefix, directly

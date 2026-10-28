@@ -29,14 +29,36 @@ reference.
   findings and 234 diagnostic performance findings. E2EE/transcode owned-copy
   counters are present; dependency internals remain explicitly unmeasured.
 - [x] Remove the separate ASCII scan before writing scalar-array strings and
-  use the VM builder's existing ASCII string writer for WAMP routing fields.
-  Preserve normal Unicode encoding and the standard web builder.
+  enable the standard builder's ASCII option for WAMP routing fields on
+  VM/native/web. Preserve normal Unicode fallback and the standard web builder.
 - [x] Reproduce invalid CBOR array headers for 24–47 scalar items before
   changing behavior. Write the extended count header and include it in byte
   budgets; verify count/string-header boundaries and partial ASCII fallback.
   All 55 focused encoding/writer tests pass.
-- [ ] Complete full local `bin/verify` on this candidate.
-- [ ] Publish and run fresh exact-source CI and the hosted parity campaigns.
+- [x] Pass full local `bin/verify` on `d6d7ae4c`.
+- [x] Complete exact-source diagnostic `40668421252`: 90 rows, 12 numerical
+  parity failures and the expected diagnostic-only eligibility finding. CPU
+  point ratios remain 1.0267/1.0132/1.0015 for Dart values/native buffer/
+  pre-encoded span. There are no other integrity findings.
+- [x] Pass exact-source owned-copy proof `40668424984` and CPU profile
+  `40668691198` attempt 2. Retain attempt 1's failed perf attachment.
+- [x] Retain canceled warm-up runs `40668414193` (primary) and `40668418103`
+  (supplemental). Free those runners for CI/profiling until diagnostic parity
+  is credible; neither canceled run supplies acceptance evidence.
+- [x] Reproduce CI `40668529495`'s dart2js reference-test failure. Use a
+  string-only HELLO fixture with required roles rather than the SDK builder's
+  unsupported uint64 accessor. All 55 focused tests pass on VM and JavaScript.
+- [x] Reduce native opaque-control reserve from 1,024 to 256 bytes. The
+  canonical typed CALL prefix is 208 bytes and still needs one allocation/zero
+  growth; a 4,100-character procedure still grows safely and copies 16 bytes.
+  All seven native frame/ABI lifetime tests pass. Verify physical alignment in
+  `_NativeAllocator.allocate` and counted copies in `resize`; local GLM review
+  identifies no ownership change. Keep the potential extra growth for metadata
+  in the 256–1,024-byte band visible in subsequent measurements.
+- [ ] Complete full local verification and hosted CI on the simpler
+  all-builder ASCII option, smaller native reserve and browser-fixture correction.
+- [ ] Resolve the focused performance gaps, then repeat exact-source primary
+  and supplemental acceptance campaigns without changing the policy.
 - [ ] Resolve remaining performance failures before marking PR #132 ready,
   closing #103 or completing the milestone. Passing copy accounting alone
   does not establish performance acceptance.

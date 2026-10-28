@@ -11,6 +11,12 @@ import 'package:test/test.dart';
 import 'flatbuffers_fixture_data.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/wire_writer.dart';
 
+class _Utf8OnlyBuilder extends fb.Builder {
+  @override
+  int writeString(String value, {bool asciiOptimization = false}) =>
+      super.writeString(value);
+}
+
 void main() {
   final rows = (jsonDecode(flatBuffersFixtureJson) as List)
       .cast<Map<String, dynamic>>();
@@ -62,7 +68,7 @@ void main() {
     expect((wire.Message(bytes).msg as wire.Call).args, data);
   });
   test('ASCII-optimized routing strings preserve UTF-8 wire bytes', () {
-    for (final procedure in [
+    for (final realm in [
       '',
       'com.example.proc',
       'a' * 24,
@@ -74,23 +80,31 @@ void main() {
       final optimized = runtime.WampFlatBufferBuilder();
       optimized.finish(
         writeWampFlatBufferFields({
-          'msg_type': 'Call',
-          'msg': {'request': 42, 'procedure': procedure},
+          'msg_type': 'Hello',
+          'msg': {
+            'realm': realm,
+            'roles': {'caller': {}},
+          },
         }, optimized),
       );
 
-      final standard = fb.Builder();
+      // Keep the reference string writer on its normal UTF-8 path. This fixture
+      // needs no uint64 writes, unsupported by the SDK builder under dart2js.
+      final standard = _Utf8OnlyBuilder();
       standard.finish(
         writeWampFlatBufferFields({
-          'msg_type': 'Call',
-          'msg': {'request': 42, 'procedure': procedure},
+          'msg_type': 'Hello',
+          'msg': {
+            'realm': realm,
+            'roles': {'caller': {}},
+          },
         }, standard),
       );
 
       expect(optimized.buffer, standard.buffer);
       expect(
-        (wire.Message(optimized.buffer).msg as wire.Call).procedure,
-        utf8.decode(utf8.encode(procedure)),
+        (wire.Message(optimized.buffer).msg as wire.Hello).realm,
+        utf8.decode(utf8.encode(realm)),
       );
     }
   });

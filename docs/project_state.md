@@ -18,15 +18,42 @@ performance findings. Its E2EE/transcode accounting covers Connectanum-owned
 boundaries; SDK/TLS/crypto internals remain explicitly unmeasured under the
 approved standard-SDK scope. Neither report establishes performance parity.
 
-The current candidate writes ASCII routing strings directly into the VM
-FlatBuffers builder and combines scalar-array ASCII validation with byte
-writing. Review also reproduced invalid CBOR array headers for 24–47 scalar
+The current candidate enables the standard FlatBuffers builder ASCII option
+for routing fields on VM/native/web and combines scalar-array ASCII validation
+with byte writing. Review also reproduced invalid CBOR array headers for 24–47 scalar
 items; the candidate now emits the required extended length header. The
 regression failed before the fix and passes afterward, including counts
 0/1/23/24/25/31/32/47/48, exact byte budgets, Unicode fallback and string-header
-boundaries. The 55 focused writer/encoding tests pass. Full verification and
-fresh hosted performance evidence remain pending; PR #132 stays draft and
-issue #103 remains open.
+boundaries. The 55 focused writer/encoding tests pass on VM and JavaScript.
+Full `bin/verify` passes on `d6d7ae4c`; the simpler all-builder option and browser
+fixture correction still need full verification. CI `40668529495` found that
+the new reference test used the SDK builder's unsupported dart2js uint64
+accessor. A string-only HELLO fixture with its required roles now passes on
+JavaScript without changing the portable production uint64 implementation.
+
+Native opaque-control builders now reserve 256 rather than 1,024 bytes, matching
+the ordinary serializer's envelope allowance. A native probe of the canonical
+CALL (`bench.rpc.echo`, typed FlatBuffers PPT) emits a 208-byte prefix with one
+allocation and zero growth at both sizes; 128 bytes grows and copies 102 bytes.
+A 4,100-character procedure grows safely at either size, with 16 copied growth
+bytes. Larger metadata can incur an extra growth compared with the old reserve;
+growth remains counted. Seven native frame/ABI lifetime tests pass, and allocator
+inspection confirms every growth allocation remains physically eight-byte aligned.
+Full verification and new-source hosted evidence are still pending.
+
+The exact-source diagnostic
+[`40668421252`](https://github.com/konsultaner/connectanum-dart/actions/runs/40668421252)
+completed 90 rows on `d6d7ae4c`: 12 numerical parity failures plus its expected
+primary-ineligible diagnostic marker, with no other findings. Median CPU ratios
+are 1.0267 (Dart values), 1.0132 (native buffer) and 1.0015 (pre-encoded span).
+Production owned-copy proof
+[`40668424984`](https://github.com/konsultaner/connectanum-dart/actions/runs/40668424984)
+passes. CPU profile
+[`40668691198`](https://github.com/konsultaner/connectanum-dart/actions/runs/40668691198)
+passes on attempt 2; attempt 1 retained a failed perf attachment. Full primary
+`40668414193` and supplemental `40668418103` were canceled during warm-up to
+free runners for CI/profiling until diagnostic parity is credible; their logs
+remain diagnostic evidence only. PR #132 stays draft and #103 remains open.
 
 Browser coverage timeout correction (2026-10-28): exact-head CI
 [`40643065271`](https://github.com/konsultaner/connectanum-dart/actions/runs/40643065271)
