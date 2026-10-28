@@ -805,6 +805,16 @@ class ByteViewFlatBufferBuilder implements fb.Builder {
       _buf.setUint8(_buf.lengthInBytes - tail, x);
 }
 
+/// Write routing strings without allocating an intermediate UTF-8 buffer when
+/// they are ASCII. The browser builder keeps the SDK implementation, whose
+/// string writer does not expose this optimization.
+int writeWampFlatBufferString(fb.Builder builder, String value) {
+  if (builder case final ByteViewFlatBufferBuilder byteViewBuilder) {
+    return byteViewBuilder.writeString(value, asciiOptimization: true);
+  }
+  return builder.writeString(value);
+}
+
 class _VTable {
   static const int _metadataLength = 4;
 

@@ -6,6 +6,50 @@ import 'package:connectanum_core/src/serializer/flatbuffers/cbor_encoding.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart';
 
 void main() {
+  test('scalar arrays preserve CBOR count headers and exact byte budgets', () {
+    for (final count in [0, 1, 23, 24, 25, 31, 32, 47, 48]) {
+      final value = List<int>.filled(count, 0);
+      final expected = cbor.encode(CborValue(value));
+      final actual = encodeWampFlatBufferCbor(
+        value,
+        maximumBytes: expected.length,
+      );
+      expect(actual, orderedEquals(expected), reason: 'count=$count');
+      validateFlatBufferCbor(actual, rootMajor: 4);
+      expect(
+        () => encodeWampFlatBufferCbor(
+          value,
+          maximumBytes: expected.length - 1,
+        ),
+        throwsArgumentError,
+        reason: 'count=$count',
+      );
+    }
+  });
+
+  test('ASCII scalar arrays preserve CBOR string header boundaries', () {
+    for (final length in [0, 1, 23, 24, 255, 256]) {
+      final value = ['a' * length];
+      expect(
+        encodeWampFlatBufferCbor(value),
+        orderedEquals(cbor.encode(CborValue(value))),
+      );
+    }
+  });
+
+  test('Unicode scalar arrays fall back after partial fast-path output', () {
+    for (final value in <List<String>>[
+      ['ascii', 'é'],
+      ['ascii', '🧪'],
+      ['e\u0301'],
+    ]) {
+      expect(
+        encodeWampFlatBufferCbor(value),
+        orderedEquals(cbor.encode(CborValue(value))),
+      );
+    }
+  });
+
   Uint8List encode(Map<String, dynamic> value, {int maximumBytes = 1048576}) =>
       encodeWampFlatBufferCbor(
         value,

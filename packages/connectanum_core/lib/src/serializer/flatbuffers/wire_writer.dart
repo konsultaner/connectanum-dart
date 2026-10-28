@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 import 'generated/wamp_wamp.proto_generated.dart' as wire;
+import 'byte_vector_builder.dart' show writeWampFlatBufferString;
 import 'generated/validation_schema.dart';
 import 'validation_types.dart';
 
@@ -183,7 +184,7 @@ class _Writer {
           values[slot] = integer(field, value);
         case FlatBufferFieldKind.string:
           if (value is! String) invalid();
-          values[slot] = builder.writeString(value);
+          values[slot] = writeWampFlatBufferString(builder, value);
         case FlatBufferFieldKind.table:
           values[slot] = table(field.reference, dictionary(value));
         case FlatBufferFieldKind.union:

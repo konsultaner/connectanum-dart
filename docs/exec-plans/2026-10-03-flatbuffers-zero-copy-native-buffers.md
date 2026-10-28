@@ -19,6 +19,28 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Scalar-string processing and CBOR count correction (2026-10-28)
+
+- [x] Confirm exact-source CI `40649318425` passes on `fed23eb6`.
+- [x] Audit strict primary `40635344416`: all 1,440 rows/48 cases complete,
+  no integrity findings, 229 numerical parity failures. Keep the unchanged
+  throughput, latency, CPU, allocation, GC and RSS gates.
+- [x] Audit supplemental `40635435979`: all 50 cases complete, no integrity
+  findings and 234 diagnostic performance findings. E2EE/transcode owned-copy
+  counters are present; dependency internals remain explicitly unmeasured.
+- [x] Remove the separate ASCII scan before writing scalar-array strings and
+  use the VM builder's existing ASCII string writer for WAMP routing fields.
+  Preserve normal Unicode encoding and the standard web builder.
+- [x] Reproduce invalid CBOR array headers for 24–47 scalar items before
+  changing behavior. Write the extended count header and include it in byte
+  budgets; verify count/string-header boundaries and partial ASCII fallback.
+  All 55 focused encoding/writer tests pass.
+- [ ] Complete full local `bin/verify` on this candidate.
+- [ ] Publish and run fresh exact-source CI and the hosted parity campaigns.
+- [ ] Resolve remaining performance failures before marking PR #132 ready,
+  closing #103 or completing the milestone. Passing copy accounting alone
+  does not establish performance acceptance.
+
 ## Hosted browser-coverage timeout correction (2026-10-28)
 
 - [x] Keep the core browser test suite and coverage policy unchanged while
@@ -28,7 +50,8 @@ reference.
   took 19m32s for 5,098 tests.
 - [x] Run shell syntax validation, `git diff --check`, `bin/test-fast` and
   full `bin/verify`; all pass on this working tree.
-- [ ] Complete hosted exact-head CI after this deadline correction.
+- [x] Complete hosted exact-head CI after this deadline correction:
+  `40649318425` passes on `fed23eb6`.
 - [ ] Preserve strict performance acceptance. The exact-source primary and
   E2EE/protocol benchmark campaigns are still running; the payload-size
   diagnostic alone showed strong 1-MiB results but unresolved 10–100-KiB

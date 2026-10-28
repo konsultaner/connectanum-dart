@@ -119,11 +119,11 @@ Uint8List? _tryEncodeScalarArray(Object? value, int maximumBytes) {
   final count = value.length;
   if (count > 47) return null;
   final items = List<Object?>.filled(count, null);
-  var length = 1;
+  var length = _metadataHeaderLength(count);
   for (var index = 0; index < count; index++) {
     final item = value[index];
     if (item is String) {
-      if (item.length > maximumBytes || !_metadataAscii(item)) return null;
+      if (item.length > maximumBytes) return null;
       length += _metadataHeaderLength(item.length) + item.length;
     } else if (item is int && item >= -4294967296 && item <= 4294967295) {
       length += _metadataHeaderLength(item < 0 ? -1 - item : item);
@@ -138,15 +138,14 @@ Uint8List? _tryEncodeScalarArray(Object? value, int maximumBytes) {
   if (length > maximumBytes) return null;
   final bytes = Uint8List(length);
   final data = ByteData.sublistView(bytes);
-  bytes[0] = 0x80 | items.length;
-  var position = 1;
+  var position = _writeScalarHeader(bytes, data, 0, 0x80, count);
   for (final item in items) {
     if (item is String) {
-      // As above, only the ASCII subset is written directly; all other strings
-      // fall back to the CBOR package's UTF-8 encoder.
       position = _writeScalarHeader(bytes, data, position, 0x60, item.length);
       for (var i = 0; i < item.length; i++) {
-        bytes[position++] = item.codeUnitAt(i);
+        final codeUnit = item.codeUnitAt(i);
+        if (codeUnit > 127) return null;
+        bytes[position++] = codeUnit;
       }
     } else if (item is int) {
       position = _writeScalarHeader(

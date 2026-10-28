@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
+import 'package:flat_buffers/flat_buffers.dart' as fb;
 import 'package:connectanum_core/src/serializer/flatbuffers/generated/wamp_wamp.proto_generated.dart'
     as wire;
 import 'package:connectanum_core/src/serializer/flatbuffers/runtime.dart'
@@ -58,6 +60,39 @@ void main() {
         vectorPointer + context.getUint32(vectorPointer, Endian.little);
     expect(vector, bytes.length - reference.offset);
     expect((wire.Message(bytes).msg as wire.Call).args, data);
+  });
+  test('ASCII-optimized routing strings preserve UTF-8 wire bytes', () {
+    for (final procedure in [
+      '',
+      'com.example.proc',
+      'a' * 24,
+      'com.\u0000\u007f',
+      'com.λ🧪',
+      'com.\uD800',
+      'com.\uDC00',
+    ]) {
+      final optimized = runtime.WampFlatBufferBuilder();
+      optimized.finish(
+        writeWampFlatBufferFields({
+          'msg_type': 'Call',
+          'msg': {'request': 42, 'procedure': procedure},
+        }, optimized),
+      );
+
+      final standard = fb.Builder();
+      standard.finish(
+        writeWampFlatBufferFields({
+          'msg_type': 'Call',
+          'msg': {'request': 42, 'procedure': procedure},
+        }, standard),
+      );
+
+      expect(optimized.buffer, standard.buffer);
+      expect(
+        (wire.Message(optimized.buffer).msg as wire.Call).procedure,
+        utf8.decode(utf8.encode(procedure)),
+      );
+    }
   });
   test('rejects references belonging to another builder before adoption', () {
     final source = runtime.WampFlatBufferBuilder();

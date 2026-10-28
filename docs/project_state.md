@@ -5,6 +5,29 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Current performance checkpoint (2026-10-28): hosted CI
+[`40649318425`](https://github.com/konsultaner/connectanum-dart/actions/runs/40649318425)
+passes on `fed23eb6`, including the corrected browser-coverage deadline.
+The preceding strict primary
+[`40635344416`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344416)
+completed all 1,440 rows/48 cases with no integrity findings, but failed 229
+numerical parity gates. Supplemental run
+[`40635435979`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635435979)
+completed its 50-case inventory with no integrity findings and 234 diagnostic
+performance findings. Its E2EE/transcode accounting covers Connectanum-owned
+boundaries; SDK/TLS/crypto internals remain explicitly unmeasured under the
+approved standard-SDK scope. Neither report establishes performance parity.
+
+The current candidate writes ASCII routing strings directly into the VM
+FlatBuffers builder and combines scalar-array ASCII validation with byte
+writing. Review also reproduced invalid CBOR array headers for 24–47 scalar
+items; the candidate now emits the required extended length header. The
+regression failed before the fix and passes afterward, including counts
+0/1/23/24/25/31/32/47/48, exact byte budgets, Unicode fallback and string-header
+boundaries. The 55 focused writer/encoding tests pass. Full verification and
+fresh hosted performance evidence remain pending; PR #132 stays draft and
+issue #103 remains open.
+
 Browser coverage timeout correction (2026-10-28): exact-head CI
 [`40643065271`](https://github.com/konsultaner/connectanum-dart/actions/runs/40643065271)
 ran all 5,099 core browser tests but hit the hard 1,200-second command deadline
