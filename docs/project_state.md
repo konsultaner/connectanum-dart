@@ -5,6 +5,23 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Typed PPT routing follow-up (2026-10-28): the first full verification of
+`647517fa` reproduced MessagePack fallback failures for opaque INVOCATION/EVENT
+messages with custom metadata. That fallback wrote a bare binary value where
+the native MessagePack reader requires an argument array. Reuse the existing
+non-mutating list view already used for JSON. All 122 live PPT/router cases now
+pass, including mixed codecs, custom metadata, encryption and progressive/error
+paths. Direct payload storage can occupy its whole backing allocation; the
+retention test now accepts that layout and still checks read-only contents after
+closing the messages and sessions. Full local verification is rerunning.
+
+CI `40691714408` and copy proof `40691723293` on the superseded candidate were
+canceled after reproducing the routing failure. Retain paired diagnostic
+`40691719068` and CPU profile `40691881742` as diagnostic observations only;
+they cannot establish acceptance for the follow-up source. A public generated-
+list construction probe is about four times slower at 64 KiB than the existing
+typed staging path, so no generator API is being added on that basis.
+
 Typed PPT envelope candidate (2026-10-28): full local `bin/verify` and hosted
 owned-copy proof `40679548417` pass on `9204be2c`. Diagnostic `40679544893`
 completes all 90 rows without integrity findings. All seven numerical metrics

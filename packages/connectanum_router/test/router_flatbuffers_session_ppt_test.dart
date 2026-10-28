@@ -405,8 +405,10 @@ void main() {
             expect(retainedBody, orderedEquals(application));
             expect(
               retainedBody!.buffer.lengthInBytes,
-              greaterThan(application.length),
-              reason: 'opaque body retains its original encoded allocation',
+              greaterThanOrEqualTo(application.length),
+              reason:
+                  'opaque body retains its allocation, which can be an '
+                  'entire direct payload rather than a wrapped subview',
             );
             expect(() => retainedBody![0] = 0, throwsUnsupportedError);
             await callee.close();

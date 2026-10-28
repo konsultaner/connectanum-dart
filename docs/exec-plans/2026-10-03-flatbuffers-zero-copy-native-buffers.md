@@ -21,6 +21,18 @@ reference.
 
 ## Typed PPT envelope alignment (2026-10-28)
 
+- [x] Reproduce mixed MessagePack custom-metadata routing failures during full
+  verification of `647517fa`. Its fallback emits bare binary arguments; reuse
+  the existing JSON singleton list view for MessagePack without mutating the
+  source message or owner. All 122 live PPT/router cases pass after the fix.
+- [x] Preserve the internal retention check for direct, full-allocation payloads
+  as well as wrapped subviews. Read-only contents survive message/session close.
+- [x] Cancel superseded CI `40691714408` and copy proof `40691723293`. Keep
+  diagnostic `40691719068` and profile `40691881742` as observations only, never
+  follow-up-source acceptance. Rerun full local verification with the routing fix.
+- [x] Measure the existing public generated-list construction option before
+  adding an API: at 64 KiB it is roughly four times slower than typed staging
+  under equal builder capacity. Do not add a generator API based on this probe.
 - [x] Pass frozen-source full `bin/verify` on `9204be2c` and production owned-copy
   proof `40679548417`. Prior-source CI `40674226241` passes; current CI
   `40679539974` remains pending without reported failures.

@@ -237,11 +237,11 @@ Uint8List encodeMessage(
     case NativeMessageSerializer.json:
       return OwnedCopyMetrics.copyBytes(
         utf8.encode(
-          _jsonSerializer.serializeToString(_jsonPayloadView(message)),
+          _jsonSerializer.serializeToString(_listPayloadView(message)),
         ),
       );
     case NativeMessageSerializer.messagePack:
-      return _msgpackSerializer.serialize(message);
+      return _msgpackSerializer.serialize(_listPayloadView(message));
     case NativeMessageSerializer.cbor:
       return _cborSerializer.serialize(message);
     case NativeMessageSerializer.flatbuffers:
@@ -254,7 +254,7 @@ Uint8List encodeMessage(
 // FlatBuffers has an opaque payload column. List-based WAMP encodings put
 // that same body in one Arguments element. Keep the original message and owner
 // intact for fan-out, and let the JSON serializer perform its binary conversion.
-AbstractMessage _jsonPayloadView(AbstractMessage message) {
+AbstractMessage _listPayloadView(AbstractMessage message) {
   if (message is! AbstractMessageWithPayload ||
       message.transparentBinaryPayload == null) {
     return message;
@@ -303,7 +303,7 @@ AbstractMessage _jsonPayloadView(AbstractMessage message) {
       arguments: arguments,
     ),
     _ => throw UnsupportedError(
-      'Opaque JSON payload for message code ${message.id}',
+      'Opaque list payload for message code ${message.id}',
     ),
   };
   view.retainLazyPayload(view.toLazyPayload(anchor: message));
