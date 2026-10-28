@@ -48,6 +48,7 @@ check delivery only. The 64 KiB CPU row missed its gate on this runner.
 | Hosted run and CPU | WS 5 rate × | WS 3.1.1 rate × | TCP 3.1.1 rate × | 64 KiB CPU × | Gate |
 | --- | ---: | ---: | ---: | ---: | --- |
 | Required limit | ≥0.700 | ≥0.700 | ≥0.750 | ≤4.000 | — |
+| [Same-code repeat `84b22de8`](https://github.com/konsultaner/connectanum-dart/actions/runs/40728294139/job/122957384343), EPYC 9V74 | 0.760 | 0.760 | 1.045 | 3.375 | Pass |
 | [Measured `2dea8b8e`](https://github.com/konsultaner/connectanum-dart/actions/runs/40723591569/job/122941052743), Xeon 8370C | 0.861 | 0.874 | 0.871 | 4.200 | Fail (64 KiB CPU) |
 | [Prior `055e5739`](https://github.com/konsultaner/connectanum-dart/actions/runs/40720148060/job/122929058502), EPYC 9V74 | 0.751 | 0.748 | 0.974 | 3.190 | Pass |
 | [Prior `780145ec`](https://github.com/konsultaner/connectanum-dart/actions/runs/40712686931/job/122903873214), EPYC 9V45 | 0.845 | 0.839 | 1.032 | 3.333 | Fail (WSS p99) |
@@ -59,9 +60,10 @@ check delivery only. The 64 KiB CPU row missed its gate on this runner.
 | [Earlier run](https://github.com/konsultaner/connectanum-dart/actions/runs/39411135727), Intel Xeon 6973P-C | — | — | — | 5.000 | Fail |
 | [Earlier run](https://github.com/konsultaner/connectanum-dart/actions/runs/38816345739/job/116703874967), Intel Xeon 8573C | — | — | — | 4.294 | Fail |
 
-The [raw results](../../docs/benchmarks/mqtt-hosted-pr128-2dea8b8e.json)
+The [Intel results](../../docs/benchmarks/mqtt-hosted-pr128-2dea8b8e.json)
+and [same-code AMD repeat](../../docs/benchmarks/mqtt-hosted-pr128-84b22de8.json)
 include every sample, workload setting, limit, and runner detail. The
-[prior passing AMD run](../../docs/benchmarks/mqtt-hosted-pr128-055e5739.json),
+[earlier passing AMD run](../../docs/benchmarks/mqtt-hosted-pr128-055e5739.json),
 [WSS latency regression](../../docs/benchmarks/mqtt-hosted-pr128-780145ec.json)
 and an [earlier passing AMD snapshot](../../docs/benchmarks/mqtt-hosted-amd-fccc7566.json)
 are available for comparison. These results describe this measured run; QoS 0

@@ -32,6 +32,12 @@ MQTT_BENCHMARK_REPORT = (
     / "benchmarks"
     / "mqtt-hosted-pr128-2dea8b8e.json"
 )
+MQTT_BENCHMARK_REPEAT = (
+    REPO_ROOT
+    / "docs"
+    / "benchmarks"
+    / "mqtt-hosted-pr128-84b22de8.json"
+)
 WAMP_BENCHMARK_SUMMARY = (
     REPO_ROOT
     / "docs"
@@ -156,6 +162,46 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 else ("Pass" if summary["passed"] else "**Fail**"),
             )
         self.assertIn("mqtt-hosted-pr128-2dea8b8e.json", mqtt_table)
+        repeat = json.loads(MQTT_BENCHMARK_REPEAT.read_text(encoding="utf-8"))
+        self.assertIn("mqtt-hosted-pr128-84b22de8.json", mqtt_table)
+        self.assertEqual(
+            repeat["totalRawRows"],
+            sum(len(profile["rawRows"]) for profile in repeat["profiles"]),
+        )
+        self.assertEqual(
+            repeat["totalExactDeliveries"],
+            sum(
+                row["received"]
+                for profile in repeat["profiles"]
+                for row in profile["rawRows"]
+            ),
+        )
+        self.assertTrue(all(profile["summary"]["passed"] for profile in repeat["profiles"]))
+        repeat_summaries = {
+            profile["name"]: profile["summary"] for profile in repeat["profiles"]
+        }
+        comparison_row = next(
+            row for row in mqtt_table.splitlines()
+            if row.startswith("| [Same-code repeat `84b22de8`]")
+        )
+        comparison_cells = [
+            cell.strip() for cell in comparison_row.strip("|").split("|")
+        ]
+        self.assertIn(
+            "EPYC 9V74",
+            repeat_summaries["native-64k-sustained"]["provenance"]["cpu_model"],
+        )
+        self.assertIn("EPYC 9V74", comparison_cells[0])
+        self.assertEqual(
+            comparison_cells[1:],
+            [
+                f'{repeat_summaries["native-ws-sustained"]["throughput_ratio"]:.3f}',
+                f'{repeat_summaries["native-ws-v311-sustained"]["throughput_ratio"]:.3f}',
+                f'{repeat_summaries["native-v311-sustained"]["throughput_ratio"]:.3f}',
+                f'{repeat_summaries["native-64k-sustained"]["broker_cpu_ratio"]:.3f}',
+                "Pass",
+            ],
+        )
         self.assertIn("mqtt-hosted-amd-fccc7566.json", mqtt_table)
         self.assertIn("Intel Xeon 6973P-C | — | — | — | 5.000 | Fail", mqtt_table)
         self.assertIn("| Required limit | ≥0.700 | ≥0.700 | ≥0.750 | ≤4.000 | — |", mqtt_table)
