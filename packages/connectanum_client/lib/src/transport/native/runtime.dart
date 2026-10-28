@@ -10,6 +10,10 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:connectanum_core/connectanum_core.dart'
     show AbstractMessageWithPayload;
+// Native FlatBuffers parsing already validates application CBOR spans.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
+    show rememberValidatedFlatBufferCborSpan;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 import 'package:connectanum_client/native_buffers.dart';
@@ -2124,6 +2128,9 @@ class NativeClientRuntime {
       }
       var info = infoPtr.ref;
       final serializer = NativeMessageSerializer.fromId(info.serializer);
+      // The Rust FlatBuffers parser validates these exact CBOR roots, including
+      // unique string keys in root keyword maps. Exported views retain the
+      // immutable StoredMessage owner, so their bytes cannot be recycled.
       if (serializer == NativeMessageSerializer.flatbuffers) {
         _messageBytes.requireFlatbuffersBinding();
       }
@@ -2143,6 +2150,18 @@ class NativeClientRuntime {
               borrowed: info.kwargsPtr,
               length: info.kwargsLen,
             );
+      if (serializer == NativeMessageSerializer.flatbuffers) {
+        if (args != null) {
+          rememberValidatedFlatBufferCborSpan(args, rootMajor: 4);
+        }
+        if (kwargs != null) {
+          rememberValidatedFlatBufferCborSpan(
+            kwargs,
+            rootMajor: 5,
+            rootStringDictionaryKeys: true,
+          );
+        }
+      }
       final metadata = _metadataFromFfi(info, handle, _messageBytes);
       var singleBinaryArgument =
           metadata.hasFlag(NativeMessageMetadata.flagTransparentPayload) ||

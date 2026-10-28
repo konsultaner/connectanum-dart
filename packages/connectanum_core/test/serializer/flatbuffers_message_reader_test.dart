@@ -37,6 +37,27 @@ Uint8List frameWithDictionary(
 
 void main() {
   _profileReaderCases();
+  test('mutable Dart input does not retain reusable validation evidence', () {
+    final source = codec.serialize(
+      Call(
+        1,
+        'com.example.echo',
+        arguments: [1, 'value'],
+        argumentsKeywords: {'enabled': true},
+      ),
+    );
+    final message = codec.deserialize(source) as Call;
+    final payload = message.toLazyPayload();
+    final arguments = payload.argumentsBytes!;
+    final keywords = payload.argumentsKeywordsBytes!;
+
+    // The public Dart reader borrows from caller-owned, potentially mutable
+    // input, so these spans must be validated again before a later write.
+    arguments[0] = 0x81;
+    expect(message.toLazyPayload().argumentsBytes!.first, 0x81);
+    expect(() => codec.serialize(message), throwsFormatException);
+    expect(keywords, isNotEmpty);
+  });
   test(
     'mutable ERROR metadata stays independent across decodes and lazy payload access',
     () {

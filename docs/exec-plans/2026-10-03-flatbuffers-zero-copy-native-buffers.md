@@ -167,12 +167,19 @@ acceptance budget has been changed.
 - [x] Reuse already-typed Dart metadata maps in message projection while
   retaining the detached-map fallback for other map types. Call sites only
   read the projected dictionary or snapshot it before retention.
-- [x] Pass focused serializer tests, `bin/test-fast`, full `bin/verify`,
-  formatting and `git diff --check`. Full verification includes Rust/native,
-  live WAMP, E2EE/copy-accounting, Chrome/Dart2Wasm and consumer checks.
+- [x] Reuse native Rust CBOR validation for the exact immutable argument and
+  keyword spans exported from retained `StoredMessage` owners. The cache is
+  keyed by byte-view identity and CBOR root policy; the decoder validates on a
+  cache miss, and the public Dart frame reader never caches caller-mutable
+  input. Tests cover untrusted spans, argument/keyword roots, root-key policy
+  and a mutable-Dart-input writer regression.
+- [x] Pass focused VM and Chrome/Dart2Wasm regressions, `bin/test-fast`, full
+  `bin/verify`, formatting and `git diff --check`. Full verification includes
+  Rust/native, live WAMP, E2EE/copy-accounting and consumer checks.
 - [ ] Commit and push, then run exact-head CI, production E2EE/transcode/native
-  copy accounting, strict primary parity and all supplemental workloads.
-  Existing hosted runs on `4f630715` and earlier do not validate this tree.
+  copy proof, hosted profiling, strict primary parity and every supplemental
+  workload. The still-running strict job `40609839226` measures predecessor
+  `ab09d134`, not this candidate.
 - [ ] Keep PR #132 draft and issue #103 open until the unchanged strict parity
   gates pass and complete Connectanum-owned copy accounting is reported.
 

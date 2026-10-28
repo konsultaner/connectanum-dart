@@ -10,12 +10,157 @@ import 'package:connectanum_client/src/transport/native/message_binding.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
+    show rememberValidatedFlatBufferCborSpan, validateFlatBufferCbor;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  test('untrusted native FlatBuffers argument bytes still get validated', () {
+    final message =
+        bindSessionMessage(
+              NativeMessageSerializer.flatbuffers,
+              Uint8List(0),
+              argsBytes: Uint8List.fromList([0x81]),
+              metadata: _metadata(
+                messageCode: MessageTypes.codeResult,
+                primaryId: 1,
+                flags: NativeMessageMetadata.flagDirectBind,
+              ),
+            )
+            as AbstractMessageWithPayload;
+
+    expect(() => message.arguments, throwsFormatException);
+  });
+
+  test('untrusted native FlatBuffers keyword bytes still get validated', () {
+    final message =
+        bindSessionMessage(
+              NativeMessageSerializer.flatbuffers,
+              Uint8List(0),
+              kwargsBytes: Uint8List.fromList([0x81]),
+              metadata: _metadata(
+                messageCode: MessageTypes.codeResult,
+                primaryId: 1,
+                flags: NativeMessageMetadata.flagDirectBind,
+              ),
+            )
+            as AbstractMessageWithPayload;
+
+    expect(() => message.argumentsKeywords, throwsFormatException);
+  });
+
+  test(
+    'validated native FlatBuffers argument span decodes with same values',
+    () {
+      final args = Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue([1, 'value'])),
+      );
+      validateFlatBufferCbor(args, rootMajor: 4);
+      rememberValidatedFlatBufferCborSpan(args, rootMajor: 4);
+      final message =
+          bindSessionMessage(
+                NativeMessageSerializer.flatbuffers,
+                Uint8List(0),
+                argsBytes: args,
+                metadata: _metadata(
+                  messageCode: MessageTypes.codeResult,
+                  primaryId: 1,
+                  flags: NativeMessageMetadata.flagDirectBind,
+                ),
+              )
+              as AbstractMessageWithPayload;
+
+      expect(message.arguments, [1, 'value']);
+    },
+  );
+
+  test(
+    'validated native FlatBuffers keyword span decodes with same values',
+    () {
+      final kwargs = Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue({'enabled': true})),
+      );
+      validateFlatBufferCbor(
+        kwargs,
+        rootMajor: 5,
+        rootStringDictionaryKeys: true,
+      );
+      rememberValidatedFlatBufferCborSpan(
+        kwargs,
+        rootMajor: 5,
+        rootStringDictionaryKeys: true,
+      );
+      final message =
+          bindSessionMessage(
+                NativeMessageSerializer.flatbuffers,
+                Uint8List(0),
+                kwargsBytes: kwargs,
+                metadata: _metadata(
+                  messageCode: MessageTypes.codeResult,
+                  primaryId: 1,
+                  flags: NativeMessageMetadata.flagDirectBind,
+                ),
+              )
+              as AbstractMessageWithPayload;
+
+      expect(message.argumentsKeywords, {'enabled': true});
+    },
+  );
+
+  test('FlatBuffers validation evidence is bound to its application root', () {
+    final map = Uint8List.fromList(
+      cbor.cbor.encode(cbor.CborValue({'enabled': true})),
+    );
+    validateFlatBufferCbor(
+      map,
+      rootMajor: 5,
+      rootStringDictionaryKeys: true,
+    );
+    rememberValidatedFlatBufferCborSpan(
+      map,
+      rootMajor: 5,
+      rootStringDictionaryKeys: true,
+    );
+    final message =
+        bindSessionMessage(
+              NativeMessageSerializer.flatbuffers,
+              Uint8List(0),
+              argsBytes: map,
+              metadata: _metadata(
+                messageCode: MessageTypes.codeResult,
+                primaryId: 1,
+                flags: NativeMessageMetadata.flagDirectBind,
+              ),
+            )
+            as AbstractMessageWithPayload;
+
+    expect(() => message.arguments, throwsFormatException);
+  });
+
+  test('FlatBuffers keyword evidence must include string-key validation', () {
+    final kwargs = Uint8List.fromList([0xa1, 0x01, 0x02]);
+    validateFlatBufferCbor(kwargs, rootMajor: 5);
+    rememberValidatedFlatBufferCborSpan(kwargs, rootMajor: 5);
+    final message =
+        bindSessionMessage(
+              NativeMessageSerializer.flatbuffers,
+              Uint8List(0),
+              kwargsBytes: kwargs,
+              metadata: _metadata(
+                messageCode: MessageTypes.codeResult,
+                primaryId: 1,
+                flags: NativeMessageMetadata.flagDirectBind,
+              ),
+            )
+            as AbstractMessageWithPayload;
+
+    expect(() => message.argumentsKeywords, throwsFormatException);
+  });
+
   for (final serializer in [
     NativeMessageSerializer.cbor,
     NativeMessageSerializer.flatbuffers,

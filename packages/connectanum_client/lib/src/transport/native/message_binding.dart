@@ -12,7 +12,10 @@ import 'package:connectanum_core/json_serializer.dart' show decodeBase64Bytes;
 import 'package:connectanum_core/src/message/binary_ppt_payload_view.dart';
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
-    show validateFlatBufferCbor;
+    show isValidatedFlatBufferCborSpan, validateFlatBufferCbor;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/message_reader.dart'
+    show decodeValidatedWampFlatBufferApplication;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'message_protocol.dart';
@@ -822,7 +825,12 @@ Map<String, dynamic>? _decodeOptionalMapFragment(
   if (serializer == NativeMessageSerializer.flatbuffers) {
     return flatbuffers.Serializer().deserializeMetadata(bytes);
   }
-  final decoded = _decodeFragment(serializer, bytes);
+  final decoded = _decodeFragment(
+    serializer,
+    bytes,
+    rootMajor: 5,
+    rootStringDictionaryKeys: true,
+  );
   if (decoded == null) {
     return null;
   }
@@ -1076,7 +1084,12 @@ void _applyLazyPayload(
               final view = binaryPptArgumentView(encoding, fragment);
               if (view != null) {
                 if (serializer == NativeMessageSerializer.flatbuffers) {
-                  validateFlatBufferCbor(fragment);
+                  if (!isValidatedFlatBufferCborSpan(
+                    fragment,
+                    rootMajor: 4,
+                  )) {
+                    validateFlatBufferCbor(fragment, rootMajor: 4);
+                  }
                 }
                 return <dynamic>[view];
               }
@@ -1306,7 +1319,7 @@ List<dynamic> _decodeArgumentList(
   NativeMessageSerializer serializer,
   Uint8List bytes,
 ) {
-  final decoded = _decodeFragment(serializer, bytes);
+  final decoded = _decodeFragment(serializer, bytes, rootMajor: 4);
   if (decoded == null) {
     return <dynamic>[];
   }
@@ -1320,7 +1333,12 @@ Map<String, dynamic> _decodeKeywordMap(
   NativeMessageSerializer serializer,
   Uint8List bytes,
 ) {
-  final decoded = _decodeFragment(serializer, bytes);
+  final decoded = _decodeFragment(
+    serializer,
+    bytes,
+    rootMajor: 5,
+    rootStringDictionaryKeys: true,
+  );
   if (decoded == null) {
     return <String, dynamic>{};
   }
@@ -1330,7 +1348,12 @@ Map<String, dynamic> _decodeKeywordMap(
   throw ArgumentError('Expected keyword arguments map but got $decoded');
 }
 
-Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
+Object? _decodeFragment(
+  NativeMessageSerializer serializer,
+  Uint8List bytes, {
+  required int rootMajor,
+  bool rootStringDictionaryKeys = false,
+}) {
   switch (serializer) {
     case NativeMessageSerializer.json:
       return _normalizeJsonBinaryPayload(jsonDecode(utf8.decode(bytes)));
@@ -1339,7 +1362,11 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
     case NativeMessageSerializer.cbor:
       return cbor.cborDecode(bytes).toObject();
     case NativeMessageSerializer.flatbuffers:
-      return flatbuffers.Serializer().deserializeApplication(bytes);
+      return decodeValidatedWampFlatBufferApplication(
+        bytes,
+        rootMajor: rootMajor,
+        rootStringDictionaryKeys: rootStringDictionaryKeys,
+      );
     case NativeMessageSerializer.ubjson:
       throw UnsupportedError(
         'Serializer ${serializer.name} is not supported for payload decoding',

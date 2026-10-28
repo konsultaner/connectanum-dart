@@ -4,6 +4,41 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
 
+final _validatedCborSpans = Expando<_ValidatedCborSpan>();
+
+class _ValidatedCborSpan {
+  const _ValidatedCborSpan(this.rootMajor, this.rootStringDictionaryKeys);
+
+  final int rootMajor;
+  final bool rootStringDictionaryKeys;
+}
+
+/// Records a CBOR application span already checked by a native FlatBuffers
+/// reader. Only use this for immutable borrowed bytes whose owner keeps the
+/// exact validated span unchanged for its full lifetime.
+void rememberValidatedFlatBufferCborSpan(
+  Uint8List bytes, {
+  required int rootMajor,
+  bool rootStringDictionaryKeys = false,
+}) {
+  _validatedCborSpans[bytes] = _ValidatedCborSpan(
+    rootMajor,
+    rootStringDictionaryKeys,
+  );
+}
+
+/// Whether this exact borrowed application span was validated for this root.
+/// Copies and unrelated lazy CBOR inputs do not inherit validation evidence.
+bool isValidatedFlatBufferCborSpan(
+  Uint8List bytes, {
+  required int rootMajor,
+  bool rootStringDictionaryKeys = false,
+}) {
+  final validated = _validatedCborSpans[bytes];
+  return validated?.rootMajor == rootMajor &&
+      validated?.rootStringDictionaryKeys == rootStringDictionaryKeys;
+}
+
 class FlatBufferCborLimits {
   const FlatBufferCborLimits({
     this.maxBytes = 67108864,

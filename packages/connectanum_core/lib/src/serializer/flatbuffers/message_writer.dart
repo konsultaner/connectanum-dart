@@ -149,16 +149,24 @@ Map<String, Object?> prepareWampFlatBufferMessage(
   }
   if (validateArguments) {
     if (body['args'] case final Uint8List args) {
-      validateFlatBufferCbor(args, rootMajor: 4);
+      if (!isValidatedFlatBufferCborSpan(args, rootMajor: 4)) {
+        validateFlatBufferCbor(args, rootMajor: 4);
+      }
     }
   }
   if (validateKeywords) {
     if (body['kwargs'] case final Uint8List kwargs) {
-      validateFlatBufferCbor(
+      if (!isValidatedFlatBufferCborSpan(
         kwargs,
         rootMajor: 5,
         rootStringDictionaryKeys: true,
-      );
+      )) {
+        validateFlatBufferCbor(
+          kwargs,
+          rootMajor: 5,
+          rootStringDictionaryKeys: true,
+        );
+      }
     }
   }
   return fields;

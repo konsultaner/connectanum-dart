@@ -247,6 +247,28 @@ Object? decodeWampFlatBufferApplication(Uint8List bytes) {
   return _decodeApplication(bytes);
 }
 
+/// Decode application CBOR after an enclosing native reader may have
+/// validated this exact immutable span. Untrusted or unmarked spans are
+/// validated here before decoding.
+Object? decodeValidatedWampFlatBufferApplication(
+  Uint8List bytes, {
+  required int rootMajor,
+  bool rootStringDictionaryKeys = false,
+}) {
+  if (!isValidatedFlatBufferCborSpan(
+    bytes,
+    rootMajor: rootMajor,
+    rootStringDictionaryKeys: rootStringDictionaryKeys,
+  )) {
+    validateFlatBufferCbor(
+      bytes,
+      rootMajor: rootMajor,
+      rootStringDictionaryKeys: rootStringDictionaryKeys,
+    );
+  }
+  return _decodeApplication(bytes);
+}
+
 Object? _decodeApplication(Uint8List bytes) {
   try {
     return _applicationValue(cbor.decode(bytes));
