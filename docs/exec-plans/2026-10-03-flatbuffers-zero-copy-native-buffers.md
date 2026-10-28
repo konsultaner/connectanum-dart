@@ -19,6 +19,39 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Typed PPT envelope alignment (2026-10-28)
+
+- [x] Pass frozen-source full `bin/verify` on `9204be2c` and production owned-copy
+  proof `40679548417`. Prior-source CI `40674226241` passes; current CI
+  `40679539974` remains pending without reported failures.
+- [x] Audit 90-row diagnostic `40679544893`: all seven numerical metrics pass
+  for pre-encoded native spans; eight fail across Dart values/native buffers.
+  No integrity findings; diagnostic ineligibility remains explicit.
+- [x] Inspect fresh-process memory attribution `40679553230` and the preceding
+  post-GC heap profiles. Distinguish used heap from cached VM pages; do not
+  remove allocation owners or redesign schema retention without stronger proof.
+- [x] Reproduce live FlatBuffers body offsets: 202 for ordinary Dart values,
+  40 for native-buffer and pre-encoded spans. This short private macOS layout
+  probe is diagnostic only and never acceptance evidence.
+- [x] Reproduce the missing opaque vector for ordinary typed PPT wrappers.
+  Promote one `Uint8List` with effective custom FlatBuffers PPT metadata into
+  the existing opaque field. Preserve encoded args/kwargs, other serializers,
+  encrypted `wamp` and cipher/key paths. Read current wrappers rather than
+  caching byte identity across mutation.
+- [x] Pass 143 writer/fragment tests, 299 Session/PPT/key-selection tests and
+  targeted analysis. Test seven message types, empty/read-only/subview buffers,
+  mutable wrapper edits and effective-metadata guards.
+- [x] Preserve read-only opaque views without copying. Keep a legacy wrapped
+  fixture alongside the direct layout and explicitly decode both. Pass the
+  final 155 combined fragment/retention/Session tests and targeted analysis.
+  Local review's proposed kwargs regression does not reproduce: the helper's
+  optional kwargs default is null, while explicit/lazy kwargs have separate
+  passing guard tests. Other argument shapes continue to use CBOR.
+- [ ] Finish full verification, then rerun exact-source CI,
+  owned-copy proof and the three-case paired diagnostic.
+- [ ] Run and pass the unchanged full primary gates and supplemental accounting
+  before closing #103, the milestone or the PR's draft state.
+
 ## Aligned typed payload reads (2026-10-28)
 
 - [x] Pass full local `bin/verify` on `3950a6b1`, owned-copy proof

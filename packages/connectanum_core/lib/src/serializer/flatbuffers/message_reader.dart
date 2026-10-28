@@ -165,7 +165,8 @@ AbstractMessage _readMessage(
   if (message is AbstractMessageWithPayload) {
     message.restoreLazyPayload(
       LazyMessagePayload.encoded(
-        transparentBinaryPayload: fields['payload'] as Uint8List?,
+        transparentBinaryPayload: (fields['payload'] as Uint8List?)
+            ?.asUnmodifiableView(),
         encoding: LazyPayloadEncoding.cbor,
         argumentsBytes: fields['args'] as Uint8List?,
         argumentsKeywordsBytes: fields['kwargs'] as Uint8List?,

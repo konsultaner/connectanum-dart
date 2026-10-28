@@ -5,6 +5,34 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Typed PPT envelope candidate (2026-10-28): full local `bin/verify` and hosted
+owned-copy proof `40679548417` pass on `9204be2c`. Diagnostic `40679544893`
+completes all 90 rows without integrity findings. All seven numerical metrics
+pass for pre-encoded native spans; eight numerical failures remain across the
+Dart-values and native-buffer cases. This diagnostic cannot establish milestone
+acceptance. Hosted CI `40679539974` remains pending without reported failures;
+the preceding `3950a6b1` CI `40674226241` passes.
+
+A private short live layout probe finds the ordinary Dart FlatBuffers body at
+offset 202, versus offset 40 for native-buffer/pre-encoded paths. Session's
+ordinary custom PPT wrapper is being encoded again as a CBOR array/byte string.
+The next candidate writes exactly one typed FlatBuffers PPT byte buffer directly
+into the existing opaque payload field. It checks the effective metadata and
+current wrapper, preserves explicit/lazy kwargs and encoded arguments, and
+excludes encrypted `wamp`, cipher/key metadata and other serializers. Tests first
+reproduce the missing opaque vector, then pass across all seven payload message
+types, empty/read-only/subview buffers and mutable wrappers. The existing
+effective-metadata guard cases remain covered. The opaque reader exposes a
+read-only view without copying, matching the previous typed PPT view's protection;
+both legacy wrapped frames and direct frames retain their storage. All 155
+combined fragment/retention/Session tests pass. Full verification and exact-source
+hosted measurements for this candidate are pending; #103 remains open.
+
+Fresh-process memory diagnostic `40679553230` is attribution only: FlatBuffers
+has fewer live worker heap bytes but more cached VM pages and higher router
+memory. Post-GC retained-heap differences are small. No retained-owner or schema
+loading redesign is justified by this evidence.
+
 Aligned payload-reader candidate (2026-10-28): all three throughput point gates
 pass in the 90-row diagnostic
 [`40674230759`](https://github.com/konsultaner/connectanum-dart/actions/runs/40674230759)

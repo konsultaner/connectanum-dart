@@ -397,6 +397,45 @@ void main() {
     ),
   };
   for (final entry in payloadFactories.entries) {
+    for (final length in [0, 1, 65536]) {
+      test('${entry.key} retains wrapped typed PPT bytes $length', () {
+        final backing = Uint8List(length + 16);
+        final bytes = Uint8List.sublistView(
+          backing,
+          8,
+          8 + length,
+        ).asUnmodifiableView();
+        final message = entry.value(true)..arguments = [bytes];
+        final fields = prepareWampFlatBufferMessage(message);
+        final body = fields['msg'] as Map<String, Object?>;
+        expect(body['payload'], same(bytes));
+        expect(body['args'], isNull);
+        expect(body['kwargs'], isNull);
+
+        final fragments = codec.serializeFragments(message)!;
+        expect(fragments, hasLength(2));
+        expect(fragments.last, same(bytes));
+        expect(fragments.first.length % 8, 0);
+        for (final encoded in [join(fragments), codec.serialize(message)]) {
+          validateWampFlatBuffer(encoded);
+          final decoded =
+              codec.deserialize(encoded) as AbstractMessageWithPayload;
+          expect(decoded.transparentBinaryPayload, bytes);
+          expect(codec.metadataFor(decoded), codec.metadataFor(message));
+        }
+
+        // Inspect the current mutable wrapper, never a cached byte identity.
+        final wrapper = message.wireArguments!;
+        wrapper[0] = Uint8List.fromList([9, 7]);
+        expect(
+          codec.serializeFragments(message)!.last,
+          same(wrapper.single),
+        );
+        message.argumentsKeywords = {'extra': true};
+        final withKeywords = prepareWampFlatBufferMessage(message);
+        expect((withKeywords['msg'] as Map)['payload'], isNull);
+      });
+    }
     test(
       '${entry.key} keeps encoded args and kwargs without materialization',
       () {
@@ -503,7 +542,7 @@ void _typedBinaryFragmentCases() {
     arguments: [payload],
     argumentsKeywords: kwargs,
   );
-  test('typed PPT fragments retain bytes inside the unchanged CBOR vector', () {
+  test('typed PPT fragments retain bytes in the aligned opaque vector', () {
     for (final length in [0, 1, 23, 24, 255, 256, 65535, 65536, 65537]) {
       for (final offset in [0, 3]) {
         for (final readOnly in [false, true]) {
@@ -521,10 +560,11 @@ void _typedBinaryFragmentCases() {
           final encoded = join(fragments);
           validateWampFlatBuffer(encoded);
           final body = wire.Message(encoded).msg as wire.Call;
-          expect(body.args, cbor.encode(CborValue([payload])));
-          expect(body.payload, isNull);
+          expect(body.args, isNull);
+          expect(body.payload, payload);
+          expectCallVectorsAligned(encoded);
           expect(
-            (codec.deserialize(encoded) as Call).wireArguments!.single,
+            (codec.deserialize(encoded) as Call).transparentBinaryPayload,
             payload,
           );
         }
@@ -599,6 +639,25 @@ void _typedBinaryFragmentCases() {
     final lazyFragments = codec.serializeFragments(message)!;
     expect(lazyFragments.any((part) => identical(part, encodedArgs)), isTrue);
     expect(lazyFragments.any((part) => identical(part, encodedKwargs)), isTrue);
+  });
+  test('typed PPT promotion preserves other argument shapes as CBOR', () {
+    final bytes = Uint8List.fromList([1, 2]);
+    final codec = flatbuffers.Serializer();
+    for (final arguments in <List<dynamic>>[
+      [],
+      [bytes, bytes],
+      [
+        <int>[1, 2],
+      ],
+      [42],
+    ]) {
+      final message = call(bytes)..arguments = arguments;
+      final encoded = codec.serialize(message);
+      final body = wire.Message(encoded).msg as wire.Call;
+      expect(body.payload, isNull);
+      expect(body.args, cbor.encode(CborValue(arguments)));
+      expect((codec.deserialize(encoded) as Call).wireArguments, arguments);
+    }
   });
   test('typed PPT fragmentation keeps the existing byte budget', () {
     expect(

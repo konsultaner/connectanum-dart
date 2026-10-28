@@ -9,6 +9,47 @@ import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
 import 'package:test/test.dart';
 
 void main() {
+  for (final length in [0, 7, 65536]) {
+    test(
+      'ordinary typed PPT publish retains its original $length bytes',
+      () async {
+        final (peer, session) = await _start(_PayloadMode(null));
+        final storage = Uint8List(length + 3);
+        final bytes = Uint8List.sublistView(
+          storage,
+          3,
+        ).asUnmodifiableView();
+        await session.publish(
+          'app.topic',
+          arguments: [bytes],
+          options: PublishOptions(
+            pptScheme: 'x_app',
+            pptSerializer: 'flatbuffers',
+          ),
+        );
+        final publish = peer.sent.whereType<Publish>().single;
+        expect(publish.wireArguments!.single, same(bytes));
+        final fragments = peer.serializer.serializeFragments(publish)!;
+        expect(fragments, hasLength(2));
+        expect(fragments.last, same(bytes));
+        expect(fragments.first.length % 8, 0);
+        final builder = BytesBuilder(copy: false);
+        for (final fragment in fragments) {
+          builder.add(fragment);
+        }
+        final received =
+            peer.serializer.deserialize(builder.takeBytes()) as Publish;
+        expect(received.transparentBinaryPayload, bytes);
+        final application = unwrapLazyPayloadView(
+          received.toLazyPayload(),
+          pptScheme: received.options!.pptScheme,
+          pptSerializer: received.options!.pptSerializer,
+        );
+        expect(application.arguments, [bytes]);
+        expect(application.argumentsKeywords, isNull);
+      },
+    );
+  }
   for (final (name, normal, single)
       in <(String, void Function(), void Function())>[
         (

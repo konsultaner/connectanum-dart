@@ -85,6 +85,30 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       body['payload'] = payload;
       return fields;
     }
+    final scheme = projection.dictionary?['ppt_scheme'];
+    if (argumentsVector == null &&
+        argumentsKeywordsVector == null &&
+        !lazy.hasEncodedArguments &&
+        !lazy.hasEncodedArgumentsKeywords &&
+        scheme is String &&
+        scheme.isNotEmpty &&
+        scheme != 'wamp' &&
+        projection.dictionary?['ppt_serializer'] == 'flatbuffers' &&
+        projection.dictionary?['ppt_cipher'] == null &&
+        projection.dictionary?['ppt_keyid'] == null) {
+      final arguments = message.wireArguments;
+      if (arguments != null &&
+          arguments.length == 1 &&
+          arguments.single is Uint8List &&
+          message.wireArgumentsKeywords == null) {
+        // Session's ordinary PPT path supplies [encodedBytes]. The typed
+        // payload is already complete: retain it directly, without a CBOR
+        // array/byte-string prefix that would misalign its application data.
+        // Read the live wrapper so in-place edits cannot reuse stale bytes.
+        body['payload'] = arguments.single;
+        return fields;
+      }
+    }
     Map<String, dynamic>? wireKeywords;
     var readKeywords = false;
     if (argumentsVector != null) {

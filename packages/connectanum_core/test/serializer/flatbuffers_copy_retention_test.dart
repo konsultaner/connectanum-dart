@@ -457,29 +457,52 @@ void main() {
     b.finish(root);
     expect((wire.Message(b.buffer).msg as wire.Call).args, bytes);
   });
-  for (final ppt in [false, true]) {
-    test('public frame binary storage PPT=$ppt', () {
+  for (final (ppt, legacy) in [(false, false), (true, false), (true, true)]) {
+    test('public frame binary storage PPT=$ppt legacy=$legacy', () {
       final codec = flatbuffers.Serializer();
-      final source = codec.serialize(
-        wamp.Result(
-          1,
-          wamp.ResultDetails(
-            pptScheme: ppt ? 'x_bytes' : null,
-            pptSerializer: ppt ? 'flatbuffers' : null,
-            custom: {'custom': true},
-          ),
-          arguments: [
-            Uint8List.fromList([7, 8, 9]),
-          ],
+      final outgoing = wamp.Result(
+        1,
+        wamp.ResultDetails(
+          pptScheme: ppt ? 'x_bytes' : null,
+          pptSerializer: ppt ? 'flatbuffers' : null,
+          custom: {'custom': true},
         ),
+        arguments: [
+          Uint8List.fromList([7, 8, 9]),
+        ],
       );
+      final Uint8List source;
+      if (legacy) {
+        final fields = prepareWampFlatBufferMessage(outgoing);
+        final body = fields['msg'] as Map<String, Object?>;
+        body['args'] = encodeWampFlatBufferCbor([body.remove('payload')]);
+        final builder = flatbuffers.WampFlatBufferBuilder();
+        builder.finish(writeWampFlatBufferFields(fields, builder));
+        source = builder.buffer;
+      } else {
+        source = codec.serialize(outgoing);
+      }
       final message = codec.deserialize(source) as wamp.Result;
-      final bytes = message.wireArguments!.single as Uint8List;
+      final bytes = ppt && !legacy
+          ? message.transparentBinaryPayload!
+          : message.wireArguments!.single as Uint8List;
       expect(bytes, [7, 8, 9]);
       if (ppt) {
-        final args = message.debugEncodedArgumentsBytes!;
         expect(bytes.buffer.lengthInBytes, source.buffer.lengthInBytes);
-        expect(bytes.offsetInBytes, args.offsetInBytes + args.length - 3);
+        if (legacy) {
+          final args = message.debugEncodedArgumentsBytes!;
+          expect(bytes.offsetInBytes, args.offsetInBytes + args.length - 3);
+        } else {
+          expect(message.debugEncodedArgumentsBytes, isNull);
+          expect(bytes.offsetInBytes % 4, 0);
+        }
+        final decoded = wamp.decodeLazyPayloadView(
+          message.toLazyPayload(),
+          pptScheme: 'x_bytes',
+          pptSerializer: 'flatbuffers',
+        );
+        expect(decoded.arguments, [bytes]);
+        if (!legacy) expect(decoded.arguments!.single, same(bytes));
         expect(() => bytes[0] = 42, throwsUnsupportedError);
       } else {
         bytes[0] = 42;
