@@ -1,53 +1,72 @@
 # Project State
 
-Last updated: 2026-10-28.
+Last updated: 2026-10-29.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Latest completed verification checkpoint: `5f54fe7d` passes full `bin/verify`,
-including Rust, VM/native, live router/consumer and Chrome/WebAssembly. Copy
-proof `40774536906` passes 120 live / 300 inventory / 32 no-avoidable-copy
-checks with unchanged inputs and binaries; 96 live E2EE and 120 live transcode
-cases remain covered under the approved standard-SDK scope.
+Latest paired checkpoint: `3a825a76` completes 90 rows in diagnostic
+`40780577426`, reducing numerical findings from six to two. Throughput, CPU,
+allocation, GC, p95 and p99 pass for all three construction modes. Native-buffer
+passes every metric. Dart-values RSS remains 1.012515 (95% CI
+1.001365–1.018414); pre-encoded RSS remains 1.007746 (0.995263–1.017255).
+Diagnostic ineligibility is the sole other finding. Preserve all reports and
+unchanged gates; #103/milestone remain open and PR #132 remains draft.
 
-Paired diagnostic `40774531252` completes 90 rows with six numeric findings.
-Native-buffer passes all seven metrics (throughput 1.049983, CPU 0.970064,
-RSS 0.996422). Pre-encoded spans pass six metrics, missing RSS (1.016250).
-Dart values pass allocation and CPU, missing GC (1.045137), p95 (1.004196),
-p99 (1.032258), RSS (1.013950) and throughput (0.997372). Diagnostic
-ineligibility is the only other finding. Keep all reports and unchanged gates.
-#103 and the milestone stay open and PR #132 stays draft.
+Production copy proof `40780581127` passes on the same source: 120 live cases
+(96 E2EE, 120 transcode, 48 native crypto), 300 inventory rows and 32
+no-avoidable-payload-copy checks, with unchanged inputs and binaries. The
+approved standard-SDK scope and unmeasured dependency internals are unchanged.
 
-Hosted CI `40774541328` is running without a reported failure; preceding
-`40759920152` and `40748136642` are entirely green. Final-source full primary
-and supplemental acceptance remain required. CPU capture `40763175368` and
-fresh memory attribution `40763180032` informed the native reply change.
+Frozen `3a825a76` passes full `bin/verify` at exit 0, including Rust/FFI,
+client, benchmark/router/consumer and Chrome/WebAssembly. It also passes all
+2,830 benchmark cases, 119 focused schema/boundary/lifecycle tests, clean
+analysis, nine live HTTP pairs and 167 mutation proofs. Hosted CI
+`40780584962` is running without a reported failure; preceding `40774541328`
+is still running without a reported failure. Earlier complete
+`40759920152`/`40748136642` are green.
 
-The native reply checkpoint uses pinned generated Result/Message builders for
-exact two-string typed-PPT RESULT dictionaries, preserving complete CBOR,
+The candidate lazily projects retained samples at final standard JSON encoding,
+avoiding temporary named maps and private positional lists. Public mutable
+snapshots, all 13 fields, optional-null omission, explicit zero, wide integers,
+standard numeric spellings, worker negotiation and all observations are intact.
+Actual-source AOT components preserve all named/positional JSON bytes. Named
+response peak RSS falls 56.4–56.5 -> 43.8–43.9 MB; positional worker RSS falls
+28.4–28.8 -> 25.7 MB for 20,000 samples. These remain component evidence only.
+
+Fresh Dart-values memory/allocator attribution `40783409254` and all 50
+supplemental cases `40782047961` are queued on frozen `3a825a76`. Inspect actual
+memory buckets before another runtime change; do not force GC, trim allocators,
+change workloads/windows or waive the remaining RSS point failures. Final
+48-case primary and complete supplemental acceptance are still required.
+
+Local companions were blocked by an active mutation-resource lease at edit
+and initial review time. The lease has cleared: Qwen debug confirms the
+numeric-comparison failure; artifact inspection identifies the two RSS misses.
+Qwen review wrongly assumes public optional null fields must be present; the
+unchanged `WampSample.toJson` and all 256 nullable combinations disprove that
+premise and its derived containsKey/length claims. Five required non-null keys
+make `isEmpty == false` correct. The bounded GLM semantic review reaches its token limit and is incomplete;
+do not claim it passed.
+
+The next follow-up encodes worker responses directly with the standard SDK
+JsonUtf8Encoder, replacing JSON-string staging before stdout UTF-8 encoding.
+The same named/positional callback, all response fields, one LF terminator,
+flushes and error recovery are preserved. All 121 focused cases, clean analysis
+and nine live HTTP pairs pass. Exact Unicode (including a lone surrogate),
+wide integers, nulls, empty samples, nonfinite/unsupported values and cycles
+retain standard JSON behavior. An actual-source 20,000-record AOT control emits
+identical 1,180,013 bytes/hash and lowers peak RSS 28.15–28.16 -> 25.56 MB;
+encoding falls 12.47–13.63 -> 7.74–8.16 ms. These are component results only.
+Full local verification is running. New local test-planning/review attempts
+are again blocked by the active native-mutation resource lease.
+
+Native reply checkpoint `5f54fe7d` uses pinned generated Result/Message builders
+for exact two-string typed-PPT RESULT dictionaries, preserving complete CBOR,
 generic validation/fallback, conservative schema budgets and source ownership.
-Ten focused encoder regressions and full verification pass. The final GLM
-review reports no concrete findings. Component observations reduce allocator
-requests from 18/1,969 to 6/458 calls/bytes and preserve native/Dart decoding;
-these observations do not establish end-to-end performance acceptance.
-
-The next candidate lazily projects retained sample models only at final JSON
-encoding. Public named sample snapshots and mutable positional snapshots stay
-unchanged; the private positional_v1 worker path uses a read-only projection.
-All 13 fields, omitted nulls, explicit zero, wide integers, standard numeric
-spellings and error behavior remain covered. The 119 focused tests, clean
-analysis, all nine live HTTP codec/construction pairs and 167 mutation-proof
-checks pass. Full benchmark and `bin/verify` suites are running.
-
-The actual-source AOT HTTP component preserves all 7,000,013 JSON bytes and
-SHA-256 8c2657e54d10cdf069fb29410d0f32de6b5752cd7136051452cdba9152464882;
-20,000-sample peak RSS falls from 56.4–56.5 to 43.8–43.9 MB, with no reliable
-encoding-time change. Worker positional output preserves all 1,180,013 bytes
-and hash, reducing component peak RSS from 28.4–28.8 to 25.7 MB. These are
-component observations only; final-source paired measurements remain required.
-Local companion review/test planning is blocked by an active native-mutation
-resource lease. Do not claim those requests completed or bypass the lease.
+Ten focused encoder regressions and full verification pass. Its copy proof
+`40774536906` passes 120/300/32 inventories. Its six diagnostic failures remain
+retained; current `3a825a76` improves on that report without changing budgets.
 
 The shared HTTP change uses the standard SDK JsonUtf8Encoder directly
 instead of creating a JSON string, UTF-8 bytes and another Uint8List copy.

@@ -92,6 +92,70 @@ void main() {
       },
     );
 
+    test('worker UTF-8 preserves named, positional and error JSON bytes', () {
+      final sample = WampSample.fromJson(named);
+      for (final compact in [false, true]) {
+        final response = <String, Object?>{
+          if (compact) 'sample_encoding': WampSample.workerRecordEncoding,
+          'samples': [sample],
+          'extra': {'text': 'Unicode: 🪄 é \n \r \u0000 \ud800'},
+          'empty': [],
+          'absent': null,
+        };
+        final expected = utf8.encode(
+          jsonEncode(
+            response,
+            toEncodable: compact
+                ? (object) => (object as WampSample).toWorkerRecord()
+                : null,
+          ),
+        );
+        expect(
+          wampWorkerResponseJsonBytes(response, compactSamples: compact),
+          expected,
+        );
+      }
+      final error = {'error': 'bad request 🪄 \n \r \u0000'};
+      expect(
+        wampWorkerResponseJsonBytes(error),
+        utf8.encode(jsonEncode(error)),
+      );
+      expect(
+        wampWorkerResponseJsonBytes({'samples': []}, compactSamples: true),
+        utf8.encode('{"samples":[]}'),
+      );
+    });
+
+    test('worker UTF-8 preserves encoder failure and later recovery', () {
+      for (final compact in [false, true]) {
+        for (final invalid in [
+          double.nan,
+          double.infinity,
+          double.negativeInfinity,
+          Object(),
+        ]) {
+          expect(
+            () => wampWorkerResponseJsonBytes({
+              'invalid': invalid,
+            }, compactSamples: compact),
+            throwsA(isA<JsonUnsupportedObjectError>()),
+          );
+        }
+        final cycle = <Object?>[];
+        cycle.add(cycle);
+        expect(
+          () => wampWorkerResponseJsonBytes({
+            'cycle': cycle,
+          }, compactSamples: compact),
+          throwsA(isA<JsonCyclicError>()),
+        );
+        expect(
+          wampWorkerResponseJsonBytes({'ok': true}, compactSamples: compact),
+          utf8.encode('{"ok":true}'),
+        );
+      }
+    });
+
     test('record input and output cannot mutate a parsed sample', () {
       final row = List<Object?>.from(positional);
       final sample = WampSample.fromWorkerRecord(row);

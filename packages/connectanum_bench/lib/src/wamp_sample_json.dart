@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'wamp_workload_runner.dart';
 
@@ -11,6 +12,18 @@ Object wampSamplesForJsonEncoding(List<WampSample> samples) =>
 /// Public [WampSample.toWorkerRecord] still returns an independent mutable list.
 List<Object?> wampSampleWorkerRecordForJsonEncoding(WampSample sample) =>
     _SampleRecord(sample);
+
+/// Encode the unchanged worker JSON without staging a JSON string.
+/// The process writer appends the line terminator and flushes the response.
+List<int> wampWorkerResponseJsonBytes(
+  Map<String, Object?> response, {
+  bool compactSamples = false,
+}) => JsonUtf8Encoder(
+  null,
+  compactSamples
+      ? (object) => wampSampleWorkerRecordForJsonEncoding(object as WampSample)
+      : null,
+).convert(response);
 
 // Shared named/positional order. Boundary tests compare both projections with
 // the existing public snapshots, including all optional null/zero combinations.

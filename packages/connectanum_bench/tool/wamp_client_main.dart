@@ -182,8 +182,8 @@ Future<void> main(List<String> args) async {
           rawFrameMetricsBefore,
           nativeRuntime.rawFrameCopyMetricsSnapshot(),
         );
-        stdout.writeln(
-          jsonEncode(
+        stdout.add(
+          wampWorkerResponseJsonBytes(
             {
               // Private IPC avoids repeating field names for every observation.
               // The supervisor restores unchanged named fields in public reports.
@@ -240,19 +240,19 @@ Future<void> main(List<String> args) async {
                 'max_rss_bytes': ProcessInfo.maxRss,
               },
             },
-            toEncodable: compactSamples
-                ? (object) => wampSampleWorkerRecordForJsonEncoding(
-                    object as WampSample,
-                  )
-                : null,
+            compactSamples: compactSamples,
           ),
         );
+        stdout.add(const [10]);
         await stdout.flush();
       } catch (error, stackTrace) {
         Logger(
           'NativeWampWorker',
         ).warning('Failed to run WAMP workload', error, stackTrace);
-        stdout.writeln(jsonEncode({'error': _describeWorkerError(error)}));
+        stdout.add(
+          wampWorkerResponseJsonBytes({'error': _describeWorkerError(error)}),
+        );
+        stdout.add(const [10]);
         await stdout.flush();
       }
     }

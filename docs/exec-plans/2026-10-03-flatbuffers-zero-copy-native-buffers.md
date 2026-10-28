@@ -19,6 +19,24 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Direct worker JSON UTF-8 encoding (2026-10-29)
+
+- [x] Preserve `3a825a76` full `bin/verify` exit-0 checkpoint and its
+  120/300/32 production copy proof. Its two RSS failures remain blockers.
+- [x] Identify worker stdout JSON-string staging. Use the standard SDK UTF-8
+  encoder with the same named/positional projection; preserve every field,
+  byte, LF framing, flush and error response. No workload/window/SDK changes.
+- [x] Pass 121 focused boundary/lifecycle cases, clean analysis and all nine
+  live HTTP codec/construction pairs. Cover exact Unicode/surrogate, wide-int,
+  null/zero, empty, nonfinite/unsupported/cyclic and recovery behavior.
+- [x] Compare actual-source AOT components: identical 1,180,013 bytes/hash;
+  20,000-record peak RSS 28.15–28.16 -> 25.56 MB and encoding
+  12.47–13.63 -> 7.74–8.16 ms. Do not claim end-to-end acceptance.
+- [ ] Pass full verification, frozen-source paired/copy/CI evidence and final
+  primary/supplemental acceptance. Companion tests/review are again blocked by
+  the native-mutation resource lease; the prior GLM semantic review exhausted
+  its token limit and is not a completed review.
+
 ## Final sample JSON projection (2026-10-28)
 
 - [x] Verify `5f54fe7d` with full local `bin/verify`. Production copy proof
@@ -35,9 +53,23 @@ reference.
 - [x] Compare actual-source AOT components: identical named/positional JSON
   bytes; HTTP peak RSS 56.4–56.5 -> 43.8–43.9 MB and positional worker RSS
   28.4–28.8 -> 25.7 MB for 20,000 samples. Do not call this WAMP acceptance.
-- [ ] Complete full benchmark/local verification and final-source hosted CI,
-  copy proof and paired diagnostic. Local companion requests are blocked by
-  the active native-mutation resource lease; record that review limitation.
+- [x] Pass the complete 2,830-case benchmark suite and production copy proof
+  `40780581127` on `3a825a76`: 120 live / 300 inventory / 32 no-avoidable-copy
+  checks, unchanged inputs and binaries.
+- [x] Preserve paired diagnostic `40780577426`: 90 rows, only two RSS failures
+  (Dart values 1.012515; pre-encoded 1.007746); all other metrics pass and
+  native-buffer passes all seven. Diagnostic ineligibility is the only other
+  finding. Keep every previous failed report and original gate.
+- [x] Retry local companions after their resource lease clears. Qwen debug
+  confirms numeric-comparison failure. Its review's null-presence premise is
+  incorrect against the unchanged public snapshot and 256-combination test;
+  derived containsKey/length findings do not apply. GLM review is running with
+  that original contract supplied.
+- [x] Complete full local `bin/verify` on `3a825a76`, including consumer/browser.
+- [ ] Complete hosted CI on that source; no failure has been reported.
+- [ ] Inspect fresh frozen-source Dart-values memory/allocator attribution
+  `40783409254`; it and supplemental campaign `40782047961` are queued. Reduce
+  actual memory use without changing GC/allocator settings or measured windows.
 - [ ] Pass all 48 primary and 50 supplemental cases on final source before
   closing #103/milestone or marking PR #132 ready.
 
