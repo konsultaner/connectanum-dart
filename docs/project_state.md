@@ -5,6 +5,16 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Verification inventory repair (2026-10-28): the next full verification on
+`cb0c44aa` reproduces five assertions in the serializer mutation inventory test:
+the new matcher test is missing from four support lists and the shared suite.
+Add it to all four lists and the suite. All 87 verification-tool tests and all
+3,651 shared serializer-suite tests now pass. Extend metadata-edit regressions
+to newly introduced false/zero control fields after a simple-PPT read. Runtime
+files and proof IDs/hashes remain unchanged. Full verification is restarting.
+The companion lease clears: Qwen confirms the inventory cause; broader GLM/Qwen
+review requests reach their deadlines, so a narrower review is running.
+
 Verification follow-up (2026-10-28): `66282e65` local verify and hosted Fast
 Checks fail at the source-bound mutation-proof preflight. Revalidate the three
 unchanged mutations rather than bypassing the gate: a private seven-mutation

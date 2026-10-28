@@ -60,6 +60,17 @@ void main() {
               _ => throw StateError('unexpected details'),
             };
             custom['added'] = true;
+            final introduced = <String, Object?>{};
+            if (details is core.ResultDetails) {
+              details.progress = false;
+              introduced['progress'] = false;
+            } else if (details is core.EventDetails) {
+              details.publisher = 0;
+              introduced['publisher'] = 0;
+            } else if (details is core.InvocationDetails) {
+              details.timeout = 0;
+              introduced['timeout'] = 0;
+            }
             final forwarded = flatCodec.deserialize(
               flatCodec.serialize(received),
             )!;
@@ -67,6 +78,7 @@ void main() {
               ...dictionary,
               'ppt_scheme': 'x_changed',
               'added': true,
+              ...introduced,
             });
           }
         },

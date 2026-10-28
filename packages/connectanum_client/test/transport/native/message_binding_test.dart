@@ -75,6 +75,17 @@ void main() {
             _ => throw StateError('unexpected details'),
           };
           custom['added'] = 7;
+          final introduced = <String, Object?>{};
+          if (details is ResultDetails) {
+            details.progress = false;
+            introduced['progress'] = false;
+          } else if (details is EventDetails) {
+            details.publisher = 0;
+            introduced['publisher'] = 0;
+          } else if (details is InvocationDetails) {
+            details.timeout = 0;
+            introduced['timeout'] = 0;
+          }
           final roundTrip = serializer.deserialize(
             serializer.serialize(message),
           )!;
@@ -82,6 +93,7 @@ void main() {
             ...dictionary,
             'ppt_scheme': 'x_changed',
             'added': 7,
+            ...introduced,
           });
           if (extra.containsKey('extension')) {
             bytes.fillRange(0, bytes.length, 0);

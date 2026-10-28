@@ -19,6 +19,19 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
+## Serializer test inventory repair (2026-10-28)
+
+- [x] Reproduce the five missing-inventory assertions during full verification
+  on `cb0c44aa`. Register the new matcher test in all four CBOR/MessagePack
+  support lists and the shared serializer suite; do not omit it from testing.
+- [x] Pass all 87 verification-tool and all 3,651 shared serializer-suite tests.
+  Add regressions for false/zero control fields introduced after a simple PPT
+  read. Product runtime and source-bound mutation proofs remain unchanged.
+- [x] Obtain the now-reachable Qwen debugger's inventory diagnosis and verify it
+  against the failing assertions. Broad GLM review/Qwen test planning requests
+  time out; they do not count as completed review. A bounded review is pending.
+- [ ] Pass full local verification and replacement hosted CI.
+
 ## Source-bound mutation proof renewal (2026-10-28)
 
 - [x] Reproduce the `66282e65` local/hosted Fast Checks preflight failure. The
