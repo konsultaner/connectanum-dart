@@ -4225,3 +4225,30 @@ immediate initial arm/scan; generation/teardown synchronization is retained.
 Record the independent pre-existing cross-isolate legacy callback crash in
 research notes. Complete full verification before using hosted measurements as
 acceptance; keep all earlier reports and unchanged budgets.
+
+## Readiness verification and remaining memory findings (2026-10-28)
+
+Full `bin/test-fast` and `bin/verify` pass on `7a5bdc76`. Production copy proof
+`40736194337` passes 120 live cases, 300 inventory rows and 32 no-avoidable-copy
+gates with unchanged inputs/binaries. CPU capture `40737157961` passes.
+Diagnostic `40736188467` completes 90 rows with four numerical findings:
+Dart-values p99 and peak RSS in every case. All throughput, CPU, allocation, GC
+and p95 comparisons pass. Keep the eight-failure predecessor and every budget.
+General CI `40736889265` supersedes the partial repair-only run `40735216483`.
+Do not close #103/milestone or ready PR #132 before final acceptance.
+
+Native exported views already pass their length to the SDK's external-memory
+finalizer. Investigate fresh read-only memory/allocator capture `40740363467`
+rather than changing ownership speculatively. A separate shared benchmark
+optimization removes redundant sample-map staging without changing records,
+copy counters, timing windows or resources measured. Its 20,000-sample AOT
+component control emits identical JSON and reduces peak RSS about 3.2 MB;
+that component does not establish transport/RSS acceptance.
+
+The shared sample-staging change passes clean Dart analysis, all 118 focused
+worker/sample cases, all 2,807 benchmark-package cases (including live typed,
+encrypted and mixed-codec transports), and the 167-proof preflight. The two
+edits preserve default JSON encoding and consume only JSON-decoder maps; every
+sample remains present. A broader companion request reports no concrete finding,
+but the exact-patch narrow retries hit output limits; do not claim those retries
+completed. Re-measure the unchanged diagnostic policy on the committed candidate.

@@ -178,3 +178,41 @@ separate from the new asynchronous listener. Canonical router verification uses
 its package `dart_test.yaml` concurrency of one; 775 cases pass serially before
 the added fake-runtime readiness test. Do not interpret parallel execution as
 supported ownership of one native router runtime across isolates.
+
+## Verified readiness result and sample staging
+
+`7a5bdc76` passes full local `bin/test-fast` and `bin/verify`. Its
+[paired diagnostic](https://github.com/konsultaner/connectanum-dart/actions/runs/40736188467)
+completes 90 rows and reduces numerical findings from eight to four. All
+throughput, CPU, allocation, GC and p95 comparisons pass. Dart-values p99 is
+1.009517 (upper CI 1.052674); peak-RSS ratios are 1.018890 for Dart values,
+1.023226 for native buffers and 1.057052 for pre-encoded spans. Keep the original
+reports, primary requirements and budgets unchanged.
+
+The [new copy proof](https://github.com/konsultaner/connectanum-dart/actions/runs/40736194337)
+passes 120 live and 300 inventory rows, with all 32 no-avoidable-copy checks and
+unchanged input/binary receipts. [CPU capture](https://github.com/konsultaner/connectanum-dart/actions/runs/40737157961)
+also passes; it is intrusive and includes post-workload retained-heap inspection,
+so it cannot replace measured latency, memory or GC acceptance.
+
+Source inspection excludes an unaccounted exported-byte-view hypothesis:
+`NativeMessageBytes.read` uses `Pointer<Uint8>.asTypedList` with a native finalizer.
+The installed standard SDK's `ffi_patch.dart` passes the view length to
+`_attachAsTypedListFinalizer`, whose `ffi_native_finalizer_patch.dart` delegates
+with `externalSize`. The [public externalSize contract](https://api.dart.dev/dart-ffi/NativeFinalizer/attach.html)
+uses native allocation size for GC scheduling. No owner lifetime or SDK setting
+is changed on this hypothesis.
+
+A separate, concrete benchmark overhead is eager sample-map staging in worker
+output and another copy of each decoded JSON map in the controller. All records
+remain required. The worker can let the standard encoder invoke each sample's
+existing `toJson` as it encodes the list; the reader can use JSON's existing
+string-keyed maps directly. The measurement windows and workload remain intact.
+
+An isolated AOT component builds 20,000 immutable samples and runs
+old/new/new/old fresh processes. Both paths emit exactly 7,000,013 bytes with
+SHA-256 `8c2657e54d10cdf069fb29410d0f32de6b5752cd7136051452cdba9152464882`.
+Observed peak RSS is 58,474,496/58,523,648 bytes with eager staging and
+55,328,768/55,345,152 bytes with per-item encoding. Times are 35,988/36,419 and
+36,226/36,312 microseconds respectively. These are isolated component results,
+not WAMP RSS or performance acceptance. No GC or allocator adjustment is used.

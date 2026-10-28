@@ -573,11 +573,8 @@ class _WorkerResponse {
     return _WorkerResponse(
       samples: rawSamples is List
           ? rawSamples
-                .cast<Map>()
-                .map(
-                  (sample) =>
-                      WampSample.fromJson(Map<String, Object?>.from(sample)),
-                )
+                .cast<Map<String, Object?>>()
+                .map(WampSample.fromJson)
                 .toList(growable: false)
           : const <WampSample>[],
       fileSegmentMetrics: NativeWampWorkerFileSegmentMetrics.fromJson(

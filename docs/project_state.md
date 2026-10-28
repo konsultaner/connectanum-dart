@@ -5,48 +5,50 @@ Last updated: 2026-10-28.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-CI repair pushed (2026-10-28): `81f06e1f` adds ordinary native-message
-restore/retain anchor regressions and ten individually source-bound equivalent
-proofs. A private 49-mutation run with no exemptions preserves all ten proposed
-equivalents, kills all four newly targeted ownership mutations by assertions,
-and kills 22 neighboring controls (four mutations cannot compile). Clean and
-restored baselines pass. Its raw 57.78% score correctly fails the unchanged 95%
-gate; this selected diagnostic is not full-target acceptance. All 1,950 client
-binding tests and the 167-proof preflight pass. A bounded Qwen proof review has
-no concrete findings. Hosted full CI `40735216483` is queued. Runtime source
-remains identical to `66282e65`; native wake work is still a separate candidate.
+Current runtime source: `7a5bdc764eb1ee66b3777f25de63ee690772a949`.
+Full local `bin/test-fast` and `bin/verify` pass, including Rust, VM/native,
+router/consumer integration and Chrome/WebAssembly. Hosted CI `40736889265`
+is running with no reported failures; the earlier repair-only `40735216483`
+is superseded, retaining its partial reports. The client mutation repair in
+`81f06e1f` adds two ordinary-anchor regressions and ten source-proven equivalents;
+its 49-mutation unexempted control kills all four newly targeted ownership
+mutations and retains all ten equivalents. The full 95% hosted gate is pending.
 
-Current verified checkpoint (2026-10-28): full local `bin/verify` passes on
-`c705b5bd`, including Rust, VM/native, live WAMP/router, consumers and browser
-suites. Hosted CI `40719790400` completes with a client-message-binding mutation-gate
-failure (93.58% adjusted score; 95% required). Other verification jobs pass
-apart from the canceled GuardMalloc job. Repair that gate before resuming the
-native wake candidate. Runtime source remains identical to `66282e65`.
-Both production copy proofs `40716750991` and `40718047424` pass the full
-120-live/300-inventory/32-zero-avoidable-copy checks with unchanged receipts.
+Paired diagnostic `40736188467` completes all 90 rows and reduces numerical
+findings from eight to four. Throughput, CPU, allocation, GC and p95 pass for
+all three cases. Dart-values p99 fails (1.009517, upper CI 1.052674). Peak RSS
+fails for Dart values/native buffer/pre-encoded spans (1.018890/1.023226/1.057052).
+Diagnostic ineligibility is the sole other finding. Full primary/supplemental
+acceptance is still required; keep #103 and the milestone open and PR #132 draft.
 
-Latest runtime diagnostic `40716746367` completes 90 rows and retains eight
-numerical findings, with diagnostic ineligibility only. Every throughput gate
-passes; native-buffer passes all seven numerical comparisons. Dart values fail
-CPU/GC/p95/RSS; pre-encoded spans fail p95/RSS and GC/p99 confidence limits.
-The new CPU capture `40720372509` succeeds, with much lower body-loop samples
-and substantial router VM/kernel scheduling samples. These profiles are not
-acceptance. Keep every earlier report and all existing budgets unchanged.
+Production proof `40736194337` passes on that runtime with unchanged inputs and
+binaries: 120 live cases (96 E2EE, 120 transcode, 48 native crypto observations),
+300 inventory rows and all 32 zero-avoidable-copy checks. It retains the approved
+standard-SDK scope. CPU capture `40737157961` passes and remains intrusive,
+non-acceptance evidence. Fresh memory/allocator attribution `40740363467` is
+running with the existing read-only diagnostic configuration.
 
-Native readiness candidate (2026-10-28): coalesced WAMP-message-ready
-notifications interrupt router idle pacing without consuming messages or
-transferring ownership. Existing timer/default interval and old-library support
-remain. Three Rust notifier tests, three FFI publication/shutdown tests, clean
-Dart analysis and all 776 focused serial router/native/bridge/live-PPT tests
-pass. Long-poll FlatBuffers/CBOR/MessagePack RPCs pass with the candidate and
-all fail the same deadline with an unchanged old-library negative control;
-normal old-library polling cases pass. A bounded GLM design review confirms
-callback teardown; its suggested pre-registration wake concern is excluded by
-the unconditional immediate arm/scan before the first wait. See research notes
-for the separate pre-existing cross-isolate legacy callback crash and serial
-verification configuration. Full verification and exact-source hosted results
-are pending. #103/milestone remain open; PR #132 remains draft until the full
-unchanged primary and final supplemental acceptance campaigns pass.
+The coalesced native readiness path preserves payload ownership, the polling
+fallback/default and old-library support. All 776 focused serial router/native/
+bridge/live-PPT tests and clean analysis pass. Long-poll RPC negative controls
+fail only against an unchanged old DLL; normal legacy polling passes. A local
+old/new/new/old byte-verified 64-KiB RPC control falls from 5.5–5.8 ms to
+1.15–1.33 ms across all three codecs. This is diagnostic, not parity acceptance.
+The separate pre-existing cross-isolate legacy callback abort is tracked in
+#134. Broader final local companion reviews hit token/deadline limits; do not
+claim they completed. The bounded earlier GLM design review and Qwen mutation
+proof review completed; speculative lost-wake concerns are excluded by the
+immediate initial arm/scan and lifetime tests.
+
+Next shared measurement-cost improvement: avoid eager per-operation JSON-map
+lists in worker output and duplicate maps while decoding worker results. Every
+sample, metric, workload and measurement window remains the same. An AOT
+20,000-sample old/new/new/old component control emits identical 7,000,013-byte
+JSON (SHA-256 `8c2657e54d10cdf069fb29410d0f32de6b5752cd7136051452cdba9152464882`)
+and reduces peak RSS from about 58.5 to 55.3 MB without GC/allocator tuning.
+This isolated component is not WAMP acceptance. Clean analysis, all 118 focused worker/sample tests, the complete 2,807-case benchmark suite and the 167-proof preflight pass for this sample-staging change. Native byte-view exports
+already report their lengths through the standard SDK finalizer; there is no
+source evidence for changing native ownership/accounting on that hypothesis.
 
 Verification inventory repair (2026-10-28): the next full verification on
 `cb0c44aa` reproduces five assertions in the serializer mutation inventory test:

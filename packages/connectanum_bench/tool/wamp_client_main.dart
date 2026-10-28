@@ -177,7 +177,9 @@ Future<void> main(List<String> args) async {
         );
         stdout.writeln(
           jsonEncode({
-            'samples': samples.map((sample) => sample.toJson()).toList(),
+            // The encoder calls toJson one sample at a time, avoiding a second
+            // retained list containing every sample's temporary dictionary.
+            'samples': samples,
             'file_segment_metrics': {
               'rawsocket_zero_copy_calls':
                   fileMetrics.rawSocketZeroCopyCallsTotal,
