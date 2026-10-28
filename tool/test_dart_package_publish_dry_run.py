@@ -30,7 +30,7 @@ MQTT_BENCHMARK_REPORT = (
     REPO_ROOT
     / "docs"
     / "benchmarks"
-    / "mqtt-hosted-pr128-epyc7763-rerun.json"
+    / "mqtt-hosted-pr128-38910e96.json"
 )
 WAMP_BENCHMARK_SUMMARY = (
     REPO_ROOT
@@ -112,7 +112,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
 
         self.assertEqual(len(profile_rows), len(mqtt_report["profiles"]))
         self.assertEqual(sum("Delivery pass" in row for row in profile_rows), 4)
-        self.assertEqual(sum("**Fail**" in row for row in profile_rows), 3)
+        self.assertEqual(sum("**Fail**" in row for row in profile_rows), 2)
         ordered_profiles = [
             "burst", "sustained", "v311-sustained", "batched", "fanout",
             "native-burst", "native-sustained", "native-v311-sustained",
@@ -152,7 +152,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 "Delivery pass" if summary["gate"] == "correctness"
                 else ("Pass" if summary["passed"] else "**Fail**"),
             )
-        self.assertIn("mqtt-hosted-pr128-epyc7763-rerun.json", mqtt_table)
+        self.assertIn("mqtt-hosted-pr128-38910e96.json", mqtt_table)
         self.assertIn("mqtt-hosted-amd-fccc7566.json", mqtt_table)
         self.assertIn("Intel Xeon 6973P-C | — | — | — | 5.000 | Fail", mqtt_table)
         self.assertIn("| Required limit | ≥0.700 | ≥0.700 | ≥0.750 | ≤4.000 | — |", mqtt_table)
