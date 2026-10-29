@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_client/native_buffers.dart' as native_buffers;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
@@ -15,6 +16,63 @@ void main() {
   final skipNative = nativeLibrary == null
       ? 'Native transport artifact unavailable'
       : false;
+  for (final construction in [
+    WampPayloadConstruction.dartValues,
+    WampPayloadConstruction.preEncodedSpan,
+    WampPayloadConstruction.nativeBuffer,
+  ]) {
+    test(
+      'typed $construction retains its declared construction source',
+      () async {
+        final session = _RecordingSession();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => session,
+          logger: Logger.detached('typed-source'),
+          nativeBufferAllocator:
+              construction == WampPayloadConstruction.dartValues
+              ? null
+              : native_buffers.NativeBufferAllocator.instance(
+                  libraryPath: nativeLibrary,
+                ),
+        );
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.flatbuffers,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 65536,
+            pptScheme: 'x_connectanum_bench_typed',
+            pptSerializer: 'flatbuffers',
+            payloadConstruction: construction,
+          ),
+        );
+        expect(samples, hasLength(1));
+        final source = core.packedPayloadSourceOf(session.request!);
+        if (construction == WampPayloadConstruction.dartValues) {
+          expect(source, isA<core.PackedPayloadParts>());
+          expect(session.requestOwner, isNull);
+          expect(session.requestLease, isNull);
+          final parts = (source as core.PackedPayloadParts).fragments;
+          expect(parts[1].length, 65536);
+          expect(parts[1].buffer.lengthInBytes, 65536);
+        } else {
+          expect(source, isA<native_buffers.NativePptPayloadLease>());
+        }
+        BenchPayloadCodec.verify(
+          bytes: session.requestBytes!,
+          worker: 0,
+          iteration: 0,
+          bodyBytes: 65536,
+        );
+      },
+      skip: construction == WampPayloadConstruction.dartValues
+          ? false
+          : skipNative,
+    );
+  }
   test('parses outer and peer FlatBuffers independently of PPT', () {
     final scenario = WampScenario.fromJson({
       'transport': 'rawsocket',

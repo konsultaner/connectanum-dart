@@ -649,3 +649,38 @@ E2EE/transcode cost reporting, not primary acceptance. Preserve old reports,
 every new difference and per-shard provenance; the full 48-case primary still
 waits for a passing diagnostic. Any later runtime change requires fresh final
 evidence rather than treating this diagnostic report as an exemption.
+
+
+## Fragmented application-model candidate
+
+The private Dart-only prototype reproduces one concrete staging copy: the
+64 KiB body is copied into its application FlatBuffer before sending. Prototype
+v1 fails byte equivalence at non-eight-byte lengths because it omits finish
+alignment with a file identifier. Retain that failed result. Corrected v3 passes
+72 exact-byte vectors, including high/zero uint32 identities and unaligned
+read-only inputs. It records 65,536 vector-copy bytes for the ordinary builder,
+zero body-vector bytes for the fragmented model and an explicit 40-byte owned
+prefix snapshot. These are correctness/copy counters, not performance results.
+
+The production candidate generalizes this as `FragmentedPackedPayloadSource`,
+`PackedPayloadParts` and `buildFlatBufferPayloadParts`. The source snapshots its
+outer list, borrows the body, caches/counts contiguous fallback and grants no
+native pointer trust or external lease. The application helper owns the small
+prefix and preserves nested strings, tables and float64 alignment. The same
+CBEN table/body constructor now uses this public path only for Dart-values rows;
+native/pre-encoded constructors and all workloads/timers/observations stay put.
+149 integration cases pass; explicit identifier and nested-alignment tests also
+pass. The missing mutation support inventory was caught and repaired rather
+than excluding the new tests. Companion tests/review are blocked by the shared
+machine lease. All 49 core and 48 Session/E2EE Chrome/WebAssembly cases pass from their
+canonical package roots; direct workspace-root loading timeouts are retained.
+Canonical full verification and fresh hosted evidence are pending.
+
+Frame-pointer profile `40907942373` completes successfully on `face31c9`, with
+all calibrated windows verified, unchanged inputs/library and clean process
+exit. Perf files shrink to roughly 11 MB each, but total throughput remains
+strongly perturbed (FlatBuffers/MessagePack 22,727/23,286 operations, versus
+66,350/65,741 in VM-only capture). Different captures cannot quantify causal
+overhead. Do not treat storage reduction as a demonstrated latency fix or use
+these sampled runs for acceptance. Keep native JIT/cross-language attribution
+limits explicit. No new profiler changes are justified by this observation.

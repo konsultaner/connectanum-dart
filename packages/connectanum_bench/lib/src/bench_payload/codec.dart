@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_buffers.dart';
+import 'package:connectanum_core/connectanum_core.dart' show PackedPayloadParts;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 
 import 'generated/workload_payload_connectanum.bench_generated.dart' as schema;
@@ -67,6 +68,26 @@ abstract final class BenchPayloadCodec {
     );
     return builder.buffer;
   }
+
+  /// Builds the same application model around its original Dart body buffer.
+  /// The regular fragment-aware transport can send these views directly;
+  /// contiguous consumers use the source's measured, cached fallback.
+  static PackedPayloadParts encodeDartParts({
+    required int worker,
+    required int iteration,
+    required int bodyBytes,
+  }) => flatbuffers.buildFlatBufferPayloadParts(
+    bytes: body(worker: worker, iteration: iteration, length: bodyBytes),
+    fileIdentifier: fileIdentifier,
+    buildRoot: (builder, vector) {
+      final table = schema.WorkloadPayloadBuilder(builder)..begin();
+      table
+        ..addWorker(worker)
+        ..addIteration(iteration)
+        ..addBodyOffset(vector.offset);
+      return table.finish();
+    },
+  );
 
   static NativeOwnedBuffer encodeNative(
     NativeBufferAllocator allocator, {

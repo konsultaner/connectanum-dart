@@ -2,8 +2,58 @@
 
 Status: active. Started: 2026-10-03.
 
-Current step: retire forwarded reply envelopes and renew the unchanged gates.
+Current step: validate generic fragmented application payload construction and
+renew the unchanged gates. Runtime `dec17f8b` remains the measured checkpoint.
 Earlier sections retain checkpoint history, including rejected experiments.
+
+## Fragmented application-model candidate (2026-10-29)
+
+- [x] Reproduce the remaining application-builder staging copy. A private
+  Dart-only prototype preserves all encoded bytes for 72 CBEN vectors, including
+  zero/max uint32 IDs, empty/tiny/nonaligned sizes and read-only unaligned input.
+  Its 64 KiB body retains input identity: ordinary builder vector-copy counter
+  is 65,536 bytes; fragmented construction is zero body-vector bytes plus an
+  explicitly counted 40-byte owned prefix snapshot. This is correctness/copy
+  evidence only, not performance acceptance or a published API.
+- [x] Preserve the initial failed prototype: it omitted the file-identifier
+  alignment effect for non-multiple-of-eight lengths. Virtual tail alignment
+  fixes it; do not adopt the failed layout or omit boundary vectors.
+- [x] Complete fresh `bin/test-fast` before production edits. Design a generic
+  fragmented packed-source interface/convenience source in a new module; keep
+  the existing protected source identity and native ownership whitelist.
+- [x] Add an application-schema helper for one borrowed byte vector. Own the
+  small schema prefix, retain the original Dart body, validate root/footer/size,
+  and document borrowed-storage lifetime. A Dart reference cannot extend an
+  external database transaction's lifetime.
+- [x] Preserve parts only through the existing fragment-aware send path. Keep
+  ordinary serialization/fallback coalescing cached and explicitly counted;
+  preserve E2EE/transcode behavior. Reuse the existing WAMP tail-vector layout
+  so concatenated wire bytes stay unchanged. No Rust/ABI/schema change is needed.
+- [x] Use that public generic helper in the Dart-values model constructor while
+  preserving its Dart-allocated body, unique identities, CBEN schema, preparation
+  timer, validation, every observation and all measurement windows. Native-buffer
+  and pre-encoded constructors keep their separate declared semantics.
+- [ ] Prove model/frame byte equivalence, body identity, fallback copy counts,
+  caller-list snapshots, ownership/non-forgeability and VM/browser behavior;
+  rerun native correctness/copy evidence and canonical local/hosted verification.
+- [ ] Only adopt measured improvement under the existing paired policy; then
+  finish the 48-case primary and refresh final-runtime supplemental evidence.
+
+Local heavyweight architecture advice was attempted through the approved
+companion helper and refused because the native-mutation resource lease is
+active. Do not bypass that gate. The current work is a bounded pure-Dart
+correctness prototype and ordinary canonical tests, not local native profiling.
+
+Implementation checkpoint: 149 focused core/client/benchmark cases pass,
+including Session preservation and all three construction-source contracts.
+Additional nested-table/float64 alignment and invalid-identifier guards pass.
+All 167 mutation proofs and all 14 private native-view patch contracts pass.
+The first integration invocation found a test API-name typo and missing explicit
+native-library selection; both tests are corrected and pass. Companion test and
+review helpers remain lease-blocked. Full `bin/verify` is running. A direct
+dart2js browser invocation times out loading suites locally; the canonical
+macOS WebAssembly package-root route passes 49 core and 48 Session/E2EE cases,
+plus the unchanged browser control. Keep every failure log.
 
 ## WAMP serializer compatibility
 

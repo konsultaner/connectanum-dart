@@ -47,6 +47,7 @@ Map<String, Object?> prepareWampFlatBufferMessage(
   LazyMessagePayload? lazyPayload,
   bool includeApplicationPayload = true,
   bool fragmentBinaryArguments = false,
+  bool fragmentPackedPayload = false,
 }) {
   final projection = projectWampFlatBufferMessage(message);
   final fields = projection.fields;
@@ -72,10 +73,13 @@ Map<String, Object?> prepareWampFlatBufferMessage(
       return fields;
     }
     final lazy = lazyPayload ?? message.toLazyPayload();
+    final source = packedPayloadSourceOf(lazy);
     final payload =
         payloadVector ??
         lazy.transparentBinaryPayload ??
-        lazy.packedPayloadBytes;
+        (fragmentPackedPayload && source is FragmentedPackedPayloadSource
+            ? FlatBufferByteVectorParts(source.fragments)
+            : lazy.packedPayloadBytes);
     if (payload != null) {
       if (argumentsVector != null || argumentsKeywordsVector != null) {
         throw ArgumentError(

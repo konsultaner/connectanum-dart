@@ -112,6 +112,25 @@ exact encoded buffer without an additional CBOR array/byte-string wrapper.
 Other argument shapes and reserved `wamp` encryption keep their existing paths;
 older wrapped typed frames remain readable.
 
+Application schemas can use `buildFlatBufferPayloadParts` from
+`flatbuffers_serializer.dart` to build a model around one existing `Uint8List`
+vector. Its `buildRoot` callback receives the builder and vector reference;
+write the generated application table with that offset and return the root,
+without finishing or resetting the builder. The helper snapshots the small
+schema prefix and borrows the original body, preserving ordinary FlatBuffers
+alignment and wire bytes. It does not generate or validate the application
+schema.
+
+Pass the resulting `PackedPayloadParts` as the source of
+`LazyMessagePayload.packedSource`, with FlatBuffers encoding and the application's
+packed decoder, to the Session lazy-payload APIs with custom PPT metadata.
+`serializeFragments` preserves those body views. A contiguous consumer coalesces
+them once, caches a read-only view and records that copy. Keep every borrowed
+buffer valid and unchanged until use completes; use `toOwned()` when a detached
+snapshot is needed. The source grants no native pointer ownership or database
+transaction lifetime. Native sends of Dart fragments retain their usual copy
+boundary.
+
 A raw deserialized direct envelope exposes `transparentBinaryPayload` rather
 than a wrapped argument list. Session APIs expose the application arguments;
 raw codec consumers can use `decodeLazyPayloadView` with the message's PPT

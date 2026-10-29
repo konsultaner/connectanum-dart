@@ -2165,14 +2165,23 @@ class WampWorkloadRunner {
     native_buffers.NativePptPayloadLease? lease;
     try {
       Object? value;
+      wamp_core.PackedPayloadParts? dartParts;
       switch (scenario.payloadConstruction) {
         case WampPayloadConstruction.dartValues:
-          value = _buildTypedBenchmarkValue(
-            serializer,
-            worker: worker,
-            iteration: iteration,
-            bodyBytes: scenario.payloadBytes,
-          );
+          if (serializer == 'flatbuffers') {
+            dartParts = BenchPayloadCodec.encodeDartParts(
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+          } else {
+            value = _buildTypedBenchmarkValue(
+              serializer,
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+          }
         case WampPayloadConstruction.nativeBuffer:
           owner = serializer == 'flatbuffers'
               ? BenchPayloadCodec.encodeNative(
@@ -2227,6 +2236,15 @@ class WampWorkloadRunner {
         }
         producer.dispose();
         owner = leasedOwner;
+      } else if (dartParts != null) {
+        payload = wamp_core.LazyMessagePayload.packedSource(
+          encoding: encoding,
+          source: dartParts,
+          packedPayloadDecoder: (bytes) => (
+            arguments: [bytes],
+            argumentsKeywords: null,
+          ),
+        );
       } else {
         payload = wamp_core.LazyMessagePayload.materialized(
           encoding: encoding,

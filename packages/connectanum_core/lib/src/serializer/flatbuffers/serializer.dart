@@ -68,10 +68,16 @@ class Serializer extends AbstractSerializer {
       message,
       lazyPayload: lazyPayload,
       fragmentBinaryArguments: true,
+      fragmentPackedPayload: true,
     );
     final body = fields['msg'] as Map<String, Object?>;
     final payload = body['payload'];
-    if (payload is Uint8List) {
+    final payloadLength = switch (payload) {
+      Uint8List bytes => bytes.length,
+      FlatBufferByteVectorParts parts => parts.length,
+      _ => null,
+    };
+    if (payloadLength != null) {
       final builder = WampFlatBufferBuilder(
         initialSize: _flatBufferEnvelopeReserveBytes,
       );
@@ -82,15 +88,21 @@ class Serializer extends AbstractSerializer {
       builder.finish(writeWampFlatBufferFields(fields, builder));
       final control = builder.buffer;
       if (vector == 4 && control.length % 8 == 0) {
-        if (payload.length > 64 * 1024 * 1024 - control.length) {
+        if (payloadLength > 64 * 1024 * 1024 - control.length) {
           throw ArgumentError('FlatBuffers frame exceeds the byte limit');
         }
         // Both fragments form one FlatBuffer. Its vector length covers the
         // following original body; the root offset at the start stays intact.
         ByteData.sublistView(
           control,
-        ).setUint32(control.length - 4, payload.length, Endian.little);
-        return [control, payload];
+        ).setUint32(control.length - 4, payloadLength, Endian.little);
+        return [
+          control,
+          if (payload is Uint8List)
+            payload
+          else
+            ...(payload as FlatBufferByteVectorParts).parts,
+        ];
       }
       // Keep the existing layout if a builder cannot place the original body
       // at an eight-byte wire boundary.

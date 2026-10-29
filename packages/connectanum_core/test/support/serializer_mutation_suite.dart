@@ -8,6 +8,8 @@ import '../serializer/cbor/serializer_missing_messages_test.dart'
 import '../serializer/cbor/serializer_ppt_binary_test.dart' as cbor_ppt;
 import '../serializer/cbor/serializer_test.dart' as cbor_serializer;
 import '../serializer/flatbuffers_binding_test.dart' as flatbuffers_binding;
+import '../serializer/flatbuffers_application_model_fragments_test.dart'
+    as flatbuffers_application_parts;
 import '../serializer/flatbuffers_copy_retention_test.dart'
     as flatbuffers_copies;
 import '../serializer/flatbuffers_byte_view_test.dart'
@@ -65,6 +67,7 @@ import '../serializer/serializer_security_limits_test.dart' as limits;
 import '../serializer_challenge_welcome_test.dart' as handshake;
 
 void main() {
+  group('FlatBuffers application parts', flatbuffers_application_parts.main);
   group('owned buffer copy metrics', owned_copies.main);
   group('lazy payload', lazy_payload.main);
   group('CBOR indefinite', cbor_indefinite.main);

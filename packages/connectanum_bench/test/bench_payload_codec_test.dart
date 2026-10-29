@@ -119,6 +119,42 @@ void main() {
   });
 
   test(
+    'fragmented Dart fixture borrows its body and counts only its prefix',
+    () {
+      OwnedCopyMetrics.enable();
+      final before = OwnedCopyMetrics.snapshot()!;
+      final source = BenchPayloadCodec.encodeDartParts(
+        worker: 7,
+        iteration: 11,
+        bodyBytes: 65536,
+      );
+      final after = OwnedCopyMetrics.snapshot()!;
+      expect(source.fragments[1].length, 65536);
+      expect(source.fragments[1].offsetInBytes, 0);
+      expect(source.fragments[1].buffer.lengthInBytes, 65536);
+      expect(
+        after['flatbuffer_vector_copy_bytes']! -
+            before['flatbuffer_vector_copy_bytes']!,
+        0,
+      );
+      expect(
+        after['coalescing_copy_bytes']! - before['coalescing_copy_bytes']!,
+        0,
+      );
+      expect(
+        after['clone_copy_bytes']! - before['clone_copy_bytes']!,
+        source.fragments.first.length,
+      );
+      BenchPayloadCodec.verify(
+        bytes: source.bytes,
+        worker: 7,
+        iteration: 11,
+        bodyBytes: 65536,
+      );
+    },
+  );
+
+  test(
     'Dart FlatBuffers fixture fills its backing array with unchanged wire bytes',
     () {
       for (final size in [0, 1, 2, 3, 4, 5, 7, 8, 9, 16, 65535, 65536]) {

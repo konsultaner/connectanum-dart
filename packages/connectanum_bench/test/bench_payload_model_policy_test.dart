@@ -45,6 +45,22 @@ void main() {
             ),
             orderedEquals(expected),
           );
+          final parts = BenchPayloadCodec.encodeDartParts(
+            worker: identity.$1,
+            iteration: identity.$2,
+            bodyBytes: size,
+          );
+          expect(parts.bytes, orderedEquals(expected));
+          expect(
+            parts.fragments[1],
+            orderedEquals(
+              BenchPayloadCodec.body(
+                worker: identity.$1,
+                iteration: identity.$2,
+                length: size,
+              ),
+            ),
+          );
           BenchPayloadCodec.verify(
             bytes: expected,
             worker: identity.$1,

@@ -51,6 +51,17 @@ measure only FlatBuffers/native-buffer builder input and growth. They do not
 measure codec, transport, TLS, WebSocket, E2EE or receive-side copies and cannot
 by themselves satisfy the copy-evidence gate below.
 
+The FlatBuffers `values` constructor uses the public
+`buildFlatBufferPayloadParts` helper around the same Dart-allocated body and
+generated CBEN table. Preparation includes body generation and schema-prefix
+construction; fragment-aware sends borrow that body without its former
+application-builder staging copy. Ordinary contiguous consumers use the
+measured cached coalescing fallback. This changes encoding implementation only:
+the application bytes, identities, validation, construction groups, observations
+and measurement windows stay unchanged. Native construction and pre-encoded
+groups keep their existing separate constructors. This copy improvement alone
+does not establish performance or RSS acceptance.
+
 For a native caller with a FlatBuffers WAMP envelope and typed FlatBuffers PPT,
 the `native_buffer` and `pre_encoded_span` runner groups now construct a packed
 payload with the exact frozen `NativeOwnedBuffer` view. Session sends that view
