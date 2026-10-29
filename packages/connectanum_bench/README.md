@@ -216,6 +216,37 @@ The [three-host 9V74 comparison](../../docs/benchmarks/mqtt-reactor-matched-4094
 | Probe 2 | 0.766 / 0.733 | 0.733 / 0.755 | 2.800 / 3.071 |
 | Probe 4 | 0.750 / 0.741 | 0.720 / 0.725 | 2.688 / 2.933 |
 
+The [same-binary tracing comparison](../../docs/benchmarks/mqtt-tracing-epyc7763-40948629881.json)
+on EPYC 7763 passes all 12 gates. These small, mixed differences do not establish
+coverage tracing as the cause of the full-run failure above. Coverage stays enabled.
+
+| Harness run | WS 5 rate × | WS 3.1.1 rate × | 64 KiB CPU × | Gate |
+| --- | ---: | ---: | ---: | --- |
+| bare-1 | 0.748 | 0.791 | 2.857 | Pass |
+| traced-1 | 0.733 | 0.767 | 2.773 | Pass |
+| bare-2 | 0.766 | 0.737 | 2.810 | Pass |
+| traced-2 | 0.747 | 0.739 | 2.773 | Pass |
+
+The [owned-wire forwarding trial](../../docs/benchmarks/mqtt-wire-view-local-rejected.json)
+is rejected: it does not improve WebSocket throughput. These local Apple M3 Ultra
+results use identical client/native binaries; the 64 KiB workload has 20k publications.
+All 6,300,000 deliveries are exact. Before / trial values are medians, except peak RSS.
+
+| Workload | Delivered/s before / trial | Broker CPU seconds before / trial | Peak RSS MiB before / trial |
+| --- | ---: | ---: | ---: |
+| WS MQTT 5 | 125,337 / 126,221 | 2.27 / 2.26 | 31.4 / 30.7 |
+| WS MQTT 3.1.1 | 127,036 / 126,471 | 2.24 / 2.26 | 31.3 / 31.7 |
+| TCP 64 KiB | 11,285 / 11,267 | 0.84 / 0.80 | 87.2 / 80.7 |
+
+The [burst-timer trial](../../docs/benchmarks/mqtt-burst-macos-rejected.json) reduces
+CPU use but slows macOS WebSocket delivery, so it is rejected for macOS. These
+local results retain all 6,000,000 exact deliveries; Linux acceptance remains open.
+
+| Workload | Delivered/s before / trial | Broker CPU seconds before / trial | Peak RSS MiB before / trial |
+| --- | ---: | ---: | ---: |
+| WS MQTT 5 | 149,975 / 114,439 | 1.95 / 1.04 | 34.8 / 30.0 |
+| WS MQTT 3.1.1 | 154,005 / 113,766 | 1.92 / 1.04 | 35.3 / 30.5 |
+
 ## WAMP throughput
 
 Each cell shows **sustained / full-lifecycle throughput** in Gbit/s; higher is better.
