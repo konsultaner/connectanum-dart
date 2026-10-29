@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:args/args.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -823,11 +822,9 @@ class _BenchControlRegistry {
         ),
       };
       final dataWindow = WampSampleWindow.fromSamples(samples);
-      // Encode before internal routing so the completed sample models never
-      // enter the response's cross-isolate object graph.
-      final responseBytes = JsonUtf8Encoder().convert(
-        {
-          // Project every observation directly into the standard JSON encoder.
+      context.sendJson(
+        body: {
+          // Preserve every model through routing and project fields lazily.
           'samples': wampSamplesForJsonEncoding(samples),
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
@@ -839,12 +836,6 @@ class _BenchControlRegistry {
           if (clientProcessMetrics != null)
             'client_process_metrics': clientProcessMetrics.toJson(),
         },
-      );
-      context.sendBytes(
-        headers: const {'content-type': 'application/json; charset=utf-8'},
-        body: responseBytes is Uint8List
-            ? responseBytes
-            : Uint8List.fromList(responseBytes),
       );
     } catch (error, stackTrace) {
       _reportError('wamp_error', error, stackTrace);

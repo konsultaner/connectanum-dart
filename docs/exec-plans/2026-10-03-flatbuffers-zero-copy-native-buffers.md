@@ -2,6 +2,9 @@
 
 Status: active. Started: 2026-10-03.
 
+Current step: retire forwarded reply envelopes and renew the unchanged gates.
+Earlier sections retain checkpoint history, including rejected experiments.
+
 ## WAMP serializer compatibility
 
 The current [WAMP Internet-Draft](https://wamp-proto.org/wamp_latest_ietf.html)
@@ -46,7 +49,30 @@ reference.
   the final-runtime 48-case primary. Refresh the complete supplemental report if
   the runtime changes; retain all older reports.
 
+## Retire forwarded reply envelopes (2026-10-29)
+
+- [x] Preserve `f204100d` full bin/verify exit 0 and production proof
+  `40880838998` (120/300/32 with unchanged inputs/binaries). Independently
+  reproduce diagnostic `40880833788`: eight numerical misses, not acceptance.
+- [x] Reject/revert early report-byte staging; restore bench_main exactly to
+  `69193827`. Preserve every failed report and all strict budgets.
+- [x] Reproduce the internal reply envelope's retained application graph. After
+  successful SendPort snapshotting, retire only the private received payload
+  fields, preserving forwarded contents, control flags and nested application
+  objects. Actual 2,000-sample HTTP liveness is zero without extra JSON staging.
+- [x] Pass nine SDK contract tests (same/cross-isolate, progressive/final/error,
+  PPT/details, immutability, transferable moves, failed-send atomicity, closed
+  ports, invalid/missing progress), 785 native/router regressions, all nine HTTP
+  pairs, clean analysis and 167 mutation proofs. Resolve companion concerns
+  against actual SDK behavior and unchanged strict validation; no code waiver.
+- [ ] Freeze candidate, renew full verify and hosted paired/copy/CI evidence.
+- [ ] On passing diagnostics, complete all 48 primary and 50 supplemental cases.
+
 ## Encode completed reports before internal routing (2026-10-29)
+
+Status: rejected after the full `f204100d` paired diagnostic; restored the
+previous report-routing implementation. Liveness alone was insufficient.
+
 
 - [x] Trace the supervisor's retained samples through the internal response
   lazyPayload/argumentsKeywords/body graph after a real 2,000-sample request.

@@ -1067,7 +1067,7 @@ const String _internalMsgCallResult = 'call_result';
 const String _internalMsgCallError = 'call_error';
 const String _internalMsgCallProgress = 'call_progress';
 const String _internalMsgForwardInterrupt = 'forward_interrupt';
-const String _internalMsgLazyPayload = 'lazyPayload';
+const String _internalMsgLazyPayload = internalSessionLazyPayloadKey;
 
 const String _transferredLazyPayloadMarkerKey = r'$connectanumLazyPayload';
 const String _transferredLazyPayloadEncodingKey = 'encoding';
@@ -2631,17 +2631,7 @@ class _InternalSessionIsolate {
               });
               break;
             }
-            replyPort.send(response);
-            final type = response['type'];
-            if (type == 'error') {
-              break;
-            }
-            if (type == 'result') {
-              final progress = response['progress'] as bool? ?? false;
-              if (!progress) {
-                break;
-              }
-            }
+            if (forwardInternalSessionReply(replyPort, response)) break;
           }
         } finally {
           _pendingInvocations.remove(invocationId);

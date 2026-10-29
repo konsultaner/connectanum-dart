@@ -447,3 +447,41 @@ claim that JsonUtf8Encoder stages a JSON string is rejected: it directly emits
 UTF-8 bytes. Its speculative sendJson/sendBytes cleanup difference is checked
 against both delegating through HttpResponseUtil.respond. The diagnostic-only
 liveness evidence does not replace the remaining paired RSS/confidence gates.
+
+## Reject early byte staging; retire the forwarded envelope (2026-10-29)
+
+The early report-encoding candidate `f204100d` passes full bin/verify and
+production copy proof [40880838998](https://github.com/konsultaner/connectanum-dart/actions/runs/40880838998)
+(120/300/32, unchanged source/binaries), but paired diagnostic
+[40880833788](https://github.com/konsultaner/connectanum-dart/actions/runs/40880833788)
+has eight numerical failures. Its raw recomputation exactly matches the hosted
+comparison. Retain that result and reject/revert the early byte staging; no
+point/confidence gate or workload is changed. bench_main returns byte-for-byte
+to `69193827`. That preceding report independently reproduces three failures
+(Dart GC confidence and two RSS points) and a passing Dart p99 gate.
+
+Deeper retaining-path inspection identifies a private result envelope under an
+isolate-object-store [portId, responseMap] root, pointing through the transferred
+lazyPayload/argumentsKeywords/body/samples graph. A narrower prototype forwards
+the response first, then removes application-payload references only from the
+received private envelope. SendPort's immediate snapshot preserves the full
+forwarded graph; nested application maps/bytes are not mutated. The equivalent
+actual 2,000-sample probe retains zero WampSamples without report-byte staging.
+
+The helper returns the same error/final/progress decision as the previous loop.
+It never retires data before a successful send, preserves strict malformed-
+progress validation after forwarding, and tolerates immutable envelopes. Shared
+protocol-key constants prevent divergence. Nine actual SDK contract tests cover
+same/cross-isolate snapshots, details/PPT, progress/error/final/default/unknown
+flags, immutable nested/outer maps, transferable ownership, failed-send atomicity
+and SDK closed-port drop behavior. All 785 selected native/router regressions,
+all nine actual HTTP codec/storage pairs, analysis and 167 mutation proofs pass.
+
+GLM's suggested same-isolate alias exception is disproved by the actual SDK
+contract test and local SDK send documentation. Its missing-field-test concern
+is addressed by progressive/details/PPT assertions. Qwen's port-closure and
+strict-progress concerns do not establish regressions: real closed-port sends
+retain SDK drop behavior, and invalid progress was already rejected after send.
+Do not adopt coercion or swallow send failures. The current caller never reads
+retired payload fields after the helper. Final full and hosted measurements
+must still be renewed; none of these liveness checks establish parity.

@@ -5,7 +5,33 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Current follow-up encodes the complete benchmark report into standard UTF-8
+Current local candidate keeps the original lazy JSON report routing and retires
+only the private forwarded reply envelope's payload references after successful
+SendPort.send. The receiving port keeps its complete synchronous snapshot; the
+application's nested payloads are never mutated. Actual 2,000-sample HTTP probes
+retain zero sample models without adding JSON byte staging. Nine SDK contract
+cases (including same/cross-isolate, progressive/error/PPT, immutable fallback,
+transferable ownership, send failure and closed-port behavior), 785 native/router
+regressions, all nine HTTP codec/construction pairs, clean analysis and all 167
+mutation proofs pass. Full final-source and hosted evidence remain required.
+
+Preserve `f204100d` full bin/verify exit 0 (Rust/FFI, VM/native and Chrome/Wasm)
+and production copy proof `40880838998`: unchanged inputs/binaries, 120 live
+(96 E2EE / 120 transcode / 48 native crypto), 300 inventory and 32 no-avoidable
+copy checks. Its diagnostic `40880833788` has eight numerical misses. The early
+JSON-encoding candidate is therefore rejected/reverted; do not select a lucky
+run or count model liveness as RSS acceptance. bench_main is byte-identical to
+`69193827`. The older three-miss `69193827` report is independently reproduced
+from raw rows: Dart GC confidence and two RSS points; its p99 gate passes.
+
+The new envelope helper follows the SDK's documented immediate snapshot
+semantics. GLM's same-isolate alias concern is disproved by the actual same-
+isolate SDK test; progressive, details and PPT fields are also checked. Qwen's
+closed-port and strict-progress concerns are either false SDK assumptions or
+unchanged validated behavior. Never coerce invalid progress values or swallow a
+send failure. The sole production caller does not reuse retired envelope data.
+
+Rejected early-byte-staging experiment encoded the complete benchmark report into standard UTF-8
 JSON before internal routing, preserving its JSON content type and every field.
 An actual 2,000-sample retaining-path probe finds the completed sample list under
 internal response lazyPayload/argumentsKeywords/body. The private prototype and
