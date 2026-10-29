@@ -5,16 +5,21 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Current local candidate uses pinned generated tables for guarded opaque CALL
+Current runtime candidate `775103e8` uses pinned generated tables for guarded opaque CALL
 frames, avoiding schema-sized scratch lists and recursive field scans. All 210
 focused serializer tests, clean analysis and 167 existing mutation proofs pass.
 An actual-source AOT component preserves exact 192-byte prefixes and reduces
 500,000 full preparations/encodes from 879–904 to 647–661 ms. Component RSS is
-inconclusive. Canonical fast/full and native checks are pending; hosted parity
-still belongs to the frozen source below. Companion review/test requests remain
+inconclusive. Canonical `bin/test-fast` passes, including all 2,832 benchmark cases. The
+67 combined native/profile and writer checks pass. All 49 writer tests pass
+on Chrome after reproducing/correcting an integral-double test assumption for
+JavaScript; runtime code is unchanged by that test correction. Full `bin/verify`
+is being renewed. Candidate CI `40872800908`, diagnostic `40872805498`, production
+copy proof `40872810450` and Dart-values CPU/heap profile `40873091455` are running.
+Hosted acceptance still belongs to the previously verified source below. Companion review/test requests remain
 blocked by the native mutation resource lease. No performance gate changes.
 
-Latest frozen source: `cd54760c3f53ba26793f82159da266252407c440`.
+Previously fully verified runtime source: `cd54760c3f53ba26793f82159da266252407c440`.
 Full `bin/verify` passes at exit 0, including Rust/FFI, VM/native, all 2,832
 benchmark tests, 5,118 router tests, consumer smoke and Chrome/WebAssembly.
 All 121 focused boundary/lifecycle tests, clean analysis, nine live HTTP pairs,

@@ -227,11 +227,18 @@ void main() {
       for (final override in <Map<String, Object?>>[
         {'request': -1},
         {'request': 9007199254740994},
-        {'request': 1.0},
+        {'request': 1.5},
         {'procedure': null},
         {'ppt_scheme': 5},
-        {'ppt_scheme': 4.0},
-        {'ppt_serializer': 6.0},
+        {'ppt_scheme': 3.5},
+        {'ppt_serializer': 6.5},
+        // Dart's JavaScript backend represents integral doubles as ints too.
+        // Only runtimes that distinguish them can reject their numeric type.
+        if (!identical(0, 0.0)) ...[
+          {'request': 1.0},
+          {'ppt_scheme': 4.0},
+          {'ppt_serializer': 6.0},
+        ],
         {'unknown': null},
         {'payload': foreignVector},
       ]) {
@@ -252,20 +259,25 @@ void main() {
           reason: override.toString(),
         );
       }
-      expect(
-        () => writeWampFlatBufferFields({
-          'msg_type': wire.AnyMessageTypeId.Call.value.toDouble(),
-          'metadata': Uint8List.fromList([0xa0]),
-          'msg': <String, Object?>{
-            'request': 1,
-            'procedure': 'com.proc',
-            'payload': Uint8List(0),
-            'ppt_scheme': 4,
-            'ppt_serializer': 6,
-          },
-        }, runtime.WampFlatBufferBuilder()),
-        throwsArgumentError,
-      );
+      for (final tag in [
+        wire.AnyMessageTypeId.Call.value + 0.5,
+        if (!identical(0, 0.0)) wire.AnyMessageTypeId.Call.value.toDouble(),
+      ]) {
+        expect(
+          () => writeWampFlatBufferFields({
+            'msg_type': tag,
+            'metadata': Uint8List.fromList([0xa0]),
+            'msg': <String, Object?>{
+              'request': 1,
+              'procedure': 'com.proc',
+              'payload': Uint8List(0),
+              'ppt_scheme': 4,
+              'ppt_serializer': 6,
+            },
+          }, runtime.WampFlatBufferBuilder()),
+          throwsArgumentError,
+        );
+      }
     },
   );
   test(

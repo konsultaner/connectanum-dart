@@ -65,8 +65,14 @@ reference.
 - [x] Pass 67 combined native lifetime/profile and writer checks with the canonical
   ffi-test library. The initial direct command omitted the library environment;
   its loader failure is retained, and the corrected command passes.
-- [ ] Pass canonical fast/full verification and hosted diagnostic/copy/CI
-  evidence before claiming any end-to-end improvement.
+- [x] Pass canonical `bin/test-fast`, including all 2,832 benchmark cases.
+- [x] Reproduce and fix the test-only JavaScript integral-double assumption;
+  runtime code is unchanged. Pass all 49 writer tests on Chrome and clean analysis.
+- [ ] Complete full `bin/verify`. Frozen-runtime `775103e8` CI `40872800908`,
+  paired diagnostic `40872805498`, copy proof `40872810450` and Dart-values
+  CPU/heap profile `40873091455` are running. Preserve reports and original gates.
+- [ ] Establish end-to-end improvement, then renew full primary/supplemental
+  acceptance on the final runtime.
 
 ## Direct worker JSON UTF-8 encoding (2026-10-29)
 
