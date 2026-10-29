@@ -1,6 +1,6 @@
 # Native MQTT added-line coverage
 
-**838/838 added executable production lines are covered** by the union of Cargo unit tests and instrumented Dart FFI suites. Both runs finish successfully on the same native source bytes; archived source-scope hashes match the current files. [The inventory](mqtt-native-added-line-coverage-reactor.json) records exact lines and hashes.
+**838/838 added executable production lines are covered** by the union of Cargo unit tests and instrumented Dart FFI suites. Both runs finish successfully on the same native source bytes; archived source-scope hashes identify the measured files at `e35635de`. [The inventory](mqtt-native-added-line-coverage-reactor.json) records exact lines and hashes.
 
 | Production source | Covered / executable added lines |
 | --- | ---: |

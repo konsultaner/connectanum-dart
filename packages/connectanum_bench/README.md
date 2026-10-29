@@ -12,7 +12,7 @@ C / M means Connectanum / Mosquitto. Higher delivery rate is better; lower
 latency and broker CPU ratios are better. Peak RSS is Connectanum broker memory.
 Workload counts are publications per run; fan-out rates count deliveries to all
 subscribers. WS means WebSocket and WSS means secure WebSocket. Smoke rows
-check delivery only. All 20 profiles pass in this run. Earlier misses remain below; WebSocket repeatability remains open. The Intel CPU check passes twice in the targeted comparison below.
+check delivery only. All 20 profiles pass in this run. The integrated readiness-yield change is measured separately below; its final full CI is pending. Earlier misses remain listed.
 
 | Broker | MQTT / link | Workload | Delivered/s C / M | Rate × | p95 / p99 C/M × | Broker CPU C/M × | Peak RSS | Result |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -281,8 +281,9 @@ throughput fix. These are separate paired runs; they do not clear the affected
 
 The [no-timer ready-yield comparison](../../docs/benchmarks/mqtt-yield-linux-40956744846.json)
 passes all 36 checks on three actual EPYC 7763 hosts with 48,600,000 exact deliveries.
-Changes are small and mixed across hosts, so this variant is not accepted as a
-throughput improvement. The production baseline passes all 18 checks as well.
+Changes are small and mixed across these AMD hosts. The production baseline
+passes all 18 checks as well. The Intel comparison below establishes the benefit
+on the affected Intel model.
 
 | 7763 host / workload | Rate × baseline / trial, pair 1 | Rate × baseline / trial, pair 2 | Broker CPU seconds baseline / trial, pair 1 | Broker CPU seconds baseline / trial, pair 2 |
 | --- | ---: | ---: | ---: | ---: |
@@ -295,6 +296,21 @@ throughput improvement. The production baseline passes all 18 checks as well.
 | Ubuntu 22 / pinned 24 / WS 5 | 0.775 / 0.772 | 0.820 / 0.783 | 9.10 / 9.19 | 9.10 / 9.20 |
 | Ubuntu 22 / pinned 24 / WS 3.1.1 | 0.753 / 0.767 | 0.829 / 0.777 | 9.52 / 9.29 | 8.91 / 9.15 |
 | Ubuntu 22 / pinned 24 / TCP 64 KiB | 0.915 / 0.963 | 0.919 / 0.920 | 0.63 / 0.65 | 0.62 / 0.63 |
+
+The [matched Intel Xeon 8370C comparison](../../docs/benchmarks/mqtt-yield-intel8370c-40961646882.json)
+changes only the native library. The no-timer readiness-yield candidate improves
+both WebSocket versions in both pairs, while reducing broker CPU. All six
+candidate checks pass; the baseline fails all four WebSocket checks. The 64 KiB
+checks pass for both libraries. All 16,200,000 deliveries are exact. Final
+full local and hosted verification of the integrated candidate are pending.
+Current scoped coverage is [882/882 native added lines](../../docs/benchmarks/mqtt-native-added-line-coverage-ready-yield.md),
+651/651 MQTT Dart lines and 268/268 benchmark-gate Python lines.
+
+| 8370C workload | Rate × baseline / candidate, pair 1 | Rate × baseline / candidate, pair 2 | Broker CPU seconds baseline / candidate, pair 1 | Broker CPU seconds baseline / candidate, pair 2 | Peak RSS MiB baseline / candidate, maximum |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| WS MQTT 5 | 0.648 / 0.763 | 0.658 / 0.772 | 6.04 / 5.18 | 6.04 / 5.05 | 22.0 / 22.4 |
+| WS MQTT 3.1.1 | 0.654 / 0.753 | 0.659 / 0.817 | 6.01 / 5.21 | 5.98 / 4.91 | 22.0 / 22.2 |
+| TCP 64 KiB | 0.902 / 0.890 | 0.876 / 0.878 | 0.61 / 0.56 | 0.60 / 0.60 | 57.0 / 59.7 |
 
 ## WAMP throughput
 
