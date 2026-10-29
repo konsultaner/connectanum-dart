@@ -1,0 +1,49 @@
+name: MQTT CPU diagnostics
+
+on:
+  pull_request:
+    paths:
+      - 'tool/profile_mqtt_native.py'
+      - 'tool/test_profile_mqtt_native.py'
+      - '.github/actions/profile-mqtt/**'
+      - '.github/workflows/mqtt-profile.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    name: MQTT native CPU diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - name: Bootstrap diagnostic dependencies
+        run: |
+          set -euo pipefail
+          bin/bootstrap
+          sudo apt-get update
+          sudo apt-get install -y mosquitto
+      - name: Build the native library used by the acceptance gate
+        run: |
+          set -euo pipefail
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-profile-target" \
+            cargo build --manifest-path native/transport/Cargo.toml \
+            -p ct_ffi --release --features ffi-test
+          echo "CONNECTANUM_NATIVE_LIB=$RUNNER_TEMP/mqtt-profile-target/release/libct_ffi.so" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/profile-mqtt
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-native-profile
+          path: out/mqtt-native-profile
+          if-no-files-found: error

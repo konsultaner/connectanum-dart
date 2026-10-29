@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 import signal
+import shlex
+import re
 import subprocess
 import tempfile
 import unittest
@@ -157,6 +159,23 @@ class NativeMqttProfileTest(unittest.TestCase):
             self.profile()
         self.assertTrue(self.broker.terminated)
         self.assertEqual(self.sampler.signals, [signal.SIGINT])
+
+class PerfToolDiscoveryTest(unittest.TestCase):
+    def test_perf_discovery_follows_installed_tool_symlinks(self):
+        root = Path(self.enterContext(tempfile.TemporaryDirectory(prefix="mqtt tools ")))
+        tools = root / "linux-tools"
+        real = root / "versioned-tools"
+        tools.mkdir()
+        real.mkdir()
+        binary = real / "perf"
+        binary.write_text("#!/bin/sh\nexit 0\n")
+        binary.chmod(0o755)
+        (tools / "6.8.0-generic").symlink_to(real, target_is_directory=True)
+        workflow = (profiler.ROOT / ".github/actions/profile-mqtt/action.yml").read_text()
+        selector = re.search(r'perf_binary="\$\(([^\n]+)\)"', workflow)[1]
+        command = selector.replace("/usr/lib/linux-tools", shlex.quote(str(tools)))
+        result = subprocess.run(["bash", "-c", command], capture_output=True, text=True, check=True)
+        self.assertEqual(Path(result.stdout.strip()).resolve(), binary.resolve())
 
 
 if __name__ == "__main__":

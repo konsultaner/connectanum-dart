@@ -189,7 +189,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertIn("mqtt-hosted-pr128-2dea8b8e.json", mqtt_table)
         latest_row = next(
             row for row in mqtt_table.splitlines()
-            if row.startswith("| [Latest `9aa6b17d`]")
+            if row.startswith("| [Baseline `9aa6b17d`]")
         )
         latest_cells = [cell.strip() for cell in latest_row.strip("|").split("|")]
         self.assertIn("EPYC 7763", latest_cells[0])
