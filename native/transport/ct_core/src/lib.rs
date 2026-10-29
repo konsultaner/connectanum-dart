@@ -1669,6 +1669,7 @@ struct RuntimeManager {
 
 struct RuntimeState {
     runtime: Runtime,
+    mqtt_runtime: Option<Runtime>,
     handle: tokio::runtime::Handle,
     registry: Arc<ListenerRegistry>,
 }
@@ -1707,6 +1708,7 @@ where
 }
 
 struct ListenerRegistry {
+    mqtt_handle: Option<tokio::runtime::Handle>,
     listeners: Mutex<HashMap<ListenerId, ListenerEntry>>,
     connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
     connection_events: Mutex<VecDeque<HttpConnectionEvent>>,
@@ -1716,6 +1718,7 @@ struct ListenerRegistry {
 impl Default for ListenerRegistry {
     fn default() -> Self {
         Self {
+            mqtt_handle: None,
             listeners: Mutex::new(HashMap::new()),
             connections: Mutex::new(HashMap::new()),
             connection_events: Mutex::new(VecDeque::new()),
@@ -2002,6 +2005,33 @@ impl RuntimeManager {
 }
 
 impl RuntimeState {
+    fn from_runtime_parts(
+        runtime: Runtime,
+        mqtt_runtime: Result<Option<Runtime>, Error>,
+    ) -> Result<Self, Error> {
+        let mqtt_runtime = match mqtt_runtime {
+            Ok(runtime) => runtime,
+            Err(error) => {
+                // Startup can run inside another executor; do not block it on drop.
+                runtime.shutdown_background();
+                return Err(error);
+            }
+        };
+        let handle = runtime.handle().clone();
+        let registry = Arc::new(ListenerRegistry {
+            mqtt_handle: mqtt_runtime
+                .as_ref()
+                .map(|runtime| runtime.handle().clone()),
+            ..ListenerRegistry::default()
+        });
+        Ok(Self {
+            runtime,
+            mqtt_runtime,
+            handle,
+            registry,
+        })
+    }
+
     fn view(&self) -> RuntimeView {
         RuntimeView {
             handle: self.handle.clone(),
@@ -2012,7 +2042,11 @@ impl RuntimeState {
     fn shutdown(self) {
         self.registry.shutdown();
         let runtime = self.runtime;
+        let mqtt_runtime = self.mqtt_runtime;
         let _ = std::thread::spawn(move || {
+            if let Some(mqtt_runtime) = mqtt_runtime {
+                mqtt_runtime.shutdown_timeout(Duration::from_secs(1));
+            }
             runtime.shutdown_timeout(Duration::from_secs(1));
         })
         .join();
@@ -2422,7 +2456,7 @@ impl ListenerRegistry {
         endpoint_config: Arc<config::EndpointRuntimeConfig>,
         handshake: protocol::MqttHandshake,
         peer_addr: SocketAddr,
-    ) {
+    ) -> Result<(), Error> {
         let version = handshake.version;
         self.register_mqtt_stream_connection(
             handle,
@@ -2433,7 +2467,7 @@ impl ListenerRegistry {
             version,
             peer_addr,
             false,
-        );
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -2473,7 +2507,7 @@ impl ListenerRegistry {
             0,
             peer_addr,
             true,
-        );
+        )?;
         Ok(())
     }
 
@@ -2488,7 +2522,14 @@ impl ListenerRegistry {
         version: u8,
         peer_addr: SocketAddr,
         websocket: bool,
-    ) {
+    ) -> Result<(), Error> {
+        let handle = self
+            .mqtt_handle
+            .as_ref()
+            .filter(|_| stream.is_plain_tcp())
+            .cloned()
+            .unwrap_or(handle);
+        let stream = stream.into_runtime(&handle)?;
         let (reader, writer) = tokio::io::split(stream);
         let (chunk_tx, chunk_rx) = mpsc::channel(64);
         let notification_pending = Arc::new(AtomicBool::new(false));
@@ -2578,6 +2619,7 @@ impl ListenerRegistry {
             }
             let _ = registry.close_connection(connection_id);
         });
+        Ok(())
     }
 
     fn accept_websocket_connection(
@@ -5922,14 +5964,29 @@ pub fn start_runtime() -> Result<(), Error> {
     }
     let runtime = builder.build()?;
 
-    let handle = runtime.handle().clone();
-    let state = RuntimeState {
-        runtime,
-        handle,
-        registry: Arc::new(ListenerRegistry::default()),
-    };
+    let mqtt_runtime = build_mqtt_runtime(
+        worker_threads,
+        std::env::var_os("TOKIO_WORKER_THREADS").is_some(),
+    );
+    let state = RuntimeState::from_runtime_parts(runtime, mqtt_runtime)?;
     *guard = Some(state);
     Ok(())
+}
+
+fn build_mqtt_runtime(
+    native_workers: Option<usize>,
+    tokio_override_present: bool,
+) -> Result<Option<Runtime>, Error> {
+    if native_workers.is_some() || tokio_override_present {
+        return Ok(None);
+    }
+    Ok(Some(
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .thread_name("connectanum-mqtt")
+            .enable_all()
+            .build()?,
+    ))
 }
 
 fn runtime_worker_threads_from_env() -> Result<Option<usize>, Error> {
@@ -6070,15 +6127,19 @@ async fn negotiate_accepted_connection(
         Ok(protocol::NegotiatedConnection::Mqtt(handshake)) => {
             let next_id = registry.next_connection_id();
             with_mqtt_connection_id(next_id, |connection_id| async move {
-                Arc::clone(&registry).register_mqtt_connection(
-                    runtime_handle.clone(),
-                    listener_id,
-                    connection_id,
-                    Arc::clone(&endpoint),
-                    handshake,
-                    addr,
-                );
-                let _ = tx.send(connection_id).await;
+                if Arc::clone(&registry)
+                    .register_mqtt_connection(
+                        runtime_handle.clone(),
+                        listener_id,
+                        connection_id,
+                        Arc::clone(&endpoint),
+                        handshake,
+                        addr,
+                    )
+                    .is_ok()
+                {
+                    let _ = tx.send(connection_id).await;
+                }
             })
             .await;
         }
@@ -9581,24 +9642,26 @@ mod tests {
         let (server, peer_addr) = listener.accept().await.unwrap();
         let registry = Arc::new(ListenerRegistry::default());
         let connection_id = ConnectionId(45);
-        Arc::clone(&registry).register_mqtt_stream_connection(
-            tokio::runtime::Handle::current(),
-            ListenerId(1),
-            connection_id,
-            Arc::new(build_client_endpoint_config(
-                "127.0.0.1",
-                0,
+        Arc::clone(&registry)
+            .register_mqtt_stream_connection(
+                tokio::runtime::Handle::current(),
+                ListenerId(1),
+                connection_id,
+                Arc::new(build_client_endpoint_config(
+                    "127.0.0.1",
+                    0,
+                    false,
+                    TransportProtocol::Mqtt,
+                    config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+                    None,
+                    None,
+                )),
+                IoStream::plain(server),
+                5,
+                peer_addr,
                 false,
-                TransportProtocol::Mqtt,
-                config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
-                None,
-                None,
-            )),
-            IoStream::plain(server),
-            5,
-            peer_addr,
-            false,
-        );
+            )
+            .unwrap();
         registry
             .set_mqtt_wakeup(connection_id, Some(wakeup))
             .unwrap();
@@ -9695,16 +9758,11 @@ mod tests {
             close_tx,
             true,
         );
-        client
-            .write_all(&[0x88, 0x80, 1, 2, 3, 4])
+        client.write_all(&[0x88, 0x80, 1, 2, 3, 4]).await.unwrap();
+        assert!(time::timeout(Duration::from_secs(5), send_rx.recv())
             .await
-            .unwrap();
-        assert!(
-            time::timeout(Duration::from_secs(5), send_rx.recv())
-                .await
-                .unwrap()
-                .is_some()
-        );
+            .unwrap()
+            .is_some());
         assert_eq!(
             time::timeout(Duration::from_secs(5), close_rx.recv())
                 .await
@@ -9723,24 +9781,26 @@ mod tests {
         let (server, peer_addr) = listener.accept().await.unwrap();
         let registry = Arc::new(ListenerRegistry::default());
         let connection_id = ConnectionId(47);
-        Arc::clone(&registry).register_mqtt_stream_connection(
-            tokio::runtime::Handle::current(),
-            ListenerId(1),
-            connection_id,
-            Arc::new(build_client_endpoint_config(
-                "127.0.0.1",
-                0,
+        Arc::clone(&registry)
+            .register_mqtt_stream_connection(
+                tokio::runtime::Handle::current(),
+                ListenerId(1),
+                connection_id,
+                Arc::new(build_client_endpoint_config(
+                    "127.0.0.1",
+                    0,
+                    false,
+                    TransportProtocol::Mqtt,
+                    config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+                    None,
+                    None,
+                )),
+                IoStream::plain(server),
+                5,
+                peer_addr,
                 false,
-                TransportProtocol::Mqtt,
-                config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
-                None,
-                None,
-            )),
-            IoStream::plain(server),
-            5,
-            peer_addr,
-            false,
-        );
+            )
+            .unwrap();
         let entry = registry
             .connections
             .lock()
@@ -9849,7 +9909,9 @@ mod tests {
         let mut inbound = MqttInbound::new(receiver);
         let notification_pending = AtomicBool::new(true);
         let bytes = inbound.poll_with_wake_reset(64, &notification_pending, || {
-            sender.try_send(Bytes::from_static(b"racing chunk")).unwrap();
+            sender
+                .try_send(Bytes::from_static(b"racing chunk"))
+                .unwrap();
         });
         assert_eq!(bytes, Some(Bytes::from_static(b"racing chunk")));
         assert!(!notification_pending.load(Ordering::Acquire));
@@ -10576,6 +10638,195 @@ mod tests {
         assert_eq!(parse_runtime_worker_threads(None).unwrap(), None);
         assert_eq!(parse_runtime_worker_threads(Some("")).unwrap(), None);
         assert_eq!(parse_runtime_worker_threads(Some("   ")).unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn mqtt_runtime_partial_startup_failure_cleans_up_inside_another_runtime() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+        let pending = runtime.handle().spawn(std::future::pending::<()>());
+        let result = RuntimeState::from_runtime_parts(
+            runtime,
+            Err(Error::Io(io::Error::other("MQTT worker startup failed"))),
+        );
+        assert!(matches!(result, Err(Error::Io(_))));
+        assert!(time::timeout(Duration::from_secs(5), pending)
+            .await
+            .unwrap()
+            .unwrap_err()
+            .is_cancelled());
+    }
+
+    #[test]
+    fn mqtt_reactor_migration_preserves_replay_bytes_after_old_runtime_shutdown() {
+        use std::io::{Read, Write};
+        let original = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let target = build_mqtt_runtime(None, false).unwrap().unwrap();
+        assert_eq!(target.metrics().num_workers(), 1);
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let mut client = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let (server, _) = original.block_on(async {
+            tokio::net::TcpListener::from_std(listener)
+                .unwrap()
+                .accept()
+                .await
+                .unwrap()
+        });
+        let mut stream = IoStream::plain(server);
+        stream.buffer_front(b"prefix");
+        original.block_on(async {
+            let mut prefix = [0; 2];
+            stream.read_exact(&mut prefix).await.unwrap();
+            assert_eq!(&prefix, b"pr");
+        });
+        let mut stream = stream.into_runtime(target.handle()).unwrap();
+        original.shutdown_timeout(Duration::from_secs(1));
+        client.write_all(b"DATA").unwrap();
+        target.block_on(async {
+            let mut bytes = [0; 8];
+            time::timeout(Duration::from_secs(5), stream.read_exact(&mut bytes))
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(&bytes, b"efixDATA");
+            stream.write_all(b"ACK").await.unwrap();
+        });
+        let mut ack = [0; 3];
+        client.read_exact(&mut ack).unwrap();
+        assert_eq!(&ack, b"ACK");
+    }
+
+    #[test]
+    fn mqtt_reactor_migration_failure_does_not_register_a_connection() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let target = build_mqtt_runtime(None, false).unwrap().unwrap();
+        let handle = target.handle().clone();
+        target.shutdown_timeout(Duration::from_secs(1));
+        runtime.block_on(async {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let _client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+                .await
+                .unwrap();
+            let (server, peer_addr) = listener.accept().await.unwrap();
+            let registry = Arc::new(ListenerRegistry {
+                mqtt_handle: Some(handle),
+                ..ListenerRegistry::default()
+            });
+            let result = Arc::clone(&registry).register_mqtt_stream_connection(
+                tokio::runtime::Handle::current(),
+                ListenerId(1),
+                ConnectionId(77),
+                Arc::new(build_client_endpoint_config(
+                    "127.0.0.1",
+                    0,
+                    false,
+                    TransportProtocol::Mqtt,
+                    config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+                    None,
+                    None,
+                )),
+                IoStream::plain(server),
+                5,
+                peer_addr,
+                false,
+            );
+            assert!(matches!(result, Err(Error::Io(_))));
+            assert!(registry.connections.lock().unwrap().is_empty());
+        });
+    }
+
+    #[test]
+    fn mqtt_failed_reactor_transfer_never_announces_an_accepted_connection() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let target = build_mqtt_runtime(None, false).unwrap().unwrap();
+        let dead_handle = target.handle().clone();
+        target.shutdown_timeout(Duration::from_secs(1));
+        runtime.block_on(async {
+            for websocket in [false, true] {
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap()).await.unwrap();
+                let (server, peer_addr) = listener.accept().await.unwrap();
+                let mut endpoint = build_client_endpoint_config(
+                    "127.0.0.1", 0, false, TransportProtocol::Mqtt,
+                    config::DEFAULT_RAWSOCKET_SIZE_EXPONENT, None, None,
+                );
+                if websocket {
+                    endpoint.protocols.push(TransportProtocol::Websocket);
+                    client.write_all(b"GET /mqtt HTTP/1.1\r\nHost: localhost\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: mqtt\r\n\r\n").await.unwrap();
+                } else {
+                    client.write_all(&[0x10, 0x0e, 0, 4, b'M', b'Q', b'T', b'T', 5, 2, 0, 60, 0, 0, 1, b'c']).await.unwrap();
+                }
+                let registry = Arc::new(ListenerRegistry {
+                    mqtt_handle: Some(dead_handle.clone()), ..ListenerRegistry::default()
+                });
+                let config_state = Arc::new(ListenerConfigState::new(Arc::new(endpoint), None));
+                let (sender, mut accepted) = mpsc::channel(1);
+                time::timeout(Duration::from_secs(5), negotiate_accepted_connection(
+                    server, peer_addr, ListenerId(1), config_state, Arc::clone(&registry),
+                    tokio::runtime::Handle::current(), sender,
+                )).await.unwrap();
+                assert!(time::timeout(Duration::from_secs(5), accepted.recv()).await.unwrap().is_none());
+                assert!(registry.connections.lock().unwrap().is_empty());
+                if websocket {
+                    let mut response = Vec::new();
+                    time::timeout(Duration::from_secs(5), client.read_to_end(&mut response)).await.unwrap().unwrap();
+                    assert!(response.starts_with(b"HTTP/1.1 101 "));
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn mqtt_reactor_isolation_preserves_worker_overrides_and_shuts_down_both_pools() {
+        for workers in [1, 2, 4, 64] {
+            for tokio in [false, true] {
+                assert!(build_mqtt_runtime(Some(workers), tokio).unwrap().is_none());
+            }
+        }
+        assert!(build_mqtt_runtime(None, true).unwrap().is_none());
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+        let mqtt_runtime = build_mqtt_runtime(None, false).unwrap();
+        let primary_handle = runtime.handle().clone();
+        let mqtt_handle = mqtt_runtime.as_ref().unwrap().handle().clone();
+        assert_ne!(mqtt_handle.id(), primary_handle.id());
+        assert_eq!(primary_handle.metrics().num_workers(), 2);
+        let primary_task = primary_handle.spawn(std::future::pending::<()>());
+        let mqtt_task = mqtt_handle.spawn(std::future::pending::<()>());
+        let state = RuntimeState {
+            runtime,
+            mqtt_runtime,
+            handle: primary_handle,
+            registry: Arc::new(ListenerRegistry {
+                mqtt_handle: Some(mqtt_handle),
+                ..ListenerRegistry::default()
+            }),
+        };
+        state.shutdown();
+        let observer = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        assert!(observer.block_on(primary_task).unwrap_err().is_cancelled());
+        assert!(observer.block_on(mqtt_task).unwrap_err().is_cancelled());
     }
 
     #[test]

@@ -82,8 +82,7 @@ final class MqttQos0Broker {
     Uint8List? encoded311;
     for (final peer in _peers) {
       if (!peer.connected || peer == sender && peer.filters.isEmpty) continue;
-      if (!peer.filters.contains(message.topic) &&
-          !peer.filters.any((filter) => _matches(filter, message.topic))) {
+      if (!peer.filters.any((filter) => _matches(filter, message.topic))) {
         continue;
       }
       final encoded = peer.version == MqttVersion.v5

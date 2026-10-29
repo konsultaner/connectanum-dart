@@ -2,6 +2,9 @@
 
 ## 3.0.0-beta.8
 
+- Isolate cleartext MQTT socket I/O on one native worker while preserving the
+  primary WAMP/HTTP runtime and explicit worker-count overrides.
+
 - Add native FlatBuffers routing and retained segmented payload forwarding,
   with lifetime checks across asynchronous session and E2EE paths.
 - Replace short remote-authentication credential fingerprints with
