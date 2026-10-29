@@ -2,9 +2,32 @@
 
 Status: active. Started: 2026-10-03.
 
-Current step: validate generic fragmented application payload construction and
-renew the unchanged gates. Runtime `dec17f8b` remains the measured checkpoint.
+Current step: remove pre-encoded Dart staging, inspect client GC attribution and
+renew the unchanged gates. Runtime `490f60bf` is the latest measured checkpoint.
 Earlier sections retain checkpoint history, including rejected experiments.
+
+## Pre-encoded staging follow-up (2026-10-29)
+
+- [x] Reproduce the remaining pre-encoded application-vector copy with an actual
+  runner/owner test: expected zero Dart staging bytes, observed 65,536.
+- [x] Use complete encoded Dart parts as input to the existing public native
+  builder, then freeze one native owner. The full encoded model, including
+  prefix/padding, is copied once and counted. Schema encoding remains in Dart;
+  this stays distinct from native schema construction. Body data/IDs, CBEN
+  bytes, lease identity, observations and preparation/latency windows stay fixed.
+- [x] Pass 59 focused model/source cases, including both-constructor all-codec
+  rejected-call cleanup, empty/nonaligned vectors,
+  exact ordinary-builder byte equivalence and native input/growth copy counts.
+  All 14 private native-view patch contracts and 167 mutation proofs pass.
+- [ ] Complete fresh canonical verification, source/behavior review and hosted
+  CI/copy/parity evidence on the changed constructor. Local resources became
+  available; focused GLM review completes. Its observer-only, double-dispose and
+  unfrozen-leak claims are disproved by the actual owner guard, idempotent handle
+  disposal and finally cleanup. All-codec rejection tests now cover both owned
+  constructors. No production change is justified by those advisory claims. Preserve the five-failure report and earlier supplemental runs.
+- [ ] Audit VM-only capture `40926807868` on the preceding runtime to attribute
+  the remaining Dart-values client GC/tail cost. Its Dart-values construction
+  is unchanged by this pre-encoded follow-up; profiling never accepts parity.
 
 ## Fragmented application-model candidate (2026-10-29)
 
@@ -35,9 +58,27 @@ Earlier sections retain checkpoint history, including rejected experiments.
   and pre-encoded constructors keep their separate declared semantics.
 - [ ] Prove model/frame byte equivalence, body identity, fallback copy counts,
   caller-list snapshots, ownership/non-forgeability and VM/browser behavior;
-  rerun native correctness/copy evidence and canonical local/hosted verification.
-- [ ] Only adopt measured improvement under the existing paired policy; then
-  finish the 48-case primary and refresh final-runtime supplemental evidence.
+  rerun native correctness/copy evidence and canonical local/hosted verification. Full local `bin/verify` exits 0;
+  production proof `40922342731` passes and its independent audit verifies all
+  3,224 source inputs plus 120 live / 300 inventory / 32 zero-avoidable-copy
+  checks. All three native-view positive phases and their cleanup pass; the
+  intentional negative control is observed. Corrected-source CI `40923229188`
+  is pending, so this combined checklist item stays open.
+- [ ] Only adopt measured improvement under the existing paired policy, then
+  finish the 48-case primary. The final-runtime 50-case supplemental refresh
+  runs in parallel after local verification/copy proof to complete pending cost
+  reporting; retain every previous report and never substitute diagnostics for
+  primary acceptance.
+
+Current paired result `40922533817`: all 90 rows complete, independently matched
+against retained inputs and binaries. Five numerical misses remain: Dart-values
+throughput 0.995779, p99 1.114498, GC 1.212659 and RSS 1.020991; native pre-encoded
+RSS 1.006725. Native-buffer passes every metric. Keep both earlier seven-failure
+and current five-failure reports; no unchanged acceptance rerun or threshold
+change. The client's GC accounts for the excess despite lower allocation;
+router GC is similar. Inspect existing VM-only heap/GC attribution on this
+changed runtime before proposing another optimization. Supplemental refresh
+`40925767834` runs independently; it never accepts the 48-case primary.
 
 Local heavyweight architecture advice was attempted through the approved
 companion helper and refused because the native-mutation resource lease is

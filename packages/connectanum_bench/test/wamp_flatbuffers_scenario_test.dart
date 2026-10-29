@@ -6,6 +6,7 @@ import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_client/native_buffers.dart' as native_buffers;
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
@@ -16,6 +17,102 @@ void main() {
   final skipNative = nativeLibrary == null
       ? 'Native transport artifact unavailable'
       : false;
+  test(
+    'pre-encoded FlatBuffers copies its encoded parts into native storage once',
+    () async {
+      final session = _RecordingSession();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => session,
+        logger: Logger.detached('pre-encoded-parts'),
+        nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
+          libraryPath: nativeLibrary,
+        ),
+      );
+      OwnedCopyMetrics.enable();
+      final before = OwnedCopyMetrics.snapshot()!;
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.flatbuffers,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 65536,
+          pptScheme: 'x_connectanum_bench_typed',
+          pptSerializer: 'flatbuffers',
+          payloadConstruction: WampPayloadConstruction.preEncodedSpan,
+        ),
+      );
+      final after = OwnedCopyMetrics.snapshot()!;
+      expect(
+        after['flatbuffer_vector_copy_bytes']! -
+            before['flatbuffer_vector_copy_bytes']!,
+        0,
+      );
+      expect(
+        after['coalescing_copy_bytes']! - before['coalescing_copy_bytes']!,
+        0,
+      );
+      expect(
+        samples.single.nativeBuilderInputCopiedBytes,
+        session.requestBytes!.length,
+      );
+      expect(samples.single.nativeBuilderGrowthCopiedBytes, 0);
+      expect(session.requestLease, isA<native_buffers.NativePptPayloadLease>());
+      expect(session.requestOwner!.isDisposed, isTrue);
+      BenchPayloadCodec.verify(
+        bytes: session.requestBytes!,
+        worker: 0,
+        iteration: 0,
+        bodyBytes: 65536,
+      );
+    },
+    skip: skipNative,
+  );
+  test(
+    'pre-encoded parts preserve padding and native ownership at boundaries',
+    () async {
+      for (final length in [0, 1, 7, 8, 65535, 65537]) {
+        final session = _RecordingSession();
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => session,
+          logger: Logger.detached('pre-encoded-boundaries'),
+          nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
+            libraryPath: nativeLibrary,
+          ),
+        );
+        final samples = await runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.flatbuffers,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: length,
+            pptScheme: 'x_connectanum_bench_typed',
+            pptSerializer: 'flatbuffers',
+            payloadConstruction: WampPayloadConstruction.preEncodedSpan,
+          ),
+        );
+        expect(
+          session.requestBytes,
+          BenchPayloadCodec.encodeDart(
+            worker: 0,
+            iteration: 0,
+            bodyBytes: length,
+          ),
+        );
+        expect(
+          samples.single.nativeBuilderInputCopiedBytes,
+          session.requestBytes!.length,
+        );
+        expect(session.requestOwner!.isDisposed, isTrue);
+      }
+    },
+    skip: skipNative,
+  );
   for (final construction in [
     WampPayloadConstruction.dartValues,
     WampPayloadConstruction.preEncodedSpan,
@@ -226,48 +323,54 @@ void main() {
     ('cbor', WampSerializer.cbor),
     ('msgpack', WampSerializer.msgpack),
   ]) {
-    test(
-      'native ${codec.$1} PPT owner is disposed when a call is rejected',
-      () async {
-        final session = _RecordingSession()..throwOnCall = true;
-        final runner = WampWorkloadRunner(
-          sessionFactory: (_) async => session,
-          logger: Logger.detached('flatbuffers-owned-span-error'),
-          nativeBufferAllocator: native_buffers.NativeBufferAllocator.instance(
-            libraryPath: nativeLibrary,
-          ),
-        );
+    for (final construction in [
+      WampPayloadConstruction.nativeBuffer,
+      WampPayloadConstruction.preEncodedSpan,
+    ]) {
+      test(
+        'native ${codec.$1} $construction PPT owner is disposed when a call is rejected',
+        () async {
+          final session = _RecordingSession()..throwOnCall = true;
+          final runner = WampWorkloadRunner(
+            sessionFactory: (_) async => session,
+            logger: Logger.detached('flatbuffers-owned-span-error'),
+            nativeBufferAllocator:
+                native_buffers.NativeBufferAllocator.instance(
+                  libraryPath: nativeLibrary,
+                ),
+          );
 
-        await expectLater(
-          runner.run(
-            WampScenario(
-              transport: WampTransport.rawsocket,
-              clientImplementation: WampClientImplementation.native,
-              serializer: codec.$2,
-              mode: WampMode.rpc,
-              uri: 'bench.rpc.echo',
-              iterations: 1,
-              concurrency: 1,
-              payloadBytes: 128,
-              pptScheme: 'x_connectanum_bench_typed',
-              pptSerializer: codec.$1 == 'FlatBuffers'
-                  ? 'flatbuffers'
-                  : codec.$1,
-              payloadConstruction: WampPayloadConstruction.nativeBuffer,
+          await expectLater(
+            runner.run(
+              WampScenario(
+                transport: WampTransport.rawsocket,
+                clientImplementation: WampClientImplementation.native,
+                serializer: codec.$2,
+                mode: WampMode.rpc,
+                uri: 'bench.rpc.echo',
+                iterations: 1,
+                concurrency: 1,
+                payloadBytes: 128,
+                pptScheme: 'x_connectanum_bench_typed',
+                pptSerializer: codec.$1 == 'FlatBuffers'
+                    ? 'flatbuffers'
+                    : codec.$1,
+                payloadConstruction: construction,
+              ),
             ),
-          ),
-          throwsA(isA<StateError>()),
-        );
+            throwsA(isA<StateError>()),
+          );
 
-        expect(session.ownerWasLiveDuringCall, isTrue);
-        expect(session.requestOwner!.isDisposed, isTrue);
-        expect(session.requestLease!.isDisposed, isTrue);
-        expect(session.requestLease!.hasExportedByteView, isFalse);
-        expect(session.exportedViewBeforeCall, isFalse);
-        expect(session.closed, isTrue);
-      },
-      skip: skipNative,
-    );
+          expect(session.ownerWasLiveDuringCall, isTrue);
+          expect(session.requestOwner!.isDisposed, isTrue);
+          expect(session.requestLease!.isDisposed, isTrue);
+          expect(session.requestLease!.hasExportedByteView, isFalse);
+          expect(session.exportedViewBeforeCall, isFalse);
+          expect(session.closed, isTrue);
+        },
+        skip: skipNative,
+      );
+    }
   }
 }
 

@@ -10,6 +10,9 @@ import 'wire_writer.dart' show FlatBufferByteVectorReference;
 /// Use the supplied builder and vector offset in the application's generated
 /// table builder; return its root offset without finishing or resetting it.
 /// The application owns its schema. The vector uses normal byte alignment.
+/// The supplied [WampFlatBufferBuilder] retains its portable WAMP uint64 range;
+/// pre-encoded application data with wider integers can use PackedPayloadParts
+/// directly with its own schema builder.
 ///
 /// The small prefix is snapshotted so escaped builder views cannot change it.
 /// The original bytes stay borrowed and must remain valid and unchanged until

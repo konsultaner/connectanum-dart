@@ -58,9 +58,15 @@ construction; fragment-aware sends borrow that body without its former
 application-builder staging copy. Ordinary contiguous consumers use the
 measured cached coalescing fallback. This changes encoding implementation only:
 the application bytes, identities, validation, construction groups, observations
-and measurement windows stay unchanged. Native construction and pre-encoded
-groups keep their existing separate constructors. This copy improvement alone
-does not establish performance or RSS acceptance.
+and measurement windows stay unchanged. The pre-encoded constructor also uses
+the complete encoded Dart parts as its input, copying every byte once into a
+single frozen native owner with the existing public `NativeBufferBuilder`.
+Its native input counter still covers the entire encoded model, including its
+schema prefix and padding. This removes a preceding Dart staging buffer without
+moving schema construction into native storage. The native-construction group
+continues to build its schema directly in native memory and copy only its Dart
+body input. All encoding and native copying remain inside preparation timing.
+These copy improvements alone do not establish performance or RSS acceptance.
 
 For a native caller with a FlatBuffers WAMP envelope and typed FlatBuffers PPT,
 the `native_buffer` and `pre_encoded_span` runner groups now construct a packed

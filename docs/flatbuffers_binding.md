@@ -121,6 +121,11 @@ schema prefix and borrows the original body, preserving ordinary FlatBuffers
 alignment and wire bytes. It does not generate or validate the application
 schema.
 
+The helper supplies `WampFlatBufferBuilder`, including its portable unsigned
+64-bit limit of 2^53. Applications needing wider integer fields can build their
+encoded parts with their own FlatBuffers builder and use `PackedPayloadParts`
+directly; opaque payload forwarding does not reinterpret those fields.
+
 Pass the resulting `PackedPayloadParts` as the source of
 `LazyMessagePayload.packedSource`, with FlatBuffers encoding and the application's
 packed decoder, to the Session lazy-payload APIs with custom PPT metadata.

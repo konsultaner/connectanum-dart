@@ -684,3 +684,65 @@ strongly perturbed (FlatBuffers/MessagePack 22,727/23,286 operations, versus
 overhead. Do not treat storage reduction as a demonstrated latency fix or use
 these sampled runs for acceptance. Keep native JIT/cross-language attribution
 limits explicit. No new profiler changes are justified by this observation.
+
+
+## Paired fragmented-model result and pre-encoded staging
+
+`40922533817` completes 90 rows on `490f60bf`. Independent recomputation exactly
+matches hosted output and verifies retained scenarios, policy, locks,
+configuration and binaries. Five numerical failures remain: Dart-values
+throughput 0.995779, p99 1.114498, GC 1.212659 and RSS 1.020991; native
+pre-encoded RSS 1.006725. Native-buffer passes all seven metrics; Dart CPU/p95
+and allocation pass. Separate hosted campaigns do not establish causal changes
+from point estimates alone. Keep every earlier failure and strict threshold.
+
+Client Dart-values median allocation is about 151,968 bytes/op for FlatBuffers
+and 283,396 for MessagePack; router values are 217,358/217,391. Client GC pause
+is 3.61/2.16 us/op, router 3.50/3.51. FlatBuffers has roughly 48–53 minor
+collections per row versus MessagePack 95–100; excess cost is not explained by
+more collections or old-generation events alone. VM-only `40926807868` uses the
+existing diagnostic on this changed runtime without new profiling features.
+
+The pre-encoded constructor still copies its Dart body into a contiguous Dart
+application model before copying that model into native storage. A fail-first
+runner test reproduces exactly 65,536 staging bytes. Complete encoded Dart
+parts are equally valid pre-encoded input: use the existing public native
+builder to copy them sequentially into one frozen owner. Every encoded byte,
+including schema prefix/padding, remains counted as native input. Schema
+construction stays in Dart, unlike direct native construction. The data,
+identities, CBEN bytes, validation and all observation/timing windows stay fixed.
+56 focused cases pass, including empty/tail boundaries and exact copy counts;
+canonical and hosted verification remain required. This is a copy result,
+not acceptance of RSS, GC or latency. Retain supplemental `40925767834` on the
+preceding constructor; it cannot accept this follow-up's changed runtime.
+
+
+Focused GLM review completes after local resources become available. Its first
+larger answer hit the output cap and is not accepted as a completed review;
+the narrower follow-up is retained. Source inspection rejects all three alleged
+findings: observation is already guarded by owner != null for every serializer;
+lease and owner disposal use the same idempotent handle; unfrozen builders are
+released by the existing finally block. All-codec rejected-call tests now cover
+both owned constructors. No ownership relaxation or changed cleanup follows
+from this advisory output.
+
+VM-only `40926807868` passes with unchanged source/library, verified windows and
+clean exits. Post-GC-request client snapshots show zero PackedPayloadParts,
+packed-source payloads and WampSamples. FlatBuffers/MessagePack user heap usage
+is about 27.5/26.7 MB, capacity 62.9/46.0 MB; capacity is not resident/live usage
+and must not be subtracted from RSS. The selected client GC intervals are
+262/197 us median, router 791.5/472 us. Sampled clock uncertainty is roughly
+1–1.7 ms, and partial overlap is not causation. These perturbed windows do not
+reproduce the acceptance run's full client GC cost or accept its better sampled
+p99. No complete remaining-tail explanation is established.
+
+
+The bounded generic-core Qwen review also completes. Its alleged cross-thread
+cache race does not apply to this synchronous getter on a Dart isolate; there
+is no await or shared mutable Dart object. Padding remains below the checked
+64 MiB whole-model bound, application schema validation is explicitly owned by
+the callback, and prefix copying/lifetime are documented and counted. The
+suggested vector.start/end methods do not exist. No verified production defect
+follows from these claims. The helper's existing portable WAMP uint64 range is
+now explicit; wider opaque application fields remain forwardable via a source
+built with the application's own builder. All 59 focused model/source cases pass.

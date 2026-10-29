@@ -2198,13 +2198,22 @@ class WampWorkloadRunner {
                   bodyBytes: scenario.payloadBytes,
                 );
         case WampPayloadConstruction.preEncodedSpan:
-          final valueToEncode = _buildTypedBenchmarkValue(
-            serializer,
-            worker: worker,
-            iteration: iteration,
-            bodyBytes: scenario.payloadBytes,
-          );
-          owner = _copyToNative(_encodePptValue(serializer, valueToEncode));
+          if (serializer == 'flatbuffers') {
+            final encoded = BenchPayloadCodec.encodeDartParts(
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+            owner = _copyPartsToNative(encoded);
+          } else {
+            final valueToEncode = _buildTypedBenchmarkValue(
+              serializer,
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+            owner = _copyToNative(_encodePptValue(serializer, valueToEncode));
+          }
       }
       preparation.stop();
       final wamp_core.LazyMessagePayload payload;
@@ -2299,6 +2308,22 @@ class WampWorkloadRunner {
     final builder = _nativeBuffers.allocate(bytes.length);
     try {
       builder.writeBytes(0, bytes);
+      return builder.freeze();
+    } finally {
+      builder.dispose();
+    }
+  }
+
+  native_buffers.NativeOwnedBuffer _copyPartsToNative(
+    wamp_core.PackedPayloadParts encoded,
+  ) {
+    final builder = _nativeBuffers.allocate(encoded.length);
+    try {
+      var offset = 0;
+      for (final part in encoded.fragments) {
+        builder.writeBytes(offset, part);
+        offset += part.length;
+      }
       return builder.freeze();
     } finally {
       builder.dispose();

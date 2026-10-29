@@ -12,7 +12,19 @@ inventory / 32 zero-avoidable-copy checks, including E2EE/transcode/native crypt
 Paired diagnostic `40891596427` retains seven numerical failures: all three RSS
 points plus Dart-values throughput, CPU, p95 and p99. No parity acceptance.
 
-Current candidate adds a generic fragmented packed source and application
+Current unmeasured follow-up removes the same staging buffer from the
+pre-encoded constructor. It copies complete encoded Dart parts once into one
+frozen native owner; native input counters still include every encoded byte.
+It keeps schema construction in Dart, distinct from the native-builder group.
+The fail-first runner test observed 65,536 staging bytes; 56 model/source cases
+now pass, including empty/nonaligned boundaries and exact byte/copy counts.
+All 14 private probe contracts and 167 mutation proofs remain valid. All-codec
+rejected-call tests extend coverage to both owned constructors: 59 focused cases
+pass. Focused GLM and Qwen reviews complete; source inspection rejects their
+unsupported observer, disposal, thread-race and schema-validation claims. Full
+fresh verification and hosted evidence are pending for this constructor change.
+
+Measured `490f60bf` adds a generic fragmented packed source and application
 FlatBuffers helper. The schema prefix is owned; the original Dart body remains
 borrowed through fragment-aware serialization. Contiguous fallback coalesces
 once and records its copy. This grants no native ownership or database lease.
@@ -25,10 +37,11 @@ from four mutation support inventories and their wrapper; these are included.
 The complete serializer mutation wrapper passes all 3,688 cases after restoring
 the metrics initial-state group before tests that enable recording. This
 test-only follow-up leaves production runtime `490f60bf` unchanged.
-Full `bin/verify` is running again. Direct root-level browser loads timed out;
+Full `bin/verify` exits 0, including Rust/FFI, VM/native, consumer smokes and
+complete core/client Chrome/WebAssembly suites. Direct root-level browser loads timed out;
 the canonical package-root route passes all 49 core and 48 Session/E2EE cases
-in Chrome/WebAssembly, as does the unchanged browser control. Local companion test/review advice is unavailable
-because the shared machine lease is occupied; never bypass that resource gate.
+in Chrome/WebAssembly, as does the unchanged browser control. Initial companion advice was blocked by the shared machine lease. Resources
+later became available for bounded reviews; no lease gate was bypassed.
 
 Diagnostic tooling now preserves primary capture errors and exports the existing
 VM trace after measurement. VM-only profile `40901845935` passes, with native
@@ -39,8 +52,27 @@ accepts throughput/latency/RSS. Managed-code/GC/heap attribution establishes no
 large retained payload array or complete explanation of the remaining tails.
 Supplemental `40906173218` is running on the preceding runtime, with payload-size
 shard complete. Preserve it as checkpoint cost reporting; the changed runtime
-will need fresh final evidence. Fresh CI `40922324217`, production proof `40922342731` and paired diagnostic
-`40922533817` are running on `490f60bf`. Full 48-case primary remains gated on a passing
+will need fresh final evidence. Fresh production proof `40922342731` passes. Independent audit verifies 3,224
+inputs, 120 live / 300 inventory / 32 zero-avoidable-copy checks, all E2EE/transcode
+counts and stable worker cleanup. All three native-view positive phases pass;
+the intentional negative control is observed. The generated package_config has
+a digest-only hosted unchanged receipt; no dependency internals are inferred.
+Superseded CI `40922324217` was cancelled after reproducing the test-order bug;
+full corrected-source CI `40923229188` is running on `b7a6f2c8`. Production code,
+workloads, policy and lockfiles are byte-identical to measured `490f60bf`. Paired
+diagnostic `40922533817` completes all 90 rows. Independent recomputation
+matches hosted output and verifies retained inputs/scenarios/production binaries.
+Five numerical gates fail: Dart-values throughput 0.995779, p99 1.114498, GC
+1.212659 and RSS 1.020991; native pre-encoded RSS 1.006725. All native-buffer
+metrics pass; Dart CPU/p95 and every allocation gate pass. These are separate
+campaigns, so do not assign causal improvements from point estimates alone.
+The client accounts for the excess GC (about 3.61 us/op versus MessagePack 2.16),
+while router GC is similar (3.50/3.51). Client allocation is about 152/283 KB/op;
+lower allocation alone does not accept GC/RSS/latency. A fresh existing VM-only
+capture investigates the changed runtime without profiler modifications.
+Final-runtime supplemental refresh `40925767834` is dispatched in parallel after
+successful local verification and copy auditing; preserve the preceding report
+and every numerical difference. Full 48-case primary remains gated on a passing
 three-case paired diagnostic. #103 stays open and PR #132 stays draft.
 
 Current local candidate keeps the original lazy JSON report routing and retires
