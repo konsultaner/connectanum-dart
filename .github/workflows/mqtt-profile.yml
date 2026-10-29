@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       target_cpu:
-        description: CPU class required before benchmark measurements
+        description: Measure either needed CPU class or request one explicitly; always record the actual class
         type: choice
         required: true
-        default: 9V74
-        options: [9V74, 8370C]
+        default: either
+        options: [either, 9V74, 8370C]
 
 concurrency:
   group: mqtt-reader-linux-${{ github.ref }}-${{ inputs.target_cpu }}
@@ -29,21 +29,26 @@ jobs:
       - uses: actions/checkout@v5
       - name: Require the requested hardware before timing
         id: cpu
+        env:
+          MQTT_CPU_INFO_PATH: /proc/cpuinfo
         run: |
           set -euo pipefail
           mkdir -p out/mqtt-reader-linux
           cpu_model="$(awk -F: '/^model name/ {sub(/^ /,"",$2); print $2; exit}' "${MQTT_CPU_INFO_PATH:-/proc/cpuinfo}")"
           model_lower="$(printf '%s' "$cpu_model" | tr '[:upper:]' '[:lower:]')"
+          actual_class=other
+          if [[ "$model_lower" == *amd* && "$model_lower" == *9v74* ]]; then actual_class=9V74; fi
+          if [[ "$model_lower" == *intel* && "$model_lower" == *8370c* ]]; then actual_class=8370C; fi
           matched=false
           case "$REQUESTED_CPU" in
-            9V74) if [[ "$model_lower" == *amd* && "$model_lower" == *9v74* ]]; then matched=true; fi ;;
-            8370C) if [[ "$model_lower" == *intel* && "$model_lower" == *8370c* ]]; then matched=true; fi ;;
+            either) if [[ "$actual_class" != other ]]; then matched=true; fi ;;
+            9V74|8370C) if [[ "$actual_class" == "$REQUESTED_CPU" ]]; then matched=true; fi ;;
             *) echo 'Unsupported requested CPU class' >&2; exit 2 ;;
           esac
           printf '%s\n' "$cpu_model" > out/mqtt-reader-linux/cpu-model.txt
           uname -srm > out/mqtt-reader-linux/kernel.txt
-          printf 'matches=%s\n' "$matched" >> "$GITHUB_OUTPUT"
-          printf '{"requested_cpu":"%s","matched_requested_cpu":%s,"benchmark_executed":false}\n' "$REQUESTED_CPU" "$matched" > out/mqtt-reader-linux/status.json
+          printf 'matches=%s\nactual_class=%s\n' "$matched" "$actual_class" >> "$GITHUB_OUTPUT"
+          printf '{"requested_cpu":"%s","actual_cpu_class":"%s","matched_requested_cpu":%s,"benchmark_executed":false}\n' "$REQUESTED_CPU" "$actual_class" "$matched" > out/mqtt-reader-linux/status.json
           echo "Requested $REQUESTED_CPU matched: $matched ($cpu_model)"
       - uses: ./.github/actions/setup-ci
         if: ${{ steps.cpu.outputs.matches == 'true' }}
@@ -85,6 +90,8 @@ jobs:
           } > out/mqtt-reader-linux/build-provenance.txt
       - name: Repeat every matched profile and retain failures
         if: ${{ steps.cpu.outputs.matches == 'true' }}
+        env:
+          ACTUAL_CPU_CLASS: ${{ steps.cpu.outputs.actual_class }}
         run: |
           set -euo pipefail
           result=0
@@ -95,7 +102,7 @@ jobs:
               out/mqtt-reader-linux/comparison || result=$?
           passed=false
           if [[ "$result" -eq 0 ]]; then passed=true; fi
-          printf '{"requested_cpu":"%s","matched_requested_cpu":true,"benchmark_executed":true,"candidate_passed":%s}\n' "$REQUESTED_CPU" "$passed" > out/mqtt-reader-linux/status.json
+          printf '{"requested_cpu":"%s","actual_cpu_class":"%s","matched_requested_cpu":true,"benchmark_executed":true,"candidate_passed":%s}\n' "$REQUESTED_CPU" "$ACTUAL_CPU_CLASS" "$passed" > out/mqtt-reader-linux/status.json
           exit "$result"
       - name: Preserve raw comparison and source identity
         if: always()
