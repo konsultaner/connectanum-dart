@@ -31,7 +31,7 @@ MQTT_BENCHMARK_REPORT = (
     REPO_ROOT
     / "docs"
     / "benchmarks"
-    / "mqtt-hosted-pr128-9aa6b17d.json"
+    / "mqtt-hosted-pr128-504bae32.json"
 )
 MQTT_BENCHMARK_REPEAT = (
     REPO_ROOT
@@ -160,6 +160,35 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                           f"{a[1]:.2f} → {b[1]:.2f} | {a[2]/1048576:.1f} → {b[2]/1048576:.1f} |", readme)
         self.assertEqual(report["totalExactDeliveries"], total)
 
+    def test_worker_comparison_table_uses_identical_binaries_and_exact_raw_samples(self) -> None:
+        report = json.loads((REPO_ROOT / "docs/benchmarks/mqtt-runtime-workers-local-comparison.json").read_text())
+        self.assertTrue(report["diagnosticOnly"])
+        self.assertEqual(report["workerPolicies"], {"before": "automatic", "direct": "1"})
+        self.assertEqual({profile["id"] for profile in report["profiles"]},
+                         {"ws_sustained", "ws_v311_sustained"})
+        readme = BENCH_README.read_text()
+        total = 0
+        for profile in report["profiles"]:
+            a, b = profile["automatic"], profile["oneWorker"]
+            for field in ("broker_exe_sha256", "client_exe_sha256", "native_lib_sha256"):
+                self.assertEqual(a["provenance"][field], b["provenance"][field])
+            rows = profile["rows"]
+            self.assertEqual(len(rows), 15)
+            self.assertTrue(all(row["received"] == row["sent"] and row["duplicates"] == 0 for row in rows))
+            total += sum(row["received"] for row in rows)
+            metrics = []
+            for variant in ("before", "direct"):
+                raw = [row for row in rows if row["variant"] == variant]
+                self.assertEqual([row["run"] for row in raw], [1, 2, 3, 4, 5])
+                metrics.append([statistics.median(row["throughput_delivered_per_sec"] for row in raw),
+                                statistics.median(row["broker_cpu_seconds"] for row in raw),
+                                max(row["broker_rss_bytes"] for row in raw)])
+            label = "WS MQTT 5" if profile["id"] == "ws_sustained" else "WS MQTT 3.1.1"
+            a, b = metrics
+            self.assertIn(f"| {label} | {a[0]:,.0f} → {b[0]:,.0f} | "
+                          f"{a[1]:.2f} → {b[1]:.2f} | {a[2]/1048576:.1f} → {b[2]/1048576:.1f} |", readme)
+        self.assertEqual(report["totalExactDeliveries"], total)
+
     def test_bench_readme_publishes_current_result_snapshot(self) -> None:
         readme = BENCH_README.read_text(encoding="utf-8")
         mqtt_report = json.loads(MQTT_BENCHMARK_REPORT.read_text(encoding="utf-8"))
@@ -221,7 +250,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertIn("mqtt-hosted-pr128-2dea8b8e.json", mqtt_table)
         latest_row = next(
             row for row in mqtt_table.splitlines()
-            if row.startswith("| [Baseline `9aa6b17d`]")
+            if row.startswith("| [Latest `504bae32`]")
         )
         latest_cells = [cell.strip() for cell in latest_row.strip("|").split("|")]
         self.assertIn("EPYC 7763", latest_cells[0])
