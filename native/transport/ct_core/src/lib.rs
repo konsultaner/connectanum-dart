@@ -4220,7 +4220,37 @@ fn spawn_mqtt_websocket_reader(
         let mut accumulator = WebSocketMessageAccumulator::new(Arc::clone(&pool));
         let mut graceful = false;
         'read: loop {
-            let frame = match read_websocket_frame_mode(&mut reader, &pool, true).await {
+            let result = if pending.is_empty()
+                || websocket_buffer_contains_complete_frame(reader.buffer())
+            {
+                read_websocket_frame_mode(&mut reader, &pool, true).await
+            } else {
+                let mut next = std::pin::pin!(read_websocket_frame_mode(&mut reader, &pool, true));
+                // Keep the same read future across the flush: it may already
+                // have consumed part of the next frame's header or payload.
+                match std::future::poll_fn(|cx| {
+                    Poll::Ready(std::future::Future::poll(next.as_mut(), cx))
+                })
+                .await
+                {
+                    Poll::Ready(result) => result,
+                    Poll::Pending => {
+                        if !flush_mqtt_websocket_inbound(
+                            &mut pending,
+                            &chunk_tx,
+                            &notification_pending,
+                            &wakeup,
+                            connection_id,
+                        )
+                        .await
+                        {
+                            break;
+                        }
+                        next.await
+                    }
+                }
+            };
+            let frame = match result {
                 Ok(frame) => frame,
                 Err(error) => {
                     if !flush_mqtt_websocket_inbound(
@@ -4353,18 +4383,6 @@ fn spawn_mqtt_websocket_reader(
                     graceful = true;
                     break;
                 }
-            }
-            if !websocket_buffer_contains_complete_frame(reader.buffer())
-                && !flush_mqtt_websocket_inbound(
-                    &mut pending,
-                    &chunk_tx,
-                    &notification_pending,
-                    &wakeup,
-                    connection_id,
-                )
-                .await
-            {
-                break;
             }
         }
         let _ = flush_mqtt_websocket_inbound(
@@ -9989,6 +10007,59 @@ mod tests {
         client.shutdown().await.unwrap();
         start_tx.send(()).unwrap();
         server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn mqtt_websocket_reader_coalesces_ready_input_across_buffer_refills() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut wire = Vec::new();
+        let mut expected = Vec::new();
+        for index in 0..300u16 {
+            let mut payload = vec![index as u8; 64];
+            payload[..2].copy_from_slice(&index.to_be_bytes());
+            wire.extend_from_slice(&masked_mqtt_websocket_test_frame(2, true, &payload));
+            expected.extend_from_slice(&payload);
+        }
+        assert!(wire.len() > 16 * 1024 && expected.len() < 64 * 1024);
+        let mut stream = IoStream::plain(stream);
+        stream.buffer_front(&wire);
+        let (reader, _writer) = tokio::io::split(stream);
+        let (chunk_tx, mut chunk_rx) = mpsc::channel(4);
+        let (control_tx, mut control_rx) = mpsc::channel(4);
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let reader_abort = spawn_mqtt_websocket_reader(
+            tokio::runtime::Handle::current(),
+            ConnectionId(19),
+            reader,
+            chunk_tx,
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(Mutex::new(None)),
+            control_tx,
+            close_tx,
+        );
+        // All prefetched bytes are ready, including a frame that straddles the
+        // reader's buffer boundary. Deliver them before waiting for new data.
+        let chunk = time::timeout(Duration::from_secs(2), chunk_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(chunk.len(), expected.len());
+        assert_eq!(chunk.as_ref(), expected);
+        assert!(chunk_rx.try_recv().is_err());
+        assert!(close_rx.try_recv().is_err());
+        assert!(control_rx.try_recv().is_err());
+        client.shutdown().await.unwrap();
+        assert_eq!(
+            time::timeout(Duration::from_secs(2), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::ReaderClosed)
+        );
+        reader_abort.abort();
     }
 
     #[tokio::test]
