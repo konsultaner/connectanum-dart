@@ -365,3 +365,50 @@ Peak RSS is 18.86 / 19.02 / 18.83 / 18.87 MB and is inconclusive. This is a
 component improvement only; it does not establish WAMP latency, RSS or primary
 acceptance. The native/profile and focused serializer tests pass; full and
 hosted evidence must be renewed. Companion review remains lease-blocked.
+
+## Completed CALL evidence and request-frame retention (2026-10-29)
+
+The generated CALL runtime `775103e8` passes production copy proof
+[40872810450](https://github.com/konsultaner/connectanum-dart/actions/runs/40872810450):
+unchanged source/binaries, 120 live (96 E2EE, 120 transcode, 48 native crypto),
+300 inventory and 32 no-avoidable-copy checks. Paired diagnostic
+[40872805498](https://github.com/konsultaner/connectanum-dart/actions/runs/40872805498)
+completes 90 rows and retains four numerical failures: Dart-values RSS 1.006949,
+p99 upper confidence 1.232432, GC upper confidence 1.109514, and pre-encoded RSS
+1.008483. Native-buffer passes all seven metrics in this report. This does not
+waive the original full matrix or establish final acceptance.
+
+CPU/heap attempt 1 of
+[40873091455](https://github.com/konsultaner/connectanum-dart/actions/runs/40873091455)
+retains completed FlatBuffers and MessagePack profiles. CBOR native perf never
+produces a complete capture; cleanup reports exit 255. Inputs and binaries are
+unchanged, all owned processes stop, and no interference is recorded. Keep the
+failed attempt and retry instrumentation once. It is never timing acceptance.
+
+The actual idle-worker snapshots retain 23,934 WampSample instances after the
+FlatBuffers response, including after diagnostic-only collection. The long-lived
+stdin async loop retains its preceding response's local sample list. An isolated
+actual-model scaffold reproduces the loop pattern in inline/handler/handler/inline
+order: inline retains 20,000 instances / 2,240,000 bytes; separately awaited
+request handler retains zero, after diagnostic-only collection. All four output
+streams contain exactly 1,428,904 bytes with SHA-256
+ad34754a6760ff54dde2ae5a0787178101cba5743b7c0fb1d29b1e16348b907c.
+This establishes reachability for the pattern, not an RSS/GC/latency pass.
+
+The follow-up moves the unchanged per-request try/catch to a separately awaited
+function. Samples can become unreachable before the loop awaits another input;
+all responses, snapshots, metric windows, LF/flush and shutdown/error ordering
+remain intact. A real production-worker sequence covers malformed JSON,
+unsupported encoding, compact success, named success and STOP. It and 143
+boundary/lifecycle cases, analysis and 167 mutation proofs pass. No collection
+or allocator setting changes are introduced. Reject the companion test advice
+suggesting a forced-GC RSS threshold; liveness diagnostics cannot substitute
+for the unchanged paired RSS gate. Actual-worker memory and full verification
+still need renewal on this source.
+
+Local full verification of the CALL checkpoint stops when a test kernel cannot
+be written (ENOSPC). This is not a passing checkpoint. Completed historical raw
+reports are losslessly gzip-compressed with round-trip SHA-256 verification and
+receipts; all data and hosted reports are retained. Unrelated task files are not
+removed. The incomplete artifact extraction is retried to a fresh directory
+because gh refuses existing files.

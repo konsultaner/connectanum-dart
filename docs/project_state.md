@@ -5,7 +5,39 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Current runtime candidate `775103e8` uses pinned generated tables for guarded opaque CALL
+Current local follow-up moves the worker's unchanged per-request try/catch into
+an awaited async handler. A controlled actual-model loop reproduces retention
+of 20,000 completed samples (2,240,000 bytes) across idle stdin; the handler
+variant retains zero after diagnostic-only collection, with identical 1,428,904
+response bytes/hash. No collection is introduced into production or acceptance.
+The real worker error/compact/named/STOP regression, 143 boundary/lifecycle
+cases, clean analysis and 167 mutation proofs pass. Final full verification and
+hosted evidence must be renewed after freezing this follow-up.
+
+`775103e8` production proof `40872810450` passes unchanged inputs/binaries:
+120 live (96 E2EE / 120 transcode / 48 native crypto), 300 inventory and 32
+no-avoidable-copy checks. Its paired diagnostic `40872805498` retains four
+failures: Dart values RSS 1.006949, p99 upper CI 1.232432 and GC upper CI
+1.109514; pre-encoded RSS 1.008483. Native-buffer passes all seven gates in
+this report. Preserve all older reports and exact point/confidence thresholds.
+
+The first local full verification after the CALL change stops on exhausted disk
+while compiling a benchmark test, not a passing checkpoint. Losslessly gzip
+completed owned historical raw reports, verify round-trip hashes and retain the
+compression receipts. About 9.9 GiB is now free; no unrelated task files were
+removed. The incomplete diagnostic extraction is being downloaded to a fresh
+folder because gh refuses overwriting existing files.
+
+CPU/heap diagnostic `40873091455` attempt 1 preserves completed FB/MP captures
+but lacks CBOR capture after native perf startup exits 255. Inputs/binaries and
+process cleanup pass. Attempt 1 remains retained; retry instrumentation once,
+never as performance acceptance or a replacement for the paired failure.
+Local Qwen test advice completed; reject its suggested RSS/forced-GC acceptance
+assertion. Its review hits the output limit and is incomplete; GLM review times out after
+180 seconds. A smaller focused review is requested. Do not count incomplete
+companion outputs as completed reviews.
+
+CALL checkpoint `775103e8` uses pinned generated tables for guarded opaque CALL
 frames, avoiding schema-sized scratch lists and recursive field scans. All 210
 focused serializer tests, clean analysis and 167 existing mutation proofs pass.
 An actual-source AOT component preserves exact 192-byte prefixes and reduces

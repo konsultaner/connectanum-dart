@@ -46,6 +46,27 @@ reference.
   the final-runtime 48-case primary. Refresh the complete supplemental report if
   the runtime changes; retain all older reports.
 
+## Release completed request sample contexts (2026-10-29)
+
+- [x] Identify completed WampSample retention in the idle worker profile; confirm
+  the loop pattern in a controlled actual-model probe: inline retains 20,000
+  objects / 2,240,000 bytes, awaited handler retains zero after diagnostic-only
+  collection. Preserve identical 1,428,904-byte output/hash. No production GC.
+- [x] Move the unchanged request try/catch into an awaited function. Preserve
+  all snapshots/windows, sample values, complete JSON conversion, LF/flush,
+  error recovery, blank/STOP handling and outer native shutdown.
+- [x] Pass the extended real-worker malformed/unsupported/compact/named/STOP
+  regression, all 143 sample/boundary/lifecycle cases, clean analysis and all
+  167 mutation proofs. Qwen test advice completes; reject its suggested RSS/GC
+  acceptance assertion. Its review is incomplete at token limit; GLM times out. Request a smaller
+  focused review and keep incomplete outputs labelled.
+- [x] Verify handler statement tokens match the original exactly after ignoring
+  formatting-only trailing commas. No metric-window operation is reordered.
+- [ ] Freeze follow-up and renew full verification, paired/copy/CI evidence and
+  actual-worker post-response memory diagnostics. Keep existing gate policy.
+- [ ] After a passing paired diagnostic, complete all 48 primary and refresh
+  all 50 supplemental cases on the final runtime.
+
 ## Generated opaque CALL encoder candidate (2026-10-29)
 
 - [x] Reproduce generic CALL table scratch-list/scanning costs with actual
@@ -68,9 +89,15 @@ reference.
 - [x] Pass canonical `bin/test-fast`, including all 2,832 benchmark cases.
 - [x] Reproduce and fix the test-only JavaScript integral-double assumption;
   runtime code is unchanged. Pass all 49 writer tests on Chrome and clean analysis.
-- [ ] Complete full `bin/verify`. Frozen-runtime `775103e8` CI `40872800908`,
-  paired diagnostic `40872805498`, copy proof `40872810450` and Dart-values
-  CPU/heap profile `40873091455` are running. Preserve reports and original gates.
+- [x] Complete production copy proof `40872810450`: unchanged source/binaries,
+  120/300/32 with all E2EE/transcode inventories. Preserve paired `40872805498`:
+  four numerical misses (Dart RSS/p99-confidence/GC-confidence; pre-encoded RSS).
+  Native-buffer passes all seven. Keep all original budgets and failed reports.
+- [ ] Renew full `bin/verify` after the storage failure: a benchmark test compile
+  fails with ENOSPC; do not claim a full passing checkpoint. Losslessly compress
+  owned historical raw reports with verified hashes, retaining all data/receipts.
+  Corrected-test CI `40873583513` is queued. Native perf capture attempt 1 retains
+  FB/MP but fails before CBOR; retain it and retry instrumentation once.
 - [ ] Establish end-to-end improvement, then renew full primary/supplemental
   acceptance on the final runtime.
 

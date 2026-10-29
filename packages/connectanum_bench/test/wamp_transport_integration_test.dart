@@ -1539,7 +1539,7 @@ void main() {
     );
 
     test(
-      'native WAMP worker process exits cleanly after STOP following a native cancel workload',
+      'native WAMP worker recovers across errors and sample encodings before STOP',
       () async {
         final rawSocketListener = harness!.binding.listeners.firstWhere(
           (listener) =>
@@ -1603,28 +1603,65 @@ void main() {
           );
           expect(ready, 'READY');
 
-          process.stdin.writeln(
-            jsonEncode(
-              WampScenario(
-                transport: WampTransport.rawsocket,
-                clientImplementation: WampClientImplementation.native,
-                serializer: WampSerializer.json,
-                mode: WampMode.cancelCycle,
-                uri: 'bench.control.cancel',
-                iterations: 1,
-                concurrency: 1,
-                payloadBytes: 0,
-              ).toJson(),
-            ),
-          );
-          await process.stdin.flush();
+          Future<Map<String, Object?>> request(String input) async {
+            final responseLine = stdoutLines
+                .firstWhere((line) => line != 'READY')
+                .timeout(const Duration(seconds: 20));
+            process.stdin.writeln(input);
+            await process.stdin.flush();
+            return jsonDecode(await responseLine) as Map<String, Object?>;
+          }
 
-          final responseLine = await stdoutLines
-              .firstWhere((line) => line != 'READY')
-              .timeout(const Duration(seconds: 20));
-          final response = jsonDecode(responseLine) as Map<String, Object?>;
-          expect(response['error'], isNull, reason: stderrLines.join('\n'));
-          expect(response['samples'], isA<List<Object?>>());
+          final scenario = WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.json,
+            mode: WampMode.cancelCycle,
+            uri: 'bench.control.cancel',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 0,
+          ).toJson();
+          final malformed = await request('{invalid JSON');
+          expect(malformed.keys, ['error']);
+          expect(malformed['error'], isA<String>());
+          final unsupported = await request(
+            jsonEncode({...scenario, 'sample_encoding': 'positional_v2'}),
+          );
+          expect(unsupported.keys, ['error']);
+          expect(unsupported['error'], contains('Unsupported worker sample'));
+          final compact = await request(
+            jsonEncode({
+              ...scenario,
+              'sample_encoding': WampSample.workerRecordEncoding,
+            }),
+          );
+          expect(compact['error'], isNull, reason: stderrLines.join('\n'));
+          expect(compact['sample_encoding'], WampSample.workerRecordEncoding);
+          final compactRows = compact['samples'] as List;
+          expect(compactRows, hasLength(1));
+          final restored = WampSample.fromWorkerRecord(
+            compactRows.single as List,
+          );
+          expect(restored.iteration, 0);
+          expect(restored.requestBytes, 0);
+          expect(restored.responseBytes, 0);
+
+          final named = await request(jsonEncode(scenario));
+          expect(named['error'], isNull, reason: stderrLines.join('\n'));
+          expect(named, isNot(contains('sample_encoding')));
+          final namedRows = named['samples'] as List;
+          expect(namedRows, hasLength(1));
+          final sample = WampSample.fromJson(
+            (namedRows.single as Map).cast<String, Object?>(),
+          );
+          expect(sample.iteration, 0);
+          expect(sample.requestBytes, restored.requestBytes);
+          expect(sample.responseBytes, restored.responseBytes);
+          expect(
+            named['file_segment_metrics'],
+            compact['file_segment_metrics'],
+          );
 
           process.stdin.writeln('STOP');
           await process.stdin.flush();
