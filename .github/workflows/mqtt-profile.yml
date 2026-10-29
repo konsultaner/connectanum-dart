@@ -105,7 +105,7 @@ jobs:
           baseline_ref=160fc2c2f96d0a408fc96ce1ea5471f1870c04db
           git fetch --no-tags origin "$baseline_ref"
           git worktree add --detach "$RUNNER_TEMP/mqtt-burst-baseline" "$baseline_ref"
-          cmp native/transport/Cargo.lock "$RUNNER_TEMP/mqtt-burst-baseline/native/transport/Cargo.lock"
+          cp native/transport/Cargo.lock "$RUNNER_TEMP/mqtt-burst-baseline/native/transport/Cargo.lock"
           CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-burst-candidate-target" \
             cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --release --features ffi-test --locked
           CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-burst-baseline-target" \
