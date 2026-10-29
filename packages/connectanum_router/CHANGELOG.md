@@ -4,6 +4,8 @@
 
 - Isolate cleartext MQTT socket I/O on one native worker while preserving the
   primary WAMP/HTTP runtime and explicit worker-count overrides.
+- Coalesce ready MQTT WebSocket input on Linux without adding a timer delay,
+  preserving partial-frame reads and prompt delivery of sparse traffic.
 
 - Add native FlatBuffers routing and retained segmented payload forwarding,
   with lifetime checks across asynchronous session and E2EE paths.

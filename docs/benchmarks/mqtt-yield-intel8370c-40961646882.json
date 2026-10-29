@@ -6,6 +6,13 @@
   "candidateNativeSourceSha256": "f723505558d8ba530aef92f6e9373fc4831f4670517706d917942fa85159cf17",
   "commit": "b77a9a3649c5f8cbfe3d383e3248f259f12bae44",
   "cpuModel": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+  "crossCpuBinaryIdentity": {
+    "baselineBareUbuntu24Sha256": "3e97c194d2ec5ca9a1b9e20cbc002e13a80c2ca21e2231944766f54a4ac9d060",
+    "candidateBareUbuntu24Sha256": "adf8d455ee1493e5d36bd11ad5eef0718140fe3808ec2c7ec5d81e8bde80079b",
+    "comparisonReport": "mqtt-yield-linux-40956744846.json",
+    "note": "These baseline and candidate library bytes occur in both bare Ubuntu24 EPYC7763 and Intel8370C comparisons. Container builds have separate identities and matched container baselines."
+  },
+  "currentHostedMqttReport": "mqtt-hosted-pr128-b1c611ba.json",
   "currentNativeCoverageReport": "mqtt-native-added-line-coverage-ready-yield.json",
   "hardwareSkips": [
     {
@@ -4270,7 +4277,7 @@
       }
     }
   },
-  "reason": "Matched actual Intel 8370C evidence supports the integrated no-timer readiness-yield candidate: both baseline WS versions fail twice; both candidate versions pass twice with higher absolute throughput and lower CPU. All large-payload checks pass. Current-source scoped coverage is 882/882 native added executable lines, 651/651 MQTT Dart lines and 268/268 benchmark-gate Python lines. Final full local verification and hosted CI remain pending.",
+  "reason": "Matched actual Intel 8370C evidence supports the integrated no-timer readiness-yield candidate: both baseline WS versions fail twice; both candidate versions pass twice with higher absolute throughput and lower CPU. All large-payload checks pass. Current-source scoped coverage is 882/882 native added executable lines, 651/651 MQTT Dart lines and 268/268 benchmark-gate Python lines. Final production-source local verification and the full20-profile hosted MQTT gate pass; required CI and review readiness are tracked on PR128.",
   "schemaVersion": 1,
   "status": {
     "actual_cpu_class": "8370C",
