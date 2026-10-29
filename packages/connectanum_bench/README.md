@@ -183,7 +183,7 @@ A [reader-readiness trial](../../docs/benchmarks/mqtt-readiness-local-rejected.j
 | WS MQTT 5 | 2 | 158,968 → 151,792 | 1.87 → 1.95 | 35.9 → 35.5 |
 | WS MQTT 3.1.1 | 2 | 158,204 → 150,265 | 1.89 → 1.96 | 36.5 → 35.2 |
 
-A [boundary-only variant](../../docs/benchmarks/mqtt-readiness-boundary-local-comparison.json) also has mixed local results; Linux evaluation is pending. It is not an accepted improvement.
+A [boundary-only variant](../../docs/benchmarks/mqtt-readiness-boundary-local-comparison.json) also has mixed local results. Linux results follow; affected-CPU acceptance is still open.
 
 | Workload | Run | Delivered/s before → trial | Broker CPU seconds before → trial | Sampled RSS MiB before → trial |
 | --- | ---: | ---: | ---: | ---: |
@@ -191,6 +191,20 @@ A [boundary-only variant](../../docs/benchmarks/mqtt-readiness-boundary-local-co
 | WS MQTT 3.1.1 | 1 | 152,612 → 156,711 | 1.94 → 1.90 | 35.8 → 35.8 |
 | WS MQTT 5 | 2 | 158,246 → 153,157 | 1.88 → 1.93 | 35.8 → 35.7 |
 | WS MQTT 3.1.1 | 2 | 162,653 → 157,854 | 1.84 → 1.87 | 36.6 → 36.2 |
+
+The [Linux comparison](../../docs/benchmarks/mqtt-readiness-boundary-linux-40936331023.json) passes all 12 profile checks on EPYC 9V45. MQTT 5 improves slightly in both pairs; MQTT 3.1.1 is mixed. Tests on the affected CPUs remain pending.
+
+| Workload | Metric | Reactor 1 | Trial 1 | Reactor 2 | Trial 2 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| WS MQTT 5 | Deliveries/s | 55,814 | 57,298 | 54,049 | 55,261 |
+| WS MQTT 5 | Broker CPU seconds | 5.20 | 5.23 | 5.32 | 5.21 |
+| WS MQTT 5 | Peak RSS MiB | 22.2 | 22.2 | 22.0 | 22.2 |
+| WS MQTT 3.1.1 | Deliveries/s | 55,281 | 53,692 | 52,342 | 57,536 |
+| WS MQTT 3.1.1 | Broker CPU seconds | 5.25 | 5.36 | 5.47 | 5.11 |
+| WS MQTT 3.1.1 | Peak RSS MiB | 22.1 | 22.2 | 22.2 | 22.2 |
+| TCP 64 KiB | Deliveries/s | 8,074 | 7,956 | 8,399 | 8,369 |
+| TCP 64 KiB | Broker CPU seconds | 0.35 | 0.36 | 0.34 | 0.35 |
+| TCP 64 KiB | Peak RSS MiB | 63.0 | 66.4 | 66.0 | 65.8 |
 
 ## WAMP throughput
 

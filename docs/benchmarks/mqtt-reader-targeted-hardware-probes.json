@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "workflowSourceCommit": "6b83640610910f770a64f8ee41490845e01ddf21",
+  "scope": "CPU-specific diagnostic allocation; no timing or acceptance on another requested class.",
+  "probes": [
+    {
+      "workflowRunId": 40939063273,
+      "jobId": 123677271260,
+      "artifactId": 12926401393,
+      "cpuModel": "AMD EPYC 7763 64-Core Processor",
+      "kernel": "Linux 7.0.0-1017-azure x86_64",
+      "status": {
+        "requested_cpu": "9V74",
+        "matched_requested_cpu": false,
+        "benchmark_executed": false
+      },
+      "acceptanceEvidence": false
+    },
+    {
+      "workflowRunId": 40939067401,
+      "jobId": 123677282912,
+      "artifactId": 12925967816,
+      "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+      "kernel": "Linux 7.0.0-1017-azure x86_64",
+      "status": {
+        "requested_cpu": "8370C",
+        "matched_requested_cpu": false,
+        "benchmark_executed": false
+      },
+      "acceptanceEvidence": false
+    }
+  ]
+}
