@@ -100,7 +100,7 @@ medians use five interleaved repetitions with the same client and native library
 The [raw comparison](../../docs/benchmarks/mqtt-direct-body-local-comparison.json)
 contains 6,300,000 exact deliveries. Hosted CPU-class acceptance is pending; small WS changes are inconclusive.
 
-| Workload | Deliveries/run | Delivered/s before → candidate | Broker CPU seconds before → candidate | Peak RSS MiB before → candidate |
+| Workload | Deliveries/run | Delivered/s before → candidate | Broker CPU seconds before → candidate | Sampled RSS MiB before → candidate |
 | --- | ---: | ---: | ---: | ---: |
 | TCP 64 KiB | 20,000 | 9,538 → 10,133 | 1.13 → 1.03 | 75.3 → 78.5 |
 | WS MQTT 5 | 200,000 | 104,466 → 103,271 | 3.78 → 3.86 | 29.8 → 29.7 |
@@ -111,7 +111,7 @@ A separate [runtime sizing comparison](../../docs/benchmarks/mqtt-runtime-worker
 uses the same broker binary on this Mac. These local results cover 6,000,000 exact
 deliveries. The Linux comparison below shows the candidate still needs more margin.
 
-| Workload | Delivered/s automatic → one worker | Broker CPU seconds automatic → one worker | Peak RSS MiB automatic → one worker |
+| Workload | Delivered/s automatic → one worker | Broker CPU seconds automatic → one worker | Sampled RSS MiB automatic → one worker |
 | --- | ---: | ---: | ---: |
 | WS MQTT 5 | 129,101 → 153,519 | 3.06 → 1.94 | 30.1 → 34.4 |
 | WS MQTT 3.1.1 | 137,040 → 140,152 | 2.90 → 2.07 | 30.5 → 33.7 |
@@ -137,7 +137,7 @@ The [exact-topic shortcut comparison](../../docs/benchmarks/mqtt-exact-topic-loc
 uses frozen before/after brokers, one client and one native library on Apple M3 Ultra.
 All 6,300,000 deliveries are exact. The changes are small and mixed, so the shortcut is reverted.
 
-| Workload | Delivered/s before → shortcut | Broker CPU seconds before → shortcut | Peak RSS MiB before → shortcut |
+| Workload | Delivered/s before → shortcut | Broker CPU seconds before → shortcut | Sampled RSS MiB before → shortcut |
 | --- | ---: | ---: | ---: |
 | TCP 64 KiB | 10,345 → 10,399 | 1.13 → 1.14 | 89.6 → 79.0 |
 | WS MQTT 5 | 105,617 → 103,392 | 3.67 → 3.80 | 30.7 → 29.8 |
@@ -148,7 +148,7 @@ uses identical frozen broker/client binaries on Apple M3 Ultra, changing only
 the native library. All 6,300,000 MQTT deliveries are exact. The separate serial
 WAMP guard completes 144 workloads. Hosted acceptance is pending.
 
-| Workload | Deliveries/run | Delivered/s before → reactor | Broker CPU seconds before → reactor | Peak RSS MiB before → reactor |
+| Workload | Deliveries/run | Delivered/s before → reactor | Broker CPU seconds before → reactor | Sampled RSS MiB before → reactor |
 | --- | ---: | ---: | ---: | ---: |
 | TCP 64 KiB | 20,000 | 10,451 → 10,536 | 0.95 → 0.83 | 80.8 → 78.3 |
 | WS MQTT 5 | 200,000 | 101,315 → 106,810 | 3.85 → 2.62 | 30.3 → 29.8 |

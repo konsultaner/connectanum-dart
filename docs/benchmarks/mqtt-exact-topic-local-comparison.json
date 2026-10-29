@@ -3,7 +3,7 @@
   "baselineCommit": "e7e9585dce0d366d62706ed602356af08581083c",
   "baselinePackageConfig": {
     "configVersion": 2,
-    "flutterRoot": "file:///Users/konsultaner/flutter/flutter",
+    "flutterRoot": "flutter-sdk:",
     "flutterVersion": "3.47.1",
     "generator": "pub",
     "generatorVersion": "3.13.1",
@@ -12,455 +12,457 @@
         "languageVersion": "3.13",
         "name": "_fe_analyzer_shared",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/_fe_analyzer_shared-110.0.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/_fe_analyzer_shared-110.0.0"
       },
       {
         "languageVersion": "3.13",
         "name": "analyzer",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/analyzer-14.6.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/analyzer-14.6.0"
       },
       {
         "languageVersion": "3.3",
         "name": "args",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/args-2.7.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/args-2.7.0"
       },
       {
         "languageVersion": "3.4",
         "name": "async",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/async-2.13.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/async-2.13.1"
       },
       {
         "languageVersion": "3.1",
         "name": "boolean_selector",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/boolean_selector-2.1.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/boolean_selector-2.1.2"
       },
       {
         "languageVersion": "3.7",
         "name": "cbor",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/cbor-6.5.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/cbor-6.5.1"
       },
       {
         "languageVersion": "3.4",
         "name": "characters",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/characters-1.4.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/characters-1.4.1"
       },
       {
         "languageVersion": "3.0",
         "name": "cli_config",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/cli_config-0.2.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/cli_config-0.2.0"
       },
       {
         "languageVersion": "3.7",
         "name": "cli_util",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/cli_util-0.6.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/cli_util-0.6.0"
       },
       {
         "languageVersion": "3.4",
         "name": "clock",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/clock-1.1.3"
+        "rootUri": "pub-cache:/hosted/pub.dev/clock-1.1.3"
       },
       {
         "languageVersion": "3.10",
         "name": "code_assets",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/code_assets-2.1.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/code_assets-2.1.0"
       },
       {
         "languageVersion": "3.4",
         "name": "collection",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/collection-1.19.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/collection-1.19.1"
       },
       {
         "languageVersion": "3.4",
         "name": "convert",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/convert-3.1.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/convert-3.1.2"
       },
       {
         "languageVersion": "3.9",
         "name": "coverage",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/coverage-1.16.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/coverage-1.16.0"
       },
       {
         "languageVersion": "3.4",
         "name": "crypto",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/crypto-3.0.8"
+        "rootUri": "pub-cache:/hosted/pub.dev/crypto-3.0.8"
       },
       {
         "languageVersion": "3.3",
         "name": "fake_async",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/fake_async-1.3.3"
+        "rootUri": "pub-cache:/hosted/pub.dev/fake_async-1.3.3"
       },
       {
         "languageVersion": "3.7",
         "name": "ffi",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/ffi-2.2.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/ffi-2.2.0"
       },
       {
         "languageVersion": "3.0",
         "name": "file",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/file-7.0.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/file-7.0.1"
       },
       {
         "languageVersion": "2.17",
         "name": "flat_buffers",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/flat_buffers-25.9.23"
+        "rootUri": "pub-cache:/hosted/pub.dev/flat_buffers-25.9.23"
       },
       {
         "languageVersion": "3.13",
         "name": "frontend_server_client",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/frontend_server_client-4.2.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/frontend_server_client-4.2.0"
       },
       {
         "languageVersion": "3.3",
         "name": "glob",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/glob-2.2.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/glob-2.2.0"
       },
       {
         "languageVersion": "2.12",
         "name": "hex",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/hex-0.2.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/hex-0.2.0"
       },
       {
         "languageVersion": "3.10",
         "name": "hooks",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/hooks-2.2.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/hooks-2.2.0"
       },
       {
         "languageVersion": "3.2",
         "name": "http2",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/http2-2.3.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/http2-2.3.1"
       },
       {
         "languageVersion": "3.2",
         "name": "http_multi_server",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/http_multi_server-3.2.3"
+        "rootUri": "pub-cache:/hosted/pub.dev/http_multi_server-3.2.3"
       },
       {
         "languageVersion": "3.4",
         "name": "http_parser",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/http_parser-4.1.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/http_parser-4.1.2"
       },
       {
         "languageVersion": "3.4",
         "name": "io",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/io-1.1.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/io-1.1.0"
       },
       {
         "languageVersion": "3.8",
         "name": "lints",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/lints-6.1.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/lints-6.1.0"
       },
       {
         "languageVersion": "3.4",
         "name": "logging",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/logging-1.3.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/logging-1.3.0"
       },
       {
         "languageVersion": "3.10",
         "name": "matcher",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/matcher-0.12.20"
+        "rootUri": "pub-cache:/hosted/pub.dev/matcher-0.12.20"
       },
       {
         "languageVersion": "3.5",
         "name": "meta",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/meta-1.19.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/meta-1.19.0"
       },
       {
         "languageVersion": "3.2",
         "name": "mime",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/mime-2.1.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/mime-2.1.0"
       },
       {
         "languageVersion": "2.12",
         "name": "msgpack_dart",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/msgpack_dart-1.0.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/msgpack_dart-1.0.1"
       },
       {
         "languageVersion": "2.12",
         "name": "node_preamble",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/node_preamble-2.0.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/node_preamble-2.0.2"
       },
       {
         "languageVersion": "2.17",
         "name": "objectbox",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/objectbox-5.3.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/objectbox-5.3.2"
       },
       {
         "languageVersion": "3.11",
         "name": "package_config",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/package_config-3.0.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/package_config-3.0.0"
       },
       {
         "languageVersion": "3.4",
         "name": "path",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/path-1.9.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/path-1.9.1"
       },
       {
         "languageVersion": "3.4",
         "name": "pinenacl",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/pinenacl-0.6.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/pinenacl-0.6.0"
       },
       {
         "languageVersion": "3.2",
         "name": "pointycastle",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/pointycastle-4.0.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/pointycastle-4.0.0"
       },
       {
         "languageVersion": "3.4",
         "name": "pool",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/pool-1.5.3"
+        "rootUri": "pub-cache:/hosted/pub.dev/pool-1.5.3"
       },
       {
         "languageVersion": "3.4",
         "name": "pub_semver",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/pub_semver-2.2.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/pub_semver-2.2.1"
       },
       {
         "languageVersion": "3.10",
         "name": "record_use",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/record_use-1.1.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/record_use-1.1.1"
       },
       {
         "languageVersion": "2.12",
         "name": "saslprep",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/saslprep-1.0.3"
+        "rootUri": "pub-cache:/hosted/pub.dev/saslprep-1.0.3"
       },
       {
         "languageVersion": "3.9",
         "name": "shelf",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/shelf-1.4.3"
+        "rootUri": "pub-cache:/hosted/pub.dev/shelf-1.4.3"
       },
       {
         "languageVersion": "2.17",
         "name": "shelf_packages_handler",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/shelf_packages_handler-3.0.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/shelf_packages_handler-3.0.2"
       },
       {
         "languageVersion": "3.9",
         "name": "shelf_static",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/shelf_static-1.2.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/shelf_static-1.2.0"
       },
       {
         "languageVersion": "3.5",
         "name": "shelf_web_socket",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/shelf_web_socket-3.0.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/shelf_web_socket-3.0.0"
       },
       {
         "languageVersion": "3.3",
         "name": "source_map_stack_trace",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/source_map_stack_trace-2.1.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/source_map_stack_trace-2.1.2"
       },
       {
         "languageVersion": "3.3",
         "name": "source_maps",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/source_maps-0.10.14"
+        "rootUri": "pub-cache:/hosted/pub.dev/source_maps-0.10.14"
       },
       {
         "languageVersion": "3.1",
         "name": "source_span",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/source_span-1.10.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/source_span-1.10.2"
       },
       {
         "languageVersion": "3.4",
         "name": "stack_trace",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/stack_trace-1.12.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/stack_trace-1.12.2"
       },
       {
         "languageVersion": "3.3",
         "name": "stream_channel",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/stream_channel-2.1.4"
+        "rootUri": "pub-cache:/hosted/pub.dev/stream_channel-2.1.4"
       },
       {
         "languageVersion": "3.1",
         "name": "string_scanner",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/string_scanner-1.4.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/string_scanner-1.4.1"
       },
       {
         "languageVersion": "3.1",
         "name": "term_glyph",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/term_glyph-1.2.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/term_glyph-1.2.2"
       },
       {
         "languageVersion": "3.11",
         "name": "test",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/test-1.33.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/test-1.33.0"
       },
       {
         "languageVersion": "3.11",
         "name": "test_api",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/test_api-0.7.15"
+        "rootUri": "pub-cache:/hosted/pub.dev/test_api-0.7.15"
       },
       {
         "languageVersion": "3.11",
         "name": "test_core",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/test_core-0.6.21"
+        "rootUri": "pub-cache:/hosted/pub.dev/test_core-0.6.21"
       },
       {
         "languageVersion": "3.5",
         "name": "typed_data",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/typed_data-1.4.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/typed_data-1.4.0"
       },
       {
         "languageVersion": "2.12",
         "name": "unorm_dart",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/unorm_dart-0.3.3"
+        "rootUri": "pub-cache:/hosted/pub.dev/unorm_dart-0.3.3"
       },
       {
         "languageVersion": "3.5",
         "name": "vm_service",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/vm_service-15.4.0"
+        "rootUri": "pub-cache:/hosted/pub.dev/vm_service-15.4.0"
       },
       {
         "languageVersion": "3.4",
         "name": "watcher",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/watcher-1.2.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/watcher-1.2.1"
       },
       {
         "languageVersion": "3.13",
         "name": "web",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/web-1.1.2"
+        "rootUri": "pub-cache:/hosted/pub.dev/web-1.1.2"
       },
       {
         "languageVersion": "3.4",
         "name": "web_socket",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/web_socket-1.0.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/web_socket-1.0.1"
       },
       {
         "languageVersion": "3.3",
         "name": "web_socket_channel",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/web_socket_channel-3.0.3"
+        "rootUri": "pub-cache:/hosted/pub.dev/web_socket_channel-3.0.3"
       },
       {
         "languageVersion": "3.0",
         "name": "webkit_inspection_protocol",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/webkit_inspection_protocol-1.2.1"
+        "rootUri": "pub-cache:/hosted/pub.dev/webkit_inspection_protocol-1.2.1"
       },
       {
         "languageVersion": "3.4",
         "name": "yaml",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.pub-cache/hosted/pub.dev/yaml-3.1.4"
+        "rootUri": "pub-cache:/hosted/pub.dev/yaml-3.1.4"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum_workspace",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/"
+        "rootUri": "repo:/"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum_core",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/packages/connectanum_core"
+        "rootUri": "repo:/packages/connectanum_core"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum_mcp",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/packages/connectanum_mcp"
+        "rootUri": "repo:/packages/connectanum_mcp"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum_client",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/packages/connectanum_client"
+        "rootUri": "repo:/packages/connectanum_client"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/packages/connectanum"
+        "rootUri": "repo:/packages/connectanum"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum_router",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/out/mqtt-latest/exact-topic-before/"
+        "rootUri": "repo:/out/mqtt-latest/exact-topic-before/"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum_auth_server",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/packages/connectanum_auth_server"
+        "rootUri": "repo:/packages/connectanum_auth_server"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum_bench",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/packages/connectanum_bench"
+        "rootUri": "repo:/packages/connectanum_bench"
       },
       {
         "languageVersion": "3.10",
         "name": "connectanum_objectbox_adapter",
         "packageUri": "lib/",
-        "rootUri": "file:///Users/konsultaner/.codex/worktrees/mqtt-bench-current/connectanum-dart/packages/connectanum_objectbox_adapter"
+        "rootUri": "repo:/packages/connectanum_objectbox_adapter"
       }
     ],
-    "pubCache": "file:///Users/konsultaner/.pub-cache"
+    "pubCache": "pub-cache:"
   },
+  "baselinePackageConfigEncoding": "Machine-specific root URIs use repo:, flutter-sdk:, pub-cache: and user-home: aliases. The exact original configuration file SHA256 is retained.",
+  "baselinePackageConfigOriginalSha256": "ad99cb075c8340207ea56ee4ebe7bb995598a2d7e033e4a165c685746f6e9538",
   "brokerAfterSha256": "5dbe67ef430217eaa2f8ebfff26dae8dddc4b035347aa058408928198f739e23",
   "brokerBeforeSha256": "336e63b17db8079574d23a716d36031a48d0e2b42d5236794c37954dcb598ae8",
   "candidateBrokerSourceSha256": "65ed207ff1ae832769c45e2c802d24d00d9946956fb2b6ffc1aded6aa10a0389",
