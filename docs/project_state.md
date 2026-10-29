@@ -5,14 +5,30 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Measured runtime checkpoint: `dec17f8b1083c92be4ba71004aa5c615ddb7ddaa`.
-Its complete local verification, hosted CI `40891584949` and production copy
-proof `40891602695` pass. Independently audited copy counts are 120 live / 300
-inventory / 32 zero-avoidable-copy checks, including E2EE/transcode/native crypto.
-Paired diagnostic `40891596427` retains seven numerical failures: all three RSS
-points plus Dart-values throughput, CPU, p95 and p99. No parity acceptance.
+Latest measured runtime: `9bf3235c54949e01247498f13d1b44170ecc7a5a`.
+Full local verification and production copy proof `40929886924` pass, independently
+verifying 3,224 inputs and 120 live / 300 inventory / 32 zero-avoidable-copy checks.
+Paired `40929890341` completes 90 rows and is independently reproduced: eight
+numerical misses remain. Dart-values throughput 0.984728, p95 1.007360, CPU
+1.011071, GC 1.161253 and RSS 1.029451 fail their points; p99 point 0.972737
+passes but its CI upper 1.197151 fails. Native-buffer RSS point 0.994958 passes
+but CI upper 1.050847 fails; pre-encoded RSS point 1.011707 fails. Every native
+non-RSS gate passes. Preserve all earlier results; no parity acceptance.
 
-Current unmeasured follow-up removes the same staging buffer from the
+Current unpublished decoder follow-up removes only a discarded second metadata
+projection for freshly reconstructed Result/Event/Invocation with exactly two
+string PPT fields. Initial frame validation and dictionary agreement remain.
+Private byte/error equality matches 96 valid and 488 mutated inputs. Model-to-
+projection, later-edit and partial/null/custom-history regressions pass; all
+3,593 VM serializer/Session and 136 Chrome/WebAssembly model tests pass. All 167
+mutation proofs remain valid; focused GLM judge/review find no concrete defect
+once model round-trip tests are added. Initial local timing is lease-blocked;
+a later overlapping-own-tests capture is explicitly rejected. After test exit,
+an isolated ABBA component shows about 16% lower decoder time on local Dart
+3.13.1/macOS, never parity acceptance. Full source verification and hosted
+evidence remain required before adopting the follow-up.
+
+Published runtime `9bf3235c` removes the same staging buffer from the
 pre-encoded constructor. It copies complete encoded Dart parts once into one
 frozen native owner; native input counters still include every encoded byte.
 It keeps schema construction in Dart, distinct from the native-builder group.
@@ -22,7 +38,14 @@ All 14 private probe contracts and 167 mutation proofs remain valid. All-codec
 rejected-call tests extend coverage to both owned constructors: 59 focused cases
 pass. Focused GLM and Qwen reviews complete; source inspection rejects their
 unsupported observer, disposal, thread-race and schema-validation claims. Full
-fresh verification and hosted evidence are pending for this constructor change.
+fresh `bin/verify` exits 0, including Rust/FFI, VM/native, consumer smokes and
+complete Chrome/WebAssembly suites. Production copy proof `40929886924` passes
+and independently verifies 3,224 inputs, 120 live / 300 inventory / 32
+zero-avoidable-copy checks, all E2EE/transcode/native-crypto counts, stable PIDs
+and cleanup. Native-view positive phases pass; the negative control is observed.
+Source/binary unchanged receipts hold; package_config is digest-only. Hosted CI
+`40929882938` and paired diagnostic `40929890341` remain pending/in progress.
+No performance acceptance is claimed.
 
 Measured `490f60bf` adds a generic fragmented packed source and application
 FlatBuffers helper. The schema prefix is owned; the original Dart body remains
@@ -50,8 +73,10 @@ passes with unchanged source/library receipts and clean process exit. Its smalle
 perf files still accompany substantial profiling perturbation; neither profile
 accepts throughput/latency/RSS. Managed-code/GC/heap attribution establishes no
 large retained payload array or complete explanation of the remaining tails.
-Supplemental `40906173218` is running on the preceding runtime, with payload-size
-shard complete. Preserve it as checkpoint cost reporting; the changed runtime
+Supplemental `40906173218` completes all three shards and the merge job.
+Independent auditing reproduces 50 cases / 1,500 rows, no integrity findings and
+193 numerical diagnostics, with inputs/binaries verified and no pooled absolute
+costs across runners. Preserve it as checkpoint cost reporting; the changed runtime
 will need fresh final evidence. Fresh production proof `40922342731` passes. Independent audit verifies 3,224
 inputs, 120 live / 300 inventory / 32 zero-avoidable-copy checks, all E2EE/transcode
 counts and stable worker cleanup. All three native-view positive phases pass;

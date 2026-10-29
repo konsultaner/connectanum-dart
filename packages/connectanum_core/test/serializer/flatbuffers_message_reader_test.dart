@@ -36,6 +36,88 @@ Uint8List frameWithDictionary(
 }
 
 void main() {
+  test('partial null and custom PPT metadata preserves wire presence', () {
+    for (final dictionary in <Map<String, Object?>>[
+      {'ppt_scheme': 'x_app'},
+      {'ppt_scheme': null, 'ppt_serializer': 'flatbuffers'},
+      {'ppt_scheme': 'x_app', 'ppt_serializer': null},
+      {'ppt_scheme': 'x_app', 'ppt_serializer': 'flatbuffers', 'x_null': null},
+    ]) {
+      final original = Result(
+        1,
+        ResultDetails(
+          pptScheme: dictionary['ppt_scheme'] as String?,
+          pptSerializer: dictionary['ppt_serializer'] as String?,
+        ),
+      );
+      codec.retainMetadataValues(original, dictionary);
+      final bytes = codec.serialize(original);
+      expect(readWampFlatBufferFrame(bytes).dictionary, dictionary);
+      final decoded = codec.deserialize(bytes)!;
+      expect(
+        readWampFlatBufferFrame(codec.serialize(decoded)).dictionary,
+        dictionary,
+      );
+    }
+  });
+  test(
+    'minimal typed PPT models reproduce both metadata fields after decode',
+    () {
+      const dictionary = {
+        'ppt_scheme': 'x_app',
+        'ppt_serializer': 'flatbuffers',
+      };
+      final body = Uint8List.fromList([0, 255, 37]);
+      for (final id in [1, 9007199254740992]) {
+        for (final original in <AbstractMessage>[
+          Result(
+            id,
+            ResultDetails(pptScheme: 'x_app', pptSerializer: 'flatbuffers'),
+            arguments: [body],
+          ),
+          Event(
+            id,
+            2,
+            EventDetails(pptScheme: 'x_app', pptSerializer: 'flatbuffers'),
+            arguments: [body],
+          ),
+          Invocation(
+            id,
+            2,
+            InvocationDetails(null, null, null, 'x_app', 'flatbuffers'),
+            arguments: [body],
+          ),
+        ]) {
+          final bytes = codec.serialize(original);
+          expect(readWampFlatBufferFrame(bytes).dictionary, dictionary);
+          final decoded = codec.deserialize(bytes)!;
+          expect(
+            projectWampFlatBufferMessage(
+              decoded,
+              retainMetadata: false,
+            ).dictionary,
+            dictionary,
+          );
+          expect(
+            readWampFlatBufferFrame(codec.serialize(decoded)).dictionary,
+            dictionary,
+          );
+          final PPTOptions details = switch (decoded) {
+            Result value => value.details,
+            Event value => value.details,
+            Invocation value => value.details,
+            _ => throw StateError('Unexpected payload model'),
+          };
+          details.pptScheme = 'x_changed';
+          expect(readWampFlatBufferFrame(codec.serialize(decoded)).dictionary, {
+            'ppt_scheme': 'x_changed',
+            'ppt_serializer': 'flatbuffers',
+          });
+          expect(readWampFlatBufferFrame(bytes).dictionary, dictionary);
+        }
+      }
+    },
+  );
   _profileReaderCases();
   test('mutable Dart input does not retain reusable validation evidence', () {
     final source = codec.serialize(

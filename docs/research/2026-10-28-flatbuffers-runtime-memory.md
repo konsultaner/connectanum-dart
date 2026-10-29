@@ -746,3 +746,41 @@ suggested vector.start/end methods do not exist. No verified production defect
 follows from these claims. The helper's existing portable WAMP uint64 range is
 now explicit; wider opaque application fields remain forwardable via a source
 built with the application's own builder. All 59 focused model/source cases pass.
+
+
+## Complete cost report and narrow decoder follow-up
+
+Supplemental `40906173218` completes all shards and its merge job on `d1b395e7`.
+Independent per-shard audits verify 30/12/8 cases and 900/360/240 rows, pinned
+inputs/scenarios/policy/configuration/locks and production binaries. Recomputed
+aggregate comparison and provenance exactly match hosted output: 50 cases,
+1,500 rows, no integrity findings and 193 numerical diagnostic findings. Absolute
+costs across runners stay not_comparable; this never accepts primary parity.
+
+`9bf3235c` diagnostic `40929890341` is independently reproduced from all 90 rows.
+Eight gates fail: Dart throughput 0.984728, p95 1.007360, CPU 1.011071, GC
+1.161253 and RSS 1.029451; p99's point 0.972737 passes but upper bound 1.197151
+fails. Native-buffer RSS point 0.994958 passes but upper 1.050847 fails;
+pre-encoded RSS point 1.011707 fails. Native non-RSS gates pass. Keep the earlier
+five- and seven-failure reports; separate campaigns cannot establish causality
+from their point differences. Copy improvements alone do not accept performance.
+
+The current decoder creates a fresh typed Result/Event/Invocation from an
+already validated/metadata-agreed frame, then repeats projection even when the
+complete metadata is exactly two PPT strings. The output is discarded. A narrow
+guard skips only that duplicate work. Frame validation/agreement and every other
+history/default/custom path remain unchanged. GLM's conditional advice identifies
+future model round-trip drift; explicit model -> projection and post-edit tests
+cover all three classes plus normal/max IDs. Broad VM serializer/Session (3,593)
+and browser model/history (136) tests pass, with all 167 mutation proofs valid.
+Private baseline/candidate byte/error corpora match 96 valid and 488 mutated
+inputs. The initial script's Object/PPTOptions inference failure is retained.
+
+The first component timing attempt is refused by the shared resource lease.
+Another capture is invalid because own unit/browser tests overlapped it; it is
+rejected in full and preserved. Once those tests exit, an isolated resource-
+leased ABBA capture records 354,969/352,194 baseline and 296,254/296,057 candidate
+microseconds per 200,000 decodes, with identical checks and pinned reader hashes.
+This is about 16% lower local decoder time, not end-to-end or RSS acceptance.
+It uses standard local Dart 3.13.1/macOS, no forced GC or tuning. Full canonical
+and final-source hosted evidence remain required before adopting the follow-up.

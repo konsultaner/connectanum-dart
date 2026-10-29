@@ -2,9 +2,32 @@
 
 Status: active. Started: 2026-10-03.
 
-Current step: remove pre-encoded Dart staging, inspect client GC attribution and
-renew the unchanged gates. Runtime `490f60bf` is the latest measured checkpoint.
+Current step: remove a redundant typed-PPT metadata projection and renew the
+unchanged gates. Runtime `9bf3235c` is the latest measured checkpoint.
 Earlier sections retain checkpoint history, including rejected experiments.
+
+## Redundant typed-PPT projection follow-up (2026-10-29)
+
+- [x] Attribute remaining decoder work to its existing profile. Fully reconstructed
+  two-string PPT details are projected again after frame dictionary agreement;
+  the result is discarded. Skip only that duplicate call. All frame/schema,
+  metadata-agreement and other control/history checks remain in place.
+- [x] Private source clone matches 96 valid vectors and 488 mutated-input outcomes,
+  including re-encoded bytes and later model edits. Preserve the initial private
+  script's type-inference compilation failure and correction.
+- [x] Add actual model -> projection round-trips for Result/Event/Invocation at
+  normal/max IDs and partial/null/custom metadata history. All 3,593 VM
+  serializer/Session and 136 browser model/history cases pass; all 167 mutation
+  proofs remain valid. GLM judge/review find no concrete defect after the round-
+  trip regressions, and focused local test advice is checked against real behavior.
+- [x] Retain the refused timing admission. A later own-test-overlapped capture is
+  rejected in full, before using its timings. After both test processes exit,
+  isolated resource-leased ABBA timing records baseline 354,969/352,194 us and
+  candidate 296,254/296,057 us per 200,000 decodes, equal result checks. Local
+  Dart 3.13.1/macOS only; no forced GC or workload/parity claim.
+- [ ] Complete canonical validation and hosted copy/parity evidence on a frozen
+  source. Preserve `9bf3235c`'s eight numeric failures; never rerun unchanged
+  campaigns for a better number or waive any strict point/confidence gate.
 
 ## Pre-encoded staging follow-up (2026-10-29)
 
@@ -19,15 +42,24 @@ Earlier sections retain checkpoint history, including rejected experiments.
   rejected-call cleanup, empty/nonaligned vectors,
   exact ordinary-builder byte equivalence and native input/growth copy counts.
   All 14 private native-view patch contracts and 167 mutation proofs pass.
-- [ ] Complete fresh canonical verification, source/behavior review and hosted
-  CI/copy/parity evidence on the changed constructor. Local resources became
-  available; focused GLM review completes. Its observer-only, double-dispose and
-  unfrozen-leak claims are disproved by the actual owner guard, idempotent handle
-  disposal and finally cleanup. All-codec rejection tests now cover both owned
-  constructors. No production change is justified by those advisory claims. Preserve the five-failure report and earlier supplemental runs.
-- [ ] Audit VM-only capture `40926807868` on the preceding runtime to attribute
+- [x] Complete canonical verification and source/behavior review. Runtime
+  `9bf3235c` complete `bin/verify` exits 0. Focused GLM/Qwen reviews complete;
+  their observer, disposal, race and schema claims are disproved by actual
+  contracts and tests. Keep the advisory evidence in the research record.
+- [x] Renew production copy proof `40929886924`: independent audit verifies
+  3,224 inputs, 120 live / 300 inventory / 32 zero-avoidable-copy checks, all
+  E2EE/transcode/native-crypto counts, raw hashes, stable PIDs and cleanup.
+  Three positive native-view phases pass and their negative control is observed.
+  Source/binary unchanged receipts hold; package_config remains digest-only.
+- [ ] Pass hosted CI `40929882938` and paired diagnostic `40929890341` on the
+  changed constructor. Preserve the five-failure report and earlier supplemental
+  runs. Do not waive numerical gates or start primary before diagnostic parity.
+- [x] Audit VM-only capture `40926807868` on the preceding runtime to attribute
   the remaining Dart-values client GC/tail cost. Its Dart-values construction
   is unchanged by this pre-encoded follow-up; profiling never accepts parity.
+  All three windows verify, inputs/library remain unchanged and cleanup is clean.
+  Post-GC-request source/sample counts are zero. The sampled GC intervals do not
+  explain the complete acceptance-run pause/tail cost; preserve that uncertainty.
 
 ## Fragmented application-model candidate (2026-10-29)
 

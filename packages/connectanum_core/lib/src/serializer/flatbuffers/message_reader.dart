@@ -195,8 +195,10 @@ AbstractMessage _readMessage(
       (retainApplicationMetadata ||
           (message is! Call && message is! Publish))) {
     retainWampFlatBufferDictionary(message, frame.bytes, frame.dictionary);
-  } else {
-    // Preserve projection checks; only redundant snapshots and observers go.
+  } else if (!fullyRepresentedPpt) {
+    // Fully represented PPT already passed frame agreement and copies both
+    // dictionary values directly into typed details. Other controls keep their
+    // existing post-construction projection checks.
     projectWampFlatBufferMessage(message, retainMetadata: false);
   }
   return message;
