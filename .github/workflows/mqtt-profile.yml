@@ -171,6 +171,7 @@ jobs:
           INTEL_PROBE_OUTPUT: ${{ runner.temp }}/mqtt-intel-proof
         run: |
           set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           bin/bootstrap
           baseline_ref=e7e9585dce0d366d62706ed602356af08581083c
           git fetch --no-tags origin "$baseline_ref"

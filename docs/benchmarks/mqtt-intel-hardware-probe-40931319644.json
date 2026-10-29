@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "workflowRunId": 40931319644,
+  "jobId": 123650203060,
+  "artifactId": 12923845014,
+  "commit": "6790909bf5838ecae3ad3d0ed57aeb4b87a04d6e",
+  "runnerLabel": "ubuntu-22.04",
+  "userlandImage": "ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d",
+  "cpuModel": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+  "kernel": "Linux 5c2ef5066704 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "status": {
+    "matched_intel_8370c": true,
+    "benchmark_executed": false
+  },
+  "jobConclusion": "failure",
+  "failure": "Git rejected container checkout ownership before baseline fetch/build or any benchmark. Exact GITHUB_WORKSPACE trust is required in the comparison shell.",
+  "acceptanceEvidence": false
+}

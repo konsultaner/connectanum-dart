@@ -1,5 +1,8 @@
 # MQTT broker interoperability
 
+2026-10-29 Intel availability and container repair: probe 40929751043 allocated EPYC 9V74 and correctly recorded no measurement; probe 40931319644/job 123650203060 reached the required Intel Xeon Platinum 8370C, but Git rejected checkout ownership before any timing. Both hardware artifacts are preserved in docs/benchmarks/mqtt-intel-hardware-probe-*.json and neither is acceptance evidence. A fail-first behavioral regression reproduces dubious ownership and verifies exact-checkout safe.directory trust without a wildcard. Run the repair on a temporary diagnostic branch while main PR CI 40929728718 remains live; do not cancel its measurements. Intel repeated CPU acceptance and final hosted verification remain open.
+
+
 Status: active
 Owner: Codex
 Created: 2026-10-14
@@ -9,6 +12,12 @@ Milestone: [GitHub milestone 2](https://github.com/konsultaner/connectanum-dart/
 Baseline: GitHub master `73d840c9`; pre-change `bin/test-fast` passes on 2026-10-14
 
 ## Current hosted checkpoint
+
+2026-10-29 queued-run revalidation: current-head hosted publish run 40929728707 succeeds. Main CI 40929728718 has live MQTT, GuardMalloc and MCP shard 2 jobs with no failure observed; Intel probe 40929751043/job 123644735860 remains queued with runner_id=0, so it has not produced hardware evidence. Native archive hashes are independently rechecked against current source and still prove 838/838; the preserved historical 2dea8b8e snapshot confirms the open 4.200 CPU miss is specifically Xeon 8370C. A bounded CLI watcher is live in session 5329, logging to out/mqtt-latest/intel-6790909b-watch.log. Reuse that handle and existing runs; do not restart jobs because they are queued. Keep this status-only checkpoint local while measurements/checks finish.
+
+
+2026-10-29 final local verification: bin/verify completes at exit 0 in out/mqtt-latest/verify-mqtt-reactor-paths-fixed.log, including Chrome/Dart2Wasm, after the portable-artifact repair. The later diagnostic workflow changes have 70 focused passing tooling tests (11 comparison/mode tests), and Ruby parses both job definitions. Native production code is unchanged from the validated reactor source. Published head is 6790909bf5838ecae3ad3d0ed57aeb4b87a04d6e; current full CI 40929728718 and Intel-only probe 40929751043/job 123644735860 are authoritatively queued. Previous superseded CI 40924130512 and 40928266570 are terminal canceled; their complete MQTT artifacts are preserved. Do not restart queued runs or push this status-only checkpoint while awaiting results. No source, budget or public runner configuration changes remain pending. Intel 8370C acceptance and final hosted checks are still open; PR #128 remains draft.
+
 
 2026-10-29 targeted Intel proof path: add a manual-only probe_intel mode to the existing MQTT diagnostic workflow. It allocates ubuntu-22.04 hosts but uses a verified, pinned Ubuntu 24.04 amd64 OCI image (78d4744e…) and the same Dart 3.13.1, Rust 1.99.0 and Mosquitto 2.0.18 reference. The CPU step reads /proc/cpuinfo and records matched/unmeasured status; only Xeon 8370C runs the four-leg baseline e7e9585d/current comparison. Other CPU models produce hardware evidence without benchmark acceptance. Recovery/worker mode mixing is rejected. All 70 focused tooling/publish tests pass, including CPU mismatch and missing-model fixtures, mode rejection, pinned userland/reference and gated measurement steps. The older Ubuntu image digest fails local manifest verification; the new amd64 digest is resolved from the current official Ubuntu image index. GitHub's [runner-image inventory](https://github.com/actions/runner-images/blob/main/README.md) still lists ubuntu-22.04; [container job documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/run-jobs-in-a-container) requires an explicit bash shell, which is configured. This diagnostic does not replace or alter the ubuntu-24.04 main acceptance chain.
 

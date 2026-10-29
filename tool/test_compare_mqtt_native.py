@@ -180,6 +180,31 @@ class NativeMqttComparisonTest(unittest.TestCase):
         self.assertIn('exit "$result"', intel)
         self.assertIn('benchmark_executed":true', intel)
 
+    def test_intel_container_trusts_only_its_checkout_before_git_operations(self):
+        workflow = (ROOT / '.github/workflows/mqtt-profile.yml').read_text()
+        block = workflow.split('- name: Compare baseline and candidate on the matching CPU', 1)[1]
+        setup = block.split('run: |\n', 1)[1].split('          bin/bootstrap', 1)[0]
+        script = '\n'.join(line[10:] for line in setup.splitlines())
+        with tempfile.TemporaryDirectory(prefix='mqtt container checkout ') as tmp:
+            root = Path(tmp)
+            subprocess.run(['git', 'init', '--quiet', str(root)], check=True)
+            env = {**os.environ, 'GIT_CONFIG_GLOBAL': str(root / 'gitconfig'),
+                   'GIT_CONFIG_NOSYSTEM': '1', 'GIT_TEST_ASSUME_DIFFERENT_OWNER': '1',
+                   'GITHUB_WORKSPACE': str(root)}
+            before = subprocess.run(['git', 'status', '--porcelain'], cwd=root,
+                                    env=env, capture_output=True, text=True)
+            self.assertEqual(before.returncode, 128)
+            self.assertIn('dubious ownership', before.stderr)
+            setup_result = subprocess.run(['bash'], input=script, cwd=root, env=env,
+                                          capture_output=True, text=True)
+            self.assertEqual(setup_result.returncode, 0, setup_result.stderr)
+            after = subprocess.run(['git', 'status', '--porcelain'], cwd=root,
+                                   env=env, capture_output=True, text=True)
+            self.assertEqual(after.returncode, 0, after.stderr)
+            trusted = subprocess.run(['git', 'config', '--global', '--get-all', 'safe.directory'],
+                                     env=env, capture_output=True, text=True, check=True)
+            self.assertEqual(trusted.stdout.splitlines(), [str(root)])
+
 
 if __name__ == "__main__":
     unittest.main()
