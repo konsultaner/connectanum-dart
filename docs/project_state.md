@@ -5,6 +5,36 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Current follow-up encodes the complete benchmark report into standard UTF-8
+JSON before internal routing, preserving its JSON content type and every field.
+An actual 2,000-sample retaining-path probe finds the completed sample list under
+internal response lazyPayload/argumentsKeywords/body. The private prototype and
+production follow-up both retain zero supervisor WampSamples after diagnostic
+collection; the unmodified path retains 2,000. All nine live HTTP codec/storage
+pairs pass with the same sample schema and JSON charset. Analysis and all 167
+mutation proofs pass. No workload, observation or measurement window changes.
+The bytes response uses the normal defensive-copy API; do not call reporting
+or SDK internals zero-copy. Focused companion review completes with no concrete
+findings. Its residual JSON-string staging claim is false for JsonUtf8Encoder;
+both send variants delegate to the same response API with the same content type.
+
+Runtime `69193827` actual-worker memory capture completes on the standard SDK
+with unchanged source/library hashes, no memory findings and clean process exit.
+After diagnostic-only collection, WampSample counts are zero for all three
+client codecs. No production/acceptance GC is introduced. The 537 request-body
+statement tokens match the original after ignoring optional trailing commas.
+Qwen's smaller review completes; its serialization/window-order concern is
+unchanged original behavior, disproved as a regression by that token comparison.
+
+Full verification now exposes a real diagnostic adapter mismatch: the private
+native-view patcher still expects the old inline worker layout/library scope.
+Hosted copy-proof `40877485342` fails at the same prerequisite. Repair the private
+patcher to pass the library path into the extracted handler and preserve its
+post-window injection point. All 14 patcher tests pass, including missing and
+ambiguous-anchor refusal. Production runtime is unchanged by this tooling fix.
+Renew full verification, CI and copy proof; `40877480175` performance diagnostic
+continues unchanged on `69193827`. Keep every result and the original gates.
+
 Current local follow-up moves the worker's unchanged per-request try/catch into
 an awaited async handler. A controlled actual-model loop reproduces retention
 of 20,000 completed samples (2,240,000 bytes) across idle stdin; the handler

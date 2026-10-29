@@ -412,3 +412,38 @@ reports are losslessly gzip-compressed with round-trip SHA-256 verification and
 receipts; all data and hosted reports are retained. Unrelated task files are not
 removed. The incomplete artifact extraction is retried to a fresh directory
 because gh refuses existing files.
+
+## Actual worker release and supervisor report graph (2026-10-29)
+
+On runtime `69193827`, the complete local actual-worker CPU/heap capture exits
+zero with unchanged source/library hashes, no memory findings and clean process
+shutdown. All three client codecs retain zero WampSamples after diagnostic-only
+collection. Native perf is not measured on this macOS capture; it is never
+performance acceptance. The existing last-result queue hypothesis is separately
+falsified by an actual-model queue/barrier/barrier/queue scaffold: every variant
+retains zero after diagnostic collection. No production queue change is made.
+
+A real supervisor request retains all 2,000 completed sample models after the
+response and diagnostic collection. VM-service retaining-path inspection points
+through the internal response lazyPayload/argumentsKeywords/body/samples graph.
+A private prototype encodes the same report with JsonUtf8Encoder before internal
+routing and sends standard bytes with the original application/json; charset=utf-8
+header. It retains zero supervisor samples in the equivalent probe. The adopted
+follow-up also retains zero, and all nine actual HTTP codec/construction pairs
+retain complete named sample fields and JSON charset. Reporting uses the normal
+defensive bytes response API; no claim of zero-copy reporting or measured SDK
+internals is made. All snapshots/windows remain before report encoding.
+
+The worker extraction invalidates the private native-view diagnostic's old
+textual anchor/library scope. Full verification and hosted copy prerequisite
+`40877485342` reproduce that exact failure. The shadow patcher now threads the
+library path into the per-request function, preserving the capture's original
+post-window point and refusing missing/ambiguous anchors. All 14 patcher tests
+and 14 production copy-tool tests pass. This tooling repair does not alter
+production frames, payloads, native ownership or benchmark policy.
+
+Focused companion review completes with no concrete finding. Its additional
+claim that JsonUtf8Encoder stages a JSON string is rejected: it directly emits
+UTF-8 bytes. Its speculative sendJson/sendBytes cleanup difference is checked
+against both delegating through HttpResponseUtil.respond. The diagnostic-only
+liveness evidence does not replace the remaining paired RSS/confidence gates.

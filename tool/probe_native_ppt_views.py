@@ -143,9 +143,18 @@ import 'dart:isolate' as view_probe_isolate;
 import 'package:connectanum_client/native_buffers.dart' as view_probe_source;""")
     original = replace_once(original, "Future<void> main(List<String> args) async {", """Future<void> main(List<String> args) async {
   stderr.writeln('PROTOTYPE_SOURCE_MARKER=' + view_probe_source.nativePptViewProbeMarker);""")
-    original = replace_once(original, "        final fileMetrics = nativeRuntime\n",
-                            "        await captureViewProbe(nativeLibraryPath, scenario);\n"
-                            "        final fileMetrics = nativeRuntime\n")
+    # Carry the library path into the private per-request frame without adding
+    # instrumentation parameters to the production worker.
+    original = replace_once(original,
+                            "      await _handleRequest(trimmed, runner, nativeRuntime);",
+                            "      await _handleRequest(trimmed, runner, nativeRuntime, nativeLibraryPath);")
+    original = replace_once(original,
+                            "  NativeClientRuntime nativeRuntime,\n) async {",
+                            "  NativeClientRuntime nativeRuntime,\n  String nativeLibraryPath,\n) async {")
+    original = replace_once(original,
+                            "  final fileMetrics = nativeRuntime.fileSegmentMetricsSnapshot()",
+                            "  await captureViewProbe(nativeLibraryPath, scenario);\n"
+                            "  final fileMetrics = nativeRuntime.fileSegmentMetricsSnapshot()")
     return original + MEMORY_PROBE
 
 

@@ -34,7 +34,26 @@ class NativePptViewProbeTests(unittest.TestCase):
         self.assertIn("'iterations': scenario.iterations", worker)
         self.assertIn("'body_bytes': scenario.payloadBytes", worker)
         self.assertIn("captureViewProbe(nativeLibraryPath, scenario)", worker)
+        self.assertIn("_handleRequest(trimmed, runner, nativeRuntime, nativeLibraryPath)", worker)
+        self.assertIn("  String nativeLibraryPath,\n) async {", worker)
+        self.assertLess(worker.index("PptCopyMetrics.endWindow()"),
+                        worker.index("await captureViewProbe(nativeLibraryPath, scenario)"))
+        self.assertLess(worker.index("await captureViewProbe(nativeLibraryPath, scenario)"),
+                        worker.index("final fileMetrics = nativeRuntime.fileSegmentMetricsSnapshot()"))
         self.assertEqual((probe.ROOT / probe.WORKER).read_text(), original)
+
+    def test_worker_request_frame_instrumentation_rejects_missing_or_ambiguous_anchors(self):
+        original = (probe.ROOT / probe.WORKER).read_text()
+        for anchor in (
+            "      await _handleRequest(trimmed, runner, nativeRuntime);",
+            "  NativeClientRuntime nativeRuntime,\n) async {",
+            "  final fileMetrics = nativeRuntime.fileSegmentMetricsSnapshot()",
+        ):
+            for source in (original.replace(anchor, "missing anchor", 1),
+                           original + "\n" + anchor):
+                with self.subTest(anchor=anchor), self.assertRaisesRegex(
+                        ValueError, "refusing a partial patch"):
+                    probe.instrument_worker(source)
 
     def test_session_prototype_preserves_deferred_payload_only_for_controlled_flatbuffers(self):
         original = (probe.ROOT / probe.SESSION).read_text()

@@ -46,6 +46,21 @@ reference.
   the final-runtime 48-case primary. Refresh the complete supplemental report if
   the runtime changes; retain all older reports.
 
+## Encode completed reports before internal routing (2026-10-29)
+
+- [x] Trace the supervisor's retained samples through the internal response
+  lazyPayload/argumentsKeywords/body graph after a real 2,000-sample request.
+- [x] Prototype, then encode the same complete report into standard UTF-8 JSON
+  before routing. Preserve field order/schema, every observation, exact content
+  type/charset and post-window timing. Use the existing defensive bytes API.
+- [x] Confirm zero retained supervisor WampSamples after diagnostic collection
+  for both the private prototype and actual follow-up; original retains 2,000.
+- [x] Pass all nine live HTTP codec/construction pairs, content-type/charset,
+  clean analysis and all 167 mutation proofs. Complete the focused companion
+  review; reject its JSON-string staging speculation against actual encoder.
+- [ ] Renew full verification and frozen-source hosted gates, including the
+  repaired private native-view adapter. Never treat liveness as RSS acceptance.
+
 ## Release completed request sample contexts (2026-10-29)
 
 - [x] Identify completed WampSample retention in the idle worker profile; confirm
@@ -62,8 +77,17 @@ reference.
   focused review and keep incomplete outputs labelled.
 - [x] Verify handler statement tokens match the original exactly after ignoring
   formatting-only trailing commas. No metric-window operation is reordered.
-- [ ] Freeze follow-up and renew full verification, paired/copy/CI evidence and
-  actual-worker post-response memory diagnostics. Keep existing gate policy.
+- [x] Freeze runtime `69193827`. Actual standard-SDK worker capture has unchanged
+  source/library hashes and clean exit; all three client codecs retain zero
+  WampSamples after diagnostic-only collection. No production/acceptance GC.
+- [x] Complete the smaller Qwen review. Its window-order concern is unchanged
+  original behavior, rejected against the exact 537-token handler comparison.
+- [x] Reproduce stale private patcher anchors in full verification and hosted
+  copy prerequisite `40877485342`; repair its shadow-only helper/library wiring.
+  Pass all 14 tests, preserving exact-one-match refusal and post-window capture.
+- [ ] Renew full verification, CI and copy proof after the diagnostic tooling
+  repair. Paired diagnostic `40877480175` continues on unchanged runtime.
+  Keep existing gate policy.
 - [ ] After a passing paired diagnostic, complete all 48 primary and refresh
   all 50 supplemental cases on the final runtime.
 
