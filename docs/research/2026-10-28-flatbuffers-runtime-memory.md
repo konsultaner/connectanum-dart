@@ -558,3 +558,38 @@ finally disposes every service, and synchronous file output occurs in the
 separate diagnostic probe after the measured/native perf window. Its empty-
 sample note acknowledges the existing check is correct. Do not treat those
 unverified claims as product regressions or relax fail-closed attribution.
+
+## Preserve native profiler failures and expose VM-only attribution
+
+Follow-up `40899272991` on diagnostic-only `1b53f9cf` verifies the error fix:
+the primary error is `perf exited before readiness: 255`; stopping failure is
+logged separately. MessagePack perf has only a 47,840-byte header. VM snapshots
+identify router PID 5757/client PID 5849; perf warns about PID/TID 5867. Inputs
+and library remain unchanged and the server exits cleanly. The warning alone
+does not establish the fatal cause: the upstream
+[evsel implementation](https://gbmc.googlesource.com/linux/+/70087d2200d4a3bd31812ab4578c9ec70ea344af/tools/perf/util/evsel.c)
+emits it on its recovered missing-thread path. Do not invent a library crash,
+replace a failed numerical report or change the acceptance campaign.
+
+The tool already supports profiling without native perf. The separate manual
+`flatbuffers_vm_profile` campaign exposes that mode without changing the
+existing native campaign, declared profile case, memory settings or workloads.
+Its summary explicitly labels native stacks unmeasured and partial captures
+incomplete. Native perf setup is skipped only in this mode; actual generated-
+probe contracts now run after the pinned Dart SDK and dependency bootstrap.
+
+The real capture-step shell executes in tests for both modes, including an
+unset native-perf path and a path containing spaces. It initially reproduces
+an empty-array/set-u failure under macOS Bash; using a populated common argument
+array fixes it. All 21 CI execution tests, 19 profile-tool tests and 167 mutation
+proofs pass. Companion review's empty-array concern is therefore verified and
+resolved. Non-dispatch jobs are excluded by the job condition, and bootstrap
+failure remains a failed job rather than a skipped-success contract claim.
+
+The current paired data also narrows the Dart-values CPU attribution. Median
+client CPU is 213.95 us/op for FlatBuffers versus 221.30 for MessagePack;
+router CPU is 639.87 versus 626.54. Server GC totals are approximately equal
+(3.522/3.525 us/op), but aggregates cannot establish tail co-occurrence.
+Ordinary CALL options already have no extra controls and use the generated
+path; do not broaden that path without new evidence. These per-process
+absolute medians are diagnostic and must not replace paired ratio gates.

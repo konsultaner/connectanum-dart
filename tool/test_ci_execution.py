@@ -9,6 +9,8 @@ import tempfile
 import shutil
 import re
 import platform
+import sys
+import textwrap
 import unittest
 from unittest.mock import patch
 
@@ -36,6 +38,43 @@ class CompositeSetupTests(unittest.TestCase):
 
 
 class FlatbuffersDiagnosticModesTests(unittest.TestCase):
+    def test_vm_only_profile_omits_native_perf_without_changing_workload_arguments(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        block = workflow.split('  linux-flatbuffers-cpu-profile:', 1)[1].split(
+            '  linux-flatbuffers-encoder-component:', 1)[0]
+        self.assertIn("inputs.campaign == 'flatbuffers_profile' || inputs.campaign == 'flatbuffers_vm_profile'", block)
+        self.assertIn("inputs.campaign == 'flatbuffers_profile' && 'true' || 'false'", block)
+        self.assertIn('Linux native perf stacks are explicitly unmeasured', block)
+        self.assertLess(block.index('uses: dart-lang/setup-dart@v1'),
+                        block.index('- name: Verify CPU diagnostic contracts'))
+        self.assertLess(block.index('bin/bootstrap'), block.index('- name: Verify CPU diagnostic contracts'))
+        capture = block.split('- name: Capture CPU stacks and diagnostic heap snapshots', 1)[1].split(
+            '- name: Explain profiling scope', 1)[0]
+        script = textwrap.dedent(capture.split('run: |', 1)[1])
+        observed = {}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'out/wamp-flatbuffers-profile').mkdir(parents=True)
+            fake_bin = root / 'fake bin'; fake_bin.mkdir()
+            fake_python = fake_bin / 'python3'
+            fake_python.write_text(f'#!{sys.executable}\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n')
+            fake_python.chmod(0o700)
+            for native in (True, False):
+                env = {**os.environ, 'PATH': str(fake_bin) + os.pathsep + os.environ['PATH'],
+                       'INPUT_NATIVE_PERF': str(native).lower(),
+                       'INPUT_PROFILE_CASE': 'rpc_rawsocket_clear_dart_values'}
+                env.pop('CONNECTANUM_PROFILE_PERF', None)
+                if native: env['CONNECTANUM_PROFILE_PERF'] = '/diagnostic tools/perf'
+                completed = subprocess.run(['bash', '-c', script], cwd=root, env=env,
+                                           text=True, capture_output=True, timeout=10)
+                self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                observed[native] = json.loads((root / 'out/wamp-flatbuffers-profile/capture.log').read_text())
+        expected = ['tool/profile_wamp_serializers.py', '--output', 'out/wamp-flatbuffers-profile/cpu',
+                    '--native-lib', 'out/wamp-flatbuffers-profile/setup/libct_ffi.so',
+                    '--memory', '--case', 'rpc_rawsocket_clear_dart_values']
+        self.assertEqual(observed[False], expected)
+        self.assertEqual(observed[True], expected[:5] + ['--perf', '/diagnostic tools/perf'] + expected[5:])
+
     def test_rss_control_is_separate_from_acceptance_and_never_cancels_started_runs(self):
         workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
         block = workflow.split('  linux-flatbuffers-primary:', 1)[1].split('  merge-flatbuffers-extensions:', 1)[0]

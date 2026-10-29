@@ -75,6 +75,10 @@ reference.
   source/library receipts. Fix the masking cleanup error before renewing it.
   The actual generated probe passes seven error/value/order cases and all 19
   profile-tool tests; restoring old semantics fails the private negative control.
+  Follow-up `40899272991` preserves perf's actual pre-readiness exit 255.
+  Publish the existing VM-only path as `flatbuffers_vm_profile`, with native
+  stacks explicitly unmeasured. Pass both real shell argument branches, all
+  21 CI execution tests, 19 profile-tool tests and 167 mutation proofs.
   Local private probe admission is blocked by the shared resource lease.
   Preserve every report and the refusal; never bypass the lease or waive gates.
 - [ ] On passing diagnostics, complete all 48 primary and 50 supplemental cases.

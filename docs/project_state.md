@@ -23,6 +23,14 @@ without enabling streams or forcing GC. All 19 profile-tool tests pass,
 including seven actual generated-probe behavior cases and a failing old-semantics
 negative control. Focused companion review plus source inspection finds no
 verified defect. Full local verification is running again before capture renewal.
+Follow-up profile `40899272991` on diagnostic-only `1b53f9cf` now preserves the
+actual failure: perf exits 255 before readiness, with unchanged inputs/library
+and clean server exit. Expose the existing VM-only profiler as the separate
+`flatbuffers_vm_profile` campaign; keep native profiling selected by the existing
+campaign and explicitly label native stacks unmeasured in VM-only mode. All 21
+CI execution tests, 19 profile-tool tests and 167 mutation proofs pass. The
+executable shell contract caught and fixes the empty-array/set-u issue on older
+Bash before publishing. Contract tests now run after pinned SDK/bootstrap.
 The local private native-view probe was refused by the shared machine resource lease;
 do not bypass that lease. #103 and PR #132 remain open/draft respectively.
 

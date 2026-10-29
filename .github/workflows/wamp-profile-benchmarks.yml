@@ -29,6 +29,7 @@ on:
           - flatbuffers_diagnostic
           - flatbuffers_extensions
           - flatbuffers_profile
+          - flatbuffers_vm_profile
           - flatbuffers_payload_repro
           - flatbuffers_payload_focus
           - flatbuffers_native_view_probe
@@ -515,20 +516,17 @@ jobs:
 
   linux-flatbuffers-cpu-profile:
     name: FlatBuffers CPU profiles
-    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_profile'
+    if: github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_profile' || inputs.campaign == 'flatbuffers_vm_profile')
     runs-on: ubuntu-24.04
     env:
       RUSTUP_TOOLCHAIN: 1.99.0
+      INPUT_NATIVE_PERF: ${{ inputs.campaign == 'flatbuffers_profile' && 'true' || 'false' }}
     timeout-minutes: 30
     concurrency:
       group: wamp-flatbuffers-cpu-profile
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
-      - name: Verify CPU diagnostic contracts
-        run: |
-          python3 tool/test_wamp_profile_window.py
-          python3 tool/test_profile_wamp_serializers.py
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: 3.13.5
@@ -547,12 +545,19 @@ jobs:
           set -euo pipefail
           mkdir -p out/wamp-flatbuffers-profile/setup
           bin/bootstrap 2>&1 | tee out/wamp-flatbuffers-profile/setup/bootstrap.log
-          sudo apt-get update -qq
-          sudo apt-get install -y linux-tools-generic
-          perf_path="$(python3 -c 'import os, sys; from pathlib import Path; paths = [p for p in Path(sys.argv[1]).glob("*/perf") if p.is_file() and os.access(p, os.X_OK)]; print(sorted(paths)[-1].resolve())' /usr/lib/linux-tools)"
-          test -n "$perf_path"
-          sudo -n "$perf_path" --version
-          echo "CONNECTANUM_PROFILE_PERF=$perf_path" >> "$GITHUB_ENV"
+          if [[ "$INPUT_NATIVE_PERF" == true ]]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y linux-tools-generic
+            perf_path="$(python3 -c 'import os, sys; from pathlib import Path; paths = [p for p in Path(sys.argv[1]).glob("*/perf") if p.is_file() and os.access(p, os.X_OK)]; print(sorted(paths)[-1].resolve())' /usr/lib/linux-tools)"
+            test -n "$perf_path"
+            sudo -n "$perf_path" --version
+            echo "CONNECTANUM_PROFILE_PERF=$perf_path" >> "$GITHUB_ENV"
+          fi
+      - name: Verify CPU diagnostic contracts
+        run: |
+          set -euo pipefail
+          python3 tool/test_wamp_profile_window.py
+          python3 tool/test_profile_wamp_serializers.py
       - name: Build native symbols for profiling
         env:
           RUSTFLAGS: -C force-frame-pointers=yes -C debuginfo=1
@@ -569,10 +574,15 @@ jobs:
           INPUT_PROFILE_CASE: ${{ inputs.profile_case || 'rpc_rawsocket_clear_native_native_buffer' }}
         run: |
           set -euo pipefail
+          profile_args=(
+            --output out/wamp-flatbuffers-profile/cpu
+            --native-lib out/wamp-flatbuffers-profile/setup/libct_ffi.so
+          )
+          if [[ "$INPUT_NATIVE_PERF" == true ]]; then
+            profile_args+=(--perf "$CONNECTANUM_PROFILE_PERF")
+          fi
           python3 tool/profile_wamp_serializers.py \
-            --output out/wamp-flatbuffers-profile/cpu \
-            --native-lib out/wamp-flatbuffers-profile/setup/libct_ffi.so \
-            --perf "$CONNECTANUM_PROFILE_PERF" \
+            "${profile_args[@]}" \
             --memory \
             --case "$INPUT_PROFILE_CASE" \
             2>&1 | tee out/wamp-flatbuffers-profile/capture.log
@@ -580,7 +590,12 @@ jobs:
         if: always()
         run: |
           echo '## FlatBuffers CPU and memory diagnostic' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Dart CPU samples, Linux perf stacks, class heaps and process smaps are retained for all three codecs. Memory snapshots surround the workload; GC is requested only after the workload and CPU window. Shared isolate-group heaps must not be summed, and a GC request does not guarantee collection or finalizer completion. Profiling alters execution; these results never establish parity. Dart JIT addresses may be unresolved in perf; Dart CPU samples are retained separately.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Completed captures retain Dart CPU samples, existing VM traces, class heaps and process smaps. Failed/partial captures remain incomplete evidence. Memory snapshots surround the workload; GC is requested only after the workload and CPU window. Shared isolate-group heaps must not be summed, and a GC request does not guarantee collection or finalizer completion. Profiling alters execution; these results never establish parity.' >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$INPUT_NATIVE_PERF" == true ]]; then
+            echo 'Native perf stacks were requested separately; Dart JIT addresses or unwinding may remain unresolved.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Dart VM attribution only: Linux native perf stacks are explicitly unmeasured in this capture.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Give the runner ownership of captured perf data
         if: always()
         run: |
