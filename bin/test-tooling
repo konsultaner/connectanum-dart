@@ -31,3 +31,4 @@ python3 tool/test_flutter_mutations.py
 python3 tool/test_websocket_integration.py
 python3 tool/test_dart_mutations.py
 python3 tool/test_ci_execution.py
+python3 tool/test_compare_mqtt_native.py

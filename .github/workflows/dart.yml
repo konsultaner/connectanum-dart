@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      mqtt_compare_ref:
+        description: Optional full baseline commit SHA for matched MQTT comparisons on the same runner
+        required: false
+        default: ''
+        type: string
 
 # Supersede automated codex branch runs within each event/ref only. Unique
 # run-id groups preserve master, tags, manual runs and other branch histories.
@@ -177,7 +183,7 @@ jobs:
   mqtt-qos0:
     name: MQTT QoS 0 interoperability and benchmark gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci
@@ -312,6 +318,33 @@ jobs:
           name: mqtt-qos0-benchmark
           path: out/mqtt-qos0-gate
           if-no-files-found: warn
+      - name: Compare native MQTT libraries on the same runner
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.mqtt_compare_ref != '' }}
+        env:
+          MQTT_COMPARE_REF: ${{ inputs.mqtt_compare_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$MQTT_COMPARE_REF" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin "$MQTT_COMPARE_REF"
+          baseline_commit="$(git rev-parse FETCH_HEAD)"
+          git worktree add --detach "$RUNNER_TEMP/mqtt-baseline" "$baseline_commit"
+          cp native/transport/Cargo.lock "$RUNNER_TEMP/mqtt-baseline/native/transport/Cargo.lock"
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-baseline-target" \
+            cargo build --manifest-path "$RUNNER_TEMP/mqtt-baseline/native/transport/Cargo.toml" \
+            -p ct_ffi --release --features ffi-test --locked
+          mkdir -p out/mqtt-native-comparison
+          echo "$baseline_commit" > out/mqtt-native-comparison/baseline-ref.txt
+          git rev-parse HEAD > out/mqtt-native-comparison/candidate-ref.txt
+          bash tool/compare_mqtt_native.sh \
+            "$RUNNER_TEMP/mqtt-baseline-target/release/libct_ffi.so" \
+            "$CONNECTANUM_NATIVE_LIB" out/mqtt-native-comparison
+      - name: Upload matched native MQTT comparison
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.mqtt_compare_ref != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-native-comparison
+          path: out/mqtt-native-comparison
+          if-no-files-found: error
 
   wamp-app:
     name: WampApp Consumer
