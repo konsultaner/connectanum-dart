@@ -5,6 +5,15 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Current local candidate uses pinned generated tables for guarded opaque CALL
+frames, avoiding schema-sized scratch lists and recursive field scans. All 210
+focused serializer tests, clean analysis and 167 existing mutation proofs pass.
+An actual-source AOT component preserves exact 192-byte prefixes and reduces
+500,000 full preparations/encodes from 879–904 to 647–661 ms. Component RSS is
+inconclusive. Canonical fast/full and native checks are pending; hosted parity
+still belongs to the frozen source below. Companion review/test requests remain
+blocked by the native mutation resource lease. No performance gate changes.
+
 Latest frozen source: `cd54760c3f53ba26793f82159da266252407c440`.
 Full `bin/verify` passes at exit 0, including Rust/FFI, VM/native, all 2,832
 benchmark tests, 5,118 router tests, consumer smoke and Chrome/WebAssembly.
@@ -24,13 +33,14 @@ p99. Diagnostic ineligibility is the sole other finding. Preserve the preceding
 lucky run, relax a gate or claim primary acceptance. #103/milestone remain open
 and PR #132 remains draft.
 
-Complete hosted CI `40774541328` is green. Newer `40780584962` on `3a825a76`
-has all 37 test jobs green with its final rollup queued. Exact-current-source
-CI `40788573756` is running without a reported failure. Supersede supplemental
-`40782047961` on older `3a825a76` after the worker UTF-8 follow-up: retain its
-partial artifacts, cancel the obsolete-source jobs and dispatch final-runtime
-50-case supplemental `40789946129` on `cd54760c`. No result-based cancellation
-or gate change is involved; all 50 cases remain required.
+Exact-runtime hosted CI `40788573756` on `cd54760c` is fully green, as is
+preceding CI `40780584962`. Supplemental `40789946129` is complete on the same
+runtime: all three batches and the merged report pass evidence validation.
+An independent recomputation from raw reports exactly matches the hosted report:
+50 cases, 1,500 rows, unchanged policy/locks/scenarios/binaries, no integrity
+findings and 194 numerical diagnostic findings. It is not primary acceptance;
+absolute measurements from different batches must not be pooled. The superseded
+`40782047961` partial artifacts remain retained.
 
 Fresh read-only Dart-values capture `40783409254` completes six process pairs
 with unchanged inputs. Chronological summed sampled-peak medians are
@@ -49,7 +59,9 @@ time 12.47–13.63 -> 7.74–8.16 ms. These remain component evidence only.
 A private generated Dart CALL-table prototype preserves exact 176-byte controls
 and reduces 200,000 envelope encodes from 182.6–204.7 to 126.0–134.2 ms.
 Its roughly 0.3 us/frame saving and inconsistent component RSS do not establish
-an end-to-end hotspot. It is not adopted; production runtime remains frozen.
+an end-to-end hotspot. That private prototype was not adopted. The separate
+current candidate above also covers ordinary/deferred byte storage and measures
+complete production preparation; it still needs end-to-end evidence.
 A separate actual-view word-read probe shows no meaningful difference between
 mutable Uint8List, read-only Uint8List and decoded FB views (10,000 complete
 64-KiB checks: 268–276 ms across all modes). Keep view safety unchanged.
@@ -63,11 +75,12 @@ nonempty map. The GLM semantic review hits its token limit and is incomplete.
 Subsequent worker test/review requests remain blocked by the native-mutation
 resource lease; do not claim them completed.
 
-A user decision is pending about RSS acceptance: retain exact point parity or
-apply the already-declared 5% band to both the point and its confidence bound,
-leaving all other gates unchanged. No policy change is authorized yet. Continue
-under the current strict policy until an explicit answer arrives. Final-source
-48-case primary and complete 50-case supplemental evidence are still required.
+The user has asked to continue finishing the outstanding checks. No budget
+change is authorized: preserve exact point parity and the existing confidence
+gates. A final-runtime 48-case primary is still required after a grounded fix
+for the four diagnostic failures; do not rerun unchanged source for a lucky pass.
+The complete 50-case supplemental report is now audited, and must be refreshed
+if the runtime changes.
 
 Native reply checkpoint `5f54fe7d` uses pinned generated Result/Message builders
 for exact two-string typed-PPT RESULT dictionaries, preserving complete CBOR,

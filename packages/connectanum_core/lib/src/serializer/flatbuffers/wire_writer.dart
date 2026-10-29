@@ -54,12 +54,100 @@ int writeWampFlatBufferFields(
   Map<String, Object?> fields,
   fb.Builder builder, {
   List<DeferredFlatBufferVector>? deferredVectors,
-}) => _Writer(builder, deferredVectors).table(wampRootTable, fields);
+}) {
+  final writer = _Writer(builder, deferredVectors);
+  return writer.simplePptCall(fields) ?? writer.table(wampRootTable, fields);
+}
 
 class _Writer {
   _Writer(this.builder, this.deferredVectors);
   final fb.Builder builder;
   final List<DeferredFlatBufferVector>? deferredVectors;
+
+  // The common opaque CALL needs neither schema-sized scratch lists nor a
+  // recursive table walk. Check the complete supported shape before writing;
+  // every other control dictionary still uses the generic schema validator.
+  int? simplePptCall(Map<String, Object?> fields) {
+    if (fields['msg_type'] is! int ||
+        fields['msg_type'] != wire.AnyMessageTypeId.Call.value ||
+        fields.length != 3 ||
+        fields.keys.any(
+          (key) => !const {'msg_type', 'msg', 'metadata'}.contains(key),
+        )) {
+      return null;
+    }
+    final body = fields['msg'];
+    final metadata = fields['metadata'];
+    if (body is! Map<String, Object?> ||
+        metadata is! Uint8List ||
+        metadata.length > 1048576 ||
+        body.keys.any(
+          (key) => !const {
+            'request',
+            'procedure',
+            'payload',
+            'ppt_scheme',
+            'ppt_serializer',
+          }.contains(key),
+        )) {
+      return null;
+    }
+    final request = body['request'];
+    final procedure = body['procedure'];
+    final payload = body['payload'];
+    final scheme = body['ppt_scheme'];
+    final serializer = body['ppt_serializer'];
+    if (request is! int ||
+        request <= 0 ||
+        request > 9007199254740992 ||
+        procedure is! String ||
+        serializer is! int ||
+        serializer != wire.Pptserializer.FLATBUFFERS.value ||
+        (scheme != null &&
+            (scheme is! int ||
+                scheme < wire.Pptscheme.minValue ||
+                scheme > wire.Pptscheme.maxValue))) {
+      return null;
+    }
+    final reference = payload is FlatBufferByteVectorReference ? payload : null;
+    if (reference == null && payload is! Uint8List) return null;
+    if (reference != null && !identical(reference.builder, builder)) {
+      return null;
+    }
+
+    // Match the generic field/offset order exactly, including its empty vector
+    // placeholder for fragmented output. The native reference stays borrowed.
+    final procedureOffset = builder.writeString(
+      procedure,
+      asciiOptimization: true,
+    );
+    final deferred = reference == null && deferredVectors != null;
+    final payloadOffset =
+        reference?.offset ??
+        byteVector(deferred ? const <int>[] : payload as Uint8List);
+    final call = wire.CallBuilder(builder)
+      ..begin()
+      ..addProcedureOffset(procedureOffset)
+      ..addPayloadOffset(payloadOffset)
+      ..addRequest(request);
+    if (scheme != null) {
+      call.addPptScheme(wire.Pptscheme.fromValue(scheme as int));
+    }
+    call.addPptSerializer(wire.Pptserializer.FLATBUFFERS);
+    final callOffset = call.finish();
+    if (deferred) {
+      deferredVectors!.add(
+        DeferredFlatBufferVector(callOffset, 5, payload as Uint8List),
+      );
+    }
+    final metadataOffset = byteVector(metadata);
+    return (wire.MessageBuilder(builder)
+          ..begin()
+          ..addMsgOffset(callOffset)
+          ..addMetadataOffset(metadataOffset)
+          ..addMsgType(wire.AnyMessageTypeId.Call))
+        .finish();
+  }
 
   // The pinned schema is constant; reuse field-name sets across frames.
   static final _fieldNames = [

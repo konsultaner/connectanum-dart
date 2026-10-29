@@ -149,6 +149,125 @@ void main() {
     expect(actual.exclude, [0, 9007199254740992]);
     expect(actual.acknowledge, false);
   });
+  test('opaque CALL matches generic bytes for all payload storage forms', () {
+    for (final storage in ['inline', 'reference', 'deferred']) {
+      for (final request in [0, 1, 9007199254740992]) {
+        for (final scheme in [null, 0, 1, 2, 3, 4]) {
+          for (final procedure in ['', 'com.proc', 'com.λ🧪', 'com.\uD800']) {
+            for (final length in [0, 7, 65536]) {
+              final payload = Uint8List.fromList(
+                List.generate(length, (index) => index % 251),
+              );
+              Uint8List encode(bool generic) {
+                final builder = runtime.WampFlatBufferBuilder(initialSize: 16);
+                final vectors = <DeferredFlatBufferVector>[];
+                final fields = <String, Object?>{
+                  'msg_type': wire.AnyMessageTypeId.Call.value,
+                  'metadata': Uint8List.fromList([0xa1, 0x61, 0x78, 0x01]),
+                  'msg': <String, Object?>{
+                    'request': request,
+                    'procedure': procedure,
+                    'payload': storage == 'reference'
+                        ? FlatBufferByteVectorReference(
+                            builder,
+                            builder.writeListUint8(payload),
+                          )
+                        : payload,
+                    'ppt_scheme': ?scheme,
+                    'ppt_serializer': wire.Pptserializer.FLATBUFFERS.value,
+                    // An absent optional field has the same wire representation,
+                    // while selecting the complete generic schema walk.
+                    if (generic) 'timeout': null,
+                  },
+                };
+                final root = writeWampFlatBufferFields(
+                  fields,
+                  builder,
+                  deferredVectors: storage == 'deferred' ? vectors : null,
+                );
+                if (storage == 'deferred') {
+                  final fragments = finishWampFlatBufferFragments(
+                    builder,
+                    root,
+                    vectors,
+                  );
+                  expect(vectors, hasLength(1));
+                  expect(identical(fragments.last, payload), isTrue);
+                  final combined = BytesBuilder(copy: false);
+                  for (final fragment in fragments) {
+                    combined.add(fragment);
+                  }
+                  return combined.takeBytes();
+                }
+                builder.finish(root);
+                return builder.buffer;
+              }
+
+              final actual = encode(false);
+              expect(actual, encode(true), reason: '$storage/$request/$scheme');
+              validateWampFlatBuffer(actual);
+              final call = wire.Message(actual).msg as wire.Call;
+              expect(call.request, request);
+              expect(call.payload, payload);
+              expect(call.pptScheme.value, scheme ?? 0);
+            }
+          }
+        }
+      }
+    }
+  });
+  test(
+    'opaque CALL guards preserve invalid-field and foreign-owner rejection',
+    () {
+      final foreign = runtime.WampFlatBufferBuilder();
+      final foreignVector = FlatBufferByteVectorReference(
+        foreign,
+        foreign.writeListUint8([1, 2, 3]),
+      );
+      for (final override in <Map<String, Object?>>[
+        {'request': -1},
+        {'request': 9007199254740994},
+        {'request': 1.0},
+        {'procedure': null},
+        {'ppt_scheme': 5},
+        {'ppt_scheme': 4.0},
+        {'ppt_serializer': 6.0},
+        {'unknown': null},
+        {'payload': foreignVector},
+      ]) {
+        expect(
+          () => writeWampFlatBufferFields({
+            'msg_type': wire.AnyMessageTypeId.Call.value,
+            'metadata': Uint8List.fromList([0xa0]),
+            'msg': <String, Object?>{
+              'request': 1,
+              'procedure': 'com.proc',
+              'payload': Uint8List(0),
+              'ppt_scheme': 4,
+              'ppt_serializer': 6,
+              ...override,
+            },
+          }, runtime.WampFlatBufferBuilder()),
+          throwsArgumentError,
+          reason: override.toString(),
+        );
+      }
+      expect(
+        () => writeWampFlatBufferFields({
+          'msg_type': wire.AnyMessageTypeId.Call.value.toDouble(),
+          'metadata': Uint8List.fromList([0xa0]),
+          'msg': <String, Object?>{
+            'request': 1,
+            'procedure': 'com.proc',
+            'payload': Uint8List(0),
+            'ppt_scheme': 4,
+            'ppt_serializer': 6,
+          },
+        }, runtime.WampFlatBufferBuilder()),
+        throwsArgumentError,
+      );
+    },
+  );
   test(
     'rejects missing required fields, enums, negative and oversized values',
     () {

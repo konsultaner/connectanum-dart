@@ -327,3 +327,41 @@ and reduces 20,000-record peak RSS from 28.15–28.16 to 25.56 MB; this remains
 component evidence rather than WAMP acceptance. Production proof `40784345437`
 passes 120 live / 300 inventory / 32 no-avoidable-copy checks on that source,
 including 96 live E2EE and 120 transcode cases, with unchanged inputs/binaries.
+
+## Completed supplemental evidence and CALL candidate (2026-10-29)
+
+Hosted CI [40788573756](https://github.com/konsultaner/connectanum-dart/actions/runs/40788573756)
+on `cd54760c` passes completely. Supplemental run
+[40789946129](https://github.com/konsultaner/connectanum-dart/actions/runs/40789946129)
+passes all batches and aggregate evidence validation. Independent reconstruction
+from all raw rows exactly matches the hosted report: 50 cases / 1,500 rows,
+unchanged input and binary hashes, no integrity findings and 194 numerical
+diagnostic findings. These supplemental findings remain visible; successful
+execution is not primary parity acceptance. No cross-batch absolute costs are
+pooled, and the obsolete-source partial artifacts remain retained.
+
+A role-level audit of the current three-case report shows no single common
+client-only RSS excess. FlatBuffers client/server sampled-peak medians in MiB
+are 257.59/298.50 for Dart values, 264.86/300.03 for native buffers and
+260.10/288.58 for pre-encoded spans. Corresponding MessagePack medians are
+266.27/291.23, 272.47/297.85 and 258.40/287.81. These separate medians are
+attribution only: summing them does not reproduce the paired comparison metric.
+Keep the original paired RSS failures; do not infer a retained leak or remove
+server/SDK costs from the gate.
+
+The next guarded encoder candidate uses pinned generated CALL/Message builders
+when the complete supported body has only request, procedure, opaque payload
+and numeric PPT controls. All other shapes retain the complete generic schema
+walk. Deferred payloads retain the original parts, borrowed vectors keep their
+builder owner, metadata uses the same copy-accounted vector writer and field
+order remains exact. Tests compare all three storage forms with the generic
+writer's same-wire absent optional field, including zero/max IDs, every scheme,
+empty/64-KiB bodies, Unicode/lone surrogates and invalid inputs.
+
+An actual-source AOT component performs full preparation plus native-reference
+prefix construction. Generic/generated/generated/generic 500,000-encode times
+are 903,561 / 647,371 / 660,594 / 878,720 us, with identical 192-byte prefixes.
+Peak RSS is 18.86 / 19.02 / 18.83 / 18.87 MB and is inconclusive. This is a
+component improvement only; it does not establish WAMP latency, RSS or primary
+acceptance. The native/profile and focused serializer tests pass; full and
+hosted evidence must be renewed. Companion review remains lease-blocked.

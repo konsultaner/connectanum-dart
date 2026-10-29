@@ -19,7 +19,7 @@ that implementation as alpha. Treat that issue as historical precedent, not a
 normative recommendation. The current draft is the stronger compatibility
 reference.
 
-## Strict parity checkpoint and RSS decision (2026-10-29)
+## Strict parity checkpoint and completed supplemental audit (2026-10-29)
 
 - [x] Pass complete local verification on `cd54760c`, including all 2,832
   benchmark cases and Chrome/WebAssembly. Production proof `40784345437` passes
@@ -32,15 +32,41 @@ reference.
   logical heap Used buckets include garbage. No retained leak is established.
 - [x] Keep the private generated CALL prototype unadopted: its ~0.3 us/frame
   saving and variable component RSS are insufficient to identify the blocker.
-- [x] Confirm preceding `40774541328` CI entirely green. Dispatch exact-current
-  CI `40788573756`; `40780584962` has all 37 test jobs green, rollup queued.
-- [ ] Receive the user's RSS-budget decision. Until explicitly authorized,
-  preserve exact point parity and the existing confidence gate. The proposed
-  alternative applies the existing 5% band to RSS only; other gates stay fixed.
-- [ ] Complete exact-final-source CI, full primary and all 50 supplemental cases.
-  Supersede old-source `40782047961`, preserving partial artifacts after
-  cancellation; final-runtime supplemental `40789946129` is dispatched on
-  `cd54760c`. No report is cancelled because of a measured result.
+- [x] Confirm exact-runtime CI `40788573756` and preceding `40780584962`
+  entirely green.
+- [x] Complete supplemental `40789946129` on `cd54760c`: all three batches plus
+  merge job succeed. Independently revalidate raw rows and pinned inputs/binaries;
+  recomputed result exactly equals hosted output: 50 cases / 1,500 rows, no
+  integrity findings, 194 numerical diagnostic findings. Never primary acceptance.
+- [x] Retain obsolete-source `40782047961` partial artifacts; no report was
+  cancelled because of a result.
+- [x] Continue under unchanged strict RSS/latency budgets as requested by the
+  user. No relaxation has been authorized.
+- [ ] Fix the remaining three-case diagnostic performance failures and complete
+  the final-runtime 48-case primary. Refresh the complete supplemental report if
+  the runtime changes; retain all older reports.
+
+## Generated opaque CALL encoder candidate (2026-10-29)
+
+- [x] Reproduce generic CALL table scratch-list/scanning costs with actual
+  production preparation and unchanged native-reference prefix construction.
+- [x] Add a guarded pinned generated CALL/Message writer for simple opaque PPT,
+  preserving metadata bytes, schema field order, deferred payload aliasing,
+  borrowed-builder identity, copy counters and complete generic fallback.
+- [x] Pass 210 focused serializer cases, including exact generic-wire equivalence
+  for inline/reference/deferred storage, all five scheme values, absent defaults,
+  zero/max IDs, empty/64-KiB bodies, UTF-8 and lone surrogates. Invalid numeric
+  doubles, unknown fields and foreign references remain rejected.
+- [x] Production AOT component, generic/generated/generated/generic: 500,000
+  full preparations and prefix encodes take 904/647/661/879 ms. Exact 192-byte
+  prefixes match. Component RSS is inconclusive; never primary acceptance.
+- [x] Keep analysis clean and all 167 source-bound mutation proofs valid.
+  Local test/review/debug companion requests remain lease-blocked.
+- [x] Pass 67 combined native lifetime/profile and writer checks with the canonical
+  ffi-test library. The initial direct command omitted the library environment;
+  its loader failure is retained, and the corrected command passes.
+- [ ] Pass canonical fast/full verification and hosted diagnostic/copy/CI
+  evidence before claiming any end-to-end improvement.
 
 ## Direct worker JSON UTF-8 encoding (2026-10-29)
 
@@ -55,10 +81,12 @@ reference.
 - [x] Compare actual-source AOT components: identical 1,180,013 bytes/hash;
   20,000-record peak RSS 28.15–28.16 -> 25.56 MB and encoding
   12.47–13.63 -> 7.74–8.16 ms. Do not claim end-to-end acceptance.
-- [ ] Pass full verification, frozen-source paired/copy/CI evidence and final
-  primary/supplemental acceptance. Companion tests/review are again blocked by
-  the native-mutation resource lease; the prior GLM semantic review exhausted
-  its token limit and is not a completed review.
+- [x] Pass full verification, production copy proof and exact-runtime CI. Complete
+  and independently audit all 50 supplemental cases. The paired diagnostic still
+  has four numerical failures, and the final primary remains outstanding.
+- [ ] Establish final primary performance acceptance. Companion tests/review are
+  still blocked by the native-mutation resource lease on retry; the prior GLM
+  semantic review exhausted its token limit and is not a completed review.
 
 ## Final sample JSON projection (2026-10-28)
 
