@@ -579,7 +579,7 @@ jobs:
             --native-lib out/wamp-flatbuffers-profile/setup/libct_ffi.so
           )
           if [[ "$INPUT_NATIVE_PERF" == true ]]; then
-            profile_args+=(--perf "$CONNECTANUM_PROFILE_PERF")
+            profile_args+=(--perf "$CONNECTANUM_PROFILE_PERF" --native-call-graph fp)
           fi
           python3 tool/profile_wamp_serializers.py \
             "${profile_args[@]}" \
@@ -592,7 +592,7 @@ jobs:
           echo '## FlatBuffers CPU and memory diagnostic' >> "$GITHUB_STEP_SUMMARY"
           echo 'Completed captures retain Dart CPU samples, existing VM traces, class heaps and process smaps. Failed/partial captures remain incomplete evidence. Memory snapshots surround the workload; GC is requested only after the workload and CPU window. Shared isolate-group heaps must not be summed, and a GC request does not guarantee collection or finalizer completion. Profiling alters execution; these results never establish parity.' >> "$GITHUB_STEP_SUMMARY"
           if [[ "$INPUT_NATIVE_PERF" == true ]]; then
-            echo 'Native perf stacks were requested separately; Dart JIT addresses or unwinding may remain unresolved.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Native perf frame-pointer stacks were requested from the library built with frame pointers. SDK/JIT or cross-language unwinding may remain incomplete; Dart VM CPU samples remain separate.' >> "$GITHUB_STEP_SUMMARY"
           else
             echo 'Dart VM attribution only: Linux native perf stacks are explicitly unmeasured in this capture.' >> "$GITHUB_STEP_SUMMARY"
           fi

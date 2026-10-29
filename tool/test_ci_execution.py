@@ -73,7 +73,8 @@ class FlatbuffersDiagnosticModesTests(unittest.TestCase):
                     '--native-lib', 'out/wamp-flatbuffers-profile/setup/libct_ffi.so',
                     '--memory', '--case', 'rpc_rawsocket_clear_dart_values']
         self.assertEqual(observed[False], expected)
-        self.assertEqual(observed[True], expected[:5] + ['--perf', '/diagnostic tools/perf'] + expected[5:])
+        self.assertEqual(observed[True], expected[:5] + ['--perf', '/diagnostic tools/perf',
+            '--native-call-graph', 'fp'] + expected[5:])
 
     def test_rss_control_is_separate_from_acceptance_and_never_cancels_started_runs(self):
         workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()

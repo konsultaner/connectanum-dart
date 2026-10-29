@@ -129,6 +129,7 @@ class ProfileSelectionTests(unittest.TestCase):
     def test_default_preserves_native_buffer_profile(self):
         args = profiler.parse_args(['--output', 'unused', '--native-lib', 'unused'])
         self.assertEqual(args.profile_case, 'rpc_rawsocket_clear_native_native_buffer')
+        self.assertEqual(args.native_call_graph, 'dwarf')
         self.assertEqual(profiler.profile_target(args.profile_case), {
             'client_impl': 'native', 'payload_construction': 'native_buffer',
         })
@@ -207,7 +208,7 @@ class ProfileSelectionTests(unittest.TestCase):
                 library = Path(directory) / 'native library.so'
                 library.write_bytes(b'unit-test fixture, never executed')
                 args = profiler.parse_args(['--output', str(output), '--native-lib', str(library),
-                                            '--case', case_id, '--dart', 'unit-test-dart', *(['--perf', 'unit-test-perf'] if native else []),
+                                            '--case', case_id, '--dart', 'unit-test-dart', *(['--perf', 'unit-test-perf', '--native-call-graph', 'fp'] if native else []),
                                             *(['--memory'] if memory else [])])
                 target = {'client_impl': implementation, 'payload_construction': construction}
                 if case_id == 'ext_08_payload_sizes':
@@ -257,6 +258,9 @@ class ProfileSelectionTests(unittest.TestCase):
                     self.assertEqual(dart_args[4], 'unit-test-perf' if native else '')
                     self.assertEqual(dart_args[3], str(output.resolve()))
                     self.assertTrue((output / 'probe.dart').is_file())
+                    rendered = (output / 'probe.dart').read_text()
+                    self.assertNotIn('__NATIVE_CALL_GRAPH__', rendered)
+                    self.assertIn(f"'--call-graph', '{args.native_call_graph}'", rendered)
                     self.assertFalse((output / 'worker.dart').exists())
                     if mode == 'complete':
                         for codec in ('cbor', 'msgpack', 'flatbuffers'):
@@ -303,6 +307,7 @@ class ProfileSelectionTests(unittest.TestCase):
                 self.assertEqual(audit['case_id'], case_id)
                 self.assertEqual(audit['requested_configuration'], target)
                 self.assertEqual(audit['native_runtime_threads'], 1)
+                self.assertEqual(audit['native_call_graph'], 'fp' if native else 'not_measured')
                 self.assertEqual(audit['kind'], 'cpu_profile_only_never_acceptance')
                 self.assertTrue(audit['inputs_unchanged'])
                 self.assertTrue({'pubspec.lock', 'native/transport/Cargo.lock',

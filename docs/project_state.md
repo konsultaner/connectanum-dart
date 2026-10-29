@@ -14,7 +14,7 @@ Paired diagnostic `40891596427` completes all 90 rows, but seven numerical gates
 fail: all three RSS points and Dart-values throughput, CPU, p95 and p99.
 Independent recomputation exactly matches hosted output and verifies retained
 scenarios, locks, policy, router configuration and production binaries. Never
-count the model-liveness fix as RSS acceptance. CI `40891584949` remains active;
+count the model-liveness fix as RSS acceptance. CI `40891584949` passes completely;
 CPU profile `40896349976` attempt 1 fails before FlatBuffers perf readiness,
 with unchanged inputs/library and clean server cleanup. Its stopping error
 masks the original capture failure. A diagnostic-only follow-up preserves
@@ -31,6 +31,16 @@ campaign and explicitly label native stacks unmeasured in VM-only mode. All 21
 CI execution tests, 19 profile-tool tests and 167 mutation proofs pass. The
 executable shell contract caught and fixes the empty-array/set-u issue on older
 Bash before publishing. Contract tests now run after pinned SDK/bootstrap.
+VM-only capture `40901845935` passes on `d1b395e7`, with unchanged inputs/library,
+all three calibrated CPU windows verified and clean process exit. Native stacks
+are explicitly unmeasured. Managed-code costs are broadly similar across
+FlatBuffers/MessagePack and establish no new production bottleneck. Shared-heap
+post-GC snapshots show no large retained payload arrays; GC/tail overlap is
+bounded but cannot explain every tail. Full supplemental refresh `40906173218`
+is running all three shards on this runtime; retain numerical differences as
+diagnostics, never substitute it for primary acceptance. Full local verification
+also passes again after the profiler guard/trace changes; subsequent workflow
+changes pass their focused 21 CI and 19 profiler tests.
 The local private native-view probe was refused by the shared machine resource lease;
 do not bypass that lease. #103 and PR #132 remain open/draft respectively.
 

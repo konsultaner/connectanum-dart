@@ -593,3 +593,59 @@ router CPU is 639.87 versus 626.54. Server GC totals are approximately equal
 Ordinary CALL options already have no extra controls and use the generated
 path; do not broaden that path without new evidence. These per-process
 absolute medians are diagnostic and must not replace paired ratio gates.
+
+## Completed runtime CI and current-source VM attribution
+
+Runtime CI `40891584949` passes every job. Full local `bin/verify` also passes
+again after the diagnostic guard and trace changes. VM-only `40901845935` on
+`d1b395e7` completes all three codecs with unchanged source/library receipts,
+verified calibrated CPU windows, retained memory snapshots and clean exits.
+Native stacks are explicitly unmeasured. The seven accepted-policy numerical
+misses are unchanged; none of this establishes parity.
+
+Normalized VM ticks show similar managed costs, not a clear new Dart bottleneck.
+FlatBuffers/MessagePack client body generation is 3.964/3.635 ticks per 1,000
+operations; body verification is 3.843/4.959. Ticks are not per-operation CPU
+time. The companion summary reverses one comparison sign; raw values above
+control the conclusion. After diagnostic collection the shared router heap is
+39.98/39.71 MB, with no large retained payload arrays (FlatBuffers typed byte
+arrays total 0.77 MB; external usage 21,696 bytes). Do not sum duplicated
+isolate-group heaps or infer complete absence of leaks from these snapshots.
+
+Using actual operation timestamps, GC B/E pairs and conservative clock offset
+bounds, 21 of 110 selected FlatBuffers p99-tail operations certainly overlap
+router user-group GC; 44 possibly overlap. There are no unmatched boundary
+events, but other GC types/coverage are not inferred. Clock uncertainty is
+1.1–1.4 ms, so possible overlap is not causation. This cannot explain every
+tail. These are profiled diagnostic windows, not the accepted paired campaign.
+
+Older `775103e8` native captures use the exact same library SHA-256
+`184b27610bc3ca1cdef48ceff4fe4c9b58f50ade54c503c01e2940690c5ed609`.
+Native/core/client source is unchanged; router reply lifetime code differs.
+The bounded offline reader reproduces every per-PID/window sample count with
+zero LOST events. Rust-library leaves are 227/3,714 FlatBuffers router samples
+and 151/2,738 MessagePack samples; managed code, VM/runtime and kernel work are
+larger categories. Keep reused JIT addresses ambiguous. These older captures
+cannot accept current-runtime performance.
+
+Native DWARF capture completes 23,934/21,909 total operations for these codecs,
+versus 66,350/65,741 in the VM-only capture. This suggests substantial profiling
+perturbation; different captures do not quantify its causal cost. To improve
+native attribution, the hosted diagnostic explicitly requests frame-pointer
+unwinding from the already frame-pointer-enabled Rust library. CLI default
+DWARF remains available. The selected method is recorded in the source audit;
+verbose startup output preserves counter-open errors. The
+[upstream perf documentation](https://github.com/torvalds/linux/blob/master/tools/perf/Documentation/perf-record.txt)
+describes DWARF stack dumps (8 KiB default) and the frame-pointer requirement.
+SDK/JIT or cross-language unwinding may remain incomplete. Neither startup
+reliability nor reduced overhead is established until the capture completes;
+the companion's prospective guarantee is not accepted as evidence. All 19
+profiler tests and 21 actual CI execution tests pass; focused review finds no
+verified bug. No production path, policy, floor or accepted workload changes.
+
+Supplemental `40906173218` now measures all three shards on frozen runtime
+`d1b395e7`, in parallel with attribution. This completes pending TLS/payload/
+E2EE/transcode cost reporting, not primary acceptance. Preserve old reports,
+every new difference and per-shard provenance; the full 48-case primary still
+waits for a passing diagnostic. Any later runtime change requires fresh final
+evidence rather than treating this diagnostic report as an exemption.

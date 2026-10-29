@@ -65,12 +65,12 @@ reference.
   ports, invalid/missing progress), 785 native/router regressions, all nine HTTP
   pairs, clean analysis and 167 mutation proofs. Resolve companion concerns
   against actual SDK behavior and unchanged strict validation; no code waiver.
-- [ ] Freeze candidate, renew full verify and hosted paired/copy/CI evidence.
+- [x] Freeze runtime, renew full verify/copy/CI and retain the paired evidence.
   Runtime `dec17f8b`: full local verify and copy proof `40891602695` pass.
   Independent raw-row validation reproduces 120 live / 300 inventory / 32
   zero-avoidable-copy checks. Paired `40891596427` is independently reproduced:
   90 rows, seven numerical misses (three RSS and Dart throughput/CPU/p95/p99).
-  CI `40891584949` is active. CPU profile `40896349976` attempt 1 fails before
+  CI `40891584949` passes completely. CPU profile `40896349976` attempt 1 fails before
   FlatBuffers readiness; preserve its partial MessagePack capture and unchanged
   source/library receipts. Fix the masking cleanup error before renewing it.
   The actual generated probe passes seven error/value/order cases and all 19
@@ -81,7 +81,14 @@ reference.
   21 CI execution tests, 19 profile-tool tests and 167 mutation proofs.
   Local private probe admission is blocked by the shared resource lease.
   Preserve every report and the refusal; never bypass the lease or waive gates.
-- [ ] On passing diagnostics, complete all 48 primary and 50 supplemental cases.
+- [x] Complete source-attributed VM-only profile `40901845935` on `d1b395e7`:
+  unchanged sources/library, all three calibrated CPU windows, retained class
+  heaps and existing traces, clean process exit. Native stacks are unmeasured.
+- [ ] Resolve the seven numerical misses; only then run the 48-case primary.
+- [ ] Finish fresh 50-case supplemental report `40906173218` on `d1b395e7`.
+  Run the diagnostic report alongside attribution to complete pending cost
+  reporting; it cannot accept primary parity. Keep the older report and every
+  new numerical difference, and never pool absolute timing across shards.
 
 ## Encode completed reports before internal routing (2026-10-29)
 

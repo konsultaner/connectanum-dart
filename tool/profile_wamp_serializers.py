@@ -217,8 +217,8 @@ Future<void> main(List<String> args) async {
       await captureWithPerfCleanup<void>(() async {
         if (args[4].isNotEmpty) {
           final ready = Completer<void>();
-          final child = await Process.start('sudo', ['-n', args[4], 'record',
-            '--clockid', 'CLOCK_MONOTONIC', '-e', 'cpu-clock', '-F', '999', '--call-graph', 'dwarf',
+          final child = await Process.start('sudo', ['-n', args[4], 'record', '-v',
+            '--clockid', 'CLOCK_MONOTONIC', '-e', 'cpu-clock', '-F', '999', '--call-graph', '__NATIVE_CALL_GRAPH__',
             '-p', pids.values.join(','), '-o', '${output.path}/$codec-native.perf', '--',
             'python3', '-c', "import sys; print('PERF_READY', flush=True); sys.stdin.buffer.read(1)"]);
           perf = child;
@@ -368,6 +368,8 @@ def parse_args(argv=None):
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--native-lib', required=True, type=Path)
     parser.add_argument('--perf', default='', help='Absolute Linux perf executable; omitted native sampling is labelled unmeasured')
+    parser.add_argument('--native-call-graph', choices=('dwarf', 'fp'), default='dwarf',
+                        help='Native diagnostic unwinder; fp requires frame pointers in the sampled library')
     parser.add_argument('--dart', default='dart')
     parser.add_argument('--memory', action='store_true',
                         help='Diagnostic-only class heaps and Linux smaps before/after workload and post-GC; never acceptance')
@@ -569,7 +571,8 @@ def profile(args):
             listener['protocols'].remove('http3'); listener['http'].pop('http3', None)
     (output/'router.json').write_text(json.dumps(config, indent=2)+'\n')
     (output/'probe.dart').write_text(CPU_PROBE.replace('__PROFILE_WINDOW_TOOL_URI__',
-                                                   json.dumps((root/'tool/wamp_profile_window.py').as_uri())))
+        json.dumps((root/'tool/wamp_profile_window.py').as_uri())).replace(
+            '__NATIVE_CALL_GRAPH__', args.native_call_graph))
     env = {**os.environ, 'CONNECTANUM_SKIP_NATIVE_BUILD': '1', 'CONNECTANUM_BENCH_WAMP_REUSE_WORKER': '1',
            'CONNECTANUM_BENCH_WAMP_VM_METRICS': '1', 'CONNECTANUM_NATIVE_LIB': str(library),
            'CONNECTANUM_NATIVE_RUNTIME_THREADS': str(NATIVE_RUNTIME_THREADS),
@@ -650,6 +653,7 @@ def profile(args):
                                      'sha256': worker_hash, 'unchanged': launcher_unchanged},
                  'memory_snapshots': memory,
                  'platform': platform.uname()._asdict(), 'perf': args.perf or 'not_measured',
+                 'native_call_graph': args.native_call_graph if args.perf else 'not_measured',
                  'perf_version': subprocess.check_output([args.perf, '--version'], text=True).strip() if args.perf else None,
                  'interference_detection': 'linux_proc' if Path('/proc').is_dir() else 'not_measured',
                  'probe_exit': status, 'server_exit': process.returncode, 'command': command,
