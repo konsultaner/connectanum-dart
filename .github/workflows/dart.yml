@@ -12,6 +12,11 @@ on:
         required: false
         default: ''
         type: string
+      mqtt_profile:
+        description: Capture separate Linux perf diagnostics even when the MQTT gate passes
+        required: false
+        default: false
+        type: boolean
 
 # Supersede automated codex branch runs within each event/ref only. Unique
 # run-id groups preserve master, tags, manual runs and other branch histories.
@@ -231,6 +236,7 @@ jobs:
             --output out/mqtt-qos0-gate/dart-mqtt-coverage.json \
             --policy tool/mqtt_coverage_policy.json --runtime vm
       - name: Verify benchmark gate controls and matched delivery
+        id: mqtt_gate
         env:
           PYTHONPATH: tool
           COVERAGE_FILE: ${{ runner.temp }}/mqtt-benchmark-coverage
@@ -318,6 +324,34 @@ jobs:
           name: mqtt-qos0-benchmark
           path: out/mqtt-qos0-gate
           if-no-files-found: warn
+      - name: Profile native MQTT on the failing runner
+        id: mqtt_profile
+        if: ${{ !cancelled() && (steps.mqtt_gate.outcome == 'failure' || (github.event_name == 'workflow_dispatch' && inputs.mqtt_profile)) }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y linux-tools-common linux-tools-generic
+          sudo sysctl -w kernel.perf_event_paranoid=-1
+          perf_binary="$(find /usr/lib/linux-tools -type f -name perf | sort -V | tail -1)"
+          [[ -n "$perf_binary" && -x "$perf_binary" ]]
+          mkdir -p out/mqtt-native-profile
+          "$perf_binary" --version > out/mqtt-native-profile/perf-version.txt
+          failed=0
+          for profile in ws_sustained 64k_sustained; do
+            if ! python3 tool/profile_mqtt_native.py --perf "$perf_binary" \
+              --budget "tool/mqtt_native_${profile}_benchmark_budget.json" \
+              --output "out/mqtt-native-profile/$profile" \
+              > "out/mqtt-native-profile/$profile.log" 2>&1; then
+              failed=1
+            fi
+          done
+          exit "$failed"
+      - name: Upload native MQTT CPU profiles
+        if: ${{ always() && (steps.mqtt_profile.outcome == 'success' || steps.mqtt_profile.outcome == 'failure' || steps.mqtt_profile.outcome == 'cancelled') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-native-profile
+          path: out/mqtt-native-profile
+          if-no-files-found: error
       - name: Compare native MQTT libraries on the same runner
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.mqtt_compare_ref != '' }}
         env:
