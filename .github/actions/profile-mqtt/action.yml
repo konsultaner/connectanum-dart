@@ -21,6 +21,10 @@ runs:
         sudo apt-get install -y linux-tools-common linux-tools-generic
         if [[ "$MQTT_REPORT_ONLY" != true ]]; then
           sudo sysctl -w kernel.perf_event_paranoid=-1
+          if ! sudo sysctl -w kernel.kptr_restrict=0; then
+            echo 'Kernel symbols remain restricted; userspace profiling is still available.'
+          fi
+          cat /proc/sys/kernel/kptr_restrict > out/mqtt-native-profile/kernel-kptr-restrict.txt
         fi
     - name: Profile WebSocket and large TCP payloads
       shell: bash

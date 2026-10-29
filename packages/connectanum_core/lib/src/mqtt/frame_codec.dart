@@ -78,16 +78,18 @@ final class MqttFrame {
 final class MqttFrameDecoder {
   MqttFrameDecoder({this.maxPacketSize = 1024 * 1024}) {
     _validatePacketLimit(maxPacketSize);
-    _storage = Uint8List(maxPacketSize < 4096 ? maxPacketSize : 4096);
   }
 
   final int maxPacketSize;
-  late Uint8List _storage;
-  int _start = 0;
-  int _end = 0;
+  int _first = -1;
+  int _remainingLength = 0;
+  int _lengthBytes = 0;
+  int _multiplier = 1;
+  Uint8List? _body;
+  int _bodyEnd = 0;
   bool _failed = false;
 
-  int get bufferedBytes => _end - _start;
+  int get bufferedBytes => _first < 0 ? 0 : 1 + _lengthBytes + _bodyEnd;
 
   /// Accept bytes and return every complete packet in input order.
   ///
@@ -98,102 +100,103 @@ final class MqttFrameDecoder {
     }
     final frames = <MqttFrame>[];
     var offset = 0;
-    _drain(frames);
+    var first = _first;
+    var remainingLength = _remainingLength;
+    var lengthBytes = _lengthBytes;
+    var multiplier = _multiplier;
+    var body = _body;
+    var bodyEnd = _bodyEnd;
+    packets:
     while (offset < input.length) {
-      final available = maxPacketSize - bufferedBytes;
-      if (available == 0) {
-        _fail('packet exceeds configured size limit');
-      }
-      final remaining = input.length - offset;
-      final count = remaining < available ? remaining : available;
-      _append(input, offset, count);
-      offset += count;
-      _drain(frames);
-    }
-    return frames;
-  }
-
-  void _append(Uint8List input, int offset, int count) {
-    if (_end + count > _storage.length) {
-      final retained = bufferedBytes;
-      var capacity = _storage.length;
-      while (capacity < retained + count) {
-        capacity *= 2;
-      }
-      if (capacity > maxPacketSize) {
-        capacity = maxPacketSize;
-      }
-      final next = Uint8List(capacity);
-      next.setRange(0, retained, _storage, _start);
-      _storage = next;
-      _start = 0;
-      _end = retained;
-    }
-    _storage.setRange(_end, _end + count, input, offset);
-    _end += count;
-  }
-
-  void _drain(List<MqttFrame> frames) {
-    while (bufferedBytes > 0) {
-      final first = _storage[_start];
-      final code = first >> 4;
-      if (code < 1 || code > MqttPacketType.values.length) {
-        _fail('invalid MQTT control packet type');
-      }
-      final type = MqttPacketType.values[code - 1];
-      try {
-        _validateFlags(type, first & 0x0f);
-      } on MqttProtocolException catch (error) {
-        _fail(error.message);
-      }
-      if (bufferedBytes < 2) {
-        return;
-      }
-
-      var remainingLength = 0;
-      var multiplier = 1;
-      var lengthBytes = 0;
-      while (lengthBytes < 4) {
-        if (bufferedBytes <= lengthBytes + 1) {
-          return;
-        }
-        final digit = _storage[_start + 1 + lengthBytes];
-        remainingLength += (digit & 0x7f) * multiplier;
-        lengthBytes++;
-        if (digit & 0x80 == 0) {
-          if (lengthBytes > 1 && remainingLength < multiplier) {
-            _fail('remaining length is not minimally encoded');
+      if (body == null) {
+        if (first < 0) {
+          first = input[offset++];
+          final code = first >> 4;
+          if (code < 1 || code > MqttPacketType.values.length) {
+            _fail('invalid MQTT control packet type');
           }
-          final packetSize = 1 + lengthBytes + remainingLength;
-          if (packetSize > maxPacketSize) {
+          try {
+            _validateFlags(MqttPacketType.values[code - 1], first & 0x0f);
+          } on MqttProtocolException catch (error) {
+            _fail(error.message);
+          }
+        }
+        while (true) {
+          if (offset == input.length) break packets;
+          if (1 + lengthBytes >= maxPacketSize) {
             _fail('packet exceeds configured size limit');
           }
-          if (bufferedBytes < packetSize) {
-            return;
+          final digit = input[offset++];
+          remainingLength += (digit & 0x7f) * multiplier;
+          lengthBytes++;
+          if (digit & 0x80 == 0) {
+            if (lengthBytes > 1 && remainingLength < multiplier) {
+              _fail('remaining length is not minimally encoded');
+            }
+            if (1 + lengthBytes + remainingLength > maxPacketSize) {
+              _fail('packet exceeds configured size limit');
+            }
+            // Reserve modest headroom for fragmented input, rather than the
+            // entire advertised body before its bytes arrive.
+            final capacity = (input.length - offset) * 2 + 4096;
+            body = Uint8List(
+              remainingLength < capacity ? remainingLength : capacity,
+            );
+            break;
           }
-          final bodyStart = _start + 1 + lengthBytes;
-          final body = Uint8List(remainingLength);
-          body.setRange(0, remainingLength, _storage, bodyStart);
-          frames.add(MqttFrame._owned(type, first & 0x0f, body));
-          _start += packetSize;
-          if (_start == _end) {
-            _start = 0;
-            _end = 0;
+          if (lengthBytes == 4) {
+            _fail('remaining length exceeds four bytes');
           }
-          break;
+          multiplier *= 128;
         }
-        if (lengthBytes == 4) {
-          _fail('remaining length exceeds four bytes');
-        }
-        multiplier *= 128;
+      }
+      final missing = remainingLength - bodyEnd;
+      final available = input.length - offset;
+      final count = missing < available ? missing : available;
+      if (bodyEnd + count > body!.length) {
+        var capacity = body.length * 2;
+        final required = bodyEnd + count + 4096;
+        if (capacity < required) capacity = required;
+        if (capacity > remainingLength) capacity = remainingLength;
+        final next = Uint8List(capacity);
+        next.setRange(0, bodyEnd, body);
+        body = next;
+      }
+      final currentBody = body;
+      currentBody.setRange(bodyEnd, bodyEnd + count, input, offset);
+      offset += count;
+      bodyEnd += count;
+      if (bodyEnd == remainingLength) {
+        frames.add(
+          MqttFrame._owned(
+            MqttPacketType.values[(first >> 4) - 1],
+            first & 0x0f,
+            currentBody,
+          ),
+        );
+        first = -1;
+        remainingLength = 0;
+        lengthBytes = 0;
+        multiplier = 1;
+        body = null;
+        bodyEnd = 0;
       }
     }
+    _first = first;
+    _remainingLength = remainingLength;
+    _lengthBytes = lengthBytes;
+    _multiplier = multiplier;
+    _body = body;
+    _bodyEnd = bodyEnd;
+    return frames;
   }
 
   Never _fail(String message) {
     _failed = true;
-    _start = 0;
-    _end = 0;
+    _first = -1;
+    _lengthBytes = 0;
+    _body = null;
+    _bodyEnd = 0;
     throw MqttProtocolException(message);
   }
 }

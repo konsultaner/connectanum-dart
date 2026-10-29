@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import statistics
 import subprocess
 import tempfile
 import textwrap
@@ -127,6 +128,37 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             ]:
                 values = " | ".join(format(summary[field], fmt) for summary in summaries)
                 self.assertIn(f"| {label} | {metric} | {values} |", readme)
+
+    def test_direct_body_comparison_table_matches_interleaved_raw_samples(self) -> None:
+        report = json.loads((REPO_ROOT / "docs/benchmarks/mqtt-direct-body-local-comparison.json").read_text())
+        readme = BENCH_README.read_text()
+        self.assertTrue(report["diagnosticOnly"])
+        total = 0
+        for profile in report["profiles"]:
+            rows = profile["rows"]
+            self.assertEqual(len(rows), 15)
+            self.assertTrue(all(row["received"] == row["sent"] and row["duplicates"] == 0 for row in rows))
+            total += sum(row["received"] for row in rows)
+            values = []
+            for variant, summary in [("before", profile["before"]), ("direct", profile["candidate"])]:
+                raw = [row for row in rows if row["variant"] == variant]
+                self.assertEqual([row["run"] for row in raw], [1, 2, 3, 4, 5])
+                self.assertEqual(summary["provenance"]["client_exe_sha256"], report["clientSha256"])
+                self.assertEqual(summary["provenance"]["native_lib_sha256"], report["nativeLibrarySha256"])
+                metrics = [statistics.median(row["throughput_delivered_per_sec"] for row in raw),
+                           statistics.median(row["broker_cpu_seconds"] for row in raw),
+                           max(row["broker_rss_bytes"] for row in raw)]
+                self.assertEqual(metrics, [summary["connectanum_delivered_per_sec_median"],
+                                           summary["connectanum_broker_cpu_seconds_median"],
+                                           summary["connectanum_broker_rss_bytes_max"]])
+                values.append(metrics)
+            label = {"64k_sustained": "TCP 64 KiB", "ws_sustained": "WS MQTT 5",
+                     "ws_v311_sustained": "WS MQTT 3.1.1"}[profile["id"]]
+            count = profile["candidate"]["budgets"]["messages_per_run"]
+            a, b = values
+            self.assertIn(f"| {label} | {count:,} | {a[0]:,.0f} → {b[0]:,.0f} | "
+                          f"{a[1]:.2f} → {b[1]:.2f} | {a[2]/1048576:.1f} → {b[2]/1048576:.1f} |", readme)
+        self.assertEqual(report["totalExactDeliveries"], total)
 
     def test_bench_readme_publishes_current_result_snapshot(self) -> None:
         readme = BENCH_README.read_text(encoding="utf-8")

@@ -91,6 +91,18 @@ Complete experimental matrices are available for
 [EPYC 7763](../../docs/benchmarks/mqtt-hosted-pr128-1660422d-epyc7763.json) and
 [EPYC 9V45](../../docs/benchmarks/mqtt-hosted-pr128-1660422d-epyc9v45.json).
 
+
+The direct-body decoder candidate reduces large-payload copying. These local Apple M3 Ultra
+medians use five interleaved repetitions with the same client and native library.
+The [raw comparison](../../docs/benchmarks/mqtt-direct-body-local-comparison.json)
+contains 6,300,000 exact deliveries. Hosted CPU-class acceptance is pending; small WS changes are inconclusive.
+
+| Workload | Deliveries/run | Delivered/s before → candidate | Broker CPU seconds before → candidate | Peak RSS MiB before → candidate |
+| --- | ---: | ---: | ---: | ---: |
+| TCP 64 KiB | 20,000 | 9,538 → 10,133 | 1.13 → 1.03 | 75.3 → 78.5 |
+| WS MQTT 5 | 200,000 | 104,466 → 103,271 | 3.78 → 3.86 | 29.8 → 29.7 |
+| WS MQTT 3.1.1 | 200,000 | 100,944 → 101,112 | 3.92 → 3.89 | 30.4 → 29.9 |
+
 ## WAMP throughput
 
 Each cell shows **sustained / full-lifecycle throughput** in Gbit/s; higher is better.

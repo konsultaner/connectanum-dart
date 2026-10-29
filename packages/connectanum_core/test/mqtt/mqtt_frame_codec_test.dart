@@ -62,6 +62,42 @@ void main() {
       expect(decoder.bufferedBytes, 0);
     });
 
+    test('owns fragmented bodies across every remaining-length width', () {
+      for (final length in [0, 1, 127, 128, 16383, 16384, 2097152]) {
+        final expected = Uint8List.fromList(
+          List<int>.generate(length, (index) => index & 0xff),
+        );
+        final encoded = MqttFrame(
+          MqttPacketType.publish,
+          flags: 0,
+          body: expected,
+        ).encode(maxPacketSize: length + 5);
+        final wire = bytes([...encoded, 0xc0, 0x00]);
+        final decoder = MqttFrameDecoder(maxPacketSize: length + 5);
+        final frames = <MqttFrame>[];
+        const chunks = [1, 1, 1, 1, 1, 17, 4096, 65536];
+        var offset = 0;
+        var part = 0;
+        while (offset < wire.length) {
+          final count = chunks[part++ % chunks.length];
+          final end = offset + count < wire.length
+              ? offset + count
+              : wire.length;
+          final input = Uint8List.fromList(wire.sublist(offset, end));
+          frames.addAll(decoder.add(input));
+          input.fillRange(0, input.length, 0);
+          expect(decoder.add(Uint8List(0)), isEmpty);
+          offset = end;
+        }
+        expect(frames, hasLength(2), reason: 'body length $length');
+        expect(frames.first.type, MqttPacketType.publish);
+        expect(frames.first.body, expected);
+        expect(frames.last.type, MqttPacketType.pingreq);
+        expect(frames.last.body, isEmpty);
+        expect(decoder.bufferedBytes, 0);
+      }
+    });
+
     test('rejects overlong and five-byte remaining-length encodings', () {
       expect(
         () => MqttFrameDecoder().add(bytes([0xc0, 0x80, 0x00])),
@@ -133,7 +169,7 @@ void main() {
       );
     });
 
-    test('grows its bounded buffer for a large fragmented packet', () {
+    test('grows its bounded body for a large fragmented packet', () {
       final frame = MqttFrame(
         MqttPacketType.publish,
         flags: 0,
@@ -145,6 +181,29 @@ void main() {
       final decoded = decoder.add(bytes(encoded.sublist(3000)));
       expect(decoded, hasLength(1));
       expect(decoded.single.body, List<int>.filled(5000, 0x42));
+    });
+
+    test('accepts exact wire-size caps and rejects one-byte overflow', () {
+      for (final length in [0, 1, 127, 128, 16384]) {
+        final body = Uint8List(length);
+        final frame = MqttFrame(MqttPacketType.publish, flags: 0, body: body);
+        final wire = frame.encode();
+        final decoder = MqttFrameDecoder(maxPacketSize: wire.length);
+        expect(decoder.add(wire).single.body, body);
+        expect(decoder.bufferedBytes, 0);
+
+        final oversized = MqttFrame(
+          MqttPacketType.publish,
+          flags: 0,
+          body: Uint8List(length + 1),
+        ).encode();
+        expect(
+          () => decoder.add(oversized),
+          throwsA(isA<MqttProtocolException>()),
+        );
+        expect(decoder.bufferedBytes, 0);
+        expect(() => decoder.add(wire), throwsStateError);
+      }
     });
 
     test('encodes canonical length and checks outgoing flags and size', () {
