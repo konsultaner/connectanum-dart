@@ -54,6 +54,11 @@ review helpers remain lease-blocked. Full `bin/verify` is running. A direct
 dart2js browser invocation times out loading suites locally; the canonical
 macOS WebAssembly package-root route passes 49 core and 48 Session/E2EE cases,
 plus the unchanged browser control. Keep every failure log.
+The executable combined serializer wrapper catches metrics initialization order:
+keep the disabled-state contract first, then enable metrics for later groups.
+The corrected wrapper passes all 3,688 cases. This is a test-only follow-up to
+frozen runtime `490f60bf`, whose CI `40922324217`, production proof `40922342731`
+and paired diagnostic `40922533817` are running. No measured production input changes.
 
 ## WAMP serializer compatibility
 

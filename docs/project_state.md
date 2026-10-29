@@ -22,6 +22,9 @@ its native/pre-encoded groups, validation, observations and windows are unchange
 explicit identifier guards pass. All 167 mutation proofs and 14 private probe
 contracts remain valid. Verification found the new serializer tests missing
 from four mutation support inventories and their wrapper; these are included.
+The complete serializer mutation wrapper passes all 3,688 cases after restoring
+the metrics initial-state group before tests that enable recording. This
+test-only follow-up leaves production runtime `490f60bf` unchanged.
 Full `bin/verify` is running again. Direct root-level browser loads timed out;
 the canonical package-root route passes all 49 core and 48 Session/E2EE cases
 in Chrome/WebAssembly, as does the unchanged browser control. Local companion test/review advice is unavailable
@@ -36,7 +39,8 @@ accepts throughput/latency/RSS. Managed-code/GC/heap attribution establishes no
 large retained payload array or complete explanation of the remaining tails.
 Supplemental `40906173218` is running on the preceding runtime, with payload-size
 shard complete. Preserve it as checkpoint cost reporting; the changed runtime
-will need fresh final evidence. Full 48-case primary remains gated on a passing
+will need fresh final evidence. Fresh CI `40922324217`, production proof `40922342731` and paired diagnostic
+`40922533817` are running on `490f60bf`. Full 48-case primary remains gated on a passing
 three-case paired diagnostic. #103 stays open and PR #132 stays draft.
 
 Current local candidate keeps the original lazy JSON report routing and retires

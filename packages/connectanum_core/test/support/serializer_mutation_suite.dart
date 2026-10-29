@@ -67,7 +67,6 @@ import '../serializer/serializer_security_limits_test.dart' as limits;
 import '../serializer_challenge_welcome_test.dart' as handshake;
 
 void main() {
-  group('FlatBuffers application parts', flatbuffers_application_parts.main);
   group('owned buffer copy metrics', owned_copies.main);
   group('lazy payload', lazy_payload.main);
   group('CBOR indefinite', cbor_indefinite.main);
@@ -76,6 +75,7 @@ void main() {
   group('CBOR serializer', cbor_serializer.main);
   group('FlatBuffers binding', flatbuffers_binding.main);
   group('FlatBuffers copy retention', flatbuffers_copies.main);
+  group('FlatBuffers application parts', flatbuffers_application_parts.main);
   group('FlatBuffers byte views', flatbuffers_byte_views.main);
   group('FlatBuffers validation', flatbuffers_validation.main);
   group('FlatBuffers writer', flatbuffers_writer.main);
