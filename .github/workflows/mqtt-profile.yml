@@ -8,6 +8,12 @@ on:
       - '.github/actions/profile-mqtt/**'
       - '.github/workflows/mqtt-profile.yml'
   workflow_dispatch:
+    inputs:
+      recover_run:
+        description: Optional run ID whose mqtt-native-profile artifact should be rendered without resampling
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -15,6 +21,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   profile:
@@ -25,21 +32,39 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci
         with:
-          rust: 'true'
+          rust: ${{ inputs.recover_run == '' && 'true' || 'false' }}
       - name: Bootstrap diagnostic dependencies
+        if: ${{ inputs.recover_run == '' }}
         run: |
           set -euo pipefail
           bin/bootstrap
           sudo apt-get update
           sudo apt-get install -y mosquitto
       - name: Build the native library used by the acceptance gate
+        if: ${{ inputs.recover_run == '' }}
         run: |
           set -euo pipefail
           CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-profile-target" \
             cargo build --manifest-path native/transport/Cargo.toml \
             -p ct_ffi --release --features ffi-test
           echo "CONNECTANUM_NATIVE_LIB=$RUNNER_TEMP/mqtt-profile-target/release/libct_ffi.so" >> "$GITHUB_ENV"
+      - name: Recover the original profile artifact
+        if: ${{ inputs.recover_run != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVER_RUN: ${{ inputs.recover_run }}
+        run: |
+          set -euo pipefail
+          [[ "$RECOVER_RUN" =~ ^[0-9]+$ ]]
+          gh run download "$RECOVER_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name mqtt-native-profile --dir out/mqtt-native-profile
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RECOVER_RUN" \
+            > out/mqtt-native-profile/recovery-source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RECOVER_RUN/artifacts" \
+            > out/mqtt-native-profile/recovery-source-artifacts.json
       - uses: ./.github/actions/profile-mqtt
+        with:
+          report_only: ${{ inputs.recover_run != '' && 'true' || 'false' }}
       - name: Upload diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v7

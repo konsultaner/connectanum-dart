@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Capture a Linux CPU profile separately from MQTT acceptance measurements."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,7 +18,8 @@ from run_mqtt_benchmark_gate import (
 
 
 def stop_profiler(process):
-    if process.poll() is None:
+    interrupted = process.poll() is None
+    if interrupted:
         process.send_signal(signal.SIGINT)
     try:
         process.wait(timeout=10)
@@ -25,6 +27,7 @@ def stop_profiler(process):
         process.kill()
         process.wait(timeout=5)
         raise RuntimeError("perf did not stop after SIGINT")
+    return interrupted
 
 
 def validate_delivery(row, budget):
@@ -79,6 +82,7 @@ def profile_native(budget, library, output, perf="perf", runtime="dartaotruntime
             stdin=subprocess.PIPE, stdout=stdout, stderr=stderr,
         )
         sampler = None
+        interrupted = False
         try:
             wait_for_listener(port, broker)
             sampler = subprocess.Popen(
@@ -94,17 +98,33 @@ def profile_native(budget, library, output, perf="perf", runtime="dartaotruntime
                 result, _ = run_client_with_cpu(client, port, env)
                 row = checked_client_row(result, "connectanum", repeat, broker_log)
                 validate_delivery(row, budget)
+                if sampler.poll() is not None:
+                    raise RuntimeError("perf stopped during the workload")
                 row["run"] = repeat
                 with rows.open("a") as raw:
                     raw.write(json.dumps(row, sort_keys=True) + "\n")
         finally:
             try:
                 if sampler is not None:
-                    stop_profiler(sampler)
+                    interrupted = stop_profiler(sampler)
             finally:
                 stop_broker(broker)
-    if sampler.returncode != 0:
-        raise RuntimeError("perf failed to record samples; inspect perf.log")
+    if not interrupted or sampler.returncode not in (0, -signal.SIGINT):
+        raise RuntimeError(f"perf failed to record samples (exit {sampler.returncode}); inspect perf.log")
+    (output / "sampler-status.json").write_text(json.dumps({
+        "returncode": sampler.returncode, "sentSigint": interrupted,
+    }) + "\n")
+    render_profile(output, perf)
+    return metadata
+
+
+def render_profile(output, perf="perf"):
+    metadata = json.loads((output / "provenance.json").read_text())
+    rows = [json.loads(line) for line in (output / "raw.jsonl").read_text().splitlines()]
+    if [row["run"] for row in rows] != list(range(1, metadata["budget"]["repetitions"] + 1)):
+        raise RuntimeError("profile workload repetitions are incomplete")
+    for row in rows:
+        validate_delivery(row, metadata["budget"])
     report = output / "profile.txt"
     with report.open("w") as stream:
         subprocess.run(
@@ -115,18 +135,31 @@ def profile_native(budget, library, output, perf="perf", runtime="dartaotruntime
     symbols = report.read_text()
     if not any(name in symbols for name in ("Mqtt", "_Peer", "_drainMqtt")):
         raise RuntimeError("profile has no recognized Dart MQTT symbols; inspect profile.txt")
-    return metadata
+    with (output / "perf.data").open("rb") as stream:
+        data_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+    (output / "report-provenance.json").write_text(json.dumps({
+        "perfDataSha256": data_hash,
+        "sourceProvenanceSha256": hashlib.sha256((output / "provenance.json").read_bytes()).hexdigest(),
+        "rawRowsSha256": hashlib.sha256((output / "raw.jsonl").read_bytes()).hexdigest(),
+        "rendererSha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    }, indent=2) + "\n")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--budget", type=Path, required=True)
+    parser.add_argument("--budget", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--perf", default="perf")
     parser.add_argument("--runtime", default="dartaotruntime")
+    parser.add_argument("--report-only", action="store_true")
     args = parser.parse_args()
     if sys.platform != "linux":
         parser.error("perf profiling requires Linux")
+    if args.report_only:
+        render_profile(args.output, args.perf)
+        return
+    if args.budget is None:
+        parser.error("--budget is required when capturing samples")
     library = Path(os.environ.get("CONNECTANUM_NATIVE_LIB", ""))
     if not library.is_file():
         parser.error("CONNECTANUM_NATIVE_LIB must name a native library")
