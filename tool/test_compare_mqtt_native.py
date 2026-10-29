@@ -122,5 +122,64 @@ class NativeMqttComparisonTest(unittest.TestCase):
                 self.assertEqual(result.returncode, expected, result.stderr)
 
 
+    def intel_probe_script(self):
+        workflow = (ROOT / '.github/workflows/mqtt-profile.yml').read_text()
+        block = workflow.split('- name: Identify the requested Intel hardware', 1)[1].split('run: |\n', 1)[1]
+        lines = []
+        for line in block.splitlines():
+            if line.startswith('          '):
+                lines.append(line[10:])
+            elif line.strip():
+                break
+        return '\n'.join(lines)
+
+    def test_intel_hardware_probe_marks_other_models_unmeasured(self):
+        for model, wanted in [
+            ('Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz', True),
+            ('AMD EPYC 7763 64-Core Processor', False),
+            ('Intel(R) Xeon(R) Platinum 6973P-C', False),
+            ('', False),
+        ]:
+            with self.subTest(model=model), tempfile.TemporaryDirectory(prefix='mqtt cpu ') as tmp:
+                root = Path(tmp)
+                cpu = root / 'cpu info.txt'
+                cpu.write_text(f'processor : 0\nmodel name : {model}\n')
+                output = root / 'github-output'
+                proof = root / 'proof'
+                result = subprocess.run(['bash'], input=self.intel_probe_script(), text=True,
+                    capture_output=True, cwd=root,
+                    env={**os.environ, 'MQTT_CPU_INFO_PATH': str(cpu),
+                         'INTEL_PROBE_OUTPUT': str(proof), 'GITHUB_OUTPUT': str(output),
+                         'RECOVER_RUN': '', 'COMPARE_WORKERS': ''})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads((proof / 'status.json').read_text()),
+                                 {'matched_intel_8370c': wanted, 'benchmark_executed': False})
+                self.assertEqual(output.read_text(), f'matches={str(wanted).lower()}\n')
+                self.assertEqual((proof / 'cpu-model.txt').read_text().strip(), model)
+
+    def test_intel_probe_rejects_mode_mixing_before_any_evidence(self):
+        for recovery, workers in [('123', ''), ('', '1')]:
+            with self.subTest(recovery=recovery, workers=workers), tempfile.TemporaryDirectory() as tmp:
+                proof = Path(tmp) / 'proof'
+                result = subprocess.run(['bash'], input=self.intel_probe_script(), text=True,
+                    capture_output=True, env={**os.environ, 'INTEL_PROBE_OUTPUT': str(proof),
+                        'RECOVER_RUN': recovery, 'COMPARE_WORKERS': workers})
+                self.assertEqual(result.returncode, 2)
+                self.assertFalse(proof.exists())
+
+    def test_intel_comparison_keeps_userland_reference_and_measurement_guards(self):
+        workflow = (ROOT / '.github/workflows/mqtt-profile.yml').read_text()
+        intel = workflow.split('  intel:\n', 1)[1]
+        self.assertIn('runs-on: ubuntu-22.04', intel)
+        self.assertIn('ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d', intel)
+        self.assertEqual(intel.count("if: ${{ steps.cpu.outputs.matches == 'true' }}"), 5)
+        self.assertIn("mosquitto version 2.0.18", intel)
+        self.assertIn('cp native/transport/Cargo.lock', intel)
+        self.assertEqual(intel.count('--release --features ffi-test --locked'), 2)
+        self.assertIn('bash tool/compare_mqtt_native.sh', intel)
+        self.assertIn('exit "$result"', intel)
+        self.assertIn('benchmark_executed":true', intel)
+
+
 if __name__ == "__main__":
     unittest.main()

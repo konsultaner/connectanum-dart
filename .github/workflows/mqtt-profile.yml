@@ -14,6 +14,11 @@ on:
         required: false
         default: ''
         type: string
+      probe_intel:
+        description: Seek Xeon 8370C on Ubuntu 22.04 hosts with pinned Ubuntu 24.04 benchmark userland
+        required: false
+        default: false
+        type: boolean
       compare_workers:
         description: Optional candidate native worker count for same-binary comparisons against automatic sizing
         required: false
@@ -30,6 +35,7 @@ permissions:
 
 jobs:
   profile:
+    if: ${{ inputs.probe_intel != true }}
     name: MQTT native CPU diagnostic
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -94,4 +100,103 @@ jobs:
         with:
           name: ${{ inputs.compare_workers == '' && 'mqtt-native-profile' || 'mqtt-native-comparison' }}
           path: ${{ inputs.compare_workers == '' && 'out/mqtt-native-profile' || 'out/mqtt-native-comparison' }}
+          if-no-files-found: error
+
+  intel:
+    if: ${{ inputs.probe_intel == true }}
+    name: Intel 8370C MQTT availability and comparison
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    container:
+      image: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    steps:
+      - name: Identify the requested Intel hardware
+        id: cpu
+        env:
+          INTEL_PROBE_OUTPUT: ${{ runner.temp }}/mqtt-intel-proof
+          MQTT_CPU_INFO_PATH: /proc/cpuinfo
+          RECOVER_RUN: ${{ inputs.recover_run }}
+          COMPARE_WORKERS: ${{ inputs.compare_workers }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$RECOVER_RUN" || -n "$COMPARE_WORKERS" ]]; then
+            echo 'Intel hardware probing is separate from recovery and worker comparisons.' >&2
+            exit 2
+          fi
+          mkdir -p "$INTEL_PROBE_OUTPUT"
+          cpu_model=''
+          while IFS=: read -r key value; do
+            if [[ "$key" == 'model name'* ]]; then
+              cpu_model="${value# }"
+              break
+            fi
+          done < "${MQTT_CPU_INFO_PATH:-/proc/cpuinfo}"
+          printf '%s\n' "$cpu_model" > "$INTEL_PROBE_OUTPUT/cpu-model.txt"
+          uname -a > "$INTEL_PROBE_OUTPUT/kernel.txt"
+          matched=false
+          if [[ "$cpu_model" == *Intel* && "$cpu_model" == *8370C* ]]; then matched=true; fi
+          printf 'matches=%s\n' "$matched" >> "$GITHUB_OUTPUT"
+          printf '{"matched_intel_8370c":%s,"benchmark_executed":false}\n' "$matched" \
+            > "$INTEL_PROBE_OUTPUT/status.json"
+          echo "Requested Intel 8370C matched: $matched ($cpu_model)"
+      - name: Install pinned-userland benchmark dependencies
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        run: |
+          set -euo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            ca-certificates curl git unzip build-essential pkg-config libssl-dev \
+            python3 procps mosquitto
+          version="$(mosquitto -h 2>&1 || true)"
+          [[ "$version" == *'mosquitto version 2.0.18'* ]]
+      - uses: actions/checkout@v5
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+      - uses: dart-lang/setup-dart@v1
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        with:
+          sdk: 3.13.1
+          problem-matcher: 'false'
+      - uses: dtolnay/rust-toolchain@stable
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        with:
+          toolchain: 1.99.0
+      - name: Compare baseline and candidate on the matching CPU
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        env:
+          INTEL_PROBE_OUTPUT: ${{ runner.temp }}/mqtt-intel-proof
+        run: |
+          set -euo pipefail
+          bin/bootstrap
+          baseline_ref=e7e9585dce0d366d62706ed602356af08581083c
+          git fetch --no-tags origin "$baseline_ref"
+          git worktree add --detach "$RUNNER_TEMP/mqtt-intel-baseline" "$baseline_ref"
+          cp native/transport/Cargo.lock "$RUNNER_TEMP/mqtt-intel-baseline/native/transport/Cargo.lock"
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-intel-candidate-target" \
+            cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --release --features ffi-test --locked
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-intel-baseline-target" \
+            cargo build --manifest-path "$RUNNER_TEMP/mqtt-intel-baseline/native/transport/Cargo.toml" \
+            -p ct_ffi --release --features ffi-test --locked
+          printf '%s\n' "$baseline_ref" > "$INTEL_PROBE_OUTPUT/baseline-ref.txt"
+          git rev-parse HEAD > "$INTEL_PROBE_OUTPUT/candidate-ref.txt"
+          result=0
+          bash tool/compare_mqtt_native.sh \
+            "$RUNNER_TEMP/mqtt-intel-baseline-target/release/libct_ffi.so" \
+            "$RUNNER_TEMP/mqtt-intel-candidate-target/release/libct_ffi.so" \
+            "$INTEL_PROBE_OUTPUT/comparison" || result=$?
+          passed=false
+          if [[ "$result" -eq 0 ]]; then passed=true; fi
+          printf '{"matched_intel_8370c":true,"benchmark_executed":true,"passed":%s}\n' "$passed" \
+            > "$INTEL_PROBE_OUTPUT/status.json"
+          exit "$result"
+      - name: Upload hardware identity and comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-intel-proof
+          path: ${{ runner.temp }}/mqtt-intel-proof
           if-no-files-found: error
