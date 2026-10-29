@@ -485,3 +485,76 @@ retain SDK drop behavior, and invalid progress was already rejected after send.
 Do not adopt coercion or swallow send failures. The current caller never reads
 retired payload fields after the helper. Final full and hosted measurements
 must still be renewed; none of these liveness checks establish parity.
+
+## Current-source verification and remaining performance gates (`dec17f8b`)
+
+Full `bin/verify` exits 0 on the forwarded-envelope candidate, including
+Rust/FFI, VM/native, installed consumers and Chrome/WebAssembly. Hosted
+production proof `40891602695` passes all private native-view control phases
+and 120 live / 300 inventory / 32 zero-avoidable-copy checks. The live rows
+include 96 E2EE, 120 transcode and 48 native-crypto checks; the short inventory
+includes 96 E2EE, 60 transcode and 72 native-crypto checks. Revalidating the
+downloaded raw rows reproduces these counts, stable worker identities, raw
+stream hashes and cleanup. Source/binary unchanged receipts are true.
+
+The independent source audit verifies 3,216 tracked source inputs against the
+candidate and three generated lockfiles against their retained Linux copies.
+`.dart_tool/package_config.json` has a hosted unchanged digest receipt but no
+retained contents; do not claim its bytes were independently reconstructed.
+The first two private audit attempts are retained: comparing the generated
+Linux Cargo lock to the macOS lock was invalid, and requiring retained package
+configuration contents was unsupported. Neither is a production proof failure.
+
+Diagnostic `40891596427` completes 90 rows and is independently reproduced
+exactly, including retained production binary, scenario, router, policy and
+lock hashes. Seven numerical gates still fail:
+
+| Case | Metric | Median FB/better-baseline ratio | 95% interval |
+| --- | --- | ---: | --- |
+| Dart values | throughput | 0.981533 | 0.968920–0.988545 |
+| Dart values | p95 | 1.006623 | 0.964346–1.027778 |
+| Dart values | p99 | 1.158683 | 1.086290–1.318127 |
+| Dart values | CPU/op | 1.014461 | 0.999017–1.020807 |
+| Dart values | summed sampled peak RSS | 1.006334 | 0.989323–1.023553 |
+| Native buffer | summed sampled peak RSS | 1.002064 | 0.988079–1.015034 |
+| Pre-encoded span | summed sampled peak RSS | 1.019546 | 0.995247–1.031802 |
+
+The only non-numerical finding is diagnostic ineligibility for primary
+acceptance. The liveness fix remains useful, but does not resolve these RSS
+or timing gates. Do not rerun this unchanged numerical campaign for a better
+result. Fresh current-source Dart-values CPU attribution `40896349976` is
+queued/running; preserve failed reports, the strict policy and all workload
+floors. Full 48-case primary and refreshed 50-case supplemental acceptance
+remain pending, as do current-source CI results.
+
+CPU capture `40896349976` attempt 1 fails before FlatBuffers perf readiness.
+MessagePack capture completes; FlatBuffers has a 45,504-byte perf header and
+empty perf log. Source/library hashes stay unchanged, the probe exits 255,
+and the server/process group exits cleanly. The reported `perf record exit
+255` comes from `finally` cleanup and can mask the original capture error;
+neither a native-library crash nor a permission failure is established.
+
+A minimal Dart repro confirms that the old cleanup replaces a primary
+readiness exception. The diagnostic template now preserves primary capture
+error identity/stack, awaits cleanup and reports secondary cleanup errors
+separately. Cleanup-only failure remains fatal. The actual generated probe is
+imported into seven executable Dart contract cases; the complete 19 Python
+tests pass. Restoring the old finally semantics in a private negative control
+fails the readiness-identity assertion. No perf arguments, readiness deadline,
+measured windows, workload settings or release thresholds change. A source-
+attributed capture is still required; no failed numerical report is rerun.
+
+The paired acceptance rows retain aggregate GC counters but no per-operation
+timestamps; they cannot establish GC/tail-latency co-occurrence. The next CPU
+capture therefore exports the existing VM trace for the already selected
+calibrated interval after measurement. PID, role, requested VM range and wall
+capture time are labelled separately. No stream is enabled, no GC is requested,
+and retained-buffer completeness is explicitly not inferred.
+
+A broad companion review times out and is incomplete. The focused guard review
+completes with no concrete findings. Trace-export review raises missing-cleanup
+and blocking-I/O concerns; source inspection resolves both: the existing outer
+finally disposes every service, and synchronous file output occurs in the
+separate diagnostic probe after the measured/native perf window. Its empty-
+sample note acknowledges the existing check is correct. Do not treat those
+unverified claims as product regressions or relax fail-closed attribution.

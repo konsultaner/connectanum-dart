@@ -66,6 +66,17 @@ reference.
   pairs, clean analysis and 167 mutation proofs. Resolve companion concerns
   against actual SDK behavior and unchanged strict validation; no code waiver.
 - [ ] Freeze candidate, renew full verify and hosted paired/copy/CI evidence.
+  Runtime `dec17f8b`: full local verify and copy proof `40891602695` pass.
+  Independent raw-row validation reproduces 120 live / 300 inventory / 32
+  zero-avoidable-copy checks. Paired `40891596427` is independently reproduced:
+  90 rows, seven numerical misses (three RSS and Dart throughput/CPU/p95/p99).
+  CI `40891584949` is active. CPU profile `40896349976` attempt 1 fails before
+  FlatBuffers readiness; preserve its partial MessagePack capture and unchanged
+  source/library receipts. Fix the masking cleanup error before renewing it.
+  The actual generated probe passes seven error/value/order cases and all 19
+  profile-tool tests; restoring old semantics fails the private negative control.
+  Local private probe admission is blocked by the shared resource lease.
+  Preserve every report and the refusal; never bypass the lease or waive gates.
 - [ ] On passing diagnostics, complete all 48 primary and 50 supplemental cases.
 
 ## Encode completed reports before internal routing (2026-10-29)

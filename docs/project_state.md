@@ -5,6 +5,27 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+Frozen runtime candidate: `dec17f8b1083c92be4ba71004aa5c615ddb7ddaa`.
+Full local `bin/verify` passes, including Rust/FFI, VM/native, consumers and
+Chrome/WebAssembly. Production copy proof `40891602695` passes with unchanged
+source/binary receipts: 120 live / 300 inventory / 32 zero-avoidable-copy checks.
+Independent raw-row validation reproduces all E2EE/transcode/native-crypto counts.
+Paired diagnostic `40891596427` completes all 90 rows, but seven numerical gates
+fail: all three RSS points and Dart-values throughput, CPU, p95 and p99.
+Independent recomputation exactly matches hosted output and verifies retained
+scenarios, locks, policy, router configuration and production binaries. Never
+count the model-liveness fix as RSS acceptance. CI `40891584949` remains active;
+CPU profile `40896349976` attempt 1 fails before FlatBuffers perf readiness,
+with unchanged inputs/library and clean server cleanup. Its stopping error
+masks the original capture failure. A diagnostic-only follow-up preserves
+primary error identity/stack and retains the existing VM trace after measurement
+without enabling streams or forcing GC. All 19 profile-tool tests pass,
+including seven actual generated-probe behavior cases and a failing old-semantics
+negative control. Focused companion review plus source inspection finds no
+verified defect. Full local verification is running again before capture renewal.
+The local private native-view probe was refused by the shared machine resource lease;
+do not bypass that lease. #103 and PR #132 remain open/draft respectively.
+
 Current local candidate keeps the original lazy JSON report routing and retires
 only the private forwarded reply envelope's payload references after successful
 SendPort.send. The receiving port keeps its complete synchronous snapshot; the

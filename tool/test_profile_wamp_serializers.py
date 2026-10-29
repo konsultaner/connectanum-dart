@@ -5,6 +5,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,93 @@ import unittest
 from unittest import mock
 
 import profile_wamp_serializers as profiler
+
+
+class PerfCleanupFailureTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('dart'), 'Dart SDK is required for the generated probe contract')
+    def test_actual_probe_preserves_primary_errors_and_fails_cleanup_only_errors(self):
+        # Import the actual generated probe; never substitute a test copy of
+        # its guard. No VM service, native library or profiler is started.
+        self.assertEqual(profiler.CPU_PROBE.count('await captureWithPerfCleanup<void>('), 1)
+        project = Path(profiler.__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            probe = Path(directory) / 'probe.dart'
+            probe.write_text(profiler.CPU_PROBE.replace('__PROFILE_WINDOW_TOOL_URI__',
+                             json.dumps((project / 'tool/wamp_profile_window.py').as_uri())))
+            harness = Path(directory) / 'contract.dart'
+            harness.write_text("import 'dart:async';\nimport 'dart:convert';\n"
+                f"import {json.dumps(probe.as_uri())} as probe;\n" + r'''
+void check(bool condition, String label) {
+  if (!condition) throw StateError(label);
+}
+Future<void> main() async {
+  final passed = <String>[];
+  final events = <String>[];
+  final value = Object();
+  final result = await probe.captureWithPerfCleanup<Object>(() async {
+    events.add('capture');
+    return value;
+  }, () async {
+    await Future<void>.delayed(Duration.zero);
+    events.add('cleanup');
+  });
+  check(identical(result, value) && events.join(',') == 'capture,cleanup', 'success order/value');
+  passed.add('success');
+  for (final kind in ['readiness', 'workload', 'synchronous']) {
+    final Object primary = kind == 'readiness'
+        ? TimeoutException('perf readiness') : FormatException('capture $kind');
+    final trace = StackTrace.fromString('primary $kind origin');
+    var cleaned = false;
+    try {
+      await probe.captureWithPerfCleanup<void>(() {
+        if (kind == 'synchronous') Error.throwWithStackTrace(primary, trace);
+        return Future<void>.error(primary, trace);
+      }, () async {
+        await Future<void>.delayed(Duration.zero);
+        cleaned = true;
+        throw StateError('perf record exit 255 ($kind)');
+      });
+      throw StateError('capture failure was swallowed');
+    } catch (error, stack) {
+      check(identical(error, primary) && stack.toString() == trace.toString() && cleaned,
+          'lost primary identity/stack or incomplete cleanup: $kind');
+    }
+    passed.add(kind);
+  }
+  final primary = StateError('capture only');
+  var cleaned = false;
+  try {
+    await probe.captureWithPerfCleanup<void>(() async { throw primary; }, () async { cleaned = true; });
+    throw StateError('capture-only failure was swallowed');
+  } catch (error) {
+    check(identical(error, primary) && cleaned, 'capture-only error changed');
+  }
+  passed.add('capture-only');
+  for (final synchronous in [false, true]) {
+    final cleanupError = StateError('cleanup only $synchronous');
+    try {
+      await probe.captureWithPerfCleanup<void>(() async {}, () {
+        if (synchronous) throw cleanupError;
+        return Future<void>.error(cleanupError);
+      });
+      throw StateError('cleanup-only failure was swallowed');
+    } catch (error) {
+      check(identical(error, cleanupError), 'cleanup-only error changed');
+    }
+    passed.add('cleanup-only-$synchronous');
+  }
+  print(jsonEncode(passed));
+}
+''')
+            completed = subprocess.run([shutil.which('dart'),
+                f'--packages={project / ".dart_tool/package_config.json"}', str(harness)],
+                cwd=project, text=True, capture_output=True, timeout=90)
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            self.assertEqual(json.loads(completed.stdout), ['success', 'readiness', 'workload',
+                'synchronous', 'capture-only', 'cleanup-only-false', 'cleanup-only-true'])
+            self.assertEqual(completed.stderr.count('Secondary perf cleanup failure:'), 3)
+            for kind in ['readiness', 'workload', 'synchronous']:
+                self.assertIn(f'perf record exit 255 ({kind})', completed.stderr)
 
 
 class ProfileSelectionTests(unittest.TestCase):

@@ -79,6 +79,26 @@ import 'dart:io';
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 
+Future<T> captureWithPerfCleanup<T>(
+  Future<T> Function() capture,
+  Future<void> Function() cleanup,
+) async {
+  var captureFailed = false;
+  try {
+    return await capture();
+  } catch (_) {
+    captureFailed = true;
+    rethrow;
+  } finally {
+    try {
+      await cleanup();
+    } catch (error, stack) {
+      if (!captureFailed) rethrow;
+      stderr.writeln('Secondary perf cleanup failure: $error\n$stack');
+    }
+  }
+}
+
 Future<void> main(List<String> args) async {
   // Args: control URL, router service, client service, output, perf, target JSON.
   final services = {
@@ -194,7 +214,7 @@ Future<void> main(List<String> args) async {
       Map<String, dynamic>? nativeAfter;
       late Map<String, dynamic> report;
       late int captureStartedAtUs, captureCompletedAtUs;
-      try {
+      await captureWithPerfCleanup<void>(() async {
         if (args[4].isNotEmpty) {
           final ready = Completer<void>();
           final child = await Process.start('sudo', ['-n', args[4], 'record',
@@ -219,9 +239,7 @@ Future<void> main(List<String> args) async {
         }
         nativeAfter = args[4].isEmpty ? null : await nativeClock();
         captureCompletedAtUs = DateTime.now().microsecondsSinceEpoch;
-      } finally {
-        await stopPerf();
-      }
+      }, stopPerf);
       final samples = report['samples'] as List;
       final dataStartedAtUs = samples.map((s) => s['started_at_us'] as int).reduce((a, b) => a < b ? a : b);
       final dataCompletedAtUs = samples.map((s) => s['completed_at_us'] as int).reduce((a, b) => a > b ? a : b);
@@ -240,6 +258,19 @@ Future<void> main(List<String> args) async {
       for (final entry in services.entries) {
         final range = ranges[entry.key] as Map;
         final origin = range['origin_us'] as int, extent = range['extent_us'] as int;
+        // Read the worker's existing trace after measurement. Do not enable
+        // extra streams or force collection; retained coverage may be partial.
+        final timeline = await entry.value.getVMTimeline(
+          timeOriginMicros: origin, timeExtentMicros: extent);
+        File('${output.path}/$codec-${entry.key}-timeline.json').writeAsStringSync(jsonEncode({
+          'kind': 'existing_vm_trace_diagnostic_never_acceptance',
+          'codec': codec, 'process': entry.key, 'pid': pids[entry.key],
+          'requested_origin_us': origin, 'requested_extent_us': extent,
+          'captured_at_us': DateTime.now().microsecondsSinceEpoch,
+          'extra_streams_enabled': false, 'gc_requested': false,
+          'coverage': 'retained VM buffer; completeness not inferred',
+          'timeline': timeline.toJson(),
+        }));
         var roleSamples = 0;
         for (final id in ids[entry.key]!) {
           final cpu = await entry.value.getCpuSamples(id, origin, extent);
