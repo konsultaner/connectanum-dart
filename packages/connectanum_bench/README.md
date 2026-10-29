@@ -6,50 +6,51 @@ The package runs the WAMP and HTTP workloads; the MQTT runner lives under
 
 ## MQTT publish and subscribe
 
-This table shows all QoS 0 profiles from the [GitHub Actions run of candidate `160fc2c2`](https://github.com/konsultaner/connectanum-dart/actions/runs/40940745734/job/123684752425)
+This table shows all QoS 0 profiles from the [GitHub Actions run of candidate `e35635de`](https://github.com/konsultaner/connectanum-dart/actions/runs/40951944369/job/123722435370)
 on Ubuntu 24.04 and AMD EPYC 7763, compared with Mosquitto 2.0.18.
 C / M means Connectanum / Mosquitto. Higher delivery rate is better; lower
 latency and broker CPU ratios are better. Peak RSS is Connectanum broker memory.
 Workload counts are publications per run; fan-out rates count deliveries to all
 subscribers. WS means WebSocket and WSS means secure WebSocket. Smoke rows
-check delivery only. 19 of 20 profiles pass. WebSocket MQTT 3.1.1 misses its throughput floor. Passing EPYC 7763 results appear below; Intel CPU acceptance remains open.
+check delivery only. All 20 profiles pass in this run. Earlier misses remain below; repeatability and Intel CPU acceptance remain open.
 
 | Broker | MQTT / link | Workload | Delivered/s C / M | Rate × | p95 / p99 C/M × | Broker CPU C/M × | Peak RSS | Result |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Dart | 5 / TCP | 128 B, 2k, single smoke | 63,271 / 90,298 | 0.701 | 1.587 / 1.582 | 2.000 | 10.7 MiB | Delivery pass |
-| Dart | 5 / TCP | 128 B, 200k, single | 81,788 / 88,602 | 0.923 | 1.607 / 1.726 | 1.247 | 10.8 MiB | Pass |
-| Dart | 3.1.1 / TCP | 128 B, 200k, single | 85,122 / 85,942 | 0.990 | 1.522 / 1.703 | 1.207 | 11.1 MiB | Pass |
-| Dart | 5 / TCP | 128 B, 200k, batch 512 | 448,062 / 82,771 | 5.413 | 0.215 / 0.186 | 0.096 | 17.1 MiB | Pass |
-| Dart | 5 / TCP | 128 B, 50k, 4 subscribers, batch 128 | 665,097 / 97,001 | 6.857 | 0.103 / 0.112 | 0.071 | 10.6 MiB | Pass |
-| Native | 5 / TCP | 128 B, 2k, single smoke | 82,264 / 89,566 | 0.918 | 1.206 / 1.203 | 2.500 | 20.9 MiB | Delivery pass |
-| Native | 5 / TCP | 128 B, 200k, single | 82,659 / 90,561 | 0.913 | 1.259 / 1.218 | 1.762 | 21.7 MiB | Pass |
-| Native | 3.1.1 / TCP | 128 B, 200k, single | 85,219 / 84,174 | 1.012 | 1.208 / 1.181 | 1.614 | 21.5 MiB | Pass |
-| Native | 5 / TCP | 1 KiB, 100k, single | 69,889 / 8,840 | 7.906 | 0.090 / 0.105 | 1.319 | 28.9 MiB | Pass |
-| Native | 5 / TCP | 64 KiB, 5k, single | 5,008 / 5,600 | 0.894 | 1.202 / 1.097 | 2.652 | 62.7 MiB | Pass |
-| Native | 5 / TCP | 128 B, 200k, batch 512 | 449,099 / 83,717 | 5.365 | 0.211 / 0.192 | 0.118 | 27.6 MiB | Pass |
-| Native | 5 / TCP | 128 B, 50k, 4 subscribers, batch 128 | 640,997 / 106,255 | 6.033 | 0.131 / 0.131 | 0.109 | 21.5 MiB | Pass |
-| Native | 5 / TLS | 128 B, 200k, single | 169,385 / 21,695 | 7.808 | 0.116 / 0.064 | 0.686 | 23.7 MiB | Pass |
-| Native | 3.1.1 / TLS | 128 B, 200k, single | 171,176 / 21,795 | 7.854 | 0.114 / 0.061 | 0.677 | 23.6 MiB | Pass |
-| Native | 5 / WS | 128 B, 200k, single | 36,251 / 48,695 | 0.744 | 1.568 / 1.636 | 2.237 | 22.0 MiB | Pass |
-| Native | 3.1.1 / WS | 128 B, 200k, single | 33,422 / 49,317 | 0.678 | 1.686 / 1.713 | 2.406 | 22.1 MiB | **Fail** |
-| Native | 5 / WSS | 128 B, 2k, single smoke | 67,152 / 17,908 | 3.750 | 0.262 / 0.290 | 0.400 | 23.3 MiB | Delivery pass |
-| Native | 5 / WSS | 128 B, 200k, batch 64 | 97,658 / 19,875 | 4.914 | 0.227 / 0.226 | 0.265 | 23.6 MiB | Pass |
-| Native | 3.1.1 / WSS | 128 B, 2k, single smoke | 52,127 / 16,919 | 3.081 | 0.368 / 0.409 | 0.600 | 23.3 MiB | Delivery pass |
-| Native | 3.1.1 / WSS | 128 B, 200k, single | 109,657 / 20,444 | 5.364 | 0.172 / 0.168 | 0.394 | 24.3 MiB | Pass |
+| Dart | 5 / TCP | 128 B, 2k, single smoke | 65,963 / 77,024 | 0.856 | 1.311 / 1.299 | 1.500 | 10.5 MiB | Delivery pass |
+| Dart | 5 / TCP | 128 B, 200k, single | 80,665 / 78,041 | 1.034 | 1.650 / 1.617 | 1.360 | 10.7 MiB | Pass |
+| Dart | 3.1.1 / TCP | 128 B, 200k, single | 74,954 / 79,345 | 0.945 | 1.693 / 1.627 | 1.488 | 10.9 MiB | Pass |
+| Dart | 5 / TCP | 128 B, 200k, batch 512 | 470,275 / 64,390 | 7.304 | 0.202 / 0.034 | 0.098 | 17.0 MiB | Pass |
+| Dart | 5 / TCP | 128 B, 50k, 4 subscribers, batch 128 | 698,561 / 105,612 | 6.614 | 0.117 / 0.119 | 0.080 | 10.6 MiB | Pass |
+| Native | 5 / TCP | 128 B, 2k, single smoke | 68,036 / 90,802 | 0.749 | 1.607 / 1.584 | 2.500 | 20.9 MiB | Delivery pass |
+| Native | 5 / TCP | 128 B, 200k, single | 89,506 / 80,552 | 1.111 | 1.256 / 1.140 | 1.586 | 21.8 MiB | Pass |
+| Native | 3.1.1 / TCP | 128 B, 200k, single | 89,143 / 81,116 | 1.099 | 1.230 / 1.114 | 1.597 | 21.8 MiB | Pass |
+| Native | 5 / TCP | 1 KiB, 100k, single | 68,934 / 7,901 | 8.724 | 0.091 / 0.103 | 1.396 | 29.8 MiB | Pass |
+| Native | 5 / TCP | 64 KiB, 5k, single | 5,298 / 5,734 | 0.924 | 1.073 / 1.097 | 2.762 | 57.3 MiB | Pass |
+| Native | 5 / TCP | 128 B, 200k, batch 512 | 462,480 / 60,214 | 7.681 | 0.155 / 0.033 | 0.111 | 27.5 MiB | Pass |
+| Native | 5 / TCP | 128 B, 50k, 4 subscribers, batch 128 | 664,567 / 112,310 | 5.917 | 0.155 / 0.149 | 0.112 | 21.4 MiB | Pass |
+| Native | 5 / TLS | 128 B, 200k, single | 179,975 / 22,333 | 8.059 | 0.112 / 0.060 | 0.664 | 23.7 MiB | Pass |
+| Native | 3.1.1 / TLS | 128 B, 200k, single | 178,847 / 22,409 | 7.981 | 0.113 / 0.111 | 0.671 | 24.0 MiB | Pass |
+| Native | 5 / WS | 128 B, 200k, single | 36,253 / 50,979 | 0.711 | 1.637 / 1.694 | 2.309 | 22.0 MiB | Pass |
+| Native | 3.1.1 / WS | 128 B, 200k, single | 39,384 / 50,773 | 0.776 | 1.567 / 1.662 | 2.182 | 22.1 MiB | Pass |
+| Native | 5 / WSS | 128 B, 2k, single smoke | 69,137 / 19,375 | 3.568 | 0.281 / 0.312 | 0.500 | 23.4 MiB | Delivery pass |
+| Native | 5 / WSS | 128 B, 200k, batch 64 | 100,965 / 20,646 | 4.890 | 0.228 / 0.228 | 0.272 | 23.7 MiB | Pass |
+| Native | 3.1.1 / WSS | 128 B, 2k, single smoke | 53,439 / 16,652 | 3.209 | 0.346 / 0.431 | 0.400 | 23.0 MiB | Delivery pass |
+| Native | 3.1.1 / WSS | 128 B, 200k, single | 114,314 / 21,329 | 5.360 | 0.174 / 0.170 | 0.409 | 24.1 MiB | Pass |
 
 | Check | Result |
 | --- | --- |
 | Direct MQTT delivery | 29,114,000 expected and received across 192 benchmark samples; zero duplicates |
-| Profile results | 19 of 20 passed: 15 performance profiles and 4 delivery-only smoke profiles |
-| WebSocket throughput budget | MQTT 5 / 3.1.1 rate ratios 0.744× / **0.678×** against a 0.700× floor |
-| 64 KiB CPU budget | 2.652× broker CPU ratio against a 4.000× cap on this AMD runner |
+| Profile results | 20 of 20 passed: 16 performance profiles and 4 delivery-only smoke profiles |
+| WebSocket throughput budget | MQTT 5 / 3.1.1 rate ratios 0.711× / 0.776× against a 0.700× floor |
+| 64 KiB CPU budget | 2.762× broker CPU ratio against a 4.000× cap on this AMD runner |
 | MQTT ↔ WAMP translation | No benchmark yet; the live gateway is pending |
 | Typed FlatBuffers PPT parity | No accepted performance result yet; outer-envelope measurements appear below |
 
 | Hosted run and CPU | WS 5 rate × | WS 3.1.1 rate × | TCP 3.1.1 rate × | 64 KiB CPU × | Gate |
 | --- | ---: | ---: | ---: | ---: | --- |
 | Required limit | ≥0.700 | ≥0.700 | ≥0.750 | ≤4.000 | — |
-| [Latest `160fc2c2`](https://github.com/konsultaner/connectanum-dart/actions/runs/40940745734/job/123684752425), EPYC 7763 | 0.744 | 0.678 | 1.012 | 2.652 | **Fail (WS rate)** |
+| [Latest `e35635de`](https://github.com/konsultaner/connectanum-dart/actions/runs/40951944369/job/123722435370), EPYC 7763 | 0.711 | 0.776 | 1.099 | 2.762 | Pass |
+| [Previous `160fc2c2`](https://github.com/konsultaner/connectanum-dart/actions/runs/40940745734/job/123684752425), EPYC 7763 | 0.744 | 0.678 | 1.012 | 2.652 | **Fail (WS rate)** |
 | [Previous `6790909b`](https://github.com/konsultaner/connectanum-dart/actions/runs/40929728718/job/123644737494), EPYC 9V74 | 0.757 | 0.694 | 1.122 | 3.000 | **Fail (WS rate)** |
 | [Previous `ffc417a9`](https://github.com/konsultaner/connectanum-dart/actions/runs/40924130512/job/123625425453), EPYC 7763 | 0.778 | 0.807 | 1.125 | 2.708 | Pass |
 | [Previous `7e1b8727`](https://github.com/konsultaner/connectanum-dart/actions/runs/40914337468/job/123591372808), EPYC 9V74 | 0.756 | 0.760 | 1.051 | 3.133 | Pass |
@@ -69,7 +70,8 @@ check delivery only. 19 of 20 profiles pass. WebSocket MQTT 3.1.1 misses its thr
 | [Earlier run](https://github.com/konsultaner/connectanum-dart/actions/runs/39411135727), Intel Xeon 6973P-C | — | — | — | 5.000 | Fail |
 | [Earlier run](https://github.com/konsultaner/connectanum-dart/actions/runs/38816345739/job/116703874967), Intel Xeon 8573C | — | — | — | 4.294 | Fail |
 
-The [latest results](../../docs/benchmarks/mqtt-hosted-pr128-160fc2c2.json),
+The [latest results](../../docs/benchmarks/mqtt-hosted-pr128-e35635de.json),
+[previous 7763 miss](../../docs/benchmarks/mqtt-hosted-pr128-160fc2c2.json),
 [previous 9V74 miss](../../docs/benchmarks/mqtt-hosted-pr128-6790909b.json),
 [passing EPYC 7763 results](../../docs/benchmarks/mqtt-hosted-pr128-ffc417a9.json),
 [baseline results](../../docs/benchmarks/mqtt-hosted-pr128-9aa6b17d.json),
@@ -208,7 +210,7 @@ The [Linux comparison](../../docs/benchmarks/mqtt-readiness-boundary-linux-40936
 | TCP 64 KiB | Broker CPU seconds | 0.35 | 0.36 | 0.34 | 0.35 |
 | TCP 64 KiB | Peak RSS MiB | 63.0 | 66.4 | 66.0 | 65.8 |
 
-The [three-host 9V74 comparison](../../docs/benchmarks/mqtt-reactor-matched-40942027350.json) passes all 18 production-baseline checks. The reader trial is rejected: its changes are mixed and one MQTT 3.1.1 ratio is 0.693, below 0.700. The full 7763 gate above still fails.
+The [three-host 9V74 comparison](../../docs/benchmarks/mqtt-reactor-matched-40942027350.json) passes all 18 production-baseline checks. The reader trial is rejected: its changes are mixed and one MQTT 3.1.1 ratio is 0.693, below 0.700. The latest full 7763 gate above passes, but earlier same-code misses remain.
 
 | 9V74 host | Production WS 5 rate ×, runs 1 / 2 | Production WS 3.1.1 rate ×, runs 1 / 2 | Production 64 KiB CPU ×, runs 1 / 2 |
 | --- | ---: | ---: | ---: |
@@ -240,12 +242,44 @@ All 6,300,000 deliveries are exact. Before / trial values are medians, except pe
 
 The [burst-timer trial](../../docs/benchmarks/mqtt-burst-macos-rejected.json) reduces
 CPU use but slows macOS WebSocket delivery, so it is rejected for macOS. These
-local results retain all 6,000,000 exact deliveries; Linux acceptance remains open.
+local results retain all 6,000,000 exact deliveries; the Linux comparison follows.
 
 | Workload | Delivered/s before / trial | Broker CPU seconds before / trial | Peak RSS MiB before / trial |
 | --- | ---: | ---: | ---: |
 | WS MQTT 5 | 149,975 / 114,439 | 1.95 / 1.04 | 34.8 / 30.0 |
 | WS MQTT 3.1.1 | 154,005 / 113,766 | 1.92 / 1.04 | 35.3 / 30.5 |
+
+The [two-host Linux timer comparison](../../docs/benchmarks/mqtt-burst-linux-40951811976.json)
+passes all 24 numeric checks on EPYC 9V74 and delivers 32,400,000 messages exactly.
+Throughput changes are mixed despite lower CPU, so the timer is rejected as the
+throughput fix. These are separate paired runs; they do not clear the affected
+7763/8370C acceptance requirements.
+
+| Host / workload | Rate × baseline / trial, pair 1 | Rate × baseline / trial, pair 2 | Broker CPU seconds baseline / trial, pair 1 | Broker CPU seconds baseline / trial, pair 2 |
+| --- | ---: | ---: | ---: | ---: |
+| Ubuntu 24 / WS 5 | 0.729 / 0.719 | 0.794 / 0.738 | 6.80 / 5.54 | 6.41 / 5.37 |
+| Ubuntu 24 / WS 3.1.1 | 0.741 / 0.723 | 0.767 / 0.753 | 6.75 / 5.64 | 6.69 / 5.08 |
+| Ubuntu 24 / TCP 64 KiB | 0.900 / 0.911 | 0.940 / 0.904 | 0.42 / 0.43 | 0.42 / 0.43 |
+| Ubuntu 22 / pinned 24 / WS 5 | 0.774 / 0.741 | 0.731 / 0.770 | 9.66 / 9.24 | 9.92 / 8.66 |
+| Ubuntu 22 / pinned 24 / WS 3.1.1 | 0.746 / 0.761 | 0.749 / 0.769 | 9.77 / 8.87 | 9.84 / 8.71 |
+| Ubuntu 22 / pinned 24 / TCP 64 KiB | 0.926 / 0.917 | 0.920 / 0.913 | 0.60 / 0.59 | 0.62 / 0.60 |
+
+The [no-timer ready-yield comparison](../../docs/benchmarks/mqtt-yield-linux-40956744846.json)
+passes all 36 checks on three actual EPYC 7763 hosts with 48,600,000 exact deliveries.
+Changes are small and mixed across hosts, so this variant is not accepted as a
+throughput improvement. The production baseline passes all 18 checks as well.
+
+| 7763 host / workload | Rate × baseline / trial, pair 1 | Rate × baseline / trial, pair 2 | Broker CPU seconds baseline / trial, pair 1 | Broker CPU seconds baseline / trial, pair 2 |
+| --- | ---: | ---: | ---: | ---: |
+| Ubuntu 24 A / WS 5 | 0.721 / 0.738 | 0.773 / 0.744 | 8.39 / 7.84 | 8.08 / 8.00 |
+| Ubuntu 24 A / WS 3.1.1 | 0.735 / 0.747 | 0.726 / 0.759 | 8.23 / 8.03 | 8.28 / 7.87 |
+| Ubuntu 24 A / TCP 64 KiB | 0.904 / 0.933 | 0.909 / 0.891 | 0.59 / 0.59 | 0.59 / 0.59 |
+| Ubuntu 24 B / WS 5 | 0.722 / 0.744 | 0.741 / 0.723 | 8.36 / 8.02 | 8.24 / 8.08 |
+| Ubuntu 24 B / WS 3.1.1 | 0.790 / 0.775 | 0.725 / 0.729 | 7.80 / 7.78 | 8.18 / 8.16 |
+| Ubuntu 24 B / TCP 64 KiB | 0.921 / 0.889 | 0.929 / 0.919 | 0.57 / 0.60 | 0.56 / 0.56 |
+| Ubuntu 22 / pinned 24 / WS 5 | 0.775 / 0.772 | 0.820 / 0.783 | 9.10 / 9.19 | 9.10 / 9.20 |
+| Ubuntu 22 / pinned 24 / WS 3.1.1 | 0.753 / 0.767 | 0.829 / 0.777 | 9.52 / 9.29 | 8.91 / 9.15 |
+| Ubuntu 22 / pinned 24 / TCP 64 KiB | 0.915 / 0.963 | 0.919 / 0.920 | 0.63 / 0.65 | 0.62 / 0.63 |
 
 ## WAMP throughput
 

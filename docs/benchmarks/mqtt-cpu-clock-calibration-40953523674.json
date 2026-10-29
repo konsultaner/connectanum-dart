@@ -1,0 +1,230 @@
+{
+  "allExitedWorkerThreadsAccounted": true,
+  "artifactId": 12932542956,
+  "clockTicksPerSecond": 100,
+  "commit": "71de3faca421fe3862923de3fafda2b0c47f1f19",
+  "conclusion": "Calibration establishes timer/accounting behavior only, not whether any MQTT gate was misclassified.",
+  "cpuModel": "AMD EPYC 7763 64-Core Processor",
+  "diagnosticOnly": true,
+  "jobId": 123727573114,
+  "maximumAbsoluteDifferenceNs": 5376923,
+  "medianProcessCpuClockNs": 5201314.5,
+  "platform": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+  "procStatQuantumNs": 10000000,
+  "processCpuClockReportedResolutionSeconds": 1e-09,
+  "reapedChildReportsESRCH": true,
+  "rows": [
+    {
+      "differenceNs": -5376923,
+      "iteration": 1,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5376923,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4767566,
+      "iteration": 2,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5232434,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5209509,
+      "iteration": 3,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5209509,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4797172,
+      "iteration": 4,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5202828,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5193089,
+      "iteration": 5,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5193089,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5184905,
+      "iteration": 6,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5184905,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4800199,
+      "iteration": 7,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5199801,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4817057,
+      "iteration": 8,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5182943,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5168673,
+      "iteration": 9,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5168673,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4807742,
+      "iteration": 10,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5192258,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5173462,
+      "iteration": 11,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5173462,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4838449,
+      "iteration": 12,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5161551,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5164306,
+      "iteration": 13,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5164306,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5173474,
+      "iteration": 14,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5173474,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4828300,
+      "iteration": 15,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5171700,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4816800,
+      "iteration": 16,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5183200,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4789237,
+      "iteration": 17,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5210763,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5178853,
+      "iteration": 18,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5178853,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5178082,
+      "iteration": 19,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5178082,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4793505,
+      "iteration": 20,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5206495,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5180057,
+      "iteration": 21,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5180057,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4776072,
+      "iteration": 22,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5223928,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5263190,
+      "iteration": 23,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5263190,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4768389,
+      "iteration": 24,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5231611,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4784638,
+      "iteration": 25,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5215362,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5231000,
+      "iteration": 26,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5231000,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4763660,
+      "iteration": 27,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5236340,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5241701,
+      "iteration": 28,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5241701,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": -5260983,
+      "iteration": 29,
+      "procStatCpuNs": 0,
+      "processCpuClockNs": 5260983,
+      "workerTargetNs": 5000000
+    },
+    {
+      "differenceNs": 4712855,
+      "iteration": 30,
+      "procStatCpuNs": 10000000,
+      "processCpuClockNs": 5287145,
+      "workerTargetNs": 5000000
+    }
+  ],
+  "schemaVersion": 1,
+  "workflowRunId": 40953523674
+}
