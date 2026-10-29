@@ -183,6 +183,15 @@ A [reader-readiness trial](../../docs/benchmarks/mqtt-readiness-local-rejected.j
 | WS MQTT 5 | 2 | 158,968 → 151,792 | 1.87 → 1.95 | 35.9 → 35.5 |
 | WS MQTT 3.1.1 | 2 | 158,204 → 150,265 | 1.89 → 1.96 | 36.5 → 35.2 |
 
+A [boundary-only variant](../../docs/benchmarks/mqtt-readiness-boundary-local-comparison.json) also has mixed local results; Linux evaluation is pending. It is not an accepted improvement.
+
+| Workload | Run | Delivered/s before → trial | Broker CPU seconds before → trial | Sampled RSS MiB before → trial |
+| --- | ---: | ---: | ---: | ---: |
+| WS MQTT 5 | 1 | 150,307 → 158,009 | 1.96 → 1.89 | 36.1 → 35.5 |
+| WS MQTT 3.1.1 | 1 | 152,612 → 156,711 | 1.94 → 1.90 | 35.8 → 35.8 |
+| WS MQTT 5 | 2 | 158,246 → 153,157 | 1.88 → 1.93 | 35.8 → 35.7 |
+| WS MQTT 3.1.1 | 2 | 162,653 → 157,854 | 1.84 → 1.87 | 36.6 → 36.2 |
+
 ## WAMP throughput
 
 Each cell shows **sustained / full-lifecycle throughput** in Gbit/s; higher is better.
