@@ -12,7 +12,7 @@ C / M means Connectanum / Mosquitto. Higher delivery rate is better; lower
 latency and broker CPU ratios are better. Peak RSS is Connectanum broker memory.
 Workload counts are publications per run; fan-out rates count deliveries to all
 subscribers. WS means WebSocket and WSS means secure WebSocket. Smoke rows
-check delivery only. All 20 profiles pass in this run. Earlier misses remain below; repeatability and Intel CPU acceptance remain open.
+check delivery only. All 20 profiles pass in this run. Earlier misses remain below; WebSocket repeatability remains open. The Intel CPU check passes twice in the targeted comparison below.
 
 | Broker | MQTT / link | Workload | Delivered/s C / M | Rate × | p95 / p99 C/M × | Broker CPU C/M × | Peak RSS | Result |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
@@ -83,6 +83,21 @@ include every sample, workload setting, limit, and runner detail. The
 and an [earlier passing AMD snapshot](../../docs/benchmarks/mqtt-hosted-amd-fccc7566.json)
 are available for comparison. These results describe this measured run; QoS 0
 does not guarantee delivery in every deployment.
+
+The [targeted Intel Xeon 8370C production comparison](../../docs/benchmarks/mqtt-intel8370c-production-40960196402.json)
+uses the same production native library as the latest AMD result. Both 64 KiB
+CPU checks pass the unchanged 4.000× cap. One WebSocket 3.1.1 pass misses the
+0.700× throughput floor, so overall performance acceptance remains open.
+All 8,100,000 deliveries across 60 samples are exact.
+
+| Intel pass | Workload | Rate × | p95 / p99 × | Broker CPU × | Peak RSS | Result |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| 1 | WS MQTT 5 | 0.761 | 1.477 / 1.642 | 2.270 | 21.9 MiB | Pass |
+| 1 | WS MQTT 3.1.1 | 0.744 | 1.498 / 1.545 | 2.286 | 21.9 MiB | Pass |
+| 1 | TCP 64 KiB | 0.887 | 1.207 / 1.152 | 3.333 | 54.1 MiB | Pass |
+| 2 | WS MQTT 5 | 0.759 | 1.452 / 1.583 | 2.275 | 22.0 MiB | Pass |
+| 2 | WS MQTT 3.1.1 | 0.695 | 1.603 / 1.713 | 2.444 | 21.9 MiB | **Fail (WS rate)** |
+| 2 | TCP 64 KiB | 0.858 | 1.255 / 1.246 | 3.647 | 57.0 MiB | Pass |
 
 The buffered-frame experiment was reverted because the EPYC 7763 gate remained
 red. Its [same-runner comparison](../../docs/benchmarks/mqtt-native-comparison-1660422d.json)

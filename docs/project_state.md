@@ -1,6 +1,10 @@
 # Project State
 
-Last updated: 2026-10-29.
+Last updated: 2026-10-29 actual Intel proof: [run 40960196402, job 123750665953](https://github.com/konsultaner/connectanum-dart/actions/runs/40960196402/job/123750665953) measured an actual Intel Xeon Platinum 8370C with unchanged production source `102a43a3` and library `3e97c194`. The [complete snapshot](benchmarks/mqtt-intel8370c-production-40960196402.json) preserves 60 rows and 8,100,000 exact deliveries. Both 64 KiB CPU ratios pass the unchanged 4.000 cap at 3.333 and 3.647. WS 5 passes twice (0.761/0.759); WS 3.1.1 passes once at 0.744 and fails once at 0.695391 against 0.700. The original Intel CPU blocker now has affected-model measurements; WebSocket repeatability remains unresolved. Do not discard the failure or mark ready.
+
+The existing no-timer readiness-yield candidate is being compared against production on the same Intel model: diagnostic branch `codex/mqtt-yield-intel-ab`, commit `b77a9a36`, run 40961646882. Seven probes skipped other hardware; probe 6/job 123755664369 is authoritatively measuring. Read its actual model and every baseline/candidate result before accepting any change. Main CI 40951944369 currently has 28 successful jobs, eight running jobs and no observed failures. Fresh `bin/test-fast` is running in `out/mqtt-latest/resume-intel-test-fast.log`. Production source and coverage evidence remain unchanged. Keep data-only changes local until the current CI completes.
+
+2026-10-29.
 Current milestone: [MQTT broker interoperability for Connectanum](https://github.com/konsultaner/connectanum-dart/milestone/2), explicitly prioritized by the user on 2026-10-14.
 Active plan: [MQTT broker interoperability execution plan](exec-plans/2026-10-14-mqtt-broker-interoperability.md) on `codex/mqtt-broker-interoperability` in a separate managed worktree incorporating GitHub master `78f2b32b`.
 
