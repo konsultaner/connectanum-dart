@@ -1,203 +1,175 @@
-name: MQTT CPU diagnostics
+name: MQTT yield Linux comparison
 
 on:
-  pull_request:
-    paths:
-      - 'tool/profile_mqtt_native.py'
-      - 'tool/test_profile_mqtt_native.py'
-      - '.github/actions/profile-mqtt/**'
-      - '.github/workflows/mqtt-profile.yml'
   workflow_dispatch:
     inputs:
-      recover_run:
-        description: Optional run ID whose mqtt-native-profile artifact should be rendered without resampling
-        required: false
-        default: ''
-        type: string
-      probe_intel:
-        description: Seek Xeon 8370C on Ubuntu 22.04 hosts with pinned Ubuntu 24.04 benchmark userland
-        required: false
-        default: false
-        type: boolean
-      compare_workers:
-        description: Optional candidate native worker count for same-binary comparisons against automatic sizing
-        required: false
-        default: ''
-        type: string
+      target_cpu:
+        description: Measure either needed CPU class or request one explicitly; always record the actual class
+        type: choice
+        required: true
+        default: either
+        options: [either, '7763', 9V74, 8370C]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: mqtt-yield-linux-${{ github.ref }}-${{ inputs.target_cpu }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
   actions: read
 
 jobs:
-  profile:
-    if: ${{ inputs.probe_intel != true }}
-    name: MQTT native CPU diagnostic
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - name: Validate diagnostic mode
-        env:
-          RECOVER_RUN: ${{ inputs.recover_run }}
-          COMPARE_WORKERS: ${{ inputs.compare_workers }}
-        run: |
-          set -euo pipefail
-          if [[ -n "$RECOVER_RUN" && -n "$COMPARE_WORKERS" ]]; then
-            echo 'Recovery and worker comparison are separate diagnostic modes.' >&2
-            exit 2
-          fi
-      - uses: ./.github/actions/setup-ci
-        with:
-          rust: ${{ inputs.recover_run == '' && 'true' || 'false' }}
-      - name: Bootstrap diagnostic dependencies
-        if: ${{ inputs.recover_run == '' }}
-        run: |
-          set -euo pipefail
-          bin/bootstrap
-          sudo apt-get update
-          sudo apt-get install -y mosquitto
-      - name: Build the native library used by the acceptance gate
-        if: ${{ inputs.recover_run == '' }}
-        run: |
-          set -euo pipefail
-          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-profile-target" \
-            cargo build --manifest-path native/transport/Cargo.toml \
-            -p ct_ffi --release --features ffi-test
-          echo "CONNECTANUM_NATIVE_LIB=$RUNNER_TEMP/mqtt-profile-target/release/libct_ffi.so" >> "$GITHUB_ENV"
-      - name: Recover the original profile artifact
-        if: ${{ inputs.recover_run != '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RECOVER_RUN: ${{ inputs.recover_run }}
-        run: |
-          set -euo pipefail
-          [[ "$RECOVER_RUN" =~ ^[0-9]+$ ]]
-          gh run download "$RECOVER_RUN" --repo "$GITHUB_REPOSITORY" \
-            --name mqtt-native-profile --dir out/mqtt-native-profile
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RECOVER_RUN" \
-            > out/mqtt-native-profile/recovery-source-run.json
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RECOVER_RUN/artifacts" \
-            > out/mqtt-native-profile/recovery-source-artifacts.json
-      - name: Compare worker policies with identical native binaries
-        if: ${{ inputs.compare_workers != '' }}
-        env:
-          MQTT_COMPARE_WORKER_THREADS: ${{ inputs.compare_workers }}
-        run: |
-          bash tool/compare_mqtt_native.sh "$CONNECTANUM_NATIVE_LIB" \
-            "$CONNECTANUM_NATIVE_LIB" out/mqtt-native-comparison
-      - uses: ./.github/actions/profile-mqtt
-        if: ${{ inputs.compare_workers == '' }}
-        with:
-          report_only: ${{ inputs.recover_run != '' && 'true' || 'false' }}
-      - name: Upload diagnostic evidence
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ inputs.compare_workers == '' && 'mqtt-native-profile' || 'mqtt-native-comparison' }}
-          path: ${{ inputs.compare_workers == '' && 'out/mqtt-native-profile' || 'out/mqtt-native-comparison' }}
-          if-no-files-found: error
-
-  intel:
-    if: ${{ inputs.probe_intel == true }}
-    name: Intel 8370C MQTT availability and comparison
-    runs-on: ubuntu-22.04
-    timeout-minutes: 45
-    container:
-      image: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+  compare:
+    name: MQTT ready-yield A/B probe ${{ matrix.probe }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - probe: amd-1
+            runner: ubuntu-24.04
+            container: ''
+          - probe: amd-2
+            runner: ubuntu-24.04
+            container: ''
+          - probe: intel
+            runner: ubuntu-22.04
+            container: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     defaults:
       run:
         shell: bash
+    timeout-minutes: 45
     env:
-      RUSTUP_TOOLCHAIN: 1.99.0
+      CARGO_BUILD_JOBS: 2
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+      CARGO_INCREMENTAL: 0
+      REQUESTED_CPU: ${{ inputs.target_cpu }}
+      BENCH_OUTPUT: /tmp/mqtt-yield-linux-${{ github.run_id }}-${{ matrix.probe }}
+      BENCH_CONTAINER: ${{ matrix.container }}
+      BASELINE_ARTIFACT_DIR: /tmp/mqtt-yield-baseline-${{ github.run_id }}-${{ matrix.probe }}
     steps:
-      - name: Identify the requested Intel hardware
+      - name: Require the requested hardware before timing
         id: cpu
         env:
-          INTEL_PROBE_OUTPUT: ${{ runner.temp }}/mqtt-intel-proof
           MQTT_CPU_INFO_PATH: /proc/cpuinfo
-          RECOVER_RUN: ${{ inputs.recover_run }}
-          COMPARE_WORKERS: ${{ inputs.compare_workers }}
         run: |
           set -euo pipefail
-          if [[ -n "$RECOVER_RUN" || -n "$COMPARE_WORKERS" ]]; then
-            echo 'Intel hardware probing is separate from recovery and worker comparisons.' >&2
-            exit 2
-          fi
-          mkdir -p "$INTEL_PROBE_OUTPUT"
+          mkdir -p "$BENCH_OUTPUT"
           cpu_model=''
           while IFS=: read -r key value; do
-            if [[ "$key" == 'model name'* ]]; then
-              cpu_model="${value# }"
-              break
-            fi
+            if [[ "$key" == 'model name'* ]]; then cpu_model="${value# }"; break; fi
           done < "${MQTT_CPU_INFO_PATH:-/proc/cpuinfo}"
-          printf '%s\n' "$cpu_model" > "$INTEL_PROBE_OUTPUT/cpu-model.txt"
-          uname -a > "$INTEL_PROBE_OUTPUT/kernel.txt"
+          model_lower="$(printf '%s' "$cpu_model" | tr '[:upper:]' '[:lower:]')"
+          actual_class=other
+          if [[ "$model_lower" == *amd* && "$model_lower" == *7763* ]]; then actual_class=7763; fi
+          if [[ "$model_lower" == *amd* && "$model_lower" == *9v74* ]]; then actual_class=9V74; fi
+          if [[ "$model_lower" == *intel* && "$model_lower" == *8370c* ]]; then actual_class=8370C; fi
           matched=false
-          if [[ "$cpu_model" == *Intel* && "$cpu_model" == *8370C* ]]; then matched=true; fi
-          printf 'matches=%s\n' "$matched" >> "$GITHUB_OUTPUT"
-          printf '{"matched_intel_8370c":%s,"benchmark_executed":false}\n' "$matched" \
-            > "$INTEL_PROBE_OUTPUT/status.json"
-          echo "Requested Intel 8370C matched: $matched ($cpu_model)"
-      - name: Install pinned-userland benchmark dependencies
-        if: ${{ steps.cpu.outputs.matches == 'true' }}
+          case "$REQUESTED_CPU" in
+            either) if [[ "$actual_class" != other ]]; then matched=true; fi ;;
+            7763|9V74|8370C) if [[ "$actual_class" == "$REQUESTED_CPU" ]]; then matched=true; fi ;;
+            *) echo 'Unsupported requested CPU class' >&2; exit 2 ;;
+          esac
+          printf '%s\n' "$cpu_model" > "$BENCH_OUTPUT"/cpu-model.txt
+          uname -srm > "$BENCH_OUTPUT"/kernel.txt
+          printf 'matches=%s\nactual_class=%s\n' "$matched" "$actual_class" >> "$GITHUB_OUTPUT"
+          printf '{"requested_cpu":"%s","actual_cpu_class":"%s","matched_requested_cpu":%s,"benchmark_executed":false}\n' "$REQUESTED_CPU" "$actual_class" "$matched" > "$BENCH_OUTPUT"/status.json
+          echo "Requested $REQUESTED_CPU matched: $matched ($cpu_model)"
+      - name: Prepare pinned container userland
+        if: ${{ steps.cpu.outputs.matches == 'true' && matrix.container != '' }}
         run: |
           set -euo pipefail
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            ca-certificates curl git unzip build-essential pkg-config libssl-dev \
-            python3 procps mosquitto
-          version="$(mosquitto -h 2>&1 || true)"
-          [[ "$version" == *'mosquitto version 2.0.18'* ]]
+          DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl git unzip build-essential pkg-config libssl-dev python3 procps mosquitto
       - uses: actions/checkout@v5
         if: ${{ steps.cpu.outputs.matches == 'true' }}
-      - uses: dart-lang/setup-dart@v1
+      - name: Trust this exact checkout
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: ./.github/actions/setup-ci
         if: ${{ steps.cpu.outputs.matches == 'true' }}
         with:
-          sdk: 3.13.1
-          problem-matcher: 'false'
-      - uses: dtolnay/rust-toolchain@stable
+          rust: 'true'
+      - name: Bootstrap and install the independent reference
         if: ${{ steps.cpu.outputs.matches == 'true' }}
-        with:
-          toolchain: 1.99.0
-      - name: Compare baseline and candidate on the matching CPU
-        if: ${{ steps.cpu.outputs.matches == 'true' }}
-        env:
-          INTEL_PROBE_OUTPUT: ${{ runner.temp }}/mqtt-intel-proof
         run: |
           set -euo pipefail
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if command -v sudo >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y mosquitto
+          fi
+          version="$(mosquitto -h 2>&1 || true)"
+          [[ "$version" == *'mosquitto version 2.0.18'* ]]
           bin/bootstrap
-          baseline_ref=e7e9585dce0d366d62706ed602356af08581083c
+      - name: Download the exact archived reactor baseline
+        if: ${{ steps.cpu.outputs.matches == 'true' && matrix.container == '' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: mqtt-native-profile
+          run-id: 40940745734
+          github-token: ${{ github.token }}
+          path: ${{ env.BASELINE_ARTIFACT_DIR }}
+      - name: Build the ready-yield candidate with the baseline dependency lock
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$BENCH_OUTPUT"
+          baseline_ref=160fc2c2f96d0a408fc96ce1ea5471f1870c04db
           git fetch --no-tags origin "$baseline_ref"
-          git worktree add --detach "$RUNNER_TEMP/mqtt-intel-baseline" "$baseline_ref"
-          cp native/transport/Cargo.lock "$RUNNER_TEMP/mqtt-intel-baseline/native/transport/Cargo.lock"
-          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-intel-candidate-target" \
+          cp tool/mqtt_reference_Cargo.lock native/transport/Cargo.lock
+          printf '%s  %s\n' 02f2eb85fab55294fd6316f04f27ed1fc446201dde13a0f474b137bcb26b2ab8 native/transport/Cargo.lock | sha256sum -c -
+          if [[ -z "$BENCH_CONTAINER" ]]; then
+            baseline_library="$BASELINE_ARTIFACT_DIR/ws_sustained/libct_ffi.so"
+            printf '%s  %s\n' 3e97c194d2ec5ca9a1b9e20cbc002e13a80c2ca21e2231944766f54a4ac9d060 "$baseline_library" | sha256sum -c -
+          else
+            # Container linkage differs from the bare runner: rebuild its pair.
+            git worktree add --detach "$RUNNER_TEMP/mqtt-yield-baseline" "$baseline_ref"
+            cp native/transport/Cargo.lock "$RUNNER_TEMP/mqtt-yield-baseline/native/transport/Cargo.lock"
+            CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-yield-candidate-target" \
+              cargo build --manifest-path "$RUNNER_TEMP/mqtt-yield-baseline/native/transport/Cargo.toml" \
+                -p ct_ffi --release --features ffi-test --locked
+            baseline_library="$RUNNER_TEMP/mqtt-yield-baseline.so"
+            cp "$RUNNER_TEMP/mqtt-yield-candidate-target/release/libct_ffi.so" "$baseline_library"
+          fi
+          echo "BASELINE_LIBRARY=$baseline_library" >> "$GITHUB_ENV"
+          git show "$baseline_ref":native/transport/ct_core/src/lib.rs > "$BENCH_OUTPUT/baseline-core.rs"
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-yield-candidate-target" \
+            cargo test --manifest-path native/transport/Cargo.toml -p ct_core --lib mqtt_ --locked
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-yield-candidate-target" \
             cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --release --features ffi-test --locked
-          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-intel-baseline-target" \
-            cargo build --manifest-path "$RUNNER_TEMP/mqtt-intel-baseline/native/transport/Cargo.toml" \
-            -p ct_ffi --release --features ffi-test --locked
-          printf '%s\n' "$baseline_ref" > "$INTEL_PROBE_OUTPUT/baseline-ref.txt"
-          git rev-parse HEAD > "$INTEL_PROBE_OUTPUT/candidate-ref.txt"
+          {
+            printf 'baseline=%s\n' "$baseline_ref"
+            printf 'candidate='; git rev-parse HEAD
+            rustc -Vv
+            dart --version
+            sha256sum native/transport/Cargo.lock native/transport/ct_core/src/lib.rs \
+              "$BENCH_OUTPUT/baseline-core.rs" \
+              "$baseline_library" \
+              "$RUNNER_TEMP/mqtt-yield-candidate-target/release/libct_ffi.so"
+            lscpu
+          } > "$BENCH_OUTPUT"/build-provenance.txt
+      - name: Repeat every matched profile and retain failures
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        env:
+          ACTUAL_CPU_CLASS: ${{ steps.cpu.outputs.actual_class }}
+        run: |
+          set -euo pipefail
           result=0
-          bash tool/compare_mqtt_native.sh \
-            "$RUNNER_TEMP/mqtt-intel-baseline-target/release/libct_ffi.so" \
-            "$RUNNER_TEMP/mqtt-intel-candidate-target/release/libct_ffi.so" \
-            "$INTEL_PROBE_OUTPUT/comparison" || result=$?
+          env -u TOKIO_WORKER_THREADS -u CONNECTANUM_NATIVE_RUNTIME_THREADS \
+            bash tool/compare_mqtt_native.sh \
+              "$BASELINE_LIBRARY" \
+              "$RUNNER_TEMP/mqtt-yield-candidate-target/release/libct_ffi.so" \
+              "$BENCH_OUTPUT"/comparison || result=$?
           passed=false
           if [[ "$result" -eq 0 ]]; then passed=true; fi
-          printf '{"matched_intel_8370c":true,"benchmark_executed":true,"passed":%s}\n' "$passed" \
-            > "$INTEL_PROBE_OUTPUT/status.json"
+          printf '{"requested_cpu":"%s","actual_cpu_class":"%s","matched_requested_cpu":true,"benchmark_executed":true,"candidate_passed":%s}\n' "$REQUESTED_CPU" "$ACTUAL_CPU_CLASS" "$passed" > "$BENCH_OUTPUT"/status.json
           exit "$result"
-      - name: Upload hardware identity and comparison evidence
+      - name: Preserve raw comparison and source identity
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mqtt-intel-proof
-          path: ${{ runner.temp }}/mqtt-intel-proof
+          name: mqtt-yield-linux-comparison-${{ matrix.probe }}
+          path: ${{ env.BENCH_OUTPUT }}
           if-no-files-found: error
