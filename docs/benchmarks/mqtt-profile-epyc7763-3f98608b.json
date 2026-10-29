@@ -1,0 +1,358 @@
+{
+  "captureRun": "https://github.com/konsultaner/connectanum-dart/actions/runs/40882972385",
+  "diagnosticOnly": true,
+  "limitations": [
+    "Software cpu-clock sampling adds overhead; these are not benchmark acceptance measurements.",
+    "Kernel symbols are restricted on the capture host.",
+    "The 64 KiB capture is EPYC 7763, not the Intel CPU where that gate failed."
+  ],
+  "profiles": {
+    "64k_sustained": {
+      "capture": {
+        "brokerRuntime": "dartaotruntime",
+        "budget": {
+          "gate": "performance",
+          "max_broker_cpu_ratio_vs_mosquitto": 4.0,
+          "max_connectanum_broker_rss_bytes": 100663296,
+          "max_p95_latency_ratio_vs_mosquitto": 2.0,
+          "max_p99_latency_ratio_vs_mosquitto": 2.25,
+          "messages_per_run": 5000,
+          "min_delivered_throughput_ratio_vs_mosquitto": 0.75,
+          "payload_bytes": 65536,
+          "profile": "mqtt5-tcp-qos0-one-subscriber-65536B-window32",
+          "publish_mode": "single",
+          "repetitions": 5,
+          "window_messages": 32
+        },
+        "diagnosticOnly": true,
+        "provenance": {
+          "architecture": "x86_64",
+          "broker_exe_sha256": "0db575ac5706a75ee87dbd0bcbdbea5e53f1f2a1c79442178fcbcabccb0bd6a1",
+          "broker_mode": "native-router",
+          "broker_rss_measurement": "Linux VmHWM",
+          "client_exe_sha256": "a37b3780e7bd0fce7764bf6bdc5fcaec25627521f0112f6ec71c83f7b6badc4e",
+          "cpu_model": "AMD EPYC 7763 64-Core Processor",
+          "dart_version": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+          "git_commit": "b593be9133a7fe52a0d51682f10f4f6a06b15f6c",
+          "git_dirty": false,
+          "logical_cpus": 4,
+          "mosquitto_version": "mosquitto version 2.0.18",
+          "native_lib_sha256": "1e9db6d6f40ed4e0faa186e9334e0691fa1841d5be8eb67aed2fa9d633691a03",
+          "os": "Linux",
+          "runner_image": "ubuntu24",
+          "runner_image_version": "20261026.354.1"
+        },
+        "runtimePath": "dartaotruntime",
+        "runtimeVersion": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\""
+      },
+      "checkedInReportSha256": "e170d973dfa707154bc102eb00a42d2369fb58dc59150f0aca99772768151916",
+      "rawRows": [
+        {
+          "broker": "127.0.0.1:54661",
+          "duplicates": 0,
+          "elapsed_us": 1230564,
+          "latency_p50_us": 5804,
+          "latency_p95_us": 7360,
+          "latency_p99_us": 10549,
+          "mqtt_version": "5",
+          "payload_bytes": 65536,
+          "profile": "mqtt5-tcp-qos0-one-subscriber-65536B-window32",
+          "publish_mode": "single",
+          "received": 5000,
+          "received_per_subscriber": [
+            5000
+          ],
+          "run": 1,
+          "runner_rss_bytes": 48156672,
+          "sent": 5000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 4063.177534853937,
+          "transport": "tcp",
+          "warmup": 100,
+          "window_messages": 32
+        },
+        {
+          "broker": "127.0.0.1:54661",
+          "duplicates": 0,
+          "elapsed_us": 1236235,
+          "latency_p50_us": 5890,
+          "latency_p95_us": 7074,
+          "latency_p99_us": 7890,
+          "mqtt_version": "5",
+          "payload_bytes": 65536,
+          "profile": "mqtt5-tcp-qos0-one-subscriber-65536B-window32",
+          "publish_mode": "single",
+          "received": 5000,
+          "received_per_subscriber": [
+            5000
+          ],
+          "run": 2,
+          "runner_rss_bytes": 44949504,
+          "sent": 5000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 4044.538457493923,
+          "transport": "tcp",
+          "warmup": 100,
+          "window_messages": 32
+        },
+        {
+          "broker": "127.0.0.1:54661",
+          "duplicates": 0,
+          "elapsed_us": 1236841,
+          "latency_p50_us": 5960,
+          "latency_p95_us": 7151,
+          "latency_p99_us": 7736,
+          "mqtt_version": "5",
+          "payload_bytes": 65536,
+          "profile": "mqtt5-tcp-qos0-one-subscriber-65536B-window32",
+          "publish_mode": "single",
+          "received": 5000,
+          "received_per_subscriber": [
+            5000
+          ],
+          "run": 3,
+          "runner_rss_bytes": 51077120,
+          "sent": 5000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 4042.5568039869313,
+          "transport": "tcp",
+          "warmup": 100,
+          "window_messages": 32
+        },
+        {
+          "broker": "127.0.0.1:54661",
+          "duplicates": 0,
+          "elapsed_us": 1512803,
+          "latency_p50_us": 6303,
+          "latency_p95_us": 11526,
+          "latency_p99_us": 13215,
+          "mqtt_version": "5",
+          "payload_bytes": 65536,
+          "profile": "mqtt5-tcp-qos0-one-subscriber-65536B-window32",
+          "publish_mode": "single",
+          "received": 5000,
+          "received_per_subscriber": [
+            5000
+          ],
+          "run": 4,
+          "runner_rss_bytes": 46862336,
+          "sent": 5000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 3305.1230067629426,
+          "transport": "tcp",
+          "warmup": 100,
+          "window_messages": 32
+        },
+        {
+          "broker": "127.0.0.1:54661",
+          "duplicates": 0,
+          "elapsed_us": 1881126,
+          "latency_p50_us": 8356,
+          "latency_p95_us": 11855,
+          "latency_p99_us": 13573,
+          "mqtt_version": "5",
+          "payload_bytes": 65536,
+          "profile": "mqtt5-tcp-qos0-one-subscriber-65536B-window32",
+          "publish_mode": "single",
+          "received": 5000,
+          "received_per_subscriber": [
+            5000
+          ],
+          "run": 5,
+          "runner_rss_bytes": 46276608,
+          "sent": 5000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 2657.982506222337,
+          "transport": "tcp",
+          "warmup": 100,
+          "window_messages": 32
+        }
+      ],
+      "reportNormalization": "Trailing whitespace removed in checked-in report; reportSha256 identifies original recovered bytes.",
+      "reportPath": "mqtt-profile-epyc7763-64k_sustained.txt",
+      "reportProvenance": {
+        "perfDataSha256": "874321142a09b26acb8e9d506df7a9387fd226d6df946047fb8ae02ff9152818",
+        "rawRowsSha256": "87632dd2911b62f99df394c9687c538a4a0af0190a80b83e7bdfc6c7fba5bc26",
+        "rendererSha256": "0085ad4555924dfd89bbc3b06a5294a921c1979ba0f58b424433b8cb78cf4ca9",
+        "sourceProvenanceSha256": "2fffb98388955f9eac39b5821eda3ca43024c6c22d5fb1f6f6a025d9d04447ba"
+      },
+      "reportSha256": "495030ddcea23001469f0ebb37d771df63611e2756634d2f8468d76a184b542f",
+      "samples": 2131
+    },
+    "ws_sustained": {
+      "capture": {
+        "brokerRuntime": "dartaotruntime",
+        "budget": {
+          "gate": "performance",
+          "max_broker_cpu_ratio_vs_mosquitto": 5.0,
+          "max_connectanum_broker_rss_bytes": 67108864,
+          "max_p95_latency_ratio_vs_mosquitto": 2.5,
+          "max_p99_latency_ratio_vs_mosquitto": 2.75,
+          "messages_per_run": 200000,
+          "min_delivered_throughput_ratio_vs_mosquitto": 0.7,
+          "mqtt_version": "5",
+          "payload_bytes": 128,
+          "profile": "mqtt5-ws-qos0-one-subscriber-128B-window512",
+          "publish_mode": "single",
+          "repetitions": 5,
+          "transport": "ws",
+          "window_messages": 512
+        },
+        "diagnosticOnly": true,
+        "provenance": {
+          "architecture": "x86_64",
+          "broker_exe_sha256": "0db575ac5706a75ee87dbd0bcbdbea5e53f1f2a1c79442178fcbcabccb0bd6a1",
+          "broker_mode": "native-router",
+          "broker_rss_measurement": "Linux VmHWM",
+          "client_exe_sha256": "a37b3780e7bd0fce7764bf6bdc5fcaec25627521f0112f6ec71c83f7b6badc4e",
+          "cpu_model": "AMD EPYC 7763 64-Core Processor",
+          "dart_version": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+          "git_commit": "b593be9133a7fe52a0d51682f10f4f6a06b15f6c",
+          "git_dirty": false,
+          "logical_cpus": 4,
+          "mosquitto_version": "mosquitto version 2.0.18",
+          "native_lib_sha256": "1e9db6d6f40ed4e0faa186e9334e0691fa1841d5be8eb67aed2fa9d633691a03",
+          "os": "Linux",
+          "runner_image": "ubuntu24",
+          "runner_image_version": "20261026.354.1"
+        },
+        "runtimePath": "dartaotruntime",
+        "runtimeVersion": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\""
+      },
+      "checkedInReportSha256": "9a35a2dd4a0f50c73a68cc7eed7685f90704666e4ca955fd665d6a966af70c3f",
+      "rawRows": [
+        {
+          "broker": "127.0.0.1:38883",
+          "duplicates": 0,
+          "elapsed_us": 6922349,
+          "latency_p50_us": 8699,
+          "latency_p95_us": 17892,
+          "latency_p99_us": 21696,
+          "mqtt_version": "5",
+          "payload_bytes": 128,
+          "profile": "mqtt5-ws-qos0-one-subscriber-128B-window512",
+          "publish_mode": "single",
+          "received": 200000,
+          "received_per_subscriber": [
+            200000
+          ],
+          "run": 1,
+          "runner_rss_bytes": 23760896,
+          "sent": 200000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 28891.92671447221,
+          "transport": "ws",
+          "warmup": 100,
+          "window_messages": 512
+        },
+        {
+          "broker": "127.0.0.1:38883",
+          "duplicates": 0,
+          "elapsed_us": 8718655,
+          "latency_p50_us": 10860,
+          "latency_p95_us": 22779,
+          "latency_p99_us": 30760,
+          "mqtt_version": "5",
+          "payload_bytes": 128,
+          "profile": "mqtt5-ws-qos0-one-subscriber-128B-window512",
+          "publish_mode": "single",
+          "received": 200000,
+          "received_per_subscriber": [
+            200000
+          ],
+          "run": 2,
+          "runner_rss_bytes": 23896064,
+          "sent": 200000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 22939.318048483397,
+          "transport": "ws",
+          "warmup": 100,
+          "window_messages": 512
+        },
+        {
+          "broker": "127.0.0.1:38883",
+          "duplicates": 0,
+          "elapsed_us": 8176177,
+          "latency_p50_us": 10394,
+          "latency_p95_us": 20356,
+          "latency_p99_us": 22399,
+          "mqtt_version": "5",
+          "payload_bytes": 128,
+          "profile": "mqtt5-ws-qos0-one-subscriber-128B-window512",
+          "publish_mode": "single",
+          "received": 200000,
+          "received_per_subscriber": [
+            200000
+          ],
+          "run": 3,
+          "runner_rss_bytes": 23543808,
+          "sent": 200000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 24461.30997408691,
+          "transport": "ws",
+          "warmup": 100,
+          "window_messages": 512
+        },
+        {
+          "broker": "127.0.0.1:38883",
+          "duplicates": 0,
+          "elapsed_us": 8097354,
+          "latency_p50_us": 10207,
+          "latency_p95_us": 20362,
+          "latency_p99_us": 22712,
+          "mqtt_version": "5",
+          "payload_bytes": 128,
+          "profile": "mqtt5-ws-qos0-one-subscriber-128B-window512",
+          "publish_mode": "single",
+          "received": 200000,
+          "received_per_subscriber": [
+            200000
+          ],
+          "run": 4,
+          "runner_rss_bytes": 24002560,
+          "sent": 200000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 24699.426504016003,
+          "transport": "ws",
+          "warmup": 100,
+          "window_messages": 512
+        },
+        {
+          "broker": "127.0.0.1:38883",
+          "duplicates": 0,
+          "elapsed_us": 8236768,
+          "latency_p50_us": 10441,
+          "latency_p95_us": 20576,
+          "latency_p99_us": 23244,
+          "mqtt_version": "5",
+          "payload_bytes": 128,
+          "profile": "mqtt5-ws-qos0-one-subscriber-128B-window512",
+          "publish_mode": "single",
+          "received": 200000,
+          "received_per_subscriber": [
+            200000
+          ],
+          "run": 5,
+          "runner_rss_bytes": 23748608,
+          "sent": 200000,
+          "subscribers": 1,
+          "throughput_delivered_per_sec": 24281.36861448568,
+          "transport": "ws",
+          "warmup": 100,
+          "window_messages": 512
+        }
+      ],
+      "reportNormalization": "Trailing whitespace removed in checked-in report; reportSha256 identifies original recovered bytes.",
+      "reportPath": "mqtt-profile-epyc7763-ws_sustained.txt",
+      "reportProvenance": {
+        "perfDataSha256": "e56d40bc494e9a0518e86c4e7b571db077f296b09ad95d9973659aa696dbcc70",
+        "rawRowsSha256": "3e99d41f5b6787e7126c77e9a9add5ad200b9ac7dbff3fec4070201178349775",
+        "rendererSha256": "0085ad4555924dfd89bbc3b06a5294a921c1979ba0f58b424433b8cb78cf4ca9",
+        "sourceProvenanceSha256": "94fe38fc4446ac20b4a66ae9a6e978682e25329fbace295e842ffb99ec38d9e6"
+      },
+      "reportSha256": "88158e769c3a07f1ddeaa7870d8e1ac76a3256ec313647869ebb1ed79e2d5c63",
+      "samples": 11751
+    }
+  },
+  "recoveryRun": "https://github.com/konsultaner/connectanum-dart/actions/runs/40886550124"
+}

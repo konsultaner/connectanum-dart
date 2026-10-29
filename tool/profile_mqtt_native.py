@@ -129,7 +129,7 @@ def render_profile(output, perf="perf"):
     with report.open("w") as stream:
         subprocess.run(
             [str(perf), "report", "--stdio", "--no-children", "--sort", "comm,dso,symbol",
-             "--percent-limit", "0.5", "-i", str(output / "perf.data")],
+             "--percent-limit", "0", "-i", str(output / "perf.data")],
             stdout=stream, stderr=subprocess.STDOUT, check=True, timeout=60,
         )
     symbols = report.read_text()

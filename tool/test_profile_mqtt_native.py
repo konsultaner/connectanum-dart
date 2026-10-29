@@ -101,6 +101,8 @@ class NativeMqttProfileTest(unittest.TestCase):
         self.assertEqual(self.sampler.signals, [signal.SIGINT])
         self.assertTrue(self.broker.terminated)
         self.assertFalse(self.sampler.killed)
+        report = next(command for command in self.commands if command[0] == "test-perf")
+        self.assertEqual(report[report.index("--percent-limit") + 1], "0")
 
     def test_perf_startup_failure_stops_broker_without_running_clients(self):
         self.popen.side_effect = [self.broker, OSError("perf unavailable")]

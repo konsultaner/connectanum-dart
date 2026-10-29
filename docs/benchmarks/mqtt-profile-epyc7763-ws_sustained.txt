@@ -1,0 +1,193 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+Warning:
+Kernel address maps (/proc/{kallsyms,modules}) were restricted.
+
+Check /proc/sys/kernel/kptr_restrict before running 'perf record'.
+
+As no suitable kallsyms nor vmlinux was found, kernel samples
+can't be resolved.
+
+Samples in kernel modules can't be resolved as well.
+
+#
+# Total Lost Samples: 0
+#
+# Samples: 11K of event 'cpu-clock'
+# Event count (approx.): 23549098008
+#
+# Overhead  Command          Shared Object                               Symbol                                                                                                                                                                                                                                                                                                                                                 IPC   [IPC Coverage]
+# ........  ...............  ..........................................  .....................................................................................................................................................................................................................................................................................................................................................  ....................
+#
+     4.68%  connectanum-rt   [unknown]                                   [k] 0xffffffff863e942b                                                                                                                                                                                                                                                                                                                                 -      -
+            |
+            ---0xffffffff863e942b
+               0xffffffff876c31d8
+               0xffffffff876c3597
+               |
+               |--2.37%--0xffffffff864ef7aa
+               |          0xffffffff864effc9
+               |          0xffffffff864f00c2
+               |          0xffffffff864ebad5
+               |          0xffffffff864ec399
+               |          0xffffffff86290738
+               |          0xffffffff876b3b29
+               |          0xffffffff8600012b
+               |
+               |--1.22%--0xffffffff876cb2af
+               |          0xffffffff876cb2e3
+               |          0xffffffff868bc83a
+               |          0xffffffff868bc8e7
+               |          0xffffffff868bd27e
+               |          0xffffffff8629025b
+               |          0xffffffff876b3b29
+               |          0xffffffff8600012b
+               |
+                --1.10%--0xffffffff864b01ac
+                          0xffffffff876b3c70
+                          0xffffffff8600012b
+
+     4.54%  connectanum-rt   [unknown]                                   [k] 0xffffffff876ccfa1                                                                                                                                                                                                                                                                                                                                 -      -
+            |
+            ---0xffffffff876ccfa1
+               |
+               |--3.80%--0xffffffff863f37bc
+               |          0xffffffff863f3dab
+               |          0xffffffff864ef32d
+               |          0xffffffff864ebb5e
+               |          0xffffffff864ec399
+               |          0xffffffff86290738
+               |          0xffffffff876b3b29
+               |          0xffffffff8600012b
+               |
+                --0.57%--0xffffffff8643cc89
+                          0xffffffff8737e816
+                          0xffffffff874c42a8
+                          |
+                           --0.56%--0xffffffff874c4606
+                                     0xffffffff874c4fbe
+                                     0xffffffff874da3ff
+
+     2.48%  DartWorker       [unknown]                                   [k] 0xffffffff876ccfa1                                                                                                                                                                                                                                                                                                                                 -      -
+            |
+            ---0xffffffff876ccfa1
+               |
+               |--1.52%--0xffffffff8643cc89
+               |          0xffffffff86845a81
+               |          0xffffffff86837a94
+               |          0xffffffff86837f4e
+               |          0xffffffff86837f99
+               |          0xffffffff8628e839
+               |          0xffffffff876b3b29
+               |          0xffffffff8600012b
+               |          |
+               |           --1.11%--write
+               |
+                --0.73%--0xffffffff863f37bc
+                          0xffffffff863f3dab
+                          0xffffffff864ef32d
+                          0xffffffff864ebb5e
+                          0xffffffff864ec399
+                          0xffffffff86290738
+                          0xffffffff876b3b29
+                          0xffffffff8600012b
+                          |
+                           --0.52%--syscall
+
+     2.30%  DartWorker       [unknown]                                   [k] 0xffffffff876cd8a5                                                                                                                                                                                                                                                                                                                                 -      -
+            |
+            ---0xffffffff876cd8a5
+               |
+                --2.15%--0xffffffff868c0d44
+                          0xffffffff868377ea
+                          0xffffffff86837ef1
+                          0xffffffff86837f99
+                          0xffffffff8628e839
+                          0xffffffff876b3b29
+                          0xffffffff8600012b
+                          |
+                           --2.02%--write
+
+     1.68%  connectanum-rt   libct_ffi.so                                [.] ct_core::spawn_mqtt_websocket_reader::{closure#0}                                                                                                                                                                                                                                                                                                  -      -
+     1.50%  DartWorker       [unknown]                                   [k] 0xffffffff863e942b                                                                                                                                                                                                                                                                                                                                 -      -
+            |
+            ---0xffffffff863e942b
+               0xffffffff876c31d8
+               0xffffffff876c3597
+               |
+                --1.23%--0xffffffff864ef7aa
+                          0xffffffff864effc9
+                          0xffffffff864f00c2
+                          0xffffffff864ebad5
+                          0xffffffff864ec399
+                          0xffffffff86290738
+                          0xffffffff876b3b29
+                          0xffffffff8600012b
+                          |
+                           --0.78%--0x7f16c6298e51
+                                     |
+                                      --0.77%--pthread_cond_timedwait
+
+     0.77%  DartWorker       mqtt-broker.aot                             [.] String._splitWithCharCode                                                                                                                                                                                                                                                                                                                          -      -
+            |
+             --0.50%--_StringBase._substringUnchecked (inlined)
+                       String._splitWithCharCode
+                       String.split
+                       MqttQos0Broker._matches
+                       MqttQos0Broker._publish.<anonymous closure> (inlined)
+                       SetBase.any (inlined)
+                       MqttQos0Broker._publish
+                       _Peer._handle
+                       _Peer._onData
+                       MqttQos0Broker.receiveNativeChunk (inlined)
+                       _RouterBoss._drainMqtt
+                       _RouterBoss._loop
+                       _SuspendState._createAsyncStarCallback.<anonymous closure>
+                       _RootZone.runUnary (inlined)
+                       _SuspendState._awaitCompletedFuture.run
+                       _microtaskLoop
+                       _startMicrotaskLoop
+                       _startMicrotaskLoop
+                       _runPendingImmediateCallback (inlined)
+
+     0.76%  DartWorker       mqtt-broker.aot                             [.] stub AllocateObjectParameterized                                                                                                                                                                                                                                                                                                                   -      -
+            |
+             --0.60%--stub AllocateObjectParameterized
+
+     0.76%  connectanum-rt   libct_ffi.so                                [.] <tokio::io::util::buf_reader::BufReader<tokio::io::split::ReadHalf<ct_core::io_stream::IoStream>> as tokio::io::async_read::AsyncRead>::poll_read                                                                                                                                                                                                  -      -
+     0.75%  connectanum-rt   libct_ffi.so                                [.] <tokio::runtime::scheduler::multi_thread::worker::Context>::run                                                                                                                                                                                                                                                                                    -      -
+     0.70%  connectanum-rt   libc.so.6                                   [.] malloc                                                                                                                                                                                                                                                                                                                                             -      -
+     0.69%  connectanum-rt   [unknown]                                   [k] 0xffffffff876b3aa2                                                                                                                                                                                                                                                                                                                                 -      -
+            |
+            ---0xffffffff876b3aa2
+               0xffffffff8600012b
+
+     0.66%  connectanum-rt   libc.so.6                                   [.] cfree                                                                                                                                                                                                                                                                                                                                              -      -
+     0.62%  connectanum-rt   libc.so.6                                   [.] syscall                                                                                                                                                                                                                                                                                                                                            -      -
+     0.61%  DartWorker       libct_ffi.so                                [.] ct_core::poll_mqtt_chunk                                                                                                                                                                                                                                                                                                                           -      -
+     0.59%  DartWorker       mqtt-broker.aot                             [.] String.contains                                                                                                                                                                                                                                                                                                                                    -      -
+            |
+             --0.52%--String.contains
+
+     0.57%  DartWorker       mqtt-broker.aot                             [.] MqttPacketCodec.encodePublish                                                                                                                                                                                                                                                                                                                      -      -
+     0.56%  dart:io EventHa  [unknown]                                   [k] 0xffffffff863e942b                                                                                                                                                                                                                                                                                                                                 -      -
+            |
+            ---0xffffffff863e942b
+               0xffffffff876c31d8
+               0xffffffff876c3597
+               |
+                --0.52%--0xffffffff876cb2af
+                          0xffffffff876cb2e3
+                          0xffffffff868bc83a
+                          0xffffffff868bc8e7
+                          0xffffffff868bd27e
+                          0xffffffff8629025b
+                          0xffffffff876b3b29
+                          0xffffffff8600012b
+
+     0.52%  connectanum-rt   libct_ffi.so                                [.] ct_core::xor_websocket_mask                                                                                                                                                                                                                                                                                                                        -      -
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#
