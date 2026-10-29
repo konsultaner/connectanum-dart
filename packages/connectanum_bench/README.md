@@ -49,6 +49,8 @@ check delivery only. Both cleartext WebSocket throughput rows missed their gates
 | Hosted run and CPU | WS 5 rate × | WS 3.1.1 rate × | TCP 3.1.1 rate × | 64 KiB CPU × | Gate |
 | --- | ---: | ---: | ---: | ---: | --- |
 | Required limit | ≥0.700 | ≥0.700 | ≥0.750 | ≤4.000 | — |
+| [Reverted experiment `1660422d`](https://github.com/konsultaner/connectanum-dart/actions/runs/40873085554/job/123444869138), EPYC 7763 | 0.645 | 0.649 | 0.831 | 3.727 | Fail (WS rate) |
+| [Same experiment](https://github.com/konsultaner/connectanum-dart/actions/runs/40873092619/job/123444901951), EPYC 9V45 | 0.824 | 0.814 | 1.025 | 3.417 | Pass |
 | [Latest `9aa6b17d`](https://github.com/konsultaner/connectanum-dart/actions/runs/40738597149/job/122994405521), EPYC 7763 | 0.647 | 0.646 | 0.827 | 3.727 | Fail (WS rate) |
 | [Same-code repeat `84b22de8`](https://github.com/konsultaner/connectanum-dart/actions/runs/40728294139/job/122957384343), EPYC 9V74 | 0.760 | 0.760 | 1.045 | 3.375 | Pass |
 | [Measured `2dea8b8e`](https://github.com/konsultaner/connectanum-dart/actions/runs/40723591569/job/122941052743), Xeon 8370C | 0.861 | 0.874 | 0.871 | 4.200 | Fail (64 KiB CPU) |
@@ -71,6 +73,23 @@ include every sample, workload setting, limit, and runner detail. The
 and an [earlier passing AMD snapshot](../../docs/benchmarks/mqtt-hosted-amd-fccc7566.json)
 are available for comparison. These results describe this measured run; QoS 0
 does not guarantee delivery in every deployment.
+
+The buffered-frame experiment was reverted because the EPYC 7763 gate remained
+red. Its [same-runner comparison](../../docs/benchmarks/mqtt-native-comparison-1660422d.json)
+shows small, mixed changes on EPYC 9V45. Higher delivery rate and lower CPU time are better.
+
+| Workload | Metric | Baseline 1 | Candidate 1 | Baseline 2 | Candidate 2 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| WS MQTT 5 | Deliveries/s | 57,364 | 57,607 | 55,134 | 55,776 |
+| WS MQTT 5 | Broker CPU seconds | 4.26 | 4.13 | 4.45 | 4.35 |
+| WS MQTT 3.1.1 | Deliveries/s | 55,125 | 55,941 | 56,039 | 55,471 |
+| WS MQTT 3.1.1 | Broker CPU seconds | 4.24 | 4.13 | 4.34 | 4.38 |
+| TCP 64 KiB | Deliveries/s | 7,083 | 7,044 | 7,012 | 7,045 |
+| TCP 64 KiB | Broker CPU seconds | 0.41 | 0.40 | 0.39 | 0.41 |
+
+Complete experimental matrices are available for
+[EPYC 7763](../../docs/benchmarks/mqtt-hosted-pr128-1660422d-epyc7763.json) and
+[EPYC 9V45](../../docs/benchmarks/mqtt-hosted-pr128-1660422d-epyc9v45.json).
 
 ## WAMP throughput
 

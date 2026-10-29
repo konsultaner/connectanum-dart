@@ -104,6 +104,30 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 self.assertIn("package:lints/recommended.yaml", analysis_options)
                 self.assertIn("trailing_commas: preserve", analysis_options)
 
+    def test_mqtt_comparison_table_matches_same_runner_samples(self) -> None:
+        report = json.loads((REPO_ROOT / "docs/benchmarks/mqtt-native-comparison-1660422d.json").read_text())
+        readme = BENCH_README.read_text()
+        legs = report["legs"]
+        self.assertEqual([leg["name"] for leg in legs],
+                         ["baseline-1", "candidate-1", "baseline-2", "candidate-2"])
+        rows = [row for leg in legs for profile in leg["profiles"] for row in profile["rawRows"]]
+        self.assertEqual(report["totalRawRows"], len(rows))
+        self.assertEqual(report["totalExactDeliveries"], sum(row["received"] for row in rows))
+        self.assertTrue(all(row["received"] == row["sent"] * row["subscribers"] and row["duplicates"] == 0 for row in rows))
+        for name, label in [("ws_sustained", "WS MQTT 5"),
+                            ("ws_v311_sustained", "WS MQTT 3.1.1"),
+                            ("64k_sustained", "TCP 64 KiB")]:
+            summaries = [next(profile["summary"] for profile in leg["profiles"] if profile["name"] == name) for leg in legs]
+            self.assertTrue(all(summary["budgets"] == summaries[0]["budgets"] for summary in summaries))
+            self.assertTrue(all("EPYC 9V45" in summary["provenance"]["cpu_model"] for summary in summaries))
+            self.assertNotEqual(summaries[0]["provenance"]["native_lib_sha256"], summaries[1]["provenance"]["native_lib_sha256"])
+            for metric, field, fmt in [
+                ("Deliveries/s", "connectanum_delivered_per_sec_median", ",.0f"),
+                ("Broker CPU seconds", "connectanum_broker_cpu_seconds_median", ".2f"),
+            ]:
+                values = " | ".join(format(summary[field], fmt) for summary in summaries)
+                self.assertIn(f"| {label} | {metric} | {values} |", readme)
+
     def test_bench_readme_publishes_current_result_snapshot(self) -> None:
         readme = BENCH_README.read_text(encoding="utf-8")
         mqtt_report = json.loads(MQTT_BENCHMARK_REPORT.read_text(encoding="utf-8"))
