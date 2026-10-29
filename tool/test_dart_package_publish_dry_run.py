@@ -31,7 +31,7 @@ MQTT_BENCHMARK_REPORT = (
     REPO_ROOT
     / "docs"
     / "benchmarks"
-    / "mqtt-hosted-pr128-504bae32.json"
+    / "mqtt-hosted-pr128-e7e9585d.json"
 )
 MQTT_BENCHMARK_REPEAT = (
     REPO_ROOT
@@ -250,7 +250,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertIn("mqtt-hosted-pr128-2dea8b8e.json", mqtt_table)
         latest_row = next(
             row for row in mqtt_table.splitlines()
-            if row.startswith("| [Latest `504bae32`]")
+            if row.startswith("| [Latest `e7e9585d`]")
         )
         latest_cells = [cell.strip() for cell in latest_row.strip("|").split("|")]
         self.assertIn("EPYC 7763", latest_cells[0])

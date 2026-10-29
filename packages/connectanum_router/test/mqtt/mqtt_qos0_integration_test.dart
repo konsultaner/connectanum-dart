@@ -850,6 +850,54 @@ void main() {
     expect(ordinary.payload, [17]);
   });
 
+  test(
+    'overlapping exact and wildcard filters deliver once in wire order',
+    () async {
+      final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
+      final subscriber = await MqttQos0Client.connect(
+        '127.0.0.1',
+        broker.port,
+        clientId: 'overlap-subscriber',
+      );
+      final publisher = await MqttQos0Client.connect(
+        '127.0.0.1',
+        broker.port,
+        clientId: 'overlap-publisher',
+      );
+      final topics = <String>[];
+      final complete = Completer<void>();
+      final subscription = subscriber.messages.listen((message) {
+        topics.add(message.topic);
+        if (message.topic == 'public/sentinel') complete.complete();
+      });
+      addTearDown(() async {
+        await subscription.cancel();
+        await publisher.close();
+        await subscriber.close();
+        await broker.close();
+      });
+      for (final filter in ['métric/one', 'métric/+', '#', r'$SYS/health']) {
+        await subscriber.subscribe(filter);
+      }
+      for (final topic in [
+        'métric/one',
+        'métric/two',
+        r'$SYS/health',
+        r'$SYS/unmatched',
+        'public/sentinel',
+      ]) {
+        await publisher.publish(topic, Uint8List.fromList([0, 255]));
+      }
+      await complete.future.timeout(const Duration(seconds: 3));
+      expect(topics, [
+        'métric/one',
+        'métric/two',
+        r'$SYS/health',
+        'public/sentinel',
+      ]);
+    },
+  );
+
   test('MQTT 5 publisher reaches MQTT 3.1.1 wildcard subscriber', () async {
     final broker = await MqttQos0Broker.bind('127.0.0.1', 0);
     final subscriber = await MqttQos0Client.connect(
