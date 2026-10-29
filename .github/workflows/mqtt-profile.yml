@@ -1,17 +1,9 @@
-name: MQTT yield Linux comparison
-
+name: MQTT Intel 8370C ready-yield comparison
 on:
   workflow_dispatch:
-    inputs:
-      target_cpu:
-        description: Measure either needed CPU class or request one explicitly; always record the actual class
-        type: choice
-        required: true
-        default: either
-        options: [either, '7763', 9V74, 8370C]
 
 concurrency:
-  group: mqtt-yield-linux-${{ github.ref }}-${{ inputs.target_cpu }}
+  group: mqtt-yield-intel-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -20,20 +12,35 @@ permissions:
 
 jobs:
   compare:
-    name: MQTT ready-yield A/B probe ${{ matrix.probe }}
+    name: MQTT actual8370C ready-yield probe ${{ matrix.probe }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - probe: amd-1
-            runner: ubuntu-24.04
-            container: ''
-          - probe: amd-2
-            runner: ubuntu-24.04
-            container: ''
-          - probe: intel
+          - probe: 1
             runner: ubuntu-22.04
             container: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+          - probe: 2
+            runner: ubuntu-24.04
+            container: ''
+          - probe: 3
+            runner: ubuntu-22.04
+            container: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+          - probe: 4
+            runner: ubuntu-24.04
+            container: ''
+          - probe: 5
+            runner: ubuntu-22.04
+            container: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+          - probe: 6
+            runner: ubuntu-24.04
+            container: ''
+          - probe: 7
+            runner: ubuntu-22.04
+            container: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+          - probe: 8
+            runner: ubuntu-24.04
+            container: ''
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container }}
     defaults:
@@ -45,7 +52,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: 0
       CARGO_PROFILE_TEST_DEBUG: 0
       CARGO_INCREMENTAL: 0
-      REQUESTED_CPU: ${{ inputs.target_cpu }}
+      REQUESTED_CPU: 8370C
       BENCH_OUTPUT: /tmp/mqtt-yield-linux-${{ github.run_id }}-${{ matrix.probe }}
       BENCH_CONTAINER: ${{ matrix.container }}
       BASELINE_ARTIFACT_DIR: /tmp/mqtt-yield-baseline-${{ github.run_id }}-${{ matrix.probe }}
