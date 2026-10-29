@@ -2,9 +2,59 @@
 
 Status: active. Started: 2026-10-03.
 
-Current step: remove a redundant typed-PPT metadata projection and renew the
-unchanged gates. Runtime `9bf3235c` is the latest measured checkpoint.
+Current step: validate scoped native body generation and renew the unchanged
+performance/copy gates. Runtime `828721fd` is the latest measured checkpoint.
 Earlier sections retain checkpoint history, including rejected experiments.
+
+## Guarded native body generation investigation (2026-10-29)
+
+- [x] Renew baseline `bin/test-fast`: complete exit 0. Existing `9bf3235c` CI
+  `40929882938` passes all 38 jobs; `828721fd` CI `40949419438` also passes all 38 jobs.
+- [x] Minimal actual-constructor repro observes 65,536 Dart body staging bytes
+  in each native codec. A private scoped-writer model produces 76 exact CBEN
+  boundary vectors with zero input/growth copies and rejects escaped writes.
+- [x] Retain/reject the initial unleased own-test-overlapped timing before using
+  it. After the baseline exits, isolated leased scalar/stream timing is valid
+  only as component evidence. Existing FB putUint32 loops are about 10x slower;
+  the sequential scoped writer is 14–27% slower. A callback-per-word batch also
+  regresses. None is adopted or claimed as parity. Lease-refused attempts run
+  no measurements and are retained separately.
+- [x] Evaluate an indexed guarded region with zero-initialized vector storage,
+  closed-view checks and no raw mutable escape. No benchmark-native pattern
+  generator, body caching, SDK tuning or acceptance-policy change is allowed.
+- [x] Integrate a guarded word writer as a candidate. Its final private typed-data
+  field and closed guard avoid per-word prepare/cursor overhead. Fresh vectors
+  use the native ABI's zero initialization; every reset enables explicit span
+  clearing, including if reset fails. All word writers close before publication.
+  Callback/Future/copy failure blocks publication. The fixed byte-range API
+  intentionally preserves untouched existing values and has no reset method.
+- [x] Apply the same pure-Dart value generation to all three native codecs.
+  Preserve CBEN/PPT bytes and all data, observations and timing windows. CBOR/MP
+  use at most three untransmitted leading allocation bytes to align word stores.
+  Their frozen spans/wire sizes are unchanged. Explicit input/growth copies stay
+  counted; the complete native constructors now have zero body input-copy bytes.
+- [x] Pass 215 focused model/live transport cases and the initial 67 ownership
+  cases, including the standalone freed-allocation/closed-writer GC probe.
+  Complete analysis exits 0 with no new diagnostics. All 167 mutation proofs
+  remain valid. Source review rejects unsupported stale-view and span claims;
+  document/test fixed-range preservation rather than adding unwanted clearing.
+- [x] Complete all 70 ownership checks, including a fail-first isolate-port
+  transfer test. Both scoped types implement Finalizable and are unsendable,
+  so their active guard cannot be cloned into another isolate. The native
+  child verifies closed facades retain no actual native allocation.
+- [x] Reproduce a separate actual native owner-probe coalescing bug: a real
+  64 KiB fragmented Session RPC invokes its contiguous getter once. Move the
+  getter behind the existing owner/encoding checks, retaining every native
+  identity/ownership condition. It now reads zero times, with exact echoed bytes
+  and handshake/Goodbye codes. All 74 related regressions and 167 proofs pass;
+  focused review finds no concrete defect. Supersede the in-progress canonical
+  run before completion and retain its log; no numerical run is discarded.
+- [x] Complete checkpoint reporting: b7a6 supplemental `40925767834` finishes all
+  three shards and merge. Independent reproduction exactly matches comparison
+  and provenance: 50 cases / 1,500 rows / zero integrity findings / 195 numerical
+  diagnostics. Preserve d1b's 193 diagnostics and all earlier cost reports.
+- [ ] Finish frozen-source canonical validation and fresh hosted copy/parity evidence; apply shared APIs to CBOR/MessagePack as well. Keep
+  ordinary Dart-values and pre-encoded groups semantically distinct.
 
 ## Redundant typed-PPT projection follow-up (2026-10-29)
 
@@ -25,9 +75,23 @@ Earlier sections retain checkpoint history, including rejected experiments.
   isolated resource-leased ABBA timing records baseline 354,969/352,194 us and
   candidate 296,254/296,057 us per 200,000 decodes, equal result checks. Local
   Dart 3.13.1/macOS only; no forced GC or workload/parity claim.
-- [ ] Complete canonical validation and hosted copy/parity evidence on a frozen
-  source. Preserve `9bf3235c`'s eight numeric failures; never rerun unchanged
-  campaigns for a better number or waive any strict point/confidence gate.
+- [x] Complete canonical verification on `828721fd`: full `bin/verify` exits 0,
+  including native/FFI, VM, consumers and full Chrome/WebAssembly suites.
+- [x] Audit hosted copy proof `40941222405`: 3,224 inputs, 120 live / 300
+  inventory / 32 zero-avoidable-copy checks, all E2EE/transcode/native-crypto
+  counts, unchanged source/library, stable PIDs and cleanup. Three native-view
+  positive phases pass and the intentional negative control is observed.
+- [x] Independently reproduce all 90 rows from paired `40941226221`, including
+  exact comparison, pinned inputs/scenarios and retained production binaries.
+- [ ] Fix three remaining numerical misses: Dart-values RSS 1.016113
+  (CI [1.001543, 1.022033]); native-buffer p99 1.034644
+  (CI [0.800252, 1.330524]); pre-encoded RSS 1.001925
+  (CI [0.992392, 1.017865]). All throughput/CPU/p95/allocation/GC gates and
+  Dart-values p99 pass. Preserve every previous campaign; no unchanged
+  numerical rerun, threshold change, forced GC or measurement-window change.
+- [ ] Complete final-source hosted CI, all 48 primary cases and the final-source
+  50-case supplemental report only after the diagnostic parity prerequisite.
+
 
 ## Pre-encoded staging follow-up (2026-10-29)
 

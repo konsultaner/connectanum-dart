@@ -96,24 +96,49 @@ abstract final class BenchPayloadCodec {
     required int bodyBytes,
     int? initialSize,
   }) {
+    _checkIdentity(worker, iteration);
+    final capacity = _initialFlatBufferSize(bodyBytes);
     final builder = allocator.flatBuffers(
-      initialSize: initialSize ?? _initialFlatBufferSize(bodyBytes),
+      initialSize: initialSize ?? capacity,
       // This fixture contains one table, so there is no vtable to reuse.
       // Match encodeDart rather than allocating a per-message vtable list.
       deduplicateTables: false,
     );
     try {
-      builder.finish(
-        schema.WorkloadPayloadObjectBuilder(
-          worker: worker,
-          iteration: iteration,
-          body: body(worker: worker, iteration: iteration, length: bodyBytes),
-        ).finish(builder),
-        fileIdentifier,
+      final vector = builder.writeByteVector(
+        bodyBytes,
+        (bytes) => _fillNativeBody(bytes, worker: worker, iteration: iteration),
       );
+      final table = schema.WorkloadPayloadBuilder(builder)..begin();
+      table
+        ..addWorker(worker)
+        ..addIteration(iteration)
+        ..addBodyOffset(vector);
+      builder.finish(table.finish(), fileIdentifier);
       return builder.freeze();
     } finally {
       builder.dispose();
+    }
+  }
+
+  // The same Dart-generated words as body(), stored directly into native
+  // output. Every byte is produced here; no native pattern generator or
+  // reusable body buffer participates in native construction.
+  static void _fillNativeBody(
+    NativeWritableBytes bytes, {
+    required int worker,
+    required int iteration,
+  }) {
+    final count = bytes.length >> 2;
+    final words = bytes.uint32Words(count: count);
+    var value = (worker * 17 + iteration * 29) & 0xff;
+    for (var word = 0; word < count; word++) {
+      words[word] = _expectedBodyWords[value];
+      value = (value + 124) & 0xff;
+    }
+    for (var index = count << 2; index < bytes.length; index++) {
+      bytes.setUint8(index, value);
+      value = (value + 31) & 0xff;
     }
   }
 
@@ -146,7 +171,7 @@ abstract final class BenchPayloadCodec {
       : 5;
 
   /// Encodes the fixed CBOR/MessagePack benchmark PPT model in native storage.
-  /// Header/scalar fields are written directly; only the body input is copied.
+  /// Header/scalar fields and the Dart-generated body are written directly.
   /// Other serializers continue to use their regular public codecs.
   static NativeOwnedBuffer encodeNativePpt(
     NativeBufferAllocator allocator, {
@@ -160,10 +185,12 @@ abstract final class BenchPayloadCodec {
       'msgpack' => false,
       _ => throw ArgumentError.value(serializer, 'serializer'),
     };
-    final data = body(
-      worker: worker,
-      iteration: iteration,
-      length: bodyBytes,
+    _checkIdentity(worker, iteration);
+    RangeError.checkValueInInterval(
+      bodyBytes,
+      0,
+      64 * 1024 * 1024,
+      'bodyBytes',
     );
     // Two maps, one array, five short ASCII keys, and the null keyword value.
     final length =
@@ -172,8 +199,13 @@ abstract final class BenchPayloadCodec {
         _uintWidth(iteration, cbor) +
         _binaryWidth(bodyBytes, cbor) +
         bodyBytes;
-    final builder = allocator.allocate(length);
-    var offset = 0;
+    // Keep the body physically word-aligned. The leading allocation slack is
+    // outside the frozen encoded span and never changes the PPT wire bytes.
+    const suffixBytes = 8; // kwargs key plus null value.
+    final bodyOffset = length - bodyBytes - suffixBytes;
+    final leadingBytes = (-bodyOffset) & 3;
+    final builder = allocator.allocate(length + leadingBytes);
+    var offset = leadingBytes;
     void byte(int value) => builder.setUint8(offset++, value);
     void key(String value) {
       byte((cbor ? 0x60 : 0xa0) | value.length);
@@ -222,12 +254,21 @@ abstract final class BenchPayloadCodec {
       unsigned(iteration);
       key('body');
       unsigned(bodyBytes, binary: true);
-      builder.writeBytes(offset, data);
-      offset += data.length;
+      if (offset != leadingBytes + bodyOffset) {
+        throw StateError('Invalid native PPT body offset');
+      }
+      builder.writeByteRange(
+        offset,
+        bodyBytes,
+        (bytes) => _fillNativeBody(bytes, worker: worker, iteration: iteration),
+      );
+      offset += bodyBytes;
       key('kwargs');
       byte(cbor ? 0xf6 : 0xc0);
-      if (offset != length) throw StateError('Invalid native PPT fixture size');
-      return builder.freeze();
+      if (offset != leadingBytes + length) {
+        throw StateError('Invalid native PPT fixture size');
+      }
+      return builder.freeze(offset: leadingBytes, length: length);
     } finally {
       builder.dispose();
     }

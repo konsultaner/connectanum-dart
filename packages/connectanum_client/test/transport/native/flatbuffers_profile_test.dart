@@ -48,6 +48,50 @@ void main() {
   );
 
   test(
+    'native owner probe does not coalesce a fragmented Dart payload',
+    () async {
+      final peer = await _Peer.start('ppt-echo');
+      final client = transport(peer);
+      try {
+        await client.open();
+        await client.onReady.timeout(const Duration(seconds: 5));
+        final session = await Session.start('realm', client);
+        final entity = flat.Serializer().serialize(
+          Call(61, 'com.example.entity', arguments: [Uint8List(65536)]),
+        );
+        final source = _ObservedFragmentedSource(entity);
+        final payload = core.LazyMessagePayload.packedSource(
+          encoding: core.LazyPayloadEncoding.flatbuffers,
+          source: source,
+          packedPayloadDecoder: (bytes) => (
+            arguments: [bytes],
+            argumentsKeywords: null,
+          ),
+        );
+        final result = await session
+            .callLazyPayload(
+              'com.entity.read',
+              payload: payload,
+              options: CallOptions(
+                pptScheme: 'x_flatbuffers',
+                pptSerializer: 'flatbuffers',
+              ),
+            )
+            .first
+            .timeout(const Duration(seconds: 5));
+        expect(result.arguments!.single, entity);
+        await session.close();
+        await session.onGoodbye.timeout(const Duration(seconds: 5));
+        expect(await peer.close(), [1, 48, 6]);
+        expect(source.contiguousReads, 0);
+      } finally {
+        await client.close();
+        await peer.dispose();
+      }
+    },
+  );
+
+  test(
     'leased FlatBuffers PPT survives producer disposal and repeated lazy sends',
     () async {
       final peer = await _Peer.start('ppt-echo');
@@ -946,6 +990,26 @@ NativeOwnedBuffer _typedEntity(NativeBufferAllocator allocator, int request) =>
       ),
       initialSize: 128,
     );
+
+final class _ObservedFragmentedSource
+    implements core.FragmentedPackedPayloadSource {
+  _ObservedFragmentedSource(Uint8List bytes)
+    : _parts = core.PackedPayloadParts([
+        Uint8List.sublistView(bytes, 0, 8),
+        Uint8List.sublistView(bytes, 8),
+      ]);
+  final core.PackedPayloadParts _parts;
+  int contiguousReads = 0;
+
+  @override
+  List<Uint8List> get fragments => _parts.fragments;
+
+  @override
+  Uint8List get bytes {
+    contiguousReads++;
+    return _parts.bytes;
+  }
+}
 
 class _Peer {
   _Peer(

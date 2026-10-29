@@ -17,7 +17,7 @@ import 'package:connectanum_core/connectanum_core.dart'
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 // ignore: implementation_imports
-import 'package:connectanum_core/src/serializer/flatbuffers/byte_vector_builder.dart'
+import 'package:connectanum_core/src/serializer/flatbuffers/byte_vector_builder_vm.dart'
     show ByteViewFlatBufferBuilder;
 import 'package:ffi/ffi.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
@@ -26,6 +26,7 @@ import 'src/transport/native/runtime.dart' show NativeClientRuntime;
 
 part 'src/transport/native/native_frames.dart';
 part 'src/transport/native/native_owned_segments.dart';
+part 'src/transport/native/native_writable_bytes.dart';
 
 /// Native integration output from `ct_external_buffer_register`.
 /// Publish this initialized structure to exactly one Dart consumer. Its handle
@@ -892,10 +893,14 @@ final class NativeBufferBuilder implements ffi.Finalizable {
   bool _frozen = false;
   int _writing = 0;
   int _inputCopiedBytes = 0;
+  bool _initializing = false;
+  bool _initializationFailed = false;
 
   T _write<T>(T Function() action) {
     _handle.check();
-    if (_frozen) throw StateError('Native buffer is frozen');
+    if (_frozen || _initializing || _initializationFailed) {
+      throw StateError('Native buffer no longer accepts writes');
+    }
     _writing++;
     try {
       return action();
@@ -917,10 +922,41 @@ final class NativeBufferBuilder implements ffi.Finalizable {
     OwnedCopyMetrics.record(OwnedCopyKind.clone, bytes.length);
   });
 
+  /// Initialize an existing byte range synchronously without a Dart staging
+  /// buffer. Unwritten bytes keep their existing values; new allocations are
+  /// zero-initialized. All scoped writers close when [fill] returns. Scalar
+  /// stores are generation; [NativeWritableBytes.writeBytes] records input copies.
+  /// A failed or asynchronous callback makes this builder disposable only.
+  void writeByteRange<T>(
+    int offset,
+    int length,
+    T Function(NativeWritableBytes bytes) fill,
+  ) => _write(() {
+    RangeError.checkNotNegative(length, 'length');
+    RangeError.checkValidRange(offset, offset + length, this.length);
+    NativeWritableBytes? bytes;
+    _initializing = true;
+    try {
+      bytes = NativeWritableBytes._(
+        ByteData.sublistView(_data, offset, offset + length),
+        OwnedCopyKind.clone,
+      );
+      bytes._initialize(fill);
+    } catch (_) {
+      _initializationFailed = true;
+      rethrow;
+    } finally {
+      _inputCopiedBytes += bytes?._inputCopiedBytes ?? 0;
+      bytes?._close();
+      _initializing = false;
+    }
+  });
+
   NativeOwnedBuffer freeze({int offset = 0, int? length}) {
     if (_writing != 0) throw StateError('Cannot freeze during a write');
     _handle.check();
     if (_frozen) throw StateError('Native buffer is already frozen');
+    if (_initializationFailed) throw StateError('Native initialization failed');
     final used = length ?? this.length - offset;
     RangeError.checkValidRange(offset, offset + used, this.length);
     _check(_handle.api._freeze(_handle.id, offset, used));
@@ -1054,12 +1090,15 @@ final class NativeFlatBufferBuilder
     }
   }
   final _NativeAllocator _allocator;
-  late final fb.Builder _builder;
+  late final ByteViewFlatBufferBuilder _builder;
   NativeOwnedBuffer? _frozen;
   bool _finished = false;
   bool _disposed = false;
   int _writing = 0;
   int _inputCopiedBytes = 0;
+  bool _initializing = false;
+  bool _initializationFailed = false;
+  bool _hasReset = false;
   @override
   final int initialSize;
   @override
@@ -1067,8 +1106,16 @@ final class NativeFlatBufferBuilder
   int get growthCopiedBytes => _allocator.growthCopiedBytes;
   int get allocationCount => _allocator.allocations;
 
-  T _write<T>(T Function() action, {bool allowFinished = false}) {
-    if (_disposed || _frozen != null || (_finished && !allowFinished)) {
+  T _write<T>(
+    T Function() action, {
+    bool allowFinished = false,
+    bool allowFailedInitialization = false,
+  }) {
+    if (_disposed ||
+        _frozen != null ||
+        _initializing ||
+        (_initializationFailed && !allowFailedInitialization) ||
+        (_finished && !allowFinished)) {
       throw StateError('Native builder no longer accepts writes');
     }
     _writing++;
@@ -1080,7 +1127,7 @@ final class NativeFlatBufferBuilder
   }
 
   NativeOwnedBuffer freeze() {
-    if (_disposed || !_finished || _writing != 0) {
+    if (_disposed || !_finished || _writing != 0 || _initializationFailed) {
       throw StateError('Finish the native builder before freezing');
     }
     return _frozen ??= _allocator.freeze(_builder.size(), _inputCopiedBytes);
@@ -1108,9 +1155,51 @@ final class NativeFlatBufferBuilder
 
   @override
   void reset() {
-    _write(_builder.reset, allowFinished: true);
+    _write(
+      () {
+        _hasReset = true;
+        _builder.reset();
+      },
+      allowFinished: true,
+      allowFailedInitialization: true,
+    );
     _finished = false;
+    _initializationFailed = false;
   }
+
+  /// Build a normal byte vector directly in native storage, then pass its
+  /// returned offset to the application's generated table builder.
+  /// Unwritten bytes are zero. [fill] must be synchronous; every scoped writer
+  /// closes before this method returns. Failure requires [reset] or [dispose].
+  int writeByteVector<T>(
+    int length,
+    T Function(NativeWritableBytes bytes) fill,
+  ) => _write(() {
+    NativeWritableBytes? bytes;
+    _initializing = true;
+    try {
+      final vector = _builder.reserveUint8Vector(length);
+      final data = _allocator.current!;
+      final start = data.lengthInBytes - vector + 4;
+      bytes = NativeWritableBytes._(
+        ByteData.sublistView(data, start, start + length),
+        OwnedCopyKind.flatBufferVector,
+      );
+      // Fresh native allocations, including growth, are initialized by ABI v1.
+      // Backward writes leave the unused prefix untouched. Reset is the only
+      // operation that reuses previously written bytes; clear them explicitly.
+      if (_hasReset) bytes._clear();
+      bytes._initialize(fill);
+      return vector;
+    } catch (_) {
+      _initializationFailed = true;
+      rethrow;
+    } finally {
+      _inputCopiedBytes += bytes?._inputCopiedBytes ?? 0;
+      bytes?._close();
+      _initializing = false;
+    }
+  });
 
   @override
   int writeListOfStructs(List<fb.ObjectBuilder> structBuilders) => _write(() {

@@ -357,12 +357,14 @@ abstract class _NativeTransportBase extends AbstractTransport
         final owner = source.nativeOwnerFor(current);
         if (owner != null) return (buffer: owner, bytes: source.bytes);
       }
-      final packed = current.packedPayloadBytes;
       if ((!flatBuffersOnly ||
               current.encoding == LazyPayloadEncoding.flatbuffers) &&
-          packed != null) {
-        if (owner is NativeFlatBufferPptOwnerAnchor &&
-            owner.buffer is NativeOwnedBuffer &&
+          owner is NativeFlatBufferPptOwnerAnchor &&
+          owner.buffer is NativeOwnedBuffer) {
+        // Ineligible owners must not materialize a fragmented source just to
+        // fail this probe. Its serializer can consume the original fragments.
+        final packed = current.packedPayloadBytes;
+        if (packed != null &&
             identical(packed, owner.bytes) &&
             (owner.buffer as NativeOwnedBuffer).ownsPptPayloadBytes(packed)) {
           return (buffer: owner.buffer as NativeOwnedBuffer, bytes: packed);

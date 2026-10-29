@@ -5,28 +5,56 @@ Last updated: 2026-10-29.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Latest measured runtime: `9bf3235c54949e01247498f13d1b44170ecc7a5a`.
-Full local verification and production copy proof `40929886924` pass, independently
-verifying 3,224 inputs and 120 live / 300 inventory / 32 zero-avoidable-copy checks.
-Paired `40929890341` completes 90 rows and is independently reproduced: eight
-numerical misses remain. Dart-values throughput 0.984728, p95 1.007360, CPU
-1.011071, GC 1.161253 and RSS 1.029451 fail their points; p99 point 0.972737
-passes but its CI upper 1.197151 fails. Native-buffer RSS point 0.994958 passes
-but CI upper 1.050847 fails; pre-encoded RSS point 1.011707 fails. Every native
-non-RSS gate passes. Preserve all earlier results; no parity acceptance.
+Current local candidate adds scoped native byte/word initialization. It removes
+the 64 KiB Dart body staging allocation from all three native constructors using
+public guarded APIs; schema/data/identities, wire bytes and timing windows stay
+fixed. Scalar stores are generation; explicit source copies and growth remain
+counted. Ordinary Dart-values and pre-encoded groups retain their semantics.
+215 focused model/live transport cases and all 70 ownership cases pass,
+including freed-allocation GC, void-typed async rejection and isolate-port
+rejection. A separate real-send regression identifies one hidden coalescing
+operation in the native owner probe; checking owner eligibility before reading
+packed bytes removes it. All 74 native frame/profile/Session cases pass and all
+167 mutation proofs remain valid. Complete analysis exits 0 with no new
+diagnostics. The first canonical verification is superseded before completion
+to include that reproduced bug fix; renew full frozen-source verification. No new
+performance result or parity acceptance exists yet.
 
-Current unpublished decoder follow-up removes only a discarded second metadata
-projection for freshly reconstructed Result/Event/Invocation with exactly two
-string PPT fields. Initial frame validation and dictionary agreement remain.
-Private byte/error equality matches 96 valid and 488 mutated inputs. Model-to-
-projection, later-edit and partial/null/custom-history regressions pass; all
-3,593 VM serializer/Session and 136 Chrome/WebAssembly model tests pass. All 167
-mutation proofs remain valid; focused GLM judge/review find no concrete defect
-once model round-trip tests are added. Initial local timing is lease-blocked;
-a later overlapping-own-tests capture is explicitly rejected. After test exit,
-an isolated ABBA component shows about 16% lower decoder time on local Dart
-3.13.1/macOS, never parity acceptance. Full source verification and hosted
-evidence remain required before adopting the follow-up.
+Latest measured runtime: `828721fdb065e03dd45bdcc6811f8b0b7551b572`.
+Full local `bin/verify` exits 0, including native/FFI, VM, consumers and full
+Chrome/WebAssembly suites. Production copy proof `40941222405` passes;
+independent auditing verifies 3,224 source inputs, 120 live / 300 inventory /
+32 zero-avoidable-copy checks, E2EE/transcode/native-crypto counts, retained
+hashes, stable PIDs and cleanup. All three native-view positive phases pass;
+the intentional negative control is observed. SDK/TLS/crypto internals remain
+unmeasured; generated package_config is covered by its hosted digest receipt.
+
+Paired `40941226221` completes all 90 rows. Independent input/binary validation
+and exact comparison reproduction leave three numerical misses: Dart-values
+RSS median 1.016113 (CI [1.001543, 1.022033]); native-buffer p99 median 1.034644
+(CI [0.800252, 1.330524]); native pre-encoded RSS median 1.001925
+(CI [0.992392, 1.017865]). Every throughput/CPU/p95/allocation/GC gate and the
+Dart-values p99 gate passes. No primary acceptance or causal comparison across
+runner checkpoints is claimed. Preserve all preceding reports and strict gates.
+
+The decoder follow-up removes only a discarded second metadata projection for
+freshly reconstructed Result/Event/Invocation with exactly two string PPT
+fields. Initial frame validation and dictionary agreement remain. Private
+byte/error equality matches 96 valid and 488 mutated inputs. Model-to-projection,
+later-edit and partial/null/custom-history regressions pass; all 3,593 VM
+serializer/Session and 136 Chrome/WebAssembly model tests pass. All 167 mutation
+proofs remain valid; focused GLM judge/review find no concrete defect. An
+own-test-overlapped timing is rejected. The later isolated, leased ABBA component
+shows about 16% lower decoder time on local Dart 3.13.1/macOS, never acceptance.
+
+CI `40923229188` passes all 38 jobs on `b7a6f2c8`; `40929882938` on `9bf3235c`
+also passes all 38 jobs. CI `40949419438` on `828721fd` also passes all 38 jobs.
+Final-source CI and primary/supplemental evidence are still required. Supplemental `40906173218` is independently
+reproduced: 50 cases / 1,500 rows / zero integrity findings / 193 numerical
+diagnostics. Supplemental `40925767834` also completes: independent aggregate auditing exactly
+matches all 50 cases / 1,500 rows and provenance, with zero integrity findings
+and 195 numerical diagnostics. No absolute costs are pooled across runners.
+Neither checkpoint report accepts the changed runtime. #103 stays open; PR #132 stays draft.
 
 Published runtime `9bf3235c` removes the same staging buffer from the
 pre-encoded constructor. It copies complete encoded Dart parts once into one
@@ -83,7 +111,7 @@ counts and stable worker cleanup. All three native-view positive phases pass;
 the intentional negative control is observed. The generated package_config has
 a digest-only hosted unchanged receipt; no dependency internals are inferred.
 Superseded CI `40922324217` was cancelled after reproducing the test-order bug;
-full corrected-source CI `40923229188` is running on `b7a6f2c8`. Production code,
+full corrected-source CI `40923229188` passes all 38 jobs on `b7a6f2c8`. Production code,
 workloads, policy and lockfiles are byte-identical to measured `490f60bf`. Paired
 diagnostic `40922533817` completes all 90 rows. Independent recomputation
 matches hosted output and verifies retained inputs/scenarios/production binaries.

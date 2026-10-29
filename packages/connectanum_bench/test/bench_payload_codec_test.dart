@@ -240,7 +240,7 @@ void main() {
             try {
               bytes = native.bytes;
               expect(bytes, expected);
-              expect(native.inputCopiedBytes, bodyBytes);
+              expect(native.inputCopiedBytes, 0);
               expect(native.growthCopiedBytes, 0);
               final decoded = codec.$2.deserializePPT(bytes)!;
               expect(decoded.arguments, hasLength(1));
@@ -326,7 +326,7 @@ void main() {
         : false,
   );
 
-  for (final bodyBytes in [0, 1, 1024, 64 * 1024]) {
+  for (final bodyBytes in [0, 1, 3, 7, 8, 257, 1024, 65535, 65536, 65537]) {
     test(
       'default native allocation avoids growth for $bodyBytes body bytes',
       () {
@@ -338,7 +338,7 @@ void main() {
         );
         addTearDown(native.dispose);
         expect(native.growthCopiedBytes, 0);
-        expect(native.inputCopiedBytes, bodyBytes);
+        expect(native.inputCopiedBytes, 0);
         expect(
           native.bytes,
           BenchPayloadCodec.encodeDart(
@@ -372,7 +372,7 @@ void main() {
         addTearDown(native.dispose);
 
         expect(native.bytes, dartBytes);
-        expect(native.inputCopiedBytes, bodyBytes);
+        expect(native.inputCopiedBytes, 0);
         BenchPayloadCodec.verify(
           bytes: dartBytes,
           worker: expectedWorker,
@@ -453,6 +453,73 @@ void main() {
       throwsRangeError,
     );
   });
+
+  test(
+    'native FlatBuffers validates bounds with an explicit initial size',
+    () {
+      final allocator = NativeBufferAllocator.instance(
+        libraryPath: nativeLibrary,
+      );
+      for (final input in [
+        (-1, 0, 0),
+        (0x100000000, 0, 0),
+        (0, -1, 0),
+        (0, 0x100000000, 0),
+        (0, 0, -1),
+        (0, 0, 64 * 1024 * 1024 + 1),
+      ]) {
+        expect(
+          () => BenchPayloadCodec.encodeNative(
+            allocator,
+            worker: input.$1,
+            iteration: input.$2,
+            bodyBytes: input.$3,
+            initialSize: 8,
+          ),
+          throwsRangeError,
+        );
+      }
+    },
+    skip: nativeLibrary == null
+        ? 'Native transport artifact unavailable'
+        : false,
+  );
+
+  test(
+    'native generation preserves maximum identity and every boundary byte',
+    () {
+      final allocator = NativeBufferAllocator.instance(
+        libraryPath: nativeLibrary,
+      );
+      for (final size in [0, 1, 7, 8, 257, 65535, 65536, 65537]) {
+        for (final identity in [(0, 0), (1, 1), (0xffffffff, 0xffffffff)]) {
+          final owner = BenchPayloadCodec.encodeNative(
+            allocator,
+            worker: identity.$1,
+            iteration: identity.$2,
+            bodyBytes: size,
+          );
+          try {
+            expect(
+              owner.bytes,
+              BenchPayloadCodec.encodeDart(
+                worker: identity.$1,
+                iteration: identity.$2,
+                bodyBytes: size,
+              ),
+            );
+            expect(owner.inputCopiedBytes, 0);
+            expect(owner.growthCopiedBytes, 0);
+          } finally {
+            owner.dispose();
+          }
+        }
+      }
+    },
+    skip: nativeLibrary == null
+        ? 'Native transport artifact unavailable'
+        : false,
+  );
 
   test('preserves the largest application identity fields', () {
     final bytes = BenchPayloadCodec.encodeDart(

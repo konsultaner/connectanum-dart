@@ -784,3 +784,131 @@ microseconds per 200,000 decodes, with identical checks and pinned reader hashes
 This is about 16% lower local decoder time, not end-to-end or RSS acceptance.
 It uses standard local Dart 3.13.1/macOS, no forced GC or tuning. Full canonical
 and final-source hosted evidence remain required before adopting the follow-up.
+
+## Decoder checkpoint 828721fd (2026-10-29)
+
+Full local bin/verify exits 0 (`/tmp/connectanum-ppt-projection-full-verify.log`).
+Hosted copy proof 40941222405 passes and the independent audit verifies 3,224
+inputs, 120 live / 300 inventory / 32 zero-avoidable-copy checks, all E2EE,
+transcode and native-crypto counts, raw hashes, stable PIDs and cleanup.
+All three positive native-view phases and the intentional negative control
+verify. Package configuration is digest-only, and dependency internals remain
+unmeasured. Local audit logs are `/tmp/connectanum-flatbuffers-copy-8287-independent-audit.log`
+and `/tmp/connectanum-flatbuffers-copy-8287-private-phases-audit.log`.
+
+Paired 40941226221 completes 90 rows and is independently reproduced exactly
+(`/tmp/connectanum-flatbuffers-diagnostic-8287-independent-audit.json`). Three
+numerical misses remain: Dart-values RSS 1.0161129493, CI
+[1.0015429753,1.0220331655]; native-buffer p99 1.0346435710, CI
+[0.8002520479,1.3305243446]; pre-encoded RSS 1.0019252925, CI
+[0.9923918248,1.0178649964]. Every throughput, CPU, p95, allocation and GC gate,
+and Dart-values p99 passes. These are distinct paired campaigns, so the point
+changes are not causal attribution. No threshold, workload or measurement-window
+change is justified by these results.
+
+Pinned Dart [3.13.5 scavenger source](https://raw.githubusercontent.com/dart-lang/sdk/3.13.5/runtime/vm/heap/scavenger.cc)
+confirms that `Scavenger::PrintToJSONObject` publishes GC `time` using
+`MicrosecondsToSeconds(gc_time_micros())`. The benchmark's seconds-to-microseconds
+conversion is consistent with that source. Existing isolate-group deduplication
+is also present; neither a unit error nor duplicate group counting has been
+established. No SDK flags or allocator tuning are introduced.
+
+## Scoped native initialization and hidden owner-probe coalescing (2026-10-29)
+
+Fresh baseline `bin/test-fast` exits 0. A minimal actual-constructor repro
+observes 65,536 Dart body input-copy bytes for each of FlatBuffers, CBOR and
+MessagePack. The first private timing overlaps that baseline and is unleased;
+it is rejected in full before use (`/tmp/connectanum-direct-native-body-correctness-only-rejected-timing.txt`).
+Refused shared-lease admissions run no measurement. All later component timings
+acquire the common machine lease, retain every result and verify unchanged
+private source/package configuration and native library hashes. They never
+accept throughput, latency or RSS.
+
+Ordinary guarded FB putUint32 loops cost about 341–345 ms/1,000 constructions
+versus 34–38 ms for staging/copy, so they are not adopted. Sequential scoped,
+per-word callback and indexed/batched prototypes also regress. A guarded word
+writer with a final private typed-data field and closed check reduces the
+component penalty to about 6–7% (34.7/36.9 vs 33.6/33.6 ms); this is a candidate
+tradeoff for eliminating the 64 KiB Dart allocation, not an end-to-end win.
+The final private component receipt is
+`/tmp/connectanum-native-vector-guarded-final-word-component-timing-v1.log`.
+
+Public candidate APIs `writeByteVector`, `writeByteRange` and scoped byte/word
+writers expose no raw pointer, typed-data or buffer. Scalar stores generate
+output values; explicit source-byte copies and allocator growth remain counted.
+All writers close before publication. Callback/copy/Future failure blocks
+publication until reset/dispose (fixed-size builders permit disposal only).
+Fresh native allocations zero all capacity (`owned_buffers.rs::allocate`,
+storage.resize(length, 0)); growth copies only the previous used tail. The new
+reserved vector lies entirely before that copied tail. Every reset permanently
+enables explicit vector-span clearing, even if reset fails. Fixed byte-range
+updates intentionally preserve existing initialized values and have no reset.
+
+All three native benchmark constructors use the same existing Dart word/body
+algorithm inside the original preparation window. No native/Rust pattern
+generator, body cache, shortened loop or observation change is introduced.
+Generated CBEN and CBOR/MP PPT bytes stay identical. The latter allocate up to
+three leading alignment bytes outside the frozen wire span; every transmitted
+byte and wire size stays unchanged. Ordinary Dart-values and pre-encoded groups
+retain their earlier semantics. The original nonempty native fixture assertions
+fail first at expected zero vs 1 / 1,024 / 65,536 copied bytes. The candidate
+passes 215 model/live transport cases and 69 ownership cases, including maximum
+IDs, nonaligned/binary-width boundaries, source-copy failure, mutation rejection,
+all escaped writers, growth/reset and ordinary/void-typed Future rejection.
+The standalone native GC child retains closed facades after their allocation
+and handles have actually reached zero; both public writes still throw after
+collection. No forced GC enters any benchmark or acceptance run.
+
+Completed GLM design/review advice is verified against source and tests. Its
+claim that retaining a guarded private facade inherently permits post-close
+native access supplies no public access path; all setters check the closed flag
+before data access, as existing disposed native builders do. The actual freed-
+allocation child probe verifies this boundary. Its reset/growth arithmetic
+concern is disproved by the allocator contract, span arithmetic and exact SDK
+byte goldens. The later review itself retracts its span/freeze/index concerns,
+but conflates fixed-size byte-range updates with the separate FB reset API.
+Clarify and test preservation of untouched fixed-range values. Qwen's fixture
+review assumes ByteData scalar stores need alignment and that explicit-length
+word views need a multiple-of-four total buffer; neither assumption applies.
+Existing scalar code and the new bounded fallback handle unaligned data, and
+exact full/partial-vector boundary tests pass. Advisory logs are
+`/tmp/connectanum-guarded-word-region-design-judge.log`,
+`/tmp/connectanum-native-body-public-api-review.log` and
+`/tmp/connectanum-native-body-fixture-review.log`.
+
+Source inspection then finds a separate actual staging copy in
+`_nativePptPayloadOwner`: it reads packedPayloadBytes before checking whether the
+owner can be a trusted native candidate. A real 64 KiB Native RawSocket Session
+RPC with a fragmented source succeeds but fails the no-contiguous-getter
+assertion (expected 0, observed 1). Move only that getter behind the existing
+encoding/native-owner checks; preserve exact byte identity, owned-view marker,
+lease handling and lazy-owner cycle traversal. The regression now reads zero
+contiguous bytes and echoes identical data/handshake/Goodbye codes. All 74 related
+native frame/profile/Session tests and all 167 mutation proofs pass. Focused
+review finds no concrete defect; its residual identity/type conditions are
+unchanged intentional trust checks. This directly removes an unnecessary
+coalescing operation; it does not itself accept RAM parity.
+
+The first new full verification is superseded before completion to reproduce
+and fix this additional bug. Its log and explicit supersession note are kept;
+no failed numerical report is discarded. Renew full frozen-source verification,
+copy evidence and the original paired gates before adoption.
+
+A further fail-first port test shows that the initial scoped facades can be
+sent as message snapshots while active. Mark both scoped types Finalizable,
+matching native builders, so a cloned active guard cannot cross isolate
+boundaries. The transfer is now rejected, and all 70 ownership cases pass.
+This changes no native ABI and retains the actual freed-allocation GC proof.
+
+Latest completed checkpoint CI is green: both 9bf3235c run 40929882938 and
+828721fd run 40949419438 pass all 38 jobs. Supplemental b7a6 run 40925767834
+also finishes all three shards and merge. Independent audits reproduce 30/900
+protocol, 12/360 payload-size and 8/240 encrypted-progressive cases/rows. All
+retained inputs, binaries and comparisons verify. Aggregate comparison AND
+provenance match hosted output exactly: 50 cases / 1,500 rows / zero integrity
+findings / 195 numerical diagnostics, without pooling absolute runner costs.
+The first aggregate summary formatter used the wrong key after both equality
+assertions passed; its failure log is retained. Correct schema-key reproduction
+succeeds in `/tmp/connectanum-flatbuffers-supplemental-b7a6-aggregate-audit-v2.log`.
+These reports are checkpoint costs and do not accept the changed native model
+constructor or owner probe. Renew final-source evidence under unchanged gates.

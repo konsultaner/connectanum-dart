@@ -823,7 +823,8 @@
     "sources": [
       "packages/connectanum_client/lib/native_buffers.dart",
       "packages/connectanum_client/lib/src/transport/native/native_frames.dart",
-      "packages/connectanum_client/lib/src/transport/native/native_owned_segments.dart"
+      "packages/connectanum_client/lib/src/transport/native/native_owned_segments.dart",
+      "packages/connectanum_client/lib/src/transport/native/native_writable_bytes.dart"
     ],
     "tests": [
       "packages/connectanum_client/test/transport/native/native_owned_buffer_test.dart",

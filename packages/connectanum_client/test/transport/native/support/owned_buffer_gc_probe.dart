@@ -44,6 +44,27 @@ void _abandonMutable(DynamicLibrary library) {
   allocator.allocate(32).setUint8(0, 7);
 }
 
+@pragma('vm:never-inline')
+(NativeWritableBytes, NativeUint32Writer) _retireScopedWriter(
+  DynamicLibrary library,
+) {
+  final allocator = NativeBufferAllocator(library);
+  final builder = allocator.flatBuffers(initialSize: 128);
+  late NativeWritableBytes bytes;
+  late NativeUint32Writer words;
+  try {
+    final vector = builder.writeByteVector(64, (region) {
+      bytes = region;
+      words = region.uint32Words(count: 16)..[0] = 0x04030201;
+    });
+    builder.finish(vector, 'BYTS');
+    builder.freeze().dispose();
+  } finally {
+    builder.dispose();
+  }
+  return (bytes, words);
+}
+
 Future<void> main() async {
   final library = DynamicLibrary.open(
     Platform.environment['CONNECTANUM_NATIVE_LIB']!,
@@ -83,6 +104,25 @@ Future<void> main() async {
     if (allocations() != 0 || handles() != 0) {
       throw StateError('Probe must start with no owned allocations');
     }
+    final closed = _retireScopedWriter(library);
+    if (allocations() != 0 || handles() != 0) {
+      throw StateError('Closed scoped writers retained native storage');
+    }
+    // Keep both private typed-data facades alive across collection after their
+    // native allocation was actually freed. Every public write must trap first.
+    await collectUntil(() => allocations() == 0 && handles() == 0);
+    var closedWrites = 0;
+    try {
+      closed.$1.setUint8(0, 1);
+    } on StateError {
+      closedWrites++;
+    }
+    try {
+      closed.$2[0] = 1;
+    } on StateError {
+      closedWrites++;
+    }
+    if (closedWrites != 2) throw StateError('Scoped native writer escaped');
     final survivor = _makeSurvivor(library);
     _abandonMutable(library);
     await collectUntil(

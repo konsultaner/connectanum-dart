@@ -472,7 +472,7 @@ void main() {
                 case WampPayloadConstruction.dartValues:
                   expect(copiedBytes, everyElement(0));
                 case WampPayloadConstruction.nativeBuffer:
-                  expect(copiedBytes, everyElement(bodyBytes));
+                  expect(copiedBytes, everyElement(0));
                 case WampPayloadConstruction.preEncodedSpan:
                   expect(
                     copiedBytes.every((bytes) => bytes! > bodyBytes),
@@ -524,7 +524,7 @@ void main() {
                 expect(
                   samples.map((sample) => sample.nativeBuilderInputCopiedBytes),
                   construction == WampPayloadConstruction.nativeBuffer
-                      ? everyElement(bodyBytes)
+                      ? everyElement(0)
                       : everyElement(greaterThan(bodyBytes)),
                 );
               },
@@ -589,7 +589,7 @@ void main() {
               expect(copiedBytes, everyElement(isNotNull));
               switch (construction) {
                 case WampPayloadConstruction.nativeBuffer:
-                  expect(copiedBytes, everyElement(bodyBytes));
+                  expect(copiedBytes, everyElement(0));
                 case WampPayloadConstruction.preEncodedSpan:
                   expect(
                     copiedBytes.every((bytes) => bytes! > bodyBytes),

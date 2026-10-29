@@ -12,6 +12,7 @@
     "Remove the redundant utf8.encode result cast",
     "Select the original SDK builder on non-FFI targets because web readonly buffers hide backing identity",
     "Encode bool vectors directly instead of normalizing them into a temporary byte-value list",
-    "Observe explicit encoded UTF8 staging as framing copies and retain failed-copy evidence"
+    "Observe explicit encoded UTF8 staging as framing copies and retain failed-copy evidence",
+    "Reserve byte-vector storage for the guarded native initialization wrapper without exposing mutable views"
   ]
 }

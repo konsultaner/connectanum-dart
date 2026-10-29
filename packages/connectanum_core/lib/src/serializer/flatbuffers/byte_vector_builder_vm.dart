@@ -598,6 +598,19 @@ class ByteViewFlatBufferBuilder implements fb.Builder {
     return result;
   }
 
+  /// Reserve a byte vector for the native wrapper's scoped initialization.
+  /// The caller must initialize its contents before publishing the buffer.
+  int reserveUint8Vector(int length) {
+    if (_finished || _inVTable) {
+      throw StateError('Cannot reserve a byte vector here');
+    }
+    RangeError.checkValueInInterval(length, 0, 0x7ffffff0, 'length');
+    _prepare(_sizeofUint32, 1, additionalBytes: length);
+    final result = _tail;
+    _setUint32AtTail(result, length);
+    return result;
+  }
+
   /// Write the given list of unsigned 8-bit integer [values].
   int writeListUint8(List<int> values) {
     assert(!_inVTable);
