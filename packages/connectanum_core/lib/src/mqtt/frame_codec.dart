@@ -153,7 +153,7 @@ final class MqttFrameDecoder {
       final missing = remainingLength - bodyEnd;
       final available = input.length - offset;
       final count = missing < available ? missing : available;
-      if (bodyEnd + count > body!.length) {
+      if (bodyEnd + count > body.length) {
         var capacity = body.length * 2;
         final required = bodyEnd + count + 4096;
         if (capacity < required) capacity = required;

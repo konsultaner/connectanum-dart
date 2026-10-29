@@ -626,7 +626,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: mcp-shards
-    if: always()
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci

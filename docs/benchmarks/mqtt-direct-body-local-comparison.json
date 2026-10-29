@@ -1,6 +1,12 @@
 {
+  "analyzerCleanup": {
+    "brokerExeSha256": "33c122589b8fba1a6994c42c7426ab494f7afd89a476941dcde18b03a0e1c8fd",
+    "change": "Removed a redundant non-null assertion after these measurements; original measured source and binary hashes remain unchanged.",
+    "frameCodecSha256": "f37aeecbcdd290ff036060544a760d440e98c25540a4bb48437d3a8c1252e53d"
+  },
   "baselineCommit": "2977d8dbb7f90416792fdd44c59de38d90535724",
   "baselineFrameCodecSha256": "844b1dbda2eb6f592d75f4c5dc87afaedbe4cb21a6b4d9e1adf3dffab4213edf",
+  "candidateCommit": "504bae325ae2f5c85666f71885de9e9c04d60b9c",
   "candidateFrameCodecSha256": "b950c5d2c378c53214e0e8402b30729d1a97cdf53cb43d76fb630c922d57ed23",
   "clientSha256": "92728640d1630927d175bc874e286f3ca0dba6ebde62bd092be1e1bff1ea1129",
   "diagnosticOnly": true,

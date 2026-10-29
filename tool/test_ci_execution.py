@@ -130,6 +130,17 @@ class ShardingTests(unittest.TestCase):
 
 
 class RequiredGateTests(unittest.TestCase):
+    def test_cancellation_preserves_required_gate_and_skips_heavy_aggregate(self):
+        workflow = (ROOT / '.github/workflows/dart.yml').read_text()
+        # A skipped required job counts as success; keep its strict summary active.
+        for name, expected in {'verify': 'always()',
+                               'mcp-mutations': '${{ !cancelled() }}'}.items():
+            with self.subTest(job=name):
+                stanza = re.search(rf'^  {name}:\n(.*?)(?=^  \S|\Z)',
+                                   workflow, re.MULTILINE | re.DOTALL)[1]
+                condition = re.search(r'^    if: (.+)$', stanza, re.MULTILINE)[1]
+                self.assertEqual(condition, expected)
+
     def execute(self, needs):
         return subprocess.run(['python3', str(ROOT / 'tool/check_ci_needs.py')],
             env=dict(os.environ, CONNECTANUM_CI_NEEDS=json.dumps(needs)),
