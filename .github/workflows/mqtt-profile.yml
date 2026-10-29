@@ -2,9 +2,16 @@ name: MQTT reader Linux comparison
 
 on:
   workflow_dispatch:
+    inputs:
+      target_cpu:
+        description: CPU class required before benchmark measurements
+        type: choice
+        required: true
+        default: 9V74
+        options: [9V74, 8370C]
 
 concurrency:
-  group: mqtt-reader-linux-${{ github.ref }}
+  group: mqtt-reader-linux-${{ github.ref }}-${{ inputs.target_cpu }}
   cancel-in-progress: false
 
 permissions:
@@ -17,12 +24,33 @@ jobs:
     timeout-minutes: 45
     env:
       CARGO_BUILD_JOBS: 2
+      REQUESTED_CPU: ${{ inputs.target_cpu }}
     steps:
       - uses: actions/checkout@v5
+      - name: Require the requested hardware before timing
+        id: cpu
+        run: |
+          set -euo pipefail
+          mkdir -p out/mqtt-reader-linux
+          cpu_model="$(awk -F: '/^model name/ {sub(/^ /,"",$2); print $2; exit}' "${MQTT_CPU_INFO_PATH:-/proc/cpuinfo}")"
+          model_lower="$(printf '%s' "$cpu_model" | tr '[:upper:]' '[:lower:]')"
+          matched=false
+          case "$REQUESTED_CPU" in
+            9V74) if [[ "$model_lower" == *amd* && "$model_lower" == *9v74* ]]; then matched=true; fi ;;
+            8370C) if [[ "$model_lower" == *intel* && "$model_lower" == *8370c* ]]; then matched=true; fi ;;
+            *) echo 'Unsupported requested CPU class' >&2; exit 2 ;;
+          esac
+          printf '%s\n' "$cpu_model" > out/mqtt-reader-linux/cpu-model.txt
+          uname -srm > out/mqtt-reader-linux/kernel.txt
+          printf 'matches=%s\n' "$matched" >> "$GITHUB_OUTPUT"
+          printf '{"requested_cpu":"%s","matched_requested_cpu":%s,"benchmark_executed":false}\n' "$REQUESTED_CPU" "$matched" > out/mqtt-reader-linux/status.json
+          echo "Requested $REQUESTED_CPU matched: $matched ($cpu_model)"
       - uses: ./.github/actions/setup-ci
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
         with:
           rust: 'true'
       - name: Bootstrap and install the independent reference
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
         run: |
           set -euo pipefail
           sudo apt-get update
@@ -31,6 +59,7 @@ jobs:
           [[ "$version" == *'mosquitto version 2.0.18'* ]]
           bin/bootstrap
       - name: Build the reactor baseline and boundary-only candidate
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
         run: |
           set -euo pipefail
           mkdir -p out/mqtt-reader-linux
@@ -49,18 +78,25 @@ jobs:
             rustc -Vv
             dart --version
             sha256sum native/transport/Cargo.lock native/transport/ct_core/src/lib.rs \
+              "$RUNNER_TEMP/mqtt-reader-baseline/native/transport/ct_core/src/lib.rs" \
               "$RUNNER_TEMP/mqtt-reader-baseline-target/release/libct_ffi.so" \
               "$RUNNER_TEMP/mqtt-reader-candidate-target/release/libct_ffi.so"
             lscpu
           } > out/mqtt-reader-linux/build-provenance.txt
       - name: Repeat every matched profile and retain failures
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
         run: |
           set -euo pipefail
+          result=0
           env -u TOKIO_WORKER_THREADS -u CONNECTANUM_NATIVE_RUNTIME_THREADS \
             bash tool/compare_mqtt_native.sh \
               "$RUNNER_TEMP/mqtt-reader-baseline-target/release/libct_ffi.so" \
               "$RUNNER_TEMP/mqtt-reader-candidate-target/release/libct_ffi.so" \
-              out/mqtt-reader-linux/comparison
+              out/mqtt-reader-linux/comparison || result=$?
+          passed=false
+          if [[ "$result" -eq 0 ]]; then passed=true; fi
+          printf '{"requested_cpu":"%s","matched_requested_cpu":true,"benchmark_executed":true,"candidate_passed":%s}\n' "$REQUESTED_CPU" "$passed" > out/mqtt-reader-linux/status.json
+          exit "$result"
       - name: Preserve raw comparison and source identity
         if: always()
         uses: actions/upload-artifact@v7
