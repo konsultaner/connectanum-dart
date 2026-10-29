@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "projectId": 88,
+  "project": "connectanum/connectanum-dart",
+  "pipelineId": 10174,
+  "url": "https://git.konsultaner.de/connectanum/connectanum-dart/-/pipelines/10174",
+  "commit": "4c23d37845835d27c8dbdce64fb0bc91885019c3",
+  "branch": "codex/mqtt-runner-hardware-probe",
+  "configuration": "workflow:\n  rules:\n    - if: '$CI_COMMIT_BRANCH == \"codex/mqtt-runner-hardware-probe\"'\n    - when: never\n\nstages: [hardware]\n\n.hardware:\n  stage: hardware\n  image: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d\n  timeout: 5m\n  variables:\n    GIT_STRATEGY: none\n  before_script: []\n  script:\n    - |\n      set -eu\n      case \"$CI_RUNNER_ID\" in\n        6|11|14) ;;\n        *) echo 'Runner outside general-build inventory; hardware read skipped.'; exit 0 ;;\n      esac\n      probe_directory=\"hardware/$CI_RUNNER_ID-$CI_JOB_ID\"\n      mkdir -p \"$probe_directory\"\n      {\n        printf 'runner_id=%s\\njob_id=%s\\n' \"$CI_RUNNER_ID\" \"$CI_JOB_ID\"\n        printf 'runner_arch=%s\\n' \"${CI_RUNNER_EXECUTABLE_ARCH:-unknown}\"\n        awk -F: '/^model name/ {sub(/^ /,\"\",$2); print \"cpu_model=\" $2; exit}' /proc/cpuinfo\n        uname -srm\n        printf 'online_cpus='; getconf _NPROCESSORS_ONLN\n      } | tee \"$probe_directory/identity.txt\"\n      for cpu_file in /sys/fs/cgroup/cpu.max /sys/fs/cgroup/cpuset.cpus.effective /sys/fs/cgroup/cpu/cpu.cfs_quota_us /sys/fs/cgroup/cpu/cpu.cfs_period_us; do\n        if [ -r \"$cpu_file\" ]; then\n          printf '%s=' \"$cpu_file\" >> \"$probe_directory/allocation.txt\"\n          cat \"$cpu_file\" >> \"$probe_directory/allocation.txt\"\n        fi\n      done\n      cat \"$probe_directory/allocation.txt\" 2>/dev/null || true\n  artifacts:\n    when: always\n    expire_in: 1 week\n    paths: [hardware/]\n\nhardware_dind:\n  extends: .hardware\n  tags: [dind]\n\nhardware_general:\n  extends: .hardware\n  parallel: 4\n",
+  "jobs": [
+    {
+      "jobId": 25863,
+      "jobName": "hardware_general 4/4",
+      "runnerId": 14,
+      "status": "success",
+      "url": "https://git.konsultaner.de/connectanum/connectanum-dart/-/jobs/25863",
+      "hardware": [
+        "runner_id=14",
+        "job_id=25863",
+        "runner_arch=linux/amd64",
+        "cpu_model=AMD Ryzen Threadripper PRO 5975WX 32-Cores",
+        "Linux 5.14.0-687.44.1.el9_8.x86_64 x86_64",
+        "online_cpus=2",
+        "/sys/fs/cgroup/cpu.max=max 100000",
+        "/sys/fs/cgroup/cpuset.cpus.effective=0-1"
+      ]
+    },
+    {
+      "jobId": 25862,
+      "jobName": "hardware_general 3/4",
+      "runnerId": 6,
+      "status": "success",
+      "url": "https://git.konsultaner.de/connectanum/connectanum-dart/-/jobs/25862",
+      "hardware": [
+        "runner_id=6",
+        "job_id=25862",
+        "runner_arch=linux/amd64",
+        "cpu_model=AMD Ryzen Threadripper PRO 5975WX 32-Cores",
+        "Linux 5.14.0-687.17.1.el9_8.x86_64 x86_64",
+        "online_cpus=2",
+        "/sys/fs/cgroup/cpu.max=max 100000",
+        "/sys/fs/cgroup/cpuset.cpus.effective=0-1"
+      ]
+    },
+    {
+      "jobId": 25861,
+      "jobName": "hardware_general 2/4",
+      "runnerId": 14,
+      "status": "success",
+      "url": "https://git.konsultaner.de/connectanum/connectanum-dart/-/jobs/25861",
+      "hardware": [
+        "runner_id=14",
+        "job_id=25861",
+        "runner_arch=linux/amd64",
+        "cpu_model=AMD Ryzen Threadripper PRO 5975WX 32-Cores",
+        "Linux 5.14.0-687.44.1.el9_8.x86_64 x86_64",
+        "online_cpus=2",
+        "/sys/fs/cgroup/cpu.max=max 100000",
+        "/sys/fs/cgroup/cpuset.cpus.effective=0-1"
+      ]
+    },
+    {
+      "jobId": 25860,
+      "jobName": "hardware_general 1/4",
+      "runnerId": 6,
+      "status": "success",
+      "url": "https://git.konsultaner.de/connectanum/connectanum-dart/-/jobs/25860",
+      "hardware": [
+        "runner_id=6",
+        "job_id=25860",
+        "runner_arch=linux/amd64",
+        "cpu_model=AMD Ryzen Threadripper PRO 5975WX 32-Cores",
+        "Linux 5.14.0-687.17.1.el9_8.x86_64 x86_64",
+        "online_cpus=2",
+        "/sys/fs/cgroup/cpu.max=max 100000",
+        "/sys/fs/cgroup/cpuset.cpus.effective=0-1"
+      ]
+    },
+    {
+      "jobId": 25859,
+      "jobName": "hardware_dind",
+      "runnerId": 11,
+      "status": "success",
+      "url": "https://git.konsultaner.de/connectanum/connectanum-dart/-/jobs/25859",
+      "hardware": [
+        "runner_id=11",
+        "job_id=25859",
+        "runner_arch=linux/amd64",
+        "cpu_model=AMD Ryzen Threadripper PRO 5975WX 32-Cores",
+        "Linux 5.14.0-611.9.1.el9_7.x86_64 x86_64",
+        "online_cpus=2",
+        "/sys/fs/cgroup/cpu.max=max 100000",
+        "/sys/fs/cgroup/cpuset.cpus.effective=0-1"
+      ]
+    }
+  ],
+  "benchmarkExecuted": false,
+  "acceptanceEvidence": false,
+  "conclusion": "All sampled general x64 runners (6, 11, 14) are Threadripper PRO 5975WX with two visible CPUs. None supplies the required Intel Xeon 8370C proof; shared-runner isolation is not established."
+}

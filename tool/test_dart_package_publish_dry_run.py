@@ -31,7 +31,7 @@ MQTT_BENCHMARK_REPORT = (
     REPO_ROOT
     / "docs"
     / "benchmarks"
-    / "mqtt-hosted-pr128-ffc417a9.json"
+    / "mqtt-hosted-pr128-6790909b.json"
 )
 MQTT_BENCHMARK_REPEAT = (
     REPO_ROOT
@@ -250,10 +250,10 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertIn("mqtt-hosted-pr128-2dea8b8e.json", mqtt_table)
         latest_row = next(
             row for row in mqtt_table.splitlines()
-            if row.startswith("| [Latest `ffc417a9`]")
+            if row.startswith("| [Latest `6790909b`]")
         )
         latest_cells = [cell.strip() for cell in latest_row.strip("|").split("|")]
-        self.assertIn("EPYC 7763", latest_cells[0])
+        self.assertIn("EPYC 9V74", latest_cells[0])
         self.assertEqual(
             latest_cells[1:],
             [
@@ -261,7 +261,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 f'{summaries["native-ws-v311-sustained"]["throughput_ratio"]:.3f}',
                 f'{summaries["native-v311-sustained"]["throughput_ratio"]:.3f}',
                 f'{summaries["native-64k-sustained"]["broker_cpu_ratio"]:.3f}',
-                "Pass",
+                "**Fail (WS rate)**",
             ],
         )
         repeat = json.loads(MQTT_BENCHMARK_REPEAT.read_text(encoding="utf-8"))

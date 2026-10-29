@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "workflowRunId": 40932352073,
+  "jobId": 123653801145,
+  "artifactId": 12923571193,
+  "commit": "c301c512b4f6cbb89e9be9655699d926d79a8afb",
+  "runnerLabel": "ubuntu-22.04",
+  "userlandImage": "ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d",
+  "cpuModel": "AMD EPYC 7763 64-Core Processor",
+  "kernel": "Linux e6b3122a43fe 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "status": {
+    "matched_intel_8370c": false,
+    "benchmark_executed": false
+  },
+  "acceptanceEvidence": false
+}
