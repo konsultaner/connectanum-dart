@@ -42,7 +42,7 @@ jobs:
     env:
       CARGO_BUILD_JOBS: 2
       REQUESTED_CPU: ${{ inputs.target_cpu }}
-      BENCH_OUTPUT: ${{ runner.temp }}/mqtt-burst-linux
+      BENCH_OUTPUT: /tmp/mqtt-burst-linux-${{ github.run_id }}-${{ matrix.probe }}
     steps:
       - name: Require the requested hardware before timing
         id: cpu
@@ -143,5 +143,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: mqtt-burst-linux-comparison-${{ matrix.probe }}
-          path: ${{ runner.temp }}/mqtt-burst-linux
+          path: ${{ env.BENCH_OUTPUT }}
           if-no-files-found: error
