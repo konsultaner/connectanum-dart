@@ -27,32 +27,13 @@ BENCH_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_bench" / "CHANGELOG.md"
 )
 BENCH_README = REPO_ROOT / "packages" / "connectanum_bench" / "README.md"
-MQTT_BENCHMARK_REPORT = (
-    REPO_ROOT
-    / "docs"
-    / "benchmarks"
-    / "mqtt-hosted-pr128-b1c611ba.json"
-)
-MQTT_BENCHMARK_REPEAT = (
-    REPO_ROOT
-    / "docs"
-    / "benchmarks"
-    / "mqtt-hosted-pr128-84b22de8.json"
-)
-WAMP_BENCHMARK_SUMMARY = (
-    REPO_ROOT
-    / "docs"
-    / "benchmarks"
-    / "wamp-four-serializer-2026-10-20"
-    / "summary.json"
-)
-WAMP_FILE_BENCHMARK_SUMMARY = (
-    REPO_ROOT
-    / "docs"
-    / "benchmarks"
-    / "wamp-flatbuffers-file-segments-2026-10-20"
-    / "summary.json"
-)
+BENCHMARK_REPORTS = json.loads(
+    (REPO_ROOT / "tool" / "fixtures" / "benchmark_readme.json").read_text(encoding="utf-8")
+)["reports"]
+MQTT_BENCHMARK_REPORT = "mqtt-hosted-pr128-b1c611ba.json"
+MQTT_BENCHMARK_REPEAT = "mqtt-hosted-pr128-84b22de8.json"
+WAMP_BENCHMARK_SUMMARY = "wamp-four-serializer-2026-10-20/summary.json"
+WAMP_FILE_BENCHMARK_SUMMARY = "wamp-flatbuffers-file-segments-2026-10-20/summary.json"
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
 EXPECTED_PACKAGE_VERSION = "3.0.0-beta.8"
@@ -106,7 +87,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 self.assertIn("trailing_commas: preserve", analysis_options)
 
     def test_mqtt_comparison_table_matches_same_runner_samples(self) -> None:
-        report = json.loads((REPO_ROOT / "docs/benchmarks/mqtt-native-comparison-1660422d.json").read_text())
+        report = BENCHMARK_REPORTS["mqtt-native-comparison-1660422d.json"]
         readme = BENCH_README.read_text()
         legs = report["legs"]
         self.assertEqual([leg["name"] for leg in legs],
@@ -130,7 +111,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 self.assertIn(f"| {label} | {metric} | {values} |", readme)
 
     def test_direct_body_comparison_table_matches_interleaved_raw_samples(self) -> None:
-        report = json.loads((REPO_ROOT / "docs/benchmarks/mqtt-direct-body-local-comparison.json").read_text())
+        report = BENCHMARK_REPORTS["mqtt-direct-body-local-comparison.json"]
         readme = BENCH_README.read_text()
         self.assertTrue(report["diagnosticOnly"])
         total = 0
@@ -161,7 +142,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertEqual(report["totalExactDeliveries"], total)
 
     def test_worker_comparison_table_uses_identical_binaries_and_exact_raw_samples(self) -> None:
-        report = json.loads((REPO_ROOT / "docs/benchmarks/mqtt-runtime-workers-local-comparison.json").read_text())
+        report = BENCHMARK_REPORTS["mqtt-runtime-workers-local-comparison.json"]
         self.assertTrue(report["diagnosticOnly"])
         self.assertEqual(report["workerPolicies"], {"before": "automatic", "direct": "1"})
         self.assertEqual({profile["id"] for profile in report["profiles"]},
@@ -191,7 +172,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
 
     def test_bench_readme_publishes_current_result_snapshot(self) -> None:
         readme = BENCH_README.read_text(encoding="utf-8")
-        mqtt_report = json.loads(MQTT_BENCHMARK_REPORT.read_text(encoding="utf-8"))
+        mqtt_report = BENCHMARK_REPORTS[MQTT_BENCHMARK_REPORT]
         mqtt_table = readme.split("## MQTT publish and subscribe", 1)[1].split(
             "## WAMP throughput", 1
         )[0]
@@ -264,7 +245,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 "Pass",
             ],
         )
-        repeat = json.loads(MQTT_BENCHMARK_REPEAT.read_text(encoding="utf-8"))
+        repeat = BENCHMARK_REPORTS[MQTT_BENCHMARK_REPEAT]
         self.assertIn("mqtt-hosted-pr128-84b22de8.json", mqtt_table)
         self.assertEqual(
             repeat["totalRawRows"],
@@ -346,10 +327,8 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             if line not in table_headers and not line.startswith("| ---")
         ]
         self.assertEqual(len(wamp_rows), 26)
-        summary = json.loads(WAMP_BENCHMARK_SUMMARY.read_text(encoding="utf-8"))
-        file_summary = json.loads(
-            WAMP_FILE_BENCHMARK_SUMMARY.read_text(encoding="utf-8")
-        )["workloads"]
+        summary = BENCHMARK_REPORTS[WAMP_BENCHMARK_SUMMARY]
+        file_summary = BENCHMARK_REPORTS[WAMP_FILE_BENCHMARK_SUMMARY]["workloads"]
         benchmark_groups = [
             group
             for scenario in (
@@ -381,6 +360,12 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 for workload in workloads
             ]
             self.assertEqual(actual_cells, expected_cells)
+            for workload in workloads:
+                for metric in ("data_gbit_s", "lifecycle_gbit_s"):
+                    self.assertEqual(
+                        workload[f"median_{metric}"],
+                        statistics.median(run[metric] for run in workload["runs"]),
+                    )
             self.assertTrue(
                 all(len(workload["runs"]) == 3 for workload in workloads)
             )

@@ -129,7 +129,7 @@ run against Mosquitto 2.0.18 measured:
 
 The [complete 20-profile table](../connectanum_bench/README.md#mqtt-publish-and-subscribe)
 shows delivered rates, latency, CPU, memory, and results for each workload.
-The [raw evidence](../../docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
+The [raw evidence](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
 records the measured runner and workload details.
 
 ## Lazy Payload And Forwarding Boundaries

@@ -3,6 +3,8 @@
 Connectanum benchmark results for MQTT publish/subscribe and WAMP transports.
 The package runs the WAMP and HTTP workloads; the MQTT runner lives under
 `packages/connectanum_router/benchmark/`.
+Full raw results and checksums are in the [benchmark archive](../../docs/benchmarks/README.md#archive);
+the tables below are checked against compact offline regression fixtures.
 
 ## MQTT publish and subscribe
 
@@ -71,22 +73,22 @@ check delivery only. All 20 profiles pass in this run. Matched comparisons and e
 | [Earlier run](https://github.com/konsultaner/connectanum-dart/actions/runs/39411135727), Intel Xeon 6973P-C | — | — | — | 5.000 | Fail |
 | [Earlier run](https://github.com/konsultaner/connectanum-dart/actions/runs/38816345739/job/116703874967), Intel Xeon 8573C | — | — | — | 4.294 | Fail |
 
-The [latest results](../../docs/benchmarks/mqtt-hosted-pr128-b1c611ba.json),
-[previous production results](../../docs/benchmarks/mqtt-hosted-pr128-e35635de.json),
-[previous 7763 miss](../../docs/benchmarks/mqtt-hosted-pr128-160fc2c2.json),
-[previous 9V74 miss](../../docs/benchmarks/mqtt-hosted-pr128-6790909b.json),
-[passing EPYC 7763 results](../../docs/benchmarks/mqtt-hosted-pr128-ffc417a9.json),
-[baseline results](../../docs/benchmarks/mqtt-hosted-pr128-9aa6b17d.json),
-[Intel results](../../docs/benchmarks/mqtt-hosted-pr128-2dea8b8e.json)
-and [passing AMD repeat](../../docs/benchmarks/mqtt-hosted-pr128-84b22de8.json)
+The [latest results](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-b1c611ba.json),
+[previous production results](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-e35635de.json),
+[previous 7763 miss](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-160fc2c2.json),
+[previous 9V74 miss](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-6790909b.json),
+[passing EPYC 7763 results](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-ffc417a9.json),
+[baseline results](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-9aa6b17d.json),
+[Intel results](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-2dea8b8e.json)
+and [passing AMD repeat](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-84b22de8.json)
 include every sample, workload setting, limit, and runner detail. The
-[earlier passing AMD run](../../docs/benchmarks/mqtt-hosted-pr128-055e5739.json),
-[WSS latency regression](../../docs/benchmarks/mqtt-hosted-pr128-780145ec.json)
-and an [earlier passing AMD snapshot](../../docs/benchmarks/mqtt-hosted-amd-fccc7566.json)
+[earlier passing AMD run](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-055e5739.json),
+[WSS latency regression](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-780145ec.json)
+and an [earlier passing AMD snapshot](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-amd-fccc7566.json)
 are available for comparison. These results describe this measured run; QoS 0
 does not guarantee delivery in every deployment.
 
-The [earlier Intel Xeon 8370C production-baseline run](../../docs/benchmarks/mqtt-intel8370c-production-40960196402.json)
+The [earlier Intel Xeon 8370C production-baseline run](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-intel8370c-production-40960196402.json)
 uses `e35635de` production code, before the readiness-yield change. Both 64 KiB
 CPU checks pass the unchanged 4.000× cap. One WebSocket 3.1.1 pass misses the
 0.700× throughput floor, so overall performance acceptance remains open.
@@ -102,7 +104,7 @@ All 8,100,000 deliveries across 60 samples are exact.
 | 2 | TCP 64 KiB | 0.858 | 1.255 / 1.246 | 3.647 | 57.0 MiB | Pass |
 
 The buffered-frame experiment was reverted because the EPYC 7763 gate remained
-red. Its [same-runner comparison](../../docs/benchmarks/mqtt-native-comparison-1660422d.json)
+red. Its [same-runner comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-native-comparison-1660422d.json)
 shows small, mixed changes on EPYC 9V45. Higher delivery rate and lower CPU time are better.
 
 | Workload | Metric | Baseline 1 | Candidate 1 | Baseline 2 | Candidate 2 |
@@ -115,13 +117,13 @@ shows small, mixed changes on EPYC 9V45. Higher delivery rate and lower CPU time
 | TCP 64 KiB | Broker CPU seconds | 0.41 | 0.40 | 0.39 | 0.41 |
 
 Complete experimental matrices are available for
-[EPYC 7763](../../docs/benchmarks/mqtt-hosted-pr128-1660422d-epyc7763.json) and
-[EPYC 9V45](../../docs/benchmarks/mqtt-hosted-pr128-1660422d-epyc9v45.json).
+[EPYC 7763](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-1660422d-epyc7763.json) and
+[EPYC 9V45](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-pr128-1660422d-epyc9v45.json).
 
 
 The direct-body decoder candidate reduces large-payload copying. These local Apple M3 Ultra
 medians use five interleaved repetitions with the same client and native library.
-The [raw comparison](../../docs/benchmarks/mqtt-direct-body-local-comparison.json)
+The [raw comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-direct-body-local-comparison.json)
 contains 6,300,000 exact deliveries. Current affected-CPU results appear above; small local WS changes are inconclusive.
 
 | Workload | Deliveries/run | Delivered/s before → candidate | Broker CPU seconds before → candidate | Sampled RSS MiB before → candidate |
@@ -131,7 +133,7 @@ contains 6,300,000 exact deliveries. Current affected-CPU results appear above; 
 | WS MQTT 3.1.1 | 200,000 | 100,944 → 101,112 | 3.92 → 3.89 | 30.4 → 29.9 |
 
 
-A separate [runtime sizing comparison](../../docs/benchmarks/mqtt-runtime-workers-local-comparison.json)
+A separate [runtime sizing comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-runtime-workers-local-comparison.json)
 uses the same broker binary on this Mac. These local results cover 6,000,000 exact
 deliveries. The Linux comparison below motivated isolating MQTT on its own runtime.
 
@@ -140,10 +142,10 @@ deliveries. The Linux comparison below motivated isolating MQTT on its own runti
 | WS MQTT 5 | 129,101 → 153,519 | 3.06 → 1.94 | 30.1 → 34.4 |
 | WS MQTT 3.1.1 | 137,040 → 140,152 | 2.90 → 2.07 | 30.5 → 33.7 |
 
-A [same-library Linux comparison](../../docs/benchmarks/mqtt-runtime-workers-linux-one.json)
+A [same-library Linux comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-runtime-workers-linux-one.json)
 on EPYC 7763 also improves WS throughput with one worker, but the first MQTT 5
 leg remains below the 0.700× floor. All 16,200,000 deliveries are exact.
-[Two workers](../../docs/benchmarks/mqtt-runtime-workers-linux-two.json) increased WS CPU on EPYC 9V45 and were rejected.
+[Two workers](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-runtime-workers-linux-two.json) increased WS CPU on EPYC 9V45 and were rejected.
 
 | Workload | Metric | Automatic 1 | One worker 1 | Automatic 2 | One worker 2 |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -157,7 +159,7 @@ leg remains below the 0.700× floor. All 16,200,000 deliveries are exact.
 | TCP 64 KiB | Broker CPU seconds | 0.66 | 0.61 | 0.66 | 0.62 |
 | TCP 64 KiB | Peak RSS MiB | 60.1 | 59.6 | 60.6 | 61.3 |
 
-The [exact-topic shortcut comparison](../../docs/benchmarks/mqtt-exact-topic-local-comparison.json)
+The [exact-topic shortcut comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-exact-topic-local-comparison.json)
 uses frozen before/after brokers, one client and one native library on Apple M3 Ultra.
 All 6,300,000 deliveries are exact. The changes are small and mixed, so the shortcut is reverted.
 
@@ -167,7 +169,7 @@ All 6,300,000 deliveries are exact. The changes are small and mixed, so the shor
 | WS MQTT 5 | 105,617 → 103,392 | 3.67 → 3.80 | 30.7 → 29.8 |
 | WS MQTT 3.1.1 | 101,571 → 101,284 | 3.93 → 3.92 | 30.4 → 30.0 |
 
-The [MQTT reactor candidate](../../docs/benchmarks/mqtt-reactor-local-comparison.json)
+The [MQTT reactor candidate](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-reactor-local-comparison.json)
 uses identical frozen broker/client binaries on Apple M3 Ultra, changing only
 the native library. All 6,300,000 MQTT deliveries are exact. The separate serial
 WAMP guard completes 144 workloads. Current hosted results appear above.
@@ -178,7 +180,7 @@ WAMP guard completes 144 workloads. Current hosted results appear above.
 | WS MQTT 5 | 200,000 | 101,315 → 106,810 | 3.85 → 2.62 | 30.3 → 29.8 |
 | WS MQTT 3.1.1 | 200,000 | 102,330 → 107,774 | 3.81 → 2.61 | 30.3 → 29.7 |
 
-A [repeated EPYC 7763 comparison](../../docs/benchmarks/mqtt-reactor-epyc7763-comparison.json)
+A [repeated EPYC 7763 comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-reactor-epyc7763-comparison.json)
 passes all 12 profile legs with 16,200,000 exact deliveries. Default MQTT I/O
 uses its own worker; the explicit one-worker option shares the primary pool.
 The throughput floors remain 0.700× for WS and 0.750× for TCP, with a 4.000× large-payload CPU cap.
@@ -195,7 +197,7 @@ The throughput floors remain 0.700× for WS and 0.750× for TCP, with a 4.000× 
 | TCP 64 KiB | Broker CPU C/M × | 2.773 | 3.211 | 2.696 | 2.810 |
 | TCP 64 KiB | Peak RSS MiB | 57.3 | 57.6 | 59.3 | 61.0 |
 
-A [reader-readiness trial](../../docs/benchmarks/mqtt-readiness-local-rejected.json) was reverted: MQTT 5 slowed in both runs and the MQTT 3.1.1 gain did not repeat. These local comparisons use the same broker/client binaries and change only the native library.
+A [reader-readiness trial](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-readiness-local-rejected.json) was reverted: MQTT 5 slowed in both runs and the MQTT 3.1.1 gain did not repeat. These local comparisons use the same broker/client binaries and change only the native library.
 
 | Workload | Run | Delivered/s before → trial | Broker CPU seconds before → trial | Sampled RSS MiB before → trial |
 | --- | ---: | ---: | ---: | ---: |
@@ -204,7 +206,7 @@ A [reader-readiness trial](../../docs/benchmarks/mqtt-readiness-local-rejected.j
 | WS MQTT 5 | 2 | 158,968 → 151,792 | 1.87 → 1.95 | 35.9 → 35.5 |
 | WS MQTT 3.1.1 | 2 | 158,204 → 150,265 | 1.89 → 1.96 | 36.5 → 35.2 |
 
-A [boundary-only variant](../../docs/benchmarks/mqtt-readiness-boundary-local-comparison.json) also has mixed local results. Linux results follow; affected-CPU acceptance is still open.
+A [boundary-only variant](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-readiness-boundary-local-comparison.json) also has mixed local results. Linux results follow; affected-CPU acceptance is still open.
 
 | Workload | Run | Delivered/s before → trial | Broker CPU seconds before → trial | Sampled RSS MiB before → trial |
 | --- | ---: | ---: | ---: | ---: |
@@ -213,7 +215,7 @@ A [boundary-only variant](../../docs/benchmarks/mqtt-readiness-boundary-local-co
 | WS MQTT 5 | 2 | 158,246 → 153,157 | 1.88 → 1.93 | 35.8 → 35.7 |
 | WS MQTT 3.1.1 | 2 | 162,653 → 157,854 | 1.84 → 1.87 | 36.6 → 36.2 |
 
-The [Linux comparison](../../docs/benchmarks/mqtt-readiness-boundary-linux-40936331023.json) passes all 12 profile checks on EPYC 9V45. MQTT 5 improves slightly in both pairs; MQTT 3.1.1 is mixed. Tests on the affected CPUs remain pending.
+The [Linux comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-readiness-boundary-linux-40936331023.json) passes all 12 profile checks on EPYC 9V45. MQTT 5 improves slightly in both pairs; MQTT 3.1.1 is mixed. Tests on the affected CPUs remain pending.
 
 | Workload | Metric | Reactor 1 | Trial 1 | Reactor 2 | Trial 2 |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -227,7 +229,7 @@ The [Linux comparison](../../docs/benchmarks/mqtt-readiness-boundary-linux-40936
 | TCP 64 KiB | Broker CPU seconds | 0.35 | 0.36 | 0.34 | 0.35 |
 | TCP 64 KiB | Peak RSS MiB | 63.0 | 66.4 | 66.0 | 65.8 |
 
-The [three-host 9V74 comparison](../../docs/benchmarks/mqtt-reactor-matched-40942027350.json) passes all 18 production-baseline checks. The reader trial is rejected: its changes are mixed and one MQTT 3.1.1 ratio is 0.693, below 0.700. The latest full 7763 gate above passes; earlier production-baseline misses remain in the history table.
+The [three-host 9V74 comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-reactor-matched-40942027350.json) passes all 18 production-baseline checks. The reader trial is rejected: its changes are mixed and one MQTT 3.1.1 ratio is 0.693, below 0.700. The latest full 7763 gate above passes; earlier production-baseline misses remain in the history table.
 
 | 9V74 host | Production WS 5 rate ×, runs 1 / 2 | Production WS 3.1.1 rate ×, runs 1 / 2 | Production 64 KiB CPU ×, runs 1 / 2 |
 | --- | ---: | ---: | ---: |
@@ -235,7 +237,7 @@ The [three-host 9V74 comparison](../../docs/benchmarks/mqtt-reactor-matched-4094
 | Probe 2 | 0.766 / 0.733 | 0.733 / 0.755 | 2.800 / 3.071 |
 | Probe 4 | 0.750 / 0.741 | 0.720 / 0.725 | 2.688 / 2.933 |
 
-The [same-binary tracing comparison](../../docs/benchmarks/mqtt-tracing-epyc7763-40948629881.json)
+The [same-binary tracing comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-tracing-epyc7763-40948629881.json)
 on EPYC 7763 passes all 12 gates. These small, mixed differences do not establish
 coverage tracing as the cause of the full-run failure above. Coverage stays enabled.
 
@@ -246,7 +248,7 @@ coverage tracing as the cause of the full-run failure above. Coverage stays enab
 | bare-2 | 0.766 | 0.737 | 2.810 | Pass |
 | traced-2 | 0.747 | 0.739 | 2.773 | Pass |
 
-The [owned-wire forwarding trial](../../docs/benchmarks/mqtt-wire-view-local-rejected.json)
+The [owned-wire forwarding trial](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-wire-view-local-rejected.json)
 is rejected: it does not improve WebSocket throughput. These local Apple M3 Ultra
 results use identical client/native binaries; the 64 KiB workload has 20k publications.
 All 6,300,000 deliveries are exact. Before / trial values are medians, except peak RSS.
@@ -257,7 +259,7 @@ All 6,300,000 deliveries are exact. Before / trial values are medians, except pe
 | WS MQTT 3.1.1 | 127,036 / 126,471 | 2.24 / 2.26 | 31.3 / 31.7 |
 | TCP 64 KiB | 11,285 / 11,267 | 0.84 / 0.80 | 87.2 / 80.7 |
 
-The [burst-timer trial](../../docs/benchmarks/mqtt-burst-macos-rejected.json) reduces
+The [burst-timer trial](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-burst-macos-rejected.json) reduces
 CPU use but slows macOS WebSocket delivery, so it is rejected for macOS. These
 local results retain all 6,000,000 exact deliveries; the Linux comparison follows.
 
@@ -266,7 +268,7 @@ local results retain all 6,000,000 exact deliveries; the Linux comparison follow
 | WS MQTT 5 | 149,975 / 114,439 | 1.95 / 1.04 | 34.8 / 30.0 |
 | WS MQTT 3.1.1 | 154,005 / 113,766 | 1.92 / 1.04 | 35.3 / 30.5 |
 
-The [two-host Linux timer comparison](../../docs/benchmarks/mqtt-burst-linux-40951811976.json)
+The [two-host Linux timer comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-burst-linux-40951811976.json)
 passes all 24 numeric checks on EPYC 9V74 and delivers 32,400,000 messages exactly.
 Throughput changes are mixed despite lower CPU, so the timer is rejected as the
 throughput fix. These are separate paired runs; they do not clear the affected
@@ -281,7 +283,7 @@ throughput fix. These are separate paired runs; they do not clear the affected
 | Ubuntu 22 / pinned 24 / WS 3.1.1 | 0.746 / 0.761 | 0.749 / 0.769 | 9.77 / 8.87 | 9.84 / 8.71 |
 | Ubuntu 22 / pinned 24 / TCP 64 KiB | 0.926 / 0.917 | 0.920 / 0.913 | 0.60 / 0.59 | 0.62 / 0.60 |
 
-The [no-timer ready-yield comparison](../../docs/benchmarks/mqtt-yield-linux-40956744846.json)
+The [no-timer ready-yield comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-yield-linux-40956744846.json)
 passes all 36 checks on three actual EPYC 7763 hosts with 48,600,000 exact deliveries.
 Changes are small and mixed across these AMD hosts. The production baseline
 passes all 18 checks as well. The Intel comparison below establishes the benefit
@@ -299,14 +301,14 @@ on the affected Intel model.
 | Ubuntu 22 / pinned 24 / WS 3.1.1 | 0.753 / 0.767 | 0.829 / 0.777 | 9.52 / 9.29 | 8.91 / 9.15 |
 | Ubuntu 22 / pinned 24 / TCP 64 KiB | 0.915 / 0.963 | 0.919 / 0.920 | 0.63 / 0.65 | 0.62 / 0.63 |
 
-The [matched Intel Xeon 8370C comparison](../../docs/benchmarks/mqtt-yield-intel8370c-40961646882.json)
+The [matched Intel Xeon 8370C comparison](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-yield-intel8370c-40961646882.json)
 changes only the native library, using the same readiness-yield library as
 `b1c611ba`. This candidate improves
 both WebSocket versions in both pairs, while reducing broker CPU. All six
 candidate checks pass; the baseline fails all four WebSocket checks. The 64 KiB
 checks pass for both libraries. All 16,200,000 deliveries are exact. The full hosted MQTT matrix
 above also passes with this candidate on EPYC 7763.
-Current scoped coverage is [882/882 native added lines](../../docs/benchmarks/mqtt-native-added-line-coverage-ready-yield.md),
+Current scoped coverage is [882/882 native added lines](../../docs/benchmarks/README.md#coverage),
 651/651 MQTT Dart lines and 268/268 benchmark-gate Python lines.
 
 | 8370C workload | Rate × baseline / candidate, pair 1 | Rate × baseline / candidate, pair 2 | Broker CPU seconds baseline / candidate, pair 1 | Broker CPU seconds baseline / candidate, pair 2 | Peak RSS MiB baseline / candidate, maximum |
@@ -320,8 +322,8 @@ Current scoped coverage is [882/882 native added lines](../../docs/benchmarks/mq
 Each cell shows **sustained / full-lifecycle throughput** in Gbit/s; higher is better.
 The values are medians of three matched local runs on an Apple M3 Ultra.
 FlatBuffers means a FlatBuffers WAMP envelope with CBOR application fragments.
-The [file measurements](../../docs/benchmarks/wamp-flatbuffers-file-segments-2026-10-20/README.md)
-and [other WAMP measurements](../../docs/benchmarks/wamp-four-serializer-2026-10-20/README.md)
+The [file measurements](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/wamp-flatbuffers-file-segments-2026-10-20/README.md)
+and [other WAMP measurements](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/wamp-four-serializer-2026-10-20/README.md)
 include the raw results and run settings.
 
 ### 64 MiB file transfer
@@ -341,7 +343,7 @@ include the raw results and run settings.
 
 Files use 4 MiB chunks. Native FlatBuffers file rows use file-backed
 segments; Dart buffered rows use the Dart file path.
-The [hosted Linux FlatBuffers file table](../../docs/benchmarks/wamp-flatbuffers-hosted-linux-1c53c153-2026-10-20/README.md)
+The [hosted Linux FlatBuffers file table](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/wamp-flatbuffers-hosted-linux-1c53c153-2026-10-20/README.md)
 shows the eight native paths and the GitHub Actions gate result.
 
 ### Large RPC frames
