@@ -94,7 +94,7 @@ class MutationRunnerTests(unittest.TestCase):
             'packages/connectanum_router/lib/src/router/router_instance/router_binding.dart'])
         self.assertEqual(target['tests'], ['packages/connectanum_router/test/router_runtime_test.dart'])
         self.assertEqual(target['testName'], '^Router start drain')
-        self.assertEqual(target['mutationLineRanges'], [[1100, 1257]])
+        self.assertEqual(target['mutationLineRanges'], [[1108, 1265]])
         self.assertTrue(target['requiresNativeLibrary'])
         self.assertFalse(target['isolateTestFiles'])
 

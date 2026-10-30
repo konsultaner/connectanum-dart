@@ -9,6 +9,18 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+Current frozen runtime: `40f8cec585939af2f6cf402939f435c689b6c6c4` (pushed).
+Renewed CI `41112069093` fails Fast Checks and local full verification exits 1
+on the same stale hard-coded mutation-range expectation: config correctly moved
+from 1100–1257 to 1108–1265 after the verified eight-line insertion, but its test
+still expects the old range. Correct only that test; all 93 contracts pass
+(1 declared platform skip), with all 167 proof sites retained. No production,
+policy, scenario, instrumentation or measurement change occurs. Renew CI and
+local full verification on this tooling-only follow-up. Keep the running
+paired diagnostic `41112077193` and copy proof `41112073189` untouched; preserve
+all failed and superseded run histories. Full 48-case primary and final-runtime
+50-case supplemental remain pending; numerical acceptance is not yet claimed.
+
 `07d3227c` fixes a concrete explicit-release gap. A direct FFI weak observer
 proved that a 65,536-byte FlatBuffers result remained alive after
 `releaseNativeMessagePayload` returned true: the routing handle was released,
@@ -74,7 +86,16 @@ The deliberately failed copy predecessor, cancelled duplicate correctness CI
 and all earlier numerical reports are retained. SDK/TLS/crypto internals remain
 explicitly unmeasured under the user's accepted standard-Dart-SDK scope.
 
-VM profile `41106228701` on 2d0ee379 completes; artifact retrieval/audit is pending.
+VM profile `41106228701` on 2d0ee379 completes. Independent audit verifies all
+3,224 inputs, three retained generated input files, native library digest and
+all 18 snapshot hashes, and reproduces the hosted memory audit exactly after
+normalizing Python tuples through JSON. The first raw object comparison fails
+only on that tuple/list representation difference. There are no audit findings;
+process identities, clean exits and group cleanup agree. FlatBuffers client
+external usage is 34,165,208 bytes after the workload and 112 after its diagnostic
+GC request (CBOR 5,902,848 -> 112; MessagePack 112 -> 112). This supports the
+export-lifetime investigation; neither these snapshots nor diagnostic GC are
+performance acceptance.
 The earlier tooling-head local verification's dependency-network exit 124 remains
 recorded. A prior ef61 verification log reaches every VM/native/consumer and both
 browser successes, but its expired exec handle retains no direct final status.

@@ -1045,3 +1045,22 @@ again refused by the shared resource lease; do not bypass it. Master WAMP
 diagnostics 41105562735 reports failure at its run step, but hosted logs cannot
 be retrieved (HTTP 403 from the log receiver); keep this read failure recorded
 and verify the merged candidate's actual workflows before readiness.
+
+The completed 2d0ee379 memory artifact is independently audited: 3,224 input
+contents (including all three retained generated files), the native library
+digest and all 18 memory snapshot hashes agree. Recomputed memory attribution
+matches hosted JSON exactly after tuple/list normalization; retain the first
+raw Python equality failure rather than hiding it. No integrity findings occur.
+FlatBuffers client externalUsage is 29,640,464 before / 34,165,208 after workload
+/ 112 after the diagnostic GC request; CBOR is 6,296,352 / 5,902,848 / 112 and
+MessagePack is 112 throughout. This is lifetime attribution, never acceptance.
+
+Frozen merged runtime 40f8cec5 is pushed. Full CI 41112069093, owned copy
+41112073189 and paired diagnostic 41112077193 are dispatched. Local full
+verification exits 1 at the tooling suite; hosted Fast Checks fails similarly.
+The single failure is the old hard-coded 1100–1257 mutation-range expectation
+after the already proved +8-line source insertion. Update only its expectation
+to 1108–1265; all 93 contracts pass (one platform skip). No production, benchmark
+policy/scenario or instrumentation changes occur. A successful local Qwen debug
+agrees with this source-verified diagnosis. Renew correctness CI/verification
+on the tooling head, leaving both numerical and copy campaigns untouched.

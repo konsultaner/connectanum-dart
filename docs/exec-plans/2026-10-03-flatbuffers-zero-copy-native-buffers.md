@@ -7,6 +7,23 @@ master, verify ownership/CI, then run strict numerical acceptance. Runtime
 `ef61b156` is the latest audited numerical checkpoint; only two RSS gates fail.
 Earlier sections retain checkpoint history, including rejected experiments.
 
+## Merged runtime and tooling contract renewal (2026-10-30)
+
+- [x] Push `40f8cec5`, incorporating MQTT master ef822e08, explicit payload
+  storage release and the reproduced three/four-fragment file-prefix repair.
+- [x] Audit old-runtime VM profile 41106228701: 3,224 inputs, native library,
+  18 snapshot hashes and exact normalized hosted audit, with no findings.
+  FlatBuffers external usage is 34,165,208 -> 112 bytes after diagnostic GC;
+  do not treat diagnostic GC or this attribution as acceptance.
+- [x] Retain full verification exit 1 and Fast Checks failure on stale test
+  expectation 1100–1257. Correct it to the already verified identical source
+  region 1108–1265; all 93 contracts pass (1 platform skip). Runtime/policy and
+  campaign source remain unchanged. Preserve all preceding reports.
+- [ ] Renew full CI and local verification on the tooling-only head. Supersede
+  only the failed duplicate correctness CI 41112069093 after renewal dispatch.
+- [ ] Leave paired 41112077193 and copy 41112073189 running untouched on 40f8cec5.
+  Then complete strict full-primary and final-runtime supplemental evidence.
+
 ## Explicit payload release investigation (2026-10-30)
 
 - [x] Independently audit 3,225 copy inputs and 120 live / 300 inventory /
@@ -28,7 +45,7 @@ Earlier sections retain checkpoint history, including rejected experiments.
   cases (7 optional Paho skips) and 10 Rust CLI cases pass. Reproduce/fix the
   three/four-fragment file-prefix mismatch; all 480 related cases pass and
   prefix coalescing copies are explicit.
-- [ ] Commit/push merged source and renew all final checks.
+- [x] Commit/push merged source as 40f8cec5; renew all final checks.
   Pre-merge full verification is deliberately superseded at tooling (exit 143).
 - [ ] Finish full verification and safety review, then evaluate a changed
   runtime with all unchanged gates. Memory attribution `41106228701` is queued;
