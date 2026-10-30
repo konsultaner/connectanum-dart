@@ -1004,3 +1004,44 @@ initially refuse the shared resource lease held by another project; do not
 bypass it. A later Qwen review obtains the lease but exceeds its output bound;
 retain that failed advisory attempt and request a bounded GLM safety audit.
 No numerical acceptance is claimed until a changed-runtime campaign completes.
+
+The completed GLM audit raises three advisory concerns; source verification
+rejects them as defects. Every export's native token is an acquired Arc to the
+same StoredMessage; any surviving old export already pinned the complete
+message, so grouping exports adds no additional payload-allocation retention.
+The C contract explicitly permits repeated token addresses, each representing
+a separate acquired reference; releasing each once is required, and the ten
+weak-observer tests cover the multi-export and independent-scope cases. The
+retained-owner predicate returns false after release; it cannot become true
+as claimed. Raw typed-data reads after explicit release are forbidden, not
+revocable; do not test them by dereferencing freed native memory. Existing
+GC-only and double-release proofs cover the valid contracts.
+
+Master integration includes MQTT merge ef822e08. Preserve both required CI lane
+inventories, both callback cleanup paths, MQTT dispatch once inside the guarded
+WAMP boss loop, both newly adjacent test blocks and the previous decoded-CBOR
+file-chunk fix. Full analysis and both Rust formatting checks pass. CI contract
+tests pass 23 cases. Mutation preflight initially rejects stale source hashes;
+map the 12 original AST mutations only through byte-identical containing source
+blocks (five drain, seven settings proofs). The whole 158-line selected drain
+region is identical after an eight-line insertion, so shift its range by eight.
+The full 167 proofs validate again; no proof or scoring threshold is waived.
+Pre-merge full verification is intentionally superseded at tooling (exit 143),
+with a structured termination receipt; rebuild native code and rerun on the
+merged candidate. The first standalone build helper mistakenly runs under zsh,
+which lacks BASH_SOURCE; the corrected invocation uses bash explicitly.
+
+Merged client verification exposes seven reproduced file-prefix integration
+failures: the newer fragment serializer splits an empty binary CBOR argument
+into its prefix and zero-length body, producing four fragments rather than
+master's expected three. Accept both exact valid layouts without coalescing the
+file body, retain nonempty/malformed/oversize guards, and account the three
+small control/header copies. A regression verifies both three/four-fragment
+inputs, unchanged decoded bytes and exact prefix.length-1 coalescing bytes.
+All 480 combined file/lifetime/client cases pass after the repair. The other
+merged router/MQTT suite passes 667 cases with seven optional Paho skips; Rust
+HTTP CLI passes all ten. Initial post-merge local-debug/review requests are
+again refused by the shared resource lease; do not bypass it. Master WAMP
+diagnostics 41105562735 reports failure at its run step, but hosted logs cannot
+be retrieved (HTTP 403 from the log receiver); keep this read failure recorded
+and verify the merged candidate's actual workflows before readiness.

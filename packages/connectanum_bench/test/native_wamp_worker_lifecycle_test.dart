@@ -781,7 +781,9 @@ class _WorkerFixture {
   }
 
   static Future<_WorkerFixture> create({
-    Duration readyTimeout = const Duration(seconds: 2),
+    // Protocol assertions must not race child startup under parallel suite load.
+    // Deadline behavior uses the explicit controlled timeout below.
+    Duration readyTimeout = const Duration(seconds: 10),
     Logger? logger,
     bool dartEntrypoint = false,
     bool packageEntrypoint = false,

@@ -19,12 +19,14 @@ import 'package:connectanum_client/src/transport/native/message_binding.dart';
 import 'package:connectanum_client/src/transport/native/ffi_bindings.dart';
 import 'package:ffi/ffi.dart';
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
-    show buildNativeFileSegmentPrefix;
+    show buildNativeFileSegmentPrefix, buildNativeFlatBuffersFileSegmentPrefix;
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
 import 'package:connectanum_core/json_serializer.dart' as json;
 import 'package:connectanum_core/msgpack_serializer.dart' as msgpack;
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart'
+    show OwnedCopyMetrics;
 import 'package:test/test.dart';
 
 import '../../test_support/native_runtime_support.dart';
@@ -38,6 +40,11 @@ final _wireCases = <(NativeMessageSerializer, AbstractSerializer)>[
   (NativeMessageSerializer.json, json.Serializer()),
   (NativeMessageSerializer.messagePack, msgpack.Serializer()),
   (NativeMessageSerializer.cbor, cbor.Serializer()),
+];
+
+final _fileLifecycleWireCases = <(NativeMessageSerializer, AbstractSerializer)>[
+  ..._wireCases,
+  (NativeMessageSerializer.flatbuffers, flat.Serializer()),
 ];
 
 Uint8List _encode(AbstractSerializer serializer, AbstractMessage message) {
@@ -218,6 +225,54 @@ void main() {
         );
       }
     }
+
+    test('FlatBuffers file prefix requires one empty binary argument', () {
+      final empty = _call(7, Uint8List(0));
+      final encodedEmpty = _call(7, Uint8List(0))
+        ..restoreLazyPayload(
+          LazyMessagePayload.encoded(
+            encoding: LazyPayloadEncoding.cbor,
+            argumentsBytes: Uint8List.fromList([0x81, 0x40]),
+            argumentsDecoder: (_) => [Uint8List(0)],
+          ),
+        );
+      OwnedCopyMetrics.enable();
+      for (final (count, message) in [(4, empty), (3, encodedEmpty)]) {
+        expect(flat.Serializer().serializeFragments(message), hasLength(count));
+        final before = OwnedCopyMetrics.snapshot()!['coalescing_copy_bytes']!;
+        final prefix = buildNativeFlatBuffersFileSegmentPrefix(
+          message,
+          fileLength: 3,
+        );
+        final after = OwnedCopyMetrics.snapshot()!['coalescing_copy_bytes']!;
+        expect(after - before, prefix.length - 1);
+        final frame = Uint8List.fromList([...prefix, 10, 20, 30]);
+        final decoded = flat.Serializer().deserialize(frame) as Call;
+        expect(decoded.requestId, 7);
+        expect(decoded.arguments!.single, [10, 20, 30]);
+      }
+      expect(
+        () => buildNativeFlatBuffersFileSegmentPrefix(
+          _call(7, Uint8List.fromList([1])),
+          fileLength: 3,
+        ),
+        throwsStateError,
+      );
+      expect(
+        () => buildNativeFlatBuffersFileSegmentPrefix(
+          empty,
+          fileLength: -1,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => buildNativeFlatBuffersFileSegmentPrefix(
+          empty,
+          fileLength: 64 * 1024 * 1024,
+        ),
+        throwsArgumentError,
+      );
+    });
 
     for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
       for (final keyId in [
@@ -669,7 +724,7 @@ void main() {
       },
     );
     for (final websocket in [false, true]) {
-      for (final (wire, serializer) in _wireCases) {
+      for (final (wire, serializer) in _fileLifecycleWireCases) {
         for (final cipher in [null, 'xsalsa20poly1305', 'aes256gcm']) {
           test(
             'transport websocket=$websocket ${wire.name} $cipher file lifecycle',
@@ -833,12 +888,20 @@ void main() {
               source.close();
               source.close();
               expect(() => send(source), throwsStateError);
-              transport.send(_call(100, Uint8List.fromList([4, 5, 6])));
+              final ordinaryMessage =
+                  wire == NativeMessageSerializer.flatbuffers
+                  ? Hello('realm', Details.forHello())
+                  : _call(100, Uint8List.fromList([4, 5, 6]));
+              transport.send(ordinaryMessage);
               await (transport as DrainableTransport).drain();
-              final ordinary =
-                  serializer.deserialize(await peer.nextFrame()) as Call;
-              expect(ordinary.requestId, 100);
-              expect(ordinary.arguments!.single, [4, 5, 6]);
+              final ordinary = serializer.deserialize(await peer.nextFrame());
+              if (ordinaryMessage is Hello) {
+                expect(ordinary, isA<Hello>());
+              } else {
+                final call = ordinary as Call;
+                expect(call.requestId, 100);
+                expect(call.arguments!.single, [4, 5, 6]);
+              }
               expect(transport.isOpen, isTrue);
               await transport.close();
               expect(transport.isOpen, isFalse);

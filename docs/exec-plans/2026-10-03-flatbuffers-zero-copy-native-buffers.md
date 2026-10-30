@@ -1,9 +1,10 @@
 # FlatBuffers and zero-copy native buffers
 
-Status: active. Started: 2026-10-03.
+Status: deferred in the MQTT worktree by the user's explicit MQTT milestone priority on 2026-10-14; the FlatBuffers work remains open. Started: 2026-10-03.
 
-Current step: validate scoped native body generation and renew the unchanged
-performance/copy gates. Runtime `828721fd` is the latest measured checkpoint.
+Current step: integrate the explicit receive-storage release fix with current
+master, verify ownership/CI, then run strict numerical acceptance. Runtime
+`ef61b156` is the latest audited numerical checkpoint; only two RSS gates fail.
 Earlier sections retain checkpoint history, including rejected experiments.
 
 ## Explicit payload release investigation (2026-10-30)
@@ -17,7 +18,18 @@ Earlier sections retain checkpoint history, including rejected experiments.
   crypto cases, 77 transport/frame regressions and derived-view GC pass.
   Ordinary handle release and independent exports retain their lifetimes.
 - [x] Complete fresh baseline: `bin/test-fast` exits 0.
-- [ ] Integrate the newly advanced MQTT master commit before final acceptance.
+- [x] Resolve new MQTT master integration conflicts, preserving both CI lane
+  inventories, notification cleanup and guarded MQTT dispatch. Analysis, Rust
+  formatting and 23 CI contracts pass. Revalidate all 167 mutation proofs after
+  mapping 12 unchanged sites and shifting the identical drain region +8 lines.
+- [x] Complete GLM review; verify/reject its three advisory claims against Arc
+  export semantics, existing whole-message ownership and released-owner lookup.
+- [x] Rebuild native source; merged analysis, 23 CI contracts, 667 router/MQTT
+  cases (7 optional Paho skips) and 10 Rust CLI cases pass. Reproduce/fix the
+  three/four-fragment file-prefix mismatch; all 480 related cases pass and
+  prefix coalescing copies are explicit.
+- [ ] Commit/push merged source and renew all final checks.
+  Pre-merge full verification is deliberately superseded at tooling (exit 143).
 - [ ] Finish full verification and safety review, then evaluate a changed
   runtime with all unchanged gates. Memory attribution `41106228701` is queued;
   shared-resource lease currently blocks local companions. No bypass.

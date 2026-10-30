@@ -26,6 +26,8 @@ mod ffi_boundaries;
 mod ffi_completion;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod listen_flow;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod mqtt_flow;
 mod router_config;
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 mod runtime_lifecycle;

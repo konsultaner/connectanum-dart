@@ -27,11 +27,25 @@ const HTTP2_PREFACE: &[u8; 24] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 #[derive(Debug)]
 pub enum NegotiatedConnection {
     RawSocket(NegotiatedSession),
+    Mqtt(MqttHandshake),
     WebSocket(WebSocketHandshake),
     Http(HttpHandshake),
     Http2(Http2Handshake),
     #[allow(dead_code)]
     Http3(Http3Handshake),
+}
+
+/// MQTT CONNECT preamble validated before the stream reaches the packet codec.
+#[derive(Debug)]
+pub struct MqttHandshake {
+    stream: IoStream,
+    pub version: u8,
+}
+
+impl MqttHandshake {
+    pub(crate) fn into_stream(self) -> IoStream {
+        self.stream
+    }
 }
 
 /// Error raised while negotiating the protocol for an incoming connection.
@@ -170,7 +184,9 @@ pub struct WebSocketHandshake {
 impl WebSocketHandshake {
     /// Converts the handshake into the underlying TCP stream.
     pub(crate) fn into_stream(self) -> IoStream {
-        self.http.into_stream()
+        let (mut stream, _, _, prefetched) = self.http.into_parts();
+        stream.buffer_front(&prefetched);
+        stream
     }
 }
 
@@ -285,6 +301,7 @@ pub async fn negotiate_connection(
     mut stream: IoStream,
     endpoint: &EndpointRuntimeConfig,
 ) -> Result<NegotiatedConnection, NegotiationError> {
+    let handshake_started = time::Instant::now();
     let prefix = peek_handshake(&mut stream, endpoint.handshake_timeout).await?;
     if looks_like_http(&prefix) {
         if prefix == HTTP2_PREFACE[..4] {
@@ -353,6 +370,20 @@ pub async fn negotiate_connection(
         Err(NegotiationError::Protocol(
             "HTTP protocol disabled for listener".into(),
         ))
+    } else if prefix[0] == 0x10 {
+        if !endpoint.supports_protocol(TransportProtocol::Mqtt) {
+            return Err(NegotiationError::Protocol(
+                "mqtt protocol disabled for listener".into(),
+            ));
+        }
+        negotiate_mqtt_connect(
+            stream,
+            endpoint
+                .handshake_timeout
+                .saturating_sub(handshake_started.elapsed()),
+        )
+        .await
+        .map(NegotiatedConnection::Mqtt)
     } else if prefix[0] == RAWSOCKET_MAGIC {
         if !endpoint.supports_protocol(TransportProtocol::Rawsocket) {
             return Err(NegotiationError::Protocol(
@@ -373,6 +404,71 @@ pub async fn negotiate_connection(
             "unsupported listener handshake preamble".into(),
         ))
     }
+}
+
+async fn negotiate_mqtt_connect(
+    mut stream: IoStream,
+    timeout: Duration,
+) -> Result<MqttHandshake, NegotiationError> {
+    let (prefix, version) = time::timeout(timeout, async {
+        let mut prefix = Vec::with_capacity(15);
+        let mut first = [0u8; 1];
+        stream.read_exact(&mut first).await?;
+        prefix.push(first[0]);
+
+        let mut remaining = 0usize;
+        let mut length_bytes = 0usize;
+        loop {
+            let mut digit = [0u8; 1];
+            stream.read_exact(&mut digit).await?;
+            prefix.push(digit[0]);
+            remaining |= usize::from(digit[0] & 0x7f) << (7 * length_bytes);
+            length_bytes += 1;
+            if digit[0] & 0x80 == 0 {
+                if length_bytes > 1 && digit[0] == 0 {
+                    return Err(NegotiationError::Protocol(
+                        "non-minimal MQTT remaining length".into(),
+                    ));
+                }
+                break;
+            }
+            if length_bytes == 4 {
+                return Err(NegotiationError::Protocol(
+                    "MQTT remaining length exceeds four bytes".into(),
+                ));
+            }
+        }
+
+        if remaining < 10 {
+            return Err(NegotiationError::Protocol(
+                "MQTT CONNECT remaining length is too short".into(),
+            ));
+        }
+        let mut variable_header = [0u8; 10];
+        stream.read_exact(&mut variable_header).await?;
+        prefix.extend_from_slice(&variable_header);
+        if &variable_header[..6] != b"\x00\x04MQTT" {
+            return Err(NegotiationError::Protocol(
+                "invalid MQTT CONNECT protocol name".into(),
+            ));
+        }
+        let version = variable_header[6];
+        if version != 4 && version != 5 {
+            return Err(NegotiationError::Protocol(
+                "unsupported MQTT protocol level".into(),
+            ));
+        }
+        if remaining < if version == 5 { 13 } else { 12 } {
+            return Err(NegotiationError::Protocol(
+                "MQTT CONNECT remaining length is too short".into(),
+            ));
+        }
+        Ok((prefix, version))
+    })
+    .await
+    .map_err(|_| NegotiationError::Timeout)??;
+    stream.buffer_front(&prefix);
+    Ok(MqttHandshake { stream, version })
 }
 
 /// Sends a generic 501 response for HTTP requests that cannot be serviced yet.
@@ -1432,6 +1528,127 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn negotiate_accepts_opt_in_mqtt_connect_preambles() {
+        let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+        config.protocols.push(TransportProtocol::Mqtt);
+        for request in [
+            &b"\x10\x0d\x00\x04MQTT\x05\x02\x00\x3c\x00\x00\x00"[..],
+            &b"\x10\x0c\x00\x04MQTT\x04\x02\x00\x3c\x00\x00"[..],
+        ] {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let server = async {
+                let (stream, _) = listener.accept().await.unwrap();
+                negotiate_connection(IoStream::plain(stream), &config).await
+            };
+            let client = async {
+                let mut stream = TcpStream::connect(addr).await.unwrap();
+                stream.write_all(request).await.unwrap();
+                stream.shutdown().await.unwrap();
+            };
+            let (result, ()) = tokio::join!(server, client);
+            let NegotiatedConnection::Mqtt(handshake) = result.expect("valid MQTT CONNECT") else {
+                panic!("CONNECT selected another protocol");
+            };
+            assert_eq!(handshake.version, if request[8] == 5 { 5 } else { 4 });
+            let mut replayed = vec![0u8; request.len()];
+            let mut stream = handshake.into_stream();
+            stream.read_exact(&mut replayed).await.unwrap();
+            assert_eq!(replayed, request);
+        }
+    }
+
+    #[tokio::test]
+    async fn negotiate_rejects_malformed_mqtt_preambles_and_disabled_listener() {
+        let mut config = runtime_config(Some(Duration::from_secs(1)), 16);
+        config.protocols.push(TransportProtocol::Mqtt);
+        for (request, expected) in [
+            (
+                &b"\x10\x80\x00\x00\x04MQTT\x05\x02\x00\x3c"[..],
+                "non-minimal MQTT remaining length",
+            ),
+            (
+                &b"\x10\x80\x80\x80\x80"[..],
+                "MQTT remaining length exceeds four bytes",
+            ),
+            (
+                &b"\x10\x09\x00\x04MQTT\x05\x02\x00\x3c"[..],
+                "MQTT CONNECT remaining length is too short",
+            ),
+            (
+                &b"\x10\x0d\x00\x04MQQT\x05\x02\x00\x3c\x00\x00\x00"[..],
+                "invalid MQTT CONNECT protocol name",
+            ),
+            (
+                &b"\x10\x0d\x00\x04MQTT\x06\x02\x00\x3c\x00\x00\x00"[..],
+                "unsupported MQTT protocol level",
+            ),
+            (
+                &b"\x10\x0c\x00\x04MQTT\x05\x02\x00\x3c\x00\x00"[..],
+                "MQTT CONNECT remaining length is too short",
+            ),
+        ] {
+            let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let server = async {
+                let (stream, _) = listener.accept().await.unwrap();
+                negotiate_connection(IoStream::plain(stream), &config).await
+            };
+            let client = async {
+                let mut stream = TcpStream::connect(addr).await.unwrap();
+                stream.write_all(request).await.unwrap();
+                stream.shutdown().await.unwrap();
+            };
+            let (result, ()) = tokio::join!(server, client);
+            assert!(
+                matches!(result, Err(NegotiationError::Protocol(detail)) if detail == expected),
+                "expected {expected}"
+            );
+        }
+
+        config
+            .protocols
+            .retain(|protocol| *protocol != TransportProtocol::Mqtt);
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = async {
+            let (stream, _) = listener.accept().await.unwrap();
+            negotiate_connection(IoStream::plain(stream), &config).await
+        };
+        let client = async {
+            let mut stream = TcpStream::connect(addr).await.unwrap();
+            stream
+                .write_all(b"\x10\x0d\x00\x04MQTT\x05\x02\x00\x3c\x00\x00\x00")
+                .await
+                .unwrap();
+            stream.shutdown().await.unwrap();
+        };
+        let (result, ()) = tokio::join!(server, client);
+        assert!(
+            matches!(result, Err(NegotiationError::Protocol(detail)) if detail == "mqtt protocol disabled for listener")
+        );
+    }
+
+    #[tokio::test]
+    async fn negotiate_mqtt_preamble_timeout_is_bounded_after_initial_four_bytes() {
+        let mut config = runtime_config(Some(Duration::from_millis(20)), 16);
+        config.protocols.push(TransportProtocol::Mqtt);
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = async {
+            let (stream, _) = listener.accept().await.unwrap();
+            negotiate_connection(IoStream::plain(stream), &config).await
+        };
+        let client = async {
+            let mut stream = TcpStream::connect(addr).await.unwrap();
+            stream.write_all(b"\x10\x0d\x00\x04").await.unwrap();
+            time::sleep(Duration::from_millis(80)).await;
+        };
+        let (result, ()) = tokio::join!(server, client);
+        assert!(matches!(result, Err(NegotiationError::Timeout)));
+    }
+
+    #[tokio::test]
     async fn negotiate_detects_rawsocket() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -1765,6 +1982,41 @@ Sec-WebSocket-Protocol: wamp.2.json, wamp.2.cbor\r\n\r\n";
         client.read_to_end(&mut buf).await.unwrap();
         let response = std::str::from_utf8(&buf).unwrap();
         assert!(response.starts_with("HTTP/1.1 501"));
+    }
+
+    #[tokio::test]
+    async fn websocket_upgrade_replays_prefetched_binary_frame() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let config = runtime_config(Some(Duration::from_secs(1)), 16);
+        let request = b"GET /mqtt HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: SGVsbG9OZWdvdGlvbg==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: mqtt\r\n\r\n";
+        let frame = b"\x82\x80\x00\x00\x00\x00";
+        let server = async {
+            let (stream, _) = listener.accept().await.unwrap();
+            let NegotiatedConnection::WebSocket(handshake) =
+                negotiate_connection(IoStream::plain(stream), &config)
+                    .await
+                    .unwrap()
+            else {
+                panic!("expected WebSocket handshake");
+            };
+            let mut replayed = [0u8; 6];
+            handshake
+                .into_stream()
+                .read_exact(&mut replayed)
+                .await
+                .unwrap();
+            assert_eq!(&replayed, frame);
+        };
+        let client = async {
+            let mut stream = TcpStream::connect(addr).await.unwrap();
+            stream
+                .write_all(&[request.as_slice(), frame].concat())
+                .await
+                .unwrap();
+            stream.shutdown().await.unwrap();
+        };
+        let ((), ()) = tokio::join!(server, client);
     }
 
     #[tokio::test]

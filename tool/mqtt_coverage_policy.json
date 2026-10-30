@@ -1,0 +1,30 @@
+{
+  "target": 100,
+  "sourceScope": "library",
+  "requiredSources": [
+    "packages/connectanum_core/lib/src/mqtt/frame_codec.dart",
+    "packages/connectanum_core/lib/src/mqtt/packet_codec.dart",
+    "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart",
+    "packages/connectanum_client/lib/src/mqtt/qos0_client.dart",
+    "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart"
+  ],
+  "files": {
+    "packages/connectanum_core/lib/src/mqtt/frame_codec.dart": 100,
+    "packages/connectanum_core/lib/src/mqtt/packet_codec.dart": 100,
+    "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart": 100,
+    "packages/connectanum_client/lib/src/mqtt/qos0_client.dart": 100,
+    "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart": 100
+  },
+  "components": {
+    "MQTT QoS 0 Dart sources": {
+      "floor": 100,
+      "sources": [
+        "packages/connectanum_core/lib/src/mqtt/frame_codec.dart",
+        "packages/connectanum_core/lib/src/mqtt/packet_codec.dart",
+        "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart",
+        "packages/connectanum_client/lib/src/mqtt/qos0_client.dart",
+        "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart"
+      ]
+    }
+  }
+}

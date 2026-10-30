@@ -30,6 +30,7 @@ pub const PROTOCOL_WEBSOCKET: i32 = 2;
 pub const PROTOCOL_HTTP: i32 = 3;
 pub const PROTOCOL_HTTP2: i32 = 4;
 pub const PROTOCOL_HTTP3: i32 = 5;
+pub const PROTOCOL_MQTT: i32 = 6;
 
 pub const HTTP_EVENT_REASON_GRACEFUL: i32 = 1;
 pub const HTTP_EVENT_REASON_GOAWAY: i32 = 2;

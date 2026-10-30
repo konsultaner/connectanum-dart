@@ -562,54 +562,54 @@
     }
   },
   "router-binding-drain-vm": {
-    "b33957719d52813d9917": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "26906dee01a7a5353555": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "The bounded drain target selects only tests using the plain _FakeRuntime, which never creates a worker-isolate boss. In that source-matched scope boss is always null, so boss?.stop(...) is not evaluated and the null fallback Future<void>.value() is returned in both the original and replacement expressions. This justification does not waive worker-boss drain behavior outside the bounded target."
     },
-    "a40981096323d71e0c4c": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "26c2247a73b8fb3ddb1b": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "_drainFuture is assigned to this exact future immediately before whenComplete is registered. While it is pending, every subsequent drain call returns the existing future and cannot replace the field. Therefore the identity comparison is always true when this completion callback runs in the reachable implementation, and forcing the condition true preserves cleanup."
     },
-    "c805873e9165f6a73a78": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "0aad23d69d76377f8fca": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "When the original early-return condition is true, the following snapshot filter produces an empty list and the unchanged snapshot.isEmpty guard returns without events or counters. When it is false, forcing it false is unchanged. Thus replacing this whole condition with false has no observable effect; listener closure and pending-connection behavior are covered by the later branches."
     },
-    "a3185d3ea379cb82c9a8": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "1a069ea71c5b3dbe19d6": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "Changing the empty-list/fully-closed guard from OR to AND only skips its optimization. For empty listeners or fully closed listeners, the subsequent snapshot is empty and the unchanged snapshot.isEmpty return produces the same state and events; for active listeners both predicates are false. No externally observable behavior differs."
     },
-    "38303c5d5e451093fe0e": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "c69745ea93bba8494e21": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "The snapshot is a private intermediate list that is only queried for emptiness and iterated immediately. It is never resized, returned, stored, or passed to user code. Changing toList(growable: false) to growable: true therefore preserves all elements, iteration order, exceptions, and observable listener cleanup behavior."
     }
   },
   "router-settings-vm": {
-    "2be1471aef0a0c1b1342": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "3301b9fb9ab67827aed8": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "The private _withOpenMetricsRoutes missingRoutes list is only queried for isEmpty and spread into a separate routes list. It is never returned, passed to caller code, or resized. Changing its toList growable flag therefore cannot change any observable list or operation."
     },
-    "7e859e435e6059177baf": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "75a2827cd7ddd8c64bb8": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Unconditionally appending ListenerProtocol.http in _protocolsWithHttp changes only duplicate occurrences after the existing first occurrence. The private ordinary list is immediately converted through LinkedHashSet, preserving that first occurrence and removing the added duplicate before the result escapes."
     },
-    "bf67464b68e58de672da": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "67ed66e9782fd7a9250d": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Unconditionally appending ListenerProtocol.http2 in _protocolsWithHttp adds either the same required element or a duplicate after its first occurrence. LinkedHashSet removes that duplicate while preserving insertion order before returning a new list; the intermediate list never escapes."
     },
-    "aa8832a374e536f5e92f": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "66b009d20ff1e71eac24": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "The private _hasExactPathRoute is called only for freshly constructed _openMetricsHttpRoutes entries. Their paths are /healthz, /health, or _normalizeOpenMetricsHttpPath output, which is always nonempty and nonnull. Forcing the null-or-empty guard false preserves every reachable branch; existing user routes are searched but never supply this path argument."
     },
-    "a5155636a7ef52c38119": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "bd15ce2a94ac48e20d64": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Changing the return value inside _hasExactPathRoute's null-or-empty path branch has no reachable effect. Its sole caller supplies paths from owned health/metrics routes, with literals or normalized nonempty output, not paths from user-provided routes. The branch cannot execute through the public enrichment API."
     },
-    "27edacf1315e675285ff": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "f5b916d9262a3473fef3": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Forcing _normalizeOpenMetricsHttpPath's empty-or-slash guard false still returns / for both affected strings: an empty trimmed string takes the slash-prefix fallback, while / takes the already-prefixed branch. All other strings already follow that same final expression."
     },
-    "ecdeb6d8094e5baf4c28": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "cac96dfd4400e862b166": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Replacing the normalization guard's OR with AND makes that guard unsatisfiable because a string cannot be both empty and /. The following expression independently maps the empty string to / and preserves /, exactly matching the removed special cases; all other inputs are unchanged."
     }
   },

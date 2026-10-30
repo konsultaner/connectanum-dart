@@ -611,7 +611,6 @@ class WampFileReceiver {
       decodedKeywords = decoded.argumentsKeywords;
     }
     final chunk = bytes;
-
     void releaseChunkStorage() {
       if (chunk != null) {
         digest_factory.releaseNativeFileChunkBytes(chunk);

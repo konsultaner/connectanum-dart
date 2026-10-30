@@ -147,12 +147,28 @@ impl IoStream {
         }
     }
 
+    pub(crate) fn is_plain_tcp(&self) -> bool {
+        matches!(&self.inner, StreamInner::Tcp(_))
+    }
+
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub(crate) fn try_clone_plain_fd(&self) -> io::Result<Option<OwnedFd>> {
         match &self.inner {
             StreamInner::Tcp(stream) => stream.as_fd().try_clone_to_owned().map(Some),
             _ => Ok(None),
         }
+    }
+
+    pub(crate) fn into_runtime(self, handle: &tokio::runtime::Handle) -> io::Result<Self> {
+        let inner = match self.inner {
+            StreamInner::Tcp(stream) => {
+                let stream = stream.into_std()?;
+                let _guard = handle.enter();
+                StreamInner::Tcp(TcpStream::from_std(stream)?)
+            }
+            other => other,
+        };
+        Ok(Self { inner, ..self })
     }
 
     pub(crate) fn negotiated_alpn(&self) -> Option<String> {

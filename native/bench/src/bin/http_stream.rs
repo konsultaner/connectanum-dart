@@ -7351,7 +7351,7 @@ minimum_duration_ms = 30
             .iter()
             .filter(|workload| workload.ppt_scheme.as_deref() == Some("wamp"))
             .collect::<Vec<_>>();
-        assert_eq!(encrypted.len(), 12);
+        assert_eq!(encrypted.len(), 16);
 
         for (transport, secure, suffix) in [
             ("wamp_rawsocket_file_transfer", false, "rawsocket"),
@@ -7359,7 +7359,7 @@ minimum_duration_ms = 30
             ("wamp_websocket_file_transfer", false, "websocket"),
             ("wamp_websocket_file_transfer", true, "websocket_tls"),
         ] {
-            for serializer in ["json", "msgpack", "cbor"] {
+            for serializer in ["json", "msgpack", "cbor", "flatbuffers"] {
                 let workload = encrypted
                     .iter()
                     .find(|workload| {
@@ -7396,7 +7396,7 @@ minimum_duration_ms = 30
             ("wamp_websocket_file_transfer", false, "websocket"),
             ("wamp_websocket_file_transfer", true, "websocket_tls"),
         ] {
-            for serializer in ["json", "msgpack", "cbor"] {
+            for serializer in ["json", "msgpack", "cbor", "flatbuffers"] {
                 let workload = scenario
                     .workloads
                     .iter()
