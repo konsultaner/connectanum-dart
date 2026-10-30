@@ -120,6 +120,7 @@ void _fileReceiverAdmissionCases() {
     for (final scenario in [
       'not-progressive',
       'arguments',
+      'opaque',
       'missing-keywords',
       'empty-keywords',
       'extra-keyword',
@@ -159,18 +160,20 @@ void _fileReceiverAdmissionCases() {
           case 'non-string-key':
             keywords[wampFileMetadataKey] = {1: 'invalid'};
         }
-        transport._inbound.add(
-          Invocation(
-            71,
-            20,
-            InvocationDetails(1, 'files.set', false)
-              ..progress = scenario != 'not-progressive',
-            arguments: scenario == 'arguments' ? ['unexpected'] : null,
-            argumentsKeywords: keywords,
-          ),
+        final invocation = Invocation(
+          71,
+          20,
+          InvocationDetails(1, 'files.set', false)
+            ..progress = scenario != 'not-progressive',
+          arguments: scenario == 'arguments' ? ['unexpected'] : null,
+          argumentsKeywords: keywords,
         );
+        if (scenario == 'opaque') {
+          invocation.transparentBinaryPayload = Uint8List(1);
+        }
+        transport._inbound.add(invocation);
         final message = switch (scenario) {
-          'not-progressive' || 'arguments' =>
+          'not-progressive' || 'arguments' || 'opaque' =>
             'The first invocation must contain progressive metadata only',
           'bad-version' ||
           'invalid-digest' ||

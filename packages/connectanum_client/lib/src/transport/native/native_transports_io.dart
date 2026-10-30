@@ -68,10 +68,12 @@ NativeIncomingMessage? nativeIncomingMessageForAnchor(Object? anchor) {
 /// for Dart-owned payloads are safe no-ops, and repeated native releases are
 /// idempotent.
 bool releaseNativeMessagePayload(LazyMessagePayload payload) {
-  final incoming = nativeIncomingMessageForAnchor(payload.anchor);
+  // Protocol bookkeeping can replace the public anchor. The retained storage
+  // owner continues to identify the bytes, including after PPT decoding.
+  final owner = payload.storageOwner ?? payload.anchor;
+  final incoming = nativeIncomingMessageForAnchor(owner);
   if (incoming == null) {
-    final anchor = payload.anchor;
-    return anchor != null && releaseRetainedNativeExternalBytes(anchor);
+    return owner != null && releaseRetainedNativeExternalBytes(owner);
   }
   incoming.releasePayloadStorage();
   return true;

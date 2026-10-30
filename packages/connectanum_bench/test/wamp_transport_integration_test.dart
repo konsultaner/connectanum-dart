@@ -17,6 +17,8 @@ import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart' as client;
 import 'package:connectanum_client/native_buffers.dart' as native_buffers;
+import 'package:connectanum_client/src/transport/native/external_byte_buffer.dart'
+    as external_bytes;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart'
     as native_e2ee;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -56,6 +58,57 @@ void main() {
     tearDownAll(() async {
       await harness?.close();
     });
+
+    test('Dart typed RPC release follows the actual backing ownership', () async {
+      final listener = harness!.binding.listeners.firstWhere(
+        (listener) =>
+            listener.settings!.protocols.contains(ListenerProtocol.rawsocket),
+      );
+      var releases = 0;
+      final runner = WampWorkloadRunner(
+        sessionFactory: (scenario) => RawSocketWampSessionFactory(
+          host: '127.0.0.1',
+          port: listener.port,
+          realmUri: scenario.realmUri,
+          serializer: WampSerializer.flatbuffers,
+        ).call(),
+        releaseMessagePayload: (payload) {
+          final anchorNative =
+              payload.anchor != null &&
+              external_bytes.hasRetainedNativeExternalBytes(payload.anchor!);
+          final ownerNative =
+              payload.storageOwner != null &&
+              external_bytes.hasRetainedNativeExternalBytes(
+                payload.storageOwner!,
+              );
+          final released = client.releaseNativeMessagePayload(payload);
+          expect(
+            released,
+            ownerNative,
+            reason:
+                'anchor=${payload.anchor.runtimeType}, owner=${payload.storageOwner.runtimeType}, anchorNative=$anchorNative ownerNative=$ownerNative',
+          );
+          releases++;
+          return released;
+        },
+      );
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.flatbuffers,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 2,
+          concurrency: 1,
+          payloadBytes: 128 * 1024,
+          peerSerializer: WampSerializer.flatbuffers,
+          pptScheme: 'x_connectanum_bench_typed',
+          pptSerializer: 'flatbuffers',
+        ),
+      );
+      expect(samples, hasLength(2));
+      expect(releases, 2);
+    }, skip: skipReason);
 
     test(
       'owned router observations include stable fenced worker snapshots',

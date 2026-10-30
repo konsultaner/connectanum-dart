@@ -31,6 +31,38 @@ String? _nativeShaRuntimeSkipReason() {
 }
 
 void main() {
+  test('payload release follows storage ownership after reanchoring', () {
+    final original = allocateNativeExternalBytes(64);
+    final originalAnchor = Object();
+    retainNativeExternalBytes(originalAnchor, original);
+    final other = allocateNativeExternalBytes(64);
+    final otherAnchor = Object();
+    retainNativeExternalBytes(otherAnchor, other);
+    final payload = LazyMessagePayload.encoded(
+      encoding: LazyPayloadEncoding.cbor,
+      argumentsBytes: original,
+      argumentsDecoder: (_) => [],
+      anchor: originalAnchor,
+    ).withAnchor(otherAnchor);
+    expect(releaseNativeMessagePayload(payload), isTrue);
+    expect(nativeExternalByteSlice(original), isNull);
+    expect(nativeExternalByteSlice(other), isNotNull);
+    expect(releaseRetainedNativeExternalBytes(otherAnchor), isTrue);
+  });
+
+  test('Dart-owned storage cannot release a reanchored native allocation', () {
+    final other = allocateNativeExternalBytes(64);
+    final anchor = Object();
+    retainNativeExternalBytes(anchor, other);
+    final payload = LazyMessagePayload.materialized(
+      arguments: [1],
+      anchor: Object(),
+    ).withAnchor(anchor);
+    expect(releaseNativeMessagePayload(payload), isFalse);
+    expect(nativeExternalByteSlice(other), isNotNull);
+    expect(releaseRetainedNativeExternalBytes(anchor), isTrue);
+  });
+
   test('zero-length native allocation needs no explicit payload release', () {
     final bytes = allocateNativeExternalBytes(0);
     final payload = LazyMessagePayload.encoded(

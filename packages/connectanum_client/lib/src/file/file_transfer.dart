@@ -510,8 +510,15 @@ class WampFileReceiver {
     final decoded = invocation.toPayload();
     final arguments = decoded.arguments;
     final keywords = decoded.argumentsKeywords;
+    // FlatBuffers can retain wire ciphertext after authenticated PPT decoding.
+    // Validate its decoded metadata, rather than rejecting that wire view.
+    final decodedCborE2ee =
+        invocation.pptScheme == ConnectanumE2eeProfile.scheme &&
+        invocation.pptSerializer == ConnectanumE2eeProfile.serializer &&
+        invocation.pptCipher != null;
     if (!invocation.progress ||
-        invocation.payload.transparentBinaryPayload != null ||
+        (invocation.payload.transparentBinaryPayload != null &&
+            !decodedCborE2ee) ||
         arguments?.isNotEmpty == true) {
       _respondError(
         invocation,

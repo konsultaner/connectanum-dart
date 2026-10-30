@@ -2,10 +2,25 @@
 
 Status: deferred in the MQTT worktree by the user's explicit MQTT milestone priority on 2026-10-14; the FlatBuffers work remains open. Started: 2026-10-03.
 
-Current step: integrate the explicit receive-storage release fix with current
-master, verify ownership/CI, then run strict numerical acceptance. Runtime
-`ef61b156` is the latest audited numerical checkpoint; only two RSS gates fail.
-Earlier sections retain checkpoint history, including rejected experiments.
+Current step: finish ownership/master-integration correctness, resolve current
+CI and strict RAM/latency/GC findings, then complete full 48-case primary and
+50-case supplemental campaigns on one frozen runtime. No acceptance is claimed.
+
+## Ownership and final campaign renewal (2026-10-30)
+
+- [x] Audit paired 41112077193 exactly: native-buffer RAM passes; retain four
+  numerical misses (Dart-values p99/GC/RSS and pre-encoded RSS).
+- [x] Audit copy 41112073189: 3,277 source inputs, 120 live / 300 inventory /
+  32 zero-avoidable checks, E2EE/transcode/crypto and native view controls pass.
+- [x] Reproduce/fix two encrypted file metadata integration failures and wrong
+  allocation release after public reanchoring. Pass 512 lifetime/file cases,
+  186 socket/file contracts and canonical external-peer live release regression.
+- [ ] Finish renewed full local verification and green CI. Investigate four
+  cleartext MQTT performance failures in 41113454274; master CI passes them.
+- [ ] Resolve strict RAM and confidence findings with source-backed changes;
+  preserve failed diagnostics, all observations, windows and original budgets.
+- [ ] Complete/audit all 48 primary and 50 supplemental cases plus final copy
+  proof and CI. Mark PR #132 ready only after actual acceptance; do not merge.
 
 ## Merged runtime and tooling contract renewal (2026-10-30)
 

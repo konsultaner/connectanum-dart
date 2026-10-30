@@ -75,7 +75,9 @@ void _explicitSocketPayloadRelease() {
       );
       expect(received, hasLength(2));
       final message = received.first as Result;
-      final payload = message.toLazyPayload();
+      final restored = resultFromLazyPayload(message.toLazyResultPayload());
+      expect(hasRetainedNativeExternalBytes(restored), isFalse);
+      final payload = restored.toLazyPayload();
       final bytes = payload.transparentBinaryPayload!;
       expect(bytes, orderedEquals(body));
       expect(nativeExternalByteSlice(bytes, anchor: message), isNotNull);

@@ -9,17 +9,29 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Current frozen runtime: `40f8cec585939af2f6cf402939f435c689b6c6c4` (pushed).
-Renewed CI `41112069093` fails Fast Checks and local full verification exits 1
-on the same stale hard-coded mutation-range expectation: config correctly moved
-from 1100–1257 to 1108–1265 after the verified eight-line insertion, but its test
-still expects the old range. Correct only that test; all 93 contracts pass
-(1 declared platform skip), with all 167 proof sites retained. No production,
-policy, scenario, instrumentation or measurement change occurs. Renew CI and
-local full verification on this tooling-only follow-up. Keep the running
-paired diagnostic `41112077193` and copy proof `41112073189` untouched; preserve
-all failed and superseded run histories. Full 48-case primary and final-runtime
-50-case supplemental remain pending; numerical acceptance is not yet claimed.
+Current pushed tooling head: `da46d7f6`, runtime-identical to `40f8cec5`.
+Its full local verification exits 1 on two newly merged encrypted FlatBuffers
+file-transfer tests. Both now pass after validating authenticated decoded header
+metadata while retaining the ciphertext view; plain opaque headers still fail.
+An additional fail-first ownership regression proves that public reanchoring
+can release another allocation instead of the retained storage. Explicit release
+now follows `storageOwner`; both native and ordinary Dart-owned cases pass.
+The live RPC regression uses the canonical external FlatBuffers peer and checks
+actual backing ownership (a complete SDK Dart frame correctly needs no native
+release). Earlier private probes with a wrong peer/ownership assumption are
+retained and are not production failures or acceptance evidence.
+Focused client lifetime/file suites pass 512 cases; socket/file contracts pass
+186 cases and both encrypted live transfers pass. Renewed full `bin/verify` is
+running on these changes. Qwen review completes: its double-free/race claims
+are excluded by existing idempotent release guards and immutable payload owner
+fields; its test null-owner concern is excluded by constructor initialization.
+Its metadata cleanup concern does not establish a newly retained owner.
+
+CI `41113454274` has a failed MQTT performance job (four cleartext TCP/WS
+profiles); master CI `41105562746` passes that job. The budgets and MQTT source
+are unchanged. Inspect retained raw profiles before attributing the regression;
+no gate relaxation or selective acceptance is allowed. Other jobs are pending.
+Full 48-case primary and final-runtime 50-case supplemental remain pending.
 
 `07d3227c` fixes a concrete explicit-release gap. A direct FFI weak observer
 proved that a 65,536-byte FlatBuffers result remained alive after
@@ -64,18 +76,36 @@ verification, hosted CI, copy proof and numerical campaigns on the merged source
 
 ## Latest numerical and copy evidence
 
-Paired `41056036677` on runtime `ef61b156fb61572d7f4f0baf109e1393386fc2cd`
-completes all 90 rows. Independent reproduction verifies retained source inputs,
-production binaries and the exact hosted comparison. Only two RSS gates fail:
+Paired `41112077193` on runtime `40f8cec5` completes all 90 rows.
+Independent recomputation matches the hosted comparison exactly, with retained
+config/locks/scenario/native binary hashes verified and no integrity issue.
+Native-buffer RSS now passes (median 0.9993, CI [0.9858, 1.0240]). Four numerical
+failures remain under unchanged budgets:
 
-- Dart values: median 1.0087769550; 95% CI [0.9965808754, 1.0243417666].
-- Native buffer: median 1.0285043000; 95% CI [0.9903861263, 1.0685564016].
+- Dart-values p99: median 0.9772209567; CI [0.9328537170, 1.1998468606].
+- Dart-values GC: median 0.9072043762; CI [0.7838200752, 1.1617671870].
+- Dart-values RSS: median 1.0180264809; CI [1.0140671904, 1.0850607930].
+- Pre-encoded RSS: median 1.0049883897; CI [1.0022969898, 1.0107649544].
 
-All throughput, CPU, p95, p99, allocation, GC and pre-encoded RSS gates pass.
-No integrity issue exists; diagnostic campaigns cannot establish primary
-acceptance. Full 48-case primary and final-runtime 50-case supplemental remain
-pending under the original strict budgets. Earlier supplemental runs have
-numerical failures and remain diagnostic history, not acceptance for this source.
+All other throughput, CPU, allocation and latency gates pass. This is diagnostic,
+not primary acceptance. Preserve the preceding two-RSS-failure report
+`41056036677` and every earlier failure.
+
+Copy `41112073189` passes on 40f8cec5. Independent audit verifies 3,277 source
+inputs, retained generated locks, binary digest, raw observations, stable process
+identities and cleanup: 120 live / 300 inventory / 32 zero-avoidable checks.
+Live E2EE/transcode/native-crypto counts are 96/120/48; inventory counts are
+96/60/72. All three native-view positives produce six rows with zero failures;
+the negative control produces zero rows and its expected single failure. SDK,
+TLS and crypto internals remain labelled unmeasured at the agreed standard-SDK
+boundary. The first audit formatter's optional-field KeyError is preserved.
+
+Dart-values VM attribution `41116315782` completes on runtime-identical da46d7f6.
+Its 18 snapshots reproduce the hosted memory audit exactly with no findings.
+After workload, native wrapper/allocation counts are zero and client external
+usage is 160 bytes (112 after diagnostic GC). No retained payload leak is proven
+for this case. Full source/binary input auditing remains pending; diagnostic GC
+is never used for acceptance or to subtract memory from reported RSS.
 
 `2d0ee379cfe4de890bf3916405d18e192506fd97` repairs only private probe marker
 placement; production/native/dependency inputs are byte-identical to ef61b156.

@@ -1064,3 +1064,41 @@ to 1108–1265; all 93 contracts pass (one platform skip). No production, benchm
 policy/scenario or instrumentation changes occur. A successful local Qwen debug
 agrees with this source-verified diagnosis. Renew correctness CI/verification
 on the tooling head, leaving both numerical and copy campaigns untouched.
+
+
+### Completed merged-runtime evidence and owner precedence (2026-10-30)
+
+Paired 41112077193 is independently reproduced exactly (90 rows, three cases),
+with retained policy/scenarios/locks and native digests verified. Native-buffer
+RSS passes, median 0.9993, CI [0.9858, 1.0240]. Retain four numeric findings:
+Dart-values p99 0.9772209567 [0.9328537170, 1.1998468606], GC 0.9072043762
+[0.7838200752, 1.1617671870], RSS 1.0180264809 [1.0140671904, 1.0850607930],
+and pre-encoded RSS 1.0049883897 [1.0022969898, 1.0107649544]. No integrity issue
+or acceptance-policy change; diagnostics cannot establish primary acceptance.
+
+Copy 41112073189 independently verifies 3,277 input contents, 120 live / 300
+inventory / 32 zero-avoidable checks, E2EE/transcode/native-crypto observations,
+all raw hashes, PIDs, exits and cleanup. Three native-view phases each pass six
+rows; negative control produces its expected single failure and no rows. The
+initial formatter assumes an optional negative-only field and raises KeyError;
+preserve that error and use explicit optional-field handling.
+
+Dart-values memory attribution 41116315782 retains 18 snapshots and reproduces
+hosted attribution exactly. After-work native wrapper/allocation counts are
+zero, externalUsage is 160 bytes, and retained WampSample objects disappear after
+diagnostic GC. Heap capacity and RSS must not be equated, and this diagnostic
+GC must not enter acceptance. Full profile source/native input audit is pending.
+
+Full verification da46d7f6 exits 1 on two encrypted FlatBuffers file metadata
+cases merged from master. Decode/authenticate CBOR PPT before validating decoded
+metadata; ciphertext storage can remain attached to the decoded invocation.
+Reject unauthenticated plain opaque headers as before. Both live cases pass.
+Fail-first release tests also expose that a replaced public anchor can point to
+a different native allocation: retained storageOwner must take precedence. The
+wrong-allocation and ordinary-Dart-owner cases pass after this correction.
+512 lifetime/file and 186 socket/file cases pass; canonical live RPC uses an
+external FlatBuffers peer and checks actual backing ownership. Preserve earlier
+private tests' wrong-peer and always-native assumptions as invalid diagnostics.
+Renewed full verification is running; current CI has four MQTT cleartext profile
+misses under unchanged MQTT budgets/source, while master's corresponding job
+passes. This remains a readiness blocker pending attribution and verification.
