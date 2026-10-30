@@ -6,6 +6,48 @@ Current step: validate scoped native body generation and renew the unchanged
 performance/copy gates. Runtime `828721fd` is the latest measured checkpoint.
 Earlier sections retain checkpoint history, including rejected experiments.
 
+## Explicit payload release investigation (2026-10-30)
+
+- [x] Independently audit 3,225 copy inputs and 120 live / 300 inventory /
+  32 zero-avoidable checks; confirm current-head CI completes all 38 jobs.
+- [x] Reproduce a live 64 KiB FlatBuffers export after explicit payload release
+  with the native weak observer, without GC or measurement policy changes.
+- [x] Add fail-first regressions and reclaim the explicit release scope. Ten
+  native owner cases, Dart native frame release, 94 sockets, 405 lifetime/file/
+  crypto cases, 77 transport/frame regressions and derived-view GC pass.
+  Ordinary handle release and independent exports retain their lifetimes.
+- [x] Complete fresh baseline: `bin/test-fast` exits 0.
+- [ ] Integrate the newly advanced MQTT master commit before final acceptance.
+- [ ] Finish full verification and safety review, then evaluate a changed
+  runtime with all unchanged gates. Memory attribution `41106228701` is queued;
+  shared-resource lease currently blocks local companions. No bypass.
+
+## Audited readiness checkpoint (2026-10-30)
+
+- [x] Retrieve and independently reproduce paired `41056036677`: 90 rows,
+  exact hosted result and retained input/binary verification. No integrity issue.
+- [x] Confirm p99 now passes for every construction group, as do throughput,
+  CPU, p95, allocation, GC and pre-encoded RSS. Keep all prior failed reports.
+- [x] Confirm current-head CI `41057774775` and renewed copy `41057771623`
+  both complete successfully. Copy artifacts still need independent audit.
+- [ ] Resolve remaining RSS gates: Dart-values 1.0087769550
+  (CI [0.9965808754, 1.0243417666]); native-buffer 1.0285043000
+  (CI [0.9903861263, 1.0685564016]). No threshold relaxation or lucky rerun.
+- [ ] Finish full 48-case primary, final-runtime supplemental and renewed local
+  verification after the recorded dependency-network timeout. PR #132 stays draft.
+
+## Connectivity blocker and retained runs (2026-10-30)
+
+- [x] Preserve paired `41056036677` failure status and failed artifact/API reads:
+  repeated TLS timeouts and connection resets prevent numerical auditing.
+- [x] Record fresh tooling-head `bin/verify` exit 124: dependency resolution in
+  the MCP consumer fails after three 180-second attempts; earlier checks pass.
+  The previous runtime full run finishes all consumer and browser suites.
+- [ ] Restore connectivity, audit the existing numerical artifact and renewed
+  copy/CI runs, then renew failed local verification. No unchanged numerical
+  campaign rerun or measurement-policy change is allowed. User network context
+  is requested asynchronously; no runtime change is justified by this outage.
+
 ## Private probe directive-order repair (2026-10-30)
 
 - [x] Retain failed copy `41056032556`: server never reaches READY. Its log shows
@@ -17,7 +59,11 @@ Earlier sections retain checkpoint history, including rejected experiments.
   library analyzes cleanly; preserve the initial macOS /tmp URI alias failure
   and its canonical-path correction. Production Dart, lockfiles, scenarios,
   policy and measurement windows remain byte-identical to runtime `ef61b156`.
-- [ ] Renew copy evidence on the tooling repair; keep paired `41056036677`
+- [ ] Renew copy `41057771623` and full CI `41057774775` on `2d0ee379`.
+  Packages/native code, dependencies and locks are byte-identical to `ef61b156`.
+  Supersede only its duplicate correctness CI `41056028434` to free runners,
+  retaining passed jobs/history. Fresh local verification records a sidecar exit.
+  Keep paired `41056036677`
   running untouched. Do not rerun numerical campaigns on this tooling-only change.
 
 ## Guarded native body generation investigation (2026-10-29)

@@ -1,5 +1,92 @@
 part of 'socket_transport_test.dart';
 
+void _explicitSocketPayloadRelease() {
+  test(
+    'releases a fragmented FlatBuffers payload without affecting its next frame',
+    () async {
+      final serializer = flatbuffers_serializer.Serializer();
+      final socket = _ChunkSocket();
+      final transport = SocketTransport(
+        'localhost',
+        12345,
+        serializer,
+        SocketHelper.serializationFlatBuffers,
+      );
+      addTearDown(transport.close);
+      await IOOverrides.runZoned(
+        transport.open,
+        socketConnect:
+            (host, port, {sourceAddress, int sourcePort = 0, timeout}) async =>
+                socket,
+      );
+      final received = <AbstractMessage>[];
+      final subscription = transport.receive().listen(received.add);
+      addTearDown(subscription.cancel);
+      socket.feed(
+        SocketHelper.getInitialHandshake(
+          SocketHelper.maxMessageLengthExponent,
+          SocketHelper.serializationFlatBuffers,
+        ),
+      );
+      await transport.onReady;
+      Uint8List frame(AbstractMessage message) {
+        final bytes = serializer.serialize(message);
+        return (BytesBuilder(copy: false)
+              ..add(
+                SocketHelper.buildMessageHeader(
+                  SocketHelper.messageWamp,
+                  bytes.length,
+                  false,
+                ),
+              )
+              ..add(bytes))
+            .takeBytes();
+      }
+
+      final hello = Hello('realm', Details.forHello());
+      transport.send(hello);
+      final profile = const FlatBuffersSessionProfile.router().acceptIncoming(
+        hello,
+      );
+      final welcome = Welcome(9, Details.forWelcome());
+      profile.prepareOutgoing(welcome);
+      socket.feed(frame(welcome));
+      received.clear();
+      final body = Uint8List(65536)..fillRange(0, 65536, 73);
+      final first = frame(
+        Result(
+          7,
+          ResultDetails(
+            pptScheme: 'x_model',
+            pptSerializer: 'flatbuffers',
+          ),
+        )..transparentBinaryPayload = body,
+      );
+      final second = frame(
+        Result(8, ResultDetails(), arguments: ['still live']),
+      );
+      socket.feed(Uint8List.sublistView(first, 0, 17));
+      expect(received, isEmpty);
+      socket.feed(
+        (BytesBuilder(copy: false)
+              ..add(Uint8List.sublistView(first, 17))
+              ..add(second))
+            .takeBytes(),
+      );
+      expect(received, hasLength(2));
+      final message = received.first as Result;
+      final payload = message.toLazyPayload();
+      final bytes = payload.transparentBinaryPayload!;
+      expect(bytes, orderedEquals(body));
+      expect(nativeExternalByteSlice(bytes, anchor: message), isNotNull);
+      expect(releaseNativeMessagePayload(payload), isTrue);
+      expect(nativeExternalByteSlice(bytes, anchor: message), isNull);
+      expect((received.last as Result).arguments, ['still live']);
+      expect(releaseNativeMessagePayload(payload), isTrue);
+    },
+  );
+}
+
 void _controlledSocketChunks() {
   for (final (name, serializer, serializerType)
       in <(String, AbstractSerializer, int)>[

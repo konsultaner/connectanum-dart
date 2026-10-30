@@ -18,6 +18,75 @@ typedef _Count = int Function();
 typedef _EnqueueNative = Int64 Function(Int32, Int32, Pointer<Uint8>, Int32);
 typedef _Enqueue = int Function(int, int, Pointer<Uint8>, int);
 
+class _PlainSurvivor {
+  _PlainSurvivor(this.view, this.incoming, this.facade, this.observer);
+  ByteData? view;
+  final WeakReference<NativeIncomingMessage> incoming;
+  final WeakReference<Uint8List> facade;
+  final Pointer<Void> observer;
+}
+
+@pragma('vm:never-inline')
+_PlainSurvivor _makePlainSurvivor(
+  DynamicLibrary library,
+  NativeClientRuntime runtime,
+) {
+  final frame = flat.Serializer().serialize(
+    Result(
+      71,
+      ResultDetails(pptScheme: 'x_model', pptSerializer: 'flatbuffers'),
+    )..transparentBinaryPayload = (Uint8List(65536)..fillRange(0, 65536, 73)),
+  );
+  final input = malloc<Uint8>(frame.length);
+  final enqueue = library.lookupFunction<_EnqueueNative, _Enqueue>(
+    'ct_test_message_enqueue_wide',
+  );
+  late final int handle;
+  try {
+    input.asTypedList(frame.length).setAll(0, frame);
+    handle = enqueue(777, 5, input, frame.length);
+  } finally {
+    malloc.free(input);
+  }
+  if (handle <= 0 || runtime.pollMessageHandle(777) != handle) {
+    throw StateError('Plain-view GC fixture failed to enqueue');
+  }
+  final observer = library
+      .lookupFunction<
+        Pointer<Void> Function(Int64),
+        Pointer<Void> Function(int)
+      >('ct_test_message_observer_new_wide')(handle);
+  final incoming = runtime.materialize(handle);
+  final message = incoming.message as AbstractMessageWithPayload;
+  final facade = message.transparentBinaryPayload!;
+  final view = ByteData.sublistView(
+    Uint8List.sublistView(facade, 17, 81),
+    2,
+    6,
+  );
+  incoming.release();
+  return _PlainSurvivor(
+    view,
+    WeakReference(incoming),
+    WeakReference(facade),
+    observer,
+  );
+}
+
+@pragma('vm:never-inline')
+void _checkPlainView(_PlainSurvivor survivor) {
+  final view = survivor.view!;
+  for (var index = 0; index < view.lengthInBytes; index++) {
+    if (view.getUint8(index) != 73) throw StateError('Plain view lost storage');
+  }
+  try {
+    view.setUint8(0, 0);
+    throw StateError('Plain derived view became writable');
+  } on UnsupportedError {
+    // The borrowed storage remains immutable.
+  }
+}
+
 class _Survivor {
   _Survivor(this.view, this.incoming, this.provider);
   ByteData? view;
@@ -214,6 +283,23 @@ Future<void> main() async {
           Void Function(Pointer<Void>),
           void Function(Pointer<Void>)
         >('ct_test_message_observer_free');
+    final plain = _makePlainSurvivor(library, runtime);
+    try {
+      await collectUntil(
+        () => plain.incoming.target == null && plain.facade.target == null,
+      );
+      if (alive(plain.observer) != 1) {
+        throw StateError('Plain view freed too early');
+      }
+      _checkPlainView(plain);
+      plain.view = null;
+      await collectUntil(() => alive(plain.observer) == 0);
+      stdout.writeln(
+        'native-message-view-gc: derived view retained then released storage',
+      );
+    } finally {
+      free(plain.observer);
+    }
     final held = _makeDeferred(true, library, runtime);
     final abandonedInput = _makeDeferred(false, library, runtime);
     try {

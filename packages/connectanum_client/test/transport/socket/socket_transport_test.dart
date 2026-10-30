@@ -16,6 +16,8 @@ import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
 import 'package:connectanum_client/src/transport/native/external_byte_buffer.dart';
+import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
+    show releaseNativeMessagePayload;
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_client/src/transport/socket/socket_transport.dart';
 import 'package:test/test.dart';
@@ -29,6 +31,7 @@ part 'socket_chunk_boundaries.dart';
 
 void main() {
   _controlledSocketChunks();
+  _explicitSocketPayloadRelease();
   _segmentedSocketSends();
   _boundedSocketPrefixes();
   _nativeRangeSocketSends();

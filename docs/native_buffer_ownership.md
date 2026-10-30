@@ -38,6 +38,17 @@ incoming responses or establish a receive subscription. With a `StreamIterator`,
 start `moveNext()` before sending, then await the receipt and the pending receive.
 The public Session path establishes its listener before the handshake.
 
+For received lazy payloads, `releaseNativeMessagePayload(payload)` ends their
+native storage lifetime explicitly. Call it after the last read, asynchronous
+send and other consumer finishes. Every byte view and derived alias from that
+payload becomes unusable. The function releases both the routing handle and
+its exported native view owners; it also covers native frame allocations used
+by Dart RawSocket transports. Repeated calls are safe, and ordinary Dart-owned
+payloads return `false`. Without this explicit release, automatic finalization
+keeps exported views valid. Low-level `NativeIncomingMessage.release()` releases
+only its routing handle and preserves those exported views. Independently
+exported owners and outbound producer leases retain their separate lifetimes.
+
 `composeFlatBufferFrame` retains all supplied buffers, including present-empty
 spans, on success. It consumes none on failure. Argument/keyword vectors are
 encoded CBOR; a typed application FlatBuffer uses the opaque payload input and

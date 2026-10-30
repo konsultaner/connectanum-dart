@@ -71,6 +71,7 @@ typedef _NativeE2eeDecryptRequest = ({
 });
 
 typedef _NativeMessageParts = ({
+  NativeMessageByteLease byteLease,
   Object message,
   Uint8List bytes,
   Uint8List? argumentsBytes,
@@ -140,6 +141,13 @@ class NativeIncomingMessage {
     _released = true;
     _messageFinalizer.detach(this);
     _bindings.ctMessageRelease(handle);
+  }
+
+  /// Explicitly ends use of this payload and all of its exported byte aliases.
+  /// Unlike [release], this also releases the independent byte-view owners.
+  void releasePayloadStorage() {
+    release();
+    _payload?.byteLease.dispose();
   }
 
   void _markConsumed() {
@@ -2121,6 +2129,7 @@ class NativeClientRuntime {
 
   _NativeMessageParts _readMessagePayload(int handle) {
     final infoPtr = calloc<CtMessageInfo>();
+    final byteLease = _messageBytes.createLease();
     try {
       var result = _bindings.ctMessagePeek(handle, infoPtr);
       if (result != NativeTransportErrorCode.success) {
@@ -2141,6 +2150,7 @@ class NativeClientRuntime {
               NativeMessageBytePart.arguments,
               borrowed: info.argsPtr,
               length: info.argsLen,
+              lease: byteLease,
             );
       final kwargs = info.kwargsLen == 0
           ? null
@@ -2149,6 +2159,7 @@ class NativeClientRuntime {
               NativeMessageBytePart.argumentsKeywords,
               borrowed: info.kwargsPtr,
               length: info.kwargsLen,
+              lease: byteLease,
             );
       if (serializer == NativeMessageSerializer.flatbuffers) {
         if (args != null) {
@@ -2162,7 +2173,12 @@ class NativeClientRuntime {
           );
         }
       }
-      final metadata = _metadataFromFfi(info, handle, _messageBytes);
+      final metadata = _metadataFromFfi(
+        info,
+        handle,
+        _messageBytes,
+        byteLease: byteLease,
+      );
       var singleBinaryArgument =
           metadata.hasFlag(NativeMessageMetadata.flagTransparentPayload) ||
               info.binaryArgPtr == ffi.nullptr
@@ -2172,6 +2188,7 @@ class NativeClientRuntime {
               NativeMessageBytePart.singleBinaryArgument,
               borrowed: info.binaryArgPtr,
               length: info.binaryArgLen,
+              lease: byteLease,
             );
       if (singleBinaryArgument == null &&
           serializer == NativeMessageSerializer.json &&
@@ -2202,6 +2219,7 @@ class NativeClientRuntime {
           NativeMessageBytePart.frame,
           borrowed: info.framePtr,
           length: info.frameLen,
+          lease: byteLease,
         );
         message = bindSessionMessage(
           serializer,
@@ -2212,12 +2230,16 @@ class NativeClientRuntime {
         );
       }
       return (
+        byteLease: byteLease,
         message: message,
         bytes: frame,
         argumentsBytes: args,
         argumentsKeywordsBytes: kwargs,
         singleBinaryArgumentBytes: singleBinaryArgument,
       );
+    } catch (_) {
+      byteLease.dispose();
+      rethrow;
     } finally {
       calloc.free(infoPtr);
     }
@@ -2438,6 +2460,7 @@ NativeMessageMetadata _metadataFromFfi(
   int handle,
   NativeMessageBytes bytes, {
   bool readTransparentPayload = true,
+  NativeMessageByteLease? byteLease,
 }) {
   final flags = info.flags;
   final metadataBind = (flags & NativeMessageMetadata.flagMetadataBind) != 0;
@@ -2450,6 +2473,7 @@ NativeMessageMetadata _metadataFromFfi(
           NativeMessageBytePart.transparentPayload,
           borrowed: info.binaryArgPtr,
           length: info.binaryArgLen,
+          lease: byteLease,
         );
   NativeMessageMetadata build(Uint8List? details) => NativeMessageMetadata(
     messageCode: info.messageCode,

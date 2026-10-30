@@ -26,6 +26,7 @@ import '../socket/socket_helper.dart';
 import '../websocket/websocket_transport_serialization.dart';
 import 'e2ee_file_segment.dart';
 import 'e2ee_payload.dart';
+import 'external_byte_buffer.dart';
 import 'flatbuffers_payload_anchor.dart';
 import 'message_binding.dart';
 import 'message_protocol.dart';
@@ -59,7 +60,8 @@ NativeIncomingMessage? nativeIncomingMessageForAnchor(Object? anchor) {
   return incoming is NativeIncomingMessage ? incoming : null;
 }
 
-/// Releases storage borrowed by a lazy payload from the native runtime.
+/// Releases native storage borrowed by a lazy payload, including native frame
+/// allocations made by Dart transports.
 ///
 /// Returns `true` when [payload] has native backing storage. After this call,
 /// the payload and any byte views obtained from it must not be accessed. Calls
@@ -68,9 +70,10 @@ NativeIncomingMessage? nativeIncomingMessageForAnchor(Object? anchor) {
 bool releaseNativeMessagePayload(LazyMessagePayload payload) {
   final incoming = nativeIncomingMessageForAnchor(payload.anchor);
   if (incoming == null) {
-    return false;
+    final anchor = payload.anchor;
+    return anchor != null && releaseRetainedNativeExternalBytes(anchor);
   }
-  incoming.release();
+  incoming.releasePayloadStorage();
   return true;
 }
 

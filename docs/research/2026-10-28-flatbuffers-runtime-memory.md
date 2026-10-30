@@ -934,3 +934,73 @@ correctly requests the retained server compiler log; no readiness timeout is
 relaxed. Production Dart, binaries, policies, lockfiles, scenarios and timing
 windows are unchanged. Preserve numerical run 41056036677; only the failed
 copy workflow needs renewal after this tooling-only repair.
+
+## External connectivity blocker (2026-10-30)
+
+Frozen numerical run 41056036677 completes with failure status. Its retained
+artifact metadata is reachable intermittently: artifact 12977897282,
+`wamp-flatbuffers-primary-ef61b156fb61572d7f4f0baf109e1393386fc2cd-1`,
+21,792,130 bytes. Repeated authenticated API/ZIP requests hit TLS handshake
+timeouts or connection resets from this Mac, including Azure storage. The
+failed-step log cannot be fetched either. Do not infer the remaining numerical
+gates without raw data. No unchanged numerical rerun is dispatched.
+
+A bounded resumable range fetch obtains a signed download location but cannot
+retrieve its first byte after five retries; URLs and credentials are deliberately
+not logged. The attempt lives only under /tmp and changes no repository/runtime
+code. The desktop check-diagnostics connection is also unavailable; the public
+web tool cannot read the run API. Network context/restoration is requested via
+an asynchronous user question.
+
+Full tooling-head bin/verify passes all earlier tooling/VM/native/live/router
+checks, then exits 124 after three 180-second attempts to resolve/download the
+MCP consumer dependencies from pub.dev. Retain
+`/tmp/connectanum-native-marker-full-verify.log` and its `.exit` sidecar. This is
+an environmental failure, not a passing verification. The preceding runtime
+full run reaches all consumer and both browser successes. Renew consumer/full
+verification after network recovery. Source SHA 2d0ee379 has identical packages,
+native code, dependencies and lockfiles to numerical runtime ef61b156.
+
+Copy renewal 41057771623 and current-head CI 41057774775 continue remotely;
+latest completion status is not retrievable. Keep #103 and PR #132 open/draft,
+and retain these exact runs for auditing once connectivity returns. All local
+runtime changes are already pushed; only current status documentation is dirty.
+
+
+## Explicit receive-payload storage release (2026-10-30)
+
+The ef61 retained rows locate most remaining RAM excess in the client process.
+A source-identical direct FFI repro on 2d0ee379 creates an opaque 65,536-byte
+FlatBuffers result, attaches the normal Session anchor and observes its Rust
+StoredMessage with the existing weak observer. `releaseNativeMessagePayload`
+returns true but the weak observer remains alive (1). This is a release gap,
+not evidence of a monotonic leak: SDK-owned exported references wait for GC.
+The API already requires callers to stop accessing every view after release.
+
+Group client message exports under an optional explicit byte lease. Ordinary
+`NativeIncomingMessage.release()` and the shared router byte reader retain their
+exported-view contracts. Only explicit payload release disposes the client's
+export group. A separate export lease remains valid. Native frame allocations
+used by Dart RawSocket receive also acquire a detachable allocation owner,
+shared across bounded aliases; the same explicit API ends that allocation's
+lifetime and later native pointer lookups fail closed. No allocator, SDK,
+workload, body, observation window or gate changes occur.
+
+All five native serializer/opaque regressions fail first with a live owner
+after release. All ten candidate cases, including independent owners, pass.
+The identical direct repro now reports 0 immediately, without GC. The Dart
+external-frame regression fails first (release falsely returns false) and
+passes after the fix. All 405 focused file/crypto/lifetime tests and 94 socket
+cases pass; the latter includes a fragmented FlatBuffers result followed by
+an independent frame. A child GC proof retains only a derived immutable
+ByteData after both the incoming wrapper and root facade die, then observes
+StoredMessage destruction after that last view is dropped. GC is requested
+only in the lifetime regression process, never in acceptance. Focused analysis
+is clean and all 167 mutation equivalence proofs remain valid.
+
+The fresh preceding canonical `bin/test-fast` exits 0. Full `bin/verify` runs
+on the candidate; preserve its final exit sidecar. Local companion requests
+initially refuse the shared resource lease held by another project; do not
+bypass it. A later Qwen review obtains the lease but exceeds its output bound;
+retain that failed advisory attempt and request a bounded GLM safety audit.
+No numerical acceptance is claimed until a changed-runtime campaign completes.

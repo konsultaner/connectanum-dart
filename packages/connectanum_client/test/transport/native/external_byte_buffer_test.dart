@@ -8,6 +8,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/src/transport/native/external_byte_buffer.dart';
+import 'package:connectanum_client/connectanum.dart'
+    show releaseNativeMessagePayload;
+import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
@@ -28,6 +31,47 @@ String? _nativeShaRuntimeSkipReason() {
 }
 
 void main() {
+  test('zero-length native allocation needs no explicit payload release', () {
+    final bytes = allocateNativeExternalBytes(0);
+    final payload = LazyMessagePayload.encoded(
+      encoding: LazyPayloadEncoding.cbor,
+      argumentsBytes: bytes,
+      argumentsDecoder: (_) => [],
+      anchor: bytes,
+    );
+    expect(bytes, isEmpty);
+    expect(nativeExternalByteSlice(bytes), isNull);
+    expect(releaseNativeMessagePayload(payload), isFalse);
+  });
+
+  test(
+    'explicit payload release ends Dart socket native allocation aliases',
+    () {
+      final root = allocateNativeExternalBytes(65536)..fillRange(0, 65536, 73);
+      final anchor = Object();
+      retainNativeExternalBytes(anchor, root);
+      final alias = nativeExternalByteView(
+        Uint8List.sublistView(root, 17, root.length - 17),
+        anchor: anchor,
+      )!;
+      final payload = LazyMessagePayload.encoded(
+        encoding: LazyPayloadEncoding.cbor,
+        argumentsBytes: root,
+        argumentsDecoder: (_) => [],
+        anchor: anchor,
+      );
+      expect(nativeExternalByteSlice(alias), isNotNull);
+      expect(releaseNativeMessagePayload(payload), isTrue);
+      expect(hasRetainedNativeExternalBytes(anchor), isFalse);
+      expect(nativeExternalByteSlice(root), isNull);
+      expect(nativeExternalByteSlice(alias), isNull);
+      expect(nativeExternalByteView(alias), isNull);
+      expect(releaseNativeMessagePayload(payload), isTrue);
+      identityHashCode(root);
+      identityHashCode(alias);
+    },
+  );
+
   test('resolves nested subviews to the correct native byte range', () {
     final bytes = allocateNativeExternalBytes(256);
     for (var index = 0; index < bytes.length; index++) {

@@ -10,6 +10,7 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor_codec;
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:connectanum_client/src/file/file_transfer_digest_io.dart'
     as file_digest;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart';
@@ -62,6 +63,161 @@ void main() {
     _consumingE2eeMessageCases(() => runtime);
     _deferredE2eeMessageCases(() => runtime);
     _deferredSessionMessageCases(() => runtime);
+
+    test('native byte leases reject foreign APIs and reuse after disposal', () {
+      final library = ffi.DynamicLibrary.open(runtime.libraryPath);
+      final api = NativeMessageBytes(library);
+      final foreign = NativeMessageBytes(library);
+      final lease = api.createLease();
+      expect(
+        () => foreign.read(
+          1,
+          NativeMessageBytePart.frame,
+          borrowed: ffi.nullptr,
+          length: 0,
+          lease: lease,
+        ),
+        throwsStateError,
+      );
+      lease.dispose();
+      lease.dispose();
+      expect(
+        () => api.read(
+          1,
+          NativeMessageBytePart.frame,
+          borrowed: ffi.nullptr,
+          length: 0,
+          lease: lease,
+        ),
+        throwsStateError,
+      );
+    });
+
+    for (final (wire, serializer, opaque) in [
+      (NativeMessageSerializer.json, json.Serializer(), false),
+      (NativeMessageSerializer.cbor, cbor.Serializer(), false),
+      (NativeMessageSerializer.messagePack, msgpack.Serializer(), false),
+      (NativeMessageSerializer.flatbuffers, flat.Serializer(), false),
+      (NativeMessageSerializer.flatbuffers, flat.Serializer(), true),
+    ]) {
+      for (final independentlyExported in [false, true]) {
+        test(
+          'explicit payload release frees exported ${wire.name} opaque=$opaque independent=$independentlyExported',
+          () {
+            final library = ffi.DynamicLibrary.open(runtime.libraryPath);
+            final enqueue = library
+                .lookupFunction<
+                  ffi.Int64 Function(
+                    ffi.Int32,
+                    ffi.Int32,
+                    ffi.Pointer<ffi.Uint8>,
+                    ffi.Int32,
+                  ),
+                  int Function(int, int, ffi.Pointer<ffi.Uint8>, int)
+                >('ct_test_message_enqueue_wide');
+            final observe = library
+                .lookupFunction<
+                  ffi.Pointer<ffi.Void> Function(ffi.Int64),
+                  ffi.Pointer<ffi.Void> Function(int)
+                >('ct_test_message_observer_new_wide');
+            final alive = library
+                .lookupFunction<
+                  ffi.Int32 Function(ffi.Pointer<ffi.Void>),
+                  int Function(ffi.Pointer<ffi.Void>)
+                >('ct_test_message_observer_alive');
+            final free = library
+                .lookupFunction<
+                  ffi.Void Function(ffi.Pointer<ffi.Void>),
+                  void Function(ffi.Pointer<ffi.Void>)
+                >('ct_test_message_observer_free');
+            final body = Uint8List(65536)..fillRange(0, 65536, 73);
+            final result = opaque
+                ? (Result(
+                    7,
+                    ResultDetails(
+                      pptScheme: 'x_model',
+                      pptSerializer: 'flatbuffers',
+                    ),
+                  )..transparentBinaryPayload = body)
+                : Result(
+                    7,
+                    ResultDetails(),
+                    arguments: [body],
+                    argumentsKeywords: {'scope': 7},
+                  );
+            final frame = _encode(serializer, result);
+            final input = malloc<ffi.Uint8>(frame.length);
+            late final int handle;
+            try {
+              input.asTypedList(frame.length).setAll(0, frame);
+              handle = enqueue(777, wire.id, input, frame.length);
+            } finally {
+              malloc.free(input);
+            }
+            expect(handle, greaterThan(0));
+            expect(runtime.pollMessageHandle(777), handle);
+            final observer = observe(handle);
+            addTearDown(() => free(observer));
+            NativeMessageByteLease? independentLease;
+            Uint8List? independentView;
+            List<int>? independentExpected;
+            if (independentlyExported) {
+              final bytesApi = NativeMessageBytes(library);
+              independentLease = bytesApi.createLease();
+              addTearDown(independentLease.dispose);
+              final info = calloc<CtMessageInfo>();
+              try {
+                expect(CtFfiBindings(library).ctMessagePeek(handle, info), 0);
+                independentView = bytesApi.read(
+                  handle,
+                  opaque
+                      ? NativeMessageBytePart.transparentPayload
+                      : NativeMessageBytePart.arguments,
+                  borrowed: opaque ? info.ref.binaryArgPtr : info.ref.argsPtr,
+                  length: opaque ? info.ref.binaryArgLen : info.ref.argsLen,
+                  lease: independentLease,
+                );
+                independentExpected = List<int>.of(independentView);
+              } finally {
+                calloc.free(info);
+              }
+            }
+            final incoming = runtime.materialize(handle);
+            final message = incoming.message as AbstractMessageWithPayload;
+            attachSessionMessageAnchor(message, incoming);
+            final payload = message.toLazyPayload();
+            final exported = opaque
+                ? payload.transparentBinaryPayload!
+                : incoming.argumentsBytes!;
+            final derived = Uint8List.sublistView(
+              exported,
+              1,
+              exported.length - 1,
+            );
+            final expected = List<int>.of(derived);
+            incoming.release();
+            expect(alive(observer), 1);
+            expect(derived, orderedEquals(expected));
+            expect(releaseNativeMessagePayload(payload), isTrue);
+            expect(
+              alive(observer),
+              independentlyExported ? 1 : 0,
+              reason: 'Only independently exported owners may remain alive',
+            );
+            expect(releaseNativeMessagePayload(payload), isTrue);
+            expect(alive(observer), independentlyExported ? 1 : 0);
+            if (independentLease != null) {
+              expect(independentView, orderedEquals(independentExpected!));
+              independentLease.dispose();
+              expect(alive(observer), 0);
+            }
+            // Keep aliases reachable without reading invalidated storage.
+            identityHashCode(derived);
+            identityHashCode(exported);
+          },
+        );
+      }
+    }
 
     for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
       for (final keyId in [

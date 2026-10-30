@@ -5,6 +5,42 @@ Last updated: 2026-10-30.
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
+RAM investigation (2026-10-30): retained-row attribution puts most of the
+remaining RSS excess in the client process. A direct FFI weak-observer repro
+on unchanged `2d0ee379` finds a concrete release gap: a 64 KiB transparent
+FlatBuffers result remains alive after `releaseNativeMessagePayload` returns
+true. The API releases the routing handle, while independently exported native
+views keep their references until GC. Preserve ordinary `incoming.release()`
+view lifetime; make the explicit no-further-access payload release reclaim its
+own exports. No acceptance or numerical improvement is claimed from this repro.
+Current-head CI is independently confirmed 38/38 successful jobs. Copy audit
+verifies 3,225 inputs, 120 live / 300 inventory / 32 zero-avoidable-copy cases,
+including E2EE/transcode/native-crypto counts and clean retained process exits.
+VM memory profile `41106228701` is queued on the unchanged runtime. Local
+companions are refused by the shared resource lease held by another project;
+do not bypass it. Fresh canonical baseline completes with exit 0. The candidate immediately frees
+the observed export (1 -> 0 without GC), passes the ten native independent-owner
+cases, 405 lifetime/file/crypto cases, 94 socket cases and 77 transport/frame
+regressions. A derived-view GC proof passes after the incoming wrapper and root
+facade die. Full verification and bounded GLM safety review run; keep PR #132
+draft until numerical acceptance. Master advances by one MQTT commit after the
+last merge; integrate it before the final acceptance campaign.
+
+Latest numerical audit (2026-10-30): connectivity recovers enough to retrieve
+paired `41056036677` on runtime `ef61b156`. Independent reproduction verifies all
+90 rows, inputs, production binaries and exact hosted comparison. Only two
+numeric gates fail: Dart-values RSS median 1.0087769550
+(CI [0.9965808754, 1.0243417666]); native-buffer RSS median 1.0285043000
+(CI [0.9903861263, 1.0685564016]). Every throughput, CPU, p95, p99, allocation,
+GC and pre-encoded RSS gate passes. Diagnostic ineligibility remains expected;
+no integrity issue or primary acceptance is claimed. Full 48-case primary and
+final-runtime 50-case supplemental remain pending under the original budgets.
+Current-head CI `41057774775` and renewed copy `41057771623` both complete with
+success status on `2d0ee379` (production runtime byte-identical to ef61b156).
+Their numerical predecessor and all failed/repair attempts remain retained.
+The later local verification's dependency-network exit 124 remains recorded;
+do not relabel it as a pass. PR #132 stays draft pending strict RAM acceptance.
+
 Current frozen candidate: `ef61b156fb61572d7f4f0baf109e1393386fc2cd` (pushed).
 Scoped native byte/word initialization removes the 64 KiB Dart body staging
 allocation from all three native constructors. Schema/data/identities, wire
@@ -30,7 +66,14 @@ parts; all 15 probe contracts, 167 mutation proofs and real private-library
 analysis pass. The first local analysis used inconsistent /tmp vs /private/tmp
 URIs; canonicalization fixes that test harness alias. No production runtime,
 policy, scenario or measurement change is made; retain/rerun only the copy proof.
-Paired `41056036677` continues unchanged. No numerical acceptance yet.
+Tool repair `2d0ee379cfe4de890bf3916405d18e192506fd97` is pushed; a git
+comparison confirms all packages/native code, dependencies and lockfiles are
+byte-identical to `ef61b156`. Renewed copy proof `41057771623` and full CI
+`41057774775` run on it. Supersede only duplicate ef61 correctness CI
+`41056028434` to free runners; preserve its passed GuardMalloc/binding jobs and
+cancelled history. Paired `41056036677` continues untouched. A fresh full local
+verification also runs, retaining its final exit status in a sidecar file.
+No new numerical acceptance yet.
 
 Latest measured runtime: `828721fdb065e03dd45bdcc6811f8b0b7551b572`.
 Full local `bin/verify` exits 0, including native/FFI, VM, consumers and full
