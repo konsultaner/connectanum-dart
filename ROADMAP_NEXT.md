@@ -1,9 +1,40 @@
 # Next Session Overview
 
-Active FlatBuffers work uses `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`
+The user-prioritized MQTT milestone is active under
+`docs/exec-plans/2026-10-14-mqtt-broker-interoperability.md` and GitHub
+milestone 2. The bounded MQTT 5/3.1.1 QoS 0 codec and broker have native
+TCP/TLS listeners with hosted matched Mosquitto performance gates. An opt-in
+WS/WSS listener and public Connectanum WS/WSS client now pass local Paho
+interoperability, exact scoped Dart/Python coverage, and three provisional
+clean-tree numeric WebSocket profiles. The first hosted run misses narrow WS
+and native TCP 3.1.1 throughput floors despite exact delivery. The native WS
+read-ahead/coalescing optimization passes full local verification and five
+clean-source matched profiles with unchanged budgets. Its hosted run keeps all
+176 deliveries exact but misses six TCP/WS throughput floors. A native WS
+buffered-frame batching candidate cuts measured Dart/native chunk crossings,
+passes full verification and Paho integration, and passes five clean-source
+matched gates with 46 exact rows. Its WS throughput remains level with the
+previous clean source, so the diagnostic dirty-tree gain is unconfirmed;
+the first hosted Linux run passes fourteen of eighteen profiles with exact
+delivery; a same-source rerun passes fifteen of eighteen, but still misses
+native TCP 3.1.1 and both native WS throughput floors. The next pinned
+Ubuntu 24.04/Mosquitto 2.0.18 hosted run passes all nineteen profiles and 182
+exact matched rows on unchanged data-path source and numeric budgets. That
+cross-run swing leaves the controlled release margin open.
+The Mosquitto WSS MQTT 3.1.1 reference path still stalls with the Connectanum
+client on 2.1.2; the same client passes 20,000 WSS publications against official
+Mosquitto 2.0.18 and the native Connectanum listener. A versioned WSS 3.1.1
+correctness smoke now passes hosted exact delivery, while the 2.1.2
+interaction remains open. Continue with the authorized MQTT/WAMP publication
+boundary, QoS 1/2,
+retained/will/session behavior, full regression
+matrix and controlled release benchmarks. The current QoS 0 checkpoint is not
+milestone completion.
+
+Deferred FlatBuffers work uses `docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md`
 and GitHub milestone 1. The canonical candidate now includes ordinary/native
 transport selection, segmented native frames and public PPT/ownership repairs.
-Complete its verification/CI first, then typed FlatBuffers E2EE profile compatibility,
+When resumed, complete its verification/CI first, then typed FlatBuffers E2EE profile compatibility,
 remaining mixed transport coverage, conformance/artifacts, performance/copy gates
 and release/adapter documentation. The milestone remains open; the older fresh-state
 notes below do not override the active execution plan.

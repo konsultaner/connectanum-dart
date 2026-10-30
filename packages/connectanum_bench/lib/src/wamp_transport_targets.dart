@@ -99,6 +99,7 @@ Map<WampTransport, WampTransportTarget> resolveWampTransportTargets(
         case ListenerProtocol.http:
         case ListenerProtocol.http2:
         case ListenerProtocol.http3:
+        case ListenerProtocol.mqtt:
           break;
       }
     }

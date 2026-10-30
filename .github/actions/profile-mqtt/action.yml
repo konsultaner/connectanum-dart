@@ -1,0 +1,54 @@
+name: Capture native MQTT CPU profiles
+description: Capture diagnostic AOT CPU samples without changing MQTT acceptance measurements
+inputs:
+  report_only:
+    description: Render downloaded samples without starting a broker or collecting new data
+    required: false
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Install perf and capture kernel identity
+      shell: bash
+      env:
+        MQTT_REPORT_ONLY: ${{ inputs.report_only }}
+      run: |
+        set -euo pipefail
+        mkdir -p out/mqtt-native-profile
+        kernel_file=kernel.txt
+        if [[ "$MQTT_REPORT_ONLY" == true ]]; then kernel_file=report-kernel.txt; fi
+        uname -a > "out/mqtt-native-profile/$kernel_file"
+        sudo apt-get install -y linux-tools-common linux-tools-generic
+        if [[ "$MQTT_REPORT_ONLY" != true ]]; then
+          sudo sysctl -w kernel.perf_event_paranoid=-1
+          if ! sudo sysctl -w kernel.kptr_restrict=0; then
+            echo 'Kernel symbols remain restricted; userspace profiling is still available.'
+          fi
+          cat /proc/sys/kernel/kptr_restrict > out/mqtt-native-profile/kernel-kptr-restrict.txt
+        fi
+    - name: Profile WebSocket and large TCP payloads
+      shell: bash
+      env:
+        MQTT_REPORT_ONLY: ${{ inputs.report_only }}
+      run: |
+        set -euo pipefail
+        perf_binary="$(find -L /usr/lib/linux-tools -type f -name perf | sort -V | tail -1)"
+        [[ -n "$perf_binary" && -x "$perf_binary" ]]
+        version_file=perf-version.txt
+        if [[ "$MQTT_REPORT_ONLY" == true ]]; then version_file=report-perf-version.txt; fi
+        "$perf_binary" --version > "out/mqtt-native-profile/$version_file"
+        failed=0
+        for profile in ws_sustained 64k_sustained; do
+          args=(--budget "tool/mqtt_native_${profile}_benchmark_budget.json")
+          log="out/mqtt-native-profile/$profile.log"
+          if [[ "$MQTT_REPORT_ONLY" == true ]]; then
+            args=(--report-only)
+            log="out/mqtt-native-profile/$profile-report.log"
+          fi
+          if ! python3 tool/profile_mqtt_native.py --perf "$perf_binary" \
+            --output "out/mqtt-native-profile/$profile" \
+            "${args[@]}" > "$log" 2>&1; then
+            failed=1
+          fi
+        done
+        exit "$failed"

@@ -114,6 +114,24 @@ OpenMetrics also exposes drain counters such as
 `connectanum_router_drain_in_progress` and
 `connectanum_router_last_drain_duration_ms`.
 
+## MQTT performance
+
+The current MQTT broker path supports anonymous loopback QoS 0 pub/sub for
+MQTT 5 and 3.1.1 over TCP, TLS, WebSocket, and secure WebSocket. One hosted
+run against Mosquitto 2.0.18 measured:
+
+| Check | Result |
+| --- | --- |
+| Direct MQTT delivery | 29,114,000 expected and received across 192 benchmark samples; zero duplicates |
+| Profile results | 19 of 20 passed: 15 of 16 performance profiles and all 4 delivery-only smoke profiles |
+| Open performance limit | The 64 KiB TCP broker CPU ratio was 4.294× against a 4.0× cap |
+| MQTT ↔ WAMP translation | No result yet; the live gateway is pending |
+
+The [complete 20-profile table](../connectanum_bench/README.md#mqtt-publish-and-subscribe)
+shows delivered rates, latency, CPU, memory, and results for each workload.
+The [raw evidence](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
+records the measured runner and workload details.
+
 ## Lazy Payload And Forwarding Boundaries
 
 The router keeps payload bytes lazy when the route stays on a supported

@@ -4,6 +4,7 @@
 import argparse
 import json
 import math
+import re
 from fractions import Fraction
 from pathlib import Path
 
@@ -61,9 +62,41 @@ def stats(lines):
     return {'covered': covered, 'total': total, 'percent': 100 * covered / total if total else None}
 
 
+def classify_browser_enum_declarations(sources, root, runtime):
+    """Remove Dart enum declaration markers that dart2js lists as DA:0.
+
+    The declaration itself has no executable body. Its members and methods
+    remain measured; the raw LCOV totals stay visible in the report.
+    """
+    if runtime != 'chrome':
+        return sources, {}
+    measured = {}
+    excluded = {}
+    for name, lines in sources.items():
+        path = root / name
+        if not path.is_file() or name in GENERATED_FLATBUFFERS_SOURCES:
+            measured[name] = lines
+            continue
+        source_lines = path.read_text().splitlines()
+        declarations = sorted(number for number in lines
+                              if number <= len(source_lines)
+                              and (re.fullmatch(r'enum\s+\w+\s*\{',
+                                                source_lines[number - 1].strip())
+                                   or re.fullmatch(r'enum\s+\w+\s*\{\s*\w+'
+                                                   r'(?:\s*,\s*\w+)*\s*,?\s*\}',
+                                                   source_lines[number - 1].strip())))
+        measured[name] = {number: hits for number, hits in lines.items()
+                          if number not in declarations}
+        if declarations:
+            excluded[name] = declarations
+    return measured, excluded
+
+
 def report(sources, root, runtime='vm', scope='library'):
+    measured_sources, declaration_lines_excluded = classify_browser_enum_declarations(
+        sources, root, runtime)
     files = {name: {**stats(lines), 'uncovered': sorted(n for n, hits in lines.items() if hits == 0)}
-             for name, lines in sorted(sources.items())}
+             for name, lines in sorted(measured_sources.items())}
     generated = {}
     for name in GENERATED_FLATBUFFERS_SOURCES & sources.keys():
         path = root / name
@@ -73,7 +106,7 @@ def report(sources, root, runtime='vm', scope='library'):
             if source.readline().strip() != FLATBUFFERS_PROVENANCE:
                 raise ValueError(f'{name}: missing FlatBuffers compiler provenance')
         generated[name] = files[name]
-    handwritten = {name: lines for name, lines in sources.items() if name not in generated}
+    handwritten = {name: lines for name, lines in measured_sources.items() if name not in generated}
     package_lines = {}
     for name, lines in handwritten.items():
         package = name.split('/')[2 if scope == 'application' else 1]
@@ -94,11 +127,14 @@ def report(sources, root, runtime='vm', scope='library'):
     measurement = f'Dart {runtime} executable lines in LCOV'
     if generated:
         measurement = f'Dart {runtime} handwritten executable lines in LCOV'
+    if declaration_lines_excluded:
+        measurement += ' excluding non-executable enum declaration markers'
     return {'schemaVersion': 1, 'measurement': measurement,
             'sourceScope': scope,
             'packages': {name: stats(lines) for name, lines in sorted(package_lines.items())},
             'overall': stats({(name, n): h for name, lines in handwritten.items() for n, h in lines.items()}),
             'rawOverall': stats({(name, n): h for name, lines in sources.items() for n, h in lines.items()}),
+            'declarationLinesExcluded': declaration_lines_excluded,
             'generatedArtifacts': generated,
             'generatedArtifactVerification': 'Mandatory FlatBuffers Binding CI job: pinned regeneration and independent fixtures',
             'files': files, 'unmeasuredSources': unmeasured,

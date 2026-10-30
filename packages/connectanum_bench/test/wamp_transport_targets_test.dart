@@ -5,6 +5,17 @@ import 'package:test/test.dart';
 
 void main() {
   group('resolveWampTransportTargets', () {
+    test('MQTT listener does not appear as a WAMP benchmark target', () {
+      final targets = resolveWampTransportTargets([
+        const ListenerSettings(
+          endpoint: '127.0.0.1:1883',
+          authmethods: ['anonymous'],
+          protocols: [ListenerProtocol.mqtt],
+        ),
+      ]);
+      expect(targets, isEmpty);
+    });
+
     test('prefers dedicated plain WAMP listener over mixed HTTP listener', () {
       final targets = resolveWampTransportTargets([
         const ListenerSettings(

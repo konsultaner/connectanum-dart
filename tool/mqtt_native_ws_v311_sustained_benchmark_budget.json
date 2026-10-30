@@ -1,0 +1,16 @@
+{
+  "profile": "mqtt311-ws-qos0-one-subscriber-128B-window512",
+  "mqtt_version": "311",
+  "transport": "ws",
+  "publish_mode": "single",
+  "repetitions": 5,
+  "messages_per_run": 200000,
+  "payload_bytes": 128,
+  "window_messages": 512,
+  "gate": "performance",
+  "min_delivered_throughput_ratio_vs_mosquitto": 0.7,
+  "max_p95_latency_ratio_vs_mosquitto": 2.5,
+  "max_p99_latency_ratio_vs_mosquitto": 2.75,
+  "max_broker_cpu_ratio_vs_mosquitto": 5.0,
+  "max_connectanum_broker_rss_bytes": 67108864
+}

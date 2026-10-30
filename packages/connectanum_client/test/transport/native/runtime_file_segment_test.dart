@@ -18,7 +18,7 @@ import 'package:connectanum_client/src/transport/native/message_binding.dart';
 import 'package:connectanum_client/src/transport/native/ffi_bindings.dart';
 import 'package:ffi/ffi.dart';
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
-    show buildNativeFileSegmentPrefix;
+    show buildNativeFileSegmentPrefix, buildNativeFlatBuffersFileSegmentPrefix;
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
@@ -37,6 +37,11 @@ final _wireCases = <(NativeMessageSerializer, AbstractSerializer)>[
   (NativeMessageSerializer.json, json.Serializer()),
   (NativeMessageSerializer.messagePack, msgpack.Serializer()),
   (NativeMessageSerializer.cbor, cbor.Serializer()),
+];
+
+final _fileLifecycleWireCases = <(NativeMessageSerializer, AbstractSerializer)>[
+  ..._wireCases,
+  (NativeMessageSerializer.flatbuffers, flat.Serializer()),
 ];
 
 Uint8List _encode(AbstractSerializer serializer, AbstractMessage message) {
@@ -62,6 +67,39 @@ void main() {
     _consumingE2eeMessageCases(() => runtime);
     _deferredE2eeMessageCases(() => runtime);
     _deferredSessionMessageCases(() => runtime);
+
+    test('FlatBuffers file prefix requires one empty binary argument', () {
+      final empty = _call(7, Uint8List(0));
+      final prefix = buildNativeFlatBuffersFileSegmentPrefix(
+        empty,
+        fileLength: 3,
+      );
+      final frame = Uint8List.fromList([...prefix, 10, 20, 30]);
+      final decoded = flat.Serializer().deserialize(frame) as Call;
+      expect(decoded.requestId, 7);
+      expect(decoded.arguments!.single, [10, 20, 30]);
+      expect(
+        () => buildNativeFlatBuffersFileSegmentPrefix(
+          _call(7, Uint8List.fromList([1])),
+          fileLength: 3,
+        ),
+        throwsStateError,
+      );
+      expect(
+        () => buildNativeFlatBuffersFileSegmentPrefix(
+          empty,
+          fileLength: -1,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => buildNativeFlatBuffersFileSegmentPrefix(
+          empty,
+          fileLength: 64 * 1024 * 1024,
+        ),
+        throwsArgumentError,
+      );
+    });
 
     for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
       for (final keyId in [
@@ -513,7 +551,7 @@ void main() {
       },
     );
     for (final websocket in [false, true]) {
-      for (final (wire, serializer) in _wireCases) {
+      for (final (wire, serializer) in _fileLifecycleWireCases) {
         for (final cipher in [null, 'xsalsa20poly1305', 'aes256gcm']) {
           test(
             'transport websocket=$websocket ${wire.name} $cipher file lifecycle',
@@ -677,12 +715,20 @@ void main() {
               source.close();
               source.close();
               expect(() => send(source), throwsStateError);
-              transport.send(_call(100, Uint8List.fromList([4, 5, 6])));
+              final ordinaryMessage =
+                  wire == NativeMessageSerializer.flatbuffers
+                  ? Hello('realm', Details.forHello())
+                  : _call(100, Uint8List.fromList([4, 5, 6]));
+              transport.send(ordinaryMessage);
               await (transport as DrainableTransport).drain();
-              final ordinary =
-                  serializer.deserialize(await peer.nextFrame()) as Call;
-              expect(ordinary.requestId, 100);
-              expect(ordinary.arguments!.single, [4, 5, 6]);
+              final ordinary = serializer.deserialize(await peer.nextFrame());
+              if (ordinaryMessage is Hello) {
+                expect(ordinary, isA<Hello>());
+              } else {
+                final call = ordinary as Call;
+                expect(call.requestId, 100);
+                expect(call.arguments!.single, [4, 5, 6]);
+              }
               expect(transport.isOpen, isTrue);
               await transport.close();
               expect(transport.isOpen, isFalse);

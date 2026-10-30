@@ -291,7 +291,7 @@ class RealmLimitSettings {
 }
 
 /// Listener protocols that can be negotiated per endpoint.
-enum ListenerProtocol { rawsocket, websocket, http, http2, http3 }
+enum ListenerProtocol { rawsocket, websocket, mqtt, http, http2, http3 }
 
 extension ListenerProtocolX on ListenerProtocol {
   bool get isHttp =>
@@ -306,6 +306,8 @@ ListenerProtocol listenerProtocolFromString(String value) {
       return ListenerProtocol.rawsocket;
     case 'websocket':
       return ListenerProtocol.websocket;
+    case 'mqtt':
+      return ListenerProtocol.mqtt;
     case 'http':
       return ListenerProtocol.http;
     case 'http2':
@@ -321,6 +323,7 @@ String listenerProtocolToString(ListenerProtocol protocol) =>
     switch (protocol) {
       ListenerProtocol.rawsocket => 'rawsocket',
       ListenerProtocol.websocket => 'websocket',
+      ListenerProtocol.mqtt => 'mqtt',
       ListenerProtocol.http => 'http',
       ListenerProtocol.http2 => 'http2',
       ListenerProtocol.http3 => 'http3',

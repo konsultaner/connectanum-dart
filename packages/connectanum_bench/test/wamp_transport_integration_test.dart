@@ -833,6 +833,42 @@ void main() {
       timeout: const Timeout(Duration(seconds: 45)),
     );
 
+    for (final transport in [
+      WampTransport.rawsocket,
+      WampTransport.websocket,
+    ]) {
+      for (final encrypted in [false, true]) {
+        test(
+          'native FlatBuffers file chunks ${transport.name} encrypted=$encrypted',
+          () async {
+            final samples = await harness!.runNative(
+              WampScenario(
+                transport: transport,
+                clientImplementation: WampClientImplementation.native,
+                serializer: WampSerializer.flatbuffers,
+                peerSerializer: WampSerializer.flatbuffers,
+                mode: WampMode.fileTransfer,
+                uri: 'bench.file.flatbuffers_${transport.name}_$encrypted',
+                iterations: 1,
+                concurrency: 1,
+                payloadBytes: 2 * 1024 * 1024,
+                fileChunkBytes: 256 * 1024,
+                pptScheme: encrypted ? 'wamp' : null,
+                pptSerializer: encrypted ? 'cbor' : null,
+                pptCipher: encrypted ? 'aes256gcm' : null,
+                pptKeyId: encrypted ? 'benchmark-key' : null,
+              ),
+            );
+
+            expect(samples, hasLength(1));
+            expect(samples.single.requestBytes, 2 * 1024 * 1024);
+          },
+          skip: skipReason,
+          timeout: const Timeout(Duration(seconds: 45)),
+        );
+      }
+    }
+
     test(
       'Dart CBOR file transfer uses native progressive invocation forwarding',
       () async {
