@@ -1,24 +1,36 @@
 # Project State
 
-Last updated: 2026-10-29.
+Last updated: 2026-10-30.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 
-Current local candidate adds scoped native byte/word initialization. It removes
-the 64 KiB Dart body staging allocation from all three native constructors using
-public guarded APIs; schema/data/identities, wire bytes and timing windows stay
-fixed. Scalar stores are generation; explicit source copies and growth remain
-counted. Ordinary Dart-values and pre-encoded groups retain their semantics.
-215 focused model/live transport cases and all 70 ownership cases pass,
-including freed-allocation GC, void-typed async rejection and isolate-port
-rejection. A separate real-send regression identifies one hidden coalescing
-operation in the native owner probe; checking owner eligibility before reading
-packed bytes removes it. All 74 native frame/profile/Session cases pass and all
-167 mutation proofs remain valid. Complete analysis exits 0 with no new
-diagnostics. The first canonical verification is superseded before completion
-to include that reproduced bug fix; renew full frozen-source verification. No new
-performance result or parity acceptance exists yet.
+Current frozen candidate: `ef61b156fb61572d7f4f0baf109e1393386fc2cd` (pushed).
+Scoped native byte/word initialization removes the 64 KiB Dart body staging
+allocation from all three native constructors. Schema/data/identities, wire
+bytes and timing windows remain fixed. Explicit source copies and growth stay
+counted; Dart-values/pre-encoded construction groups retain their semantics.
+The native owner probe now checks eligibility before requesting packed bytes,
+removing the real-send fragmented-source coalescing regression (one -> zero
+contiguous getter reads). All ownership/provenance conditions remain intact.
+215 model/live transport, 70 ownership and 74 frame/profile/Session cases pass,
+as do all 167 mutation proofs. Complete analysis exits 0 with no new diagnostics.
+Fresh canonical verification completes all VM/native, consumer and both
+Chrome/WebAssembly suites with every test passing. The exec session handle
+expires after completion, so no direct exit status is retained; the full log
+reaches both final browser successes and no verify process remains. The prior
+superseded attempt remains recorded separately.
+Hosted CI `41056028434`, production copy proof `41056032556` and paired diagnostic
+`41056036677` run on this frozen SHA. The hosted Native Ownership GuardMalloc
+and FlatBuffers binding jobs already pass. Copy `41056032556` stops before
+measurement because its private marker is inserted before the new final Dart
+part, making that private source fail compilation. A fail-first directive-order
+regression reproduces it. Insert the marker at the first declaration after all
+parts; all 15 probe contracts, 167 mutation proofs and real private-library
+analysis pass. The first local analysis used inconsistent /tmp vs /private/tmp
+URIs; canonicalization fixes that test harness alias. No production runtime,
+policy, scenario or measurement change is made; retain/rerun only the copy proof.
+Paired `41056036677` continues unchanged. No numerical acceptance yet.
 
 Latest measured runtime: `828721fdb065e03dd45bdcc6811f8b0b7551b572`.
 Full local `bin/verify` exits 0, including native/FFI, VM, consumers and full

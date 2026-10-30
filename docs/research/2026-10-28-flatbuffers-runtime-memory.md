@@ -912,3 +912,25 @@ assertions passed; its failure log is retained. Correct schema-key reproduction
 succeeds in `/tmp/connectanum-flatbuffers-supplemental-b7a6-aggregate-audit-v2.log`.
 These reports are checkpoint costs and do not accept the changed native model
 constructor or owner probe. Renew final-source evidence under unchanged gates.
+
+## Private diagnostic directive-order repair (2026-10-30)
+
+Copy run 41056032556 stops before any negative-control row because its privately
+patched native_buffers.dart places the attribution constant immediately after
+native_owned_segments.dart, before the newly added native_writable_bytes.dart
+part. The retained server log states: Directives must appear before any
+declarations. This is a private instrumentation compilation failure, not a
+production ownership or numeric result. Keep
+`/tmp/connectanum-flatbuffers-copy-ef61-failed` and the failed workflow/log.
+
+The actual/current plus synthetic future-part test fails first. Inserting the
+marker before the unique first declaration documentation anchor keeps all
+imports/parts above it and retains replace_once drift/ambiguity refusal. All
+15 contracts and 167 mutation proofs pass. A privately copied complete client
+library with the new marker analyzes cleanly. Its first local analysis resolved
+both /tmp and /private/tmp URIs as distinct libraries; canonical paths repair
+that harness-only alias and the failure log remains. Bounded local debugging
+correctly requests the retained server compiler log; no readiness timeout is
+relaxed. Production Dart, binaries, policies, lockfiles, scenarios and timing
+windows are unchanged. Preserve numerical run 41056036677; only the failed
+copy workflow needs renewal after this tooling-only repair.

@@ -104,10 +104,12 @@ def replace_once(source, old, new):
 
 
 def mark_buffer_source(buffer, marker):
+    # Insert at the first declaration, after every library directive. Native
+    # buffers may gain additional parts; a declaration between parts is invalid.
+    anchor = "/// Native integration output from `ct_external_buffer_register`."
     return replace_once(
-        buffer, "part 'src/transport/native/native_owned_segments.dart';",
-        "part 'src/transport/native/native_owned_segments.dart';\n"
-        f"const nativePptViewProbeMarker = '{marker}';",
+        buffer, anchor,
+        f"const nativePptViewProbeMarker = '{marker}';\n\n" + anchor,
     )
 
 

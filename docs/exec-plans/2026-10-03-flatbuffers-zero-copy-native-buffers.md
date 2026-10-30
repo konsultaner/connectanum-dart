@@ -6,6 +6,20 @@ Current step: validate scoped native body generation and renew the unchanged
 performance/copy gates. Runtime `828721fd` is the latest measured checkpoint.
 Earlier sections retain checkpoint history, including rejected experiments.
 
+## Private probe directive-order repair (2026-10-30)
+
+- [x] Retain failed copy `41056032556`: server never reaches READY. Its log shows
+  a marker constant before the new Dart part, not a measured lifetime failure.
+- [x] Reproduce actual/current and future-added part directive ordering with a
+  fail-first contract. Move marker insertion to the first declaration anchor,
+  after every directive, preserving missing/duplicate pattern refusal.
+- [x] Pass all 15 probe contracts and 167 mutation proofs. A real private copied
+  library analyzes cleanly; preserve the initial macOS /tmp URI alias failure
+  and its canonical-path correction. Production Dart, lockfiles, scenarios,
+  policy and measurement windows remain byte-identical to runtime `ef61b156`.
+- [ ] Renew copy evidence on the tooling repair; keep paired `41056036677`
+  running untouched. Do not rerun numerical campaigns on this tooling-only change.
+
 ## Guarded native body generation investigation (2026-10-29)
 
 - [x] Renew baseline `bin/test-fast`: complete exit 0. Existing `9bf3235c` CI
@@ -53,7 +67,13 @@ Earlier sections retain checkpoint history, including rejected experiments.
   three shards and merge. Independent reproduction exactly matches comparison
   and provenance: 50 cases / 1,500 rows / zero integrity findings / 195 numerical
   diagnostics. Preserve d1b's 193 diagnostics and all earlier cost reports.
-- [ ] Finish frozen-source canonical validation and fresh hosted copy/parity evidence; apply shared APIs to CBOR/MessagePack as well. Keep
+- [x] Freeze/push `ef61b156`; canonical verification completes through all
+  VM/native, consumer and both browser suites with every test passing. The exec
+  session expires after completion; retain the full successful test log without
+  inventing a direct observed process exit status.
+- [ ] Complete frozen-source hosted CI `41056028434`, copy `41056032556` and
+  paired diagnostic `41056036677`. GuardMalloc and binding jobs already pass.
+  No new numerical result or parity acceptance yet; apply shared APIs to CBOR/MessagePack as well. Keep
   ordinary Dart-values and pre-encoded groups semantically distinct.
 
 ## Redundant typed-PPT projection follow-up (2026-10-29)

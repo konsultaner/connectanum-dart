@@ -14,6 +14,19 @@ import probe_native_ppt_views as probe
 
 
 class NativePptViewProbeTests(unittest.TestCase):
+    def test_marker_follows_all_dart_library_directives(self):
+        original = (probe.ROOT / probe.BUFFER).read_text()
+        extra = "part 'src/transport/native/future_component.dart';"
+        for source in (original, original.replace(
+                "part 'src/transport/native/native_writable_bytes.dart';",
+                "part 'src/transport/native/native_writable_bytes.dart';\n" + extra)):
+            with self.subTest(extra_part=extra in source):
+                patched = probe.mark_buffer_source(source, 'directive-marker')
+                marker = patched.index("const nativePptViewProbeMarker")
+                for line in source.splitlines():
+                    if line.startswith(('part ', 'import ', 'library')):
+                        self.assertLess(patched.index(line), marker)
+
     def test_source_patch_is_private_and_rejects_drift_or_ambiguous_patterns(self):
         buffer = (probe.ROOT / probe.BUFFER).read_text()
         transport = (probe.ROOT / probe.TRANSPORT).read_text()
