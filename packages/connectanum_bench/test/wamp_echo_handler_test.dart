@@ -3,12 +3,119 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:connectanum_bench/src/bench_payload/codec.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
+import 'package:connectanum_client/native_buffers.dart' as native_buffers;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
+import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
+import 'support/native_library.dart';
+
 void main() {
+  final nativeLibrary = nativeBenchTestLibrary();
   group('respondEchoLazyInvocation', () {
+    for (final level in [Level.INFO, Level.FINE]) {
+      test('logging at $level preserves an unexported packed source', () async {
+        final source = _TrackedPackedSource();
+        final payload = wamp_core.LazyMessagePayload.packedSource(
+          encoding: wamp_core.LazyPayloadEncoding.flatbuffers,
+          source: source,
+          packedPayloadDecoder: (_) => throw StateError('payload decoded'),
+        );
+        final logger = Logger.detached('echo-presence')..level = level;
+        final records = <LogRecord>[];
+        final subscription = logger.onRecord.listen(records.add);
+        addTearDown(subscription.cancel);
+        wamp_core.LazyMessagePayload? response;
+        final invocation = wamp_core.LazyInvocationPayload(
+          requestId: 1,
+          registrationId: 2,
+          receiveProgress: false,
+          pptScheme: 'x_custom_scheme',
+          pptSerializer: 'flatbuffers',
+          payload: payload,
+          isResponseClosed: () => false,
+          respondWith:
+              ({
+                wamp_core.LazyMessagePayload? lazyPayload,
+                List<dynamic>? arguments,
+                Map<String, dynamic>? argumentsKeywords,
+                bool isError = false,
+                String? errorUri,
+                wamp_core.YieldOptions? options,
+              }) => response = lazyPayload,
+        );
+
+        respondEchoLazyInvocation(invocation, logger: logger);
+        await Future<void>.value();
+
+        expect(response, same(payload));
+        expect(source.reads, 0);
+        if (level == Level.FINE) {
+          expect(records, hasLength(2));
+          expect(records.first.message, contains('packed=true'));
+        } else {
+          expect(records, isEmpty);
+        }
+      });
+    }
+
+    test(
+      'logging preserves an unexported native PPT lease',
+      () {
+        final allocator = native_buffers.NativeBufferAllocator.instance(
+          libraryPath: nativeLibrary,
+        );
+        for (final level in [Level.INFO, Level.FINE]) {
+          final producer = BenchPayloadCodec.encodeNative(
+            allocator,
+            worker: 0,
+            iteration: 1,
+            bodyBytes: 32,
+          );
+          addTearDown(producer.dispose);
+          final lease = producer.leaseFlatBuffersPptPayload();
+          addTearDown(lease.dispose);
+          producer.dispose();
+          var replies = 0;
+          final invocation = wamp_core.LazyInvocationPayload(
+            requestId: 1,
+            registrationId: 2,
+            receiveProgress: false,
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'flatbuffers',
+            payload: lease.payload,
+            isResponseClosed: () => false,
+            respondWith:
+                ({
+                  wamp_core.LazyMessagePayload? lazyPayload,
+                  List<dynamic>? arguments,
+                  Map<String, dynamic>? argumentsKeywords,
+                  bool isError = false,
+                  String? errorUri,
+                  wamp_core.YieldOptions? options,
+                }) {
+                  expect(lazyPayload, same(lease.payload));
+                  replies++;
+                },
+          );
+          expect(lease.hasExportedByteView, isFalse);
+          respondEchoLazyInvocation(
+            invocation,
+            logger: Logger.detached('native-echo-presence')..level = level,
+          );
+          expect(replies, 1);
+          expect(lease.hasExportedByteView, isFalse);
+          expect(lease.isDisposed, isFalse);
+          lease.dispose();
+        }
+      },
+      skip: nativeLibrary == null
+          ? 'Native transport artifact unavailable'
+          : false,
+    );
+
     test('reuses plain lazy payload without forcing decode', () {
       final payload = wamp_core.LazyMessagePayload.encoded(
         encoding: wamp_core.LazyPayloadEncoding.cbor,
@@ -156,4 +263,14 @@ void main() {
       expect(capturedOptions!.pptCipher, 'aes256gcm');
     });
   });
+}
+
+final class _TrackedPackedSource implements wamp_core.PackedPayloadSource {
+  int reads = 0;
+
+  @override
+  Uint8List get bytes {
+    reads++;
+    return Uint8List.fromList([1, 2, 3]);
+  }
 }

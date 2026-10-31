@@ -21,12 +21,14 @@ void respondEchoLazyInvocation(
   Logger? logger,
   bool progress = false,
 }) {
-  logger?.fine(
-    'RPC echo invoked requestId=${invocation.requestId} '
-    'args_encoded=${invocation.argumentsBytes != null} '
-    'kwargs_encoded=${invocation.argumentsKeywordsBytes != null} '
-    'packed=${invocation.packedPayloadBytes != null}',
-  );
+  if (logger != null && logger.isLoggable(Level.FINE)) {
+    logger.fine(
+      'RPC echo invoked requestId=${invocation.requestId} '
+      'args_encoded=${invocation.payload.hasEncodedArguments} '
+      'kwargs_encoded=${invocation.payload.hasEncodedArgumentsKeywords} '
+      'packed=${invocation.payload.hasPackedPayloadBytes}',
+    );
+  }
   final responsePayload = invocation.pptScheme == 'wamp'
       ? wamp_core.LazyMessagePayload.materialized(
           transparentBinaryPayload: invocation.payload.transparentBinaryPayload,
@@ -45,5 +47,7 @@ void respondEchoLazyInvocation(
             ..progress = true)
         : yieldOptionsFromLazyInvocation(invocation),
   );
-  logger?.fine('RPC echo responded requestId=${invocation.requestId}');
+  if (logger != null && logger.isLoggable(Level.FINE)) {
+    logger.fine('RPC echo responded requestId=${invocation.requestId}');
+  }
 }

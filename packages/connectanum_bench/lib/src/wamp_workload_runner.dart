@@ -207,11 +207,13 @@ class WampWorkloadRunner {
       () async {
         _validatePayloadConstruction(scenario);
         _validateMinimumDuration(scenario);
-        _logger.fine(
-          'Running ${scenario.mode} workload '
-          'uri=${scenario.uri} concurrency=${scenario.concurrency} '
-          'iterations=${scenario.iterations}',
-        );
+        if (_logger.isLoggable(Level.FINE)) {
+          _logger.fine(
+            'Running ${scenario.mode} workload '
+            'uri=${scenario.uri} concurrency=${scenario.concurrency} '
+            'iterations=${scenario.iterations}',
+          );
+        }
         switch (scenario.mode) {
           case WampMode.authenticate:
             return _runAuthenticateScenario(scenario);
@@ -383,11 +385,13 @@ class WampWorkloadRunner {
         );
         final eventBuffer = WampEventBuffer();
         subscription.onEvent((event) {
-          _logger.finer(
-            'PUBSUB event received worker=$workerId peer=$peerIndex '
-            'args_bytes=${event.argumentsBytes?.length ?? 0} '
-            'kwargs_bytes=${event.argumentsKeywordsBytes?.length ?? 0}',
-          );
+          if (_logger.isLoggable(Level.FINER)) {
+            _logger.finer(
+              'PUBSUB event received worker=$workerId peer=$peerIndex '
+              'args_bytes=${event.argumentsBytes?.length ?? 0} '
+              'kwargs_bytes=${event.argumentsKeywordsBytes?.length ?? 0}',
+            );
+          }
           eventBuffer.add(event);
         });
         final onRevoke = subscription.onRevoke;
@@ -474,9 +478,11 @@ class WampWorkloadRunner {
       'worker': workerId,
       'iteration': iteration,
     };
-    _logger.fine(
-      'PUBSUB publish start worker=$workerId iteration=$iteration uri=${scenario.uri}',
-    );
+    if (_logger.isLoggable(Level.FINE)) {
+      _logger.fine(
+        'PUBSUB publish start worker=$workerId iteration=$iteration uri=${scenario.uri}',
+      );
+    }
     final eventFutures = [
       for (final eventBuffer in eventBuffers)
         eventBuffer
@@ -533,17 +539,21 @@ class WampWorkloadRunner {
               iteration: iteration,
             ),
           );
-          _logger.fine(
-            'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
-          );
+          if (_logger.isLoggable(Level.FINE)) {
+            _logger.fine(
+              'PUBSUB publish acked worker=$workerId iteration=$iteration uri=${scenario.uri}',
+            );
+          }
         }),
       ], eagerError: true);
       final latencyMs =
           DateTime.now().difference(start).inMicroseconds / 1000.0;
-      _logger.fine(
-        'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
-        'latency_ms=$latencyMs fanout=${scenario.peerCount}',
-      );
+      if (_logger.isLoggable(Level.FINE)) {
+        _logger.fine(
+          'PUBSUB publish done worker=$workerId iteration=$iteration uri=${scenario.uri} '
+          'latency_ms=$latencyMs fanout=${scenario.peerCount}',
+        );
+      }
       return WampSample(
         worker: workerId,
         iteration: iteration,
@@ -921,9 +931,11 @@ class WampWorkloadRunner {
     wamp_core.LazyMessagePayload Function()? payloadFactory,
     WampSession session,
   ) async {
-    _logger.fine(
-      'RPC call start worker=$workerId iteration=$iteration uri=$procedure',
-    );
+    if (_logger.isLoggable(Level.FINE)) {
+      _logger.fine(
+        'RPC call start worker=$workerId iteration=$iteration uri=$procedure',
+      );
+    }
     final start = DateTime.now();
     _PreparedBenchPayload? preparedPayload;
     wamp_core.LazyResultPayload? result;
@@ -968,14 +980,16 @@ class WampWorkloadRunner {
       }
       final latencyMs =
           DateTime.now().difference(start).inMicroseconds / 1000.0;
-      _logger.fine(
-        'RPC call done worker=$workerId iteration=$iteration uri=$procedure '
-        'latency_ms=$latencyMs '
-        'args_bytes=${result.argumentsBytes?.length ?? 0} '
-        'kwargs_bytes=${result.argumentsKeywordsBytes?.length ?? 0} '
-        'decoded_args=${decodedArguments?.length ?? 0} '
-        'decoded_kwargs=${decodedArgumentsKeywords?.length ?? 0}',
-      );
+      if (_logger.isLoggable(Level.FINE)) {
+        _logger.fine(
+          'RPC call done worker=$workerId iteration=$iteration uri=$procedure '
+          'latency_ms=$latencyMs '
+          'args_bytes=${result.argumentsBytes?.length ?? 0} '
+          'kwargs_bytes=${result.argumentsKeywordsBytes?.length ?? 0} '
+          'decoded_args=${decodedArguments?.length ?? 0} '
+          'decoded_kwargs=${decodedArgumentsKeywords?.length ?? 0}',
+        );
+      }
       return WampSample(
         worker: workerId,
         iteration: iteration,

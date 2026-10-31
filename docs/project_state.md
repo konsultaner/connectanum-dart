@@ -9,6 +9,50 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+## Latest checkpoint: lazy logging and final acceptance (2026-10-31)
+
+PR132 remains at fully verified 40ddcb3f; final candidates are isolated. Latest
+eligible runtime fd983af8 (production-identical to 40ddcb3f) has two RSS misses
+in its three-case diagnostic. Its full 48-case primary and 50-case supplemental
+campaigns remain running. The latest completed predecessor 35f4b84c full primary
+has 93 numerical misses; no diagnostic supersedes the complete matrix.
+Current 40ddcb3f CI is red on MQTT WebSocket throughput, with matched master and
+candidate failures on EPYC 7763. Do not infer repair from another runner's pass.
+
+Experimental 79c9dced full frozen bin/verify passes, including actual Chrome
+JS/Wasm, with log SHA-256
+9402d8bb2727768b353db835dcda8efc490514aeae954227c5d9abca2bda1862.
+Refined bounded-text and literal-MQTT candidate abb0905b is under canonical,
+paired and CI verification. Its owned-copy run 41189753582 passes independent
+3,288-input / 120-live / 300-inventory / 32-zero-avoidable audits and the native
+positive/negative lifetime controls. E2EE/transcode scope is unchanged; SDK/TLS/
+crypto internals remain unmeasured. The separate allocation-precision decision
+for two 1 MiB native MessagePack supplemental cases remains pending.
+
+A concrete lazy logging defect is reproduced before changing behavior: the echo
+helper interpolates packedPayloadBytes even when FINE is disabled. Both INFO
+and FINE tests observe one unwanted source read. Isolated original-source testing
+with a real native PPT lease also flips hasExportedByteView to true. Fix presence
+logging with non-materializing flags and guard disabled FINE/FINER interpolation
+at the seven workload logging sites. Normal fine log records remain; body
+creation, verification, E2EE decode, samples, counters and measurement windows
+remain unchanged. This is an actual view-export regression, not yet an attributed
+cause of the failed RAM gates. A view export is not necessarily a byte copy.
+
+All 115 focused cases pass, including real native leases remaining unexported at
+INFO/FINE and existing E2EE/release cases. All 168 live transport scenarios pass,
+including both transports, native/Dart clients, transcodes, typed construction,
+E2EE and progressive/file workloads. Analysis is clean. Local review's required-
+constructor warning refers to unchanged, compiled code; its other hypothetical
+provider/cache concerns are not introduced by this patch. No confirmed finding.
+The checked-in lazy-logging repro receipt retains exact source and log hashes.
+Freeze the new logging candidate and renew full canonical verification, CI,
+paired/full primary, supplemental and copy evidence before adoption. Keep every
+predecessor campaign and failure; never weaken gates, force acceptance GC or
+rerun unchanged numerical code for a favorable outcome. Keep PR132 draft.
+
+## Earlier checkpoints
+
 ## Isolated scalar-CBOR scanner component (2026-10-31)
 
 PR runtime remains `35f4b84c`, published tooling head `e02d6c27`. Its clean fixed-

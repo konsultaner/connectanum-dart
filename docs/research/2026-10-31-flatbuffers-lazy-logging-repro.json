@@ -1,0 +1,46 @@
+{
+  "baseline": "abb0905bba0c1fd99aa1935338ed4e1ed7b28f45",
+  "kind": "lazy_logging_native_export_regression_never_acceptance",
+  "primary_acceptance_eligible": false,
+  "candidate_source_sha256": {
+    "packages/connectanum_bench/lib/src/wamp_echo_handler.dart": "a23575ad25c1bd03a405e54db76359f08be41a414613a5687747a2a98eec8a7e",
+    "packages/connectanum_bench/lib/src/wamp_workload_runner.dart": "0a3d35094e1da72c2dd53fbcf42f3cb1bc884c776526ea87ff53f97531b80286",
+    "packages/connectanum_bench/test/wamp_echo_handler_test.dart": "1b301499672bb52c5e60570786868731bf1a539c9b4e6be0f6e5969c32f23247"
+  },
+  "before": {
+    "source_access_INFO": {
+      "expected": 0,
+      "observed": 1
+    },
+    "source_access_FINE": {
+      "expected": 0,
+      "observed": 1
+    },
+    "native_lease_exported_INFO": {
+      "expected": false,
+      "observed": true
+    },
+    "generic_test_exit": 1,
+    "actual_native_test_exit": 1
+  },
+  "after": {
+    "focused_cases": 115,
+    "live_transport_cases": 168,
+    "focused_exit": 0,
+    "live_exit": 0,
+    "native_lease_exported_INFO": false,
+    "native_lease_exported_FINE": false,
+    "enabled_log_records": 2
+  },
+  "limitations": [
+    "Demonstrates unwanted lazy byte access and actual native view export, not an independently attributed RSS cause.",
+    "No transport/RAM acceptance claimed; strict final-runtime campaigns remain required.",
+    "Native views are ownership exports, not necessarily byte copies. Fragmented sources can coalesce on the same bytes getter."
+  ],
+  "local_evidence_sha256": {
+    "connectanum-lazy-logging-repro-before.log": "add85fa1d2f6c13c65b526ed8b7c8202ef4983c3339da99ff26d5fc165715272",
+    "connectanum-lazy-logging-native-before.log": "dfe8c9c5a0ab9e0f2af92332e20ccf708f6c9a0f2152ffbdd68521eaa7559a3c",
+    "connectanum-lazy-logging-focused-native.log": "9e62834687283b7a3468ff4097e69c2be884cfbd8a262e638fc796ffef57416e",
+    "connectanum-lazy-logging-live-transport.log": "23c2ee91ad8600380bb60b9d6857d59e8a6fa5ba4fe0f9b82daad980cf4856cb"
+  }
+}
