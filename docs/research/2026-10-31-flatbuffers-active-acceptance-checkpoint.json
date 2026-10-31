@@ -299,9 +299,178 @@
   },
   "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
   "next_header_candidate": {
+    "CI_failed_jobs_last": [],
+    "CI_passed_jobs_last": 8,
     "CI_run": 41242443320,
+    "MQTT_main20": {
+      "all_budgets_unchanged": true,
+      "all_summaries_exact": true,
+      "audit": [
+        {
+          "passed": true,
+          "path": "batched/summary.json",
+          "raw_sha256": "c8e649afbc79e7d02856be769a67eeb5341576df6c9055a84277f0dfbdeab20b",
+          "rows": 10,
+          "summary_sha256": "0f5173b807bfa7b51d7d92102297885f795f9656d31d91a3bf1eeba3267a2314"
+        },
+        {
+          "passed": true,
+          "path": "burst/summary.json",
+          "raw_sha256": "8b172181f82ef943bd20c2daa11ec707382fae4bfba4ee2fef1bb243cb553b15",
+          "rows": 10,
+          "summary_sha256": "e35c8ce6d538e670855815869f7a7df7e1dd36573fe628b89c5b121f6de02e05"
+        },
+        {
+          "passed": true,
+          "path": "fanout/summary.json",
+          "raw_sha256": "299122aea69129b12b3a4f0475c4b966c3f618f5412088cc90b423f60bf1989c",
+          "rows": 10,
+          "summary_sha256": "c90e70b649341dbb6181d97cfc00caec2be64098504154cbe0ba4701e1d063a2"
+        },
+        {
+          "passed": true,
+          "path": "native-1k-sustained/summary.json",
+          "raw_sha256": "12ee5e2f87104a113836ccd96b292a9599dedf47639d38a45ecb15574d4786d7",
+          "rows": 10,
+          "summary_sha256": "d904f5a7e6ccf3d04eb5d296bc08175437d0ffef23ca3d9242dbb76eb96c58a5"
+        },
+        {
+          "passed": true,
+          "path": "native-64k-sustained/summary.json",
+          "raw_sha256": "f17041aa73aaa4e34615135bfd0d1ee6f2b7f41c094f45149450a497283e884a",
+          "rows": 10,
+          "summary_sha256": "c6cc441d254cc79ed648202ab61f2ae9c463cb4b47294373636f3dd20d435869"
+        },
+        {
+          "passed": true,
+          "path": "native-batched/summary.json",
+          "raw_sha256": "4ca21dc05c92ff7de1714abb5c9207fe7c913ddb14cd225a7fb17d11d4f1114d",
+          "rows": 10,
+          "summary_sha256": "267daf6a025bd448bf2a25bf3b0fd293e8ae6e578bc69d5aff558386a7b36e3f"
+        },
+        {
+          "passed": true,
+          "path": "native-burst/summary.json",
+          "raw_sha256": "6ba98bf6dfd0695c0335a5d7389386f7b3fc7739d4b014b1066547766ec9c0fb",
+          "rows": 10,
+          "summary_sha256": "a10a33aa183744b83eb717b5043e222c03bfc9dae8ff5916cc27783ba4e98adf"
+        },
+        {
+          "passed": true,
+          "path": "native-fanout/summary.json",
+          "raw_sha256": "cb8ae968be50c71d509523aba02ad496948ac65673475d41335d1c16726667e9",
+          "rows": 10,
+          "summary_sha256": "9916fba357325fff42f4c2b3d35d9747d04183097ac0fab6d82a1019f46690bc"
+        },
+        {
+          "passed": true,
+          "path": "native-sustained/summary.json",
+          "raw_sha256": "d6b6c33184991ba0c5500840dea31280b5ff96f3d3668bf78edf2932c7e3e3e1",
+          "rows": 10,
+          "summary_sha256": "05151d388179e9b40455401b668be875b970eb9c408d7496322932a6d8bae8b2"
+        },
+        {
+          "passed": true,
+          "path": "native-tls-sustained/summary.json",
+          "raw_sha256": "9d7fd6117047107530738ffdda707018d82cbb3b9d63c54e17ae0ec8a7964ae9",
+          "rows": 10,
+          "summary_sha256": "39e67b56996b7d59695b0af1f4e88891a65bfeccabdf585e8bece54df7845477"
+        },
+        {
+          "passed": true,
+          "path": "native-tls-v311-sustained/summary.json",
+          "raw_sha256": "5b56ca9856f2d56edae99bbded55e7f0cf8779ef03987fde00ca3062cf06a4ce",
+          "rows": 10,
+          "summary_sha256": "561a321e2911646f2dec511034d7589e5400885917d32953c163e07d925a9f74"
+        },
+        {
+          "passed": true,
+          "path": "native-v311-sustained/summary.json",
+          "raw_sha256": "a2fad2597b2b1b8c6b27a3e5887cc4aadc7a1dfb18ad59d73a9c73912cd3ab8f",
+          "rows": 10,
+          "summary_sha256": "473d0fa4b5853185a9f1250bf65231d7aeb67e42cbdd354e0e24e9a174c18272"
+        },
+        {
+          "passed": true,
+          "path": "native-ws-sustained/summary.json",
+          "raw_sha256": "de4ca9e630a0802fa5ccf7e740c40467b48562453bba6b9870d67e3d7a9005ed",
+          "rows": 10,
+          "summary_sha256": "4074d804cdcd2df3724ec8828564cd80343119353eeab235083d50e8a56bcd0c"
+        },
+        {
+          "passed": true,
+          "path": "native-ws-v311-sustained/summary.json",
+          "raw_sha256": "8ded0c8f407f55adba00a2a92f416a62d6d58c282b04914f484de31e10b71662",
+          "rows": 10,
+          "summary_sha256": "2f9707b11715f2da58cc15d4b470b8f0dd22c2733012a7d5b2fde7f20b65f015"
+        },
+        {
+          "passed": true,
+          "path": "native-wss-single-smoke/summary.json",
+          "raw_sha256": "e5cfe854faa053deef2a02289b314ca5692c188b2f87046643925795eb66710a",
+          "rows": 6,
+          "summary_sha256": "c4890393c55db9b49c5bc89fb9c9649ea6bbb14a17ee33bb3069e42f504cf661"
+        },
+        {
+          "passed": true,
+          "path": "native-wss-sustained/summary.json",
+          "raw_sha256": "cd1ec03317011c07414f2c007612379a0881139f7ee200751e468d5342dc3761",
+          "rows": 10,
+          "summary_sha256": "13bcdb54ac8567cb86ea2bb5df0cd1a25a0d9eacdb36eba1abc3ff49254e1410"
+        },
+        {
+          "passed": true,
+          "path": "native-wss-v311-single-smoke/summary.json",
+          "raw_sha256": "bf3a606a235b76f585fbd5c6e9f5f0cabbdb0e92faf025ceb7187f7bb23db155",
+          "rows": 6,
+          "summary_sha256": "4e0a2758d3823152d0fd5cfd4b973d4ecc35c0b09152159253c7066167b34ea1"
+        },
+        {
+          "passed": true,
+          "path": "native-wss-v311-sustained/summary.json",
+          "raw_sha256": "a1c37e2df7e1951f452a9221155d9fcafd1d48a1f9dcb4ba4b0de1ec0c4abad1",
+          "rows": 10,
+          "summary_sha256": "16773ed08ef92864591fa36b3b1de9bd78ad2e9278336b8e621142df1143a6a2"
+        },
+        {
+          "passed": true,
+          "path": "sustained/summary.json",
+          "raw_sha256": "c3721c6d35549d4fcad259fdd2158cb65ec3f0f4df3cadf9b8647f5fbf436e84",
+          "rows": 10,
+          "summary_sha256": "bd15a051d76f9565affafa2acddb7982ead31cfb938bf3086d5c20e411975892"
+        },
+        {
+          "passed": true,
+          "path": "v311-sustained/summary.json",
+          "raw_sha256": "05f785be943fd6abc00622b70bfd13318ce9a8436d1d5453f38648bb72ae1ef9",
+          "rows": 10,
+          "summary_sha256": "361148a904775c8bb097a7b26bb14e70b389ed1a610da81cb9b5a30c24094494"
+        }
+      ],
+      "candidate_passes": true,
+      "cpu_models": [
+        "AMD EPYC 9V45 96-Core Processor"
+      ],
+      "head": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "library_hashes": [
+        "23f5c6cd77b15bf6fad875d0f0c077205992dc530563c6fc70b9f8b1616c8005"
+      ],
+      "selected": [
+        {
+          "passed": true,
+          "profile": "native-ws-sustained/summary.json",
+          "throughput_ratio": 0.7721520936002909
+        },
+        {
+          "passed": true,
+          "profile": "native-ws-v311-sustained/summary.json",
+          "throughput_ratio": 0.7682894999663602
+        }
+      ],
+      "summaries": 20
+    },
     "branch": "codex/flatbuffers-ppt-header-storage",
-    "canonical": "bootstrapped_attempt2_in_progress_frozen_source",
+    "canonical": "running_actual_chrome_wasm_tests_clean_frozen2904_source",
     "canonical_attempt1": {
       "cause": "Fresh worktree package_config missing; bootstrap repaired environment without source/native changes.",
       "exit": 1,
@@ -310,12 +479,99 @@
     },
     "codec_integrations": 3,
     "component_receipt": "docs/research/2026-10-31-flatbuffers-ppt-result-header-component.json",
+    "copy_audit": {
+      "binaries_unchanged": true,
+      "head": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "inventory": {
+        "e2ee": 96,
+        "encoded_volume": 300,
+        "native_crypto": 72,
+        "rows": 300,
+        "transcode": 60,
+        "zero_avoidable_payload_copy": 32
+      },
+      "live": {
+        "e2ee": 96,
+        "encoded_volume": 120,
+        "native_crypto": 48,
+        "rows": 120,
+        "transcode": 120
+      },
+      "retained_generated_inputs": [
+        "pubspec.lock",
+        "native/bench/Cargo.lock",
+        "native/transport/Cargo.lock",
+        ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
+      ],
+      "source_inputs_unchanged": true,
+      "verified_source_inputs": 3297
+    },
     "copy_run": 41242449963,
+    "copy_status": "complete_independently_verified",
+    "extra_inputs_audit": {
+      "MQTT": {
+        "MQTT_binary_not_retained_for_local_rehash": true,
+        "clean_git_source": true,
+        "library_sha256": "23f5c6cd77b15bf6fad875d0f0c077205992dc530563c6fc70b9f8b1616c8005",
+        "native_library_recorded_consistently": true,
+        "recorded_hash_matches_native_view_ffi_test": true,
+        "summaries_reproduced": 20
+      },
+      "head": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "native_view": {
+        "archive_sha256": "dec21233c78a21d8305fe0130cee1aae493c15955015c1782749646c577d5679",
+        "fixture_verified": true,
+        "hosted_native_unchanged_receipt": true,
+        "library_sha256": "23f5c6cd77b15bf6fad875d0f0c077205992dc530563c6fc70b9f8b1616c8005",
+        "limitations": [],
+        "source_archive_reconstructed_exactly": true,
+        "source_inputs_verified": 3294
+      },
+      "scope": "Independent source/raw-row/archived-fixture checks. Shared CI library rehashed. MQTT and native-view ffi-test library use hosted stable digest receipts; they are distinct from shared CI build, not substituted.",
+      "shared_ci_native": {
+        "binary_rehashed": true,
+        "cargo_lock_verified": true,
+        "library_sha256": "ac1db6d73a52800088b90d61513669bbc74e075db0ace461bc0a4abe60ac4929",
+        "source_hashes_verified": 965,
+        "standard_profile_and_flags": true
+      }
+    },
     "full_acceptance": false,
     "head": "290480a3227dd6617379c6453d863b7d2ff7825d",
     "native_library": "native/transport/target/ffi-test/release/libct_ffi.dylib",
     "native_sha256": "f56f9ec35908ea4950c2e8a29e8ebc1cf45628485ab1e1469fdb4fe859f69a43",
     "native_tests": 466,
+    "native_view_controls": {
+      "cleanup_verified": true,
+      "head": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "negative_control": {
+        "expected_failures": 1,
+        "rows": 0
+      },
+      "phases": [
+        {
+          "failures": 0,
+          "name": "existing-api-baseline",
+          "observations": 12,
+          "pid": 5377,
+          "rows": 6
+        },
+        {
+          "failures": 0,
+          "name": "direct-native",
+          "observations": 12,
+          "pid": 5542,
+          "rows": 6
+        },
+        {
+          "failures": 0,
+          "name": "public-native-lease",
+          "observations": 12,
+          "pid": 5699,
+          "rows": 6
+        }
+      ]
+    },
     "primary48_run": 41242456878,
     "runtime_base": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
     "scope": "Typed RESULT bounded metadata storage and pinned generated optional-progress projection; no changed policies/budgets/workload.",
@@ -619,5 +875,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T21:13:21.756301+00:00"
+  "updated_utc": "2026-10-31T21:36:14.427713+00:00"
 }

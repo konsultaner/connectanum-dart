@@ -2,12 +2,38 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish frozen290480a3 bootstrapped canonical verification and
-CI41242443320 first. Retain complete primary48 run41242456878/supplemental50
-run41242463543 and independently audit them plus copy41242449963. Native466/three
-codec tests and actual compiled allocation checks pass. No RAM or transport
-acceptance yet; preserve all numerical rows and gates. Do not mutate runtime
-source/HEAD during active canonical verification or adopt into PR132 yet.
+Current step: finish frozen290480a3 canonical verification and CI41242443320.
+Copy41242449963 and all20 MQTT profiles independently pass; retain their audits.
+Complete primary48 run41242456878/supplemental50 run41242463543 continue on this
+same source. Preserve all raw rows/policy/source/native receipts and independently
+audit complete reports. No RAM/transport acceptance or PR adoption yet. Keep
+runtime source/HEAD unchanged throughout active canonical verification.
+
+## 290480a3 copy/lifetime and MQTT audits complete (2026-10-31)
+
+Exact-source copy41242449963 is successful and independently reproduced:
+3,297 source inputs,120 live/300 inventory rows,32 zero-avoidable-payload-copy
+rows, live E2EE96/transcode120/native-crypto48 and inventory E2EE96/transcode60/
+native-crypto72. Three native lifetime phases each retain six cases/twelve
+observations, with zero failures, expected negative control and verified cleanup.
+The native-view archive reconstructs exactly from290480a3; its3,294 source
+inputs and pinned legacy fixture match. Dependency internals keep the approved
+standard-SDK unmeasured labels. This is correctness/copy evidence, not RSS parity.
+
+All20 MQTT summaries independently reproduce raw rows against unchanged budgets
+on EPYC9V45; WebSocket5/3.1.1 ratios are0.77215209/0.76828950. Recorded ffi-test
+library SHA-25623f5c6cd77b15bf6fad875d0f0c077205992dc530563c6fc70b9f8b1616c8005
+is consistent across native summaries and the native-view unchanged receipt.
+MQTT does not retain that library for local byte rehashing. The separate shared
+CI native artifact is independently rehashed at
+ac1db6d73a52800088b90d61513669bbc74e075db0ace461bc0a4abe60ac4929,
+with all965 source hashes, retained lock and standard flags verified; it is not
+substituted for the MQTT binary. No causal7763 repair is established.
+
+Canonical verification continues on clean frozen290480a3 with actual Chrome
+JS/Wasm executing and unchanged own nativef56f9ec3. CI has eight successful
+jobs and no failures in the retained snapshot. Full primary48/supplemental50
+campaigns continue; no numerical acceptance, PR adoption or RAM repair is claimed.
 
 ## Frozen290480a3 acceptance in progress (2026-10-31)
 
