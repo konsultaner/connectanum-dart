@@ -149,37 +149,8 @@ void _envelopeTests() {
     for (var index = 0; index < original.length; index++) {
       final bytes = Uint8List.fromList(original);
       bytes[index] ^= 0x80;
-      Map<String, Object?>? mapped;
-      Object? failure;
-      try {
-        mapped = readWampFlatBufferFields(bytes);
-      } on Object catch (error) {
-        failure = error;
-      }
-      if (failure != null) {
-        expect(
-          () => readWampFlatBufferEnvelope(bytes),
-          throwsA(
-            predicate(
-              (Object error) => error.runtimeType == failure.runtimeType,
-            ),
-          ),
-          reason: 'mutated byte $index',
-        );
-      } else {
-        final envelope = readWampFlatBufferEnvelope(bytes);
-        expect(
-          envelope.tag,
-          mapped!['msg_type'],
-          reason: 'mutated byte $index',
-        );
-        expect(envelope.body, mapped['msg'], reason: 'mutated byte $index');
-        expect(
-          envelope.metadata,
-          mapped['metadata'],
-          reason: 'mutated byte $index',
-        );
-      }
+      final mapped = _mapOutcome(bytes);
+      expect(_envelopeOutcome(bytes), mapped, reason: 'mutated byte $index');
     }
   });
 }
@@ -198,4 +169,22 @@ Uint8List _resultEnvelope(bool withMetadata) {
   if (metadata != null) root.addMetadataOffset(metadata);
   builder.finish(root.finish());
   return builder.buffer;
+}
+
+Object _mapOutcome(Uint8List bytes) {
+  try {
+    final mapped = readWampFlatBufferFields(bytes);
+    return [mapped['msg_type'], mapped['msg'], mapped['metadata']];
+  } on Object catch (error) {
+    return error.runtimeType;
+  }
+}
+
+Object _envelopeOutcome(Uint8List bytes) {
+  try {
+    final envelope = readWampFlatBufferEnvelope(bytes);
+    return [envelope.tag, envelope.body, envelope.metadata];
+  } on Object catch (error) {
+    return error.runtimeType;
+  }
 }

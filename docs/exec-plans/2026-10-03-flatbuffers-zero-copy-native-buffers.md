@@ -5382,3 +5382,28 @@ transport/RAM/primary acceptance. Adopt the measured implementation, then freeze
 and renew canonical verification, CI, paired/full/supplemental and copy evidence.
 Earlier4b99d15d full verification/copy proof remain valid predecessor evidence;
 its six numerical misses remain failures. No gate or workload changes occur.
+
+## Serializer wrapper registration repair (2026-10-31)
+
+First fd983af8 frozen bin/verify exits1 on five existing inventory assertions:
+the new envelope test was absent from four CBOR/MessagePack VM/web support-file
+sets and the shared wrapper imports/group. Preserve the clean-head failure
+receipt and CI Fast Checks job124482556278 log. Fix by adding the file to all
+four inventories and the shared wrapper, without changing any inventory check.
+All87 verification-script contracts now pass; the complete VM wrapper runs3,697
+cases and Chrome JS wrapper3,702 cases, including all six envelope cases.
+
+The original per-loop exception-capture differential test also fails under the
+full browser wrapper. Per-call normalized outcomes retain every one-bit mutant
+and compare the exact decoded fields or rejection type without a captured loop
+failure variable. All six cases pass on VM/Chrome, the complete Chrome wrapper
+passes, and targeted analysis is clean. The hardcoded browser-path attempt and
+its missing-executable failure remain retained; use canonical ensure_chrome_env.
+Do not claim an SDK or production parser defect from those test/setup failures.
+
+These changes affect only tests, verification inventory and documentation. The
+production code, native sources/build, workload/scenario/policy, measurement
+windows and serializer wire behavior remain byte-identical to fd983af8. Keep its
+running numerical campaigns; do not repeat unchanged measurements for a favorable
+result. Renew full canonical verification and CI on this repair, retain runtime
+input equality evidence, and renew owned copy/lifetime checking as needed.
