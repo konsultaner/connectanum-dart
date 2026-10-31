@@ -211,11 +211,31 @@ class NativePptViewProbeTests(unittest.TestCase):
                 path.write_text("{}")
             library = root / "library"
             library.write_bytes(b"fixture")
+            # Reuse released ephemeral ports deterministically: the selector
+            # must reserve every listener until the entire set is chosen.
+            occupied = set()
+            reservations = []
+            class ReservedSocket:
+                def __init__(self):
+                    self.port = None
+                    reservations.append(self)
+                def __enter__(self):
+                    return self
+                def __exit__(self, *_):
+                    occupied.remove(self.port)
+                def bind(self, address):
+                    self.port = 40000
+                    while self.port in occupied:
+                        self.port += 1
+                    occupied.add(self.port)
+                def getsockname(self):
+                    return ("127.0.0.1", self.port)
             children = []
             real_popen = subprocess.Popen
             def launch(*args, **kwargs):
                 if args[0][0] != "dart":
                     return real_popen(*args, **kwargs)
+                self.assertFalse(occupied, "release port reservations before launch")
                 child = real_popen([sys.executable, "-u", "-c", "input()"], **kwargs)
                 children.append(child)
                 return child
@@ -226,9 +246,12 @@ class NativePptViewProbeTests(unittest.TestCase):
             def event():
                 return events.pop() if events else real_event()
             with mock.patch.object(probe.subprocess, "Popen", side_effect=launch), \
-                    mock.patch.object(probe.threading, "Event", side_effect=event):
+                    mock.patch.object(probe.threading, "Event", side_effect=event), \
+                    mock.patch.object(probe.socket, "socket", side_effect=ReservedSocket):
                 with self.assertRaisesRegex(RuntimeError, "did not become ready"):
                     probe.run_phase(root, shadow, out, library, "dart", "marker", True)
+            self.assertFalse(occupied)
+            self.assertEqual(len({sock.port for sock in reservations}), len(reservations))
             self.assertEqual(len(children), 1)
             self.assertEqual(children[0].returncode, 0)
             result = json.loads((out / "result.json").read_text())

@@ -34,6 +34,23 @@
     "Existing WebSocket frame boundaries and FIFO bytes remain exact. Payload owners and queue byte permits stay held through IO and WS flush.",
     "Drain only ready entries, at most16; stop after reaching64KiB target, with final-chunk overshoot still governed by queue byte budget. No timer delay or wait for future packets.",
     "Nonvectored/TLS fallback preserves per-frame encoding; singleton and reusable descriptors avoid per-message batch allocations.",
-    "Local review/timing blocked by another workload exclusive machine reservation. Manual review and hosted acceptance remain required."
-  ]
+    "Initial local review/timing attempts were blocked by a foreign exclusive machine reservation. Final GLM review completes; exact-source private pending-flush proof passes. Hosted performance remains required."
+  ],
+  "final_review_and_followup": {
+    "head": "35f4b84c9199d2ffac541e0f736217f87d2827f4",
+    "exact_frozen_source_sha256": "a0a45cd1d3df862989a0dcb79548dc52f3aba21aae786400bda3f8e3678cac0b",
+    "private_probe_sha256": "3d919448c7c3d9ae4377874e82bf0ca20c1e33b0c4fcbc28d82525741a3dd897",
+    "probe_exit": 0,
+    "probe_result": "all 16 queued chunk byte permits remain held while WS flush is Pending, then return after completion; default test runtime independently observed CurrentThread",
+    "queue_byte_limit": 8388608,
+    "review_completed": true,
+    "review_sha256": "7d8c3ea946bea2e5102e14ab4bf6b4be5f0ea74c4fea5f783c72fff594ccb38c",
+    "verified_advisories": [
+      "Batch size bounded by sole 16-entry caller;32 descriptor slots sufficient even with empty payloads.",
+      "Interrupted retry and partial slice advancement preserve bytes; no concrete production bug identified.",
+      "Queued-close/zero-write tests are CurrentThread; the send of WriterClosed is followed by no suspension before task cleanup, so reported yield-loop flakiness is not evidenced.",
+      "Private slow-flush proof closes the ownership coverage concern without changing the frozen runtime."
+    ],
+    "limitations": "Transport speed/RAM/latency and full hosted CI remain pending; this proof changes no acceptance rule or production file."
+  }
 }

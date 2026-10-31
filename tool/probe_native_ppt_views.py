@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Isolated ffi-test producer-view lifetime diagnostic; never parity acceptance."""
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import argparse
 import difflib
 try:
@@ -309,17 +309,20 @@ def run_phase(root, shadow, out, library, dart, marker, control, *, baseline=Fal
     worker.write_text(instrument_worker((shadow / WORKER).read_text()))
     config = json.loads((shadow / "native/bench/bench_router.json").read_text())
     ports = []
-    for listener in config["router"]["listeners"]:
-        with socket.socket() as sock:
+    # Keep every reservation live until the whole listener set is selected:
+    # the OS can immediately reuse a released ephemeral port for the next bind.
+    with ExitStack() as reservations:
+        for listener in config["router"]["listeners"]:
+            sock = reservations.enter_context(socket.socket())
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
-        if port in ports:
-            raise ValueError("ephemeral listener port collision")
-        ports.append(port)
-        listener["endpoint"] = f"127.0.0.1:{port}"
-        if "http3" in listener["protocols"]:
-            listener["protocols"].remove("http3")
-            listener["http"].pop("http3", None)
+            if port in ports:
+                raise ValueError("ephemeral listener port collision")
+            ports.append(port)
+            listener["endpoint"] = f"127.0.0.1:{port}"
+            if "http3" in listener["protocols"]:
+                listener["protocols"].remove("http3")
+                listener["http"].pop("http3", None)
     configuration = out / "router.json"
     configuration.write_text(json.dumps(config, indent=2) + "\n")
     command = [dart, "--enable-vm-service=0", "run", "packages/connectanum_bench/tool/bench_main.dart",

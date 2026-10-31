@@ -5147,3 +5147,38 @@ claimed before hosted measurements. The main 66b4814d bin/verify remains running
 no main-worktree source or HEAD changes occur during it. Full primary and
 supplemental f16ae5 runs are retained to completion, not acceptance for this
 candidate. PR #132 remains draft and every strict gate stays unchanged.
+
+
+## Frozen runtime verification and copy-tool port repair (2026-10-31)
+
+Canonical `bin/verify` now exits 0 on clean, fixed `66b4814d`, including all
+Rust/tooling/VM/native/router/live/consumer and full Chrome JS/Wasm core/client
+checks. Log SHA-256: 550018813bd651ada4e9f872a89f6db93990ac347513c0f3f2b90b6d9f7d632c.
+Do not infer strict RAM/throughput acceptance from this correctness result.
+
+MQTT candidate runtime stays frozen at `35f4b84c`. Completed GLM review has no
+concrete production regression after checking its advisories: the sole caller
+caps batches at 16, 32 descriptors suffice, and the queue byte budget is 8 MiB.
+CurrentThread test runtime and the task's lack of suspension after close signal
+exclude the proposed test-yield race. A private exact-source follow-up proves
+all 16 chunks' byte permits remain held through an asynchronously paused WS
+flush and return after completion. Preserve initial blocked companion attempts.
+Hosted CI/paired/full primary/full supplemental remain pending on this runtime.
+
+Copy 41169320675 fails before any payload proof: its tooling startup-failure
+test obtains the same ephemeral port twice after immediately closing each
+reservation. A deterministic released-port-reuse fixture reproduces the exact
+ValueError on the old tool. Reserve all listener sockets together with ExitStack,
+then close them before launching the child; all 15 probe tests pass, including
+real-child cleanup and evidence retention. Preserve the failed workflow's logs/
+2,832-byte artifact and fail-first repro. The completed advisory debug proposes
+a child/listener leak, but source and reproduction exclude it: failure occurs
+before child launch. Final tool review's hypothetical reuse flags do not apply
+to default TCP sockets; the release-to-launch external race remains pre-existing.
+No workload, metric, native/Dart runtime or acceptance gate changes occur.
+
+Renew copy proof on the tooling-only commit while retaining the numerical
+campaigns pinned to identical runtime `35f4b84c`: diagnostic 41169319403,
+48-case primary 41169321811 and 50-case supplemental 41169323042. CI is
+41169255165 and separate MQTT attribution 41169256479 completes. PR #132 stays
+draft; nothing is waived and no PR is merged.
