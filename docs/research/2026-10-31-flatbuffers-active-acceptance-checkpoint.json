@@ -2,6 +2,7 @@
   "PR_draft": true,
   "PR_head": "40ddcb3ff0dbf947ef21b8e7fb9cca3465a502b5",
   "accepted": false,
+  "all_955_49_historical_campaigns_complete_audited": true,
   "candidate": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
   "copy_rows": {
     "inventory": 300,
@@ -118,6 +119,26 @@
     "primary48": 41204163088,
     "supplemental50": 41204164884
   },
+  "historical_49_primary": {
+    "audit_sha256": "f16ac21a9c8cd492601fd4bbed02f1fad0cff798802142afe2c16392a636ea72",
+    "by_metric": {
+      "allocated_bytes_per_operation": 3,
+      "cpu_us_per_operation": 15,
+      "gc_pause_us_per_operation": 5,
+      "latency_p95_ms": 14,
+      "latency_p99_ms": 20,
+      "summed_sampled_peak_rss_bytes": 41,
+      "throughput_mbps": 17
+    },
+    "cases": 48,
+    "inputs_and_binaries_verified": true,
+    "integrity_findings": 0,
+    "matches_hosted": true,
+    "numerical_misses": 115,
+    "raw_rows": 1440,
+    "run": 41196965823,
+    "source": "49b831d57d24879a6480727c363aaeeae66e953e"
+  },
   "historical_49_supplemental": {
     "accepted_inventory_cases": 38,
     "accepted_inventory_rows": 1140,
@@ -198,5 +219,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T15:27:16.891907+00:00"
+  "updated_utc": "2026-10-31T16:10:51.081687+00:00"
 }

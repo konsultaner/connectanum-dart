@@ -77,6 +77,15 @@ df71ff6ca33c265d1a4cf21db7fb2a6f538afc6d2920f72a8aae28d9ef1ee057.
 This is historical49b831d5 evidence. Final-sourcef7d60f2f primary and remaining
 supplemental shards continue; no final acceptance or RAM repair is established.
 
+Historical primary run41196965823 now also independently reproduces all48 cases/
+1,440 rows:115 numerical misses, zero integrity findings. Counts are41 RSS,
+20 p99,17 throughput,15 CPU,14 p95, five GC and three allocation misses.
+The audit SHA-256 is
+f16ac21a9c8cd492601fd4bbed02f1fad0cff798802142afe2c16392a636ea72.
+All955e4a/49b831 historical primary and supplemental campaigns are now complete,
+retained and independently audited. They remain failed predecessor evidence;
+the final-source48-case primary and two supplemental shards continue running.
+
 ## Retained historical supplemental evidence (2026-10-31)
 
 Historical supplemental run41190896355 on rejected text-cache source955e4a91
