@@ -295,89 +295,96 @@ void projectFlatBufferDictionaryInto(
   Map<String, Object?> fields,
 ) {
   for (final field in flatBufferDictionaryFields(name)) {
-    final value =
-        field.name == 'extra' && (name == 'Challenge' || name == 'Authenticate')
-        ? dictionary
-        : dictionary[field.name];
-    if (value == null) {
-      if (field.required && field.kind == FlatBufferFieldKind.string) {
-        fields[field.name] = '';
-      } else if (field.required && field.kind == FlatBufferFieldKind.table) {
-        fields[field.name] = <String, Object?>{};
-      }
-      continue;
+    final value = projectFlatBufferDictionaryField(name, dictionary, field);
+    if (value != null) fields[field.name] = value;
+  }
+}
+
+/// Project one field with the same defaults and type checks as the writer.
+/// A null result leaves an optional or unrepresentable field absent.
+Object? projectFlatBufferDictionaryField(
+  String name,
+  Map<String, Object?> dictionary,
+  FlatBufferFieldSpec field,
+) {
+  final value =
+      field.name == 'extra' && (name == 'Challenge' || name == 'Authenticate')
+      ? dictionary
+      : dictionary[field.name];
+  if (value == null) {
+    if (field.required && field.kind == FlatBufferFieldKind.string) return '';
+    if (field.required && field.kind == FlatBufferFieldKind.table) {
+      return <String, Object?>{};
     }
-    switch (field.kind) {
-      case FlatBufferFieldKind.string:
+    return null;
+  }
+  switch (field.kind) {
+    case FlatBufferFieldKind.string:
+      if (value is! String) _invalid(field.name);
+      return value;
+    case FlatBufferFieldKind.scalar:
+      if (_enums.containsKey(field.name)) {
         if (value is! String) _invalid(field.name);
-        fields[field.name] = value;
-      case FlatBufferFieldKind.scalar:
-        if (_enums.containsKey(field.name)) {
-          if (value is! String) _invalid(field.name);
-          final projected = _enums[field.name]![value];
-          if (projected != null) fields[field.name] = projected;
-        } else if (field.width == 1 && field.values.length == 2) {
-          if (value is! bool) _invalid(field.name);
-          fields[field.name] = value;
-        } else {
-          if (value is! int || value < 0 || value > 9007199254740992) {
-            _invalid(field.name);
-          }
-          final maximum = switch (field.width) {
-            1 => 255,
-            2 => 65535,
-            4 => 4294967295,
-            _ => 9007199254740992,
-          };
-          if (value <= maximum) fields[field.name] = value;
-        }
-      case FlatBufferFieldKind.scalarVector:
-        if (value is! List) _invalid(field.name);
-        if (field.name == 'authmethods') {
-          if (value.any((item) => item is! String || item.isEmpty)) {
-            _invalid(field.name);
-          }
-          fields[field.name] = [
-            for (final item in value)
-              if (flatBufferAuthMethods.containsKey(item))
-                flatBufferAuthMethods[item],
-          ];
-        } else {
-          if (value.any(
-            (item) => item is! int || item < 0 || item > 9007199254740992,
-          )) {
-            _invalid(field.name);
-          }
-          fields[field.name] = value;
-        }
-      case FlatBufferFieldKind.stringVector:
-        if (value is! List || value.any((item) => item is! String)) {
-          _invalid(field.name);
-        }
-        fields[field.name] = value;
-      case FlatBufferFieldKind.table:
-        if (value is! Map || value.keys.any((key) => key is! String)) {
-          _invalid(field.name);
-        }
-        final nested = Map<String, Object?>.from(value);
-        final nestedTable = wampValidationTables[field.reference];
-        if (nestedTable.name == 'Map') {
-          for (final entry in nested.entries) {
-            if (entry.value is String &&
-                RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(entry.key)) {
-              fields[field.name] = {'key': entry.key, 'value': entry.value};
-              break;
-            }
-          }
-        } else {
-          fields[field.name] = _roles(nestedTable, nested);
-        }
-      case FlatBufferFieldKind.tableVector:
-        if (value is! List) _invalid(field.name);
-        fields[field.name] = [for (final item in value) _principal(item)];
-      case FlatBufferFieldKind.union:
+        return _enums[field.name]![value];
+      }
+      if (field.width == 1 && field.values.length == 2) {
+        if (value is! bool) _invalid(field.name);
+        return value;
+      }
+      if (value is! int || value < 0 || value > 9007199254740992) {
         _invalid(field.name);
-    }
+      }
+      final maximum = switch (field.width) {
+        1 => 255,
+        2 => 65535,
+        4 => 4294967295,
+        _ => 9007199254740992,
+      };
+      return value <= maximum ? value : null;
+    case FlatBufferFieldKind.scalarVector:
+      if (value is! List) _invalid(field.name);
+      if (field.name == 'authmethods') {
+        if (value.any((item) => item is! String || item.isEmpty)) {
+          _invalid(field.name);
+        }
+        return [
+          for (final item in value)
+            if (flatBufferAuthMethods.containsKey(item))
+              flatBufferAuthMethods[item],
+        ];
+      }
+      if (value.any(
+        (item) => item is! int || item < 0 || item > 9007199254740992,
+      )) {
+        _invalid(field.name);
+      }
+      return value;
+    case FlatBufferFieldKind.stringVector:
+      if (value is! List || value.any((item) => item is! String)) {
+        _invalid(field.name);
+      }
+      return value;
+    case FlatBufferFieldKind.table:
+      if (value is! Map || value.keys.any((key) => key is! String)) {
+        _invalid(field.name);
+      }
+      final nested = Map<String, Object?>.from(value);
+      final nestedTable = wampValidationTables[field.reference];
+      if (nestedTable.name == 'Map') {
+        for (final entry in nested.entries) {
+          if (entry.value is String &&
+              RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(entry.key)) {
+            return {'key': entry.key, 'value': entry.value};
+          }
+        }
+        return null;
+      }
+      return _roles(nestedTable, nested);
+    case FlatBufferFieldKind.tableVector:
+      if (value is! List) _invalid(field.name);
+      return [for (final item in value) _principal(item)];
+    case FlatBufferFieldKind.union:
+      _invalid(field.name);
   }
 }
 

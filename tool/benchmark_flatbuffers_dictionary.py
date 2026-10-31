@@ -33,7 +33,7 @@ def prepare(root, output, baseline):
         raise ValueError('Component baseline must be an explicit full commit SHA')
     changed = subprocess.check_output(['git', 'diff', '--name-only', baseline, 'HEAD', '--', CORE], cwd=root, text=True).splitlines()
     allowed = (set(TARGETS[:2]), {TARGETS[0], TARGETS[2]}, set(TARGETS[:3]),
-               {TARGETS[3]}, set(TARGETS))
+               {TARGETS[0], TARGETS[1], TARGETS[3]}, {TARGETS[3]}, set(TARGETS))
     if set(changed) not in allowed:
         raise ValueError('Component must isolate dictionary agreement/projection, sparse decoding or validation')
     config_path = root / '.dart_tool/package_config.json'

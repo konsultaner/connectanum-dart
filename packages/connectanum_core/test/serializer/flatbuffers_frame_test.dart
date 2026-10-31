@@ -143,6 +143,46 @@ void main() {
     );
     expect(frame.challengeMethod, 'wamp-scram');
   });
+  test('opaque RESULT validates controls beyond its PPT headers', () {
+    const principal = {'session': 9, 'authid': 'alice', 'authrole': 'member'};
+    final body = <String, Object?>{
+      'request': 42,
+      'ppt_serializer': 6,
+      'payload': Uint8List.fromList([0, 255]),
+      'callee': 9,
+      'callee_authrole': 'member',
+      'forward_for': [principal],
+    };
+    final dictionary = <String, Object?>{
+      'ppt_scheme': 'x_example',
+      'ppt_serializer': 'flatbuffers',
+      'callee': 9,
+      'callee_authrole': 'member',
+      'forward_for': [principal],
+    };
+    final frame = readWampFlatBufferFrame(
+      encoded(body, dictionary, name: 'Result'),
+    );
+    expect(frame.fields['payload'], [0, 255]);
+    expect(frame.dictionary, dictionary);
+    for (final change in <Map<String, Object?>>[
+      {'callee': 10},
+      {'callee_authrole': 42},
+      {
+        'forward_for': [
+          {...principal, 'session': 10},
+        ],
+      },
+    ]) {
+      expect(
+        () => readWampFlatBufferFrame(
+          encoded(body, {...dictionary, ...change}, name: 'Result'),
+        ),
+        throwsFormatException,
+        reason: '$change',
+      );
+    }
+  });
   test('unexpected root metadata on an acknowledgement is rejected', () {
     expect(
       () => readWampFlatBufferFrame(

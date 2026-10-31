@@ -70,6 +70,9 @@ class ComponentTests(unittest.TestCase):
     def test_validator_key_change_preserves_actual_private_baseline_source(self):
         self._assert_private_configs((component.CORE + 'src/serializer/flatbuffers/validation.dart',))
 
+    def test_agreement_and_validator_changes_preserve_private_baseline_isolation(self):
+        self._assert_private_configs((component.TARGETS[0], component.TARGETS[1], component.TARGETS[3]))
+
     def _assert_private_configs(self, changed):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'with spaces'

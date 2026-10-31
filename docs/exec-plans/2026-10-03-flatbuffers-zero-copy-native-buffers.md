@@ -1,10 +1,33 @@
 # FlatBuffers and zero-copy native buffers
 
-Status: deferred in the MQTT worktree by the user's explicit MQTT milestone priority on 2026-10-14; the FlatBuffers work remains open. Started: 2026-10-03.
+Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish ownership/master-integration correctness, resolve current
-CI and strict RAM/latency/GC findings, then complete full 48-case primary and
-50-case supplemental campaigns on one frozen runtime. No acceptance is claimed.
+Current step: resolve the 102 strict primary numerical findings with measured
+runtime changes, then complete full 48-case primary and 50-case supplemental
+acceptance on frozen source. Ownership/master-integration correctness and CI
+pass on the predecessor; the new allocation candidate needs renewed evidence.
+No acceptance is claimed.
+
+## Field projection allocation candidate (2026-10-31)
+
+- [x] Retain exact full-primary failure: 48 cases / 1,440 rows / 102 numerical
+  misses, zero integrity findings. Current master ef822e08 is still contained.
+- [x] Pass pre-change `bin/test-fast`. Remove temporary agreement projections
+  in native/Dart using the same field checks as encoding; keep common Dart
+  validation states inline and remove per-table captured closures.
+- [x] Verify 24 native component pairs with identical wires/payload aliases:
+  one fewer allocation / 224 fewer requested bytes per typed decode. Match
+  12,258 Dart inputs and 1,512 budget pairs against frozen 4dec9ddc source.
+  Keep this distinct from RSS/throughput acceptance.
+- [x] Pass 3,545 serializer cases, 111 frames with extended RESULT controls,
+  47 native FlatBuffers tests and all 167 source-bound mutation proofs.
+- [x] Reproduce/fix component setup rejecting this three-file combination;
+  all nine private package-isolation contracts pass. No gate/window changes.
+- [ ] Complete canonical `bin/verify` and exact-patch companion review. The
+  active foreign native resource lease currently blocks local review/timing;
+  preserve bounded failures and do not bypass the lock.
+- [ ] Freeze/push the candidate; compare hosted component and paired numerical
+  evidence before renewing full acceptance. Keep #103/milestone/PR draft open.
 
 ## Ownership and final campaign renewal (2026-10-30)
 
@@ -15,12 +38,49 @@ CI and strict RAM/latency/GC findings, then complete full 48-case primary and
 - [x] Reproduce/fix two encrypted file metadata integration failures and wrong
   allocation release after public reanchoring. Pass 512 lifetime/file cases,
   186 socket/file contracts and canonical external-peer live release regression.
-- [ ] Finish renewed full local verification and green CI. Investigate four
-  cleartext MQTT performance failures in 41113454274; master CI passes them.
-- [ ] Resolve strict RAM and confidence findings with source-backed changes;
-  preserve failed diagnostics, all observations, windows and original budgets.
-- [ ] Complete/audit all 48 primary and 50 supplemental cases plus final copy
-  proof and CI. Mark PR #132 ready only after actual acceptance; do not merge.
+- [x] Push owner/header fixes as 4dec9ddc. Canonical full `bin/verify` completes
+  with observed exit 0, including standalone consumers and Chrome/WebAssembly.
+- [x] Audit final copy/lifetime 41120169745: 3,277 source inputs, full 120/300/32
+  counts, E2EE/transcode/crypto observations and positive/negative native controls.
+- [x] Recompute all 20 current CI MQTT summaries exactly from raw rows; original
+  budgets all pass. Retain four predecessor CI misses and cancelled duplicate
+  jobs without claiming a source-level cause. Matched master comparison passes;
+  all 12 summaries reproduce exactly with pinned refs/consistent native hashes.
+- [x] Fully audit Dart-values profile 41116315782: 3,276 inputs, retained native
+  digest, all 18 snapshots and exact hosted memory audit; zero findings.
+- [x] Launch unchanged full 48-case primary 41120217349 and 50-case supplemental
+  41120221904, frozen at 4dec9ddc. Copy and correctness CI renew on the same SHA.
+- [x] Complete/audit primary 41120217349: all 48 cases / 1,440 rows, exact
+  hosted reproduction, retained input/native hashes and zero integrity failures.
+  Keep its 102 numerical failures: 41 RSS, 21 CPU, 17 throughput, 12 p99, seven
+  p95, three GC and one allocation. No acceptance is claimed.
+- [ ] Resolve current full-primary performance failures through measured
+  runtime changes, then renew strict acceptance on frozen source. Do not rerun
+  unchanged numerical tests or treat the earlier two RAM misses as current.
+- [x] Finish full CI 41120166268: all 39 jobs pass. Matched native comparison
+  also passes and its twelve raw summaries reproduce exactly.
+- [x] Audit failed payload-size shard: all 360 rows/12 cases reproduce exactly,
+  retained input/native hashes verify. Two MessagePack 1 MiB cases have complete
+  GC proof but 6.72–7.06% rounding uncertainty, above the unchanged 1% filter.
+  Privately validate all 14 rows up to that exact rejection; never rewrite or
+  mark the original failed observations measured. Keep 15 numerical diagnostics.
+- [x] Complete/audit encrypted-progressive supplemental shard: eight cases /
+  240 rows, exact hosted reproduction, retained input/native hashes verified,
+  zero integrity findings. Keep all 51 numerical supplemental cost diagnostics.
+- [x] Complete/audit protocol shard: 30 cases / 900 rows; retained input/native
+  hashes and exact comparison verify, zero integrity findings, 128 cost diagnostics.
+- [x] Complete all 50 supplemental cases / 1,500 raw rows. Reproduce the combined
+  failed report/manifest exactly: 38 validated cases / 1,140 rows, 179 costs and
+  four findings after strict payload-batch exclusion. Verify all three artifact
+  IDs; retain the initial private wrong-subcommand audit error separately.
+- [x] Reject a bounded stock-SDK C callback alternative: 92 natural GC events
+  capture successfully, but usage equivalence fails by 1,043,456 bytes; pinned
+  SDK source deliberately coarsens the C new-heap metric to capacity. Retain
+  both diagnostic probes/assertion failure; no acceptance setting changes.
+- [ ] Obtain the separate supplemental allocation-precision decision. The user
+  previously approved SDK copy internals unmeasured, not this allocation rule.
+  The completed primary has no SDK precision finding; all its gates remain.
+- [ ] Mark PR #132 ready only after actual acceptance; do not merge automatically.
 
 ## Merged runtime and tooling contract renewal (2026-10-30)
 

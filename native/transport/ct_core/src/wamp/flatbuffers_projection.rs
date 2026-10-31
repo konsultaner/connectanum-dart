@@ -12,22 +12,9 @@ pub(super) fn agree(
     dictionary: &ValueMap,
     reference: usize,
 ) -> Result<(), ParseError> {
-    // Bound the reservation to avoid Vec growth exceeding small schema tables.
-    let capacity = if dictionary.is_empty() {
-        0
-    } else {
-        dictionary
-            .len()
-            .max(4)
-            .min(schema::TABLES[reference].fields.len())
-    };
-    let expected = project_into(name, dictionary, reference, Fields::with_capacity(capacity))?;
-    for field in schema::TABLES[reference].fields {
-        if ignored(name, field.name) {
-            continue;
-        }
+    project_fields(name, dictionary, reference, |field, projected| {
         let actual = body.get(field.name).unwrap_or(&Value::Null);
-        let target = expected.get(field.name).unwrap_or(&Value::Null);
+        let target = projected.as_ref().unwrap_or(&Value::Null);
         if field.kind == Kind::Table && schema::TABLES[field.reference].name == "Map" {
             if let Value::Table(pair) = actual {
                 let source =
@@ -57,14 +44,14 @@ pub(super) fn agree(
                 }) {
                     return Err(wire::invalid("contradictory Map metadata"));
                 }
-                continue;
+                return Ok(());
             }
         }
         if !matches(field, actual, target)? {
             return Err(wire::invalid("contradictory metadata"));
         }
-    }
-    Ok(())
+        Ok(())
+    })
 }
 fn ignored(name: &str, key: &str) -> bool {
     if [
@@ -169,6 +156,23 @@ fn project_into(
     reference: usize,
     mut result: Fields,
 ) -> Result<Fields, ParseError> {
+    project_fields(name, map, reference, |field, projected| {
+        if let Some(projected) = projected {
+            result.insert(field.name, projected);
+        }
+        Ok(())
+    })?;
+    Ok(result)
+}
+
+fn project_fields(
+    name: &str,
+    map: &ValueMap,
+    reference: usize,
+    mut consume: impl FnMut(&FieldSpec, Option<Value>) -> Result<(), ParseError>,
+) -> Result<(), ParseError> {
+    // Agreement consumes the same checked projection as encoding, one field
+    // at a time, without retaining an intermediate Fields allocation.
     for field in schema::TABLES[reference].fields {
         if ignored(name, field.name) {
             continue;
@@ -176,16 +180,16 @@ fn project_into(
         let extra = field.name == "extra" && ["Challenge", "Authenticate"].contains(&name);
         let value = if extra { None } else { get(map, field.name) };
         if !extra && (value.is_none() || value == Some(&Cbor::Unit)) {
-            if field.required {
-                result.insert(
-                    field.name,
-                    match field.kind {
-                        Kind::String => Value::Text(super::codec_copy_metrics::copy_text_arc("")),
-                        Kind::Table => Value::Table(Arc::new(Fields::new())),
-                        _ => return Err(wire::invalid("required metadata")),
-                    },
-                );
-            }
+            let projected = if field.required {
+                Some(match field.kind {
+                    Kind::String => Value::Text(super::codec_copy_metrics::copy_text_arc("")),
+                    Kind::Table => Value::Table(Arc::new(Fields::new())),
+                    _ => return Err(wire::invalid("required metadata")),
+                })
+            } else {
+                None
+            };
+            consume(field, projected)?;
             continue;
         }
         let invalid = || wire::invalid("metadata field type");
@@ -377,11 +381,9 @@ fn project_into(
             }
             Kind::Union => return Err(invalid()),
         };
-        if let Some(projected) = projected {
-            result.insert(field.name, projected);
-        }
+        consume(field, projected)?;
     }
-    Ok(result)
+    Ok(())
 }
 fn matches(field: &FieldSpec, actual: &Value, expected: &Value) -> Result<bool, ParseError> {
     if field.kind == Kind::Scalar {

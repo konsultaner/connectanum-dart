@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-10-30.
+Last updated: 2026-10-31.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
@@ -9,29 +9,113 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Current pushed tooling head: `da46d7f6`, runtime-identical to `40f8cec5`.
-Its full local verification exits 1 on two newly merged encrypted FlatBuffers
-file-transfer tests. Both now pass after validating authenticated decoded header
-metadata while retaining the ciphertext view; plain opaque headers still fail.
-An additional fail-first ownership regression proves that public reanchoring
-can release another allocation instead of the retained storage. Explicit release
-now follows `storageOwner`; both native and ordinary Dart-owned cases pass.
-The live RPC regression uses the canonical external FlatBuffers peer and checks
-actual backing ownership (a complete SDK Dart frame correctly needs no native
-release). Earlier private probes with a wrong peer/ownership assumption are
-retained and are not production failures or acceptance evidence.
-Focused client lifetime/file suites pass 512 cases; socket/file contracts pass
-186 cases and both encrypted live transfers pass. Renewed full `bin/verify` is
-running on these changes. Qwen review completes: its double-free/race claims
-are excluded by existing idempotent release guards and immutable payload owner
-fields; its test null-owner concern is excluded by constructor initialization.
-Its metadata cleanup concern does not establish a newly retained owner.
+Current candidate removes temporary dictionary projections in native
+and Dart FlatBuffers agreement, and keeps the common two-table Dart validator
+cache inline without allocating a captured height-update closure. Full schema,
+metadata agreement, alias identity and all resource budgets remain enforced.
+The pre-change `bin/test-fast` passes. Candidate checks pass 3,545 serializer
+cases, the 111-case frame suite including the added extended RESULT regression,
+47 native FlatBuffers tests and all 167 mutation equivalence proofs. Analysis
+exits 0 with only the three existing core info diagnostics. A fail-first tool
+contract now permits exactly this three-file decoder/validator component
+combination; all nine isolation/audit tests pass. This changes no parity gate.
 
-CI `41113454274` has a failed MQTT performance job (four cleartext TCP/WS
-profiles); master CI `41105562746` passes that job. The budgets and MQTT source
-are unchanged. Inspect retained raw profiles before attributing the regression;
-no gate relaxation or selective acceptance is allowed. Other jobs are pending.
-Full 48-case primary and final-runtime 50-case supplemental remain pending.
+[Component evidence](research/2026-10-31-flatbuffers-field-projection-component.json)
+retains 24 native paired cases: identical complete frames and verified payload aliases,
+one fewer allocator request / 224 fewer requested bytes per typed decode.
+A frozen-baseline Dart differential matches 12,258 inputs and 1,512 depth/table
+budget combinations exactly. These checks establish neither RSS nor performance
+acceptance. Local timing and final companion review are blocked by the shared
+machine resource lease; do not bypass it. Earlier bounded companion attempts
+remain incomplete, not successful reviews. Canonical `bin/verify` is running;
+renew hosted component/correctness evidence and unchanged paired measurements.
+
+Predecessor runtime: `4dec9ddc978b3b6fd47275e67cf46fd40ac46931`.
+It fixes public reanchoring releasing the wrong allocation: explicit payload
+release now follows the actual retained `storageOwner`. Fail-first native and
+ordinary Dart-owned cases pass. It also fixes two encrypted FlatBuffers file
+header cases merged from master: validate authenticated decoded CBOR metadata
+while retaining ciphertext storage, and keep plain opaque header rejection.
+512 lifetime/file and 186 socket/file cases pass, both encrypted live transfers
+pass, and canonical external-peer live RPC checks actual backing ownership.
+Earlier private probes used a wrong peer/always-native assumption; preserve them
+as invalid diagnostics, not production failures or acceptance evidence.
+
+Canonical `bin/verify` completes with observed exit 0 on 4dec9ddc, including
+Rust/tooling, all VM/native/router/live transport suites, standalone package
+consumers and complete Chrome/WebAssembly core/client suites. Its retained log
+SHA-256 is da5c3d46bd2a2d13d54ca8435b7b261aa582087dde029233948349f7487bc66a.
+The receipt verifies a clean tree. Qwen review completes; source/test checks
+exclude its speculative double-free/race/null-owner claims. Later debug calls
+hit their explicit timeout/token bounds; preserve those incomplete attempts.
+
+Final copy/lifetime workflow `41120169745` completes successfully on 4dec9ddc.
+Independent audit verifies all 3,277 source inputs, generated lock receipts,
+native/input hashes, complete raw counts, PIDs and cleanup: 120 live / 300
+inventory / 32 zero-avoidable checks. Live E2EE/transcode/native-crypto counts
+are 96/120/48; inventory counts are 96/60/72. Native lifetime controls reproduce
+three six-row positives and the expected zero-row/single-failure negative,
+with clean exits and no reader errors. SDK/TLS/crypto internals stay explicitly
+unmeasured at the user-approved standard SDK boundary.
+
+Full 48-case primary `41120217349` completes all 1,440 rows on this frozen
+runtime and fails 102 strict numerical gates: RSS 41, CPU 21, throughput 17,
+p99 12, p95 7, GC 3 and allocation 1. Independent reproduction matches the
+hosted comparison exactly, verifies retained inputs/native binaries, and
+finds zero integrity failures. The earlier two-RAM-failure diagnostic is not
+the current acceptance result. Preserve it and every predecessor report.
+Full CI `41120166268` completes successfully: all 39 jobs pass. Its 20 MQTT performance profiles all pass and are
+independently recomputed exactly from raw rows against unchanged budgets; its
+same-runner native-library comparison against master also passes; all 12
+comparison summaries reproduce exactly with consistent library hashes, pinned
+source refs and unchanged automatic worker sizing. Previous
+CI 41113454274 retains four cleartext MQTT failures and cancelled remaining
+duplicate jobs. Do not infer a cause or call cancelled history a pass.
+
+Payload-size supplemental shard in 41120221904 completes all 360 rows but fails
+strict evidence validation: ext_17 and ext_19 MessagePack (native-buffer 1 MiB
+RPC over clear RawSocket / secure WebSocket) cannot meet the allocation
+estimator's 1% precision rule. All 14 measured observations independently pass
+every preceding invariant: stable PID/observer, endpoint brackets, groups,
+complete unique GC events, native counters, heap/reclaimed arithmetic. Only
+rounding uncertainty rejects them (6.72–7.06%). Raw reports are unchanged; all
+15 numerical diagnostics and 30 integrity findings remain retained. The shard
+reproduces exactly, including retained inputs/binaries. Standard SDK 3.13.5
+publishes GC heap values in rounded KB; its allocation profile is a live census,
+not an exact cumulative allocation counter. No guessed exact values or relaxed
+precision are introduced. Ask the user whether these two supplemental
+allocation figures may remain explicitly SDK-limited and unmeasured; this is
+separate from the earlier accepted copy-accounting scope. All primary gates
+remain strict. The completed primary has no allocation-precision rejection.
+
+The encrypted-progressive supplemental shard completes successfully. Independent
+reproduction verifies all eight cases / 240 rows, retained inputs/native hashes
+and the exact hosted comparison, with zero integrity findings. Its 51 numerical
+cost diagnostics remain reported; supplemental reporting is not primary parity.
+
+All three supplemental shards now finish: 50 cases / 1,500 raw rows. Protocol
+independently reproduces 30 cases / 900 rows with zero integrity findings and
+128 numerical cost diagnostics. All shard input/native hashes and comparisons
+verify. The combined failed report and manifest reproduce exactly: 38 validated
+cases / 1,140 rows, 179 retained costs and four findings, because strict SDK
+precision validation excludes the whole 12-case payload batch. Its other 360
+raw rows and fifteen costs remain in that shard. No incomplete aggregate is
+claimed complete or primary-eligible. The initial private aggregate audit uses
+the wrong CLI subcommand and is retained separately; the corrected merge command
+reproduces the hosted failure exactly. Artifact selection verifies all three
+source-pinned attempt-1 IDs. The primary campaign independently fails its
+numerical gates; resolving supplemental precision alone cannot make it pass.
+
+A private stock-SDK native timeline callback probe does not resolve precision:
+it captures natural-GC begin/end events, but its heap-usage equivalence check
+fails by up to 1,043,456 bytes. SDK source confirms the C API's new-heap metric
+returns capacity, not precise usage. Reject it; no production/acceptance setting
+changes or custom SDK build are introduced. Both probes and the failed assertion
+are retained; primary optimization and the separate precision decision remain
+outstanding.
+
+PR #132 stays draft until full primary acceptance and supplemental reporting
+are complete, including the pending SDK precision decision. Preserve every predecessor report and budget.
 
 `07d3227c` fixes a concrete explicit-release gap. A direct FFI weak observer
 proved that a 65,536-byte FlatBuffers result remained alive after

@@ -1,0 +1,348 @@
+{
+  "schema_version": 1,
+  "kind": "flatbuffers_component_never_acceptance",
+  "primary_acceptance_eligible": false,
+  "baseline_revision": "4dec9ddc978b3b6fd47275e67cf46fd40ac46931",
+  "scope": "Native allocator requests, wire/payload alias controls and Dart functional differential only. No measured RSS, live-heap, throughput, latency or parity claim.",
+  "candidate_source_sha256": {
+    "native/transport/ct_core/src/wamp/flatbuffers_projection.rs": "826b1b078a8a01ef874fa2bbcb42a05fdb8d36cc0802e9b0070b0ce623e14fd7",
+    "packages/connectanum_core/lib/src/serializer/flatbuffers/frame.dart": "f1d2db79f499e996d6dfdaca0251425806f24f25515f5b0c99b84f7a351bd95a",
+    "packages/connectanum_core/lib/src/serializer/flatbuffers/message_projection.dart": "43251db00171e8cc27b7c39bc676e5907e589d680238e29ace10a0466ceed2c1",
+    "packages/connectanum_core/lib/src/serializer/flatbuffers/validation.dart": "9ba54a16da1662210cf13d0ff59cbad181b03ce99dbe0e41a5b40aa28117dbaa"
+  },
+  "dart_differential": {
+    "compared": 12258,
+    "accepted": 3028,
+    "rejected": 9230,
+    "budget_pairs": 1512,
+    "mismatches": 0
+  },
+  "native_component": {
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "canonical_lock_sha256": "02f2eb85fab55294fd6316f04f27ed1fc446201dde13a0f474b137bcb26b2ab8",
+    "private_lock_sha256": "f82d29c0867e8243823e9fa0d5b3f8a42543c47ce0f74343483bccf1c7368899",
+    "workspace": "Private ct_core-only workspace; same regenerated private lock and vendored TLS paths for both builds. The initial --locked setup rejection is retained outside the repository.",
+    "baseline_projection_sha256": "a5135483825959e825c68c319667cb4e30027e3833095bed6b22fe512a8e7a84",
+    "prototype_projection_sha256": "3973b34df0fc5db56db4948b8233de0e00617fbc628e25eafe51d3ca5397eeaf",
+    "baseline_executable_sha256": "656ca8473511d4c9fc491c07568827ae7752ca872d6048f5cd5aeb18628875b5",
+    "candidate_executable_sha256": "3a3c433e448ef75852c2302e1047736184b826644f8c3028208710cd35e12bef",
+    "measured_decodes_per_case": 10,
+    "payload_control": "Same complete frame bytes for each pair, payload length and pointer bounds checked, source retained; nonempty endpoints match.",
+    "cases": [
+      {
+        "shape": "result",
+        "body_bytes": 0,
+        "baseline": {
+          "bytes": 1830,
+          "calls": 13
+        },
+        "candidate": {
+          "bytes": 1606,
+          "calls": 12
+        },
+        "wire_sha256": "06bc47a48a3c285e8cae25951c02cec4c33c6a0eeab8109752d69bc6fa29ff0c"
+      },
+      {
+        "shape": "result",
+        "body_bytes": 1024,
+        "baseline": {
+          "bytes": 1830,
+          "calls": 13
+        },
+        "candidate": {
+          "bytes": 1606,
+          "calls": 12
+        },
+        "wire_sha256": "b7e0a185660083e831b1b442980d9be66dccb8fd1b757afc1bee869ba96713a3"
+      },
+      {
+        "shape": "result",
+        "body_bytes": 1048576,
+        "baseline": {
+          "bytes": 1830,
+          "calls": 13
+        },
+        "candidate": {
+          "bytes": 1606,
+          "calls": 12
+        },
+        "wire_sha256": "bb046c40ab423962bd5e9788187c4723098023b6f6fd38a74d34f25b293bd429"
+      },
+      {
+        "shape": "call",
+        "body_bytes": 0,
+        "baseline": {
+          "bytes": 1990,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1766,
+          "calls": 14
+        },
+        "wire_sha256": "c92b853d6d757ce8b404a42af80591f5ebef6d212ede07e615a9ecf2eac63f33"
+      },
+      {
+        "shape": "call",
+        "body_bytes": 1024,
+        "baseline": {
+          "bytes": 1990,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1766,
+          "calls": 14
+        },
+        "wire_sha256": "cb0de2300d2e6c8ae3de6523e2049f2bd1cd06b8c7792413d4f236ee755b858b"
+      },
+      {
+        "shape": "call",
+        "body_bytes": 1048576,
+        "baseline": {
+          "bytes": 1990,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1766,
+          "calls": 14
+        },
+        "wire_sha256": "c85b0b60458877710a26ad338e5b19c93df3af41db06bde81f908eda01800c93"
+      },
+      {
+        "shape": "error",
+        "body_bytes": 0,
+        "baseline": {
+          "bytes": 1887,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1663,
+          "calls": 14
+        },
+        "wire_sha256": "9a30392832a2d5bed7b0e1e1976a8afdeeac49739c887401a0108f5e70372b57"
+      },
+      {
+        "shape": "error",
+        "body_bytes": 1024,
+        "baseline": {
+          "bytes": 1887,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1663,
+          "calls": 14
+        },
+        "wire_sha256": "5edcdf96744c8482c87c9183f5b59d00fa4bae96fa175180ff426625517568ab"
+      },
+      {
+        "shape": "error",
+        "body_bytes": 1048576,
+        "baseline": {
+          "bytes": 1887,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1663,
+          "calls": 14
+        },
+        "wire_sha256": "0db7ebef15a95533affcf769590032fbc1866d957086b94a86f6abd2256aa867"
+      },
+      {
+        "shape": "publish",
+        "body_bytes": 0,
+        "baseline": {
+          "bytes": 1999,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1775,
+          "calls": 14
+        },
+        "wire_sha256": "6d11b1d1159514cb5dddc27b4f6939c7032fad603cbb6a66648e91f9252455bc"
+      },
+      {
+        "shape": "publish",
+        "body_bytes": 1024,
+        "baseline": {
+          "bytes": 1999,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1775,
+          "calls": 14
+        },
+        "wire_sha256": "e551962234a05c2185c9e0ae51f9ddc4e7685d9eedf52491e87e86d29e2314c1"
+      },
+      {
+        "shape": "publish",
+        "body_bytes": 1048576,
+        "baseline": {
+          "bytes": 1999,
+          "calls": 15
+        },
+        "candidate": {
+          "bytes": 1775,
+          "calls": 14
+        },
+        "wire_sha256": "23dc17f4522fe9341f9d839280a5a749fe307e6e911f68b0f00c9956d6cd892f"
+      },
+      {
+        "shape": "publish-exclude-1",
+        "body_bytes": 0,
+        "baseline": {
+          "bytes": 2464,
+          "calls": 23
+        },
+        "candidate": {
+          "bytes": 2240,
+          "calls": 22
+        },
+        "wire_sha256": "ecda6acad3b200c414107b05e6a8a8773f0da3c16dcd8ead09af9fab48f2b2df"
+      },
+      {
+        "shape": "publish-exclude-1",
+        "body_bytes": 1024,
+        "baseline": {
+          "bytes": 2464,
+          "calls": 23
+        },
+        "candidate": {
+          "bytes": 2240,
+          "calls": 22
+        },
+        "wire_sha256": "f7f43e78d0a318d1f8036f9cc7b8dbdb4d13362dfd4e71184dabc389b9042f70"
+      },
+      {
+        "shape": "publish-exclude-1",
+        "body_bytes": 1048576,
+        "baseline": {
+          "bytes": 2464,
+          "calls": 23
+        },
+        "candidate": {
+          "bytes": 2240,
+          "calls": 22
+        },
+        "wire_sha256": "58506fcbe52794ce27b863cb2eddbf0380bae7f67407ffef21f4221dad9848ac"
+      },
+      {
+        "shape": "publish-exclude-3",
+        "body_bytes": 0,
+        "baseline": {
+          "bytes": 2650,
+          "calls": 29
+        },
+        "candidate": {
+          "bytes": 2426,
+          "calls": 28
+        },
+        "wire_sha256": "dfe3500be10cd9316014ae6cdc0540cfe286503b757ba82d5515e55496d3ec5b"
+      },
+      {
+        "shape": "publish-exclude-3",
+        "body_bytes": 1024,
+        "baseline": {
+          "bytes": 2650,
+          "calls": 29
+        },
+        "candidate": {
+          "bytes": 2426,
+          "calls": 28
+        },
+        "wire_sha256": "ec3691eb105583d04621cd30a65c6711f5e8af0d1aef11c86eb008a01cc7aff9"
+      },
+      {
+        "shape": "publish-exclude-3",
+        "body_bytes": 1048576,
+        "baseline": {
+          "bytes": 2650,
+          "calls": 29
+        },
+        "candidate": {
+          "bytes": 2426,
+          "calls": 28
+        },
+        "wire_sha256": "dd29696803ddbac0c181956c807a8d1915afd71746ada95617ae41736f5c5fc8"
+      },
+      {
+        "shape": "publish-exclude-4",
+        "body_bytes": 0,
+        "baseline": {
+          "bytes": 2851,
+          "calls": 33
+        },
+        "candidate": {
+          "bytes": 2627,
+          "calls": 32
+        },
+        "wire_sha256": "9094bb9e9ae27e7a6b0841cc80bb5c59e1a9609b946578436448532f04a1ddec"
+      },
+      {
+        "shape": "publish-exclude-4",
+        "body_bytes": 1024,
+        "baseline": {
+          "bytes": 2851,
+          "calls": 33
+        },
+        "candidate": {
+          "bytes": 2627,
+          "calls": 32
+        },
+        "wire_sha256": "407de614c8b47f35ceec86ae76d975e16c8ce223dca04979a0f4ba2ad17465a5"
+      },
+      {
+        "shape": "publish-exclude-4",
+        "body_bytes": 1048576,
+        "baseline": {
+          "bytes": 2851,
+          "calls": 33
+        },
+        "candidate": {
+          "bytes": 2627,
+          "calls": 32
+        },
+        "wire_sha256": "121660dbd1364383d9d1267796f2e6e9d70bc959e5a4abe6d9d8f06728ecf906"
+      },
+      {
+        "shape": "publish-exclude-8",
+        "body_bytes": 0,
+        "baseline": {
+          "bytes": 4007,
+          "calls": 48
+        },
+        "candidate": {
+          "bytes": 3783,
+          "calls": 47
+        },
+        "wire_sha256": "49355b7466c2676e8b85d8c6fd038baff4b0829227e3acec12c57cadd4387da1"
+      },
+      {
+        "shape": "publish-exclude-8",
+        "body_bytes": 1024,
+        "baseline": {
+          "bytes": 4007,
+          "calls": 48
+        },
+        "candidate": {
+          "bytes": 3783,
+          "calls": 47
+        },
+        "wire_sha256": "12452135c50c35b7b25687b9ee76b068471f8ef3a0867640c9a3cbfccfa04f4f"
+      },
+      {
+        "shape": "publish-exclude-8",
+        "body_bytes": 1048576,
+        "baseline": {
+          "bytes": 4007,
+          "calls": 48
+        },
+        "candidate": {
+          "bytes": 3783,
+          "calls": 47
+        },
+        "wire_sha256": "9506eed1beea72c6759b4b91320eb1de2a836e82be57d56081493b4a65219c5a"
+      }
+    ]
+  },
+  "local_timing": "Not executed: exclusive resource lease was unavailable. No unleased timing is used.",
+  "review": "Initial Qwen/GLM requests hit bounded deadlines or token limits; final exact-diff review is currently blocked by an active shared-machine native mutation campaign. Source inspection, full serializer tests and native tests independently check behavior."
+}

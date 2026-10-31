@@ -48,12 +48,7 @@ FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
     }
     if (name != 'Heartbeat') {
       try {
-        _agree(
-          name,
-          body,
-          projectFlatBufferDictionary(name, dictionary),
-          dictionary,
-        );
+        _agree(name, body, dictionary);
       } on ArgumentError {
         throw const FormatException('Invalid FlatBuffers metadata field type');
       }
@@ -107,12 +102,11 @@ const _noDictionary = {
 void _agree(
   String name,
   Map<String, Object?> actual,
-  Map<String, Object?> expected,
   Map<String, dynamic> dictionary,
 ) {
   for (final field in flatBufferDictionaryFields(name)) {
     final value = actual[field.name];
-    final target = expected[field.name];
+    final target = projectFlatBufferDictionaryField(name, dictionary, field);
     if (field.kind == FlatBufferFieldKind.table &&
         wampValidationTables[field.reference].name == 'Map' &&
         value != null) {

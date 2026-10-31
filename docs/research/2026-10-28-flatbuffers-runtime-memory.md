@@ -1,5 +1,50 @@
 # FlatBuffers runtime memory attribution
 
+## Full-primary checkpoint (2026-10-31)
+
+[Primary 41120217349](https://github.com/konsultaner/connectanum-dart/actions/runs/41120217349)
+on `4dec9ddc978b3b6fd47275e67cf46fd40ac46931` completes all 48 cases / 1,440
+rows. Independent comparison reproduces exactly with retained input/native
+hashes verified and zero integrity failures. It fails 102 strict numerical
+gates: RSS 41, CPU 21, throughput 17, p99 12, p95 seven, GC three, allocation one.
+This supersedes the two-RAM-miss diagnostic as the current acceptance result;
+all earlier reports remain retained. Full CI and final owned-copy/lifetime
+accounting pass separately. Supplemental allocation precision remains a
+separate pending product decision, not the cause of these primary failures.
+
+For clear RawSocket RPC Dart values, median allocation ratio is 0.8973 while
+RSS is 1.00487. Peak RSS and allocation volume measure different things; the
+lower allocation count does not demonstrate RAM parity. Per-role medians are
+useful attribution diagnostics, not replacements for paired per-repetition
+comparisons. No gate, workload, observation window, SDK or allocator setting
+changes follow from this checkpoint.
+
+## Allocation candidate (2026-10-31)
+
+Native and Dart agreement now consume the writer's checked field projection
+directly, rather than building a temporary dictionary and scanning it again.
+Dart validation keeps its usual root/message states inline, retaining full
+identity/height/count checks for larger graphs, and updates subtree height
+without a captured per-table closure. Full schema and metadata validation stay.
+
+The [component receipt](2026-10-31-flatbuffers-field-projection-component.json)
+records 24 native typed-control cases with identical complete wires and original
+payload spans: one fewer request / 224 fewer allocator-requested bytes per
+decode. It is not live-heap or RSS measurement. Frozen 4dec9ddc versus candidate
+Dart readers match 12,258 valid/malformed inputs (3,028 accepted / 9,230 rejected)
+and 1,512 depth/table budget combinations. Pre-change fast verification and
+focused native/Dart correctness checks pass; canonical verification is running.
+The three-file private component combination is enabled by a fail-first tooling
+regression, retaining all unrelated-core-diff rejection and observation checks.
+
+A private weak observer confirms that ordinary router incoming disposal leaves
+exported bytes alive, as its public contract permits. This alone is not a leak:
+the retained router profile has only 21,696 external bytes and no demonstrated
+post-work payload owner. Application handlers can retain independently exported
+views. Do not invalidate them merely to obtain lower RSS. No scoped-disposal
+change is adopted. Shared-machine resource ownership blocks local timing and
+final companion review; neither is fabricated or run without its lease.
+
 Product source: `28642b03087b3c89ed003e7867e635dca30df7e7`.
 [Allocator capture](https://github.com/konsultaner/connectanum-dart/actions/runs/40696555847).
 Case: `rpc_rawsocket_clear_dart_values`.
@@ -1102,3 +1147,120 @@ private tests' wrong-peer and always-native assumptions as invalid diagnostics.
 Renewed full verification is running; current CI has four MQTT cleartext profile
 misses under unchanged MQTT budgets/source, while master's corresponding job
 passes. This remains a readiness blocker pending attribution and verification.
+
+
+### Frozen 4dec9ddc campaign (2026-10-30)
+
+Owner/header repairs are pushed as 4dec9ddc978b3b6fd47275e67cf46fd40ac46931.
+Full canonical bin/verify completes with observed exit 0 and a clean source tree,
+including all Rust/tooling/VM/native/live suites, standalone package consumers
+and Chrome/WebAssembly. Retained log SHA-256 is
+`da5c3d46bd2a2d13d54ca8435b7b261aa582087dde029233948349f7487bc66a`.
+No forced acceptance GC, SDK/allocator setting, work omission or gate changes.
+
+Final copy workflow 41120169745 completes successfully. Independent audit
+verifies 3,277 inputs and all 120 live / 300 inventory / 32 zero-avoidable
+checks, binary/lock/raw hashes, stable processes, E2EE/transcode/native-crypto
+counts and cleanup. Three native-view positives each produce six passing rows;
+the negative produces its expected single failure and no rows. All source/
+library guards, exits, group and reader cleanup verify. Agreed dependency
+internals remain labelled unmeasured. No partial-source acceptance is claimed.
+
+Dart-values profile 41116315782 is now fully audited: all 3,276 input contents,
+retained native digest, 18 snapshot hashes and exact normalized hosted audit
+verify without findings. Its GC request remains diagnostic only. Qwen's review
+claims do not reproduce under immutable owner/idempotent release contracts;
+subsequent debug attempts hit explicit response/deadline bounds and are retained.
+
+Full primary 41120217349 (48 cases) and supplemental 41120221904 (50 cases)
+run on frozen 4dec9ddc under the original policy. CI 41120166268 is pending;
+its 20 MQTT profile summaries are independently reproduced from raw rows and
+all original budgets pass. Same-runner native-library comparison against master
+also passes: all 12 summaries reproduce exactly from raw observations, with
+consistent native hashes, unchanged auto workers and pinned source refs. Keep the preceding four cleartext MQTT misses and cancelled
+duplicate CI history. No cause is proven, no numerical acceptance is claimed,
+and the PR remains draft until complete results and current CI are audited.
+
+
+### Completed CI and stock-SDK precision blocker (2026-10-30)
+
+CI 41120166268 completes all 39 jobs successfully on 4dec9ddc. Matched native
+MQTT comparison is independently reproduced for all twelve summaries; all
+candidate profiles pass with pinned refs, unchanged automatic worker sizing
+and consistent native hashes. No source-level cause is inferred for the older
+four cleartext failures. Full local verification and final copy audit remain
+successful on this source.
+
+The payload-size shard of 41120221904 completes 360 rows / twelve cases. Exact
+independent reproduction verifies retained inputs/native hashes and preserves
+its failed status, fifteen numerical diagnostics and thirty integrity findings.
+All fourteen measured MessagePack observations in ext_17 / ext_19 are unmeasured
+because the existing allocation estimator requires <=1% rounding uncertainty.
+They are native-buffer 1 MiB RPCs over clear RawSocket / secure WebSocket.
+Privately reconstruct diagnostic metadata solely to run the canonical verifier
+through every preceding condition: all PID/observer/group/bracket/event/native
+counter/arithmetic checks pass, and its only rejection remains the 1% rule.
+Uncertainty ranges are 6.746–7.050% and 6.719–7.061%. Original reports and statuses
+are untouched. Never use this reconstruction as measured acceptance evidence.
+
+Pinned [Dart SDK heap source](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/heap/heap.cc)
+formats before/after GC usage with RoundWordsToKB in PrintStatsToTimeline.
+[HeapSpace JSON](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/heap/scavenger.cc)
+provides exact current usage, not exact per-collection before/after allocation.
+[Allocation-profile implementation](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/class_table.cc)
+uses live-object visitor count/size for both current and accumulated values, so
+it cannot replace cumulative allocation accounting. The user-approved standard
+SDK copy scope does not automatically resolve this separate precision rule.
+Ask whether these two supplemental allocation figures may be explicitly
+SDK-limited/unmeasured; keep primary allocation/RAM/speed requirements intact.
+Do not tune GC/allocators, pad work, omit events or relax a precision gate.
+
+An advisory investigation considers duplicate native export externalSize hints.
+The completed GLM audit requires physical address-range coverage, never Arc-token
+deduplication, and complete attachment failure/zero-size tests. Source inspection
+shows that binary_arg exports apply to INVOCATION (code 68), not these RESULT
+rows, so no runtime hint change is justified as this failure's fix. No prototype
+or production change is adopted. All pending primary/protocol/encrypted-progressive
+runs continue on frozen 4dec9ddc.
+
+
+The encrypted-progressive shard of 41120221904 completes successfully. Independent
+reproduction verifies all eight cases / 240 rows, exact hosted comparison and
+retained source/config/lock/native hashes. There are no integrity findings; all
+51 numerical cost diagnostics remain reported and are never primary acceptance.
+The primary and protocol supplemental shard continue on frozen 4dec9ddc.
+
+
+All three supplemental shards finish (50 cases / 1,500 raw rows). The protocol
+shard independently reproduces 30 cases / 900 rows, with retained input/native
+hashes verified, no integrity findings and 128 numerical cost diagnostics.
+The combined report/manifest reproduce exactly as failed: 38 validated cases /
+1,140 rows, 179 cost diagnostics and four findings. The payload batch is excluded
+by its unchanged SDK precision failure, causing the inventory/row-count/job
+findings; its 360 raw rows/fifteen costs remain retained in the shard. No partial
+aggregate is relabelled complete. Artifact selection independently verifies all
+three source-pinned attempt-1 IDs. Preserve the first private audit's wrong CLI
+subcommand (aggregate rather than merge), exit 2 and dependent missing-output
+error; the corrected merge exits 1 as expected and exactly matches hosted JSON.
+Only the primary campaign and separate SDK precision decision remain pending.
+
+
+### Rejected stock-SDK native callback precision alternative (2026-10-31)
+
+A private, bounded C/Dart feasibility probe checks existing embedding APIs; no
+production source, runtime flags or acceptance measurements are changed. The
+installed stock macOS SDK 3.13.1 exports the timeline callback and heap metric
+functions. A diagnostic-only callback recorder captures 92 natural-GC begin/end
+events, checks version 2, and exits 0 without forced GC. This is not timing or
+parity evidence, and Linux 3.13.5 support is not claimed from the local result.
+
+A second probe compares twenty callback pairs with the SDK's rounded GC usage.
+Its C/Dart program exits 0, but the independent usage-equivalence assertion fails
+by up to 1,043,456 bytes. Reject the API as an exact allocation counter; retain
+both probes and the failed assertion. Pinned
+[MetricHeapNewUsed implementation](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/metrics.cc#L161)
+deliberately returns new-space capacity to avoid races on TLAB pointers.
+[The embedding callback contract](https://github.com/dart-lang/sdk/blob/3.13.5/runtime/include/dart_tools_api.h)
+therefore does not supply the missing exact before/after usage through these
+public counters. Do not substitute capacity for usage or widen the 1% guard.
+All primary settings/data remain untouched and the precision decision stays pending.
