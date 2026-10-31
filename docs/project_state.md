@@ -9,10 +9,71 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-The documentation-only preflight failure on aacce95c is repaired: the evidence
-JSON now uses a repository-relative library path. The public-artifact scanner
-and clean pre-change fast suite pass. Published0c4bb57c canonical/copy evidence
-passes; all39 CI jobs now pass and remaining performance work is recorded below.
+Validate the isolated typed/progressive RESULT header candidate below. The
+published0c4bb57c predecessor has clean canonical/copy/all39CI evidence; full
+RAM/protocol/progressive parity is still unresolved.
+
+## Frozen290480a3 acceptance in progress (2026-10-31)
+
+Published290480a3227dd6617379c6453d863b7d2ff7825d on
+codex/flatbuffers-ppt-header-storage contains the typed/progressive RESULT changes
+below. Its own ffi-test native library SHA-256 is
+f56f9ec35908ea4950c2e8a29e8ebc1cf45628485ab1e1469fdb4fe859f69a43.
+The actual compiled public encoders confirm the allocation reductions. Local
+canonical attempt1 stopped before tests because the fresh worktree lacked its
+Dart package configuration; no source or native binary changed. Preserve that
+failed log06951e7775f954d4f68f1eec3dab4b706ec3674d7ac3f8355ab90706b776ff38.
+Bootstrap now passes and full bin/verify repeats on clean unchanged290480a3,
+with actual Chrome JS/Wasm selected and the candidate's own native library.
+Keep that worktree/source/HEAD frozen until verification finishes.
+
+Predeclare and preserve complete strict primary48 run41242456878 and
+supplemental50 run41242463543 on this exact runtime, including every raw row and
+all three supplemental shards. CI41242443320 and copy/lifetime41242449963 also
+run on290480a3. No numerical result is available or accepted yet. Independently
+audit raw rows/policy/source/native binaries on completion; do not substitute
+0c4bb57c/f7d60f2f evidence or cancel/retry numerical misses for a favorable host.
+Fix any actual CI/verification failure before new feature work. PR132 remains
+40ddcb3f/draft on130. RAM/protocol/progressive acceptance and the separate1%
+SDK allocation-precision decision remain unresolved; no gate or policy changes.
+
+## Typed and progressive RESULT header candidate (2026-10-31)
+
+The isolated codex/flatbuffers-ppt-header-storage candidate removes the small
+metadata Vec with a bounded128-byte standard-CBOR Cursor and retains a heap
+fallback for larger metadata or an unexpected bounded-writer failure. Its builder
+reserve follows metadata size, rounded to eight bytes. It also directly encodes
+typed RESULT metadata with an optional progress boolean using the pinned schema.
+Complete metadata distinguishes absent/false/true; unknown controls/types retain
+generic validation. Request/body bounds, the1MiB metadata limit, conservative
+schema/frame budgets, external payload aliases and copy instrumentation remain.
+
+The clean pre-change0c4bb57c bin/test-fast passes with unchanged source/HEAD
+and own native library (log SHA-256 178879719b50c45ccc525ef96f9cfca806eb7afd451a07afce01ef042a0d46fb).
+
+Both focused regressions first fail on unchanged0c4bb57c: a255-byte scheme causes
+256 bytes of avoidable builder growth, and valid typed progressive results miss
+the generated writer. With the change, all466 core tests and three codec
+integrations pass. New tests cover CBOR/UTF8 length boundaries, metadata127/128/
+129bytes, exact/over-limit1MiB metadata, pinned schema fields, explicit false,
+fragmentation/truncation, owner drop and cross-thread storage. Growth counters
+stay zero for accepted metadata; metadata vector copies remain exactly measured.
+
+A local Rust1.95 prototype independently checks9,300 full-message/schema/metadata/
+alias cases; existing two-key frames remain byte-identical. With fresh body
+reference-count promotion included, typical ordinary header requests fall from
+seven/482bytes to six/328; progressive false/true fall from21/2,129bytes to
+six/336. All eight interleaved timing rounds are retained; median component
+ratios are0.96092 ordinary and0.28160/0.28857 progressive. These are component
+measurements, not RSS or transport-parity acceptance. The actual compiled public
+encoders independently reproduce all48 allocation rows on unchanged own binaries.
+See the component receipt.
+
+The new candidate still needs its own full canonical verification, hosted copy/
+lifetime evidence, clean CI and complete strict48/50 campaigns. The predecessor
+0c4bb57c has canonical/copy/all39CI checks passing. Neither that success nor this
+component establishes repair of either RPC RAM failure. PR132 stays40ddcb3f/draft;
+no gate, SDK/allocator/GC policy, sample/window or body verification is changed.
 
 ## Completed primary and published control candidate (2026-10-31)
 

@@ -298,6 +298,29 @@
     "summaries": 20
   },
   "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
+  "next_header_candidate": {
+    "CI_run": 41242443320,
+    "branch": "codex/flatbuffers-ppt-header-storage",
+    "canonical": "bootstrapped_attempt2_in_progress_frozen_source",
+    "canonical_attempt1": {
+      "cause": "Fresh worktree package_config missing; bootstrap repaired environment without source/native changes.",
+      "exit": 1,
+      "log_sha256": "06951e7775f954d4f68f1eec3dab4b706ec3674d7ac3f8355ab90706b776ff38",
+      "tests_started": false
+    },
+    "codec_integrations": 3,
+    "component_receipt": "docs/research/2026-10-31-flatbuffers-ppt-result-header-component.json",
+    "copy_run": 41242449963,
+    "full_acceptance": false,
+    "head": "290480a3227dd6617379c6453d863b7d2ff7825d",
+    "native_library": "native/transport/target/ffi-test/release/libct_ffi.dylib",
+    "native_sha256": "f56f9ec35908ea4950c2e8a29e8ebc1cf45628485ab1e1469fdb4fe859f69a43",
+    "native_tests": 466,
+    "primary48_run": 41242456878,
+    "runtime_base": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+    "scope": "Typed RESULT bounded metadata storage and pinned generated optional-progress projection; no changed policies/budgets/workload.",
+    "supplemental50_run": 41242463543
+  },
   "pending_product_question": "Separate 1% allocation estimate precision for2 nativeMessagePack1MiB supplemental cases; label SDK-limited/unmeasured or instrument customSDK. No answer yet; prior standardSDK copy scope does not waive precision. Do not infer approval.",
   "published_control_candidate": {
     "CI_completion_receipt": {
@@ -596,5 +619,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T20:48:22.032451+00:00"
+  "updated_utc": "2026-10-31T21:13:21.756301+00:00"
 }
