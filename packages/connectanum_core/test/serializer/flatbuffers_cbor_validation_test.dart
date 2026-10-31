@@ -30,6 +30,15 @@ void main() {
     second['sbx'] = 'edited';
     expect(decodeFlatBufferMetadata(encoded), {'sbx': 'vbx'});
     expect(first, {'sax': 'vax'});
+    encoded[7] = 0xff;
+    expect(() => decodeFlatBufferMetadata(encoded), throwsFormatException);
+    encoded[7] = 0x62;
+    expect(
+      () => decodeFlatBufferMetadata(
+        Uint8List.sublistView(encoded, 0, encoded.length - 1),
+      ),
+      throwsFormatException,
+    );
   });
 
   test('short text churn preserves every key and value across revisits', () {

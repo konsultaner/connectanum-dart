@@ -27,6 +27,18 @@ void main() {
       [],
       for (final length in [1, 63, 64, 65, 1000]) utf8.encode('x' * length),
       utf8.encode('\u0000\u007f é€🧪'),
+      for (final codePoint in [
+        0x7f,
+        0x80,
+        0x7ff,
+        0x800,
+        0xd7ff,
+        0xe000,
+        0xffff,
+        0x10000,
+        0x10ffff,
+      ])
+        utf8.encode('prefix${String.fromCharCode(codePoint)}suffix'),
       [0xef, 0xbb, 0xbf, 0x61],
       [0xc0, 0x80],
       [0xed, 0xa0, 0x80],

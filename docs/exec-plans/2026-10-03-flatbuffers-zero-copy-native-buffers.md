@@ -5458,3 +5458,42 @@ false for any non-ASCII sequence, and every cache hit compares all bytes. Its
 conditional UTF-8 warning and collision warning were checked against source and
 VM/browser tests. Keep PR #132 draft; do not merge, retarget, close #103 or close
 the milestone before final-runtime strict acceptance is complete.
+
+## Bounded text measurement and validation refinement (2026-10-31)
+
+Isolated candidate 79c9dced component run 41187993679 is independently reproduced:
+3,282 source inputs, four resolved inputs, 219 retained private artifacts, exact
+variant scanner/reader sources, all 160 raw rounds, tests and cleanup. RESULT
+elapsed ratio is 0.98983963 and managed allocation falls from 2,880.7288 to
+2,735.17248 bytes/decode. CALL allocation falls from 5,511.0452 to 5,343.0556,
+but elapsed ratio 1.02589399 is a regression. Keep that measured result; do not
+adopt it as a RAM repair or retry its unchanged code for favorable numbers.
+The checked-in short-text component receipt records the mixed result explicitly.
+
+Refine cache lookup to compare every byte against a known ASCII String before
+performing a second ASCII scan. A hit itself validates every current input byte;
+no validation proof is inherited from a prior buffer or message. Bounds checks,
+CBOR item/depth/byte budgets, duplicate-key checks, chunk validation and metadata
+semantics remain. A miss uses the existing validator. The native text entrypoint
+uses strict UTF-8 decode on a miss; equality of byte count and decoded UTF-16 unit
+count proves ASCII before caching (every non-ASCII scalar uses more bytes than
+units). BOM handling also reduces that count. The cache still retains only up to
+64 immutable Strings of at most 64 characters, with no borrowed owner.
+
+New checks warm the text cache before corrupting UTF-8 or truncating the logical
+input; both are rejected. Native text tests compare all UTF-8 code-point width
+boundaries, BOM, malformed sequences, arbitrary readonly offsets and collisions
+against the standard decoder. All 3,554 serializers, 1,952 native-binding VM
+cases and all 155 CBOR cases on actual Chrome JS and Chrome Wasm pass. GLM finds
+no concrete defect in the validation equivalence. Its statement about Dart not
+stripping BOM is not relied on: the unchanged strict SDK decoder supplies the
+actual value and the proof excludes non-ASCII/BOM bytes either way. Review and
+independent component measurements are required before adoption.
+
+The predecessor 35f4b84c supplemental run 41169323042 is fully retained and
+independently merged exactly: all 1,500 raw rows (1,050 measured), 50 declared
+cases. Protocol contributes 127 numerical findings and encrypted/progressive
+48; payload sizes have 16 valid numerical findings plus 30 allocation-precision
+findings. The exact aggregate excludes that invalid payload shard, retaining
+38 validated cases / 1,140 rows, 175 numerical findings and four findings.
+This remains failed predecessor evidence, never complete supplemental acceptance.
