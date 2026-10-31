@@ -4,6 +4,42 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
 
+// A fixed, small cache retains immutable text only, never a borrowed buffer or
+// its owner. Metadata repeats short protocol keys and values on every message.
+final _shortAsciiText = List<String?>.filled(64, null);
+
+String _asciiText(Uint8List bytes, int start, int end) {
+  final length = end - start;
+  if (length == 0) return '';
+  if (length > 64) return String.fromCharCodes(bytes, start, end);
+  final slot = (length * 7 ^ bytes[start] ^ bytes[end - 1] * 3) & 63;
+  final cached = _shortAsciiText[slot];
+  if (cached != null && cached.length == length) {
+    var index = 0;
+    while (index < length && cached.codeUnitAt(index) == bytes[start + index]) {
+      index++;
+    }
+    if (index == length) return cached;
+  }
+  return _shortAsciiText[slot] = String.fromCharCodes(bytes, start, end);
+}
+
+/// Decode strict UTF-8, sharing only bounded immutable ASCII protocol text.
+/// The cache never retains [bytes], including external/native backing storage.
+String decodeFlatBufferUtf8(Uint8List bytes) {
+  if (bytes.length <= 64) {
+    var ascii = true;
+    for (final byte in bytes) {
+      if (byte >= 128) {
+        ascii = false;
+        break;
+      }
+    }
+    if (ascii) return _asciiText(bytes, 0, bytes.length);
+  }
+  return utf8.decode(bytes);
+}
+
 final _validatedCborSpans = Expando<_ValidatedCborSpan>();
 
 class _ValidatedCborSpan {
@@ -324,7 +360,7 @@ class _Scanner {
     final ascii = major == 3 && utf8Range(start, cursor);
     if (!key) return null;
     return ascii
-        ? String.fromCharCodes(bytes, start, cursor)
+        ? _asciiText(bytes, start, cursor)
         : utf8.decode(Uint8List.sublistView(bytes, start, cursor));
   }
 

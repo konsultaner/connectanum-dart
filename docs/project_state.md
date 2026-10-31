@@ -741,3 +741,54 @@ windows and serializer wire behavior remain byte-identical to fd983af8. Keep its
 running numerical campaigns; do not repeat unchanged measurements for a favorable
 result. Renew full canonical verification and CI on this repair, retain runtime
 input equality evidence, and renew owned copy/lifetime checking as needed.
+
+## Current acceptance checkpoint and bounded text candidate (2026-10-31)
+
+Full canonical `bin/verify` passed on clean frozen `40ddcb3f`, including the
+serializer inventories and actual Chrome JS/Wasm suites. Receipt log SHA-256:
+`b2e3621a1b276e4e32325fdb61d25e33d3bf5af539cb7ee5f6153bf108bdf7da`.
+Its production inputs are byte-identical to `fd983af8`; retain that revision's
+running numerical campaigns rather than rerunning unchanged measurements.
+
+The independently reproduced 90-row diagnostic `41182487687` has exactly two
+numerical misses: Dart-values summed sampled peak RSS median 1.0028886482 and
+native pre-encoded RSS median 1.0067350799. All other metrics in all three cases
+pass. These three cases are diagnostic evidence, not the complete acceptance
+matrix. The predecessor `35f4b84c` full campaign `41169321811` finished with all
+48 cases / 1,440 rows retained, exact hosted comparison, 93 numerical misses and
+zero integrity findings. The final-runtime full 48-case and supplemental
+50-case campaigns remain pending; their results must be checked in full.
+
+Current-head owned-copy run `41183917422` independently verifies 3,286 inputs,
+120 live rows, 300 inventory rows and 32 zero-avoidable-copy rows, with the native
+view controls and cleanup checked separately. E2EE and transcode accounting
+remain within the approved Connectanum-owned scope; dependency internals remain
+unmeasured. The allocation-precision scope decision is separately unanswered.
+
+Current CI `41183915691` fails its MQTT WebSocket throughput gate on EPYC 7763:
+matched master and candidate libraries both fail both WebSocket profiles in both
+rounds; the TCP 64 KiB profile passes. Independently reproduce every unchanged
+budget and all 32 summary files from their raw rows. The earlier 4b99d15d CI pass
+on EPYC 9V45 does not resolve this runner-specific failure. No lucky retry or
+weakened budget is authorized.
+
+A separate candidate shares at most 64 immutable ASCII strings of at most 64
+characters while decoding metadata and native projected text. It compares every
+byte before reuse, keeps strict UTF-8 fallback and retains no input byte view,
+payload or external owner. All existing structural and CBOR validation remains.
+Collision churn, input mutation, independently mutable decoded maps, logical
+readonly byte ranges, empty/long strings, Unicode, BOM and malformed UTF-8 cases
+are covered. All 3,554 serializer cases and 155 CBOR cases on VM, Chrome JS and
+Chrome Wasm pass. All 2,684 native VM/kernel cases pass with concurrency=1; analysis is clean.
+Measure the candidate
+against 40ddcb3f before adoption; it is not yet a demonstrated RAM repair.
+
+The first broad native command incorrectly combined native global-runtime tests
+in concurrent suites and selected unsupported browser compilation. Retain both
+failed setup runs. Use explicit VM/kernel and concurrency=1, as in the canonical
+native verification path. Do not report these setup failures as serializer bugs.
+Completed local review has no confirmed finding: utf8Range explicitly returns
+false for any non-ASCII sequence, and every cache hit compares all bytes. Its
+conditional UTF-8 warning and collision warning were checked against source and
+VM/browser tests. Keep PR #132 draft; do not merge, retarget, close #103 or close
+the milestone before final-runtime strict acceptance is complete.

@@ -9,6 +9,48 @@ import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart
 Uint8List bytes(List<int> values) => Uint8List.fromList(values);
 
 void main() {
+  test('repeated text keeps decoded values independent of input and maps', () {
+    final encoded = bytes([
+      0xa1,
+      0x63,
+      0x73,
+      0x61,
+      0x78,
+      0x63,
+      0x76,
+      0x61,
+      0x78,
+    ]);
+    final first = decodeFlatBufferMetadata(encoded.asUnmodifiableView());
+    encoded[3] = 0x62;
+    encoded[7] = 0x62;
+    final second = decodeFlatBufferMetadata(encoded.asUnmodifiableView());
+    expect(first, {'sax': 'vax'});
+    expect(second, {'sbx': 'vbx'});
+    second['sbx'] = 'edited';
+    expect(decodeFlatBufferMetadata(encoded), {'sbx': 'vbx'});
+    expect(first, {'sax': 'vax'});
+  });
+
+  test('short text churn preserves every key and value across revisits', () {
+    // Equal length and first/last bytes deliberately exercise cache collisions.
+    for (var pass = 0; pass < 3; pass++) {
+      for (var unit = 0; unit < 128; unit++) {
+        final key = 's${String.fromCharCode(unit)}x';
+        final value = 'v${String.fromCharCode(127 - unit)}x';
+        final encoded = bytes(cbor.encode(CborValue({key: value})));
+        expect(decodeFlatBufferMetadata(encoded), {key: value});
+      }
+    }
+    for (final length in [0, 1, 63, 64, 65, 1000]) {
+      final value = 'x' * length;
+      expect(
+        decodeFlatBufferMetadata(bytes(cbor.encode(CborValue({value: value})))),
+        {value: value},
+      );
+    }
+  });
+
   test('ASCII and Unicode metadata text preserves logical readonly ranges', () {
     for (final value in ['\u0000ASCII\u007f', 'é€🧪']) {
       final encoded = bytes(cbor.encode(CborValue({'\u0000\u007f': value})));
