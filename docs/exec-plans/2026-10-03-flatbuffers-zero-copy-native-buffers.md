@@ -11,6 +11,23 @@ remain isolated; PR132 stays draft until complete acceptance. No gate is waived.
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
+## Browser fixture verification repair (2026-10-31)
+
+Frozen 9fcc1be2 bin/verify fails its launcher fixture after the outer wrapper
+exports CONNECTANUM_CHROME_BINARY: the fixture launches actual Chromium --probe.
+Stop only its verified owned probe children; preserve the failed87-case log
+(SHA-25692ffad56776515bdf57f96935d3c5299172c07c1dc62619d198aa35a76a72ad5).
+Reproduce safely with an inherited fake browser: exit1 before, exit0 after.
+The fixture now owns browser selection, controls Linux/Darwin detection, uses
+simple test assertions on Bash3.2, and bounds its subprocess. All87 cases pass
+with the inherited fake browser. No production/benchmark input changes.
+Canonical verification must rerun; 9fcc1be2 is not locally canonical-accepted.
+Its hosted copy/lifetime report independently passes3,292 inputs,120 live and
+300 inventory rows including E2EE/transcoding; all native controls pass. Its
+Dart-value profile independently verifies3,291 inputs and18 memory snapshots.
+After-workload excess is reclaimed after diagnostic GC; no persistent native
+owner leak is established. All strict RSS/GC/p99/full gates remain required.
+
 Checkpoint: 49b831d5 canonical verification and all 32 hosted MQTT profiles pass;
 owned-copy/E2EE/transcode and native lifetime reports independently reproduce.
 Its paired diagnostic still misses two RSS gates plus Dart GC/p99 confidence.

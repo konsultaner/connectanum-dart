@@ -1,0 +1,39 @@
+{
+  "canonical_before": {
+    "exit": 1,
+    "failure": "Chrome launcher fixture inherited CONNECTANUM_CHROME_BINARY and launched real Chromium --probe instead of fixture; owned probe children stopped; all87 fixture tests completed with one failure. No canonical acceptance. Wrapper had errexit and exited before writing its normal receipt.",
+    "finished_utc": "2026-10-31T12:06:29.776276+00:00",
+    "head": "9fcc1be23f54424554e60bff0ff5d4d57ef2e16c",
+    "log_sha256": "92ffad56776515bdf57f96935d3c5299172c07c1dc62619d198aa35a76a72ad5",
+    "native_sha256_after": "fe32a8c7645838d4a2e7007e6d5f07a6401b14eb79f7f0067cdc17f128680550",
+    "native_sha256_before": "fe32a8c7645838d4a2e7007e6d5f07a6401b14eb79f7f0067cdc17f128680550",
+    "status": ""
+  },
+  "fixed_behavior": [
+    "Own binary selection by clearing inherited CONNECTANUM_CHROME_BINARY inside the fixture.",
+    "Use synthetic Linux/Darwin uname to assert CI-only sandbox behavior explicitly.",
+    "Use simple test commands so Bash3.2 errexit does not silently ignore compound [[ ]] assertion failures.",
+    "Bound the fixture subprocess to20 seconds."
+  ],
+  "parent": "9fcc1be23f54424554e60bff0ff5d4d57ef2e16c",
+  "reproduction": {
+    "after-inherited": {
+      "exit": 0,
+      "log_sha256": "9c80cd1b198a61d1a0bfc16aaa48ee6332e7003b130f6ee1439908047b3b3b16"
+    },
+    "before-darwin": {
+      "exit": 0,
+      "log_sha256": "23f6eb514460511c4dd4055121fe18d5451fae40f6ed9571c44c5e4b5357fa56"
+    },
+    "before-inherited": {
+      "exit": 1,
+      "log_sha256": "c31240b58f36cbbde070b45443dc955805bb16ab820b43c7e69e83c05ef49de8"
+    },
+    "full-tests": {
+      "exit": 0,
+      "log_sha256": "42f904f9a591fdb8c3d833370378ac32fdda04fe780f347e76f946d54c5b377e"
+    }
+  },
+  "review": "GLM produced no confirmed bug. Verify existing helper uses bare uname. Timeout applies to fake scripts, not Chromium; temporary PATH contains only owned uname/browser scripts.",
+  "scope": "Verification fixture only; production and benchmark runtime unchanged."
+}

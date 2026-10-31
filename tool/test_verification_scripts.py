@@ -1189,6 +1189,11 @@ fi
             self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_ensure_chrome_env_exposes_canonical_launcher(self) -> None:
+        for system in ("Linux", "Darwin"):
+            with self.subTest(system=system):
+                self.assert_canonical_chrome_launcher(system)
+
+    def assert_canonical_chrome_launcher(self, system: str) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
             fake_chrome = tmp_path / "chrome-under-test"
@@ -1197,27 +1202,34 @@ fi
                 encoding="utf-8",
             )
             fake_chrome.chmod(0o755)
+            fake_uname = tmp_path / "uname"
+            fake_uname.write_text(f'#!/bin/sh\nprintf "%s\\n" "{system}"\n')
+            fake_uname.chmod(0o755)
+            ci_probe = "--no-sandbox --probe" if system == "Linux" else "--probe"
             launcher_dir = tmp_path / "launchers"
             script = textwrap.dedent(
                 f"""
                 set -euo pipefail
                 source "{COMMON}"
 
+                # Own the binary selection even when the caller prepared Chrome.
+                unset CONNECTANUM_CHROME_BINARY
+                export PATH="{tmp_path}:$PATH"
                 export CHROME_EXECUTABLE="{fake_chrome}"
                 export CONNECTANUM_CHROME_LAUNCHER_DIR="{launcher_dir}"
                 export CI=true
                 ensure_chrome_env
-                [[ "$(command -v connectanum-chrome)" == \
-                  "{launcher_dir}/connectanum-chrome" ]]
-                [[ "$CHROME_EXECUTABLE" == \
-                  "{launcher_dir}/connectanum-chrome" ]]
-                [[ "$(connectanum-chrome --probe)" == \
-                  "fake chrome: --no-sandbox --probe" ]]
+                test "$(command -v connectanum-chrome)" = \
+                  "{launcher_dir}/connectanum-chrome"
+                test "$CHROME_EXECUTABLE" = \
+                  "{launcher_dir}/connectanum-chrome"
+                test "$(connectanum-chrome --probe)" = \
+                  "fake chrome: {ci_probe}"
 
                 export CI=false
-                [[ "$(connectanum-chrome --probe)" == "fake chrome: --probe" ]]
+                test "$(connectanum-chrome --probe)" = "fake chrome: --probe"
                 ensure_chrome_env
-                [[ "$CONNECTANUM_CHROME_BINARY" == "{fake_chrome}" ]]
+                test "$CONNECTANUM_CHROME_BINARY" = "{fake_chrome}"
                 """
             )
 
@@ -1228,6 +1240,7 @@ fi
                 stderr=subprocess.STDOUT,
                 text=True,
                 check=False,
+                timeout=20,
             )
 
             self.assertEqual(result.returncode, 0, result.stdout)
