@@ -193,6 +193,19 @@
     "run": 41204164884,
     "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8"
   },
+  "header_allocation_investigation": {
+    "allocation_requests": 6,
+    "next": "Controlled stack-Cursor and metadata-sized builder prototype; preserve all guards and body aliases.",
+    "observed_control_overhead_range": [
+      80,
+      87
+    ],
+    "requested_bytes": 458,
+    "scope": "Private local header allocation/layout diagnostic only; no transport/RSS acceptance. Source/native binary unchanged.",
+    "source": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+    "typical_control_bytes": 152,
+    "typical_metadata_bytes": 66
+  },
   "historical_49_primary": {
     "audit_sha256": "f16ac21a9c8cd492601fd4bbed02f1fad0cff798802142afe2c16392a636ea72",
     "by_metric": {
@@ -287,7 +300,21 @@
   "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
   "pending_product_question": "Separate 1% allocation estimate precision for2 nativeMessagePack1MiB supplemental cases; label SDK-limited/unmeasured or instrument customSDK. No answer yet; prior standardSDK copy scope does not waive precision. Do not infer approval.",
   "published_control_candidate": {
-    "CI_passed_jobs_last": 34,
+    "CI_completion_receipt": {
+      "MQTT_reuse_proof": "connectanum-control-ack-ci-scoped-retry-preserves-mqtt.json",
+      "all_jobs_success": true,
+      "attempt": 2,
+      "jobs": 39,
+      "jobs_sha256": "a794ad73840cbd529bd7c1f2e6b6136b4860bd05d5d3a0422753a6443c0ebe67",
+      "metadata_sha256": "ff5f46ac1fee8041b66ea311fc02631586da1a5404e26d36d2ecef94e04602d7",
+      "numerical_execution_repeated": false,
+      "run": 41226137592,
+      "scope": "Correctness/coverage/mutation/standardMQTT CI only; no fullWAMP/RAM acceptance.",
+      "setup_only_retry": true,
+      "source": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+      "status": "complete_success"
+    },
+    "CI_passed_jobs_last": 39,
     "CI_run": 41226137592,
     "CI_setup_failure": {
       "cause": "Failed to get ID Token: socket hang up",
@@ -297,9 +324,10 @@
       "official_job_API_message": "HTTP403: The workflow run containing this job is already running.",
       "official_job_API_retry_exit": 1,
       "phase": "setup-ci -> dart-lang/setup-dart",
-      "retry_status": "Deferred until containing CIrun completes, then retry only setup-failed coverage/nonnumerical dependents; never rerun passing numerical jobs.",
+      "retry_status": "Resolved by setup-only retry after workflow completion; attempt2 all39pass. Passing numerical execution/artifact unchanged.",
       "test_or_metric_execution_started": false
     },
+    "CI_status": "complete_success_all39",
     "MQTT_main20": {
       "all_budgets_unchanged": true,
       "all_summaries_exact": true,
@@ -559,7 +587,7 @@
     },
     "published": true,
     "runtime_base": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
-    "scope": "Canonical/copy/component/functional evidence pass. CI setup retry pending; no RSS or transport acceptance."
+    "scope": "Canonical/copy/component/functional and all39CI jobs pass. No RSS or full WAMP acceptance."
   },
   "scope": "Documentation-only checkpoint, does not change the frozen runtime or acceptance inputs.",
   "temporary_followup": {
@@ -568,5 +596,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T18:30:33.456424+00:00"
+  "updated_utc": "2026-10-31T20:48:22.032451+00:00"
 }

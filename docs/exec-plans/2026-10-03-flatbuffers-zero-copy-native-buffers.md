@@ -2,19 +2,19 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish CI41226137592 on published0c4bb57c and retry its setup-failed
-nonnumerical coverage job once GitHub permits it. Canonical and independently
-audited copy/lifetime checks pass. After CI is clean, solve the remaining RPC RAM,
-progressive and protocol parity failures using controlled evidence, then complete
-strict48/50 acceptance on one final runtime. Prior full48/50 reports are failed
-historical evidence. PR132 stays draft; no gate or workload is waived.
+Current step: CI41226137592 is clean on published0c4bb57c (all39 jobs pass).
+Canonical and independently audited copy/lifetime checks also pass. Investigate
+PPT RESULT header allocations with controlled component evidence, solve remaining
+RPC RAM/progressive/protocol failures, then complete strict48/50 acceptance on
+one final runtime. Prior full48/50 reports are failed historical evidence.
+PR132 stays draft; no gate, sample or workload is waived.
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
 The documentation-only preflight failure on aacce95c is repaired: the evidence
 JSON now uses a repository-relative library path. The public-artifact scanner
 and clean pre-change fast suite pass. Published0c4bb57c canonical/copy evidence
-passes; its CI setup failure and remaining performance work are recorded below.
+passes; all39 CI jobs now pass and remaining performance work is recorded below.
 
 ## Completed primary and published control candidate (2026-10-31)
 
@@ -43,15 +43,17 @@ Copy41226052076 independently verifies3,296 source inputs,120 live/300 inventory
 rows and32 zero-avoidable-copy rows, including E2EE/transcoding, all native
 lifetime phases/cleanup and the expected negative control.
 
-CI41226137592 remains in progress with22 successful jobs and one setup-only
-failure. Dart VM Coverage never reached tests: dart-lang/setup-dart failed to
-obtain GitHub's ID token with a socket hang-up. Missing coverage artifacts are a
-secondary consequence. Both CLI and official job-rerun API reject retry while
-the containing run is active (HTTP403). Wait for completion, then retry only
-this failed nonnumerical job/dependents; preserve passing numerical jobs and
-artifacts. Fix CI before further feature/benchmark work. Local review is blocked by another native mutation workload's exclusive
-resource lease; manual source review has no confirmed finding and the lease is
-not bypassed. The repaired public-path scanner and pre-change fast suite pass.
+CI41226137592 is complete: all39 jobs pass on0c4bb57c. Attempt1 coverage
+failed before tests during Dart installation because GitHub's ID-token request
+lost its connection. After workflow completion, only that nonnumerical job and
+its dependency status were retried. Attempt2 passes. Passing numerical execution
+was reused: MQTT timestamps/steps and artifact13052281306 are unchanged. No
+numerical campaign was rerun. CI metadata SHA-256:
+ff5f46ac1fee8041b66ea311fc02631586da1a5404e26d36d2ecef94e04602d7.
+All-jobs snapshot SHA-256:
+a794ad73840cbd529bd7c1f2e6b6136b4860bd05d5d3a0422753a6443c0ebe67.
+The repaired public-path scanner and pre-change fast suite pass. Local companion
+test planning now completed when its lease allowed it; no reservation is bypassed.
 The candidate is separate from PR132, which stays40ddcb3f/draft on130. Neither RPC
 RAM failure is solved; no gate is waived or milestone/issue closed.
 
@@ -59,9 +61,13 @@ The0c4bb57c standard MQTT gate independently reproduces all20 summaries from raw
 rows with unchanged budgets and matching source/native library. All pass on
 EPYC9V74; WebSocket ratios are0.75413696/0.72891247. Native Linux library SHA-256:
 8d7add7bf0198c6767b2992692a3e2ed8f826d787f1d7d9151c91ec64b372e3d.
-This does not causally establish repair on7763. CI currently has34 successful
-jobs, the setup-only coverage failure and three remaining jobs; wait for workflow
-completion before the scoped nonnumerical retry. No new numerical run occurs.
+This does not causally establish repair on7763. CI is now clean. A private
+header-layout probe identifies avoidable temporary metadata allocation in the
+existing PPT RESULT writer: the typical66-byte metadata uses six allocations/
+458 requested bytes for a152-byte control span. This is component evidence,
+not demonstrated RSS improvement. Test a bounded standard-CBOR stack buffer and
+metadata-sized builder reserve before adopting any source change. Keep all
+schema, validation, copy/ownership, body verification and acceptance rules intact.
 
 ## Current acceptance checkpoint (2026-10-31)
 
