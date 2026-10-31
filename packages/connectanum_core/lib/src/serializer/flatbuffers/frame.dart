@@ -31,11 +31,11 @@ class FlatBufferFrame {
 }
 
 FlatBufferFrame readWampFlatBufferFrame(Uint8List bytes) {
-  final root = readWampFlatBufferFields(bytes);
-  final tag = root['msg_type'] as int;
+  final root = readWampFlatBufferEnvelope(bytes);
+  final tag = root.tag;
   final name = wire.AnyMessageTypeId.fromValue(tag).name;
-  final body = root['msg'] as Map<String, Object?>;
-  final encoded = root['metadata'] as Uint8List?;
+  final body = root.body;
+  final encoded = root.metadata;
   final dictionary = encoded == null ? null : decodeFlatBufferMetadata(encoded);
   if (name != 'Welcome' && name != 'Heartbeat' && body['session'] != 0) {
     throw const FormatException('Non-WELCOME FlatBuffers session must be zero');

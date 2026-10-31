@@ -5276,3 +5276,96 @@ must be retained to completion. Older f16 supplemental retains all 1,500 raw row
 38 validated cases reproduce 176 cost diagnostics, while payload precision leaves
 four aggregate findings. Two SDK-limited allocation metrics remain a separate,
 unanswered product decision. No acceptance, readiness or milestone closure.
+
+## 2026-10-31 07:07 UTC: final-candidate correctness/copy pass, RAM still fails
+
+Published runtime 4b99d15d5bac88c6fa611bbbdfae5d06f83117e6 combines a83d85 scalar
+CBOR scanning with reusable busy-loop event turns. Canonical bin/verify passes
+on the clean frozen PR worktree with HEAD unchanged; log SHA256
+65d3083ec58df6bba2f4efc3d39ed9d39cecf407987df91d7e64dce4723cb33a.
+All Rust/tooling/VM/native/router/consumer/standalone and Chrome JS/Wasm suites
+pass. Earlier dependency/setup and incomplete local-review attempts stay retained.
+
+Paired diagnostic 41176299437 independently reproduces all 90 rows/three cases
+with inputs/binaries verified. Six numerical findings remain: Dart-values
+throughput median .99372646, p99 median 1.06333568 / upper1.11837456, GC median
+1.06951168 / upper1.27463089, RSS median1.03226995; native-buffer RSS1.00888312
+(upper1.12594078), pre-encoded RSS1.00577164. Native other metrics all pass.
+Dart RSS median per-role delta is client +9,179,136B, server +1,073,152B against
+the same per-repetition better memory baseline. These peaks do not identify
+allocation sites; no claim that RAM is fixed. Full 48/50 campaigns 41176301519 /
+41176304174 remain running and must finish. No gate, sample/window, body work,
+VM/allocator flag, validation or copy scope is changed. No unchanged lucky rerun.
+
+Copy/lifetime 41176306351 passes: independently check 3,284 source/resolved inputs,
+120 live / 300 inventory / 32 zero-avoidable checks. Live E2EE/transcode/native-
+crypto 96/120/48; inventory96/60/72. Three native positives each retain six rows /
+twelve observations with stable PIDs; negative has zero rows/one expected failure;
+clean exits and group cleanup agree. Build-directory native inputs retain hosted
+digest invariance attestations, not independent rehashes of missing binaries.
+All 20 absolute plus 12 matched MQTT summaries in 41176297129 reproduce exactly
+with unchanged budgets; all candidate gates pass, native controls pinned master
+ef822e08. CPU9V45 differs from failed7763, so causal older-runner repair is not
+claimed. CI has23 successful jobs/no failures at this checkpoint and remains active.
+
+VM profile41177813663 verifies3,283 inputs, retained native digest,18 snapshots,
+exact hosted audit and clean cleanup with no findings. Its heavy class census
+and diagnostic GC are not acceptance. External usage after diagnostic GC112B;
+no persistent native-owner leak is proven. Weak properties52/~1.6KiB and one Mint
+cannot explain multi-MiB RSS excess. Targeted standard-SDK/glibc RSS attribution
+41178785283 is queued to inspect heap/native process footprints; never subtract
+free bins, force acceptance GC or replace allocators. Explicit native-frame release
+already detaches its sized native finalizer before malloc.free; SDK internals
+remain unmeasured. Request/result owners
+already dispose/release in finally; don't repeat these rejected leak hypotheses.
+
+Older full primary41159934237 finishes:48cases/1,440rows,104 numerical misses,
+zero integrity findings, exact independent reproduction; full metrics include
+34RSS/22CPU/19throughput/13p99/12p95/3GC/1allocation misses. Old f16 supplemental
+all1,500 raw rows remain: exact aggregate38validated cases/1,140rows/176costs and
+four findings, payload precision exclusion retained. Newer35f4b8 full campaigns
+continue to completion. Separate two SDK allocation-precision figures still need
+a product scope answer; standard-SDK copy scope does not waive precision.
+
+Completed Qwen review/GLM judge are advisory. Alleged synchronous thread races
+are impossible in one Dart isolate; port reuse, pending keep-alive and root-zone
+success completion are verified by tests. Suggested idle-close regression already
+exists and awaits an actual pending idle wait within one second. Keep existing
+wake-check logic unchanged. Qwen test suggestions reopen/busy-close are covered;
+other synchronous interleaving claims are rejected. No extra code change follows.
+PR132 remains draft; do not merge, retarget, close103 or close the milestone.
+
+## Validated root-envelope record candidate (2026-10-31)
+
+Allocator/RSS diagnostic41178785283 completes all six fresh process cohorts /
+60rows and24role snapshots. Independently verify3,280 source inputs, retained
+binary/wrapper digests, unchanged policy, every raw row, exact summaries, stable
+PIDs and cleanup with no finding. Fresh cohorts show substantial VM page-cache,
+main/service-isolate and allocator differences; they do not localize a persistent
+owner leak or waive the actual failed RSS gates. No subtraction/custom allocator.
+Private loopback probes preserve two successful2MiB native releases and aligned
+64KiB Dart-owned whole frames (bodyoffset204mod4=0). An initial64KiB assertion
+wrongly required a native allocation despite complete SDK frames; preserve it as
+a probe assumption failure, not a product defect. Original test was restored.
+
+A separate candidate removes only the temporary outer root Map during frame
+reading. It returns a typed tag/body/metadata record after the same full generic
+validator, uses generated root field widths/union references and retains the
+existing body table reader. The old Map API is unchanged. No wire, schema,
+validation, bytes/cursor, payload/model, native code or policy changes. Shared
+body table/string cache identity and mutable byte-view aliasing are preserved.
+Six new API/differential cases cover defaults, absent metadata, aliases, shared
+physical tables with different schema types and every one-bit root mutation in
+the fixture. All3,552 serializer tests and targeted analysis pass. Initial tests
+incorrectly required ByteBuffer wrapper identity; corrected direct mutation tests
+prove actual shared storage. Both histories remain retained.
+
+Completed Qwen review's enum/union bounds and null-body claims are excluded by
+unchanged full validation (enum membership and nonzero/in-range union tags checked
+before any read); table() has a nonnullable Map return. Copying metadata would
+break the intentionally unchanged borrowed-byte contract. No confirmed finding.
+Keep the new API tests in their own file: existing shared component suites can
+run unchanged on both source variants, and all six new cases run on the actual
+candidate. The existing component isolation already permits precisely frame.dart
+plus wire_reader.dart. Measure against4b99d15d before integrating; no transport,
+RAM or primary acceptance is yet established for this optimization.

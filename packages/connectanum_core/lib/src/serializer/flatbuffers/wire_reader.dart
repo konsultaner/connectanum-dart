@@ -13,6 +13,14 @@ Map<String, Object?> readWampFlatBufferFields(Uint8List bytes) {
   return reader.table(reader.data.getUint32(0, Endian.little), wampRootTable);
 }
 
+/// Read the envelope without materializing its temporary outer field map.
+/// The body uses the same schema reader and all input validation is retained.
+({int tag, Map<String, Object?> body, Uint8List? metadata})
+readWampFlatBufferEnvelope(Uint8List bytes) {
+  validateWampFlatBuffer(bytes);
+  return _Reader(bytes).envelope();
+}
+
 class _Reader {
   _Reader(this.bytes) : data = ByteData.sublistView(bytes);
   final Uint8List bytes;
@@ -29,6 +37,31 @@ class _Reader {
   int _firstStringOffset = 0;
   String? _firstString;
   Map<int, String>? _otherStrings;
+
+  ({int tag, Map<String, Object?> body, Uint8List? metadata}) envelope() {
+    final offset = data.getUint32(0, Endian.little);
+    final vtable = offset - data.getInt32(offset, Endian.little);
+    final vtableSize = data.getUint16(vtable, Endian.little);
+    final fields = wampValidationTables[wampRootTable].fields;
+    final tagPosition = fieldPosition(offset, vtable, vtableSize, 0);
+    final tag = tagPosition == 0 ? 0 : integer(tagPosition, fields[0].width);
+    final bodyPosition = fieldPosition(offset, vtable, vtableSize, 1);
+    // Structural validation requires a non-null union with a valid tag.
+    final body = table(target(bodyPosition), fields[1].values[tag]);
+    final metadataPosition = fieldPosition(offset, vtable, vtableSize, 2);
+    final metadata = metadataPosition == 0
+        ? null
+        : vector(target(metadataPosition), fields[2]) as Uint8List;
+    return (tag: tag, body: body, metadata: metadata);
+  }
+
+  int fieldPosition(int offset, int vtable, int vtableSize, int slot) {
+    final entry = 4 + slot * 2;
+    final relative = entry < vtableSize
+        ? data.getUint16(vtable + entry, Endian.little)
+        : 0;
+    return relative == 0 ? 0 : offset + relative;
+  }
 
   int integer(int offset, int width) => switch (width) {
     1 => data.getUint8(offset),
@@ -58,13 +91,15 @@ class _Reader {
     final first = _firstTable;
     if (first != null &&
         offset == _firstTableOffset &&
-        reference == _firstTableReference)
+        reference == _firstTableReference) {
       return first;
+    }
     final second = _secondTable;
     if (second != null &&
         offset == _secondTableOffset &&
-        reference == _secondTableReference)
+        reference == _secondTableReference) {
       return second;
+    }
     final cached = _otherTables?[(offset, reference)];
     if (cached != null) return cached;
     final spec = wampValidationTables[reference];
