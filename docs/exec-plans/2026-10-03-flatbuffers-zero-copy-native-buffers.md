@@ -2,53 +2,110 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: repair the two RSS misses in the latest three-case diagnostic and
-complete strict full 48-case primary / 50-case supplemental acceptance on the
-final frozen runtime. The production-identical PR runtime has 94 full-campaign
-numerical misses; the diagnostic does not replace that matrix. Repair the red
-MQTT gate and retain current owned-copy/E2EE/transcode accounting. Candidates
-remain isolated; PR132 stays draft until complete acceptance. No gate is waived.
+Current step: validate the isolated typed/progressive RESULT header candidate.
+Its466native tests/three codec integrations pass after two reproduced failures.
+Require its own frozen canonical, hosted copy/lifetime and clean CI, then complete
+strict48/50 acceptance on one final runtime. The predecessor0c4bb57c CI is clean.
+Prior full48/50 reports remain failed evidence. PR132 stays draft; waive no gate,
+SDK/allocator/GC policy, sample/window or body verification.
+
+## Typed and progressive RESULT header candidate (2026-10-31)
+
+The isolated codex/flatbuffers-ppt-header-storage candidate removes the small
+metadata Vec with a bounded128-byte standard-CBOR Cursor and retains a heap
+fallback for larger metadata or an unexpected bounded-writer failure. Its builder
+reserve follows metadata size, rounded to eight bytes. It also directly encodes
+typed RESULT metadata with an optional progress boolean using the pinned schema.
+Complete metadata distinguishes absent/false/true; unknown controls/types retain
+generic validation. Request/body bounds, the1MiB metadata limit, conservative
+schema/frame budgets, external payload aliases and copy instrumentation remain.
+
+The clean pre-change0c4bb57c bin/test-fast passes with unchanged source/HEAD
+and own native library (log SHA-256 178879719b50c45ccc525ef96f9cfca806eb7afd451a07afce01ef042a0d46fb).
+
+Both focused regressions first fail on unchanged0c4bb57c: a255-byte scheme causes
+256 bytes of avoidable builder growth, and valid typed progressive results miss
+the generated writer. With the change, all466 core tests and three codec
+integrations pass. New tests cover CBOR/UTF8 length boundaries, metadata127/128/
+129bytes, exact/over-limit1MiB metadata, pinned schema fields, explicit false,
+fragmentation/truncation, owner drop and cross-thread storage. Growth counters
+stay zero for accepted metadata; metadata vector copies remain exactly measured.
+
+A local Rust1.95 prototype independently checks9,300 full-message/schema/metadata/
+alias cases; existing two-key frames remain byte-identical. With fresh body
+reference-count promotion included, typical ordinary header requests fall from
+seven/482bytes to six/328; progressive false/true fall from21/2,129bytes to
+six/336. All eight interleaved timing rounds are retained; median component
+ratios are0.96092 ordinary and0.28160/0.28857 progressive. These are component
+measurements, not RSS or transport-parity acceptance. The actual compiled public
+encoders independently reproduce all48 allocation rows on unchanged own binaries.
+See the component receipt.
+
+The new candidate still needs its own full canonical verification, hosted copy/
+lifetime evidence, clean CI and complete strict48/50 campaigns. The predecessor
+0c4bb57c has canonical/copy/all39CI checks passing. Neither that success nor this
+component establishes repair of either RPC RAM failure. PR132 stays40ddcb3f/draft;
+no gate, SDK/allocator/GC policy, sample/window or body verification is changed.
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
-The pre-change fast check on documentation-only checkpoint aacce95c exposed an
-absolute workstation path in the evidence JSON. Record the failure and replace
-it with a repository-relative library path before continuing new code. The frozen
-f7d60f2f runtime and its completed39-job CI evidence are unchanged.
+The documentation-only preflight failure on aacce95c is repaired: the evidence
+JSON now uses a repository-relative library path. The public-artifact scanner
+and clean pre-change fast suite pass. Published0c4bb57c canonical/copy evidence
+passes; all39 CI jobs now pass and remaining performance work is recorded below.
 
-## Native control acknowledgement candidate (2026-10-31)
+## Completed primary and published control candidate (2026-10-31)
 
-The clean, unchanged pre-change fast suite on e28ad089 passes after the evidence
-path repair. Implement the pinned generated writer for Published, Subscribed
-and Registered in both contiguous and segmented encoding. Unsupported variants
-and zero/out-of-range IDs keep the generic writer and its existing validation.
-The existing opaque RESULT specialization remains first in segmented dispatch;
-unrelated messages do not call the new generated acknowledgement builder.
+The f7d60f2f primary run41204163088 is complete and failed. Independent
+recomputation verifies all48 cases/1,440 raw rows, exact source/binary inputs,
+135 numerical misses and zero integrity findings. Its audit SHA-256 is
+b83b95bbe162cf0f9a6ea1f8ddbc1035df14e3792373e7abaf0fbc511c2261ea.
+Its complete supplemental result remains failed:172 numerical misses across38
+eligible cases and four evidence findings, with all1,500 raw rows preserved and
+the excluded payload shard separately audited. No full acceptance is established.
 
-The control envelope remains56 bytes with no application span or metadata.
-Its backing allocation is64 bytes. The initial compiled implementation passes
-all463 core Rust tests/three codec integrations and1,969 client/142 router native
-Dart cases. New checks cover generated-table fields and ID boundaries, every
-fragment split/truncated prefix, generic fallback and cross-thread storage.
-The final capacity/dispatch refinement also passes all463 native tests/three
-codec integrations and the same1,969 client/142 router cases against its own
-compiled binary880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898.
-No test, schema, protocol work, payload verification or acceptance gate changes.
+Published candidate0c4bb57c on codex/flatbuffers-control-ack-encoding implements
+the pinned generated writer for Published/Subscribed/Registered in both encoder
+entry points. Invalid IDs/other variants keep generic validation; existing RESULT
+specialization stays first. The final compiled component verifies nine to five
+allocation requests and960 to168 requested bytes, preserving56-byte envelopes.
+All463 native tests/three codec integrations,1,969 client and142 router native
+cases pass. Native library SHA-256:
+880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898.
+This is an allocation improvement, not RSS or end-to-end performance acceptance.
 
-Private counted-allocator evidence on the earlier128-byte buffer implementation
-verifies nine allocations/960 requested bytes become five/232 per segmented
-reply. The final64-byte buffer independently verifies five allocations/168
-requested bytes in all three real public segmented encoders, retaining56-byte
-frames. This avoids four allocation requests and792 requested bytes per reply.
-These are allocation requests, not RSS or end-to-end acceptance. Local review
-is blocked by another native mutation workload's resource lease; manual source
-review finds no confirmed defect. Do not bypass the lease. Full canonical,
-hosted CI/copy checking and changed-path transport evidence remain required.
+The frozen0c4bb57c full canonical bin/verify now passes with actual ChromeJS/Wasm,
+unchanged clean source and own native library. Verify log SHA-256:
+32186204dc7a0ce0d82c1b8ea5123790cf12cb906b3ee6992d74f38c9ef8137b.
+Copy41226052076 independently verifies3,296 source inputs,120 live/300 inventory
+rows and32 zero-avoidable-copy rows, including E2EE/transcoding, all native
+lifetime phases/cleanup and the expected negative control.
 
-The predecessor f7d60f2f complete supplemental report remains failed with172
-numerical misses across38 eligible cases, plus separately retained payload
-failures. Its48-case primary still runs. Neither RPC RAM failure is solved.
-PR132 stays40ddcb3f/draft, stacked on130; no milestone closure or adoption occurs.
+CI41226137592 is complete: all39 jobs pass on0c4bb57c. Attempt1 coverage
+failed before tests during Dart installation because GitHub's ID-token request
+lost its connection. After workflow completion, only that nonnumerical job and
+its dependency status were retried. Attempt2 passes. Passing numerical execution
+was reused: MQTT timestamps/steps and artifact13052281306 are unchanged. No
+numerical campaign was rerun. CI metadata SHA-256:
+ff5f46ac1fee8041b66ea311fc02631586da1a5404e26d36d2ecef94e04602d7.
+All-jobs snapshot SHA-256:
+a794ad73840cbd529bd7c1f2e6b6136b4860bd05d5d3a0422753a6443c0ebe67.
+The repaired public-path scanner and pre-change fast suite pass. Local companion
+test planning now completed when its lease allowed it; no reservation is bypassed.
+The candidate is separate from PR132, which stays40ddcb3f/draft on130. Neither RPC
+RAM failure is solved; no gate is waived or milestone/issue closed.
+
+The0c4bb57c standard MQTT gate independently reproduces all20 summaries from raw
+rows with unchanged budgets and matching source/native library. All pass on
+EPYC9V74; WebSocket ratios are0.75413696/0.72891247. Native Linux library SHA-256:
+8d7add7bf0198c6767b2992692a3e2ed8f826d787f1d7d9151c91ec64b372e3d.
+This does not causally establish repair on7763. CI is now clean. A private
+header-layout probe identifies avoidable temporary metadata allocation in the
+existing PPT RESULT writer: the typical66-byte metadata uses six allocations/
+458 requested bytes for a152-byte control span. This is component evidence,
+not demonstrated RSS improvement. Test a bounded standard-CBOR stack buffer and
+metadata-sized builder reserve before adopting any source change. Keep all
+schema, validation, copy/ownership, body verification and acceptance rules intact.
 
 ## Current acceptance checkpoint (2026-10-31)
 
@@ -70,7 +127,8 @@ misses: Dart throughput0.99008444, p99 median1.26837607/upper1.30263158, CPU
 native pre-encoded RSS1.00770440. Retain these failures. Do not select another
 unchanged numerical run or weaken a gate to obtain acceptance.
 
-Complete final-source48-case primary41204163088 is running. The supplemental
+Complete final-source48-case primary41204163088 is failed with135 numerical
+misses and zero integrity findings, all1,440 rows independently verified. The supplemental
 41204164884 is complete and failed: all1,500 rows independently verified;172
 numerical misses across38 eligible cases, with the12-case payload batch retained
 separately due SDK allocation-precision findings. FullCI41204759414 is complete: all39 jobs pass on the

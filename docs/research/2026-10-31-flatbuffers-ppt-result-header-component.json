@@ -1,0 +1,482 @@
+{
+  "actual_compiled_component": {
+    "baseline_build_exit": 0,
+    "baseline_libraries": {
+      "bytes": "9d505048efac9105554c2ad457bee345862bd3a4b4fcfabf3370b109755a506e",
+      "ct_core": "1b15e1fe9b1fde08bfdce4a9638f93ad953be7578ae16b4cef7012218a7cd738",
+      "serde_value": "37536cd37125c8a905f32e6ae10454808fcd1f26ff205622a1c4853868edc132"
+    },
+    "baseline_rows": [
+      {
+        "calls": 7,
+        "control_len": 128,
+        "progress": null,
+        "requested_bytes": 460,
+        "scheme_len": 4
+      },
+      {
+        "calls": 7,
+        "control_len": 152,
+        "progress": null,
+        "requested_bytes": 482,
+        "scheme_len": 25
+      },
+      {
+        "calls": 7,
+        "control_len": 200,
+        "progress": null,
+        "requested_bytes": 534,
+        "scheme_len": 77
+      },
+      {
+        "calls": 7,
+        "control_len": 200,
+        "progress": null,
+        "requested_bytes": 535,
+        "scheme_len": 78
+      },
+      {
+        "calls": 7,
+        "control_len": 208,
+        "progress": null,
+        "requested_bytes": 544,
+        "scheme_len": 87
+      },
+      {
+        "calls": 7,
+        "control_len": 216,
+        "progress": null,
+        "requested_bytes": 545,
+        "scheme_len": 88
+      },
+      {
+        "calls": 8,
+        "control_len": 376,
+        "progress": null,
+        "requested_bytes": 1224,
+        "scheme_len": 255
+      },
+      {
+        "calls": 16,
+        "control_len": 65664,
+        "progress": null,
+        "requested_bytes": 327628,
+        "scheme_len": 65536
+      },
+      {
+        "calls": 21,
+        "control_len": 136,
+        "progress": false,
+        "requested_bytes": 2108,
+        "scheme_len": 4
+      },
+      {
+        "calls": 21,
+        "control_len": 160,
+        "progress": false,
+        "requested_bytes": 2129,
+        "scheme_len": 25
+      },
+      {
+        "calls": 21,
+        "control_len": 216,
+        "progress": false,
+        "requested_bytes": 2285,
+        "scheme_len": 77
+      },
+      {
+        "calls": 21,
+        "control_len": 216,
+        "progress": false,
+        "requested_bytes": 2288,
+        "scheme_len": 78
+      },
+      {
+        "calls": 21,
+        "control_len": 224,
+        "progress": false,
+        "requested_bytes": 2315,
+        "scheme_len": 87
+      },
+      {
+        "calls": 21,
+        "control_len": 224,
+        "progress": false,
+        "requested_bytes": 2318,
+        "scheme_len": 88
+      },
+      {
+        "calls": 22,
+        "control_len": 392,
+        "progress": false,
+        "requested_bytes": 3331,
+        "scheme_len": 255
+      },
+      {
+        "calls": 31,
+        "control_len": 65672,
+        "progress": false,
+        "requested_bytes": 460335,
+        "scheme_len": 65536
+      },
+      {
+        "calls": 21,
+        "control_len": 144,
+        "progress": true,
+        "requested_bytes": 2108,
+        "scheme_len": 4
+      },
+      {
+        "calls": 21,
+        "control_len": 168,
+        "progress": true,
+        "requested_bytes": 2129,
+        "scheme_len": 25
+      },
+      {
+        "calls": 21,
+        "control_len": 216,
+        "progress": true,
+        "requested_bytes": 2285,
+        "scheme_len": 77
+      },
+      {
+        "calls": 21,
+        "control_len": 224,
+        "progress": true,
+        "requested_bytes": 2288,
+        "scheme_len": 78
+      },
+      {
+        "calls": 21,
+        "control_len": 232,
+        "progress": true,
+        "requested_bytes": 2315,
+        "scheme_len": 87
+      },
+      {
+        "calls": 21,
+        "control_len": 232,
+        "progress": true,
+        "requested_bytes": 2318,
+        "scheme_len": 88
+      },
+      {
+        "calls": 22,
+        "control_len": 400,
+        "progress": true,
+        "requested_bytes": 3331,
+        "scheme_len": 255
+      },
+      {
+        "calls": 31,
+        "control_len": 65680,
+        "progress": true,
+        "requested_bytes": 460335,
+        "scheme_len": 65536
+      }
+    ],
+    "baseline_run_exit": 0,
+    "candidate_build_exit": 0,
+    "candidate_libraries": {
+      "bytes": "9d505048efac9105554c2ad457bee345862bd3a4b4fcfabf3370b109755a506e",
+      "ct_core": "f4f6682a88bd5849eae9f791f0a3e022d30b955665bc6feba559334546ca09c6",
+      "serde_value": "c518855b86f19e80093d2c75211e2fc896dabf5bb4e04f8e5cd4693575fbbdb7"
+    },
+    "candidate_rows": [
+      {
+        "calls": 6,
+        "control_len": 128,
+        "progress": null,
+        "requested_bytes": 304,
+        "scheme_len": 4
+      },
+      {
+        "calls": 6,
+        "control_len": 152,
+        "progress": null,
+        "requested_bytes": 328,
+        "scheme_len": 25
+      },
+      {
+        "calls": 6,
+        "control_len": 200,
+        "progress": null,
+        "requested_bytes": 376,
+        "scheme_len": 77
+      },
+      {
+        "calls": 6,
+        "control_len": 200,
+        "progress": null,
+        "requested_bytes": 376,
+        "scheme_len": 78
+      },
+      {
+        "calls": 6,
+        "control_len": 208,
+        "progress": null,
+        "requested_bytes": 384,
+        "scheme_len": 87
+      },
+      {
+        "calls": 7,
+        "control_len": 216,
+        "progress": null,
+        "requested_bytes": 521,
+        "scheme_len": 88
+      },
+      {
+        "calls": 7,
+        "control_len": 376,
+        "progress": null,
+        "requested_bytes": 848,
+        "scheme_len": 255
+      },
+      {
+        "calls": 7,
+        "control_len": 65664,
+        "progress": null,
+        "requested_bytes": 131420,
+        "scheme_len": 65536
+      },
+      {
+        "calls": 6,
+        "control_len": 136,
+        "progress": false,
+        "requested_bytes": 312,
+        "scheme_len": 4
+      },
+      {
+        "calls": 6,
+        "control_len": 160,
+        "progress": false,
+        "requested_bytes": 336,
+        "scheme_len": 25
+      },
+      {
+        "calls": 6,
+        "control_len": 208,
+        "progress": false,
+        "requested_bytes": 384,
+        "scheme_len": 77
+      },
+      {
+        "calls": 7,
+        "control_len": 216,
+        "progress": false,
+        "requested_bytes": 521,
+        "scheme_len": 78
+      },
+      {
+        "calls": 7,
+        "control_len": 224,
+        "progress": false,
+        "requested_bytes": 538,
+        "scheme_len": 87
+      },
+      {
+        "calls": 7,
+        "control_len": 224,
+        "progress": false,
+        "requested_bytes": 539,
+        "scheme_len": 88
+      },
+      {
+        "calls": 7,
+        "control_len": 392,
+        "progress": false,
+        "requested_bytes": 874,
+        "scheme_len": 255
+      },
+      {
+        "calls": 7,
+        "control_len": 65672,
+        "progress": false,
+        "requested_bytes": 131438,
+        "scheme_len": 65536
+      },
+      {
+        "calls": 6,
+        "control_len": 144,
+        "progress": true,
+        "requested_bytes": 312,
+        "scheme_len": 4
+      },
+      {
+        "calls": 6,
+        "control_len": 168,
+        "progress": true,
+        "requested_bytes": 336,
+        "scheme_len": 25
+      },
+      {
+        "calls": 6,
+        "control_len": 216,
+        "progress": true,
+        "requested_bytes": 384,
+        "scheme_len": 77
+      },
+      {
+        "calls": 7,
+        "control_len": 224,
+        "progress": true,
+        "requested_bytes": 521,
+        "scheme_len": 78
+      },
+      {
+        "calls": 7,
+        "control_len": 232,
+        "progress": true,
+        "requested_bytes": 538,
+        "scheme_len": 87
+      },
+      {
+        "calls": 7,
+        "control_len": 232,
+        "progress": true,
+        "requested_bytes": 539,
+        "scheme_len": 88
+      },
+      {
+        "calls": 7,
+        "control_len": 400,
+        "progress": true,
+        "requested_bytes": 874,
+        "scheme_len": 255
+      },
+      {
+        "calls": 7,
+        "control_len": 65680,
+        "progress": true,
+        "requested_bytes": 131438,
+        "scheme_len": 65536
+      }
+    ],
+    "candidate_run_exit": 0,
+    "component_sha256": "b7e1efecdc34e50e49597f0588bd2f330b2d8c47cf64d97422c5cc6a08da0b24",
+    "native_after": "f56f9ec35908ea4950c2e8a29e8ebc1cf45628485ab1e1469fdb4fe859f69a43",
+    "native_before": "f56f9ec35908ea4950c2e8a29e8ebc1cf45628485ab1e1469fdb4fe859f69a43",
+    "scope": "Actual compiled public segmented encoders with fresh per-call bodies, first refcount promotion included; independent full-message/alias checks. Allocation volume only, no RSS or transport acceptance.",
+    "source_sha256": "fc70d29eb2ec0f09249de0a48604c57e6919ce6c9b663f1ad5d8966036df628c"
+  },
+  "before_fast": {
+    "exit": 0,
+    "head_after": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+    "head_before": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+    "log_sha256": "178879719b50c45ccc525ef96f9cfca806eb7afd451a07afce01ef042a0d46fb",
+    "native_after": "880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898",
+    "native_before": "880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898",
+    "status_after": "",
+    "status_before": ""
+  },
+  "boundaries": {
+    "boundary_cases": 9300,
+    "equivalence_and_alias": true
+  },
+  "candidate_branch": "codex/flatbuffers-ppt-header-storage",
+  "codec_integrations": 3,
+  "native_after": "880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898",
+  "native_before": "880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898",
+  "native_log_sha256": "90ad441f63e6e87aa23ab9f885629f28858a56f6e0d3e1bea9f615136c42a76d",
+  "native_source_sha256": "fc70d29eb2ec0f09249de0a48604c57e6919ce6c9b663f1ad5d8966036df628c",
+  "native_tests": 466,
+  "prototype_sha256": "17c8d136761aae7fac523dbbb1ed779a8cdccbd06b0646d7e00c85d57312d60c",
+  "runtime_base": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+  "rust_version": "1.95.0",
+  "scope": "Private local component, not transport/RSS acceptance. Prototype includes identical CodecAllocator/copy metrics, fresh per-operation bodies and separate counted/timing binaries. Original0c4native source/binary unchanged during comparison.",
+  "timing": [
+    {
+      "median_ratio": 0.9609215560639189,
+      "paired_ratios": [
+        0.9638341877515021,
+        0.9552067259062392,
+        0.9656947339365994,
+        0.9597117774049917,
+        0.9684380818521076,
+        0.9576467295105586,
+        0.9621313347228462,
+        0.9415263152812792
+      ],
+      "progress": null
+    },
+    {
+      "median_ratio": 0.28159600104485205,
+      "paired_ratios": [
+        0.2852231362758562,
+        0.28100024776129967,
+        0.28689859329821016,
+        0.27563368653955356,
+        0.2803341182587792,
+        0.2810746787868401,
+        0.28357770348525657,
+        0.28211732330286393
+      ],
+      "progress": false
+    },
+    {
+      "median_ratio": 0.28857062082436624,
+      "paired_ratios": [
+        0.28619368438153914,
+        0.2921196701470106,
+        0.29008021895788966,
+        0.28969312190468993,
+        0.2847067172642665,
+        0.28782983736241,
+        0.2893114042863225,
+        0.2800647803564584
+      ],
+      "progress": true
+    }
+  ],
+  "typical_allocations": [
+    {
+      "calls": 7,
+      "control_len": 152,
+      "direct": false,
+      "progress": null,
+      "requested_bytes": 482,
+      "scheme_len": 25
+    },
+    {
+      "calls": 6,
+      "control_len": 152,
+      "direct": true,
+      "progress": null,
+      "requested_bytes": 328,
+      "scheme_len": 25
+    },
+    {
+      "calls": 21,
+      "control_len": 160,
+      "direct": false,
+      "progress": false,
+      "requested_bytes": 2129,
+      "scheme_len": 25
+    },
+    {
+      "calls": 6,
+      "control_len": 160,
+      "direct": true,
+      "progress": false,
+      "requested_bytes": 336,
+      "scheme_len": 25
+    },
+    {
+      "calls": 21,
+      "control_len": 168,
+      "direct": false,
+      "progress": true,
+      "requested_bytes": 2129,
+      "scheme_len": 25
+    },
+    {
+      "calls": 6,
+      "control_len": 168,
+      "direct": true,
+      "progress": true,
+      "requested_bytes": 336,
+      "scheme_len": 25
+    }
+  ]
+}

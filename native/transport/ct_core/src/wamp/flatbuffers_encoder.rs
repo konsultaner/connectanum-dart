@@ -113,10 +113,10 @@ fn control_ack(message: &WampMessage) -> Option<Bytes> {
     Some(Bytes::from(allocation.into_vec()).slice(start..))
 }
 
-// An opaque RESULT with only the two PPT strings has no additional controls
-// to project. Use the pinned generated tables while keeping the complete
-// dictionary and the original application allocation. Extended dictionaries
-// and ordinary argument vectors retain the generic writer.
+// An opaque RESULT with the two PPT strings and an optional progress boolean
+// can use the pinned generated tables while keeping the complete dictionary
+// and original application allocation. Other dictionaries and ordinary
+// argument vectors retain the generic writer.
 fn simple_ppt_result(
     request: u64,
     details: &ValueMap,
@@ -126,7 +126,7 @@ fn simple_ppt_result(
     use super::flatbuffers_generated::wamp::proto as generated;
     if request == 0
         || request > 9_007_199_254_740_992
-        || details.len() != 2
+        || !(2..=3).contains(&details.len())
         || payload.args.is_some()
         || payload.kwargs.is_some()
     {
@@ -143,6 +143,7 @@ fn simple_ppt_result(
     };
     let mut scheme = None;
     let mut serializer = None;
+    let mut progress = None;
     for (key, value) in details {
         match (key, value) {
             (Cbor::String(key), Cbor::String(value)) if key == "ppt_scheme" => {
@@ -150,6 +151,9 @@ fn simple_ppt_result(
             }
             (Cbor::String(key), Cbor::String(value)) if key == "ppt_serializer" => {
                 serializer = Some(value.as_str());
+            }
+            (Cbor::String(key), Cbor::Bool(value)) if key == "progress" => {
+                progress = Some(*value);
             }
             _ => return Ok(None),
         }
@@ -161,17 +165,18 @@ fn simple_ppt_result(
         return Ok(None);
     }
 
-    // Only the scheme has variable length. The standard CBOR writer still
-    // encodes the complete map; reserve its exact canonical string size.
+    // The optional progress boolean has fixed encoded size; only the scheme
+    // has variable length. The standard CBOR writer encodes the complete map.
     const FIXED_BYTES: usize =
         1 + 1 + "ppt_scheme".len() + 1 + "ppt_serializer".len() + 1 + "flatbuffers".len();
+    let fixed_bytes = FIXED_BYTES + usize::from(progress.is_some()) * (1 + "progress".len() + 1);
     let scheme_header = match scheme.len() {
         0..=23 => 1,
         24..=255 => 2,
         256..=65535 => 3,
         _ => 5,
     };
-    let Some(metadata_len) = FIXED_BYTES
+    let Some(metadata_len) = fixed_bytes
         .checked_add(scheme_header)
         .and_then(|size| size.checked_add(scheme.len()))
         .filter(|size| *size <= 1024 * 1024)
@@ -193,16 +198,37 @@ fn simple_ppt_result(
     {
         return Ok(None);
     }
-    let mut metadata = Vec::with_capacity(metadata_len);
-    serde_cbor::to_writer(&mut metadata, details)
-        .map_err(|_| wire::invalid("metadata encoding"))?;
-    if metadata.len() != metadata_len {
-        return Ok(None);
-    }
+    // Small control metadata need not allocate a temporary Vec. Keep the
+    // standard CBOR writer and retry with heap storage if its bounded writer
+    // fails, preserving the existing error and generic-fallback behavior.
+    let mut inline_metadata = [0u8; 128];
+    let mut heap_metadata = Vec::new();
+    let mut inline_writer = std::io::Cursor::new(inline_metadata.as_mut_slice());
+    let use_inline = metadata_len <= inline_writer.get_ref().len()
+        && serde_cbor::to_writer(&mut inline_writer, details).is_ok();
+    let metadata: &[u8] = if use_inline {
+        if inline_writer.position() as usize != metadata_len {
+            return Ok(None);
+        }
+        &inline_metadata[..metadata_len]
+    } else {
+        heap_metadata.reserve_exact(metadata_len);
+        serde_cbor::to_writer(&mut heap_metadata, details)
+            .map_err(|_| wire::invalid("metadata encoding"))?;
+        if heap_metadata.len() != metadata_len {
+            return Ok(None);
+        }
+        &heap_metadata
+    };
 
-    let mut builder = flatbuffers::FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256));
+    // Reserve the pinned control tables alongside metadata, including root
+    // alignment. The checked 1 MiB metadata limit makes this addition bounded;
+    // rounding capacity to eight keeps the external payload vector tail aligned.
+    let capacity = (metadata_len + 96).next_multiple_of(8);
+    let mut builder =
+        flatbuffers::FlatBufferBuilder::new_in(CodecAllocator::with_capacity(capacity));
     let vector = builder.create_vector::<u8>(&[]);
-    let metadata = builder.create_vector(&metadata);
+    let metadata = builder.create_vector(metadata);
     codec_copy_metrics::record_vector_copy(metadata_len);
     let scheme = match scheme {
         "cryptobox" => generated::PPTScheme::CRYPTOBOX,
@@ -215,6 +241,7 @@ fn simple_ppt_result(
         &mut builder,
         &generated::ResultArgs {
             request,
+            progress: progress.unwrap_or(false),
             payload: Some(vector),
             ppt_scheme: scheme,
             ppt_serializer: generated::PPTSerializer::FLATBUFFERS,
@@ -786,8 +813,9 @@ mod tests {
     #[test]
     fn extended_or_invalid_result_controls_retain_generic_acceptance() {
         for (key, value) in [
-            ("progress", Cbor::Bool(false)),
-            ("progress", Cbor::Bool(true)),
+            ("progress", Cbor::Unit),
+            ("progress", Cbor::U64(1)),
+            ("progress", Cbor::String("true".into())),
             ("callee", Cbor::U64(0)),
             ("callee_authid", Cbor::String(String::new())),
             ("callee_authrole", Cbor::String("role".into())),
@@ -857,6 +885,168 @@ mod tests {
     }
 
     #[test]
+    fn simple_result_metadata_boundaries_preserve_schema_without_growth() {
+        use super::super::codec_copy_metrics::observed_on_current_thread;
+        use super::super::flatbuffers_generated::wamp::proto as generated;
+        let mut schemes = vec![
+            "cryptobox".to_owned(),
+            "mqtt".to_owned(),
+            "xbr".to_owned(),
+            "opaque".to_owned(),
+            "é".repeat(43),
+            "é".repeat(44),
+            "🚀".repeat(21),
+            "🚀".repeat(22),
+        ];
+        schemes.extend(
+            [1, 23, 24, 25, 86, 87, 88, 127, 128, 255, 256, 65535, 65536]
+                .map(|length| "x".repeat(length)),
+        );
+        for scheme in schemes {
+            for request in [1, 9_007_199_254_740_992] {
+                let body = Bytes::from(vec![0x71, 0x00, 0xff, 0x83, 0x27, 0x14, 0x51]);
+                let message = typed_result(request, &scheme, body.clone());
+                let WampMessage::Result {
+                    request_id,
+                    details,
+                    payload,
+                } = &message
+                else {
+                    unreachable!()
+                };
+                let expected_metadata = serde_cbor::to_vec(details).unwrap();
+                let before = observed_on_current_thread();
+                let parts = simple_ppt_result(*request_id, details, payload)
+                    .unwrap()
+                    .unwrap();
+                let after = observed_on_current_thread();
+                assert_eq!(
+                    after.growth_copy_bytes_total,
+                    before.growth_copy_bytes_total,
+                    "scheme byte length {}",
+                    scheme.len()
+                );
+                assert_eq!(
+                    after.vector_copy_bytes_total - before.vector_copy_bytes_total,
+                    expected_metadata.len() as u64
+                );
+                assert_eq!(parts.len(), 2);
+                assert_eq!(parts[0].len() % 8, 0);
+                assert_eq!(parts[1].as_ptr(), body.as_ptr());
+                let frame: Vec<u8> = parts.iter().flat_map(|part| part.iter().copied()).collect();
+                let root = generated::root_as_message(&frame).unwrap();
+                assert_eq!(root.metadata().unwrap().bytes(), expected_metadata);
+                let result = root.msg_as_result().unwrap();
+                assert_eq!(result.request(), request);
+                assert_eq!(result.payload().unwrap().bytes(), body);
+                assert_segmented_result_matches_generic(&message);
+            }
+        }
+    }
+
+    #[test]
+    fn simple_result_metadata_storage_survives_drop_and_fragmentation() {
+        use super::super::parse_message_segments;
+        for length in [87, 88, 256] {
+            let scheme = "x".repeat(length);
+            let expected_body = vec![0x11, 0x0, 0xff, 0x83, 0x45, 0x32, 0x70, 0x99, 0x3];
+            let message = typed_result(73, &scheme, Bytes::from(expected_body.clone()));
+            let parts = encode_segments(&message).unwrap();
+            drop(message);
+            let expected = typed_result(73, &scheme, Bytes::from(expected_body));
+            std::thread::spawn(move || {
+                let frame = Bytes::from(
+                    parts
+                        .iter()
+                        .flat_map(|part| part.iter().copied())
+                        .collect::<Vec<_>>(),
+                );
+                assert_eq!(
+                    parse_message_segments(Serializer::Flatbuffers, parts)
+                        .unwrap()
+                        .message,
+                    expected
+                );
+                for split in 0..=frame.len() {
+                    let fragments = vec![frame.slice(..split), frame.slice(split..)];
+                    assert_eq!(
+                        parse_message_segments(Serializer::Flatbuffers, fragments)
+                            .unwrap()
+                            .message,
+                        expected
+                    );
+                }
+                for end in 0..frame.len() {
+                    assert!(parse_message(Serializer::Flatbuffers, frame.slice(..end)).is_err());
+                }
+            })
+            .join()
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn typed_progressive_results_preserve_controls_and_metadata_limits() {
+        use super::super::codec_copy_metrics::observed_on_current_thread;
+        use super::super::flatbuffers_generated::wamp::proto as generated;
+        for progress in [false, true] {
+            for length in [25, 76, 77, 78, 255, 256, 1024 * 1024 - 54, 1024 * 1024 - 53] {
+                let scheme = match length {
+                    76 => "é".repeat(38),
+                    78 => "é".repeat(39),
+                    _ => "x".repeat(length),
+                };
+                let message = typed_result(42, &scheme, Bytes::from_static(b"body"));
+                let WampMessage::Result {
+                    request_id,
+                    mut details,
+                    payload,
+                } = message
+                else {
+                    unreachable!()
+                };
+                details.insert(Cbor::String("progress".into()), Cbor::Bool(progress));
+                let expected_metadata = serde_cbor::to_vec(&details).unwrap();
+                let before = observed_on_current_thread();
+                let actual = simple_ppt_result(request_id, &details, &payload).unwrap();
+                let after = observed_on_current_thread();
+                if expected_metadata.len() <= 1024 * 1024 {
+                    let parts =
+                        actual.expect("valid typed progressive RESULT uses generated writer");
+                    assert_eq!(parts.len(), 2);
+                    assert_eq!(
+                        parts[1].as_ptr(),
+                        payload.transparent.as_ref().unwrap().as_ptr()
+                    );
+                    assert_eq!(
+                        after.growth_copy_bytes_total,
+                        before.growth_copy_bytes_total
+                    );
+                    assert_eq!(
+                        after.vector_copy_bytes_total - before.vector_copy_bytes_total,
+                        expected_metadata.len() as u64
+                    );
+                    let frame: Vec<u8> =
+                        parts.iter().flat_map(|part| part.iter().copied()).collect();
+                    let root = generated::root_as_message(&frame).unwrap();
+                    assert_eq!(root.metadata().unwrap().bytes(), expected_metadata);
+                    let result = root.msg_as_result().unwrap();
+                    assert_eq!(result.progress(), progress);
+                    assert_eq!(result.request(), request_id);
+                } else {
+                    assert!(actual.is_none());
+                    assert_eq!(after, before);
+                }
+                assert_segmented_result_matches_generic(&WampMessage::Result {
+                    request_id,
+                    details,
+                    payload,
+                });
+            }
+        }
+    }
+
+    #[test]
     fn simple_result_metadata_limit_and_copy_accounting_are_exact() {
         use super::super::codec_copy_metrics::observed_on_current_thread;
         for scheme_length in [25, 1024 * 1024 - 44, 1024 * 1024 - 43] {
@@ -879,14 +1069,10 @@ mod tests {
                     after.vector_copy_bytes_total - before.vector_copy_bytes_total,
                     encoded.len() as u64
                 );
-                if scheme_length == 25 {
-                    assert_eq!(
-                        after.growth_copy_bytes_total,
-                        before.growth_copy_bytes_total
-                    );
-                } else {
-                    assert!(after.growth_copy_bytes_total > before.growth_copy_bytes_total);
-                }
+                assert_eq!(
+                    after.growth_copy_bytes_total,
+                    before.growth_copy_bytes_total
+                );
             } else {
                 assert!(actual.is_none());
                 assert_eq!(
