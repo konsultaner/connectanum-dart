@@ -287,6 +287,7 @@
   "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
   "pending_product_question": "Separate 1% allocation estimate precision for2 nativeMessagePack1MiB supplemental cases; label SDK-limited/unmeasured or instrument customSDK. No answer yet; prior standardSDK copy scope does not waive precision. Do not infer approval.",
   "published_control_candidate": {
+    "CI_passed_jobs_last": 34,
     "CI_run": 41226137592,
     "CI_setup_failure": {
       "cause": "Failed to get ID Token: socket hang up",
@@ -298,6 +299,173 @@
       "phase": "setup-ci -> dart-lang/setup-dart",
       "retry_status": "Deferred until containing CIrun completes, then retry only setup-failed coverage/nonnumerical dependents; never rerun passing numerical jobs.",
       "test_or_metric_execution_started": false
+    },
+    "MQTT_main20": {
+      "all_budgets_unchanged": true,
+      "all_summaries_exact": true,
+      "audit": [
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/batched/summary.json",
+          "raw_sha256": "ead3f7e42ba07a2d795ddff0688f244e27b0da2fc8c2fb57b3843845b08533d5",
+          "rows": 10,
+          "summary_sha256": "407044175b00a2a47333cbf7cbcde009d4da5c86b99c17a025bf654434abe486"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/burst/summary.json",
+          "raw_sha256": "faa7040bbbf0c80446ec78748c1efac1e8bbf04ece7e1cb147d55f41002cc84c",
+          "rows": 10,
+          "summary_sha256": "d2c37987b4b6cf97ac0a0720a3f4af6479f8a4aa43f1434a49c7d6188ab13381"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/fanout/summary.json",
+          "raw_sha256": "8978201aea00a57488f3644df92274bdf08f5a96d957f7aecf99d20ca4502156",
+          "rows": 10,
+          "summary_sha256": "d99e075700efb0b64c5d532f9a2a91a16c3306adfd52fe0707a68e6e5c2dcf5f"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-1k-sustained/summary.json",
+          "raw_sha256": "268a0a4db9d1d27c58f196f8acf0a81e22a1ddfd85e857e0d7666669470c87eb",
+          "rows": 10,
+          "summary_sha256": "59e19509fc151473e96b682d10351101400a4ba61b6493175dab4326bd5b01ef"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-64k-sustained/summary.json",
+          "raw_sha256": "4322b487cf5847092b14172ef4b75815b78b509023e8e1d7b13fadb6d5f6e78f",
+          "rows": 10,
+          "summary_sha256": "c7f5367fd186e49fa50418a6f8b05ef72dbf5f0ecbe2b650e34a35e71e30463c"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-batched/summary.json",
+          "raw_sha256": "b9c57c579a157029851e39d82d4d794fbd0c4df63949428c22154e7172cf1e75",
+          "rows": 10,
+          "summary_sha256": "7189dfae9dd9e67d4552bcc0753eb7c30b5b13155dde611adceecb581608d7fe"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-burst/summary.json",
+          "raw_sha256": "c8477a0cbd4ea20afae50012f2561ecb42b803ef5b57f875b92a335481751b9d",
+          "rows": 10,
+          "summary_sha256": "81b43c81b8eb1dcfae42532443aca85d38cb01c096e144d7199fbcaca053fe20"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-fanout/summary.json",
+          "raw_sha256": "3d4c563e6c124b31ffeab4759b8befac55f10c731fba552b451b1a5c90f86cd9",
+          "rows": 10,
+          "summary_sha256": "bd3bcb5e2fff2511df2372c4e0204fee6f476dae8e72a4654767a0ce40560daa"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-sustained/summary.json",
+          "raw_sha256": "887b46f8f29f90358ecea9835ec797184b2e16a0e287a1601358d4b9a6b63838",
+          "rows": 10,
+          "summary_sha256": "03ba2edf7080be24e27a748409a4e5b44921f36d6e1e485e2efff869a19511a9"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-tls-sustained/summary.json",
+          "raw_sha256": "751b11cba8ca437061d296383e895370fdf45473a956d23444d37710b1dc8763",
+          "rows": 10,
+          "summary_sha256": "25b538f993c368fc2a99b73749ae985cd86b29b4d63be9b70a3ed964e7d3f9b9"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-tls-v311-sustained/summary.json",
+          "raw_sha256": "94b250d3533add35b67a93c120ba69aa9c4ed568a3e8fe10af36f32c65979295",
+          "rows": 10,
+          "summary_sha256": "14c41962a2198ed4245dbf08582b6e88bca1b676a11b16ef464a45141f6bc5a1"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-v311-sustained/summary.json",
+          "raw_sha256": "f98292f2714959e667828079ceb9fffdfd2bd5da8276d657cc06b8d8b0bef3f9",
+          "rows": 10,
+          "summary_sha256": "4e4b36c974d94e7101aff35d9a77a0b8f6db709af4703e93962ea89221aaa5a5"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-ws-sustained/summary.json",
+          "raw_sha256": "8a31c9adb4529d09511d4f5cf11803163da11fc0f724f2b616ee715646a31544",
+          "rows": 10,
+          "summary_sha256": "42d1c294b647b0f7588115f33f7824072a314cc9b1f3c47efff0394e961e61bc"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-ws-v311-sustained/summary.json",
+          "raw_sha256": "7bfac98e3fc9432dc63b09e3a42c6472d2f0bc5b6cce73c02fb09e311df3cc56",
+          "rows": 10,
+          "summary_sha256": "a309cc06e620dd3b1acbf4ef5068e0b6d600a6be8b42e68598731d71447aa64a"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-wss-single-smoke/summary.json",
+          "raw_sha256": "6122d215c1f9b67f0f5c64210a3f7fa1e723ce75e155baa2c865b038cf693e23",
+          "rows": 6,
+          "summary_sha256": "6a4da10d2d9c4e9820582a9a3e37a492c69eefa3a2fd5d030d4b9f23877f19e7"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-wss-sustained/summary.json",
+          "raw_sha256": "0f46b7307cf02f0cb05503f68424d58f7873c79f2202be1793c0fb2d7a923bf2",
+          "rows": 10,
+          "summary_sha256": "6a82d16ec6f05e72d4ba95bf3efd06caec64f5839609176a438a358bf0b0c5a3"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-wss-v311-single-smoke/summary.json",
+          "raw_sha256": "34e141fcd85e930ec8a11fa3f5d9fd74a417b9794b49b4d5a7bdfc08fcc16510",
+          "rows": 6,
+          "summary_sha256": "7639f86ee82ee474d2ed104cadfb70e4b6fa29ca73917f848c3656f4f63c04e1"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/native-wss-v311-sustained/summary.json",
+          "raw_sha256": "e162d97ce98e07184619932cdba56559ff8ac3e546312d09ee007388d53b0509",
+          "rows": 10,
+          "summary_sha256": "8759c948adba01cf405ed32b10aba105e534313f757c56a05359e75bfc0c9e13"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/sustained/summary.json",
+          "raw_sha256": "725409494e84de634f1fe02159394a0eb083e5ce6f6acdb863be1c71a2de6dc6",
+          "rows": 10,
+          "summary_sha256": "0f6ec3b85b05d2dbf409ab9dfaa6afb581d2dbfd943754a18dde31cf7d7914b2"
+        },
+        {
+          "passed": true,
+          "path": "mqtt-qos0-benchmark/v311-sustained/summary.json",
+          "raw_sha256": "cf1962156bee26860b7d8fcae4ae7f2ef162dc46d52e111540cafd48c05f4d9b",
+          "rows": 10,
+          "summary_sha256": "033ee1d8aa1e6f8bd5a2bb34e925a976b9a0742e4f6b7df2ecc8346de074608b"
+        }
+      ],
+      "candidate_passes": true,
+      "cpu_models": [
+        "AMD EPYC 9V74 80-Core Processor"
+      ],
+      "head": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+      "library_hashes": [
+        "8d7add7bf0198c6767b2992692a3e2ed8f826d787f1d7d9151c91ec64b372e3d"
+      ],
+      "selected": [
+        {
+          "passed": true,
+          "profile": "mqtt-qos0-benchmark/native-ws-sustained/summary.json",
+          "throughput_ratio": 0.7541369616183168
+        },
+        {
+          "passed": true,
+          "profile": "mqtt-qos0-benchmark/native-ws-v311-sustained/summary.json",
+          "throughput_ratio": 0.7289124742411166
+        }
+      ],
+      "summaries": 20
     },
     "branch": "codex/flatbuffers-control-ack-encoding",
     "canonical_receipt": {
@@ -400,5 +568,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T18:21:30.206368+00:00"
+  "updated_utc": "2026-10-31T18:30:33.456424+00:00"
 }

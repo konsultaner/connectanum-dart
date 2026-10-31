@@ -9,10 +9,10 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-The pre-change fast check on documentation-only checkpoint aacce95c exposed an
-absolute workstation path in the evidence JSON. Record the failure and replace
-it with a repository-relative library path before continuing new code. The frozen
-f7d60f2f runtime and its completed39-job CI evidence are unchanged.
+The documentation-only preflight failure on aacce95c is repaired: the evidence
+JSON now uses a repository-relative library path. The public-artifact scanner
+and clean pre-change fast suite pass. Published0c4bb57c canonical/copy evidence
+passes; its CI setup failure and remaining performance work are recorded below.
 
 ## Completed primary and published control candidate (2026-10-31)
 
@@ -52,6 +52,14 @@ resource lease; manual source review has no confirmed finding and the lease is
 not bypassed. The repaired public-path scanner and pre-change fast suite pass.
 The candidate is separate from PR132, which stays40ddcb3f/draft on130. Neither RPC
 RAM failure is solved; no gate is waived or milestone/issue closed.
+
+The0c4bb57c standard MQTT gate independently reproduces all20 summaries from raw
+rows with unchanged budgets and matching source/native library. All pass on
+EPYC9V74; WebSocket ratios are0.75413696/0.72891247. Native Linux library SHA-256:
+8d7add7bf0198c6767b2992692a3e2ed8f826d787f1d7d9151c91ec64b372e3d.
+This does not causally establish repair on7763. CI currently has34 successful
+jobs, the setup-only coverage failure and three remaining jobs; wait for workflow
+completion before the scoped nonnumerical retry. No new numerical run occurs.
 
 ## Current acceptance checkpoint (2026-10-31)
 

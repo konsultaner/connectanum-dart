@@ -2,19 +2,19 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: repair the two RSS misses in the latest three-case diagnostic and
-complete strict full 48-case primary / 50-case supplemental acceptance on the
-final frozen runtime. The production-identical PR runtime has 94 full-campaign
-numerical misses; the diagnostic does not replace that matrix. Repair the red
-MQTT gate and retain current owned-copy/E2EE/transcode accounting. Candidates
-remain isolated; PR132 stays draft until complete acceptance. No gate is waived.
+Current step: finish CI41226137592 on published0c4bb57c and retry its setup-failed
+nonnumerical coverage job once GitHub permits it. Canonical and independently
+audited copy/lifetime checks pass. After CI is clean, solve the remaining RPC RAM,
+progressive and protocol parity failures using controlled evidence, then complete
+strict48/50 acceptance on one final runtime. Prior full48/50 reports are failed
+historical evidence. PR132 stays draft; no gate or workload is waived.
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
-The pre-change fast check on documentation-only checkpoint aacce95c exposed an
-absolute workstation path in the evidence JSON. Record the failure and replace
-it with a repository-relative library path before continuing new code. The frozen
-f7d60f2f runtime and its completed39-job CI evidence are unchanged.
+The documentation-only preflight failure on aacce95c is repaired: the evidence
+JSON now uses a repository-relative library path. The public-artifact scanner
+and clean pre-change fast suite pass. Published0c4bb57c canonical/copy evidence
+passes; its CI setup failure and remaining performance work are recorded below.
 
 ## Completed primary and published control candidate (2026-10-31)
 
@@ -54,6 +54,14 @@ resource lease; manual source review has no confirmed finding and the lease is
 not bypassed. The repaired public-path scanner and pre-change fast suite pass.
 The candidate is separate from PR132, which stays40ddcb3f/draft on130. Neither RPC
 RAM failure is solved; no gate is waived or milestone/issue closed.
+
+The0c4bb57c standard MQTT gate independently reproduces all20 summaries from raw
+rows with unchanged budgets and matching source/native library. All pass on
+EPYC9V74; WebSocket ratios are0.75413696/0.72891247. Native Linux library SHA-256:
+8d7add7bf0198c6767b2992692a3e2ed8f826d787f1d7d9151c91ec64b372e3d.
+This does not causally establish repair on7763. CI currently has34 successful
+jobs, the setup-only coverage failure and three remaining jobs; wait for workflow
+completion before the scoped nonnumerical retry. No new numerical run occurs.
 
 ## Current acceptance checkpoint (2026-10-31)
 
