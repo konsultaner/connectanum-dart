@@ -574,3 +574,39 @@ The candidate native digest is byte-identical to the preceding all-green f16ae5
 run; different runner CPU models are recorded, not asserted as the cause.
 Investigate before claiming clean CI. Do not retry unchanged numerical jobs
 for a favorable runner, weaken gates or mark PR ready.
+
+## 2026-10-31: scanner component verified; event-queue pacing candidate
+
+Hosted scanner component 41172911103 succeeds: independently verify 3,279 source
+inputs, four resolved inputs and 219 private artifacts; all 160 rounds and the
+summary reproduce exactly. Complete RESULT decode time falls 3.38%, CALL 1.81%;
+managed allocations fall about 384/373 bytes per decode. Both private correctness
+suites pass. See research/2026-10-31-flatbuffers-cbor-chunk-component.json. This
+isolated component is not transport, RAM or primary acceptance.
+
+Latest e02d6c CI still fails MQTT absolute TCP CPU and clear WS throughput gates
+on EPYC 7763. All 32 summaries reproduce exactly; native ready-write batching did
+not establish repair. Retain its failed job log/artifacts; no lucky runner retry.
+The 35f4b8 three-case diagnostic now passes every native metric and Dart-values
+throughput, but Dart RSS median 1.0047214, GC upper CI 1.1915303 and p99 upper CI
+1.052348 remain failures. No gate is changed.
+
+The new router candidate replaces only per-busy-pass zero-delay SDK timers with
+a reusable RawReceivePort event. It preserves idle timers, wake flags, scan order,
+full payload work and workload/measurement policies. Pending work keeps its
+isolate alive; idle ports do not, and boss-loop finally closes its port. Fail-first
+reproduces eight SDK timers before the change, zero after. Ten focused tests pass,
+including original-zone continuations, timer/message progress, pending close,
+reuse and natural child-isolate exit. Targeted analysis passes. The first broad
+router attempt fails because the new worktree lacks its native library; preserve
+that setup failure and rerun with the existing source-identical native build.
+Local advisory tests/judge are blocked by the shared native-mutation resource
+lease; do not bypass it. The native-enabled rerun passes all 636 selected router/MQTT tests (six existing
+skips); targeted analysis also passes. Performance and final canonical
+verification are still required. No numerical improvement is yet claimed.
+
+Full 48-case primary and 50-case supplemental 35f4b8 campaigns remain running and
+must be retained to completion. Older f16 supplemental retains all 1,500 raw rows;
+38 validated cases reproduce 176 cost diagnostics, while payload precision leaves
+four aggregate findings. Two SDK-limited allocation metrics remain a separate,
+unanswered product decision. No acceptance, readiness or milestone closure.

@@ -5330,6 +5330,7 @@ void main() {
 
     test('waits for the poll interval only when idle', () async {
       final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
       final stopwatch = Stopwatch()..start();
       await pacer.waitForNextTick(
         didWork: false,
@@ -5344,6 +5345,7 @@ void main() {
 
     test('yields immediately after a busy loop pass', () async {
       final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
       await pacer
           .waitForNextTick(
             didWork: true,
@@ -5392,12 +5394,117 @@ void main() {
       },
     );
 
+    test('busy passes yield to events without creating SDK timers', () async {
+      final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
+      final marker = Object();
+      var timers = 0;
+      var microtaskRan = false;
+      await runZoned(
+        () async {
+          scheduleMicrotask(() => microtaskRan = true);
+          for (var index = 0; index < 8; index++) {
+            await pacer.waitForNextTick(
+              didWork: true,
+              pollInterval: const Duration(seconds: 30),
+            );
+            expect(Zone.current[marker], isTrue);
+          }
+          expect(microtaskRan, isTrue);
+        },
+        zoneValues: {marker: true},
+        zoneSpecification: ZoneSpecification(
+          createTimer: (self, parent, zone, duration, callback) {
+            timers++;
+            return parent.createTimer(zone, duration, callback);
+          },
+        ),
+      );
+      expect(timers, 0);
+    });
+
+    test('busy passes allow queued messages and timers to progress', () async {
+      final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
+      final messages = ReceivePort();
+      addTearDown(messages.close);
+      var messageReceived = false;
+      final subscription = messages.listen((_) => messageReceived = true);
+      addTearDown(subscription.cancel);
+      var timerRan = false;
+      final timer = Timer(Duration.zero, () => timerRan = true);
+      addTearDown(timer.cancel);
+      messages.sendPort.send(null);
+      for (
+        var index = 0;
+        index < 100 && (!messageReceived || !timerRan);
+        index++
+      ) {
+        await pacer.waitForNextTick(
+          didWork: true,
+          pollInterval: const Duration(seconds: 30),
+        );
+      }
+      expect(messageReceived, isTrue);
+      expect(timerRan, isTrue);
+    });
+
+    test('close completes pending waits and permits reuse', () async {
+      final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
+      final first = pacer.waitForNextTick(
+        didWork: true,
+        pollInterval: const Duration(seconds: 30),
+      );
+      final second = pacer.waitForNextTick(
+        didWork: true,
+        pollInterval: const Duration(seconds: 30),
+      );
+      pacer.close();
+      await Future.wait([first, second]).timeout(const Duration(seconds: 1));
+      await pacer.waitForNextTick(
+        didWork: true,
+        pollInterval: const Duration(seconds: 30),
+      );
+      // Consume the wake queued by close before testing a pending idle wait.
+      await pacer.waitForNextTick(
+        didWork: false,
+        pollInterval: const Duration(seconds: 30),
+      );
+      final idle = pacer.waitForNextTick(
+        didWork: false,
+        pollInterval: const Duration(seconds: 30),
+      );
+      pacer.close();
+      await idle.timeout(const Duration(seconds: 1));
+      pacer.close();
+    });
+
+    test('an idle event port allows its isolate to exit', () async {
+      final replies = ReceivePort();
+      final exits = ReceivePort();
+      addTearDown(replies.close);
+      addTearDown(exits.close);
+      final reply = replies.first;
+      final exit = exits.first;
+      final isolate = await Isolate.spawn(
+        _busyPacerExitProbe,
+        replies.sendPort,
+        onExit: exits.sendPort,
+        errorsAreFatal: true,
+      );
+      addTearDown(() => isolate.kill(priority: Isolate.immediate));
+      expect(await reply.timeout(const Duration(seconds: 5)), 16);
+      await exit.timeout(const Duration(seconds: 5));
+    });
+
     test('early wake cancels the idle fallback timer', () async {
       final timers = <Timer>[];
       try {
         await runZoned(
           () async {
             final pacer = RouterBossLoopPacer();
+            addTearDown(pacer.close);
             final wait = pacer.waitForNextTick(
               didWork: false,
               pollInterval: const Duration(seconds: 30),
@@ -5424,6 +5531,7 @@ void main() {
 
     test('wakes an idle wait from queued or in-flight work', () async {
       final preSignaled = RouterBossLoopPacer()..requestWake();
+      addTearDown(preSignaled.close);
       await preSignaled
           .waitForNextTick(
             didWork: false,
@@ -5432,6 +5540,7 @@ void main() {
           .timeout(const Duration(milliseconds: 200));
 
       final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
       final wait = pacer.waitForNextTick(
         didWork: false,
         pollInterval: const Duration(seconds: 1),
@@ -18412,4 +18521,16 @@ void main() {
       );
     }
   }
+}
+
+// Deliberately leaves the idle pacer open to verify its port cannot leak isolates.
+Future<void> _busyPacerExitProbe(SendPort reply) async {
+  final pacer = RouterBossLoopPacer();
+  for (var index = 0; index < 16; index++) {
+    await pacer.waitForNextTick(
+      didWork: true,
+      pollInterval: const Duration(seconds: 30),
+    );
+  }
+  reply.send(16);
 }

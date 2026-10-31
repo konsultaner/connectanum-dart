@@ -10,6 +10,8 @@ const int _http3RequestDrainBudgetPerConnection = 1;
 
 @visibleForTesting
 final class RouterBossLoopPacer {
+  RawReceivePort? _eventPort;
+  Completer<void>? _eventCompleter;
   Completer<void>? _wakeCompleter;
   bool _wakeRequested = false;
 
@@ -30,7 +32,7 @@ final class RouterBossLoopPacer {
       pollInterval: pollInterval,
     );
     if (delay == Duration.zero) {
-      await Future<void>.delayed(Duration.zero);
+      await _nextEventTurn();
       return;
     }
 
@@ -40,7 +42,7 @@ final class RouterBossLoopPacer {
       if (identical(_wakeCompleter, wakeCompleter)) {
         _wakeCompleter = null;
       }
-      await Future<void>.delayed(Duration.zero);
+      await _nextEventTurn();
       return;
     }
 
@@ -55,6 +57,35 @@ final class RouterBossLoopPacer {
         _wakeCompleter = null;
       }
     }
+  }
+
+  // Yield through the event queue without creating a timer on every busy pass.
+  Future<void> _nextEventTurn() {
+    final pending = _eventCompleter;
+    if (pending != null) return pending.future;
+    final completer = Completer<void>();
+    _eventCompleter = completer;
+    final port = _eventPort ??= RawReceivePort(_completeEventTurn);
+    // Keep pending work alive, but allow an idle pacer to leave its isolate.
+    port.keepIsolateAlive = true;
+    port.sendPort.send(null);
+    return completer.future;
+  }
+
+  void _completeEventTurn(dynamic _) {
+    _eventPort?.keepIsolateAlive = false;
+    final completer = _eventCompleter;
+    _eventCompleter = null;
+    completer?.complete();
+  }
+
+  void close() {
+    _eventPort?.close();
+    _eventPort = null;
+    final completer = _eventCompleter;
+    _eventCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+    requestWake();
   }
 
   bool _consumeWakeRequest() {
@@ -360,6 +391,7 @@ class _RouterBoss {
         );
       }
     } finally {
+      _loopPacer.close();
       final subscription = _messageReadySubscription;
       _messageReadySubscription = null;
       await subscription?.cancel();
