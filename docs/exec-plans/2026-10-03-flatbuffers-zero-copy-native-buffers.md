@@ -2,13 +2,41 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: repair CI41242443320 before new runtime work. Its MCP shard1
-lost runner communication mid-execution; aggregate correctly rejects its missing
-report. Preserve five completed partitions and prepare the scoped recovery below.
-A retry requires a policy exception to the heartbeat's setup-only retry limit.
-Other CI jobs and complete primary48/supplemental50 campaigns continue; audit
-all exact-source raw rows on completion. Canonical/copy/MQTT/browser proofs pass,
-but no full RAM/transport acceptance or PR adoption is established.
+Current step: recover complete CI41242443320 after the pending one-time
+mid-execution retry exception is explicitly approved.36jobs pass; MCP shard1
+runner loss and its two aggregate dependents fail. No retry/source edit yet.
+Continue auditing complete primary48 and remaining supplemental reports. The
+payload shard independently fails14measured numerical metrics plus two unmeasured
+allocation metrics/30evidence findings across all12cases/360retained rows.
+Canonical/copy/MQTT/browser proofs pass; full RAM/transport acceptance does not.
+Do not repeat the pending questions or waive any gate/policy/sample/body check.
+
+## Complete CI and payload-size shard findings (2026-10-31)
+
+Exact-source CI41242443320 attempt1 is complete:36successful jobs, three failed
+records. The sole root failure remains MCP shard1's runner communication loss;
+the MCP aggregate and Full Verify correctly reject the missing prerequisite.
+No source defect is established. Recovery is ready after the already-asked
+setup-only retry exception is explicitly approved; no retry has been executed.
+The existing question is pending and must not be repeated or treated as approved.
+
+The payload-size shard of supplemental41242463543 is complete and failed.
+Independent recomputation verifies all12cases/360raw rows, unchanged policy,
+source inputs, retained native/driver binaries and exact hosted comparison.
+It has14measured numerical misses: seven RSS, two throughput, two CPU, one p95,
+one p99 and one GC. Dart-value10KiB throughput ratios are0.98404773clear and
+0.99337527TLS. These are actual failures; the RAM/performance work is not fixed.
+
+Two native MessagePack1MiB allocation metrics remain unmeasured, separately
+producing30evidence findings under the unchanged allocation requirements. Do
+not count those two as measured numerical misses or infer an allocation-policy
+waiver from prior standard-SDK copy-scope approval. Their separate product
+question remains unanswered and is not the sole blocker. Keep all360raw rows.
+
+Primary48 and both other supplemental shards continue on290480a3; this is not
+a complete50case acceptance result. Canonical/copy/MQTT/browser proofs remain
+valid for this exact source, PR132 stays40ddcb3f/draft, and no gates, observation
+windows/samples, SDK/GC/allocator policy or body verification are weakened.
 
 ## CI runner interruption blocks completion (2026-10-31)
 

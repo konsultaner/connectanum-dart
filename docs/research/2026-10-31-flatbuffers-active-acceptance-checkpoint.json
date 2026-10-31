@@ -299,11 +299,41 @@
   },
   "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
   "next_header_candidate": {
+    "CI_completion_receipt": {
+      "attempt": 1,
+      "conclusion": "failure",
+      "failed_jobs": [
+        {
+          "id": 124658928256,
+          "name": "MCP Mutation Shard 1"
+        },
+        {
+          "id": 124670994373,
+          "name": "mcp-library Mutation Gate"
+        },
+        {
+          "id": 124677524919,
+          "name": "Full Verify"
+        }
+      ],
+      "jobs_sha256": "1e4ebee1de66fdfc4c96028da8957ee0a87656817fbb0c21f700da3610f80fcc",
+      "metadata_sha256": "8ebaa7a148357c23c160bbdcbae7517fcb199c3a30ddc216f9e4906e4e2fb6cf",
+      "reason": "MCP runner communication lost mid-execution, no shard1 artifact. MCP/full-verification aggregates fail for that missing prerequisite.",
+      "retry_approved": false,
+      "retry_executed": false,
+      "root_failed_job": 124658928256,
+      "run": 41242443320,
+      "source": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "source_runtime_defect_proven": false,
+      "status": "completed",
+      "successful_jobs": 36
+    },
     "CI_failed_jobs_last": [
       124658928256,
-      124670994373
+      124670994373,
+      124677524919
     ],
-    "CI_passed_jobs_last": 33,
+    "CI_passed_jobs_last": 36,
     "CI_run": 41242443320,
     "CI_runner_interruption": {
       "CI_run": 41242443320,
@@ -379,6 +409,7 @@
       "source": "290480a3227dd6617379c6453d863b7d2ff7825d",
       "underlying_cause": "CPU/memory/network/provider cause unmeasured; no shard result or surviving test failure can be inferred."
     },
+    "CI_status": "completed_failure",
     "MQTT_main20": {
       "all_budgets_unchanged": true,
       "all_summaries_exact": true,
@@ -680,6 +711,149 @@
           "observations": 12,
           "pid": 5699,
           "rows": 6
+        }
+      ]
+    },
+    "payload_size_audit": {
+      "cases": 12,
+      "complete_supplemental_acceptance": false,
+      "evidence_findings": 30,
+      "inputs_and_binaries_verified": true,
+      "matches_hosted": true,
+      "measured_findings": [
+        {
+          "case": "ext_08_payload_sizes",
+          "ci_95_high": 0.9870296384045812,
+          "ci_95_low": 0.9791600936970887,
+          "median_ratio": 0.9840477255534178,
+          "metric": "throughput_mbps",
+          "passed": false
+        },
+        {
+          "case": "ext_08_payload_sizes",
+          "ci_95_high": 1.0271844660194176,
+          "ci_95_low": 1.0102880658436215,
+          "median_ratio": 1.0202205882352942,
+          "metric": "latency_p95_ms",
+          "passed": false
+        },
+        {
+          "case": "ext_08_payload_sizes",
+          "ci_95_high": 1.050777202072539,
+          "ci_95_low": 1.0077034183919114,
+          "median_ratio": 1.0356919223544145,
+          "metric": "latency_p99_ms",
+          "passed": false
+        },
+        {
+          "case": "ext_08_payload_sizes",
+          "ci_95_high": 1.0212282031842306,
+          "ci_95_low": 1.0056855083038576,
+          "median_ratio": 1.019199982383698,
+          "metric": "cpu_us_per_operation",
+          "passed": false
+        },
+        {
+          "case": "ext_08_payload_sizes",
+          "ci_95_high": 1.084351564390628,
+          "ci_95_low": 0.8874389559269114,
+          "median_ratio": 0.9910765367459677,
+          "metric": "gc_pause_us_per_operation",
+          "passed": false
+        },
+        {
+          "case": "ext_08_payload_sizes",
+          "ci_95_high": 1.0075100881781498,
+          "ci_95_low": 1.0003964589221914,
+          "median_ratio": 1.0060060198906062,
+          "metric": "summed_sampled_peak_rss_bytes",
+          "passed": false
+        },
+        {
+          "case": "ext_09_payload_sizes",
+          "ci_95_high": 1.0132601905561827,
+          "ci_95_low": 1.0050143266475644,
+          "median_ratio": 1.005838849577722,
+          "metric": "summed_sampled_peak_rss_bytes",
+          "passed": false
+        },
+        {
+          "case": "ext_10_payload_sizes",
+          "ci_95_high": 0.9964288496161812,
+          "ci_95_low": 0.9899896316919469,
+          "median_ratio": 0.9933752701011144,
+          "metric": "throughput_mbps",
+          "passed": false
+        },
+        {
+          "case": "ext_10_payload_sizes",
+          "ci_95_high": 1.0047437364873457,
+          "ci_95_low": 0.9979364287695545,
+          "median_ratio": 1.0009986361327443,
+          "metric": "cpu_us_per_operation",
+          "passed": false
+        },
+        {
+          "case": "ext_12_payload_sizes",
+          "ci_95_high": 1.0078873029339648,
+          "ci_95_low": 1.004363038628625,
+          "median_ratio": 1.0058742273507375,
+          "metric": "summed_sampled_peak_rss_bytes",
+          "passed": false
+        },
+        {
+          "case": "ext_13_payload_sizes",
+          "ci_95_high": 1.0578206010129223,
+          "ci_95_low": 0.8813014849497285,
+          "median_ratio": 0.9967533535367773,
+          "metric": "summed_sampled_peak_rss_bytes",
+          "passed": false
+        },
+        {
+          "case": "ext_14_payload_sizes",
+          "ci_95_high": 1.0043350913499045,
+          "ci_95_low": 0.9987378952682546,
+          "median_ratio": 1.0005891494444832,
+          "metric": "summed_sampled_peak_rss_bytes",
+          "passed": false
+        },
+        {
+          "case": "ext_15_payload_sizes",
+          "ci_95_high": 1.115710472189401,
+          "ci_95_low": 0.9942949367563713,
+          "median_ratio": 1.0041369073525168,
+          "metric": "summed_sampled_peak_rss_bytes",
+          "passed": false
+        },
+        {
+          "case": "ext_18_payload_sizes",
+          "ci_95_high": 1.0049542370566003,
+          "ci_95_low": 0.9979741157105518,
+          "median_ratio": 1.0014459078037445,
+          "metric": "summed_sampled_peak_rss_bytes",
+          "passed": false
+        }
+      ],
+      "measured_numerical_misses": 14,
+      "rows": 360,
+      "source": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "unmeasured_allocation_metrics": 2,
+      "unmeasured_metrics": [
+        {
+          "case": "ext_17_payload_sizes",
+          "ci_95_high": null,
+          "ci_95_low": null,
+          "median_ratio": null,
+          "metric": "allocated_bytes_per_operation",
+          "passed": false
+        },
+        {
+          "case": "ext_19_payload_sizes",
+          "ci_95_high": null,
+          "ci_95_low": null,
+          "median_ratio": null,
+          "metric": "allocated_bytes_per_operation",
+          "passed": false
         }
       ]
     },
@@ -986,5 +1160,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T22:23:21.360059+00:00"
+  "updated_utc": "2026-10-31T22:54:41.872164+00:00"
 }
