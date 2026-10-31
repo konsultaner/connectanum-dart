@@ -10,6 +10,77 @@ import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final version in MqttVersion.values) {
+    for (final (filter, topic, delivered) in [
+      ('a', 'a', true),
+      ('a', 'a/b', false),
+      ('a/b', 'a', false),
+      ('a/b', 'a/bc', false),
+      ('a/b', 'a/c', false),
+      ('/a/', '/a/', true),
+      ('/a', '/a/', false),
+      ('a/*', 'a/*', true),
+      ('a/*', 'a/b', false),
+      ('métric/é', 'métric/é', true),
+      ('métric/é', 'métric/e\u0301', false),
+      (r'$SYS/status', r'$SYS/status', true),
+      (r'$SYS', r'$SYS/status', false),
+      ('+', r'$SYS', false),
+      ('#', r'$SYS/status', false),
+      (r'$SYS/+', r'$SYS/status', true),
+      (r'$SYS/#', r'$SYS/status/one', true),
+      ('a/+', 'a/', true),
+      ('a/+', 'a', false),
+      ('a/+', 'a/b', true),
+      ('a/+', 'a/b/c', false),
+      ('a/#', 'a', true),
+      ('a/#', 'a/', true),
+      ('a/#', 'a/b/c', true),
+      ('+', '/', false),
+      ('/+', '/', true),
+    ]) {
+      test(
+        'literal and wildcard topic semantics ${version.name} $filter $topic',
+        () async {
+          final broker = MqttQos0Broker.native();
+          addTearDown(broker.close);
+          final sent = <Uint8List>[];
+          for (final id in [101, 102]) {
+            broker.attachNativeConnection(
+              id,
+              send: id == 102 ? sent.add : (_) {},
+              close: () {},
+            );
+            broker.receiveNativeChunk(
+              id,
+              MqttPacketCodec.encodeConnect(
+                MqttConnect(version: version, clientId: 'matching-$id'),
+              ),
+            );
+          }
+          broker.receiveNativeChunk(
+            102,
+            MqttPacketCodec.encodeSubscribe(
+              version,
+              packetId: 1,
+              filter: filter,
+            ),
+          );
+          sent.clear();
+          final wire = MqttPacketCodec.encodePublish(
+            version,
+            topic: topic,
+            payload: Uint8List.fromList([0, 255]),
+          );
+          broker.receiveNativeChunk(101, wire);
+          await Future<void>.delayed(Duration.zero);
+          expect(sent, delivered ? [wire] : <Uint8List>[]);
+          expect(broker.nativeConnectionIds, containsAll([101, 102]));
+        },
+      );
+    }
+  }
+
   test('native MQTT forwards validated QoS 0 frames across versions', () async {
     final broker = MqttQos0Broker.native();
     addTearDown(broker.close);

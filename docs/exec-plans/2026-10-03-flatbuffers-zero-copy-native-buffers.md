@@ -5497,3 +5497,39 @@ cases. Protocol contributes 127 numerical findings and encrypted/progressive
 findings. The exact aggregate excludes that invalid payload shard, retaining
 38 validated cases / 1,140 rows, 175 numerical findings and four findings.
 This remains failed predecessor evidence, never complete supplemental acceptance.
+
+## Revised text evidence and MQTT literal matching (2026-10-31)
+
+Revised d6d188fa component 41188935493 independently verifies 3,283 inputs,
+four resolved inputs, all 219 private artifacts, exact scanner/reader sources,
+all 160 raw rounds, unchanged model bytes/aliases, tests and cleanup. RESULT
+elapsed ratio improves to 0.94692797; managed allocation falls from 2,880.72368
+to 2,735.1776 bytes/decode. CALL allocation falls from 5,511.12464 to 5,343.15096,
+but elapsed ratio remains 1.02677092. Record that regression explicitly. The
+candidate proceeds to whole-transport measurement for its allocation reduction;
+component evidence does not establish RAM repair or overall performance parity.
+Completed GLM/Qwen reviews have no confirmed defect after source/test audits.
+
+Investigating the red MQTT gate exposes avoidable per-publication topic lists.
+After the unchanged dollar-topic restriction, compare literal filter/topic text
+directly; return false for a mismatched filter without wildcards. The existing
+wildcard matcher remains. No packet framing, delivery, queue, flushing, wake,
+budget or benchmark workload changes occur. All 52 new real-broker behavior
+cases pass before the change, covering both versions, literal prefix mismatches,
+Unicode normalization differences, ordinary '*', dollar topics, empty/trailing
+levels and wildcard edge cases. Afterward all 85 QoS0 integration cases pass
+(one optional Paho skip), plus 21 actual native-router MQTT cases (six existing
+platform skips). Analysis and diff checks are clean. Local review's reported
+findings explicitly re-evaluate themselves as correct unchanged behavior;
+no corresponding source defect is present. This is not yet a demonstrated repair
+of the hosted EPYC 7763 throughput failure: renew the unchanged full CI budgets.
+
+The clean 40ddcb3f pre-change canonical bin/test-fast completes successfully in
+its separate worktree; log SHA-256
+b21d5d0759b825e44e773c517581353595871f1dc9f53b85f974260db865a68a.
+Keep the experimental candidate isolated from PR132 until its complete strict
+transport evidence is assessed. Freeze the combined candidate for canonical
+verification and run paired diagnostics and CI; retain every failed predecessor
+and every row from the older full primary/supplemental campaigns still running.
+No threshold, measurement window, body generation/verification or copy scope is
+weakened, and the separate supplemental allocation-precision decision is pending.

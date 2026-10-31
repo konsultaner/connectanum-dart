@@ -102,6 +102,9 @@ final class MqttQos0Broker {
 
   static bool _matches(String filter, String topic) {
     if (topic.startsWith(r'$') && !filter.startsWith(r'$')) return false;
+    // Literal subscriptions need no topic-level lists on each publication.
+    if (filter == topic) return true;
+    if (!filter.contains('+') && !filter.contains('#')) return false;
     final f = filter.split('/');
     final t = topic.split('/');
     for (var i = 0; i < f.length; i++) {
