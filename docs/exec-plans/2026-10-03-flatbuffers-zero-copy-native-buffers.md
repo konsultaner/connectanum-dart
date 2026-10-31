@@ -9,6 +9,52 @@ numerical misses; the diagnostic does not replace that matrix. Repair the red
 MQTT gate and retain current owned-copy/E2EE/transcode accounting. Candidates
 remain isolated; PR132 stays draft until complete acceptance. No gate is waived.
 
+## Native MQTT singleton-prefix coalescing (2026-10-31)
+
+The abb0905b full frozen bin/verify passes, including actual Chrome JS/Wasm,
+with log SHA-256 a54ac89771dd954c543e639dc51c67e63a92c1423e2f4a70ed17540ee6495d91.
+Its MQTT CI still fails on EPYC 7763: independently reproduce all 32 summaries,
+unchanged budgets and library hashes. Candidate/matched WebSocket ratios remain
+roughly 0.619-0.670; an absolute TCP3.1.1 profile also misses at 0.72685942. Do
+not label literal matching a complete CI repair. Preserve its three MQTT
+artifacts before cancelling only the rejected candidate's remaining correctness
+CI work to free hosted capacity. All numerical campaign rows remain retained.
+
+A new native-only MQTT candidate extends the existing bounded poll/yield/poll
+coalescing turn to a singleton prefix. Previously the first frame flushes before
+that turn can collect bytes made ready by the native scheduler. Expand the
+existing regression over initial one/two-frame prefixes, every partial next-frame
+boundary and3/128/65,536-byte payloads. The corrected before test runs exactly one
+case and fails first chunk3bytes versus expected6. The earlier --exact filter
+matched zero tests and is preserved as a setup error, not validation.
+
+Both threshold conditions change consistently from two to one. The same pinned
+read future survives partial reads, yielding and flushing. A quiet tail flushes
+in the existing second Poll::Pending branch before next.await; no timer is added.
+The64KiB pending batch bound, independent frame bounds, control/close ordering,
+consumer backpressure, wake coalescing and TLS/non-Linux immediate policy remain.
+All43 MQTT Rust cases, all454 Rust core cases plus three codec integrations, and
+106 Dart MQTT integration cases pass (seven existing skips). The new ffi-test
+release library builds successfully. macOS network policy is immediate; the
+explicit Rust tests exercise coalescing=true, and hosted Linux must verify it.
+
+Diff-only Qwen review missed the unchanged flush before next.await. GLM with
+full context finds no concrete defect conditional on flush semantics. Verify
+pending.split().freeze() empties pending and mpsc.send has complete-success or
+error semantics; no partial successful flush exists. Existing closed-consumer,
+quiet/partial tail and expanded singleton tests cover those paths. No confirmed
+finding remains. This is not yet demonstrated hosted throughput or RAM repair.
+
+Run the unchanged full MQTT budgets with a same-runner40ddcb3f native baseline:
+the parent89681add native production source is byte-identical to that baseline,
+so this tests the actual native coalescing change rather than a different Dart
+broker. Retain955e4a91 and89681add canonical/paired/full reports on their own
+sources. PR132 stays40ddcb3f/draft until final-source full acceptance. The separate
+SDK allocation-precision question remains pending; change no gate without its
+answer. Full955e4a91 canonical verification also passes, log SHA-256
+202c9d7a7e36b7d0f68c0559e476aa1ed3ba0f17fd0b73932f398e1691ce0e4e;
+its bounded-text cache remains excluded from this smaller native candidate.
+
 ## Smaller candidate after cache rejection (2026-10-31)
 
 Independently reproduce all 90 abb0905b diagnostic rows, exact source/binaries,

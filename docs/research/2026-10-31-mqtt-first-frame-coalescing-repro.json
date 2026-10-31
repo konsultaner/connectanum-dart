@@ -1,0 +1,40 @@
+{
+  "baseline": "40ddcb3ff0dbf947ef21b8e7fb9cca3465a502b5",
+  "parent_runtime": "89681addc71e1a8d1ad3656cff2a1fd77dc8f8cc",
+  "kind": "native_mqtt_singleton_prefix_coalescing_regression_never_acceptance",
+  "primary_acceptance_eligible": false,
+  "candidate_source_sha256": "2f01be5bff6299e590fc43e6525100b6489ceb08935e9792c614ef4bb0805366",
+  "regression_before": {
+    "corrected_command_test_count": 1,
+    "exit": 101,
+    "first_chunk_bytes": 3,
+    "expected_ready_batch_bytes": 6,
+    "initial_wrong_exact_filter_matched_tests": 0
+  },
+  "after": {
+    "mqtt_rust_cases": 43,
+    "core_rust_cases": 454,
+    "additional_codec_integration_cases": 3,
+    "core_exit": 0,
+    "dart_mqtt_cases": 106,
+    "existing_skips": 7,
+    "dart_exit": 0,
+    "ffi_test_release_build_exit": 0
+  },
+  "review": {
+    "confirmed_findings": [],
+    "pending_flush_semantics_verified": "pending.split().freeze() empties the prefix; mpsc send is all-or-error, never partial success. Pending branch flushes before awaiting the same pinned read future. Existing closed-consumer/partial/quiet-tail tests pass.",
+    "no_timer_added": true
+  },
+  "limitations": [
+    "Local macOS network tests do not enable the production Linux plaintext coalescing flag; explicit Rust tests exercise coalescing=true.",
+    "No hosted throughput repair or WAMP RAM acceptance yet.",
+    "The64KiB batch cap is unchanged; the separate WebSocket frame limit and reader buffer policy are unchanged."
+  ],
+  "local_log_sha256": {
+    "connectanum-mqtt-first-frame-before-corrected.log": "aa5a3a6ed27037358f744ebf32e643ceb1b7da48df427c086062b0bcafbf8acb",
+    "connectanum-mqtt-first-frame-after.log": "eb575684143da2f92c3b77dcc09d61238c6892e51da5babfc0706e38a6e16d70",
+    "connectanum-mqtt-first-frame-core-all.log": "1e05d1ae0cd7f2cee93d4230a08ce7fd8f815d0e2a32920f9cf379c2ce7a45f4",
+    "connectanum-mqtt-first-frame-dart-network.log": "b59c56b480ea2388b179aba7f63a56631d7afe9fb5c9c4faf75329dcbeff10ab"
+  }
+}

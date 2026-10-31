@@ -4405,8 +4405,10 @@ fn spawn_mqtt_websocket_reader<R: AsyncRead + Unpin + Send + 'static>(
             if pending.is_empty() {
                 pending_messages = 0;
             }
+            // The first frame can arrive alone in a socket read. Give it the
+            // same bounded scheduler turn before waking the Dart consumer.
             let result = if coalesce_bursts
-                && pending_messages >= 2
+                && pending_messages >= 1
                 && !websocket_buffer_contains_complete_frame(reader.buffer())
             {
                 let mut next = std::pin::pin!(read_websocket_frame_mode(&mut reader, &pool, true));
@@ -4591,7 +4593,7 @@ fn spawn_mqtt_websocket_reader<R: AsyncRead + Unpin + Send + 'static>(
                 }
             }
             if !websocket_buffer_contains_complete_frame(reader.buffer())
-                && (!coalesce_bursts || pending_messages < 2)
+                && (!coalesce_bursts || pending_messages == 0)
                 && !flush_mqtt_websocket_inbound(
                     &mut pending,
                     &chunk_tx,
@@ -10281,53 +10283,58 @@ mod tests {
                 Poll::Ready(Ok(()))
             }
         }
-        for payload_size in [3, 128, 65536] {
-            let prefix_limit = match payload_size {
-                3 => 8,
-                128 => 10,
-                _ => 16,
-            };
-            for prefix in 0..=prefix_limit {
-                let mut wire = masked_mqtt_websocket_test_frame(2, true, b"abc");
-                wire.extend(masked_mqtt_websocket_test_frame(2, true, b"def"));
-                let first_chunk_end = wire.len() + prefix;
-                let payload = vec![b'x'; payload_size];
-                wire.extend(masked_mqtt_websocket_test_frame(2, true, &payload));
-                let mut expected = b"abcdef".to_vec();
-                expected.extend_from_slice(&payload);
-                let (chunk_tx, mut chunk_rx) = mpsc::channel(4);
-                let (control_tx, mut control_rx) = mpsc::channel(4);
-                let (close_tx, mut close_rx) = mpsc::unbounded_channel();
-                let reader_abort = spawn_mqtt_websocket_reader(
-                    tokio::runtime::Handle::current(),
-                    true,
-                    ConnectionId(193),
-                    ReadyAfterPending {
-                        wire,
-                        offset: 0,
-                        first_chunk_end,
-                        pending_once: false,
-                    },
-                    chunk_tx,
-                    Arc::new(AtomicBool::new(false)),
-                    Arc::new(Mutex::new(None)),
-                    control_tx,
-                    close_tx,
-                );
-                let first = chunk_rx.recv().await.unwrap();
-                assert_eq!(first.len(), expected.len().min(64 * 1024));
-                let mut received = first.to_vec();
-                while received.len() < expected.len() {
-                    received.extend_from_slice(&chunk_rx.recv().await.unwrap());
+        for first_message_count in [1, 2] {
+            for payload_size in [3, 128, 65536] {
+                let prefix_limit = match payload_size {
+                    3 => 8,
+                    128 => 10,
+                    _ => 16,
+                };
+                for prefix in 0..=prefix_limit {
+                    let mut wire = Vec::new();
+                    let mut expected = Vec::new();
+                    for initial in [b"abc", b"def"].iter().take(first_message_count) {
+                        wire.extend(masked_mqtt_websocket_test_frame(2, true, *initial));
+                        expected.extend_from_slice(*initial);
+                    }
+                    let first_chunk_end = wire.len() + prefix;
+                    let payload = vec![b'x'; payload_size];
+                    wire.extend(masked_mqtt_websocket_test_frame(2, true, &payload));
+                    expected.extend_from_slice(&payload);
+                    let (chunk_tx, mut chunk_rx) = mpsc::channel(4);
+                    let (control_tx, mut control_rx) = mpsc::channel(4);
+                    let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+                    let reader_abort = spawn_mqtt_websocket_reader(
+                        tokio::runtime::Handle::current(),
+                        true,
+                        ConnectionId(193),
+                        ReadyAfterPending {
+                            wire,
+                            offset: 0,
+                            first_chunk_end,
+                            pending_once: false,
+                        },
+                        chunk_tx,
+                        Arc::new(AtomicBool::new(false)),
+                        Arc::new(Mutex::new(None)),
+                        control_tx,
+                        close_tx,
+                    );
+                    let first = chunk_rx.recv().await.unwrap();
+                    assert_eq!(first.len(), expected.len().min(64 * 1024));
+                    let mut received = first.to_vec();
+                    while received.len() < expected.len() {
+                        received.extend_from_slice(&chunk_rx.recv().await.unwrap());
+                    }
+                    assert_eq!(received, expected);
+                    assert_eq!(
+                        close_rx.recv().await,
+                        Some(ConnectionTaskSignal::ReaderClosed)
+                    );
+                    assert!(chunk_rx.try_recv().is_err());
+                    assert!(control_rx.try_recv().is_err());
+                    reader_abort.abort();
                 }
-                assert_eq!(received, expected);
-                assert_eq!(
-                    close_rx.recv().await,
-                    Some(ConnectionTaskSignal::ReaderClosed)
-                );
-                assert!(chunk_rx.try_recv().is_err());
-                assert!(control_rx.try_recv().is_err());
-                reader_abort.abort();
             }
         }
     }
