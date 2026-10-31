@@ -822,24 +822,28 @@ class _BenchControlRegistry {
         ),
       };
       final dataWindow = WampSampleWindow.fromSamples(samples);
-      final responseChunks = wampResponseJsonChunks({
-        // Preserve every model through routing and project fields lazily.
-        'samples': wampSamplesForJsonEncoding(samples),
-        if (dataWindow != null) 'data_window': dataWindow.toJson(),
-        'file_segment_metrics': fileSegmentMetrics.toJson(),
-        'copy_metrics': mergeOwnedPipelineCopyMetrics(
-          copyMetrics,
-          scenario: scenario,
-        ),
-        'server_process_metrics': serverProcessMetrics,
-        if (clientProcessMetrics != null)
-          'client_process_metrics': clientProcessMetrics.toJson(),
-      });
+      final responseJson = prepareWampSampleReportJson(
+        samples: samples,
+        fields: {
+          if (dataWindow != null) 'data_window': dataWindow.toJson(),
+          'file_segment_metrics': fileSegmentMetrics.toJson(),
+          'copy_metrics': mergeOwnedPipelineCopyMetrics(
+            copyMetrics,
+            scenario: scenario,
+          ),
+          'server_process_metrics': serverProcessMetrics,
+          if (clientProcessMetrics != null)
+            'client_process_metrics': clientProcessMetrics.toJson(),
+        },
+      );
       final response = context.streamResponse(
         headers: const {'content-type': 'application/json; charset=utf-8'},
       );
-      for (final chunk in responseChunks) {
+      for (final chunk in responseJson.chunks) {
         response.add(chunk);
+        // Let the existing stream flush its Dart queue between sample batches.
+        // Native/socket buffering remains transport-owned, with no new cap.
+        await Future<void>.delayed(Duration.zero);
       }
       response.close();
       await response.done;

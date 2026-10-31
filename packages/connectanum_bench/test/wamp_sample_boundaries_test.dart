@@ -232,6 +232,139 @@ void main() {
       }
     });
 
+    test(
+      'streamed reports preserve complete bytes and immutable snapshots',
+      () {
+        for (final compact in [false, true]) {
+          final samples = List.generate(
+            2048,
+            (index) => WampSample.fromJson({...named, 'iteration': index}),
+          );
+          final metadata = <String, Object?>{
+            'extra': {'text': 'Unicode: 🪄 é \n \r \u0000 \ud800'},
+            'absent': null,
+            'empty': [],
+          };
+          final expected = wampWorkerResponseJsonBytes({
+            if (compact) 'sample_encoding': WampSample.workerRecordEncoding,
+            'samples': compact ? samples : wampSamplesForJsonEncoding(samples),
+            ...metadata,
+          }, compactSamples: compact);
+          final report = prepareWampSampleReportJson(
+            samples: samples,
+            fields: metadata,
+            compactSamples: compact,
+          );
+          final iterator = report.chunks.iterator;
+          expect(iterator.moveNext(), isTrue);
+          final output = BytesBuilder(copy: false)..add(iterator.current);
+          samples.clear();
+          (metadata['extra'] as Map)['text'] = 'changed';
+          metadata.clear();
+          var chunks = 1;
+          while (iterator.moveNext()) {
+            expect(iterator.current.length, lessThanOrEqualTo(65536));
+            output.add(iterator.current);
+            chunks++;
+          }
+          expect(chunks, greaterThan(3));
+          expect(output.takeBytes(), expected);
+          // Iteration neither consumes nor exposes mutable metadata storage.
+          expect(report.chunks.expand((c) => c), expected);
+        }
+      },
+    );
+
+    test(
+      'streamed preparation rejects late invalid rows/metadata atomically',
+      () {
+        final valid = WampSample.fromJson(named);
+        for (final compact in [false, true]) {
+          for (final invalid in [
+            double.nan,
+            double.infinity,
+            -double.infinity,
+          ]) {
+            WampSampleReportJson? published;
+            expect(
+              () => published = prepareWampSampleReportJson(
+                samples: [
+                  ...List.filled(2048, valid),
+                  WampSample.fromJson({...named, 'latency_ms': invalid}),
+                ],
+                fields: const {},
+                compactSamples: compact,
+              ),
+              throwsA(isA<JsonUnsupportedObjectError>()),
+            );
+            expect(published, isNull);
+          }
+          for (final invalid in [Object(), double.nan, double.infinity]) {
+            expect(
+              () => prepareWampSampleReportJson(
+                samples: [valid],
+                fields: {'invalid': invalid},
+                compactSamples: compact,
+              ),
+              throwsA(isA<JsonUnsupportedObjectError>()),
+            );
+          }
+          final cycle = <Object?>[];
+          cycle.add(cycle);
+          expect(
+            () => prepareWampSampleReportJson(
+              samples: [valid],
+              fields: {'cycle': cycle},
+              compactSamples: compact,
+            ),
+            throwsA(isA<JsonCyclicError>()),
+          );
+          for (final key in ['samples', 'sample_encoding']) {
+            expect(
+              () => prepareWampSampleReportJson(
+                samples: [valid],
+                fields: {key: []},
+                compactSamples: compact,
+              ),
+              throwsArgumentError,
+            );
+          }
+        }
+      },
+    );
+
+    test(
+      'streamed reports retain empty rows, zeros and numeric JSON spellings',
+      () {
+        for (final compact in [false, true]) {
+          for (final latency in [-1.0, 0.0, -0.0, 1e-100, 1e100]) {
+            for (final samples in <List<WampSample>>[
+              [],
+              [
+                WampSample.fromJson({...named, 'latency_ms': latency}),
+              ],
+            ]) {
+              final report = prepareWampSampleReportJson(
+                samples: samples,
+                fields: const {},
+                compactSamples: compact,
+              );
+              expect(
+                report.chunks.expand((chunk) => chunk),
+                wampWorkerResponseJsonBytes({
+                  if (compact)
+                    'sample_encoding': WampSample.workerRecordEncoding,
+                  'samples': compact
+                      ? samples
+                      : wampSamplesForJsonEncoding(samples),
+                }, compactSamples: compact),
+              );
+            }
+          }
+        }
+      },
+    );
+
     test('record input and output cannot mutate a parsed sample', () {
       final row = List<Object?>.from(positional);
       final sample = WampSample.fromWorkerRecord(row);
@@ -399,7 +532,7 @@ void main() {
         jsonEncode(wampSamplesForJsonEncoding([sample])),
         jsonEncode([sample.toJson()]),
       );
-      for (final latency in [0.0, -0.0, 1e-100, 1e100]) {
+      for (final latency in [-1.0, 0.0, -0.0, 1e-100, 1e100]) {
         final sample = WampSample.fromJson({...named, 'latency_ms': latency});
         expect(
           jsonEncode(wampSamplesForJsonEncoding([sample])),

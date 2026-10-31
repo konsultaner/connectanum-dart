@@ -8,6 +8,32 @@ acceptance on frozen source. Ownership/master-integration correctness and CI
 pass on the predecessor; the new allocation candidate needs renewed evidence.
 No acceptance is claimed.
 
+## Named sample report streaming candidate (2026-10-31)
+
+- [x] Audit f16ae5e9 allocator capture: all 3,276 tracked inputs and retained
+  binary/wrapper hashes, 60 complete rows, 24 owned role snapshots, exact summary.
+  Keep initial private newline-hash audit error; corrected raw-byte audit passes.
+  Free bins/cached VM pages vary; do not subtract or relabel RSS.
+- [x] Complete/audit native/Dart CPU capture 41163196895 (3,279 inputs, native
+  hash, 18 snapshots). Primary profile request is already 65,536 bytes; reject
+  the mistaken ext_08/10-KiB-default lead without changing the profiler.
+- [x] Prepare all sample/metadata validation before publishing; stream every
+  standard JSON row in sample batches through the existing HTTP transport.
+  Preserve all sample/field bytes and unchanged windows; native transport queues
+  and retained sample/metadata memory stay explicit limitations.
+- [x] Run balanced fresh ABBA on all 33,991 actual rows/metadata, no forced GC or
+  runtime knobs. Full hashes/bytes match. Named peak falls ~65.4 -> ~57.2 MB,
+  with ~12% encoding/hash CPU cost. Positional worsens: keep original compact
+  worker and apply only to named HTTP reports, identically for every codec.
+- [x] Pass 2,866 experimental bench cases, final 69 boundary cases and four
+  final 2,048-sample live responses. Targeted analysis passes. Complete GLM
+  judgment and verify/reject negative-latency/ASCII/empty-case suggestions against
+  the existing contract and tests. Earlier capped review remains incomplete.
+- [ ] Freeze source, run canonical verification and current-head hosted
+  diagnostic/copy/CI. Adopt only if unchanged performance gates improve.
+- [ ] Retain full f16ae5e9 primary/supplemental campaigns to completion. Complete
+  final eligible acceptance before marking ready or closing #103/milestone.
+
 ## Complete report staging candidate (2026-10-31)
 
 - [x] Audit successful component 41157110077 (160 rounds, 219 private artifacts,
@@ -26,7 +52,23 @@ No acceptance is claimed.
 - [x] Pass all 2,863 benchmark regressions and complete the balanced ABBA report
   component: all 32,067 samples and output digests match; retain all eight runs.
   Current RSS improves; lifetime peak gains are small/absent, not parity proof.
-- [ ] Freeze source; complete canonical verification and hosted CI/copy renewal.
+- [x] Freeze f16ae5e9; canonical `bin/verify` passes on clean fixed HEAD with
+  complete Chrome JS/Wasm. Audit passing current copy/lifetime 41159938655:
+  all 3,280 inputs and full 120/300/32 counts/native controls. External build
+  binaries are digest-attested but not retained in this copy artifact.
+- [x] Audit paired 41159942894: all 90 rows and exact comparison. Pre-encoded
+  passes all seven; native-buffer RSS passes. Retain three misses: Dart RSS,
+  Dart GC upper confidence bound and native-buffer p99 upper bound.
+- [x] Complete/audit predecessor full CI 41153485459: 39 successful jobs,
+  all 20 MQTT / 12 matched master summaries exact, budgets unchanged.
+- [x] Audit Dart-values profile 41161593502 (3,279 inputs, native digest, 18
+  snapshots, exact hosted audit). Final external bytes are 112 for every codec;
+  after-work heaps do not attribute RSS peaks.
+- [ ] Complete current CI 41159940789 (24 passing jobs, none failed), fresh
+  allocator/memory 41162296996 and native/Dart CPU attribution 41163196895.
+  Select a measured fix. The fragmented-CALL gap is rejected: the actual
+  serializer already uses a builder-owned reference. A private vector-observer
+  prototype has no executed measurements after resource-lease rejection.
 - [ ] Run full unchanged 48-case primary and 50-case supplemental acceptance;
   independently audit retained inputs, complete raw rows and comparisons.
   Resolve actual failures; preserve predecessor failures and pending SDK limit.

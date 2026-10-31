@@ -9,6 +9,92 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+Named HTTP report streaming candidate (after f16ae5e9): prepare an immutable
+sample-list snapshot, validate finite numeric rows and encode all metadata before
+sending. Emit every standard JSON row in bounded sample batches through the
+existing HTTP stream, yielding so its Dart queue can flush. Samples/metadata and
+native/socket queues retain their own storage; do not call this fully bounded
+pipeline memory. All fields, observations and metric windows remain unchanged.
+
+[Complete-record component](research/2026-10-31-flatbuffers-streamed-report-component.json)
+retains all eight fresh-process ABBA measurements and all 33,991 actual records
+plus metadata. Named output hashes/9,173,502 bytes match exactly; peak RSS falls
+from about 65.4 MB to 57.2 MB, while isolated encoding/hash time rises about 12%.
+Positional output also matches, but peak RSS and encoding time worsen. Reject
+positional streaming: the compact worker remains byte-for-byte f16ae5e9. Apply
+this candidate only to named HTTP reporting for every serializer.
+
+All 2,866 benchmark tests pass during the experiment; after retaining the existing
+compact writer, final 69 boundary tests (including negative finite JSON spellings)
+and four live 2,048-sample source responses pass with clean shutdown. Earlier four
+live responses and 139 focused cases also pass; targeted analysis is clean.
+Qwen's broad review reaches its output cap; bounded GLM judgment completes.
+Its negative-latency suggestion would change the existing model contract and is
+rejected; negative values must keep standard JSON behavior. Numeric-only model
+fields and ASCII keys justify the sample byte bound; existing empty/nullable/
+Unicode-metadata controls pass. Canonical verification and hosted diagnostic on
+the final frozen candidate remain required. This is not RAM/parity acceptance.
+
+Fresh-process allocator 41162296996 on f16ae5e9 independently verifies all 3,276
+tracked source inputs, retained resolved files/production binaries/wrappers,
+60 rows, 24 owned role snapshots and exact summary. Preserve the initial private
+audit error that omitted report newlines from hashes; corrected byte-preserving
+hashes match. FlatBuffers fresh pairs vary substantially (439.7 / 400.0 MB summed
+median peaks), with VM capacities and free allocator bins differing. Do not
+subtract those bins from RSS or infer an exact workload allocation site.
+Native/Dart CPU attribution 41163196895 also completes; its 3,279 inputs, native
+digest and 18 snapshots independently match. It is diagnostic, not acceptance.
+The primary profile request defaults to 65,536 bytes; the 10-KiB test applies only
+to ext_08. Do not add a payload override based on that rejected misreading.
+
+Frozen report-staging runtime: `f16ae5e9f41c5e38495187ca12a536915800531b`.
+Canonical `bin/verify` passes on its clean, fixed HEAD, including complete
+Chrome JS/Wasm core/client and all Rust/tooling/VM/native/router/live/consumer
+checks. Log SHA-256: 1f508f8283abbced3b7c64a9b93d40d75921be5e10839dbf3a68a6a8f641cb3f.
+
+Paired diagnostic 41159942894 completes all 90 rows and independently reproduces
+exactly with retained inputs/binaries verified. Three numerical misses remain:
+Dart-values RSS median 1.0172681176, Dart-values GC upper CI 1.1289654710
+(median 0.9767352224), and native-buffer p99 upper CI 1.0732797140 (median
+0.9879740981). Pre-encoded passes all seven metrics, including RSS; native-buffer
+RSS also passes. This does not replace primary acceptance. Current Dart-values
+VM attribution 41161593502 completes and independently verifies 3,279 inputs,
+native digest, all 18 snapshots and exact audit with zero findings. Case ID is
+rpc_rawsocket_clear_dart_values. After diagnostic GC the client external count
+is 112 bytes in every codec. FlatBuffers live client heap is 27,688,304 bytes,
+compared with MessagePack 26,900,112 and CBOR 29,238,224; these after-work/GC
+snapshots do not attribute the acceptance RSS peak. Fresh-process read-only
+allocator/memory capture 41162296996 and native/Dart CPU attribution 41163196895
+are running before choosing another fix. Do not equate profiler report staging
+with a proven workload allocation site.
+
+Copy/lifetime renewal 41159938655 passes on f16ae5e9. Independent audit verifies
+all 3,280 source/resolved inputs and complete 120 live / 300 inventory / 32
+zero-avoidable checks, E2EE/transcode/native-crypto counts, stable PIDs and clean
+shutdown. All three native controls reproduce six reports/twelve observations,
+with the expected zero-report, single-failure negative. Recorded native binary
+invariance is attested by the hosted guard; this copy artifact does not retain
+the external build-directory binaries for independent byte rehashing.
+
+Full primary 41159934237, all supplemental shards 41159936492, and full CI
+41159940789 are running on f16ae5e9. Predecessor CI 41153485459 completes all 39
+jobs successfully; its 20 MQTT gate and 12 matched master/native summaries
+independently reproduce exactly with unchanged budgets and consistent hashes.
+The later native/Dart companion reviews both finish; source checks reject
+speculative cache-key/projection concerns (keys are ints/records, the full
+projection delegates to the field helper, and native callbacks return to the
+per-field loop). No actionable regression is identified. Preserve the earlier
+incomplete review attempts.
+
+A possible fragmented-CALL writer fast-path gap is rejected as the remaining
+RAM cause: serializeFragments replaces the parts with its builder-owned vector
+reference before invoking the writer, so the actual path already qualifies.
+No speculative writer or wake-pacer change is made. A separate vector-observer
+closure-removal prototype exists only in /tmp; functional/performance execution
+has not started after the shared-machine lease rejects component/test-planning
+attempts. Do not ship it without measured benefit and equivalence controls. Do not rerun unchanged
+numerical campaigns to seek a lucky pass.
+
 The next RAM candidate removes the full-size UTF-8 join when preparing worker
 and HTTP benchmark reports. It retains owned 64 KiB encoder chunks, completes
 encoding before publishing, and sends the same complete JSON through existing
@@ -28,7 +114,8 @@ preserves 32,067 samples and identical output digests in both formats. Named
 output remains 12,168,713 bytes; positional output remains 2,837,250 bytes.
 Current RSS after encoding is lower; lifetime peak improvements are small or
 absent because input-report parsing precedes measurement. This is not acceptance.
-Source freeze, canonical verification and strict hosted renewal remain pending. A completed Qwen
+The frozen-source canonical and copy renewal now pass as recorded above; strict
+primary/supplemental acceptance remains pending. A completed Qwen
 review suggests invalid/mixed sample/null casts, but source inspection confirms
 the same pre-existing callback and concrete List<WampSample>; null/invalid cases
 are covered by exact-byte/error tests. No actual regression is identified.

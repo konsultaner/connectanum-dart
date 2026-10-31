@@ -57,6 +57,74 @@ class _JsonChunks implements Sink<List<int>> {
   void close() {}
 }
 
+/// Prepare the complete immutable sample snapshot and metadata before sending.
+/// Known numeric sample fields are validated here, so normal encoding failures
+/// cannot publish a partial response. Only sample output staging is bounded;
+/// the samples, encoded metadata and transport queues retain their own storage.
+WampSampleReportJson prepareWampSampleReportJson({
+  required List<WampSample> samples,
+  required Map<String, Object?> fields,
+  bool compactSamples = false,
+}) {
+  if (fields.containsKey('samples') || fields.containsKey('sample_encoding')) {
+    throw ArgumentError('Report metadata contains a reserved sample field');
+  }
+  final retained = List<WampSample>.unmodifiable(samples);
+  for (final sample in retained) {
+    // The benchmark creates this immutable model. Custom implementations could
+    // change getters after validation and must not enter a streaming response.
+    if (sample.runtimeType != WampSample) {
+      throw ArgumentError('Report requires immutable WampSample models');
+    }
+    if (!sample.latencyMs.isFinite) {
+      throw JsonUnsupportedObjectError(sample.latencyMs);
+    }
+  }
+  final metadata = JsonUtf8Encoder().convert(fields);
+  return WampSampleReportJson._(retained, metadata, compactSamples);
+}
+
+class WampSampleReportJson {
+  WampSampleReportJson._(this._samples, this._metadata, this._compact);
+
+  final List<WampSample> _samples;
+  final List<int> _metadata;
+  final bool _compact;
+
+  /// Consume each chunk before requesting the next. Every row is encoded using
+  /// the standard JSON encoder and the existing named/positional projection.
+  Iterable<List<int>> get chunks sync* {
+    yield utf8.encode(
+      _compact
+          ? '{"sample_encoding":"${WampSample.workerRecordEncoding}","samples":['
+          : '{"samples":[',
+    );
+    var buffer = StringBuffer();
+    var separator = '';
+    for (final sample in _samples) {
+      final row = jsonEncode(
+        _compact ? _SampleRecord(sample) : _SampleMap(sample),
+      );
+      // Model field names and numeric JSON spellings are ASCII. Flush before
+      // adding a complete row; no observation is truncated or omitted.
+      if (buffer.length + separator.length + row.length > 65536 &&
+          buffer.isNotEmpty) {
+        yield utf8.encode(buffer.toString());
+        buffer = StringBuffer();
+      }
+      buffer.write(separator);
+      buffer.write(row);
+      separator = ',';
+    }
+    if (buffer.isNotEmpty) yield utf8.encode(buffer.toString());
+    yield _metadata.length == 2 ? const [93, 125] : const [93, 44];
+    if (_metadata.length != 2) {
+      // Skip the metadata map's opening brace, retaining its closing brace.
+      yield _metadata.sublist(1);
+    }
+  }
+}
+
 // Shared named/positional order. Boundary tests compare both projections with
 // the existing public snapshots, including all optional null/zero combinations.
 const _fieldNames = [
