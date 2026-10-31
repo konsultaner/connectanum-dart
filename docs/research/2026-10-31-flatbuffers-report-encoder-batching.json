@@ -1,0 +1,54 @@
+{
+  "change": "One standard JSON stringifier per batch of at most64 immutable sample projections, replacing one per row. Strip array brackets and join groups by commas. Preserve every named/positional field and exact concatenated JSON bytes.",
+  "diagnostic_before": {
+    "failures": [
+      {
+        "case": "rpc_rawsocket_clear_dart_values",
+        "ci_95_high": 1.0299202392821536,
+        "ci_95_low": 1.0161816765439646,
+        "median_ratio": 1.0182076117796692,
+        "metric": "summed_sampled_peak_rss_bytes",
+        "passed": false
+      },
+      {
+        "case": "rpc_rawsocket_clear_native_native_buffer",
+        "ci_95_high": 1.116840199936897,
+        "ci_95_low": 0.865262232033527,
+        "median_ratio": 1.0024801387264588,
+        "metric": "summed_sampled_peak_rss_bytes",
+        "passed": false
+      },
+      {
+        "case": "rpc_rawsocket_clear_native_pre_encoded_span",
+        "ci_95_high": 1.0096601361063922,
+        "ci_95_low": 0.986101208208394,
+        "median_ratio": 1.0028778703759218,
+        "metric": "summed_sampled_peak_rss_bytes",
+        "passed": false
+      }
+    ],
+    "independent_audit_matches": true,
+    "rows": 90,
+    "run": 41198418834
+  },
+  "motivation": "The retained profile shows substantial reclaimable reporter allocations. Previous serial optimization still fails all3 diagnostic RSS comparisons; this is not a demonstrated RAM repair.",
+  "parent_fixture_commit": "832050692f12d0b71303fa4ec1848aa63f018e59",
+  "parent_runtime": "9fcc1be23f54424554e60bff0ff5d4d57ef2e16c",
+  "profile_inputs": {
+    "audits_exact": true,
+    "dart_values_run": 41198656722,
+    "pre_encoded_run": 41199145439,
+    "snapshots_each": 18,
+    "source_inputs_each": 3291
+  },
+  "remaining": "Own canonical verification, hosted diagnostic, copy/lifetime proof and complete final-runtime primary/supplemental campaigns. No numerical result is claimed for this candidate.",
+  "scope": "Bounded serialization of observation reports for all codecs. WAMP payload construction, verification, timing windows, operation/sample counts and acceptance gates unchanged.",
+  "verification": {
+    "all_benchmark_vm_tests": 2874,
+    "analyze": "clean",
+    "baseline_boundary_tests": 70,
+    "candidate_boundary_tests": 71,
+    "regression_cases": "Empty/single/batch boundaries 63,64,65,127,128,129,257; every field at64-bit numeric extremes, finite double extremes, Unicode/backslash/quote metadata; exact public-format bytes; retained chunks; pre-stream failure validation.",
+    "review": "No confirmed bug after independent source review; invariant depends on fixed13 numeric fields and owned UTF8 buffer per batch, covered by boundary tests."
+  }
+}

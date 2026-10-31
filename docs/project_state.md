@@ -9,6 +9,33 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+## Bounded report encoder candidate (2026-10-31)
+
+Independently reproduce9fcc1be2 diagnostic41198418834: all throughput, CPU,
+allocation, GC and latency metrics pass, but all three RSS comparisons fail.
+Dart values median1.01820761, native buffer1.00248014 (upper1.11684020), native
+pre-encoded1.00287787. Both fresh profiles independently verify3,291 source
+inputs and18 memory snapshots each; after-workload excess is reclaimable.
+No persistent native owner leak or solved RAM gate is established.
+
+A separate report-only candidate shares the standard JSON encoder across64
+immutable sample projections instead of creating a stringifier for each row.
+Every field/observation and exact concatenated JSON bytes remain, with bounded
+chunks and original atomic pre-stream validation. No protocol body, sample,
+window, SDK/allocator/GC setting or gate changes. All2,874 benchmark VM tests
+pass, including live E2EE/transcode and new numeric/batch-boundary checks; analyzer
+is clean. Require its own canonical and hosted acceptance before adoption.
+
+The complete fd983af8 primary predecessor41182489309 is now failed evidence:
+all48 cases/1,440 rows independently reproduce with exact inputs/binaries and
+zero integrity findings. There are94 numerical misses:36 RSS,18 CPU,16
+throughput,12 p99,9 p95 and3 GC. Its supplemental report retains1,500 raw rows
+with173 numerical misses across38 eligible cases and four evidence findings.
+The latest49b831d5 complete campaigns continue on their own source; neither
+old full report nor reduced diagnostic validates this new report candidate.
+PR132 remains40ddcb3f/draft; #103/milestone stay open. The separate1% SDK
+allocation-precision scope question remains pending.
+
 ## Browser fixture verification repair (2026-10-31)
 
 Frozen 9fcc1be2 bin/verify fails its launcher fixture after the outer wrapper

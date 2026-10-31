@@ -365,6 +365,43 @@ void main() {
       },
     );
 
+    test('streamed batch boundaries preserve every exact numeric row', () {
+      for (final compact in [false, true]) {
+        for (final count in [0, 1, 63, 64, 65, 127, 128, 129, 257]) {
+          final samples = List.generate(
+            count,
+            (index) => WampSample.fromJson({
+              ...named,
+              'iteration': index,
+              'latency_ms': index.isEven
+                  ? -double.maxFinite
+                  : double.minPositive,
+              for (final key in named.keys)
+                if (key != 'latency_ms' && key != 'iteration')
+                  key: 0x7fffffffffffffff,
+            }),
+          );
+          final report = prepareWampSampleReportJson(
+            samples: samples,
+            fields: const {'extra': r'🌟\path"'},
+            compactSamples: compact,
+          );
+          final chunks = report.chunks.toList();
+          expect(chunks.every((c) => c.length <= 65536), isTrue);
+          expect(
+            chunks.expand((c) => c),
+            wampWorkerResponseJsonBytes({
+              if (compact) 'sample_encoding': WampSample.workerRecordEncoding,
+              'samples': compact
+                  ? samples
+                  : wampSamplesForJsonEncoding(samples),
+              'extra': r'🌟\path"',
+            }, compactSamples: compact),
+          );
+        }
+      }
+    });
+
     test('record input and output cannot mutate a parsed sample', () {
       final row = List<Object?>.from(positional);
       final sample = WampSample.fromWorkerRecord(row);

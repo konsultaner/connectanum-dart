@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'wamp_workload_runner.dart';
 
@@ -99,30 +100,54 @@ class WampSampleReportJson {
           ? '{"sample_encoding":"${WampSample.workerRecordEncoding}","samples":['
           : '{"samples":[',
     );
-    var buffer = StringBuffer();
-    var separator = '';
-    for (final sample in _samples) {
-      final row = jsonEncode(
-        _compact ? _SampleRecord(sample) : _SampleMap(sample),
+    // Share one standard encoder across a bounded group instead of creating a
+    // stringifier and its closures for every observation. The immutable model
+    // has only thirteen bounded numeric fields, so64 rows fit below64 KiB even
+    // with every optional field and the longest64-bit numeric spellings.
+    for (var start = 0; start < _samples.length; start += 64) {
+      final end = (start + 64).clamp(0, _samples.length);
+      final encoded = utf8.encode(
+        jsonEncode(_SampleBatch(_samples, start, end, _compact)),
       );
-      // Model field names and numeric JSON spellings are ASCII. Flush before
-      // adding a complete row; no observation is truncated or omitted.
-      if (buffer.length + separator.length + row.length > 65536 &&
-          buffer.isNotEmpty) {
-        yield utf8.encode(buffer.toString());
-        buffer = StringBuffer();
+      // Remove only this batch's array brackets. Subsequent groups retain a
+      // leading comma without another transport write or copying the chunk.
+      if (start == 0) {
+        yield Uint8List.sublistView(encoded, 1, encoded.length - 1);
+      } else {
+        encoded[0] = 44;
+        yield Uint8List.sublistView(encoded, 0, encoded.length - 1);
       }
-      buffer.write(separator);
-      buffer.write(row);
-      separator = ',';
     }
-    if (buffer.isNotEmpty) yield utf8.encode(buffer.toString());
     yield _metadata.length == 2 ? const [93, 125] : const [93, 44];
     if (_metadata.length != 2) {
       // Skip the metadata map's opening brace, retaining its closing brace.
       yield _metadata.sublist(1);
     }
   }
+}
+
+class _SampleBatch extends ListBase<Object> {
+  _SampleBatch(this.samples, this.start, this.end, this.compact);
+
+  final List<WampSample> samples;
+  final int start;
+  final int end;
+  final bool compact;
+
+  @override
+  int get length => end - start;
+  @override
+  set length(int value) => throw UnsupportedError('Read-only sample JSON');
+  @override
+  Object operator [](int index) {
+    RangeError.checkValidIndex(index, this);
+    final sample = samples[start + index];
+    return compact ? _SampleRecord(sample) : _SampleMap(sample);
+  }
+
+  @override
+  void operator []=(int index, Object value) =>
+      throw UnsupportedError('Read-only sample JSON');
 }
 
 // Shared named/positional order. Boundary tests compare both projections with
