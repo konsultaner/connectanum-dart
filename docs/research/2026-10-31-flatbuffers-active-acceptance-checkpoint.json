@@ -300,7 +300,7 @@
   "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
   "next_header_candidate": {
     "CI_failed_jobs_last": [],
-    "CI_passed_jobs_last": 8,
+    "CI_passed_jobs_last": 21,
     "CI_run": 41242443320,
     "MQTT_main20": {
       "all_budgets_unchanged": true,
@@ -470,12 +470,46 @@
       "summaries": 20
     },
     "branch": "codex/flatbuffers-ppt-header-storage",
-    "canonical": "running_actual_chrome_wasm_tests_clean_frozen2904_source",
+    "canonical": "complete_pass",
     "canonical_attempt1": {
       "cause": "Fresh worktree package_config missing; bootstrap repaired environment without source/native changes.",
       "exit": 1,
       "log_sha256": "06951e7775f954d4f68f1eec3dab4b706ec3674d7ac3f8355ab90706b776ff38",
       "tests_started": false
+    },
+    "canonical_independent_audit": {
+      "canonical_exit": 0,
+      "format_pass": true,
+      "head": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "hosted_browser": {
+        "actual_chrome_javascript_log_lines": 8192,
+        "compiler": "dart2js",
+        "conclusion": "success",
+        "job": 124658928234,
+        "log_sha256": "e60d31efbc48968bd2312ff9a107739627f7277a6aa36d50ad3a6015f055e2dc",
+        "run": 41242443320
+      },
+      "local_actual_chrome_wasm_log_lines": 8308,
+      "local_browser_compiler": "dart2wasm per canonical Darwin policy",
+      "log_sha256": "bdfd0d3dfccb5f4acd667bd3ffc854990496371c6a05d00685d30cbd9e9fa6d7",
+      "native_library_rehashed_unchanged": true,
+      "native_sha256": "f56f9ec35908ea4950c2e8a29e8ebc1cf45628485ab1e1469fdb4fe859f69a43",
+      "scope": "Complete local canonical (actual Chrome/Wasm) and separate same-source hosted Chrome/JS lane pass. No claim of local JS execution or fullCI/performance/RSS acceptance.",
+      "source_and_head_unchanged": true
+    },
+    "canonical_receipt": {
+      "exit": 0,
+      "finished_utc": "2026-10-31T21:39:46.684661+00:00",
+      "head_after": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "head_before": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "log_sha256": "bdfd0d3dfccb5f4acd667bd3ffc854990496371c6a05d00685d30cbd9e9fa6d7",
+      "native_after": "f56f9ec35908ea4950c2e8a29e8ebc1cf45628485ab1e1469fdb4fe859f69a43",
+      "native_before": "f56f9ec35908ea4950c2e8a29e8ebc1cf45628485ab1e1469fdb4fe859f69a43",
+      "source_after": "fc70d29eb2ec0f09249de0a48604c57e6919ce6c9b663f1ad5d8966036df628c",
+      "source_before": "fc70d29eb2ec0f09249de0a48604c57e6919ce6c9b663f1ad5d8966036df628c",
+      "started_utc": "2026-10-31T21:12:48.932207+00:00",
+      "status_after": "",
+      "status_before": ""
     },
     "codec_integrations": 3,
     "component_receipt": "docs/research/2026-10-31-flatbuffers-ppt-result-header-component.json",
@@ -875,5 +909,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T21:36:14.427713+00:00"
+  "updated_utc": "2026-10-31T21:50:22.733083+00:00"
 }

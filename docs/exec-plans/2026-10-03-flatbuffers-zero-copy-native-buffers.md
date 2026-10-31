@@ -2,12 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish frozen290480a3 canonical verification and CI41242443320.
-Copy41242449963 and all20 MQTT profiles independently pass; retain their audits.
-Complete primary48 run41242456878/supplemental50 run41242463543 continue on this
-same source. Preserve all raw rows/policy/source/native receipts and independently
-audit complete reports. No RAM/transport acceptance or PR adoption yet. Keep
-runtime source/HEAD unchanged throughout active canonical verification.
+Current step: finish CI41242443320 and complete/audit primary48 run41242456878
+and supplemental50 run41242463543 on frozen290480a3. Full canonical passes with
+actual local Chrome/Wasm and separately verified hosted Chrome/JS; copy/lifetime
+and MQTT20 audits also pass. Preserve all raw rows and source/native receipts.
+No RAM/transport acceptance or PR adoption yet. Fix any remaining CI failure
+before new runtime work; isolate any later genuine fix with its own acceptance.
 
 ## 290480a3 copy/lifetime and MQTT audits complete (2026-10-31)
 
@@ -30,10 +30,17 @@ ac1db6d73a52800088b90d61513669bbc74e075db0ace461bc0a4abe60ac4929,
 with all965 source hashes, retained lock and standard flags verified; it is not
 substituted for the MQTT binary. No causal7763 repair is established.
 
-Canonical verification continues on clean frozen290480a3 with actual Chrome
-JS/Wasm executing and unchanged own nativef56f9ec3. CI has eight successful
-jobs and no failures in the retained snapshot. Full primary48/supplemental50
-campaigns continue; no numerical acceptance, PR adoption or RAM repair is claimed.
+Full290480a3 canonical bin/verify passes at21:39:46UTC on clean unchanged source
+and own nativef56f9ec3. Local Darwin policy executes actual Chrome/Wasm; the
+separate same-source hosted Chrome/JavaScript coverage job124658928234 also
+passes. Their logs independently confirm8,308Wasm/8,192JS observation lines.
+Canonical log SHA-256:
+bdfd0d3dfccb5f4acd667bd3ffc854990496371c6a05d00685d30cbd9e9fa6d7.
+Hosted JS log SHA-256:
+e60d31efbc48968bd2312ff9a107739627f7277a6aa36d50ad3a6015f055e2dc.
+CI has21successful jobs/no failures in the retained snapshot; remaining jobs and
+full primary48/supplemental50 continue. No numerical acceptance or RAM repair
+is claimed, and PR132 remains draft.
 
 ## Frozen290480a3 acceptance in progress (2026-10-31)
 
@@ -45,9 +52,11 @@ The actual compiled public encoders confirm the allocation reductions. Local
 canonical attempt1 stopped before tests because the fresh worktree lacked its
 Dart package configuration; no source or native binary changed. Preserve that
 failed log06951e7775f954d4f68f1eec3dab4b706ec3674d7ac3f8355ab90706b776ff38.
-Bootstrap now passes and full bin/verify repeats on clean unchanged290480a3,
-with actual Chrome JS/Wasm selected and the candidate's own native library.
-Keep that worktree/source/HEAD frozen until verification finishes.
+After bootstrap, complete bin/verify passes on clean unchanged290480a3 with
+actual Chrome/Wasm and the candidate's unchanged own native library. Hosted
+Chrome/JavaScript passes separately on this same source; do not describe it as
+local JS execution. Keep this candidate unchanged for the retained full hosted
+campaigns; isolate any later runtime fix and require its own acceptance.
 
 Predeclare and preserve complete strict primary48 run41242456878 and
 supplemental50 run41242463543 on this exact runtime, including every raw row and
@@ -91,11 +100,12 @@ measurements, not RSS or transport-parity acceptance. The actual compiled public
 encoders independently reproduce all48 allocation rows on unchanged own binaries.
 See the component receipt.
 
-The new candidate still needs its own full canonical verification, hosted copy/
-lifetime evidence, clean CI and complete strict48/50 campaigns. The predecessor
-0c4bb57c has canonical/copy/all39CI checks passing. Neither that success nor this
-component establishes repair of either RPC RAM failure. PR132 stays40ddcb3f/draft;
-no gate, SDK/allocator/GC policy, sample/window or body verification is changed.
+This candidate now has its own full canonical and independently audited hosted
+copy/lifetime evidence; final CI and complete strict48/50 campaigns remain
+pending. The predecessor0c4bb57c canonical/copy/all39CI successes remain separate.
+Neither correctness/copy checks nor this component establish repair of either
+RPC RAM failure. PR132 stays40ddcb3f/draft; no gate, SDK/allocator/GC policy,
+sample/window or body verification is changed.
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
