@@ -4,6 +4,63 @@
   "accepted": false,
   "all_955_49_historical_campaigns_complete_audited": true,
   "candidate": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+  "control_ack_candidate": {
+    "acceptance": false,
+    "branch": "codex/flatbuffers-control-ack-encoding",
+    "canonical_and_hosted_validation": "Required, not yet complete.",
+    "codec_integrations": 3,
+    "component_scope": "Allocation requests in actual compiled public segmented encoder; not retained memory, RSS, throughput or fullWAMP acceptance.",
+    "control_frame_bytes": 56,
+    "frame_allocation_capacity": 64,
+    "manual_review": "No confirmed finding. Local model review blocked by exclusive native mutation reservation, not bypassed.",
+    "native_cases": 463,
+    "native_client_cases": 1969,
+    "native_router_cases": 142,
+    "native_sha256": "880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898",
+    "prechange_clean_head": "e28ad089d7516a8ca7fbab17707a1014b7144d2c",
+    "prechange_fast_exit": 0,
+    "runtime_base": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+    "segmented_ack_allocation_requests_before_after": [
+      9,
+      5
+    ],
+    "segmented_ack_requested_bytes_before_after": [
+      960,
+      168
+    ],
+    "source_file": "native/transport/ct_core/src/wamp/flatbuffers_encoder.rs",
+    "source_sha256": "ff84ad959794e5d058a39e23cfae2c89eaaf769dbe3a97c2eac15d5be5b2b381"
+  },
+  "control_ack_component": {
+    "actual_production_integration": "Pending pre-change fast verification in isolated worktree.",
+    "allocations_before_after": [
+      9,
+      5
+    ],
+    "native_library_unchanged": true,
+    "requested_bytes_before_after": [
+      960,
+      232
+    ],
+    "rounds_per_shape": 8,
+    "runtime_source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+    "scope": "Local guarded prototype only; not transport/RAM/CI acceptance.",
+    "shapes": [
+      "Published",
+      "Subscribed",
+      "Registered"
+    ],
+    "source_sha256": "de9a0f16d4c3dea3ce452115b103f005e011f0e2e879be05cd4e22d672722377",
+    "uninstrumented_elapsed_ratios": [
+      0.302941946567306,
+      0.31125315109455287,
+      0.3101303548447424
+    ],
+    "wire_bytes_before_after": [
+      56,
+      56
+    ]
+  },
   "copy_rows": {
     "inventory": 300,
     "live": 120,
@@ -82,7 +139,8 @@
     "failure": "Public-artifact scanner found an absolute workstation path in this evidence JSON. Use a repository-relative native library path. Runtime/campaign source remains f7d60f2f.",
     "prechange_log_sha256": "2eb3cbb4a46f8c3d8d9e15676867acee58ecdbbc627117da522ab4d3b76ecf61",
     "prechange_source": "aacce95cadafc923d49df2e3d99d164b186b8676",
-    "prechange_test_fast_exit": 1
+    "prechange_test_fast_exit": 1,
+    "repaired_public_artifact_scanner_exit": 0
   },
   "final_CI": {
     "all_jobs_success": true,
@@ -124,6 +182,24 @@
     "diagnostic": 41204160963,
     "primary48": 41204163088,
     "supplemental50": 41204164884
+  },
+  "final_supplemental": {
+    "all_raw_rows_verified": true,
+    "comparison_sha256": "a9254f6354f2022dd3638ef76b4139f8fdfde9c9459787f4b2607429d38c73f7",
+    "complete_acceptance": false,
+    "eligible_cases": 38,
+    "eligible_rows": 1140,
+    "encrypted_progressive_numerical_misses": 48,
+    "evidence_findings": 4,
+    "excluded_payload_evidence_findings": 30,
+    "excluded_payload_numerical_misses": 15,
+    "excluded_payload_unmeasured_metrics": 2,
+    "matches_hosted": true,
+    "numerical_misses": 172,
+    "protocol_numerical_misses": 124,
+    "raw_rows": 1500,
+    "run": 41204164884,
+    "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8"
   },
   "historical_49_primary": {
     "audit_sha256": "f16ac21a9c8cd492601fd4bbed02f1fad0cff798802142afe2c16392a636ea72",
@@ -225,5 +301,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T16:10:51.081687+00:00"
+  "updated_utc": "2026-10-31T17:42:58.975147+00:00"
 }

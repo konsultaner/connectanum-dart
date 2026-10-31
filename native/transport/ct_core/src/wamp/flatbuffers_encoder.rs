@@ -20,7 +20,97 @@ pub fn encode_segments(message: &WampMessage) -> Result<Vec<Bytes>, ParseError> 
             return Ok(parts);
         }
     }
+    if matches!(
+        message,
+        WampMessage::Published { .. }
+            | WampMessage::Subscribed { .. }
+            | WampMessage::Registered { .. }
+    ) {
+        if let Some(frame) = control_ack(message) {
+            return Ok(vec![frame]);
+        }
+    }
     flatbuffers_writer::write_segments(&fields(message)?)
+}
+
+// These acknowledgement variants contain only two WAMP IDs. Build their pinned
+// tables directly rather than allocating the generic root/control field maps.
+// All other shapes and IDs keep the ordinary writer and its validation.
+fn control_ack(message: &WampMessage) -> Option<Bytes> {
+    use super::codec_copy_metrics::CodecAllocator;
+    use super::flatbuffers_generated::wamp::proto as generated;
+    let (request, other) = match message {
+        WampMessage::Published {
+            request_id,
+            publication_id,
+        } => (*request_id, *publication_id),
+        WampMessage::Subscribed {
+            request_id,
+            subscription_id,
+        } => (*request_id, *subscription_id),
+        WampMessage::Registered {
+            request_id,
+            registration_id,
+        } => (*request_id, *registration_id),
+        _ => return None,
+    };
+    if !(1..=9_007_199_254_740_992).contains(&request)
+        || !(1..=9_007_199_254_740_992).contains(&other)
+    {
+        return None;
+    }
+    // These fixed ID-only envelopes occupy 56 bytes, including both tables.
+    let mut builder = flatbuffers::FlatBufferBuilder::new_in(CodecAllocator::with_capacity(64));
+    let (tag, body) = match message {
+        WampMessage::Published { .. } => (
+            generated::AnyMessage::Published,
+            generated::Published::create(
+                &mut builder,
+                &generated::PublishedArgs {
+                    request,
+                    publication: other,
+                    ..Default::default()
+                },
+            )
+            .as_union_value(),
+        ),
+        WampMessage::Subscribed { .. } => (
+            generated::AnyMessage::Subscribed,
+            generated::Subscribed::create(
+                &mut builder,
+                &generated::SubscribedArgs {
+                    request,
+                    subscription: other,
+                    ..Default::default()
+                },
+            )
+            .as_union_value(),
+        ),
+        WampMessage::Registered { .. } => (
+            generated::AnyMessage::Registered,
+            generated::Registered::create(
+                &mut builder,
+                &generated::RegisteredArgs {
+                    request,
+                    registration: other,
+                    ..Default::default()
+                },
+            )
+            .as_union_value(),
+        ),
+        _ => return None,
+    };
+    let root = generated::Message::create(
+        &mut builder,
+        &generated::MessageArgs {
+            msg_type: tag,
+            msg: Some(body),
+            metadata: None,
+        },
+    );
+    builder.finish(root, None);
+    let (allocation, start) = builder.collapse_in();
+    Some(Bytes::from(allocation.into_vec()).slice(start..))
 }
 
 // An opaque RESULT with only the two PPT strings has no additional controls
@@ -156,6 +246,16 @@ fn simple_ppt_result(
 }
 
 pub fn encode(message: &WampMessage) -> Result<Bytes, ParseError> {
+    if matches!(
+        message,
+        WampMessage::Published { .. }
+            | WampMessage::Subscribed { .. }
+            | WampMessage::Registered { .. }
+    ) {
+        if let Some(frame) = control_ack(message) {
+            return Ok(frame);
+        }
+    }
     flatbuffers_writer::write(&fields(message)?)
 }
 
@@ -1015,5 +1115,181 @@ mod tests {
         };
         payload.args = Some(Bytes::from_static(&[0x80]));
         assert!(encode(&message).is_err());
+    }
+}
+
+#[cfg(test)]
+mod control_ack_tests {
+    use super::super::flatbuffers_generated::wamp::proto as generated;
+    use super::super::{parse_message, parse_message_segments};
+    use super::*;
+    use crate::rawsocket::Serializer;
+
+    fn ack(kind: usize, request: u64, other: u64) -> WampMessage {
+        match kind {
+            0 => WampMessage::Published {
+                request_id: request,
+                publication_id: other,
+            },
+            1 => WampMessage::Subscribed {
+                request_id: request,
+                subscription_id: other,
+            },
+            2 => WampMessage::Registered {
+                request_id: request,
+                registration_id: other,
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn both_ack_writers_preserve_pinned_fields_at_id_boundaries() {
+        for kind in 0..3 {
+            for request in [1, 255, 256, 9_007_199_254_740_992] {
+                for other in [1, 255, 256, 9_007_199_254_740_992] {
+                    let message = ack(kind, request, other);
+                    let frame = encode(&message).unwrap();
+                    let parts = encode_segments(&message).unwrap();
+                    assert_eq!(parts.len(), 1);
+                    assert_eq!(parts[0], frame);
+                    assert_eq!(frame.len(), 56);
+                    assert_eq!(
+                        parse_message(Serializer::Flatbuffers, frame.clone())
+                            .unwrap()
+                            .message,
+                        message
+                    );
+                    let root = generated::root_as_message(&frame).unwrap();
+                    assert!(root.metadata().is_none());
+                    match kind {
+                        0 => {
+                            assert_eq!(root.msg_type(), generated::AnyMessage::Published);
+                            let body = root.msg_as_published().unwrap();
+                            assert_eq!(
+                                (body.session(), body.request(), body.publication()),
+                                (0, request, other)
+                            );
+                        }
+                        1 => {
+                            assert_eq!(root.msg_type(), generated::AnyMessage::Subscribed);
+                            let body = root.msg_as_subscribed().unwrap();
+                            assert_eq!(
+                                (body.session(), body.request(), body.subscription()),
+                                (0, request, other)
+                            );
+                        }
+                        _ => {
+                            assert_eq!(root.msg_type(), generated::AnyMessage::Registered);
+                            let body = root.msg_as_registered().unwrap();
+                            assert_eq!(
+                                (body.session(), body.request(), body.registration()),
+                                (0, request, other)
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn generated_ack_layout_keeps_segmented_and_truncated_validation() {
+        for kind in 0..3 {
+            let message = ack(kind, 9_007_199_254_740_992, 9_007_199_254_740_992);
+            let frame = encode(&message).unwrap();
+            for split in 0..=frame.len() {
+                let pieces = vec![frame.slice(..split), frame.slice(split..)];
+                assert_eq!(
+                    parse_message_segments(Serializer::Flatbuffers, pieces)
+                        .unwrap()
+                        .message,
+                    message
+                );
+            }
+            for end in 0..frame.len() {
+                assert!(
+                    parse_message(Serializer::Flatbuffers, frame.slice(..end)).is_err(),
+                    "kind{kind} truncated{end}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_ack_ids_and_other_shapes_keep_generic_writer_behavior() {
+        let mut cases = Vec::new();
+        for kind in 0..3 {
+            for request in [0, 1, 9_007_199_254_740_993, u64::MAX] {
+                for other in [0, 1, 9_007_199_254_740_993, u64::MAX] {
+                    if request == 1 && other == 1 {
+                        continue;
+                    }
+                    cases.push(ack(kind, request, other));
+                }
+            }
+        }
+        cases.push(WampMessage::Hello {
+            realm: "realm.α".into(),
+            details: ValueMap::from([(
+                Cbor::String("custom".into()),
+                Cbor::Seq(vec![Cbor::U64(7)]),
+            )]),
+        });
+        cases.push(WampMessage::Hello {
+            realm: "realm".into(),
+            details: ValueMap::from([(Cbor::U64(7), Cbor::Bool(true))]),
+        });
+        cases.push(WampMessage::Result {
+            request_id: 1,
+            details: ValueMap::new(),
+            payload: Payload {
+                args: Some(Bytes::from_static(&[0x81, 0x01])),
+                ..Payload::default()
+            },
+        });
+        for message in cases {
+            assert!(control_ack(&message).is_none());
+            let generic = fields(&message)
+                .and_then(|value| flatbuffers_writer::write(&value))
+                .map_err(|error| format!("{error:?}"));
+            assert_eq!(
+                encode(&message).map_err(|error| format!("{error:?}")),
+                generic
+            );
+            let generic = fields(&message)
+                .and_then(|value| flatbuffers_writer::write_segments(&value))
+                .map_err(|error| format!("{error:?}"));
+            assert_eq!(
+                encode_segments(&message).map_err(|error| format!("{error:?}")),
+                generic
+            );
+        }
+    }
+
+    #[test]
+    fn encoded_acknowledgements_keep_storage_after_builder_and_sender_drop() {
+        let messages = (0..3)
+            .map(|kind| ack(kind, 257, 9_007_199_254_740_992))
+            .collect::<Vec<_>>();
+        let frames = messages
+            .iter()
+            .map(|message| encode(message).unwrap())
+            .collect::<Vec<_>>();
+        let retained = frames.clone();
+        drop(frames);
+        let parsed = std::thread::spawn(move || {
+            retained
+                .into_iter()
+                .map(|frame| {
+                    parse_message(Serializer::Flatbuffers, frame)
+                        .unwrap()
+                        .message
+                })
+                .collect::<Vec<_>>()
+        })
+        .join()
+        .unwrap();
+        assert_eq!(parsed, messages);
     }
 }
