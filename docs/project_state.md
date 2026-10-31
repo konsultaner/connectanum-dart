@@ -13,6 +13,29 @@ Validate the isolated typed/progressive RESULT header candidate below. The
 published0c4bb57c predecessor has clean canonical/copy/all39CI evidence; full
 RAM/protocol/progressive parity is still unresolved.
 
+## CI runner interruption blocks completion (2026-10-31)
+
+CI41242443320 currently has33successful jobs and two failed records. MCP Mutation
+Shard1 job124658928256 lost communication with GitHub during mutation execution
+at22:04:49UTC. Setup had passed; the execution step remains in_progress in the
+completed job metadata, no shard1 artifact was uploaded, and its console-log
+endpoint returns Azure BlobNotFound/HTTP404. GitHub's annotation confirms runner
+communication loss; CPU/memory/network/provider cause is not measured.
+
+All five other shard reports are retained on the exact290480a3 source, with
+verified source/test/runner hashes, complete partitions and successful original/
+restored baselines. Their full gate stays unmeasured until shard1 exists. The
+aggregate job124670994373 correctly rejects the missing sixth report. Do not
+waive it, fabricate a result or substitute another source's partition.
+
+Concrete recovery is a scoped rerun of interrupted shard1 and its nonnumerical
+dependents after the containing workflow finishes, preserving every passing
+numerical job/artifact. The current heartbeat restricts retries to setup failures;
+this was a mid-execution interruption and needs an explicit policy exception.
+No retry has been executed. Other CI jobs and the complete48/50 numerical
+campaigns continue; the successful canonical/copy/MQTT/browser evidence remains.
+No runtime source change is justified by the retained failure evidence alone.
+
 ## 290480a3 copy/lifetime and MQTT audits complete (2026-10-31)
 
 Exact-source copy41242449963 is successful and independently reproduced:

@@ -299,9 +299,86 @@
   },
   "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
   "next_header_candidate": {
-    "CI_failed_jobs_last": [],
-    "CI_passed_jobs_last": 21,
+    "CI_failed_jobs_last": [
+      124658928256,
+      124670994373
+    ],
+    "CI_passed_jobs_last": 33,
     "CI_run": 41242443320,
+    "CI_runner_interruption": {
+      "CI_run": 41242443320,
+      "aggregate_failure": "Expected exactly one report per shard and one target",
+      "aggregate_job": 124670994373,
+      "all_six_required": true,
+      "interruption_phase": "mutation execution; setup passed",
+      "job": 124658928256,
+      "job_log_retrieval": "Azure BlobNotFound/HTTP404; original response retained",
+      "local_debug": "Qwen advisory triage completed; official annotation proves communication loss, detailed console log unavailable.",
+      "missing_artifact": "mutations-mcp-shard-1",
+      "no_retry_executed": true,
+      "official_annotation": "The hosted runner lost communication with the server.",
+      "partial_reports": [
+        {
+          "assigned": 184,
+          "baseline_exit": 0,
+          "count": 6,
+          "full_gate_passed": null,
+          "inventory": 1101,
+          "report_sha256": "6aa76e7d4623bf00a8d5d67a5c258e83665fed8c65f7de54f1ae2c48963d13a7",
+          "restored_baseline_exit": 0,
+          "shard": 0,
+          "shard_complete": true
+        },
+        {
+          "assigned": 184,
+          "baseline_exit": 0,
+          "count": 6,
+          "full_gate_passed": null,
+          "inventory": 1101,
+          "report_sha256": "7feee7025bb7d770267c46613b2441bec720f563d7919166794f63394baae957",
+          "restored_baseline_exit": 0,
+          "shard": 2,
+          "shard_complete": true
+        },
+        {
+          "assigned": 183,
+          "baseline_exit": 0,
+          "count": 6,
+          "full_gate_passed": null,
+          "inventory": 1101,
+          "report_sha256": "9b4d10a592c1cd77d50dcc0594a11c01a6f561d149db71d15c8bcb053ccf6bd1",
+          "restored_baseline_exit": 0,
+          "shard": 3,
+          "shard_complete": true
+        },
+        {
+          "assigned": 183,
+          "baseline_exit": 0,
+          "count": 6,
+          "full_gate_passed": null,
+          "inventory": 1101,
+          "report_sha256": "719b393c0b0d334889bf9f54ad04fba33f93e6e98826e056985a4a9180f0ba2e",
+          "restored_baseline_exit": 0,
+          "shard": 4,
+          "shard_complete": true
+        },
+        {
+          "assigned": 183,
+          "baseline_exit": 0,
+          "count": 6,
+          "full_gate_passed": null,
+          "inventory": 1101,
+          "report_sha256": "bbcb01ce4ab6f9a8170c54f5e5ffc33cc363d3a55bc794712fbb27b4a3eacb5d",
+          "restored_baseline_exit": 0,
+          "shard": 5,
+          "shard_complete": true
+        }
+      ],
+      "policy_constraint": "Current heartbeat explicitly permits retries only for proven setup-failed nonnumerical jobs. This mid-execution interruption needs an explicit exception; do not misclassify it as setup failure.",
+      "proposed_recovery": "After workflow completion, rerun only interrupted shard1 and necessary nonnumerical aggregate dependents; preserve all passing numerical execution/artifacts.",
+      "source": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "underlying_cause": "CPU/memory/network/provider cause unmeasured; no shard result or surviving test failure can be inferred."
+    },
     "MQTT_main20": {
       "all_budgets_unchanged": true,
       "all_summaries_exact": true,
@@ -909,5 +986,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T21:50:22.733083+00:00"
+  "updated_utc": "2026-10-31T22:23:21.360059+00:00"
 }
