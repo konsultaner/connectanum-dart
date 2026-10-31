@@ -77,6 +77,26 @@
     "rows": 90,
     "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8"
   },
+  "final_CI": {
+    "all_jobs_success": true,
+    "artifact_count": 39,
+    "conclusion": "success",
+    "created_at": "2026-10-31T13:15:42Z",
+    "event": "workflow_dispatch",
+    "files_sha256": {
+      "connectanum-f7d60f-ci-all-jobs.json": "b6fa9f45423103960bd5cb617ea1aeaa5b099613fa091e81cc68d4f2f0492424",
+      "connectanum-f7d60f-ci-artifact-metadata.json": "cca27bc25a2a6aa85466b34c59c85c4674ae643cb2acba65fcdc58a769802935",
+      "connectanum-f7d60f-ci-run-metadata.json": "da1aa26ade367864382290a72a09ab48cacdd4afb82992b05a57d294fb836413"
+    },
+    "job_count": 39,
+    "run": 41204759414,
+    "run_attempt": 1,
+    "scope": "Complete hosted correctness/coverage/mutation and standardMQTT CI on frozen finalcandidate. Does not establish fullWAMP/RAM acceptance or causal7763repair.",
+    "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+    "status": "completed",
+    "updated_at": "2026-10-31T15:10:01Z",
+    "workflow": ".github/workflows/dart.yml"
+  },
   "final_payload_sizes": {
     "artifact_root": "/tmp/connectanum-f7d60f-payload-sizes",
     "audit": "/tmp/connectanum-f7d60f-payload-independent-audit.json",
@@ -165,5 +185,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T14:42:48.978984+00:00"
+  "updated_utc": "2026-10-31T15:11:34.214887+00:00"
 }

@@ -30,8 +30,8 @@ native pre-encoded RSS1.00770440. Retain these failures. Do not select another
 unchanged numerical run or weaken a gate to obtain acceptance.
 
 Complete final-source48-case primary41204163088 and50-case supplemental
-41204164884 are running; fullCI41204759414 has passing MQTT but remaining jobs
-are pending. Preserve every row of these predeclared complete campaigns and all
+41204164884 are running. FullCI41204759414 is complete: all39 jobs pass on the
+exact final candidate, including coverage, mutation and standard MQTT gates. Preserve every row of these predeclared complete campaigns and all
 remaining955e4a/49b831 historical campaigns. Independently reproduce complete
 reports before any adoption intoPR132. Source40ddcb3f stays the PR head/draft;
 no PR merge/retarget or #103/milestone closure occurs.
