@@ -11,6 +11,43 @@ remain isolated; PR132 stays draft until complete acceptance. No gate is waived.
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
+## Native MQTT outbound ready-turn candidate (2026-10-31)
+
+Report candidatefe9c7673 full frozen bin/verify passes, including actual Chrome
+JS/Wasm (loga68c7b172bcbe16e9bed4cdf4cb1789e2147a9c8f532dbc751ed3d397eda3131).
+Its copy report independently verifies3,294 source inputs,120 live/300 inventory
+rows including E2EE/transcoding,32 zero-avoidable-copy rows and native controls.
+Diagnostic41201126120 independently reproduces90 rows: native-buffer RAM passes;
+Dart-value RSS1.00190719 and pre-encoded RSS1.00132236 still miss. Dart GC median
+0.83739582 passes but upper1.06165552 misses confidence. All other diagnostic
+metrics pass. This is not full acceptance or a demonstrated causal RSS change
+across runners. Full49b831d5 campaigns continue on their own frozen source.
+
+The9fcc1be2 MQTT CI still fails EPYC7763 WebSocket throughput. All32 summaries
+reproduce with unchanged budgets; main ratios0.64700418/0.63074563 miss0.70 and
+matched old/new library WebSocket rounds also miss. Retain all three MQTT
+artifacts, including diagnostic perf, before cancelling only this rejected
+candidate's remaining correctness CI. CPU stacks show kernel wake/scheduler
+costs; the reader already has a16KiB BufReader, so adding one is not a fix.
+
+A new native-only writer candidate uses the existing Linux plaintext policy. A
+small selected chunk may yield once to ready producers before bounded draining.
+It never awaits another packet; new controls stop collection beyond the selected
+frame. Exact WS frames,16chunk/64KiBtarget bounds and all bytepermits remain.
+TLS/nonLinux, alreadyqueued andlarge chunks retain immediate policy. A private
+old-behavior wrapper fails the exact-wire counter test:2writes versus1 expected.
+Afterward all459 core tests/three codec integrations and108router+36core MQTT
+cases pass (seven existing skips). The new ffi-test library is
+eff57c18cf4d1b2251b1c5afa0253ac785565fb69f74851fed387e0b64ec590e.
+
+Companion test planning/debug/judge is blocked by another workload's exclusive
+reservation. Do not bypass it. Manual source review and deterministic quiet-tail,
+control, cancellation, disabled-policy, large/queued-data and permit tests pass.
+The first Dart command used the wrong cwd; retain its cert-path failure and
+correct-package passing logs. Hosted MQTT, canonical and final full WAMP/RAM
+acceptance remain required for the new native binary. No acceptance rule changes.
+PR132 stays40ddcb3f/draft; #103 and the milestone remain open.
+
 ## Bounded report encoder candidate (2026-10-31)
 
 Independently reproduce9fcc1be2 diagnostic41198418834: all throughput, CPU,

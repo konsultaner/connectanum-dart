@@ -1,0 +1,88 @@
+{
+  "component_after": {
+    "all_core_unit_tests": 459,
+    "coalescing_policy_writes": 1,
+    "core_codec_integrations": 3,
+    "core_mqtt_tests": 36,
+    "existing_router_skips": 7,
+    "immediate_policy_writes": 2,
+    "native_ffi_test_sha256": "eff57c18cf4d1b2251b1c5afa0253ac785565fb69f74851fed387e0b64ec590e",
+    "router_mqtt_tests": 108,
+    "two_exact_ws_frames": true
+  },
+  "component_before": {
+    "before_test_exit": 101,
+    "scope": "Private behavior-preserving async wrapper around existing ready drain, new deterministic counter regression fails2writes vs1; one unit case actually ran.",
+    "sha256": "38bb4db9e2f30667338105cc6cdca18d3229ae7f4505dd58a1762ae499bf682d"
+  },
+  "failed_hosted_run": 41198422758,
+  "failed_hosted_source": "9fcc1be23f54424554e60bff0ff5d4d57ef2e16c",
+  "hosted_all32_summaries_exact": true,
+  "hosted_budgets_unchanged": true,
+  "hosted_misses": [
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-native-comparison/baseline-1/ws_sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.5957610321946808
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-native-comparison/baseline-1/ws_v311_sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6231535664386161
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-native-comparison/baseline-2/ws_sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6141142879900496
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-native-comparison/baseline-2/ws_v311_sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6265232508765483
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-native-comparison/candidate-1/ws_sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6446436583158869
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-native-comparison/candidate-1/ws_v311_sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6354800632380055
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-native-comparison/candidate-2/ws_sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6501473757066991
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-native-comparison/candidate-2/ws_v311_sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6375095776672867
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-qos0-benchmark/native-ws-sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6470041836959485
+    },
+    {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "profile": "mqtt-qos0-benchmark/native-ws-v311-sustained/summary.json",
+      "required": 0.7,
+      "throughput_ratio": 0.6307456275025796
+    }
+  ],
+  "kind": "NativeMQTTWebSocket ready-turn write-count/ownership regression; not transport or FlatBuffers acceptance.",
+  "parent": "fe9c76739eab403ca3eae6d6fae0d417fb27ce3b",
+  "policy": "Existing Linux plaintext coalescing flag plus vectored writer only. One scheduler yield for a small selected chunk when the queue is empty; never await another packet. Controls after the turn prevent collecting additional data. Keep16chunks/64KiBtarget, exact separateWSframes, bytepermits through yield/write/flush. TLS/nonLinux, alreadyqueued andlarge chunks retain immediate behavior.",
+  "validation_limitation": "Local companion test planning/debug/judge requests are blocked by a foreign exclusive machine reservation; no bypass. Manual source review and deterministic ownership/FIFO/control/quiet-tail/cancel tests pass. Wrong-cwd Dart invocation failed on cert paths, then correct package-cwd router/core commands passed; retain original failure. No throughput or RAM improvement claimed yet."
+}

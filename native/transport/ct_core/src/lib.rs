@@ -2569,6 +2569,7 @@ impl ListenerRegistry {
             );
             let writer_abort = spawn_mqtt_websocket_writer(
                 handle.clone(),
+                coalesce_bursts,
                 writer,
                 send_rx,
                 control_rx,
@@ -4291,6 +4292,28 @@ fn mqtt_ready_batch(
     }
 }
 
+async fn mqtt_websocket_ready_batch(
+    first: MqttOutboundChunk,
+    receiver: &mut mpsc::Receiver<MqttOutboundChunk>,
+    batch: &mut Vec<MqttOutboundChunk>,
+    coalesce_bursts: bool,
+    controls: &mpsc::Receiver<(u8, Bytes)>,
+) {
+    debug_assert!(batch.is_empty());
+    if coalesce_bursts && first.0.len() < 64 * 1024 && receiver.is_empty() {
+        // Let already runnable producers advance once. A quiet tail still
+        // flushes immediately after this turn; never await another packet.
+        tokio::task::yield_now().await;
+        if !controls.is_empty() {
+            // The selected frame precedes the new control, but do not collect
+            // additional data across this newly introduced suspension point.
+            batch.push(first);
+            return;
+        }
+    }
+    mqtt_ready_batch(first, receiver, batch);
+}
+
 async fn write_mqtt_ready_batch<W: AsyncWrite + Unpin>(
     writer: &mut W,
     batch: &[MqttOutboundChunk],
@@ -4683,6 +4706,7 @@ fn websocket_buffer_contains_complete_frame(buffer: &[u8]) -> bool {
 
 fn spawn_mqtt_websocket_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
+    coalesce_bursts: bool,
     mut writer: W,
     mut send_rx: mpsc::Receiver<MqttOutboundChunk>,
     mut control_rx: mpsc::Receiver<(u8, Bytes)>,
@@ -4705,7 +4729,14 @@ fn spawn_mqtt_websocket_writer<W: AsyncWrite + Unpin + Send + 'static>(
                 },
             };
             let result = if let Some(permit) = _permit {
-                mqtt_ready_batch((bytes, permit), &mut send_rx, &mut batch);
+                mqtt_websocket_ready_batch(
+                    (bytes, permit),
+                    &mut send_rx,
+                    &mut batch,
+                    coalesce_bursts && writer.is_write_vectored(),
+                    &control_rx,
+                )
+                .await;
                 let result =
                     write_mqtt_ready_batch(&mut writer, &batch, true, &mut mask_scratch).await;
                 // Keep all byte permits through flush, including slow TLS writes.
@@ -10835,6 +10866,7 @@ mod tests {
         let (close_tx, mut close_rx) = mpsc::unbounded_channel();
         let writer_abort = spawn_mqtt_websocket_writer(
             tokio::runtime::Handle::current(),
+            true,
             writer,
             send_rx,
             control_rx,
@@ -10883,6 +10915,7 @@ mod tests {
         let (close_tx, mut close_rx) = mpsc::unbounded_channel();
         let writer_abort = spawn_mqtt_websocket_writer(
             tokio::runtime::Handle::current(),
+            true,
             writer,
             send_rx,
             control_rx,
@@ -10931,6 +10964,7 @@ mod tests {
         let (close_tx, mut close_rx) = mpsc::unbounded_channel();
         let writer_abort = spawn_mqtt_websocket_writer(
             tokio::runtime::Handle::current(),
+            true,
             FailingFlushWriter,
             send_rx,
             control_rx,
@@ -14385,6 +14419,7 @@ mod mqtt_egress_batch_tests {
             drop(control_tx);
             spawn_mqtt_websocket_writer(
                 tokio::runtime::Handle::current(),
+                true,
                 writer,
                 send_rx,
                 control_rx,
@@ -14403,6 +14438,208 @@ mod mqtt_egress_batch_tests {
         abort.abort();
         (state, expected)
     }
+    #[tokio::test(flavor = "current_thread")]
+    async fn mqtt_websocket_ready_turn_shares_a_write_with_the_next_ready_chunk() {
+        for coalesce in [true, false] {
+            let state = Arc::new(Mutex::new(Capture::default()));
+            let mut writer = CaptureWriter {
+                state: Arc::clone(&state),
+                max_write: usize::MAX,
+                vectored: true,
+            };
+            let (outbound, mut receiver) = MqttOutboundQueue::new(16);
+            outbound
+                .enqueue(ConnectionId(903), Bytes::from(vec![1; 128]))
+                .unwrap();
+            let first = receiver.recv().await.unwrap();
+            let mut batch = Vec::new();
+            let (_control_tx, control_rx) = mpsc::channel(1);
+            let mut collect = Box::pin(mqtt_websocket_ready_batch(
+                first,
+                &mut receiver,
+                &mut batch,
+                coalesce,
+                &control_rx,
+            ));
+            let waker = std::task::Waker::noop();
+            let mut context = Context::from_waker(waker);
+            let finished = std::future::Future::poll(collect.as_mut(), &mut context).is_ready();
+            // The producer's next chunk becomes ready in the next scheduler turn.
+            outbound
+                .enqueue(ConnectionId(903), Bytes::from(vec![2; 128]))
+                .unwrap();
+            if !finished {
+                assert!(std::future::Future::poll(collect.as_mut(), &mut context).is_ready());
+            }
+            drop(collect);
+            let mut scratch = Vec::new();
+            write_mqtt_ready_batch(&mut writer, &batch, true, &mut scratch)
+                .await
+                .unwrap();
+            batch.clear();
+            while let Ok(first) = receiver.try_recv() {
+                mqtt_ready_batch(first, &mut receiver, &mut batch);
+                write_mqtt_ready_batch(&mut writer, &batch, true, &mut scratch)
+                    .await
+                    .unwrap();
+                batch.clear();
+            }
+            let state = state.lock().unwrap();
+            let mut expected = vec![0x82, 126, 0, 128];
+            expected.extend_from_slice(&[1; 128]);
+            expected.extend_from_slice(&[0x82, 126, 0, 128]);
+            expected.extend_from_slice(&[2; 128]);
+            assert_eq!(state.bytes, expected);
+            assert_eq!(
+                state.writes,
+                if coalesce { 1 } else { 2 },
+                "coalesce={coalesce}"
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn mqtt_websocket_ready_turn_flushes_a_quiet_tail_and_releases_cancelled_permits() {
+        for cancel in [false, true] {
+            let (outbound, mut receiver) = MqttOutboundQueue::new(16);
+            let permits = Arc::clone(&outbound.byte_budget);
+            let full = permits.available_permits();
+            outbound
+                .enqueue(ConnectionId(904), Bytes::from_static(b"quiet"))
+                .unwrap();
+            let first = receiver.recv().await.unwrap();
+            let mut batch = Vec::new();
+            let (_control_tx, control_rx) = mpsc::channel(1);
+            let mut collect = Box::pin(mqtt_websocket_ready_batch(
+                first,
+                &mut receiver,
+                &mut batch,
+                true,
+                &control_rx,
+            ));
+            let mut context = Context::from_waker(std::task::Waker::noop());
+            assert!(std::future::Future::poll(collect.as_mut(), &mut context).is_pending());
+            assert_eq!(permits.available_permits(), full - 5);
+            if cancel {
+                drop(collect);
+                assert!(batch.is_empty());
+            } else {
+                // A second packet is never supplied. Completion cannot depend on it.
+                time::timeout(Duration::from_secs(1), collect)
+                    .await
+                    .unwrap();
+                assert_eq!(batch.len(), 1);
+                assert_eq!(batch[0].0.as_ref(), b"quiet");
+                assert_eq!(permits.available_permits(), full - 5);
+                batch.clear();
+            }
+            assert_eq!(permits.available_permits(), full);
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn mqtt_websocket_ready_turn_preserves_immediate_and_bounded_batch_policies() {
+        for (coalesce, length, queued) in [(false, 3, 0), (true, 65536, 0), (true, 3, 31)] {
+            let (outbound, mut receiver) = MqttOutboundQueue::new(64);
+            outbound
+                .enqueue(ConnectionId(905), Bytes::from(vec![7; length]))
+                .unwrap();
+            let first = receiver.recv().await.unwrap();
+            for _ in 0..queued {
+                outbound
+                    .enqueue(ConnectionId(905), Bytes::from_static(b"next"))
+                    .unwrap();
+            }
+            let mut batch = Vec::new();
+            let (_control_tx, control_rx) = mpsc::channel(1);
+            let mut collect = Box::pin(mqtt_websocket_ready_batch(
+                first,
+                &mut receiver,
+                &mut batch,
+                coalesce,
+                &control_rx,
+            ));
+            let mut context = Context::from_waker(std::task::Waker::noop());
+            assert!(std::future::Future::poll(collect.as_mut(), &mut context).is_ready());
+            drop(collect);
+            assert_eq!(batch.len(), if queued == 0 { 1 } else { 16 });
+            assert_eq!(batch[0].0.len(), length);
+            assert_eq!(receiver.len(), if queued == 0 { 0 } else { 16 });
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn mqtt_websocket_ready_turn_keeps_new_controls_ahead_of_additional_data() {
+        let (outbound, mut receiver) = MqttOutboundQueue::new(16);
+        outbound
+            .enqueue(ConnectionId(906), Bytes::from_static(b"selected"))
+            .unwrap();
+        let first = receiver.recv().await.unwrap();
+        let mut batch = Vec::new();
+        let (control_tx, control_rx) = mpsc::channel(1);
+        let mut collect = Box::pin(mqtt_websocket_ready_batch(
+            first,
+            &mut receiver,
+            &mut batch,
+            true,
+            &control_rx,
+        ));
+        let mut context = Context::from_waker(std::task::Waker::noop());
+        assert!(std::future::Future::poll(collect.as_mut(), &mut context).is_pending());
+        control_tx
+            .try_send((0x8, Bytes::from_static(&[3, 232])))
+            .unwrap();
+        outbound
+            .enqueue(ConnectionId(906), Bytes::from_static(b"after-close"))
+            .unwrap();
+        assert!(std::future::Future::poll(collect.as_mut(), &mut context).is_ready());
+        drop(collect);
+        assert_eq!(batch.len(), 1);
+        assert_eq!(batch[0].0.as_ref(), b"selected");
+        assert_eq!(receiver.len(), 1);
+        assert!(!control_rx.is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn mqtt_websocket_writer_flushes_a_singleton_after_the_ready_turn() {
+        let state = Arc::new(Mutex::new(Capture::default()));
+        let writer = CaptureWriter {
+            state: Arc::clone(&state),
+            max_write: usize::MAX,
+            vectored: true,
+        };
+        let (outbound, receiver) = MqttOutboundQueue::new(16);
+        let permits = Arc::clone(&outbound.byte_budget);
+        let full = permits.available_permits();
+        outbound
+            .enqueue(ConnectionId(907), Bytes::from_static(b"quiet"))
+            .unwrap();
+        drop(outbound);
+        let (control_tx, control_rx) = mpsc::channel(1);
+        drop(control_tx);
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let abort = spawn_mqtt_websocket_writer(
+            tokio::runtime::Handle::current(),
+            true,
+            writer,
+            receiver,
+            control_rx,
+            close_tx,
+        );
+        assert_eq!(
+            time::timeout(Duration::from_secs(1), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::WriterClosed)
+        );
+        let state = state.lock().unwrap();
+        assert_eq!(state.bytes, b"\x82\x05quiet");
+        assert_eq!(state.writes, 1);
+        assert_eq!(state.flushes, 1);
+        assert_eq!(permits.available_permits(), full);
+        abort.abort();
+    }
+
     #[tokio::test]
     async fn queued_tcp_egress_preserves_bytes_with_bounded_write_calls() {
         let (state, expected) = capture_mode(false, usize::MAX, true).await;
@@ -14470,6 +14707,7 @@ mod mqtt_egress_batch_tests {
         let (close_tx, mut close_rx) = mpsc::unbounded_channel();
         let abort = spawn_mqtt_websocket_writer(
             tokio::runtime::Handle::current(),
+            true,
             writer,
             send_rx,
             control_rx,
@@ -14514,6 +14752,7 @@ mod mqtt_egress_batch_tests {
                 let (_control_tx, control_rx) = mpsc::channel(2);
                 spawn_mqtt_websocket_writer(
                     tokio::runtime::Handle::current(),
+                    true,
                     writer,
                     send_rx,
                     control_rx,
