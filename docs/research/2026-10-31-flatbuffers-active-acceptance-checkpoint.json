@@ -77,12 +77,35 @@
     "rows": 90,
     "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8"
   },
+  "final_payload_sizes": {
+    "artifact_root": "/tmp/connectanum-f7d60f-payload-sizes",
+    "audit": "/tmp/connectanum-f7d60f-payload-independent-audit.json",
+    "audit_exit": 0,
+    "cases": 12,
+    "complete_supplemental_acceptance": false,
+    "evidence_findings": 30,
+    "matches_hosted": true,
+    "measured_numerical_misses": 15,
+    "raw_rows": 360,
+    "run": 41204164884,
+    "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+    "unmeasured_allocation_metrics": 2
+  },
   "final_runs": {
     "CI": 41204759414,
     "copy": 41204180565,
     "diagnostic": 41204160963,
     "primary48": 41204163088,
     "supplemental50": 41204164884
+  },
+  "historical_955_primary": {
+    "cases": 48,
+    "integrity_findings": 0,
+    "matches_hosted": true,
+    "numerical_misses": 90,
+    "raw_rows": 1440,
+    "run": 41190894898,
+    "source": "955e4a9104dc55cf3af08f8b490d3c7862e05231"
   },
   "historical_955_supplemental": {
     "accepted_inventory_cases": 38,
@@ -142,5 +165,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T13:57:11.065904+00:00"
+  "updated_utc": "2026-10-31T14:42:48.978984+00:00"
 }

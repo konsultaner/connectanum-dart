@@ -46,6 +46,23 @@ This checkpoint branch changes documentation only. Numerical acceptance remains
 attributed to frozenf7d60f2f. Further work should first read
 /tmp/connectanum-current-task-checkpoint.json, this state and the active plan.
 
+## Final-source payload-size evidence (2026-10-31)
+
+The payload-size shard of final-source run41204164884 has completed. Independent
+recomputation verifies all12 cases/360 raw rows, source inputs and binaries and
+exactly matches the hosted comparison. There are15 measured numerical misses
+across throughput, latency, CPU and RSS. Two1MiB MessagePack allocation metrics
+remain unmeasured under the separate1% precision requirement, producing30
+allocation-evidence findings. These are additional failures to retain, not a
+complete50-case supplemental result. The primary48-case campaign and other two
+supplemental shards continue unchanged. FullCI has35 passing jobs and no failures
+so far. PR132 stays draft; RAM/performance acceptance is not achieved.
+
+Rejected historical text-cache runtime955e4a91 also completes its primary campaign:
+all48 cases/1,440 rows independently reproduce90 numerical misses and zero
+integrity findings. Its previously retained supplemental result remains failed.
+Neither historical report replaces current-source acceptance.
+
 ## Retained historical supplemental evidence (2026-10-31)
 
 Historical supplemental run41190896355 on rejected text-cache source955e4a91
