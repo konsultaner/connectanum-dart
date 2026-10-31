@@ -9,6 +9,28 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+## Direct UTF8 report candidate (2026-10-31)
+
+A small child ofef20e64b removes the remaining intermediate report string.
+Each bounded64-row group uses one per-report standard JsonUtf8Encoder with
+4KiB internal buffers. Current SDK convert returns fresh Uint8List storage;
+a generic-list fallback retains portability. Outer bracket/comma surgery and
+the exact named/positional sample formats remain unchanged. No payload body,
+validation, window, sample, native owner or acceptance rule changes.
+
+All71 boundary tests pass, including every optional-field combination, extreme
+numeric values, Unicode/escaped metadata, retained chunk views, repeated iteration
+and64-row boundaries; analyzer/format are clean. This is not established RAM
+acceptance. Require its own hosted diagnostic/copy evidence and full canonical
+verification. The nativeMQTT source/binary remains exactlyef20e64b, whose hosted
+CI41203463012 and copy41203464920 are pending; do not attribute its results to
+changed native code or retry unchanged MQTT numerics to select a favorable host.
+
+Keep the latest strict misses visible: fe9c7673 Dart-value RSS1.00190719, native
+pre-encoded RSS1.00132236 and Dart GC upper1.06165552; native-buffer RAM passes.
+No complete final-runtime48/50 acceptance exists. All historical campaigns stay
+retained, and the separate SDK allocation-precision product question stays pending.
+
 ## Native MQTT outbound ready-turn candidate (2026-10-31)
 
 Report candidatefe9c7673 full frozen bin/verify passes, including actual Chrome

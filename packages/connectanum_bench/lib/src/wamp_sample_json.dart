@@ -104,11 +104,16 @@ class WampSampleReportJson {
     // stringifier and its closures for every observation. The immutable model
     // has only thirteen bounded numeric fields, so64 rows fit below64 KiB even
     // with every optional field and the longest64-bit numeric spellings.
+    final encoder = JsonUtf8Encoder(null, null, 4096);
     for (var start = 0; start < _samples.length; start += 64) {
       final end = (start + 64).clamp(0, _samples.length);
-      final encoded = utf8.encode(
-        jsonEncode(_SampleBatch(_samples, start, end, _compact)),
+      // Encode straight to bytes, retaining no intermediate report string.
+      final converted = encoder.convert(
+        _SampleBatch(_samples, start, end, _compact),
       );
+      final encoded = converted is Uint8List
+          ? converted
+          : Uint8List.fromList(converted);
       // Remove only this batch's array brackets. Subsequent groups retain a
       // leading comma without another transport write or copying the chunk.
       if (start == 0) {
