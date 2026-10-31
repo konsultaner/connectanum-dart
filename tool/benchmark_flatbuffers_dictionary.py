@@ -44,7 +44,7 @@ def prepare(root, output, baseline):
     if not runner.is_file():
         raise ValueError('Resolved test runner is missing')
     template = ROOT / 'tool/flatbuffers_dictionary_component'
-    for name in ('worker', 'controller'):
+    for name in ('worker', 'controller', 'payload'):
         (output / (name + '.dart')).write_bytes((template / (name + '.dart.template')).read_bytes())
     for variant in ('baseline', 'candidate'):
         folder = output / variant
@@ -64,7 +64,10 @@ def prepare(root, output, baseline):
             package['rootUri'] = ((folder / 'core').as_uri() + '/' if package['name'] == 'connectanum_core'
                                   else urllib.parse.urljoin(config_path.as_uri(), package['rootUri']))
         (folder / 'package_config.json').write_text(json.dumps(config, indent=2) + '\n')
-    imports = ["import 'dart:io';", "import 'package:test/test.dart';",
+    imports = ["import 'dart:io';", "import 'dart:typed_data';", "import 'package:test/test.dart';",
+               "import 'package:connectanum_core/connectanum_core.dart' as wamp;",
+               "import 'package:connectanum_core/flatbuffers_serializer.dart' as fb;",
+               f'import {json.dumps((output / "payload.dart").as_uri())} as componentFixture;',
                "import 'package:connectanum_core/src/serializer/flatbuffers/message_projection.dart' as probe;"]
     groups = []
     for index, name in enumerate(SUITES):
@@ -75,6 +78,43 @@ def prepare(root, output, baseline):
 void main() {
   test('actual private core variant is selected', () =>
     expect(probe.dictionaryPlanProbeVariant, Platform.environment['DICTIONARY_EXPECTED_VARIANT']));
+  for (final shape in ['call', 'result']) {
+    for (final opaque in [false, true]) {
+      for (final length in [0, 1, 10240]) {
+        test('component byte view $shape opaque=$opaque length=$length', () {
+          final body = Uint8List.fromList(List.generate(length, (i) => (i * 31) & 255));
+          final wamp.AbstractMessage message = shape == 'call'
+              ? wamp.Call(7, 'com.example.echo',
+                  options: opaque ? wamp.CallOptions(pptScheme: 'x_dictionary_probe', pptSerializer: 'flatbuffers') : null,
+                  arguments: [body])
+              : wamp.Result(7,
+                  opaque ? wamp.ResultDetails(pptScheme: 'x_dictionary_probe', pptSerializer: 'flatbuffers') : wamp.ResultDetails(),
+                  arguments: [body]);
+          final codec = fb.Serializer();
+          final frame = codec.serialize(message);
+          final decoded = codec.deserialize(frame) as wamp.AbstractMessageWithPayload;
+          final bytes = componentFixture.dictionaryComponentPayloadBytes(decoded);
+          expect(bytes, body);
+          if (opaque) {
+            final offset = bytes.offsetInBytes - frame.offsetInBytes;
+            expect(offset, greaterThanOrEqualTo(0));
+            expect(offset + bytes.length, lessThanOrEqualTo(frame.length));
+            if (length > 0) {
+              frame[offset] = 255;
+              expect(bytes[0], 255);
+            }
+          } else {
+            expect(bytes, same(decoded.arguments!.single));
+          }
+        });
+      }
+    }
+  }
+  test('component rejects absent, nonbinary and multiple application vectors', () {
+    for (final arguments in <List<dynamic>?>[null, [], [1], [Uint8List(1), Uint8List(1)]]) {
+      expect(() => componentFixture.dictionaryComponentPayloadBytes(wamp.Result(1, wamp.ResultDetails(), arguments: arguments)), throwsStateError);
+    }
+  });
 ''' + '\n'.join(groups) + '\n}\n'
     (output / 'private-tests.dart').write_text(wrapper)
     return runner

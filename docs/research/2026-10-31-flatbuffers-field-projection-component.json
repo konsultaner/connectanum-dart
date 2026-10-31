@@ -344,5 +344,29 @@
     ]
   },
   "local_timing": "Not executed: exclusive resource lease was unavailable. No unleased timing is used.",
-  "review": "Initial Qwen/GLM requests hit bounded deadlines or token limits; final exact-diff review is currently blocked by an active shared-machine native mutation campaign. Source inspection, full serializer tests and native tests independently check behavior."
+  "review": "Exact production-diff attempts were initially lease-blocked; the final GLM request started but exceeded its 150-second deadline with an incomplete 403-character stream. This is not a completed review; source inspection and correctness/differential checks are separate evidence.",
+  "frozen_verification": {
+    "source": "da5398a6ff25c4d525a12438ca8476f874000269",
+    "exit_code": 0,
+    "tree_clean_after": true,
+    "log_sha256": "56d1b0e69f72933f21e9acb2855a42d6039da2ea97fb50f7ccab1f389adedd65",
+    "previous_failure": "Commit changed HEAD during deployment-audit fixture; fixed-head full rerun passes. Original exit1 retained."
+  },
+  "probe_fixture_repair": {
+    "failed_hosted_run": 41153337377,
+    "failure_stage": "worker before readiness; no measured rows",
+    "cause": "Opaque vector was incorrectly read through ordinary arguments.",
+    "direct_functional_cases": 16,
+    "private_baseline_tests": 546,
+    "private_candidate_tests": 546,
+    "tool_tests": 9,
+    "scope": "Shared accessor/preflight only. No production runtime, fixture wire, workload, metric window, copy classification or parity gate changes. Ordinary decoding may already copy; helper returns its existing buffer. Typed opaque cases still require original wire aliases.",
+    "runtime_unchanged_vs": "da5398a6ff25c4d525a12438ca8476f874000269",
+    "source_sha256": {
+      "tool/benchmark_flatbuffers_dictionary.py": "70bc00ae46d9c4653c1edbfa6e30dfe20fd80b3aaeec548483b2d4cea2e7690b",
+      "tool/flatbuffers_dictionary_component/worker.dart.template": "09ab8d69d565618fd03962fb7a62759212b92622ae1f33dd6605b8f2ef7e13df",
+      "tool/flatbuffers_dictionary_component/payload.dart.template": "e7806a569d1386975e0a33900ca14daee383c171c3965d8b04cbc4055178a68a"
+    },
+    "invalid_private_diagnostics_retained": "Initial smoke used nullable ResultDetails; first ordinary-buffer assertions incorrectly expected original wire aliases. Corrected type/storage contracts pass without production changes."
+  }
 }

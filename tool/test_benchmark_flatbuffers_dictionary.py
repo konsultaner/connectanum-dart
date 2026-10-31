@@ -113,6 +113,12 @@ class ComponentTests(unittest.TestCase):
                     path = output / variant / 'core/lib' / name.removeprefix(component.CORE)
                     self.assertTrue(path.read_text().startswith(expected + ' source'))
             self.assertIn('actual private core variant is selected', (output / 'private-tests.dart').read_text())
+            self.assertEqual((output / 'payload.dart').read_text(),
+                             (component.ROOT / 'tool/flatbuffers_dictionary_component/payload.dart.template').read_text())
+            self.assertIn("import 'payload.dart';", (output / 'worker.dart').read_text())
+            self.assertIn((output / 'payload.dart').as_uri(), (output / 'private-tests.dart').read_text())
+            self.assertIn('component byte view', (output / 'private-tests.dart').read_text())
+
 
     def test_baseline_must_be_full_explicit_and_core_diff_must_be_isolated(self):
         for changed in ('unrelated.dart', '', component.TARGETS[0],

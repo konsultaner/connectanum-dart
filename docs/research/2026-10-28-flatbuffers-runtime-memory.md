@@ -45,6 +45,32 @@ views. Do not invalidate them merely to obtain lower RSS. No scoped-disposal
 change is adopted. Shared-machine resource ownership blocks local timing and
 final companion review; neither is fabricated or run without its lease.
 
+Frozen `da5398a6` passes full canonical verification, including both Chrome
+backends. The preceding run's one audit-fixture failure is caused by changing
+HEAD during the check; a fixed-head focused test and the frozen full rerun pass.
+Its [paired diagnostic](https://github.com/konsultaner/connectanum-dart/actions/runs/41153557716)
+reproduces exactly: 90 rows, retained inputs/binaries verified, no missing-evidence
+finding beyond diagnostic ineligibility. Native-buffer passes all seven metrics.
+Six misses remain: Dart-values throughput 0.9985436466, p99 1.0500834725,
+GC 1.1254456357, RSS 1.0294900042; pre-encoded p99 1.1019878997 and RSS
+1.0270929504. Lower component allocation does not establish RAM parity.
+
+[Hosted component 41153337377](https://github.com/konsultaner/connectanum-dart/actions/runs/41153337377)
+fails before readiness and produces no measured rows: the probe assumes ordinary
+arguments for a typed opaque vector. Its fixture now selects the existing opaque
+vector or ordinary decoded binary argument and shares that accessor with both
+private variant preflights. The actual typed component still verifies its wire
+alias and unchanged wire hash. Ordinary materialization may already copy; tests
+require reuse of that existing decoded buffer, not an incorrect original-wire
+alias guarantee. Sixteen direct controls and 546 private regressions per variant
+pass. Preserve the initial private nullable-details compile error and incorrect
+ordinary-alias assertions as invalid diagnostics. No production path, wire,
+observation, budget or copy classification changes to repair this probe.
+
+Final GLM exact-patch review starts after resource ownership permits it, but
+its stream is incomplete at the 150-second deadline. Do not treat it as a pass.
+Native pre-encoded memory attribution 41154814129 is queued on this runtime.
+
 Product source: `28642b03087b3c89ed003e7867e635dca30df7e7`.
 [Allocator capture](https://github.com/konsultaner/connectanum-dart/actions/runs/40696555847).
 Case: `rpc_rawsocket_clear_dart_values`.

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'payload.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart' as fb;
 import 'package:connectanum_core/src/serializer/flatbuffers/message_projection.dart'
@@ -35,7 +36,7 @@ Future<void> main(List<String> args) async {
   final frame = codec.serialize(message);
   Uint8List decodeBytes() {
     final decoded = codec.deserialize(frame) as AbstractMessageWithPayload;
-    final bytes = decoded.arguments!.single as Uint8List;
+    final bytes = dictionaryComponentPayloadBytes(decoded);
     if (bytes.length != body.length || bytes[0] != 37)
       throw StateError('Payload changed');
     return bytes;

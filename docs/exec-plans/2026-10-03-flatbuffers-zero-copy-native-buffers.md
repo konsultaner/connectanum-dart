@@ -23,11 +23,23 @@ No acceptance is claimed.
   47 native FlatBuffers tests and all 167 source-bound mutation proofs.
 - [x] Reproduce/fix component setup rejecting this three-file combination;
   all nine private package-isolation contracts pass. No gate/window changes.
-- [ ] Complete canonical `bin/verify` and exact-patch companion review. The
-  active foreign native resource lease currently blocks local review/timing;
-  preserve bounded failures and do not bypass the lock.
-- [ ] Freeze/push the candidate; compare hosted component and paired numerical
-  evidence before renewing full acceptance. Keep #103/milestone/PR draft open.
+- [x] Freeze/push da5398a6 and pass canonical `bin/verify` with observed exit 0
+  on clean, fixed HEAD, including Chrome JS/Wasm. Preserve the first run's
+  audit failure caused by a commit changing HEAD mid-fixture. No audit weakening.
+- [x] Independently audit paired 41153557716: 90 rows, exact hosted reproduction,
+  retained inputs/binaries verified, diagnostic ineligibility only. Six numerical
+  misses remain: Dart-values speed/p99/GC/RSS; pre-encoded p99/RSS. Native-buffer
+  passes all seven. Keep full predecessor 102 misses and every budget.
+- [x] Retain blocked local attempts and final GLM 150-second incomplete stream;
+  neither is a completed review. Local timing remains unexecuted after lock denial.
+- [x] Diagnose component 41153337377's pre-measurement fixture failure. Fix only
+  the probe's accessor and share it with preflight tests. Sixteen direct controls,
+  546 regressions per private variant and nine tool contracts pass. Preserve
+  initial private compile/ordinary-alias assumption errors separately.
+- [ ] Complete current CI 41153485459 and native pre-encoded memory attribution
+  41154814129 on da5398a6. Audit inputs/snapshots before selecting another fix.
+- [ ] Renew the repaired hosted component, resolve remaining RAM/tail failures
+  with measured runtime changes, then renew full acceptance. Keep draft/#103 open.
 
 ## Ownership and final campaign renewal (2026-10-30)
 

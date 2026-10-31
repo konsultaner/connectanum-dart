@@ -25,10 +25,37 @@ retains 24 native paired cases: identical complete frames and verified payload a
 one fewer allocator request / 224 fewer requested bytes per typed decode.
 A frozen-baseline Dart differential matches 12,258 inputs and 1,512 depth/table
 budget combinations exactly. These checks establish neither RSS nor performance
-acceptance. Local timing and final companion review are blocked by the shared
-machine resource lease; do not bypass it. Earlier bounded companion attempts
-remain incomplete, not successful reviews. Canonical `bin/verify` is running;
-renew hosted component/correctness evidence and unchanged paired measurements.
+acceptance. Local timing is not executed after resource-lease rejection. Final
+GLM review later starts but reaches its 150-second deadline with an incomplete
+stream; it is not a successful review. Do not bypass resource ownership.
+
+Canonical `bin/verify` passes with observed exit 0 on frozen, clean `da5398a6`,
+including full Chrome JS/Wasm core/client suites. Log SHA-256:
+56d1b0e69f72933f21e9acb2855a42d6039da2ea97fb50f7ccab1f389adedd65.
+The first run correctly fails one deployment-audit fixture when the commit
+changes HEAD mid-check (4dec9dd -> da5398a); preserve that failure. The frozen
+rerun and a focused fixed-head audit test pass; no audit rule is changed.
+
+Paired `41153557716` on da5398a6 completes all 90 rows and independently
+reproduces exactly with retained inputs/binaries verified. Its only nonnumeric
+finding is diagnostic ineligibility, not missing evidence. Six numerical misses
+remain: Dart-values speed/p99/GC/RSS, and pre-encoded p99/RSS. Native-buffer passes
+all seven metrics. RSS ratios remain 1.0294900042 and 1.0270929504 respectively.
+This is not primary acceptance; the full predecessor's 102 failures remain.
+
+Hosted component `41153337377` fails before readiness/measurement: its probe
+reads ordinary arguments from an opaque typed payload. Both private functional
+suites pass but that fixture had not been exercised. The repaired probe shares
+its accessor with pre-measurement tests for both payload forms: opaque vectors
+must alias the wire; ordinary materialized bytes must reuse the existing decoded
+buffer (the ordinary codec may already copy). Sixteen direct controls and 546
+private regressions per frozen baseline/candidate pass, along with all nine
+tool contracts. Retain the private initial nullable-ResultDetails compile error
+and invalid ordinary-alias test assumptions; neither is a production defect.
+No shipped runtime, workload, wire, copy scope or acceptance gate changes in
+this probe repair. Renew its hosted comparison. Native pre-encoded VM attribution
+`41154814129` is queued on da5398a6; current-head correctness CI `41153485459`
+is running. Do not renew unchanged numerical tests to seek a lucky pass.
 
 Predecessor runtime: `4dec9ddc978b3b6fd47275e67cf46fd40ac46931`.
 It fixes public reanchoring releasing the wrong allocation: explicit payload
