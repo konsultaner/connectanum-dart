@@ -4,7 +4,7 @@ Status: active; the user resumed the FlatBuffers milestone after the MQTT/master
 
 Current step: repair the two RSS misses in the latest three-case diagnostic and
 complete strict full 48-case primary / 50-case supplemental acceptance on the
-final frozen runtime. The latest completed full predecessor still has 93
+final frozen runtime. The latest completed full predecessor still has 94
 numerical misses; the diagnostic does not replace that matrix. Repair the red
 MQTT gate and retain current owned-copy/E2EE/transcode accounting. Candidates
 remain isolated; PR132 stays draft until complete acceptance. No gate is waived.
@@ -47,6 +47,17 @@ pending; approved standard-SDK copy scope does not waive it.
 This checkpoint branch changes documentation only. Numerical acceptance remains
 attributed to frozenf7d60f2f. Further work should first read
 /tmp/connectanum-current-task-checkpoint.json, this state and the active plan.
+
+## Retained historical supplemental evidence (2026-10-31)
+
+Historical supplemental run41190896355 on rejected text-cache source955e4a91
+is complete and independently reproduced exactly: all1,500 raw rows retained,
+38 eligible cases/1,140 rows,196 numerical misses and four evidence findings.
+The excluded12-case payload batch matches its prior360-row independent audit;
+two SDK-limited allocation figures still prevent complete inventory validation.
+Its comparison SHA-256 is
+4aaf1ebe5d0d84d45d4d8512aa3b35319a2e6817b0d940af5cd237c875e0e4fa.
+This historical result does not replace pending final-sourcef7d60f2f acceptance.
 
 ## Direct UTF8 report candidate (2026-10-31)
 

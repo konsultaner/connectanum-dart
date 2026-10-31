@@ -84,6 +84,19 @@
     "primary48": 41204163088,
     "supplemental50": 41204164884
   },
+  "historical_955_supplemental": {
+    "accepted_inventory_cases": 38,
+    "accepted_inventory_rows": 1140,
+    "all_raw_rows_verified": true,
+    "comparison_sha256": "4aaf1ebe5d0d84d45d4d8512aa3b35319a2e6817b0d940af5cd237c875e0e4fa",
+    "evidence_findings": 4,
+    "matches_hosted": true,
+    "numerical_misses": 196,
+    "raw_rows": 1500,
+    "run": 41190896355,
+    "scope": "Rejected historical text-cache runtime; not final-source acceptance. All1500rawrows retained; payload precision remains unaccepted.",
+    "source": "955e4a9104dc55cf3af08f8b490d3c7862e05231"
+  },
   "local_canonical": {
     "exit": 0,
     "finished_utc": "2026-10-31T13:37:17.427676+00:00",
@@ -129,5 +142,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T13:43:25.678990+00:00"
+  "updated_utc": "2026-10-31T13:57:11.065904+00:00"
 }
