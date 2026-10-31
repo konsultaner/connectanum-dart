@@ -30,8 +30,8 @@ void main() {
           expect(session.rejections, isEmpty);
           expect(
             session.responses,
-            2,
-          ); // warmup plus measured call, same request ID
+            6,
+          ); // three replies for warmup plus measured call, same request ID
         } else {
           await expectLater(
             result,
@@ -46,6 +46,61 @@ void main() {
           expect(session.rejections, [core.Error.invalidArgument]);
           expect(session.responses, 1);
         }
+        expect(session.closeCount, 2);
+        expect(session.registrationCancelCount, 1);
+      },
+    );
+  }
+  for (final outcome in [
+    'missing',
+    'extra',
+    'wrong flags',
+    'wrong payload',
+    'wrong kwargs',
+  ]) {
+    test(
+      'progressive result validation rejects $outcome and cleans up',
+      () async {
+        final count = outcome == 'missing'
+            ? 2
+            : outcome == 'extra'
+            ? 4
+            : 3;
+        final session = _Session(
+          progressiveResults: Stream.fromIterable([
+            for (var index = 0; index < count; index++)
+              core.Result(
+                10,
+                core.ResultDetails(
+                  progress: outcome == 'wrong flags' ? false : index < 2,
+                ),
+                arguments: [outcome == 'wrong payload' ? 'corrupt' : 'ABCD'],
+                argumentsKeywords: outcome == 'wrong kwargs'
+                    ? {'unexpected': true}
+                    : null,
+              ),
+          ]),
+        );
+        await expectLater(
+          WampWorkloadRunner(sessionFactory: (_) async => session).run(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              serializer: WampSerializer.flatbuffers,
+              mode: WampMode.progressiveRpc,
+              uri: 'bench.progressive',
+              iterations: 1,
+              concurrency: 1,
+              payloadBytes: 4,
+            ),
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'validation',
+              contains('progressive result'),
+            ),
+          ),
+        );
         expect(session.closeCount, 2);
         expect(session.registrationCancelCount, 1);
       },
@@ -345,7 +400,7 @@ class _ChunkSession extends _Session {
               requestId: 10,
               registrationId: 22,
               progress: index < chunks - 1,
-              receiveProgress: false,
+              receiveProgress: options?.receiveProgress ?? false,
               payload: core.LazyMessagePayload.materialized(
                 arguments: arguments,
               ),
@@ -359,7 +414,8 @@ class _ChunkSession extends _Session {
                     String? errorUri,
                     core.YieldOptions? options,
                   }) {
-                    closed = true;
+                    final progressive = options?.progress == true;
+                    closed = isError || !progressive;
                     responses++;
                     if (isError) {
                       rejections.add(errorUri);
@@ -377,12 +433,12 @@ class _ChunkSession extends _Session {
                       controller.add(
                         core.Result(
                           10,
-                          core.ResultDetails(),
+                          core.ResultDetails(progress: progressive),
                           arguments: lazyPayload?.arguments ?? arguments,
                         ),
                       );
                     }
-                    unawaited(controller.close());
+                    if (closed) unawaited(controller.close());
                   },
             ),
           );

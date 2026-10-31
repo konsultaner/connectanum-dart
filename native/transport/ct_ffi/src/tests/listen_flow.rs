@@ -1,4 +1,5 @@
 use std::ffi::CString;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -83,6 +84,23 @@ thread_local! {
         Arc::new(Mutex::new(Vec::new()));
     static CONNECTION_EVENTS: Arc<Mutex<Vec<(i32, i32)>>> =
         Arc::new(Mutex::new(Vec::new()));
+}
+
+static MESSAGE_READY_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+extern "C" fn count_message_ready() {
+    MESSAGE_READY_COUNT.fetch_add(1, Ordering::SeqCst);
+}
+
+fn wait_for_message_ready(count: usize) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while MESSAGE_READY_COUNT.load(Ordering::SeqCst) < count {
+        assert!(
+            Instant::now() < deadline,
+            "native readiness notification missing"
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
 }
 
 fn wait_for_connection(listener_id: i32) -> i32 {
@@ -1124,6 +1142,8 @@ fn client_connect_rawsocket_round_trips_over_ffi() {
         SUCCESS
     );
     assert_eq!(ct_start_runtime(), SUCCESS);
+    MESSAGE_READY_COUNT.store(0, Ordering::SeqCst);
+    crate::runtime::ffi::ct_set_message_ready_callback_v1(Some(count_message_ready));
 
     let host = CString::new("127.0.0.1").unwrap();
     let listener_id = ct_listen(host.as_ptr(), 0, 128);
@@ -1152,7 +1172,9 @@ fn client_connect_rawsocket_round_trips_over_ffi() {
         ct_send_message(client_connection_id, hello.as_ptr(), hello.len() as i32,),
         SUCCESS
     );
-    let server_handle = wait_for_message_handle(server_connection_id);
+    wait_for_message_ready(1);
+    let server_handle = ct_poll_connection_message(server_connection_id);
+    assert!(server_handle > 0, "readiness must follow queue publication");
     let mut server_info = CtMessageInfo::default();
     assert_eq!(
         ct_message_get(server_handle, &mut server_info as *mut CtMessageInfo),
@@ -1161,12 +1183,16 @@ fn client_connect_rawsocket_round_trips_over_ffi() {
     assert_eq!(server_info.message_code, 1, "HELLO expected");
     ct_message_release(server_handle);
 
+    crate::runtime::ffi::ct_arm_message_ready_callback_v1();
+
     let welcome = serde_json::to_vec(&json!([2, 9001, {}])).unwrap();
     assert_eq!(
         ct_send_message(server_connection_id, welcome.as_ptr(), welcome.len() as i32,),
         SUCCESS
     );
-    let client_handle = wait_for_message_handle(client_connection_id);
+    wait_for_message_ready(2);
+    let client_handle = ct_poll_connection_message(client_connection_id);
+    assert!(client_handle > 0, "readiness does not consume messages");
     let mut client_info = CtMessageInfo::default();
     assert_eq!(
         ct_message_get(client_handle, &mut client_info as *mut CtMessageInfo),
@@ -1174,6 +1200,15 @@ fn client_connect_rawsocket_round_trips_over_ffi() {
     );
     assert_eq!(client_info.message_code, 2, "WELCOME expected");
     ct_message_release(client_handle);
+
+    crate::runtime::ffi::ct_set_message_ready_callback_v1(None);
+    assert_eq!(
+        ct_send_message(client_connection_id, hello.as_ptr(), hello.len() as i32),
+        SUCCESS
+    );
+    let final_handle = wait_for_message_handle(server_connection_id);
+    ct_message_release(final_handle);
+    assert_eq!(MESSAGE_READY_COUNT.load(Ordering::SeqCst), 2);
 
     assert_eq!(ct_shutdown(), SUCCESS);
 }
@@ -1190,6 +1225,8 @@ fn client_connect_websocket_round_trips_over_ffi() {
         SUCCESS
     );
     assert_eq!(ct_start_runtime(), SUCCESS);
+    MESSAGE_READY_COUNT.store(0, Ordering::SeqCst);
+    crate::runtime::ffi::ct_set_message_ready_callback_v1(Some(count_message_ready));
 
     let host = CString::new("127.0.0.1").unwrap();
     let target = CString::new("/wamp").unwrap();
@@ -1276,7 +1313,9 @@ fn client_connect_websocket_round_trips_over_ffi() {
         ct_send_message(client_connection_id, hello.as_ptr(), hello.len() as i32,),
         SUCCESS
     );
-    let server_handle = wait_for_message_handle(server_connection_id);
+    wait_for_message_ready(1);
+    let server_handle = ct_poll_connection_message(server_connection_id);
+    assert!(server_handle > 0, "readiness must follow queue publication");
     let mut server_info = CtMessageInfo::default();
     assert_eq!(
         ct_message_get(server_handle, &mut server_info as *mut CtMessageInfo),
@@ -1285,12 +1324,16 @@ fn client_connect_websocket_round_trips_over_ffi() {
     assert_eq!(server_info.message_code, 1, "HELLO expected");
     ct_message_release(server_handle);
 
+    crate::runtime::ffi::ct_arm_message_ready_callback_v1();
+
     let welcome = serde_json::to_vec(&json!([2, 5150, {}])).unwrap();
     assert_eq!(
         ct_send_message(server_connection_id, welcome.as_ptr(), welcome.len() as i32,),
         SUCCESS
     );
-    let client_handle = wait_for_message_handle(client_connection_id);
+    wait_for_message_ready(2);
+    let client_handle = ct_poll_connection_message(client_connection_id);
+    assert!(client_handle > 0, "readiness does not consume messages");
     let mut client_info = CtMessageInfo::default();
     assert_eq!(
         ct_message_get(client_handle, &mut client_info as *mut CtMessageInfo),
@@ -1299,6 +1342,53 @@ fn client_connect_websocket_round_trips_over_ffi() {
     assert_eq!(client_info.message_code, 2, "WELCOME expected");
     ct_message_release(client_handle);
 
+    crate::runtime::ffi::ct_set_message_ready_callback_v1(None);
+    assert_eq!(
+        ct_send_message(client_connection_id, hello.as_ptr(), hello.len() as i32),
+        SUCCESS
+    );
+    let final_handle = wait_for_message_handle(server_connection_id);
+    ct_message_release(final_handle);
+    assert_eq!(MESSAGE_READY_COUNT.load(Ordering::SeqCst), 2);
+
+    assert_eq!(ct_shutdown(), SUCCESS);
+}
+
+#[test]
+fn message_ready_registration_is_removed_on_shutdown() {
+    let _guard = super::test_guard();
+    MESSAGE_READY_COUNT.store(0, Ordering::SeqCst);
+    crate::runtime::ffi::ct_set_message_ready_callback_v1(Some(count_message_ready));
+    assert_eq!(ct_start_runtime(), SUCCESS);
+    assert_eq!(ct_shutdown(), SUCCESS);
+    let config = br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["rawsocket"]}]}"#;
+    assert_eq!(
+        ct_apply_router_config(config.as_ptr(), config.len() as i32),
+        SUCCESS
+    );
+    assert_eq!(ct_start_runtime(), SUCCESS);
+    let host = CString::new("127.0.0.1").unwrap();
+    let listener = ct_listen(host.as_ptr(), 0, 128);
+    assert!(listener > 0);
+    let client = ct_client_connect_rawsocket(
+        host.as_ptr(),
+        ct_get_local_port(listener),
+        0,
+        0,
+        1,
+        20,
+        0,
+        0,
+    );
+    assert!(client > 0);
+    let server = wait_for_connection(listener);
+    let hello = br#"[1,"realm",{}]"#;
+    assert_eq!(
+        ct_send_message(client, hello.as_ptr(), hello.len() as i32),
+        SUCCESS
+    );
+    ct_message_release(wait_for_message_handle(server));
+    assert_eq!(MESSAGE_READY_COUNT.load(Ordering::SeqCst), 0);
     assert_eq!(ct_shutdown(), SUCCESS);
 }
 

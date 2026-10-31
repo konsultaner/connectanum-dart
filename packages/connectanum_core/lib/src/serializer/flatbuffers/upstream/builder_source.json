@@ -1,0 +1,18 @@
+{
+  "version": "25.9.23",
+  "git_blob_sha": "7590bdba690c594fe095273d0f1ab110a7960475",
+  "source_sha256": "7a5c953cf61b61e98755a00757ebff6d9c92877b6a3ce9f6922d19a7441a45ce",
+  "builder_sha256": "d37a72931327737ca6d1930346797f9a97d05563e1ed5feac1e977445459ff1c",
+  "vtable_sha256": "b48eb351bba335418378682df7f6e75a9db3d21a26cb2097771059e935d680b5",
+  "source_url": "https://github.com/google/flatbuffers/blob/v25.9.23/dart/lib/flat_buffers.dart",
+  "adaptations": [
+    "Builder renamed to ByteViewFlatBufferBuilder and implements the standard fb.Builder interface",
+    "Import only the public SDK allocator and ObjectBuilder types used by Builder",
+    "Use a bulk typed-data copy for independent Uint8List byte vectors of at least 256 bytes; preserve the original byte loop for all other inputs",
+    "Remove the redundant utf8.encode result cast",
+    "Select the original SDK builder on non-FFI targets because web readonly buffers hide backing identity",
+    "Encode bool vectors directly instead of normalizing them into a temporary byte-value list",
+    "Observe explicit encoded UTF8 staging as framing copies and retain failed-copy evidence",
+    "Reserve byte-vector storage for the guarded native initialization wrapper without exposing mutable views"
+  ]
+}

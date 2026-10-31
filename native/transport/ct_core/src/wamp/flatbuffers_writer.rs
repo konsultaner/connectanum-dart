@@ -18,6 +18,7 @@ pub(super) fn write(fields: &Fields) -> Result<Bytes, ParseError> {
         tables: 0,
         estimated: 0,
         deferred: None,
+        terminal_vector: None,
     };
     let root = writer.table(fields, schema::ROOT, 1)?;
     writer.builder.finish(root, None);
@@ -28,6 +29,21 @@ pub(super) fn write(fields: &Fields) -> Result<Bytes, ParseError> {
     }
     Ok(bytes)
 }
+// Derive bounded staging storage from the pinned schema, including future
+// schema additions, instead of allocating a temporary vector for each table.
+const MAX_TABLE_FIELDS: usize = {
+    let mut maximum = 0;
+    let mut index = 0;
+    while index < schema::TABLES.len() {
+        let count = schema::TABLES[index].fields.len();
+        if count > maximum {
+            maximum = count;
+        }
+        index += 1;
+    }
+    maximum
+};
+
 enum Slot {
     Scalar(u64),
     Offset(WIPOffset<UnionWIPOffset>),
@@ -38,33 +54,95 @@ struct DeferredVector {
     slot: u16,
     bytes: Bytes,
 }
+// The common opaque-PPT message has one deferred body. Keep its
+// bookkeeping inline; additional argument/keyword vectors preserve their order
+// and use the existing growable fallback.
+#[derive(Default)]
+struct DeferredVectors {
+    first: Option<DeferredVector>,
+    remaining: Vec<DeferredVector>,
+}
+impl DeferredVectors {
+    fn push(&mut self, vector: DeferredVector) {
+        if self.first.is_none() {
+            self.first = Some(vector);
+        } else {
+            self.remaining.push(vector);
+        }
+    }
+    fn len(&self) -> usize {
+        usize::from(self.first.is_some()) + self.remaining.len()
+    }
+    fn pop(&mut self) -> Option<DeferredVector> {
+        self.remaining.pop().or_else(|| self.first.take())
+    }
+    fn into_iter(self) -> impl Iterator<Item = DeferredVector> {
+        self.first.into_iter().chain(self.remaining)
+    }
+}
 struct Writer<'a> {
     builder: FlatBufferBuilder<'a, CodecAllocator>,
     strings: usize,
     elements: usize,
     tables: usize,
     estimated: usize,
-    deferred: Option<Vec<DeferredVector>>,
+    deferred: Option<DeferredVectors>,
+    terminal_vector: Option<WIPOffset<UnionWIPOffset>>,
 }
 
 /// Keep application vectors in their existing owners and append them after the
 /// newly built envelope. Only bounded metadata and vector headers are allocated.
 pub(super) fn write_segments(fields: &Fields) -> Result<Vec<Bytes>, ParseError> {
+    let mut builder = FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256));
+    // The builder grows backwards. A vector created first ends the envelope,
+    // so its header can directly precede one borrowed application span.
+    let single_vector = match fields.get("msg") {
+        Some(Value::Table(body)) => {
+            ["args", "kwargs", "payload"]
+                .iter()
+                .filter(|key| matches!(body.get(**key), Some(Value::Bytes(_))))
+                .count()
+                == 1
+        }
+        _ => false,
+    };
+    let terminal_vector = single_vector.then(|| builder.create_vector::<u8>(&[]).as_union_value());
     let mut writer = Writer {
-        builder: FlatBufferBuilder::new_in(CodecAllocator::with_capacity(256)),
+        builder,
         strings: 0,
         elements: 0,
         tables: 0,
         estimated: 0,
-        deferred: Some(Vec::new()),
+        deferred: Some(DeferredVectors::default()),
+        terminal_vector,
     };
     let root = writer.table(fields, schema::ROOT, 1)?;
     writer.builder.finish(root, None);
     let (allocator, start) = writer.builder.collapse_in();
     let mut allocation = allocator.into_vec();
     let mut length = allocation.len() - start;
+    let mut deferred = writer.deferred.unwrap_or_default();
+    if let Some(vector) = terminal_vector.filter(|_| deferred.len() == 1) {
+        let bytes = deferred.pop().unwrap().bytes;
+        let header = allocation
+            .len()
+            .checked_sub(vector.value() as usize)
+            .ok_or_else(|| wire::invalid("vector offset"))?;
+        if header.checked_add(4) != Some(allocation.len()) {
+            return Err(wire::invalid("terminal vector offset"));
+        }
+        length = length
+            .checked_add(bytes.len())
+            .ok_or_else(|| wire::invalid("byte limit"))?;
+        if length > wire::MAX_BYTES {
+            return Err(wire::invalid("byte limit"));
+        }
+        let count = u32::try_from(bytes.len()).map_err(|_| wire::invalid("vector limit"))?;
+        allocation[header..].copy_from_slice(&count.to_le_bytes());
+        return Ok(vec![Bytes::from(allocation).slice(start..), bytes]);
+    }
     let mut segments = vec![Bytes::new()];
-    for vector in writer.deferred.unwrap_or_default() {
+    for vector in deferred.into_iter() {
         let table = allocation
             .len()
             .checked_sub(vector.table as usize)
@@ -181,14 +259,13 @@ impl Writer<'_> {
             return Err(wire::invalid("field absent from pinned schema"));
         }
         self.charge(8 + spec.fields.len() * 16)?;
-        let mut slots = Vec::with_capacity(spec.fields.len());
-        for field in spec.fields {
+        let mut slots: [Option<Slot>; MAX_TABLE_FIELDS] = std::array::from_fn(|_| None);
+        for (index, field) in spec.fields.iter().enumerate() {
             let value = fields.get(field.name).unwrap_or(&Value::Null);
             if *value == Value::Null {
                 if field.required {
                     return Err(wire::invalid("missing required field"));
                 }
-                slots.push(None);
                 continue;
             }
             let slot = match (field.kind, value) {
@@ -221,10 +298,10 @@ impl Writer<'_> {
                     if self.deferred.is_some()
                         && matches!(field.name, "args" | "kwargs" | "payload")
                     {
-                        Slot::Borrowed(
-                            self.builder.create_vector::<u8>(&[]).as_union_value(),
-                            bytes.clone(),
-                        )
+                        let offset = self.terminal_vector.take().unwrap_or_else(|| {
+                            self.builder.create_vector::<u8>(&[]).as_union_value()
+                        });
+                        Slot::Borrowed(offset, bytes.clone())
                     } else {
                         let offset = self.builder.create_vector(bytes.as_ref()).as_union_value();
                         codec_copy_metrics::record_vector_copy(bytes.len());
@@ -301,29 +378,26 @@ impl Writer<'_> {
                 }
                 _ => return Err(wire::invalid("field type")),
             };
-            slots.push(Some(slot));
+            slots[index] = Some(slot);
         }
         let start = self.builder.start_table();
-        let mut borrowed = Vec::new();
-        for (index, (field, slot)) in spec.fields.iter().zip(slots).enumerate().rev() {
+        for (index, (field, slot)) in spec.fields.iter().zip(slots.iter()).enumerate().rev() {
             let offset = (4 + index * 2) as u16;
             match slot {
-                Some(Slot::Offset(value)) => self.builder.push_slot_always(offset, value),
-                Some(Slot::Borrowed(value, bytes)) => {
-                    self.builder.push_slot_always(offset, value);
-                    borrowed.push((offset, bytes));
+                Some(Slot::Offset(value) | Slot::Borrowed(value, _)) => {
+                    self.builder.push_slot_always(offset, *value)
                 }
                 Some(Slot::Scalar(value)) => match field.width {
                     1 => self
                         .builder
-                        .push_slot(offset, value as u8, field.default as u8),
+                        .push_slot(offset, *value as u8, field.default as u8),
                     2 => self
                         .builder
-                        .push_slot(offset, value as u16, field.default as u16),
+                        .push_slot(offset, *value as u16, field.default as u16),
                     4 => self
                         .builder
-                        .push_slot(offset, value as u32, field.default as u32),
-                    8 => self.builder.push_slot(offset, value, field.default),
+                        .push_slot(offset, *value as u32, field.default as u32),
+                    8 => self.builder.push_slot(offset, *value, field.default),
                     _ => return Err(wire::invalid("scalar width")),
                 },
                 None => (),
@@ -331,11 +405,15 @@ impl Writer<'_> {
         }
         let table = self.builder.end_table(start);
         if let Some(deferred) = &mut self.deferred {
-            deferred.extend(borrowed.into_iter().map(|(slot, bytes)| DeferredVector {
-                table: table.value(),
-                slot,
-                bytes,
-            }));
+            for (index, slot) in slots.into_iter().take(spec.fields.len()).enumerate().rev() {
+                if let Some(Slot::Borrowed(_, bytes)) = slot {
+                    deferred.push(DeferredVector {
+                        table: table.value(),
+                        slot: (4 + index * 2) as u16,
+                        bytes,
+                    });
+                }
+            }
         }
         Ok(table)
     }
@@ -353,6 +431,7 @@ mod copy_tests {
             tables: 0,
             estimated: 0,
             deferred: None,
+            terminal_vector: None,
         };
         for text in ["", "écho", "routing.name"] {
             let before = codec_copy_metrics::observed_on_current_thread();

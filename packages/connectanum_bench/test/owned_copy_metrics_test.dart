@@ -71,6 +71,50 @@ void main() {
     'main_isolate': main ?? zero,
     'workers': workers ?? {'3': zero, '5': zero},
   };
+  test('router message volume requires every stable quiescent isolate', () {
+    Map<String, Object?> snapshot(int bytes) => {
+      ...zero,
+      'encoded_wamp_volume_version': 1,
+      'encoded_wamp_bytes_accepted': bytes,
+      'encoded_wamp_send_rejections': 0,
+    };
+    final before = router(
+      main: snapshot(7),
+      workers: {'3': snapshot(11), '5': snapshot(13)},
+    );
+    final after = router(
+      main: snapshot(17),
+      workers: {'3': snapshot(31), '5': snapshot(43)},
+    );
+    final result = routerOwnedBufferCopyMetricsDelta(
+      before,
+      after,
+      quiescent: true,
+    );
+    final volume = result['encoded_wamp_volume'] as Map;
+    expect(volume['accepted_bytes'], 60);
+    expect(volume['components'], {'main_isolate': 10, '3': 20, '5': 30});
+    expect(result['known_copy_bytes'], 0);
+    final incomplete = routerOwnedBufferCopyMetricsDelta(
+      before,
+      router(main: snapshot(17), workers: {'3': snapshot(31), '5': zero}),
+      quiescent: true,
+    );
+    expect(
+      (incomplete['encoded_wamp_volume'] as Map)['status'],
+      'not_measured',
+    );
+    expect(incomplete['known_copy_bytes'], 0);
+    expect(
+      routerOwnedBufferCopyMetricsDelta(
+        before,
+        after,
+        quiescent: false,
+      )['status'],
+      'not_measured',
+    );
+  });
+
   test('router adds main and every stable worker exactly once', () {
     final result = routerOwnedBufferCopyMetricsDelta(
       router(),

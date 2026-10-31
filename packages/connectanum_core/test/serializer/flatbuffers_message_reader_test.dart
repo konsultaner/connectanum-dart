@@ -11,6 +11,7 @@ import 'package:connectanum_core/src/serializer/flatbuffers/message_projection.d
 import 'package:connectanum_core/src/serializer/flatbuffers/message_reader.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/cbor_encoding.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
 final codec = flatbuffers.Serializer();
 
@@ -35,6 +36,161 @@ Uint8List frameWithDictionary(
 }
 
 void main() {
+  test('partial null and custom PPT metadata preserves wire presence', () {
+    for (final dictionary in <Map<String, Object?>>[
+      {'ppt_scheme': 'x_app'},
+      {'ppt_scheme': null, 'ppt_serializer': 'flatbuffers'},
+      {'ppt_scheme': 'x_app', 'ppt_serializer': null},
+      {'ppt_scheme': 'x_app', 'ppt_serializer': 'flatbuffers', 'x_null': null},
+    ]) {
+      final original = Result(
+        1,
+        ResultDetails(
+          pptScheme: dictionary['ppt_scheme'] as String?,
+          pptSerializer: dictionary['ppt_serializer'] as String?,
+        ),
+      );
+      codec.retainMetadataValues(original, dictionary);
+      final bytes = codec.serialize(original);
+      expect(readWampFlatBufferFrame(bytes).dictionary, dictionary);
+      final decoded = codec.deserialize(bytes)!;
+      expect(
+        readWampFlatBufferFrame(codec.serialize(decoded)).dictionary,
+        dictionary,
+      );
+    }
+  });
+  test(
+    'minimal typed PPT models reproduce both metadata fields after decode',
+    () {
+      const dictionary = {
+        'ppt_scheme': 'x_app',
+        'ppt_serializer': 'flatbuffers',
+      };
+      final body = Uint8List.fromList([0, 255, 37]);
+      for (final id in [1, 9007199254740992]) {
+        for (final original in <AbstractMessage>[
+          Result(
+            id,
+            ResultDetails(pptScheme: 'x_app', pptSerializer: 'flatbuffers'),
+            arguments: [body],
+          ),
+          Event(
+            id,
+            2,
+            EventDetails(pptScheme: 'x_app', pptSerializer: 'flatbuffers'),
+            arguments: [body],
+          ),
+          Invocation(
+            id,
+            2,
+            InvocationDetails(null, null, null, 'x_app', 'flatbuffers'),
+            arguments: [body],
+          ),
+        ]) {
+          final bytes = codec.serialize(original);
+          expect(readWampFlatBufferFrame(bytes).dictionary, dictionary);
+          final decoded = codec.deserialize(bytes)!;
+          expect(
+            projectWampFlatBufferMessage(
+              decoded,
+              retainMetadata: false,
+            ).dictionary,
+            dictionary,
+          );
+          expect(
+            readWampFlatBufferFrame(codec.serialize(decoded)).dictionary,
+            dictionary,
+          );
+          final PPTOptions details = switch (decoded) {
+            Result value => value.details,
+            Event value => value.details,
+            Invocation value => value.details,
+            _ => throw StateError('Unexpected payload model'),
+          };
+          details.pptScheme = 'x_changed';
+          expect(readWampFlatBufferFrame(codec.serialize(decoded)).dictionary, {
+            'ppt_scheme': 'x_changed',
+            'ppt_serializer': 'flatbuffers',
+          });
+          expect(readWampFlatBufferFrame(bytes).dictionary, dictionary);
+        }
+      }
+    },
+  );
+  _profileReaderCases();
+  test('mutable Dart input does not retain reusable validation evidence', () {
+    final source = codec.serialize(
+      Call(
+        1,
+        'com.example.echo',
+        arguments: [1, 'value'],
+        argumentsKeywords: {'enabled': true},
+      ),
+    );
+    final message = codec.deserialize(source) as Call;
+    final payload = message.toLazyPayload();
+    final arguments = payload.argumentsBytes!;
+    final keywords = payload.argumentsKeywordsBytes!;
+
+    // The public Dart reader borrows from caller-owned, potentially mutable
+    // input, so these spans must be validated again before a later write.
+    arguments[0] = 0x81;
+    expect(message.toLazyPayload().argumentsBytes!.first, 0x81);
+    expect(() => codec.serialize(message), throwsFormatException);
+    expect(keywords, isNotEmpty);
+  });
+  test(
+    'mutable ERROR metadata stays independent across decodes and lazy payload access',
+    () {
+      final codec = flatbuffers.Serializer();
+      final dictionary = <String, Object?>{
+        'ppt_scheme': 'x_profile',
+        'ppt_serializer': 'flatbuffers',
+        '_extension': {
+          'nested': [1, 2],
+        },
+        '_null': null,
+      };
+      final source = frameWithDictionary(
+        'Error',
+        {
+          'request_type': 48,
+          'request': 1,
+          'error': 'com.error',
+          'args': Uint8List.fromList(
+            cbor.encode(
+              CborValue([
+                Uint8List.fromList([7, 8]),
+              ]),
+            ),
+          ),
+        },
+        dictionary,
+        7,
+      );
+      final first = codec.deserialize(source) as Error;
+      final second = codec.deserialize(source) as Error;
+      ((first.details['_extension'] as Map)['nested'] as List)[0] = 9;
+      first.details['_added'] = true;
+      expect(first.arguments!.single, [7, 8]);
+      expect(second.arguments!.single, [7, 8]);
+      expect(second.details, dictionary);
+      expect(readWampFlatBufferFrame(source).dictionary, dictionary);
+      expect(readWampFlatBufferFrame(codec.serialize(first)).dictionary, {
+        ...dictionary,
+        '_extension': {
+          'nested': [9, 2],
+        },
+        '_added': true,
+      });
+      expect(
+        readWampFlatBufferFrame(codec.serialize(second)).dictionary,
+        dictionary,
+      );
+    },
+  );
+
   test('public serializer handles null input and bounds malformed frames', () {
     expect(codec.deserialize(null), isNull);
     expect(() => codec.deserialize(Uint8List(0)), throwsFormatException);
@@ -1697,5 +1853,125 @@ void main() {
         },
       },
     });
+  });
+}
+
+void _profileReaderCases() {
+  for (final publication in [false, true]) {
+    test(
+      'profile reader avoids retained metadata snapshots publish=$publication',
+      () {
+        final blob = Uint8List(65536)..[0] = 7;
+        final AbstractMessage message = publication
+            ? Publish(7, 'com.topic', arguments: [1, 2, 3])
+            : Call(7, 'com.proc', arguments: [1, 2, 3]);
+        codec.retainMetadataValues(message, {'x_blob': blob, 'x_null': null});
+        final encoded = codec.serialize(message);
+        OwnedCopyMetrics.enable();
+        final before = OwnedCopyMetrics.snapshot()!;
+        final ordinary = readWampFlatBufferMessage(encoded);
+        final afterOrdinary = OwnedCopyMetrics.snapshot()!;
+        final control = readWampFlatBufferProfileMessage(encoded);
+        final afterControl = OwnedCopyMetrics.snapshot()!;
+        final ordinaryCopies =
+            afterOrdinary['clone_copy_bytes']! - before['clone_copy_bytes']!;
+        final controlCopies =
+            afterControl['clone_copy_bytes']! -
+            afterOrdinary['clone_copy_bytes']!;
+        expect(ordinaryCopies, greaterThanOrEqualTo(blob.length));
+        expect(
+          ordinaryCopies - controlCopies,
+          greaterThanOrEqualTo(blob.length),
+        );
+        expect(control.runtimeType, ordinary.runtimeType);
+        expect(control.id, ordinary.id);
+        expect((control as AbstractMessageWithPayload).arguments, [1, 2, 3]);
+        expect(codec.metadataFor(ordinary)['x_blob'], blob);
+        expect(codec.metadataFor(ordinary).containsKey('x_null'), isTrue);
+      },
+    );
+  }
+  test('profile reader preserves invalid dictionary and projection checks', () {
+    for (final message in [Call(7, 'com.proc'), Publish(7, 'com.topic')]) {
+      final projection = projectWampFlatBufferMessage(message);
+      for (final invalid in <Map<String, Object?>>[
+        {'ppt_scheme': false},
+        {'ppt_serializer': 42},
+        {
+          'forward_for': [1],
+        },
+        {
+          'forward_for': [
+            {'session': 'bad'},
+          ],
+        },
+        {
+          'forward_for': [
+            {'session': -1},
+          ],
+        },
+        {
+          'forward_for': [
+            {'session': 1, 'authid': 42},
+          ],
+        },
+      ]) {
+        final builder = WampFlatBufferBuilder();
+        builder.finish(
+          writeWampFlatBufferFields({
+            'msg_type': projection.fields['msg_type'],
+            'msg': projection.fields['msg'],
+            'metadata': Uint8List.fromList(cbor.encode(CborValue(invalid))),
+          }, builder),
+        );
+        final encoded = builder.buffer;
+        expect(() => readWampFlatBufferMessage(encoded), throwsFormatException);
+        expect(
+          () => readWampFlatBufferProfileMessage(encoded),
+          throwsFormatException,
+        );
+      }
+    }
+  });
+  test('profile reader retains bootstrap and other message dictionaries', () {
+    for (final message in <AbstractMessage>[
+      Hello('realm', Details.forHello()),
+      Welcome(42, Details.forWelcome()),
+      Abort('wamp.error.not_authorized'),
+      Challenge('ticket', Extra()),
+      Authenticate(signature: 'signature'),
+      Goodbye(null, 'wamp.close.normal'),
+      Result(7, ResultDetails()),
+    ]) {
+      final dictionary = codec.metadataFor(message)
+        ..['x_present_null'] = null
+        ..['x_present_false'] = false
+        ..['x_blob'] = Uint8List.fromList([0, 255]);
+      codec.retainMetadataValues(message, dictionary);
+      final encoded = codec.serialize(message);
+      final ordinary = readWampFlatBufferMessage(encoded);
+      final control = readWampFlatBufferProfileMessage(encoded);
+      expect(codec.metadataFor(control), codec.metadataFor(ordinary));
+      expect(codec.serialize(control), codec.serialize(ordinary));
+    }
+  });
+  test('profile reader agrees with public reader on every frame prefix', () {
+    final encoded = codec.serialize(Call(7, 'com.proc', arguments: [1, 2, 3]));
+    String outcome(Uint8List bytes, AbstractMessage Function(Uint8List) read) {
+      try {
+        return 'accepted:${read(bytes).runtimeType}';
+      } catch (error) {
+        return '${error.runtimeType}:$error';
+      }
+    }
+
+    for (var end = 0; end <= encoded.length; end++) {
+      final prefix = Uint8List.sublistView(encoded, 0, end);
+      expect(
+        outcome(prefix, readWampFlatBufferProfileMessage),
+        outcome(prefix, readWampFlatBufferMessage),
+        reason: 'prefix=$end',
+      );
+    }
   });
 }

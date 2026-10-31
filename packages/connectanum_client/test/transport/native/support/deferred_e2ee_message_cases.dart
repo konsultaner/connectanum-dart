@@ -266,6 +266,12 @@ void _deferredE2eeMessageCases(NativeClientRuntime Function() getRuntime) {
       expect(
         result.stdout,
         contains(
+          'native-message-view-gc: derived view retained then released storage',
+        ),
+      );
+      expect(
+        result.stdout,
+        contains(
           'native-deferred-input-gc: retained then released unexported handles',
         ),
       );

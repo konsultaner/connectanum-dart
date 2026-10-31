@@ -48,9 +48,34 @@ class _Validator {
   final Uint8List bytes;
   final ByteData data;
   final WampFlatBufferValidationLimits limits;
-  final Map<(int, int), int> tables = {};
+  // Root and message tables need no map. Larger graphs retain the complete
+  // (offset, schema) identity and their validated subtree heights.
+  Object? _firstTableKey;
+  int _firstTableHeight = 0;
+  Object? _secondTableKey;
+  int _secondTableHeight = 0;
+  Map<Object, int>? _otherTables;
+  var _tableCount = 0;
   var vectorElements = 0;
   var stringBytes = 0;
+
+  int? _tableHeight(Object key) {
+    if (key == _firstTableKey) return _firstTableHeight;
+    if (key == _secondTableKey) return _secondTableHeight;
+    return _otherTables?[key];
+  }
+
+  void _rememberTable(Object key, int height) {
+    if (_firstTableKey == null || key == _firstTableKey) {
+      _firstTableKey = key;
+      _firstTableHeight = height;
+    } else if (_secondTableKey == null || key == _secondTableKey) {
+      _secondTableKey = key;
+      _secondTableHeight = height;
+    } else {
+      (_otherTables ??= {})[key] = height;
+    }
+  }
 
   Never invalid(String reason) =>
       throw FormatException('Invalid FlatBuffers frame: $reason');
@@ -104,8 +129,8 @@ class _Validator {
 
   int table(int offset, int reference, int depth) {
     if (depth > limits.maxDepth) invalid('nesting depth limit');
-    final key = (offset, reference);
-    final previous = tables[key];
+    final key = _tableKey(offset, reference);
+    final previous = _tableHeight(key);
     if (previous != null) {
       if (previous == 0) invalid('cyclic table');
       if (depth + previous - 1 > limits.maxDepth) {
@@ -113,8 +138,9 @@ class _Validator {
       }
       return previous;
     }
-    if (tables.length >= limits.maxTables) invalid('table count limit');
-    tables[key] = 0;
+    if (_tableCount >= limits.maxTables) invalid('table count limit');
+    _tableCount++;
+    _rememberTable(key, 0);
     range(offset, 4, 4);
     final vtable = offset - data.getInt32(offset, Endian.little);
     final vtableSize = u16(vtable);
@@ -127,10 +153,6 @@ class _Validator {
     final spec = wampValidationTables[reference];
     var unionTag = 0;
     var height = 1;
-    void child(int childHeight) {
-      if (childHeight + 1 > height) height = childHeight + 1;
-    }
-
     for (var slot = 0; slot < spec.fields.length; slot++) {
       final field = spec.fields[slot];
       final entry = 4 + slot * 2;
@@ -148,6 +170,7 @@ class _Validator {
         invalid('field exceeds its table');
       }
       final position = offset + relative;
+      var childHeight = 0;
       switch (field.kind) {
         case FlatBufferFieldKind.scalar:
           scalar(position, field);
@@ -155,20 +178,25 @@ class _Validator {
         case FlatBufferFieldKind.string:
           string(target(position));
         case FlatBufferFieldKind.table:
-          child(table(target(position), field.reference, depth + 1));
+          childHeight = table(target(position), field.reference, depth + 1);
         case FlatBufferFieldKind.union:
           if (unionTag == 0 || unionTag >= field.values.length) {
             invalid('union discriminator');
           }
-          child(table(target(position), field.values[unionTag], depth + 1));
+          childHeight = table(
+            target(position),
+            field.values[unionTag],
+            depth + 1,
+          );
           unionTag = 0;
         case FlatBufferFieldKind.scalarVector:
         case FlatBufferFieldKind.stringVector:
         case FlatBufferFieldKind.tableVector:
-          child(vector(target(position), field, depth));
+          childHeight = vector(target(position), field, depth);
       }
+      if (childHeight + 1 > height) height = childHeight + 1;
     }
-    tables[key] = height;
+    _rememberTable(key, height);
     return height;
   }
 
@@ -248,3 +276,11 @@ class _Validator {
     }
   }
 }
+
+// Keep the full (offset, schema) identity without allocating a record for common
+// FlatBuffers offsets. The largest packed key is 2^48-1, exact on JS as well as
+// the VM. Unusual inputs retain the original record representation.
+Object _tableKey(int offset, int reference) =>
+    offset >= 0 && offset <= 0xffffffff && reference >= 0 && reference <= 0xffff
+    ? offset * 0x10000 + reference
+    : (offset, reference);

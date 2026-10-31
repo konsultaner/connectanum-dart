@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart' as client;
@@ -10,6 +11,7 @@ import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/native/ffi_bindings.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
@@ -216,7 +218,10 @@ class _Harness {
   final peers = <_Peer>[];
   int get port => binding.listeners.single.port;
 
-  static _Harness start(String library) {
+  static _Harness start(
+    String library, {
+    Duration workerPollInterval = const Duration(milliseconds: 1),
+  }) {
     final settings =
         (RouterSettingsBuilder()
               ..addRealmFromBuilder(
@@ -259,6 +264,7 @@ class _Harness {
           settings: settings,
         ).start(
           runtime,
+          workerPollInterval: workerPollInterval,
           onEvent: (event) {
             if (event is Map &&
                 event['type'] is String &&
@@ -294,55 +300,179 @@ class _Harness {
 
 void main() {
   final library = resolveOrBuildNativeLib();
-  for (final serializer in ['flatbuffers', 'cbor', 'msgpack']) {
-    test('internal PPT singleton retains encoded body $serializer', () async {
-      final harness = _Harness.start(library!);
-      Uint8List? retainedBody;
+  final supportsPptHandoff =
+      library != null &&
+      CtFfiBindings(
+        ffi.DynamicLibrary.open(library),
+      ).supportsPlaintextPptHandoff;
+  for (final codec in ['flatbuffers', 'cbor', 'msgpack']) {
+    test('native readiness wakes long-poll $codec typed RPC', () async {
+      final harness = _Harness.start(
+        library!,
+        workerPollInterval: const Duration(seconds: 1),
+      );
       try {
-        final caller = await harness.connect(serializer, library, _modes.first);
-        final callee = await harness.binding.createInternalSession(
-          realmUri: 'realm1',
-        );
-        final registration = await callee.register('com.internal.view');
-        final application = _application(42);
-        registration.onLazyInvokePayload((invocation) {
-          retainedBody = invocation.packedPayloadBytes;
+        final mode = _modes.first;
+        final caller = await harness.connect(codec, library, mode);
+        final callee = await harness.connect(codec, library, mode);
+        final registration = await callee.session.register('com.wake.echo');
+        registration.onInvoke((invocation) {
           invocation.respondWith(
-            lazyPayload: invocation.payload,
-            options: _modes.first.replyOptions(),
+            arguments: invocation.arguments,
+            options: core.YieldOptions(
+              pptScheme: mode.scheme,
+              pptSerializer: mode.serializer,
+            ),
           );
         });
+        final expected = _application(71);
         final result = await caller.session
-            .callLazyPayload(
-              'com.internal.view',
-              payload: core.LazyMessagePayload.packed(
-                encoding: core.LazyPayloadEncoding.cbor,
-                packedPayloadBytes: application,
-                packedPayloadDecoder: (_) =>
-                    (arguments: [application], argumentsKeywords: null),
+            .call(
+              'com.wake.echo',
+              arguments: [expected],
+              options: core.CallOptions(
+                pptScheme: mode.scheme,
+                pptSerializer: mode.serializer,
               ),
-              options: _modes.first.callOptions(),
             )
             .first
-            .timeout(_deadline);
-        expect(result.arguments, [application]);
-        expect(retainedBody, orderedEquals(application));
-        expect(
-          retainedBody!.buffer.lengthInBytes,
-          greaterThan(application.length),
-          reason: 'opaque body retains its original encoded allocation',
+            .timeout(const Duration(milliseconds: 500));
+        mode.expectApplication(
+          result.arguments,
+          result.argumentsKeywords,
+          expected,
+          71,
         );
-        expect(() => retainedBody![0] = 0, throwsUnsupportedError);
-        await callee.close();
+        expect(harness.errors, isEmpty);
       } finally {
         await harness.close();
       }
-      expect(
-        _applicationId(retainedBody!),
-        42,
-        reason: 'view survives its native message and sessions',
-      );
     }, skip: library == null ? 'Native transport artifact unavailable' : false);
+  }
+
+  for (final serializer in ['flatbuffers', 'cbor', 'msgpack']) {
+    for (final scenario in [
+      'unchanged',
+      'replaced body',
+      'copied body',
+      'changed scheme',
+      'custom details',
+      'progressive',
+    ]) {
+      test(
+        'internal PPT singleton retains encoded body $serializer $scenario',
+        () async {
+          final harness = _Harness.start(library!);
+          Uint8List? retainedBody;
+          try {
+            final caller = await harness.connect(
+              serializer,
+              library,
+              _modes.first,
+            );
+            final callee = await harness.binding.createInternalSession(
+              realmUri: 'realm1',
+            );
+            final registration = await callee.register('com.internal.view');
+            final application = _application(42);
+            final replacement = scenario == 'copied body'
+                ? Uint8List.fromList(application)
+                : _application(43);
+            registration.onLazyInvokePayload((invocation) {
+              retainedBody = invocation.packedPayloadBytes;
+              for (final progress in [
+                if (scenario == 'progressive') true,
+                false,
+              ]) {
+                invocation.respondWith(
+                  lazyPayload:
+                      scenario == 'replaced body' || scenario == 'copied body'
+                      ? core.LazyMessagePayload.packed(
+                          encoding: invocation.payload.encoding,
+                          packedPayloadBytes: replacement,
+                          packedPayloadDecoder: (_) => (
+                            arguments: [replacement],
+                            argumentsKeywords: null,
+                          ),
+                        )
+                      : invocation.payload,
+                  options: _modes.first.replyOptions(progress: progress)
+                    ..pptScheme = scenario == 'changed scheme'
+                        ? 'x_changed'
+                        : _modes.first.scheme
+                    ..custom.addAll(
+                      scenario == 'custom details' ? {'answer': 42} : {},
+                    ),
+                );
+              }
+            });
+            final results = await caller.session
+                .callLazyPayload(
+                  'com.internal.view',
+                  payload: core.LazyMessagePayload.packed(
+                    encoding: core.LazyPayloadEncoding.cbor,
+                    packedPayloadBytes: application,
+                    packedPayloadDecoder: (_) =>
+                        (arguments: [application], argumentsKeywords: null),
+                  ),
+                  options: _modes.first.callOptions(),
+                )
+                .toList()
+                .timeout(_deadline);
+            expect(results, hasLength(scenario == 'progressive' ? 2 : 1));
+            for (var index = 0; index < results.length; index++) {
+              final result = results[index];
+              expect(result.arguments, [
+                scenario == 'replaced body' ? replacement : application,
+              ]);
+              expect(
+                result.details.pptScheme,
+                scenario == 'changed scheme'
+                    ? 'x_changed'
+                    : _modes.first.scheme,
+              );
+              expect(
+                result.details.progress ?? false,
+                scenario == 'progressive' && index == 0,
+              );
+              if (scenario == 'custom details') {
+                expect(result.details.custom['answer'], 42);
+              }
+            }
+            expect(
+              harness.forwardedTypes.where(
+                (type) => type == 'worker_forward_native_internal_result',
+              ),
+              hasLength(
+                supportsPptHandoff &&
+                        (scenario == 'unchanged' || scenario == 'progressive')
+                    ? 1
+                    : 0,
+              ),
+            );
+            expect(harness.errors, isEmpty);
+            expect(retainedBody, orderedEquals(application));
+            expect(
+              retainedBody!.buffer.lengthInBytes,
+              greaterThanOrEqualTo(application.length),
+              reason:
+                  'opaque body retains its allocation, which can be an '
+                  'entire direct payload rather than a wrapped subview',
+            );
+            expect(() => retainedBody![0] = 0, throwsUnsupportedError);
+            await callee.close();
+          } finally {
+            await harness.close();
+          }
+          expect(
+            _applicationId(retainedBody!),
+            42,
+            reason: 'view survives its native message and sessions',
+          );
+        },
+        skip: library == null ? 'Native transport artifact unavailable' : false,
+      );
+    }
   }
   for (final pair in _pairs) {
     test(

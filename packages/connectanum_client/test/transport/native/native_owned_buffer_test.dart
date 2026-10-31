@@ -29,6 +29,415 @@ void main() {
     allocator = NativeBufferAllocator.instance();
   });
 
+  group('guarded in-place initialization', () {
+    for (final vector in [false, true]) {
+      NativeOwnedBuffer initialize(
+        int length,
+        void Function(NativeWritableBytes) fill,
+      ) {
+        if (vector) {
+          final builder = allocator.flatBuffers(initialSize: 8);
+          try {
+            builder.finish(builder.writeByteVector(length, fill), 'BYTS');
+            return builder.freeze();
+          } finally {
+            builder.dispose();
+          }
+        }
+        final builder = allocator.allocate(length);
+        try {
+          builder.writeByteRange(0, length, fill);
+          return builder.freeze();
+        } finally {
+          builder.dispose();
+        }
+      }
+
+      Uint8List contents(NativeOwnedBuffer owner) {
+        final bytes = owner.bytes;
+        if (!vector) return bytes;
+        final data = ByteData.sublistView(bytes);
+        final root = data.getUint32(0, Endian.little);
+        final length = data.getUint32(root, Endian.little);
+        return Uint8List.sublistView(bytes, root + 4, root + 4 + length);
+      }
+
+      for (final length in [0, 1, 3, 4, 7, 8, 9, 257, 65535, 65536, 65537]) {
+        test('scalar generation vector=$vector length=$length', () {
+          final expected = Uint8List.fromList(
+            List.generate(length, (index) => (index * 31) & 255),
+          );
+          final owner = initialize(length, (bytes) {
+            final words = bytes.uint32Words(count: length >> 2);
+            final input = ByteData.sublistView(expected);
+            for (var i = 0; i < words.length; i++) {
+              words[i] = input.getUint32(i * 4, Endian.little);
+            }
+            for (var i = words.length * 4; i < length; i++) {
+              bytes.setUint8(i, expected[i]);
+            }
+          });
+          addTearDown(owner.dispose);
+          expect(contents(owner), expected);
+          expect(owner.inputCopiedBytes, 0);
+          if (vector) {
+            final sdk = fb.Builder(initialSize: 8);
+            sdk.finish(sdk.writeListUint8(expected), 'BYTS');
+            expect(owner.bytes, sdk.buffer);
+          }
+        });
+      }
+
+      test('scoped views, byte order and copy accounting vector=$vector', () {
+        OwnedCopyMetrics.enable();
+        final before = OwnedCopyMetrics.snapshot()!;
+        late NativeWritableBytes escaped;
+        late NativeUint32Writer first;
+        late NativeUint32Writer second;
+        late NativeUint32Writer third;
+        final owner = initialize(25, (bytes) {
+          escaped = bytes;
+          first = bytes.uint32Words(count: 2);
+          first[0] = 0x01020304;
+          first[1] = 0x05060708;
+          bytes.setUint8(8, 0xee);
+          second = bytes.uint32Words(offset: 9, count: 1, endian: Endian.big);
+          second[0] = 0x11223344;
+          third = bytes.uint32Words(offset: 13, count: 2);
+          // Keep the third registered view open but initialize using scalars.
+          bytes.setUint64(13, 0x0102030405060708, Endian.big);
+          bytes.writeBytes(21, [9, 8, 7]);
+        });
+        final expected = ByteData(25)
+          ..setUint32(0, 0x01020304, Endian.little)
+          ..setUint32(4, 0x05060708, Endian.little)
+          ..setUint8(8, 0xee)
+          ..setUint32(9, 0x11223344, Endian.big)
+          ..setUint64(13, 0x0102030405060708, Endian.big);
+        expected.buffer.asUint8List().setRange(21, 24, [9, 8, 7]);
+        try {
+          expect(contents(owner), expected.buffer.asUint8List());
+          expect(owner.inputCopiedBytes, 3);
+          final after = OwnedCopyMetrics.snapshot()!;
+          final key = vector
+              ? 'flatbuffer_vector_copy_bytes'
+              : 'clone_copy_bytes';
+          expect(after[key]! - before[key]!, 3);
+        } finally {
+          owner.dispose();
+        }
+        expect(() => escaped.setUint8(0, 1), throwsStateError);
+        expect(() => escaped.setUint32(0, 1), throwsStateError);
+        expect(() => escaped.setUint64(0, 1), throwsStateError);
+        expect(() => escaped.writeBytes(0, [1]), throwsStateError);
+        expect(() => escaped.uint32Words(count: 1), throwsStateError);
+        for (final words in [first, second, third]) {
+          expect(() => words[0] = 1, throwsStateError);
+        }
+      });
+
+      test('word bounds precede offset multiplication vector=$vector', () {
+        final owner = initialize(13, (bytes) {
+          for (final offset in [0, 1]) {
+            final words = bytes.uint32Words(offset: offset, count: 2);
+            for (final index in [-1, 2, 1 << 62]) {
+              expect(() => words[index] = 1, throwsRangeError);
+            }
+          }
+          final empty = bytes.uint32Words(offset: 13, count: 0);
+          expect(() => empty[0] = 1, throwsRangeError);
+          expect(() => bytes.uint32Words(count: -1), throwsRangeError);
+          expect(() => bytes.uint32Words(count: 1 << 62), throwsRangeError);
+          expect(
+            () => bytes.uint32Words(offset: 14, count: 0),
+            throwsRangeError,
+          );
+        });
+        addTearDown(owner.dispose);
+        expect(contents(owner), Uint8List(13));
+      });
+
+      test(
+        'failed source copy cannot publish partial bytes vector=$vector',
+        () {
+          OwnedCopyMetrics.enable();
+          final before = OwnedCopyMetrics.snapshot()!;
+          final original = StateError('source failed after one byte');
+          var reads = 0;
+          expect(
+            () => initialize(4, (bytes) {
+              expect(
+                () => bytes.writeBytes(
+                  0,
+                  _ReentrantBytes(() {
+                    if (++reads == 2) throw original;
+                  }),
+                ),
+                throwsA(same(original)),
+              );
+              expect(() => bytes.setUint8(0, 1), throwsStateError);
+            }),
+            throwsStateError,
+          );
+          expect(reads, 2);
+          final after = OwnedCopyMetrics.snapshot()!;
+          expect(
+            after['failed_copy_operations']! -
+                before['failed_copy_operations']!,
+            1,
+          );
+        },
+      );
+    }
+
+    test('reset clears old vector bytes and recovers a failed fill', () {
+      final builder = allocator.flatBuffers(initialSize: 8);
+      addTearDown(builder.dispose);
+      late NativeUint32Writer escaped;
+      final original = StateError('original fill failure');
+      expect(
+        () => builder.writeByteVector(32, (bytes) {
+          escaped = bytes.uint32Words(count: 8);
+          bytes.writeBytes(0, List.filled(32, 0x9a));
+          throw original;
+        }),
+        throwsA(same(original)),
+      );
+      expect(() => escaped[0] = 1, throwsStateError);
+      expect(() => builder.finish(4), throwsStateError);
+      expect(builder.freeze, throwsStateError);
+      expect(() => builder.writeByteVector(1, (_) {}), throwsStateError);
+      builder.reset();
+      final vector = builder.writeByteVector(8, (_) {});
+      builder.finish(vector, 'BYTS');
+      final owner = builder.freeze();
+      addTearDown(owner.dispose);
+      final sdk = fb.Builder(initialSize: 8);
+      sdk.finish(sdk.writeListUint8(Uint8List(8)), 'BYTS');
+      expect(owner.bytes, sdk.buffer);
+      expect(owner.inputCopiedBytes, 32);
+      expect(() => escaped[0] = 1, throwsStateError);
+    });
+
+    test('growth preserves zero initialization beside an earlier vector', () {
+      final builder = allocator.flatBuffers(initialSize: 8);
+      addTearDown(builder.dispose);
+      final old = Uint8List(512)..fillRange(0, 512, 0x9a);
+      builder.writeListUint8(old);
+      late NativeUint32Writer escaped;
+      builder.writeByteVector(4, (bytes) {
+        escaped = bytes.uint32Words(count: 1)..[0] = 0x04030201;
+      });
+      final vector = builder.writeByteVector(2048, (bytes) {
+        bytes.setUint8(0, 7);
+      });
+      expect(() => escaped[0] = 1, throwsStateError);
+      builder.finish(vector, 'BYTS');
+      final owner = builder.freeze();
+      addTearDown(owner.dispose);
+      final sdk = fb.Builder(initialSize: 8);
+      sdk.writeListUint8(old);
+      sdk.writeListUint8([1, 2, 3, 4]);
+      final body = Uint8List(2048)..[0] = 7;
+      sdk.finish(sdk.writeListUint8(body), 'BYTS');
+      expect(owner.bytes, sdk.buffer);
+      expect(owner.inputCopiedBytes, 512);
+      expect(owner.growthCopiedBytes, greaterThan(0));
+    });
+
+    test('vector reservation rejects table state before callback', () {
+      final builder = allocator.flatBuffers(initialSize: 8);
+      addTearDown(builder.dispose);
+      builder.startTable(1);
+      var called = false;
+      expect(
+        () => builder.writeByteVector(4, (_) => called = true),
+        throwsStateError,
+      );
+      expect(called, isFalse);
+      builder.reset();
+      builder.finish(builder.writeByteVector(0, (_) {}), 'BYTS');
+      final owner = builder.freeze();
+      addTearDown(owner.dispose);
+    });
+
+    test('callback blocks native builder mutation before publication', () {
+      final builder = allocator.flatBuffers(initialSize: 8);
+      addTearDown(builder.dispose);
+      final vector = builder.writeByteVector(4, (bytes) {
+        for (final attempt in <void Function()>[
+          () => builder.putUint8(1),
+          () => builder.startTable(1),
+          () => builder.finish(4),
+          builder.reset,
+          builder.dispose,
+          () => builder.freeze(),
+          () => builder.buffer,
+          () => builder.writeByteVector(4, (_) {}),
+        ]) {
+          expect(attempt, throwsStateError);
+        }
+        bytes.uint32Words(count: 1)[0] = 0x01020304;
+      });
+      builder.finish(vector, 'BYTS');
+      final owner = builder.freeze();
+      addTearDown(owner.dispose);
+      expect(owner.inputCopiedBytes, 0);
+    });
+
+    test('failed fixed-size initialization cannot freeze or accept writes', () {
+      final builder = allocator.allocate(8);
+      addTearDown(builder.dispose);
+      final original = StateError('fixed fill failure');
+      expect(
+        () => builder.writeByteRange(0, 8, (bytes) {
+          expect(() => builder.setUint8(0, 1), throwsStateError);
+          expect(builder.freeze, throwsStateError);
+          expect(builder.dispose, throwsStateError);
+          bytes.setUint32(0, 1);
+          throw original;
+        }),
+        throwsA(same(original)),
+      );
+      expect(builder.freeze, throwsStateError);
+      expect(() => builder.writeBytes(0, [1]), throwsStateError);
+      expect(() => builder.writeByteRange(0, 8, (_) {}), throwsStateError);
+    });
+
+    test('fixed byte-range updates preserve untouched existing values', () {
+      final builder = allocator.allocate(12);
+      addTearDown(builder.dispose);
+      builder.writeBytes(0, List.filled(12, 0x7b));
+      builder.writeByteRange(3, 6, (bytes) {
+        bytes.setUint8(1, 0x19);
+      });
+      final owner = builder.freeze();
+      addTearDown(owner.dispose);
+      final expected = Uint8List(12)..fillRange(0, 12, 0x7b);
+      expected[4] = 0x19;
+      expect(owner.bytes, expected);
+      expect(owner.inputCopiedBytes, 12);
+    });
+
+    test('asynchronous fills close all writers before returning', () async {
+      final builder = allocator.flatBuffers(initialSize: 8);
+      addTearDown(builder.dispose);
+      final resume = Completer<void>();
+      late Future<void> pending;
+      expect(
+        () => builder.writeByteVector(4, (bytes) {
+          final words = bytes.uint32Words(count: 1);
+          return pending = () async {
+            await resume.future;
+            expect(() => words[0] = 1, throwsStateError);
+            expect(() => bytes.setUint8(0, 1), throwsStateError);
+          }();
+        }),
+        throwsArgumentError,
+      );
+      expect(builder.freeze, throwsStateError);
+      builder.dispose();
+      resume.complete();
+      await pending;
+    });
+
+    test('void-typed asynchronous callback is rejected too', () async {
+      final builder = allocator.allocate(4);
+      addTearDown(builder.dispose);
+      final resume = Completer<void>();
+      final done = Completer<void>();
+      // This intentionally passes an invalid async callback through a void type.
+      // ignore: avoid_void_async
+      void fill(NativeWritableBytes bytes) async {
+        final words = bytes.uint32Words(count: 1);
+        await resume.future;
+        try {
+          expect(() => words[0] = 1, throwsStateError);
+        } finally {
+          done.complete();
+        }
+      }
+
+      expect(() => builder.writeByteRange(0, 4, fill), throwsArgumentError);
+      expect(builder.freeze, throwsStateError);
+      builder.dispose();
+      resume.complete();
+      await done.future;
+    });
+
+    test('scoped writers cannot cross an isolate port', () {
+      final port = ReceivePort();
+      addTearDown(port.close);
+      final builder = allocator.allocate(4);
+      addTearDown(builder.dispose);
+      builder.writeByteRange(0, 4, (bytes) {
+        final words = bytes.uint32Words(count: 1);
+        expect(() => port.sendPort.send(bytes), throwsArgumentError);
+        expect(() => port.sendPort.send(words), throwsArgumentError);
+      });
+    });
+  });
+
+  test(
+    'typed word writes detach from native source and preserve copy ownership',
+    () {
+      OwnedCopyMetrics.enable();
+      for (final length in [256, 257, 258, 259, 4096, 4097, 65536, 65537]) {
+        for (final capacity in [8, length + 128]) {
+          final bytes = Uint8List.fromList(
+            List.generate(length, (i) => (i * 29) & 255),
+          );
+          final sourceBuilder = allocator.allocate(length);
+          sourceBuilder.writeBytes(0, bytes);
+          final source = sourceBuilder.freeze();
+          final builder = allocator.flatBuffers(initialSize: capacity);
+          try {
+            final before = OwnedCopyMetrics.snapshot()!;
+            final vector = builder.writeListUint8(
+              source.bytes.asUnmodifiableView(),
+            );
+            source.dispose();
+            builder.finish(vector, 'BYTS');
+            final frozen = builder.freeze();
+            try {
+              final sdk = fb.Builder(initialSize: (capacity + 7) & ~7);
+              sdk.finish(sdk.writeListUint8(bytes), 'BYTS');
+              expect(frozen.bytes, sdk.buffer);
+              expect(frozen.inputCopiedBytes, length);
+              final after = OwnedCopyMetrics.snapshot()!;
+              expect(
+                after['flatbuffer_vector_copy_bytes']! -
+                    before['flatbuffer_vector_copy_bytes']!,
+                length,
+              );
+              expect(
+                after['flatbuffer_growth_copy_bytes']! -
+                    before['flatbuffer_growth_copy_bytes']!,
+                builder.growthCopiedBytes,
+              );
+              expect(
+                after['unmeasured_copy_operations'],
+                before['unmeasured_copy_operations'],
+              );
+              expect(
+                after['failed_copy_operations'],
+                before['failed_copy_operations'],
+              );
+              expect(() => builder.writeListUint8(bytes), throwsStateError);
+            } finally {
+              frozen.dispose();
+            }
+          } finally {
+            source.dispose();
+            sourceBuilder.dispose();
+            builder.dispose();
+          }
+          expect(() => builder.writeListUint8(bytes), throwsStateError);
+        }
+      }
+    },
+  );
+
   test('native message vectors contribute once through the shared writer', () {
     OwnedCopyMetrics.enable();
     final before = OwnedCopyMetrics.snapshot()!;
@@ -764,6 +1173,76 @@ void main() {
     },
   );
 
+  test('repeated native growth preserves the independent table wire', () {
+    int populate(fb.Builder builder) {
+      final offsets = <int>[];
+      for (var i = 0; i < 32; i++) {
+        offsets.add(
+          builder.writeString('field.$i.${List.filled(i + 1, 'x').join()}'),
+        );
+      }
+      builder.startTable(offsets.length);
+      for (var i = 0; i < offsets.length; i++) {
+        builder.addOffset(i, offsets[i]);
+      }
+      return builder.endTable();
+    }
+
+    final builder = allocator.flatBuffers(initialSize: 8);
+    addTearDown(builder.dispose);
+    final expected = fb.Builder(initialSize: 8);
+    expected.finish(populate(expected), 'OWNR');
+    builder.finish(populate(builder), 'OWNR');
+    expect(builder.allocationCount, greaterThanOrEqualTo(3));
+    final owner = builder.freeze();
+    addTearDown(owner.dispose);
+    builder.dispose();
+    expect(owner.bytes, expected.buffer);
+    expect(() => builder.putUint8(1), throwsStateError);
+  });
+
+  test('native input failure after growth leaves the builder disposable', () {
+    final builder = allocator.flatBuffers(initialSize: 8);
+    addTearDown(builder.dispose);
+    final failure = StateError('input failure after growth');
+    expect(
+      () => builder.writeListUint8(
+        _ReentrantBytes(() => throw failure, count: 4096),
+      ),
+      throwsA(same(failure)),
+    );
+    expect(builder.allocationCount, greaterThan(1));
+    expect(builder.dispose, returnsNormally);
+    expect(builder.freeze, throwsStateError);
+  });
+
+  test('native growth releases frozen, failed-input and reset owners', () async {
+    final source = await Isolate.resolvePackageUri(
+      Uri.parse('package:connectanum_client/native_buffers.dart'),
+    );
+    final result = await Process.run(
+      Platform.resolvedExecutable,
+      [
+        'run',
+        source!
+            .resolve(
+              '../test/transport/native/support/native_allocator_growth_probe.dart',
+            )
+            .toFilePath(),
+      ],
+      environment: {
+        'CONNECTANUM_NATIVE_LIB': NativeClientRuntime.instance().libraryPath,
+      },
+    );
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+    expect(
+      result.stdout,
+      contains(
+        'native-allocator-growth: frozen, failed-input and reset paths release all owners',
+      ),
+    );
+  }, timeout: const Timeout(Duration(seconds: 40)));
+
   test('growth copies are counted and all writes are guarded after freeze', () {
     final builder = allocator.flatBuffers(initialSize: 8);
     final model = wire.MessageObjectBuilder(
@@ -946,10 +1425,11 @@ class _CapturingStruct extends fb.ObjectBuilder {
 }
 
 class _ReentrantBytes extends ListBase<int> {
-  _ReentrantBytes(this.callback);
+  _ReentrantBytes(this.callback, {this.count = 4});
   final void Function() callback;
+  final int count;
   @override
-  int get length => 4;
+  int get length => count;
   @override
   set length(int value) => throw UnsupportedError('Fixed test input');
   @override

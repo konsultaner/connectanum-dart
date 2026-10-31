@@ -46,6 +46,71 @@ typedef _ExportDart = int Function(int, int, ffi.Pointer<_MessageByteView>);
 typedef _ExportWideNative =
     ffi.Int32 Function(ffi.Int64, ffi.Uint32, ffi.Pointer<_MessageByteView>);
 
+final _leasedMessageBytes = Expando<NativeMessageByteLease>();
+
+/// Explicit lifetime for exports from one native message.
+///
+/// Ordinary routing-handle release does not invalidate these views. [dispose]
+/// releases their independent native owners immediately: the caller must stop
+/// using every exported view and derived alias before disposing this lease.
+/// Without explicit disposal, the last view keeps the lease alive through GC.
+final class NativeMessageByteLease implements ffi.Finalizable {
+  NativeMessageByteLease._(this._api);
+  final NativeMessageBytes _api;
+  ffi.Pointer<ffi.Void>? _first;
+  List<ffi.Pointer<ffi.Void>>? _remaining;
+  bool _disposed = false;
+
+  Uint8List _adopt(_MessageByteView view) {
+    var registered = false;
+    try {
+      if (_disposed) throw StateError('Native message byte lease is disposed');
+      if (_first == null) {
+        _first = view.owner;
+      } else {
+        (_remaining ??= []).add(view.owner);
+      }
+      registered = true;
+      final backing = view.data.asTypedList(view.length);
+      final bytes = backing.asUnmodifiableView();
+      _api._leasedFinalizer.attach(
+        this,
+        view.owner,
+        detach: this,
+        externalSize: view.length,
+      );
+      // Derived typed-data views keep the external backing object alive, even
+      // when the original read-only facade has already been collected.
+      _leasedMessageBytes[backing] = this;
+      return bytes;
+    } catch (_) {
+      if (registered) {
+        dispose();
+      } else {
+        _api._free!(view.owner);
+      }
+      rethrow;
+    }
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    final first = _first;
+    if (first == null) return;
+    _api._leasedFinalizer.detach(this);
+    _first = null;
+    _api._free!(first);
+    final remaining = _remaining;
+    if (remaining != null) {
+      for (final owner in remaining) {
+        _api._free!(owner);
+      }
+      remaining.clear();
+    }
+  }
+}
+
 /// Creates read-only byte views valid after a routing handle is released.
 ///
 /// New runtimes export independent native owners, attached to the external
@@ -106,6 +171,16 @@ final class NativeMessageBytes {
   final NativeMessageHandleAbi messageHandleAbi;
   ffi.Pointer<ffi.NativeFinalizerFunction>? _finalizer;
   void Function(ffi.Pointer<ffi.Void>)? _free;
+  // NativeFinalizer itself must remain reachable after the last API/lease
+  // wrapper disappears. Keep one per loaded native free function.
+  static final _leasedFinalizers = <int, ffi.NativeFinalizer>{};
+  ffi.NativeFinalizer get _leasedFinalizer => _leasedFinalizers.putIfAbsent(
+    _finalizer!.address,
+    () => ffi.NativeFinalizer(_finalizer!),
+  );
+
+  /// Group independently exported views for an optional explicit release.
+  NativeMessageByteLease createLease() => NativeMessageByteLease._(this);
 
   /// Whether this runtime can retain message bytes without a payload copy.
   bool get supportsZeroCopy => _export != null;
@@ -171,7 +246,11 @@ final class NativeMessageBytes {
     NativeMessageBytePart part, {
     required ffi.Pointer<ffi.Uint8> borrowed,
     required int length,
+    NativeMessageByteLease? lease,
   }) {
+    if (lease != null && (!identical(lease._api, this) || lease._disposed)) {
+      throw StateError('Native message byte lease is unavailable');
+    }
     if (part == NativeMessageBytePart.transparentPayload) {
       requireFlatbuffersBinding();
     }
@@ -203,6 +282,7 @@ final class NativeMessageBytes {
           'Native message byte export disagrees with message info',
         );
       }
+      if (lease != null) return lease._adopt(view);
       try {
         return view.data
             .asTypedList(

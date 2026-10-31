@@ -1,6 +1,8 @@
 library;
 
 export 'src/serializer/flatbuffers/serializer.dart';
+export 'src/serializer/flatbuffers/application_model_fragments.dart'
+    show buildFlatBufferPayloadParts;
 export 'src/serializer/flatbuffers/session_profile.dart';
 export 'src/serializer/flatbuffers/runtime.dart'
     show WampFlatBufferBuilder, FlatBufferUint8ListReader, flatBufferContext;

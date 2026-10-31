@@ -2,6 +2,23 @@
 
 This document summarizes the current routing stack, the primary code locations, and the major initiatives already tracked in `ROADMAP.md`. The diagrams use Mermaid to visualize both the layered components and a typical HTTP ingestion workflow.
 
+## MQTT checkpoint
+
+`packages/connectanum_core/lib/mqtt.dart` exports bounded MQTT framing, the
+initial property-free QoS 0 packet codec and a versioned topic URI mapper.
+`packages/connectanum_client/lib/mqtt.dart` provides TCP/TLS/WS/WSS MQTT
+client connections. `packages/connectanum_router/lib/mqtt.dart` owns the QoS 0
+broker session state for both its provisional standalone TCP listener and the
+opt-in native TCP/TLS/WS/WSS listener in `native/transport/ct_core`. MQTT and
+WebSocket must both be enabled on an endpoint for the native listener to select
+the `mqtt` WebSocket subprotocol. The anonymous broker binds numeric loopback
+addresses only and is not yet attached to WAMP authorization/routing.
+`packages/connectanum_router/benchmark/` has separate AOT broker/router and
+client workloads; `tool/run_mqtt_benchmark_gate.py` compares them with
+Mosquitto and gates exact delivery plus burst and sustained profiles, including
+provisional WS/WSS budgets.
+The cross-package plan and measured baselines are under `docs/`.
+
 ## Layered View
 
 ```mermaid
@@ -55,6 +72,9 @@ unmeasured; the Tokio observation is not yet exposed through C/Dart metrics. See
 
 - **Streaming primitives (`http_stream.rs`, `http_body.rs`)**  
   Provide zero-copy handles for inbound bodies and outbound responses. HTTP/1.1 ingress now parses headers/bodies with `BytesMut`, keeps buffered bodies as `Bytes` inside `HttpBodyHandle`, and preserves prefetched bytes when switching from handshake parsing to the streaming reader. HTTP/2 and HTTP/3 readers use the shared `StreamingBodyState` and now enqueue received `Bytes` chunks directly instead of cloning into temporary `Vec`s, while decoded HTTP/2/HTTP/3 request metadata stays byte-backed across `ct_core -> ct_ffi` instead of being flattened to `String`s and recopied for FFI storage. Response writers use bounded Tokio channels sized by `RESPONSE_STREAM_BUFFER`.
+
+- **Native WAMP readiness (`ct_core/src/message_ready.rs`)**
+  Coalesces a process-wide void signal after RawSocket/WebSocket queue publication. The optional v1 FFI pair is resolved together by `message_ready_notifications.dart`; its broadcast `NativeCallable.listener` wakes router idle pacing without changing payload ownership, queue consumption, the default poll interval or old-library support. Removal synchronizes with in-flight native calls before callback storage closes.
 
 - **FFI surface (`ct_ffi/src/runtime`)**  
   Stores every handshake/body/stream in lock-free maps and exposes them as integer handles (`ct_connection_take_http_handshake`, `ct_http_body_stream_read`, etc.). Lifecycle telemetry (`ct_connection_poll_http_event`) and aggregate counters (`ct_router_metrics_snapshot`) flow through the same layer. WebSocket upgrades now expose the negotiated subprotocol via `ct_connection_websocket_protocol` so Dart can forward it to workers/metrics. Test-only helpers (feature `ffi-test`) let us seed HTTP/3 handshakes/events directly from Rust integration tests.
@@ -145,6 +165,8 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 
 ### Benchmark Harness Components
 
+- `tool/run_wamp_serializer_campaign.py` – strict paired primary campaigns and supplemental case batches with retained inputs, stable processes and unchanged measurement floors.
+- `tool/merge_wamp_extension_campaigns.py` – independently recomputes every supplemental batch, verifies complete case/codec/pass coverage and publishes a per-case report with separate runner provenance. It never grants primary acceptance.
 - `packages/connectanum_bench/tool/bench_main.dart` – boots the router using the configuration from `bench_router.json`, spins up the native runtime, and now registers `/bench/*` HTTP control handlers (health check, stop, metrics snapshot + OpenMetrics payload, streaming echo) alongside their WAMP equivalents so both HTTP callers and embedded sessions can reuse the same code path. The `/bench/stream` path now drains or echoes request bodies through `HttpRequestSnapshot.nativeBody` first, so throughput runs exercise the descriptor-based internal-session bridge instead of forcing an eager `request.body` copy, the router-side HTTP hot path no longer emits per-request debug logging that would skew throughput sweeps, the WAMP helper worker is prestarted so native-client workloads do not include process boot time, and a bench-only remote-auth helper now starts an auxiliary auth router plus `AuthServerProcedureBinding` automatically when the loaded config contains a rawsocket remote authenticator.
 - `bench_router.json` – default listener/realm configuration used by the bench runner. It binds `127.0.0.1:8080` for the HTTPS control plane (`http`/`http2`/`http3`) and `127.0.0.1:8081` for dedicated RawSocket/WebSocket WAMP benchmarking, then pins `worker_pool.min_workers = 1` explicitly so sweep overrides have a clear baseline.
 - `native/bench/src/bin/http_stream.rs` – Rust CLI orchestrator that spawns the Dart runner, validates `/bench/*` control endpoints over the default HTTPS control plane (`https://localhost:8080/bench`, accepting the bundled self-signed cert), parses TOML scenarios, can sweep router worker counts by rewriting `bench_router.json` per run and can sweep native runtime thread counts by setting `CONNECTANUM_NATIVE_RUNTIME_THREADS` for each bench runner process, drives HTTP/2 workloads over TLS/ALPN and HTTP/3 workloads via `quinn` + `h3`, and now routes WAMP workloads through explicit RawSocket/WebSocket protocol labels plus per-workload serializers (`json`, `msgpack`, `cbor`), optional remote `peer_serializer` sessions for real mixed-serializer callers/callees or publishers/subscribers, explicit WAMP auth/realm fields (`realm`, `auth_method`, `auth_id`, `auth_secret`), connect-only auth measurements via `mode = "authenticate"`, optional native WebSocket fragmentation via `websocket_fragment_size`, per-session pipelining (`in_flight_per_session`), per-workload client implementations (`client_impl = dart|native`), and a constrained `wamp_rawsocket_auth_frames` protocol that sends HELLO/CHALLENGE/AUTHENTICATE directly over RawSocket for remote-auth fuzz scenarios. It keeps per-worker transport sessions hot by default, can fan multiple HTTP/2 and HTTP/3 streams through each reused connection (`streams_per_connection`), reuses prebuilt request payload buffers, captures `binding.collectMetrics()` snapshots (plus the OpenMetrics text) before/after each workload, enforces per-workload timeouts (`--workload-timeout-ms`) so hung regressions fail fast, emits JSONL summaries (`bench_results.jsonl`, including `open_metrics_before`/`open_metrics_after`, `router_workers`, and `native_runtime_threads`), and continuously rewrites those results into a Prometheus textfile bundle for dashboards/alerts. The WAMP side now benefits from the client-side fast-reply fix, the multi-waiter pub/sub buffer, direct-bind `ct_ffi` metadata for common inbound messages with lazy payload fallbacks, a dedicated receive isolate that blocks on `ct_wait_connection_message(...)` and batch-drains already-ready handles before forwarding them back to the main isolate, the session-only native envelope for hot `Event` / `Result` / `Invocation` traffic, `LazyMessagePayload` views for borrowed encoded args/kwargs slices, `Session.callSingle(...)` / `callSinglePayload()` / `callSingleLazyPayload()` for non-progressive RPC workloads, `Session.subscribeHandler(...)` / `subscribePayloadHandler(...)` / `subscribeLazyPayloadHandler(...)`, `Session.registerHandler(...)` / `registerPayloadHandler(...)` / `registerLazyPayloadHandler(...)`, one-shot event decoding on subscription ingress, `Subscribed.onEvent(...)` / `onEventPayload(...)` / `onLazyEventPayload(...)` for direct pub/sub callbacks, lazy subscription/registration stream allocation, async-safe invocation error propagation, and removal of the extra bench-side event wrapper. That keeps Dart-vs-native comparisons from collapsing into serializer, worker-start, poll-cadence, mapped-stream, controller-allocation, object materialization, full-frame decode, harness-wrapper noise, same-serializer-only topologies, or remote-auth client abstraction overhead when the goal is to fuzz the handshake itself. On the current HTTP bench path the `router_workers` sweep is mainly a sanity check; native runtime thread count is the meaningful scaling axis, and release builds should be used for any performance claims.
@@ -189,6 +211,10 @@ Feel free to update this document as new components (e.g., WebTransport, benchma
 - `packages/connectanum_core/lib/flatbuffers_serializer.dart` exports the public
   stateless codec, portable builder, direct model writer and same-builder vector
   references. Client/facade exports provide the same serializer surface.
+- `byte_vector_builder.dart` selects the SDK-compatible bulk-copy VM backend
+  or the standard web SDK builder. The VM implementation's upstream source
+  manifest/license sit in `flatbuffers/upstream/`; wrapper counters observe
+  byte-vector/growth copies and the backend observes its UTF-8 staging.
 - `native/transport/ct_core/src/wamp/flatbuffers_wire.rs` and
   `flatbuffers_cbor.rs` validate incoming frames and encoded application spans.
   `flatbuffers_codec.rs` reconstructs native models; `flatbuffers_projection.rs`
@@ -224,3 +250,10 @@ counts staging and owned read snapshots, and keeps ObjectBox ownership outside
 core/client/router. It publishes as a separate package and uses the application's
 existing ObjectBox Store and native engine. The adapter does not synchronize
 relations or expose database memory across asynchronous work.
+
+Benchmark worker IPC can negotiate `positional_v1` observations through
+`NativeWampWorker` and `tool/wamp_client_main.dart`. The 13-field records reuse
+`WampSample` validators and reconstruct the existing named public JSON. Old
+workers/supervisors retain the named form; malformed versions/rows fail closed.
+The negotiated representation removes repeated field-name maps from the active
+benchmark processes without dropping observations or changing WAMP payloads.

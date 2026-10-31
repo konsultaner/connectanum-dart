@@ -66,6 +66,8 @@ class NativeMessageMetadata {
   static const flagDetailBoolBTrue = 1 << 5;
   static const flagDetailBoolCTrue = 1 << 6;
   static const flagDetailBoolDTrue = 1 << 7;
+
+  /// The WAMP payload is a direct opaque binary value in a supported codec.
   static const flagTransparentPayload = 1 << 8;
 
   final int messageCode;

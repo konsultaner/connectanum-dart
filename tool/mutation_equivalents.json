@@ -1,19 +1,73 @@
 {
+  "client-message-binding-vm": {
+    "9f1bbeee06449f75ed08": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the validation-cache miss condition true only repeats CBOR validation on an exact, owner-retained immutable span that the native FlatBuffers reader already validated under the same root and string-key policy. Revalidation is deterministic and has no observable result change; it only adds CPU work, which remains covered by the unchanged performance acceptance campaign."
+    },
+    "dced6a236cac55fb694c": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Changing the default rootStringDictionaryKeys value affects no call outcome: every root-map call site passes true explicitly, while the only call using the default has rootMajor 4. The scanner applies this option only to a root map at depth zero, so true is inert for that argument-list path."
+    },
+    "8cd936a3f18917b68c95": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Removing the early null check in _asInt leaves null to fall through both numeric type checks and reach the same final return null. For every non-null input the original condition was false, so all return values and side effects remain identical."
+    },
+    "4a92cbaca9adc0ba593d": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Changing the second allowedFlags union to intersection makes allowedFlags zero: (16 | 1) & 256 == 0. Every candidate that passes the preceding direct-bind check has flag bit 1, so the unexpected-flags check now rejects it. This only disables the simple-PPT optimization. The unchanged eager dictionary decoder, custom-field loader and retained dictionary preserve the same bounded two-string metadata and subsequent edits; malformed or other metadata already takes that fallback. Extra allocations/CPU remain subject to the unchanged performance campaign."
+    },
+    "a313bb8f28f9c3bb36cd": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Changing the first allowedFlags union to intersection makes allowedFlags 256: (16 & 1) | 256 == 256. Every candidate that passes the preceding direct-bind check has flag bit 1 outside this mask, so it is rejected. Only the simple-PPT optimization is disabled. The unchanged eager decoder and retention path reconstruct the same complete two-string dictionary, including later model edits. Malformed/extended metadata already falls back; extra allocations/CPU remain covered by the unchanged performance campaign."
+    },
+    "3c0302e609730110c695": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the RESULT-code test false prevents RESULT from matching either following EVENT/INVOCATION code, so it returns false. EVENT and INVOCATION still take their original branch; every other code still returns false. Only valid simple RESULT PPT dictionaries change from the no-snapshot path to the unchanged eager decoder and retention path. Their complete dictionary already equals the fresh model; values, validation, custom fields and subsequent edits are preserved. The added work remains subject to performance acceptance."
+    },
+    "fc7ae3b3b9531b489c95": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the RESULT extra-string guard true returns false for all RESULT candidates; other message codes are unchanged. This can only disable the optimization, never admit new metadata. The original fast path accepts only an exact bounded two-string PPT dictionary matching fresh model fields; the unchanged eager decoder/retention fallback produces the same values, validation and later edits. Additional work remains covered by the performance acceptance campaign."
+    },
+    "c5ceea95490aca5a86ac": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the EVENT/INVOCATION-code test false returns false for both codes and for every previously rejected code; RESULT is handled earlier and unchanged. It only replaces the valid simple-PPT fast path with the existing eager decode/retention path. The exact dictionary matches the fresh model, so logical metadata, errors, custom fields and later edits are unchanged. Added decoding and snapshots remain subject to the performance campaign."
+    },
+    "a48ff3a05f2176eb9448": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Replacing the disjunction between equality with the distinct EVENT and INVOCATION codes by conjunction is always false. RESULT is handled earlier; all remaining inputs return false. This disables only the EVENT/INVOCATION simple-PPT optimization. Their exact bounded two-string dictionaries have the same logical values and later edits under the unchanged eager decoder/retained-dictionary fallback. Added work remains covered by performance acceptance."
+    },
+    "84e958b6680127121407": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing the EVENT/INVOCATION extra-string guard true rejects every candidate in that branch; RESULT and rejected codes are unchanged. It never broadens the fast path. For the original exact two-string PPT match, eager decoding and dictionary retention reconstruct the same fresh model and preserve subsequent edits; malformed and extended dictionaries already use that fallback. Extra allocations/CPU remain subject to the unchanged performance campaign."
+    },
+    "754fc688d91bc2589bc9": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Changing the fullyRepresentedPptMetadata default has no effect: the private _bindFromMetadataFields has exactly one call site, in _bindFromMetadata, which always explicitly supplies the computed boolean. No invocation uses this default and no function tear-off escapes."
+    },
+    "bd2f87cbcece05ddf8c0": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing argsBytes == null false supplies a decoder closure when argumentsBytes is null. AbstractMessageWithPayload.setLazyPayload installs arguments and its decoder only when BOTH argumentsBytes and argumentsDecoder are non-null. Thus the extra unused closure cannot run or escape; all existing arguments and kwargs, errors, ownership and encoding remain unchanged. Non-null argument spans take exactly the original closure."
+    },
+    "6fd6ac18329ac7674841": {
+      "sourceHash": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+      "reason": "Forcing kwargsBytes == null false supplies a keyword decoder closure when argumentsKeywordsBytes is null. AbstractMessageWithPayload.setLazyPayload installs keyword bytes and decoder only when BOTH are non-null. The unused closure cannot run or escape and does not replace any state. Non-null keyword spans and all arguments, errors, ownership and encoding remain unchanged."
+    }
+  },
   "client-websocket-web": {
-    "4041a945c7e508d50bcf": {
-      "sourceHash": "2e7eababb369d13e39c0a0b38c9cd873e49ff940132ab701ddbdd43099e5f625",
+    "b69a0b770445a547f284": {
+      "sourceHash": "7c4c7f8a3d01261eb8cf15f26c3e07db7a2dfc800681f50b0c69507297be043e",
       "reason": "Changes only the generic browser constructor's allowInsecureCertificates default from false to true. That optional parameter is never read, stored, captured, or passed to the browser WebSocket API in this implementation. TLS validation remains browser-owned for either value; URL, serializer, messages, and lifecycle behavior are unchanged. This proof is browser-only and does not apply to the native/IO constructor."
     },
-    "54d534a5ba021b984b15": {
-      "sourceHash": "2e7eababb369d13e39c0a0b38c9cd873e49ff940132ab701ddbdd43099e5f625",
+    "8d9cc19610da591e1f61": {
+      "sourceHash": "7c4c7f8a3d01261eb8cf15f26c3e07db7a2dfc800681f50b0c69507297be043e",
       "reason": "Changes only withJsonSerializer's omitted allowInsecureCertificates argument. The factory passes that value directly to the generic browser constructor's unused parameter; neither the JSON serializer nor browser WebSocket creation receives it. Explicit argument calls are unchanged and omitted-argument calls retain the same browser TLS validation and observable transport behavior."
     },
-    "8205c6e669e57a2923c2": {
-      "sourceHash": "2e7eababb369d13e39c0a0b38c9cd873e49ff940132ab701ddbdd43099e5f625",
+    "858b951f6d14168de9e5": {
+      "sourceHash": "7c4c7f8a3d01261eb8cf15f26c3e07db7a2dfc800681f50b0c69507297be043e",
       "reason": "Changes only withMsgpackSerializer's omitted allowInsecureCertificates argument. Its sole use forwards the value to the generic browser constructor, which does not read, store, capture, or forward it. The MessagePack serializer and browser-owned TLS checks are unaffected, as are explicit-argument calls and all send/receive/lifecycle effects. This is not a waiver for IO certificate validation."
     },
-    "7cb0a33c95e5994e2fe8": {
-      "sourceHash": "2e7eababb369d13e39c0a0b38c9cd873e49ff940132ab701ddbdd43099e5f625",
+    "66efbbf872af08266fa6": {
+      "sourceHash": "7c4c7f8a3d01261eb8cf15f26c3e07db7a2dfc800681f50b0c69507297be043e",
       "reason": "Changes only withCborSerializer's omitted allowInsecureCertificates argument. The value flows solely into the unused generic browser constructor parameter, never into CBOR encoding or the browser WebSocket API. Browser certificate enforcement, explicit-argument behavior, and all transport effects are identical. The corresponding native/IO option is outside this equivalence proof."
     }
   },
@@ -508,122 +562,122 @@
     }
   },
   "router-binding-drain-vm": {
-    "b33957719d52813d9917": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "26906dee01a7a5353555": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "The bounded drain target selects only tests using the plain _FakeRuntime, which never creates a worker-isolate boss. In that source-matched scope boss is always null, so boss?.stop(...) is not evaluated and the null fallback Future<void>.value() is returned in both the original and replacement expressions. This justification does not waive worker-boss drain behavior outside the bounded target."
     },
-    "a40981096323d71e0c4c": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "26c2247a73b8fb3ddb1b": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "_drainFuture is assigned to this exact future immediately before whenComplete is registered. While it is pending, every subsequent drain call returns the existing future and cannot replace the field. Therefore the identity comparison is always true when this completion callback runs in the reachable implementation, and forcing the condition true preserves cleanup."
     },
-    "c805873e9165f6a73a78": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "0aad23d69d76377f8fca": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "When the original early-return condition is true, the following snapshot filter produces an empty list and the unchanged snapshot.isEmpty guard returns without events or counters. When it is false, forcing it false is unchanged. Thus replacing this whole condition with false has no observable effect; listener closure and pending-connection behavior are covered by the later branches."
     },
-    "a3185d3ea379cb82c9a8": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "1a069ea71c5b3dbe19d6": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "Changing the empty-list/fully-closed guard from OR to AND only skips its optimization. For empty listeners or fully closed listeners, the subsequent snapshot is empty and the unchanged snapshot.isEmpty return produces the same state and events; for active listeners both predicates are false. No externally observable behavior differs."
     },
-    "38303c5d5e451093fe0e": {
-      "sourceHash": "b800e01a8992170d8b403da9c984d3e9822ed5708dc55d4b1ddeff1de4f56cb0",
+    "c69745ea93bba8494e21": {
+      "sourceHash": "7b2468f49a7de3ca31ed248a360f4b64fabf6b8f15e68cfae70843769c7eeb65",
       "reason": "The snapshot is a private intermediate list that is only queried for emptiness and iterated immediately. It is never resized, returned, stored, or passed to user code. Changing toList(growable: false) to growable: true therefore preserves all elements, iteration order, exceptions, and observable listener cleanup behavior."
     }
   },
   "router-settings-vm": {
-    "2be1471aef0a0c1b1342": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "3301b9fb9ab67827aed8": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "The private _withOpenMetricsRoutes missingRoutes list is only queried for isEmpty and spread into a separate routes list. It is never returned, passed to caller code, or resized. Changing its toList growable flag therefore cannot change any observable list or operation."
     },
-    "7e859e435e6059177baf": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "75a2827cd7ddd8c64bb8": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Unconditionally appending ListenerProtocol.http in _protocolsWithHttp changes only duplicate occurrences after the existing first occurrence. The private ordinary list is immediately converted through LinkedHashSet, preserving that first occurrence and removing the added duplicate before the result escapes."
     },
-    "bf67464b68e58de672da": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "67ed66e9782fd7a9250d": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Unconditionally appending ListenerProtocol.http2 in _protocolsWithHttp adds either the same required element or a duplicate after its first occurrence. LinkedHashSet removes that duplicate while preserving insertion order before returning a new list; the intermediate list never escapes."
     },
-    "aa8832a374e536f5e92f": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "66b009d20ff1e71eac24": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "The private _hasExactPathRoute is called only for freshly constructed _openMetricsHttpRoutes entries. Their paths are /healthz, /health, or _normalizeOpenMetricsHttpPath output, which is always nonempty and nonnull. Forcing the null-or-empty guard false preserves every reachable branch; existing user routes are searched but never supply this path argument."
     },
-    "a5155636a7ef52c38119": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "bd15ce2a94ac48e20d64": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Changing the return value inside _hasExactPathRoute's null-or-empty path branch has no reachable effect. Its sole caller supplies paths from owned health/metrics routes, with literals or normalized nonempty output, not paths from user-provided routes. The branch cannot execute through the public enrichment API."
     },
-    "27edacf1315e675285ff": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "f5b916d9262a3473fef3": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Forcing _normalizeOpenMetricsHttpPath's empty-or-slash guard false still returns / for both affected strings: an empty trimmed string takes the slash-prefix fallback, while / takes the already-prefixed branch. All other strings already follow that same final expression."
     },
-    "ecdeb6d8094e5baf4c28": {
-      "sourceHash": "a47f28dafc45b66123ac0e26ab02c770884b2f3986d5143ef777b235a7fafbc0",
+    "cac96dfd4400e862b166": {
+      "sourceHash": "8dac4f5dcbfc46dc4851354327aeddd9d95ddd85fa21572ddbf675f8185306ed",
       "reason": "Replacing the normalization guard's OR with AND makes that guard unsatisfiable because a string cannot be both empty and /. The following expression independently maps the empty string to / and preserves /, exactly matching the removed special cases; all other inputs are unchanged."
     }
   },
   "core-lazy-vm": {
-    "e2076a8fb4322bf1531a": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
-      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding packed-bytes/decoder guard returns once successful decoding clears _packedPayloadDecoder. The packed factory initializes both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
+    "25b333b25939106468c3": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
+      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding decoder-null guard returns once successful decoding clears _packedPayloadDecoder. Both packed factories initialize both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
     },
-    "21b1cd365abf1dc7cfbb": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "371766191f04effd4190": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "Changing the cached-value disjunction to conjunction differs only when exactly one materialized field is non-null. Such packed state is created only by successful record assignment followed synchronously by clearing _packedPayloadDecoder, so the preceding guard already returns. Record field reads cannot call user code; the packed factory accepts no materialized fields."
     },
-    "7a7f155d691793c69d1d": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "56aa6b03729f774033bc": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "The positional _encodedArguments/_argumentsDecoder pair belongs to AbstractMessageWithPayload, not the independently configurable LazyMessagePayload. Its fields start null, its setter clears both, and setLazyPayload assigns both only when both inputs are non-null, with no user callback between writes. All restoration/copy paths use that setter. Thus replacing this pair's && with || preserves the toLazyPayload branch condition."
     },
-    "86c9b9592724bbb8eeb2": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "b18c00b88331dc936eee": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "The keyword _encodedArgumentsKeywords/_argumentsKeywordsDecoder fields are always both null or both non-null: initialized null, cleared together by argumentsKeywords, assigned together by setLazyPayload only with two non-null inputs. Restoration/copy paths call that method; public overrides cannot assign these private fields. The changed keyword &&/|| condition therefore has the same truth value."
     },
-    "2e0e3796f8f389e97c0c": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "3016036266597349cd01": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "In _decodeArgumentsBytes the private positional bytes/decoder nullness remains paired across every write: initialization, arguments setter, and guarded setLazyPayload. Public restoration and copying delegate through these operations. The early-return OR and AND are therefore identical, and neither tests a virtual getter."
     },
-    "61a924f7392b90d85848": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "d087c8cf53dc01e8637e": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "In _decodeArgumentsKeywordsBytes the private keyword bytes/decoder fields are initialized, cleared and assigned in pairs with no intervening callback. setLazyPayload rejects incomplete input pairs without assigning either field. Replacing the missing-pair OR with AND has identical outcomes for every reachable internal state."
     },
-    "88d0f28b75b993a21248": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "94845281b465344688b7": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "In copyPayloadTo the source's private positional bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing arguments setter. This mutation changes only && to || for that pair, not the whole branch. Both predicates choose the same branch and preserve every overridable target method call."
     },
-    "8c410000043ea262fbe6": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "fcb7d428a40c61e0d4a4": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "In copyPayloadTo the source's private keyword bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing argumentsKeywords setter. This mutation changes only && to || for that pair. Both predicates select the same branch, including calls into overridable target methods; forced-whole-branch mutations are not covered by this justification."
     }
   },
   "core-lazy-web": {
-    "e2076a8fb4322bf1531a": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
-      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding packed-bytes/decoder guard returns once successful decoding clears _packedPayloadDecoder. The packed factory initializes both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
+    "25b333b25939106468c3": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
+      "reason": "Forcing the cached-value guard false cannot invoke a completed decoder: the preceding decoder-null guard returns once successful decoding clears _packedPayloadDecoder. Both packed factories initialize both materialized fields to null; no public setter can populate them, and metadata/owned copies preserve this state. Failed decoding changes none of these fields."
     },
-    "21b1cd365abf1dc7cfbb": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "371766191f04effd4190": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "Changing the cached-value disjunction to conjunction differs only when exactly one materialized field is non-null. Such packed state is created only by successful record assignment followed synchronously by clearing _packedPayloadDecoder, so the preceding guard already returns. Record field reads cannot call user code; the packed factory accepts no materialized fields."
     },
-    "7a7f155d691793c69d1d": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "56aa6b03729f774033bc": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "The positional _encodedArguments/_argumentsDecoder pair belongs to AbstractMessageWithPayload, not the independently configurable LazyMessagePayload. Its fields start null, its setter clears both, and setLazyPayload assigns both only when both inputs are non-null, with no user callback between writes. All restoration/copy paths use that setter. Thus replacing this pair's && with || preserves the toLazyPayload branch condition."
     },
-    "86c9b9592724bbb8eeb2": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "b18c00b88331dc936eee": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "The keyword _encodedArgumentsKeywords/_argumentsKeywordsDecoder fields are always both null or both non-null: initialized null, cleared together by argumentsKeywords, assigned together by setLazyPayload only with two non-null inputs. Restoration/copy paths call that method; public overrides cannot assign these private fields. The changed keyword &&/|| condition therefore has the same truth value."
     },
-    "2e0e3796f8f389e97c0c": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "3016036266597349cd01": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "In _decodeArgumentsBytes the private positional bytes/decoder nullness remains paired across every write: initialization, arguments setter, and guarded setLazyPayload. Public restoration and copying delegate through these operations. The early-return OR and AND are therefore identical, and neither tests a virtual getter."
     },
-    "61a924f7392b90d85848": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "d087c8cf53dc01e8637e": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "In _decodeArgumentsKeywordsBytes the private keyword bytes/decoder fields are initialized, cleared and assigned in pairs with no intervening callback. setLazyPayload rejects incomplete input pairs without assigning either field. Replacing the missing-pair OR with AND has identical outcomes for every reachable internal state."
     },
-    "88d0f28b75b993a21248": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "94845281b465344688b7": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "In copyPayloadTo the source's private positional bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing arguments setter. This mutation changes only && to || for that pair, not the whole branch. Both predicates choose the same branch and preserve every overridable target method call."
     },
-    "8c410000043ea262fbe6": {
-      "sourceHash": "bc5d0bf5fdd8b16357ed98180bc4ee47dc20fa666ad79033df8dc18fe47a1c7b",
+    "fcb7d428a40c61e0d4a4": {
+      "sourceHash": "b5f0ea58a31756f0b5006cd7924a5a610b6ad87cb26210a12106f75c86b08eb1",
       "reason": "In copyPayloadTo the source's private keyword bytes/decoder pair is always jointly null/non-null, maintained by guarded setLazyPayload and the clearing argumentsKeywords setter. This mutation changes only && to || for that pair. Both predicates select the same branch, including calls into overridable target methods; forced-whole-branch mutations are not covered by this justification."
     }
   },

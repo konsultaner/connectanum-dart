@@ -7,10 +7,18 @@ import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show LazyMessagePayload, LazyPayloadEncoding, PackedPayloadDecoder;
+    show
+        LazyMessagePayload,
+        LazyPayloadEncoding,
+        PackedPayloadDecoder,
+        PackedPayloadSource,
+        packedPayloadSourceOf;
 // Shared observations preserve disjoint allocator and serializer counters.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/byte_vector_builder_vm.dart'
+    show ByteViewFlatBufferBuilder;
 import 'package:ffi/ffi.dart';
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 
@@ -18,6 +26,7 @@ import 'src/transport/native/runtime.dart' show NativeClientRuntime;
 
 part 'src/transport/native/native_frames.dart';
 part 'src/transport/native/native_owned_segments.dart';
+part 'src/transport/native/native_writable_bytes.dart';
 
 /// Native integration output from `ct_external_buffer_register`.
 /// Publish this initialized structure to exactly one Dart consumer. Its handle
@@ -760,6 +769,18 @@ final class NativeOwnedBuffer implements ffi.Finalizable {
 }
 
 extension NativeOwnedBufferFlatBuffersPpt on NativeOwnedBuffer {
+  /// Retains this allocation in an independently disposable packed payload.
+  /// Native FlatBuffers transports can send it without first exporting a Dart
+  /// byte view. Dispose the lease after its last asynchronous use completes.
+  /// Disposing this producer does not dispose the lease.
+  NativePptPayloadLease leaseFlatBuffersPptPayload() => leasePptPayload(
+    encoding: LazyPayloadEncoding.flatbuffers,
+    packedPayloadDecoder: (bytes) => (
+      arguments: <dynamic>[bytes],
+      argumentsKeywords: null,
+    ),
+  );
+
   /// Makes this already encoded FlatBuffer usable as a typed WAMP PPT payload.
   ///
   /// Pass the result to `Session.callLazyPayload` or
@@ -777,6 +798,19 @@ extension NativeOwnedBufferFlatBuffersPpt on NativeOwnedBuffer {
 }
 
 extension NativeOwnedBufferPpt on NativeOwnedBuffer {
+  /// Retains packed storage without eagerly exporting its Dart byte view.
+  /// Use matching PPT options with [NativePptPayloadLease.payload]. Other
+  /// serializers and application reads export an independently owned view on
+  /// demand. The application must dispose the lease after its last use.
+  NativePptPayloadLease leasePptPayload({
+    required LazyPayloadEncoding encoding,
+    required PackedPayloadDecoder packedPayloadDecoder,
+  }) => NativePptPayloadLease._(
+    retain(),
+    encoding: encoding,
+    packedPayloadDecoder: packedPayloadDecoder,
+  );
+
   /// Retains already encoded PPT bytes and their native owner without decoding.
   /// Use matching PPT options with Session's lazy call/publish APIs. The decoder
   /// runs only on application access; it must interpret this encoding/schema.
@@ -797,6 +831,54 @@ extension NativeOwnedBufferPpt on NativeOwnedBuffer {
   }
 }
 
+/// An explicit native reference to immutable, already encoded PPT storage.
+///
+/// The producer may be disposed independently. Reuse [payload] until its last
+/// asynchronous send/use completes, then call [dispose]. Byte access or a
+/// serializer fallback exports an independently owned read-only view. Exported
+/// views and their derived views remain valid after disposal; a lease disposed
+/// before any export cannot subsequently create a byte view.
+final class NativePptPayloadLease implements PackedPayloadSource {
+  NativePptPayloadLease._(
+    this._owner, {
+    required this.encoding,
+    required PackedPayloadDecoder packedPayloadDecoder,
+  }) {
+    _payload = LazyMessagePayload.packedSource(
+      encoding: encoding,
+      source: this,
+      packedPayloadDecoder: packedPayloadDecoder,
+      anchor: this,
+    );
+  }
+
+  final NativeOwnedBuffer _owner;
+  final LazyPayloadEncoding encoding;
+  late final LazyMessagePayload _payload;
+  Uint8List? _bytes;
+
+  LazyMessagePayload get payload => _payload;
+  bool get isDisposed => _owner.isDisposed;
+
+  @override
+  Uint8List get bytes => _bytes ??= _owner.bytes;
+
+  void dispose() => _owner.dispose();
+
+  /// Internal transport eligibility. Public anchors and structural records do
+  /// not grant ownership: the exact final source and encoding must agree.
+  /// The returned wrapper belongs to this lease; do not dispose it separately.
+  NativeOwnedBuffer? nativeOwnerFor(LazyMessagePayload payload) =>
+      identical(packedPayloadSourceOf(payload), this) &&
+          !isDisposed &&
+          payload.encoding == encoding
+      ? _owner
+      : null;
+
+  /// Whether application access or a fallback exported an independent view.
+  bool get hasExportedByteView => _bytes != null;
+}
+
 /// Writes initialized native memory without exposing mutable typed-data views.
 final class NativeBufferBuilder implements ffi.Finalizable {
   NativeBufferBuilder._(this._handle, this.length) {
@@ -811,10 +893,14 @@ final class NativeBufferBuilder implements ffi.Finalizable {
   bool _frozen = false;
   int _writing = 0;
   int _inputCopiedBytes = 0;
+  bool _initializing = false;
+  bool _initializationFailed = false;
 
   T _write<T>(T Function() action) {
     _handle.check();
-    if (_frozen) throw StateError('Native buffer is frozen');
+    if (_frozen || _initializing || _initializationFailed) {
+      throw StateError('Native buffer no longer accepts writes');
+    }
     _writing++;
     try {
       return action();
@@ -836,10 +922,41 @@ final class NativeBufferBuilder implements ffi.Finalizable {
     OwnedCopyMetrics.record(OwnedCopyKind.clone, bytes.length);
   });
 
+  /// Initialize an existing byte range synchronously without a Dart staging
+  /// buffer. Unwritten bytes keep their existing values; new allocations are
+  /// zero-initialized. All scoped writers close when [fill] returns. Scalar
+  /// stores are generation; [NativeWritableBytes.writeBytes] records input copies.
+  /// A failed or asynchronous callback makes this builder disposable only.
+  void writeByteRange<T>(
+    int offset,
+    int length,
+    T Function(NativeWritableBytes bytes) fill,
+  ) => _write(() {
+    RangeError.checkNotNegative(length, 'length');
+    RangeError.checkValidRange(offset, offset + length, this.length);
+    NativeWritableBytes? bytes;
+    _initializing = true;
+    try {
+      bytes = NativeWritableBytes._(
+        ByteData.sublistView(_data, offset, offset + length),
+        OwnedCopyKind.clone,
+      );
+      bytes._initialize(fill);
+    } catch (_) {
+      _initializationFailed = true;
+      rethrow;
+    } finally {
+      _inputCopiedBytes += bytes?._inputCopiedBytes ?? 0;
+      bytes?._close();
+      _initializing = false;
+    }
+  });
+
   NativeOwnedBuffer freeze({int offset = 0, int? length}) {
     if (_writing != 0) throw StateError('Cannot freeze during a write');
     _handle.check();
     if (_frozen) throw StateError('Native buffer is already frozen');
+    if (_initializationFailed) throw StateError('Native initialization failed');
     final used = length ?? this.length - offset;
     RangeError.checkValidRange(offset, offset + used, this.length);
     _check(_handle.api._freeze(_handle.id, offset, used));
@@ -857,10 +974,27 @@ final class _NativeAllocator extends fb.Allocator
     implements ffi.Finalizable, CopyObservedAllocator {
   _NativeAllocator(this.api);
   final NativeBufferAllocator api;
-  final Map<ByteData, _OwnedHandle> _owners = Map.identity();
+  // Most models need one allocation; retain identity tracking for overlapping
+  // allocations during growth and failed copies without allocating a map early.
+  ByteData? _firstData;
+  _OwnedHandle? _firstOwner;
+  Map<ByteData, _OwnedHandle>? _owners;
   ByteData? current;
   int growthCopiedBytes = 0;
   int allocations = 0;
+
+  _OwnedHandle? _ownerFor(ByteData data) =>
+      identical(_firstData, data) ? _firstOwner : _owners?[data];
+
+  _OwnedHandle? _removeOwner(ByteData data) {
+    if (identical(_firstData, data)) {
+      final owner = _firstOwner;
+      _firstData = null;
+      _firstOwner = null;
+      return owner;
+    }
+    return _owners?.remove(data);
+  }
 
   @override
   ByteData allocate(int size) {
@@ -875,7 +1009,12 @@ final class _NativeAllocator extends fb.Allocator
       final data = alignedSize == 0
           ? ByteData(0)
           : ByteData.sublistView(info.base.asTypedList(alignedSize));
-      _owners[data] = owner;
+      if (_firstData == null) {
+        _firstData = data;
+        _firstOwner = owner;
+      } else {
+        (_owners ??= Map<ByteData, _OwnedHandle>.identity())[data] = owner;
+      }
       current = data;
       allocations++;
       return data;
@@ -887,7 +1026,7 @@ final class _NativeAllocator extends fb.Allocator
 
   @override
   void deallocate(ByteData data) {
-    _owners.remove(data)?.dispose();
+    _removeOwner(data)?.dispose();
     if (identical(current, data)) current = null;
   }
 
@@ -901,9 +1040,9 @@ final class _NativeAllocator extends fb.Allocator
 
   NativeOwnedBuffer freeze(int used, int inputCopiedBytes) {
     final data = current!;
-    final owner = _owners[data]!;
+    final owner = _ownerFor(data)!;
     _check(api._freeze(owner.id, data.lengthInBytes - used, used));
-    _owners.remove(data);
+    _removeOwner(data);
     current = null;
     return NativeOwnedBuffer._(
       owner,
@@ -914,10 +1053,16 @@ final class _NativeAllocator extends fb.Allocator
   }
 
   void dispose() {
-    for (final owner in _owners.values) {
-      owner.dispose();
+    _firstOwner?.dispose();
+    _firstData = null;
+    _firstOwner = null;
+    final owners = _owners;
+    if (owners != null) {
+      for (final owner in owners.values) {
+        owner.dispose();
+      }
+      owners.clear();
     }
-    _owners.clear();
     current = null;
   }
 }
@@ -933,7 +1078,7 @@ final class NativeFlatBufferBuilder
     this.deduplicateTables,
   ) : _allocator = _NativeAllocator(api) {
     try {
-      _builder = fb.Builder(
+      _builder = ByteViewFlatBufferBuilder(
         initialSize: initialSize,
         internStrings: internStrings,
         deduplicateTables: deduplicateTables,
@@ -945,12 +1090,15 @@ final class NativeFlatBufferBuilder
     }
   }
   final _NativeAllocator _allocator;
-  late final fb.Builder _builder;
+  late final ByteViewFlatBufferBuilder _builder;
   NativeOwnedBuffer? _frozen;
   bool _finished = false;
   bool _disposed = false;
   int _writing = 0;
   int _inputCopiedBytes = 0;
+  bool _initializing = false;
+  bool _initializationFailed = false;
+  bool _hasReset = false;
   @override
   final int initialSize;
   @override
@@ -958,8 +1106,16 @@ final class NativeFlatBufferBuilder
   int get growthCopiedBytes => _allocator.growthCopiedBytes;
   int get allocationCount => _allocator.allocations;
 
-  T _write<T>(T Function() action, {bool allowFinished = false}) {
-    if (_disposed || _frozen != null || (_finished && !allowFinished)) {
+  T _write<T>(
+    T Function() action, {
+    bool allowFinished = false,
+    bool allowFailedInitialization = false,
+  }) {
+    if (_disposed ||
+        _frozen != null ||
+        _initializing ||
+        (_initializationFailed && !allowFailedInitialization) ||
+        (_finished && !allowFinished)) {
       throw StateError('Native builder no longer accepts writes');
     }
     _writing++;
@@ -971,7 +1127,7 @@ final class NativeFlatBufferBuilder
   }
 
   NativeOwnedBuffer freeze() {
-    if (_disposed || !_finished || _writing != 0) {
+    if (_disposed || !_finished || _writing != 0 || _initializationFailed) {
       throw StateError('Finish the native builder before freezing');
     }
     return _frozen ??= _allocator.freeze(_builder.size(), _inputCopiedBytes);
@@ -999,9 +1155,51 @@ final class NativeFlatBufferBuilder
 
   @override
   void reset() {
-    _write(_builder.reset, allowFinished: true);
+    _write(
+      () {
+        _hasReset = true;
+        _builder.reset();
+      },
+      allowFinished: true,
+      allowFailedInitialization: true,
+    );
     _finished = false;
+    _initializationFailed = false;
   }
+
+  /// Build a normal byte vector directly in native storage, then pass its
+  /// returned offset to the application's generated table builder.
+  /// Unwritten bytes are zero. [fill] must be synchronous; every scoped writer
+  /// closes before this method returns. Failure requires [reset] or [dispose].
+  int writeByteVector<T>(
+    int length,
+    T Function(NativeWritableBytes bytes) fill,
+  ) => _write(() {
+    NativeWritableBytes? bytes;
+    _initializing = true;
+    try {
+      final vector = _builder.reserveUint8Vector(length);
+      final data = _allocator.current!;
+      final start = data.lengthInBytes - vector + 4;
+      bytes = NativeWritableBytes._(
+        ByteData.sublistView(data, start, start + length),
+        OwnedCopyKind.flatBufferVector,
+      );
+      // Fresh native allocations, including growth, are initialized by ABI v1.
+      // Backward writes leave the unused prefix untouched. Reset is the only
+      // operation that reuses previously written bytes; clear them explicitly.
+      if (_hasReset) bytes._clear();
+      bytes._initialize(fill);
+      return vector;
+    } catch (_) {
+      _initializationFailed = true;
+      rethrow;
+    } finally {
+      _inputCopiedBytes += bytes?._inputCopiedBytes ?? 0;
+      bytes?._close();
+      _initializing = false;
+    }
+  });
 
   @override
   int writeListOfStructs(List<fb.ObjectBuilder> structBuilders) => _write(() {

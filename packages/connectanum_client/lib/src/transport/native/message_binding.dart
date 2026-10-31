@@ -5,6 +5,8 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/ppt_metadata.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/json_serializer.dart' show decodeBase64Bytes;
 // Reuse the pinned codec's view and validation rules at the native boundary.
@@ -12,7 +14,10 @@ import 'package:connectanum_core/json_serializer.dart' show decodeBase64Bytes;
 import 'package:connectanum_core/src/message/binary_ppt_payload_view.dart';
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
-    show validateFlatBufferCbor;
+    show isValidatedFlatBufferCborSpan, validateFlatBufferCbor;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/message_reader.dart'
+    show decodeValidatedWampFlatBufferApplication;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'message_protocol.dart';
@@ -488,22 +493,61 @@ AbstractMessage? _bindFromMetadata(
   Uint8List? argsBytes,
   Uint8List? kwargsBytes,
 }) {
+  final fullyRepresentedPptMetadata =
+      serializer == NativeMessageSerializer.flatbuffers &&
+      _isFullyRepresentedPptMetadata(metadata);
   final message = _bindFromMetadataFields(
     serializer,
     metadata,
     argsBytes: argsBytes,
     kwargsBytes: kwargsBytes,
+    fullyRepresentedPptMetadata: fullyRepresentedPptMetadata,
   );
   if (message != null) {
     _applyNativeTransparentPayload(message, serializer, metadata);
   }
   if (message != null &&
+      !fullyRepresentedPptMetadata &&
       serializer == NativeMessageSerializer.flatbuffers &&
       metadata.messageCode != MessageTypes.codeHeartbeat &&
       metadata.detailsBytes != null) {
     flatbuffers.Serializer().retainMetadata(message, metadata.detailsBytes!);
   }
   return message;
+}
+
+// These fresh direct-bind models contain exactly the matched PPT dictionary.
+// Other control fields, defaults, tags and custom keys keep bounded retention.
+bool _isFullyRepresentedPptMetadata(NativeMessageMetadata metadata) {
+  const allowedFlags =
+      NativeMessageMetadata.flagMetadataBind |
+      NativeMessageMetadata.flagDirectBind |
+      NativeMessageMetadata.flagTransparentPayload;
+  final bytes = metadata.detailsBytes;
+  if (bytes == null ||
+      !metadata.hasFlag(NativeMessageMetadata.flagDirectBind) ||
+      (metadata.flags & ~allowedFlags) != 0) {
+    return false;
+  }
+  String? scheme;
+  String? serializer;
+  if (metadata.messageCode == MessageTypes.codeResult) {
+    if (metadata.stringC != null || metadata.stringD != null) return false;
+    scheme = metadata.stringA;
+    serializer = metadata.stringB;
+  } else if (metadata.messageCode == MessageTypes.codeEvent ||
+      metadata.messageCode == MessageTypes.codeInvocation) {
+    if (metadata.stringA != null ||
+        metadata.stringD != null ||
+        metadata.stringE != null) {
+      return false;
+    }
+    scheme = metadata.stringB;
+    serializer = metadata.stringC;
+  } else {
+    return false;
+  }
+  return matchesFlatBufferPptMetadata(bytes, scheme, serializer);
 }
 
 void _applyNativeTransparentPayload(
@@ -515,9 +559,12 @@ void _applyNativeTransparentPayload(
     NativeMessageMetadata.flagTransparentPayload,
   );
   final bytes = metadata.transparentPayloadBytes;
+  final supportsTransparentPayload =
+      serializer == NativeMessageSerializer.flatbuffers ||
+      serializer == NativeMessageSerializer.cbor;
   if (present != (bytes != null) ||
       (present &&
-          (serializer != NativeMessageSerializer.flatbuffers ||
+          (!supportsTransparentPayload ||
               message is! AbstractMessageWithPayload ||
               !{16, 36, 48, 50, 68, 70, 8}.contains(metadata.messageCode)))) {
     throw ArgumentError('Invalid native transparent payload metadata');
@@ -532,6 +579,7 @@ AbstractMessage? _bindFromMetadataFields(
   NativeMessageMetadata metadata, {
   Uint8List? argsBytes,
   Uint8List? kwargsBytes,
+  bool fullyRepresentedPptMetadata = false,
 }) {
   if (!metadata.hasFlag(NativeMessageMetadata.flagMetadataBind)) {
     return null;
@@ -604,7 +652,7 @@ AbstractMessage? _bindFromMetadataFields(
         : _mapEventDetails(
             _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
           );
-    if (directBind) {
+    if (directBind && !fullyRepresentedPptMetadata) {
       _attachLazyCustomFieldsFromDetails(
         details,
         serializer,
@@ -644,7 +692,7 @@ AbstractMessage? _bindFromMetadataFields(
         : _mapResultDetails(
             _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
           );
-    if (directBind) {
+    if (directBind && !fullyRepresentedPptMetadata) {
       _attachLazyCustomFieldsFromDetails(
         details,
         serializer,
@@ -685,7 +733,7 @@ AbstractMessage? _bindFromMetadataFields(
         : _mapInvocationDetails(
             _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
           );
-    if (directBind) {
+    if (directBind && !fullyRepresentedPptMetadata) {
       _attachLazyCustomFieldsFromDetails(
         details,
         serializer,
@@ -819,7 +867,12 @@ Map<String, dynamic>? _decodeOptionalMapFragment(
   if (serializer == NativeMessageSerializer.flatbuffers) {
     return flatbuffers.Serializer().deserializeMetadata(bytes);
   }
-  final decoded = _decodeFragment(serializer, bytes);
+  final decoded = _decodeFragment(
+    serializer,
+    bytes,
+    rootMajor: 5,
+    rootStringDictionaryKeys: true,
+  );
   if (decoded == null) {
     return null;
   }
@@ -1073,7 +1126,12 @@ void _applyLazyPayload(
               final view = binaryPptArgumentView(encoding, fragment);
               if (view != null) {
                 if (serializer == NativeMessageSerializer.flatbuffers) {
-                  validateFlatBufferCbor(fragment);
+                  if (!isValidatedFlatBufferCborSpan(
+                    fragment,
+                    rootMajor: 4,
+                  )) {
+                    validateFlatBufferCbor(fragment, rootMajor: 4);
+                  }
                 }
                 return <dynamic>[view];
               }
@@ -1303,7 +1361,7 @@ List<dynamic> _decodeArgumentList(
   NativeMessageSerializer serializer,
   Uint8List bytes,
 ) {
-  final decoded = _decodeFragment(serializer, bytes);
+  final decoded = _decodeFragment(serializer, bytes, rootMajor: 4);
   if (decoded == null) {
     return <dynamic>[];
   }
@@ -1317,7 +1375,12 @@ Map<String, dynamic> _decodeKeywordMap(
   NativeMessageSerializer serializer,
   Uint8List bytes,
 ) {
-  final decoded = _decodeFragment(serializer, bytes);
+  final decoded = _decodeFragment(
+    serializer,
+    bytes,
+    rootMajor: 5,
+    rootStringDictionaryKeys: true,
+  );
   if (decoded == null) {
     return <String, dynamic>{};
   }
@@ -1327,7 +1390,12 @@ Map<String, dynamic> _decodeKeywordMap(
   throw ArgumentError('Expected keyword arguments map but got $decoded');
 }
 
-Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
+Object? _decodeFragment(
+  NativeMessageSerializer serializer,
+  Uint8List bytes, {
+  required int rootMajor,
+  bool rootStringDictionaryKeys = false,
+}) {
   switch (serializer) {
     case NativeMessageSerializer.json:
       return _normalizeJsonBinaryPayload(jsonDecode(utf8.decode(bytes)));
@@ -1336,7 +1404,11 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
     case NativeMessageSerializer.cbor:
       return cbor.cborDecode(bytes).toObject();
     case NativeMessageSerializer.flatbuffers:
-      return flatbuffers.Serializer().deserializeApplication(bytes);
+      return decodeValidatedWampFlatBufferApplication(
+        bytes,
+        rootMajor: rootMajor,
+        rootStringDictionaryKeys: rootStringDictionaryKeys,
+      );
     case NativeMessageSerializer.ubjson:
       throw UnsupportedError(
         'Serializer ${serializer.name} is not supported for payload decoding',

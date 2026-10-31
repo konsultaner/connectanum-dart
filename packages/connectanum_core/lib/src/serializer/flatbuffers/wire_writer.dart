@@ -20,6 +20,33 @@ class FlatBufferByteVectorReference {
   final int offset;
 }
 
+/// Parts of one byte vector, kept separate until a contiguous view is requested.
+class FlatBufferByteVectorParts {
+  factory FlatBufferByteVectorParts(List<Uint8List> parts) {
+    final retained = List<Uint8List>.unmodifiable(parts);
+    var length = 0;
+    for (final part in retained) {
+      if (part.length > 67108864 - length) {
+        throw ArgumentError('FlatBuffers byte vector exceeds the byte limit');
+      }
+      length += part.length;
+    }
+    return FlatBufferByteVectorParts._(retained, length);
+  }
+  FlatBufferByteVectorParts._(this.parts, this.length);
+  final List<Uint8List> parts;
+  final int length;
+
+  Uint8List toBytes() {
+    if (parts.length == 1) return parts.single;
+    final builder = CopyAwareBytesBuilder();
+    for (final part in parts) {
+      builder.add(part);
+    }
+    return builder.takeBytes();
+  }
+}
+
 /// Write the pinned wire fields directly into a supplied builder. The message
 /// codec supplies the projected fields; this kernel does not encode metadata or
 /// application objects. The caller finishes/freezes the returned root offset.
@@ -27,12 +54,100 @@ int writeWampFlatBufferFields(
   Map<String, Object?> fields,
   fb.Builder builder, {
   List<DeferredFlatBufferVector>? deferredVectors,
-}) => _Writer(builder, deferredVectors).table(wampRootTable, fields);
+}) {
+  final writer = _Writer(builder, deferredVectors);
+  return writer.simplePptCall(fields) ?? writer.table(wampRootTable, fields);
+}
 
 class _Writer {
   _Writer(this.builder, this.deferredVectors);
   final fb.Builder builder;
   final List<DeferredFlatBufferVector>? deferredVectors;
+
+  // The common opaque CALL needs neither schema-sized scratch lists nor a
+  // recursive table walk. Check the complete supported shape before writing;
+  // every other control dictionary still uses the generic schema validator.
+  int? simplePptCall(Map<String, Object?> fields) {
+    if (fields['msg_type'] is! int ||
+        fields['msg_type'] != wire.AnyMessageTypeId.Call.value ||
+        fields.length != 3 ||
+        fields.keys.any(
+          (key) => !const {'msg_type', 'msg', 'metadata'}.contains(key),
+        )) {
+      return null;
+    }
+    final body = fields['msg'];
+    final metadata = fields['metadata'];
+    if (body is! Map<String, Object?> ||
+        metadata is! Uint8List ||
+        metadata.length > 1048576 ||
+        body.keys.any(
+          (key) => !const {
+            'request',
+            'procedure',
+            'payload',
+            'ppt_scheme',
+            'ppt_serializer',
+          }.contains(key),
+        )) {
+      return null;
+    }
+    final request = body['request'];
+    final procedure = body['procedure'];
+    final payload = body['payload'];
+    final scheme = body['ppt_scheme'];
+    final serializer = body['ppt_serializer'];
+    if (request is! int ||
+        request <= 0 ||
+        request > 9007199254740992 ||
+        procedure is! String ||
+        serializer is! int ||
+        serializer != wire.Pptserializer.FLATBUFFERS.value ||
+        (scheme != null &&
+            (scheme is! int ||
+                scheme < wire.Pptscheme.minValue ||
+                scheme > wire.Pptscheme.maxValue))) {
+      return null;
+    }
+    final reference = payload is FlatBufferByteVectorReference ? payload : null;
+    if (reference == null && payload is! Uint8List) return null;
+    if (reference != null && !identical(reference.builder, builder)) {
+      return null;
+    }
+
+    // Match the generic field/offset order exactly, including its empty vector
+    // placeholder for fragmented output. The native reference stays borrowed.
+    final procedureOffset = builder.writeString(
+      procedure,
+      asciiOptimization: true,
+    );
+    final deferred = reference == null && deferredVectors != null;
+    final payloadOffset =
+        reference?.offset ??
+        byteVector(deferred ? const <int>[] : payload as Uint8List);
+    final call = wire.CallBuilder(builder)
+      ..begin()
+      ..addProcedureOffset(procedureOffset)
+      ..addPayloadOffset(payloadOffset)
+      ..addRequest(request);
+    if (scheme != null) {
+      call.addPptScheme(wire.Pptscheme.fromValue(scheme as int));
+    }
+    call.addPptSerializer(wire.Pptserializer.FLATBUFFERS);
+    final callOffset = call.finish();
+    if (deferred) {
+      deferredVectors!.add(
+        DeferredFlatBufferVector(callOffset, 5, payload as Uint8List),
+      );
+    }
+    final metadataOffset = byteVector(metadata);
+    return (wire.MessageBuilder(builder)
+          ..begin()
+          ..addMsgOffset(callOffset)
+          ..addMetadataOffset(metadataOffset)
+          ..addMsgType(wire.AnyMessageTypeId.Call))
+        .finish();
+  }
 
   // The pinned schema is constant; reuse field-name sets across frames.
   static final _fieldNames = [
@@ -118,17 +233,24 @@ class _Writer {
   }
 
   Map<String, Object?> dictionary(Object? value) {
-    if (value is! Map || value.keys.any((key) => key is! String)) invalid();
+    if (value is Map<String, Object?>) return value;
+    if (value is! Map) invalid();
+    for (final key in value.keys) {
+      if (key is! String) invalid();
+    }
     return value.cast<String, Object?>();
   }
 
   int table(int reference, Map<String, Object?> fields) {
     final spec = wampValidationTables[reference];
     final names = _fieldNames[reference];
-    if (fields.keys.any((key) => !names.contains(key))) invalid();
-    final offsets = <int, int>{};
-    final scalars = <int, int>{};
-    final borrowed = <int, Uint8List>{};
+    for (final key in fields.keys) {
+      if (!names.contains(key)) invalid();
+    }
+    // Schema kinds distinguish offsets from scalars when emitting the table,
+    // so one nullable scratch list replaces separate offset/scalar lists.
+    final values = List<int?>.filled(spec.fields.length, null);
+    List<Object>? borrowed;
     for (var slot = 0; slot < spec.fields.length; slot++) {
       final field = spec.fields[slot];
       final value = fields[field.name];
@@ -146,53 +268,75 @@ class _Writer {
       }
       switch (field.kind) {
         case FlatBufferFieldKind.scalar:
-          scalars[slot] = integer(field, value);
+          values[slot] = integer(field, value);
         case FlatBufferFieldKind.string:
           if (value is! String) invalid();
-          offsets[slot] = builder.writeString(value);
+          values[slot] = builder.writeString(value, asciiOptimization: true);
         case FlatBufferFieldKind.table:
-          offsets[slot] = table(field.reference, dictionary(value));
+          values[slot] = table(field.reference, dictionary(value));
         case FlatBufferFieldKind.union:
           final tagField = spec.fields[slot - 1];
           final tag = integer(tagField, fields[tagField.name] ?? 0);
           if (tag == 0 || tag >= field.values.length) invalid();
-          offsets[slot] = table(field.values[tag], dictionary(value));
+          values[slot] = table(field.values[tag], dictionary(value));
         case FlatBufferFieldKind.scalarVector:
         case FlatBufferFieldKind.stringVector:
         case FlatBufferFieldKind.tableVector:
           if (deferredVectors != null &&
               field.kind == FlatBufferFieldKind.scalarVector &&
               field.width == 1 &&
-              {'args', 'kwargs', 'payload'}.contains(field.name) &&
-              value is Uint8List) {
-            offsets[slot] = byteVector(const <int>[]);
-            borrowed[slot] = value;
+              (const {'args', 'kwargs', 'payload'}).contains(field.name) &&
+              (value is Uint8List || value is FlatBufferByteVectorParts)) {
+            values[slot] = byteVector(const <int>[]);
+            final retained = borrowed ??= <Object>[];
+            retained
+              ..add(slot)
+              ..add(value);
           } else {
-            offsets[slot] = vector(field, value);
+            values[slot] = vector(field, value);
           }
       }
     }
     builder.startTable(spec.fields.length);
-    for (final entry in offsets.entries) {
-      builder.addOffset(entry.key, entry.value);
+    for (var slot = 0; slot < values.length; slot++) {
+      final value = values[slot];
+      if (value != null &&
+          spec.fields[slot].kind != FlatBufferFieldKind.scalar) {
+        builder.addOffset(slot, value);
+      }
     }
-    for (final entry in scalars.entries) {
-      switch (spec.fields[entry.key].width) {
+    for (var slot = 0; slot < values.length; slot++) {
+      final scalar = values[slot];
+      if (scalar == null ||
+          spec.fields[slot].kind != FlatBufferFieldKind.scalar) {
+        continue;
+      }
+      switch (spec.fields[slot].width) {
         case 1:
-          builder.addUint8(entry.key, entry.value);
+          builder.addUint8(slot, scalar);
         case 2:
-          builder.addUint16(entry.key, entry.value);
+          builder.addUint16(slot, scalar);
         case 4:
-          builder.addUint32(entry.key, entry.value);
+          builder.addUint32(slot, scalar);
         case 8:
-          builder.addUint64(entry.key, entry.value);
+          builder.addUint64(slot, scalar);
       }
     }
     final offset = builder.endTable();
-    for (final entry in borrowed.entries) {
-      deferredVectors!.add(
-        DeferredFlatBufferVector(offset, entry.key, entry.value),
-      );
+    if (borrowed != null) {
+      for (var index = 0; index < borrowed.length; index += 2) {
+        final slot = borrowed[index] as int;
+        final value = borrowed[index + 1];
+        deferredVectors!.add(
+          value is Uint8List
+              ? DeferredFlatBufferVector(offset, slot, value)
+              : DeferredFlatBufferVector.fragmented(
+                  offset,
+                  slot,
+                  value as FlatBufferByteVectorParts,
+                ),
+        );
+      }
     }
     return offset;
   }
@@ -259,14 +403,28 @@ class _Writer {
 
 /// A byte vector appended after the owned routing envelope has been finished.
 class DeferredFlatBufferVector {
-  DeferredFlatBufferVector(this.tableOffset, this.slot, this.bytes);
+  DeferredFlatBufferVector(this.tableOffset, this.slot, Uint8List bytes)
+    : _bytes = bytes,
+      _parts = null;
+  DeferredFlatBufferVector.fragmented(
+    this.tableOffset,
+    this.slot,
+    FlatBufferByteVectorParts parts,
+  ) : _parts = parts,
+      _bytes = null;
   final int tableOffset;
   final int slot;
-  final Uint8List bytes;
+  final Uint8List? _bytes;
+  final FlatBufferByteVectorParts? _parts;
+  int get length => _bytes?.length ?? _parts!.length;
+  Iterable<Uint8List> get parts => _parts?.parts ?? [_bytes!];
+
+  /// Explicit contiguous access coalesces a fragmented vector and observes it.
+  Uint8List get bytes => _bytes ?? _parts!.toBytes();
 }
 
 /// Patch forward offsets into the envelope and retain the exact body views.
-/// Only the small vector length/alignment headers are allocated here.
+/// Only small vector headers and encoding prefixes are allocated here.
 List<Uint8List> finishWampFlatBufferFragments(
   fb.Builder builder,
   int root,
@@ -302,7 +460,7 @@ List<Uint8List> finishWampFlatBufferFragments(
     }
     final padding = (12 - length % 8) % 8;
     final target = length + padding;
-    final nextLength = target + 4 + vector.bytes.length;
+    final nextLength = target + 4 + vector.length;
     if (nextLength > maximumBytes) {
       throw ArgumentError('FlatBuffers frame exceeds the byte limit');
     }
@@ -310,9 +468,9 @@ List<Uint8List> finishWampFlatBufferFragments(
     final header = Uint8List(padding + 4);
     ByteData.sublistView(
       header,
-    ).setUint32(padding, vector.bytes.length, Endian.little);
+    ).setUint32(padding, vector.length, Endian.little);
     fragments.add(header);
-    fragments.add(vector.bytes);
+    fragments.addAll(vector.parts);
     length = nextLength;
   }
   return fragments;

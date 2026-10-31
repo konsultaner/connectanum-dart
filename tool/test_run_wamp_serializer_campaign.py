@@ -209,8 +209,112 @@ with (root / 'driver-results.jsonl').open('wb') as stream:
                 self.assertEqual(campaign.main(self.cli_args(output) + ['--campaign-timeout-seconds=' + value]), 2)
                 self.assertFalse(output.exists())
 
+    def test_extension_prepare_declares_complete_diagnostic_inventory(self):
+        output = self.root / 'extensions'
+        fixture_root = self.root / 'metadata-fixture'
+        for name in ('pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.lock'):
+            path = fixture_root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('explicit synthetic lockfile for preparation fixture\n')
+        def fixture_command(command, root):
+            if command[:2] == ['git', 'status']:
+                return ''
+            return 'a' * 40 if command[:2] == ['git', 'rev-parse'] else 'synthetic fixture tool version'
+        with mock.patch.object(campaign, 'LOCK', self.root / 'lock'), \
+             mock.patch.object(campaign, 'ROOT', fixture_root), \
+             mock.patch.object(campaign, 'command_output', side_effect=fixture_command):
+            self.assertEqual(campaign.main(self.cli_args(output) + ['--extension-diagnostics']), 0)
+        manifest = json.loads((output / 'manifest.json').read_text())
+        self.assertEqual(manifest['metadata']['campaign_kind'], 'extension_diagnostic')
+        self.assertEqual(manifest['metadata']['diagnostic_inventory'], 'flatbuffers_extensions_v2')
+        self.assertEqual(manifest['cases'], campaign.extensions.extension_cases())
+        self.assertEqual(manifest['execution']['status'], 'planned')
+        self.assertEqual(sum(len(r['order']) for r in manifest['warmup_runs'] + manifest['measured_runs']), 1500)
+
+    def test_extension_case_shards_keep_the_complete_inventory_and_schedule(self):
+        all_cases = campaign.extensions.extension_cases()
+        observed = []
+        for shard, count in [('protocol', 30), ('payload_sizes', 12), ('encrypted_progressive_results', 8)]:
+            cases = campaign.extensions.cases_for_shard(shard)
+            self.assertEqual(len(cases), count)
+            observed.extend(cases)
+            runs = campaign.schedule(cases, 3, 7, 42)
+            self.assertEqual(sum(len(run['order']) for run in runs), count * 30)
+            self.assertEqual(sum(run['kind'] == 'warmup' for run in runs), 3)
+            self.assertEqual(sum(run['kind'] == 'measured' for run in runs), 7)
+        self.assertEqual(len({case['id'] for case in observed}), 50)
+        self.assertEqual({case['id']: case for case in observed}, {case['id']: case for case in all_cases})
+        for invalid in ('all', 'missing', '', None, False, []):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                campaign.extensions.cases_for_shard(invalid)
+
+    def test_extension_shard_prepare_keeps_scope_and_rejects_primary_subsets(self):
+        fixture_root = self.root / 'metadata-shards'
+        for name in ('pubspec.lock', 'native/bench/Cargo.lock', 'native/transport/Cargo.lock'):
+            path = fixture_root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('explicit synthetic fixture lockfile\n')
+        def fixture_command(command, root):
+            if command[:2] == ['git', 'status']:
+                return ''
+            return 'a' * 40 if command[:2] == ['git', 'rev-parse'] else 'synthetic version'
+        with mock.patch.object(campaign, 'LOCK', self.root / 'lock'), \
+             mock.patch.object(campaign, 'ROOT', fixture_root), \
+             mock.patch.object(campaign, 'command_output', side_effect=fixture_command):
+            for shard, count in [('protocol', 30), ('payload_sizes', 12), ('encrypted_progressive_results', 8)]:
+                output = self.root / shard
+                self.assertEqual(campaign.main(self.cli_args(output) + ['--extension-diagnostics', '--extension-shard', shard]), 0)
+                manifest = json.loads((output / 'manifest.json').read_text())
+                self.assertEqual(manifest['metadata']['diagnostic_shard'], shard)
+                self.assertEqual(manifest['cases'], campaign.extensions.cases_for_shard(shard))
+                self.assertEqual(sum(len(run['order']) for run in manifest['warmup_runs'] + manifest['measured_runs']), count * 30)
+                rows = tomllib.loads(next((output / 'scenarios').glob('*.toml')).read_text())['workloads']
+                self.assertTrue(all(row['iterations'] == 1000 and row['minimum_duration_ms'] == 10000 for row in rows))
+            output = self.root / 'invalid-shard'
+            self.assertEqual(campaign.main(self.cli_args(output) + ['--extension-shard', 'protocol']), 2)
+            self.assertFalse(output.exists())
+            self.assertEqual(campaign.main(self.cli_args(output) + ['--extension-diagnostics', '--extension-shard', 'protocol', '--case', 'ext_00_small_control']), 2)
+            self.assertFalse(output.exists())
+
+    def test_cpu_profiler_refuses_competing_build_before_launch(self):
+        import profile_wamp_serializers as profiler
+        output = self.root / 'cpu'
+        with mock.patch.object(campaign, 'LOCK', self.root / 'lock'), \
+             mock.patch.object(campaign, 'interfering_jobs', return_value=[{'pid': 123, 'program': 'cargo'}]), \
+             mock.patch.object(profiler, 'profile') as run, \
+             mock.patch.object(sys, 'argv', ['profile', '--output', str(output), '--native-lib', __file__]):
+            with self.assertRaisesRegex(RuntimeError, 'Build/test/mutation'):
+                profiler.main()
+            run.assert_not_called()
+        self.assertFalse(output.exists())
+
+    def test_cpu_profiler_and_campaign_share_the_host_lease(self):
+        import profile_wamp_serializers as profiler
+        output = self.root / 'cpu'
+        with mock.patch.object(campaign, 'LOCK', self.root / 'lock'), \
+             mock.patch.object(profiler, 'profile') as run, \
+             mock.patch.object(sys, 'argv', ['profile', '--output', str(output), '--native-lib', __file__]):
+            with campaign.LOCK.open('a') as lease:
+                fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                with self.assertRaises(BlockingIOError):
+                    profiler.main()
+                run.assert_not_called()
+        self.assertFalse(output.exists())
+
     def primary_cli_args(self, output):
         return [arg for arg in self.cli_args(output) if arg != '--diagnostic']
+
+    def test_extensions_reject_custom_policy_and_noncanonical_concurrency(self):
+        loose = self.root / 'loose-policy.json'
+        policy = json.loads(campaign.POLICY.read_text())
+        policy['minimum_samples_per_run'] = 1
+        loose.write_text(json.dumps(policy))
+        for extra in (['--policy', str(loose)], ['--concurrency', '2'], ['--in-flight', '2']):
+            output = self.root / 'extensions-invalid'
+            with mock.patch.object(campaign, 'execute') as execute:
+                self.assertEqual(campaign.main(self.cli_args(output) + ['--extension-diagnostics', *extra]), 2)
+                execute.assert_not_called()
+            self.assertFalse(output.exists())
 
     def test_primary_cli_rejects_each_reduced_acceptance_floor_before_launch(self):
         for option, value in (('--warmups', '2'), ('--repetitions', '6'),
@@ -287,6 +391,97 @@ with (root / 'driver-results.jsonl').open('wb') as stream:
         self.assertTrue(execution['process_group_stopped'])
         self.assertTrue((self.root / 'child.pid').exists())
         self.assertFalse(campaign.group_alive(execution['pid']))
+
+
+class ExtensionCampaignTest(unittest.TestCase):
+    def test_declared_50_case_inventory_and_payload_profiles(self):
+        from collections import Counter
+        cases = campaign.extensions.extension_cases()
+        self.assertEqual(len({c['id'] for c in cases}), 50)
+        self.assertEqual(Counter(c['group'] for c in cases), {
+            'small_control': 8, 'payload_sizes': 12, 'fanout8': 2, 'progressive': 4,
+            'mixed_serializers': 6, 'encrypted_ppt': 8, 'fragmented_masked_websocket': 2, 'encrypted_progressive_results': 8,
+        })
+        for case in cases:
+            f = case['fields']
+            if case['group'] in ('small_control', 'progressive'):
+                self.assertEqual(case['payload_profile'], 'wamp_envelope_cbor_args')
+                self.assertNotIn('ppt_scheme', f)
+                self.assertNotIn('payload_construction', f)
+            if case['group'] in ('encrypted_ppt', 'encrypted_progressive_results'):
+                self.assertEqual(f['ppt_scheme'], 'wamp')
+                self.assertEqual(case['payload_profile'], f"encrypted_ppt_{f['ppt_serializer']}")
+        sizes = [c for c in cases if c['group'] == 'payload_sizes']
+        self.assertEqual({c['fields']['request_bytes'] for c in sizes}, {10240, 102400, 1048576})
+        self.assertEqual(len([c for c in cases if c.get('zero_copy_codecs')]), 16)
+        runs = campaign.schedule(cases, 3, 7, 42)
+        self.assertEqual(sum(len(r['order']) for r in runs), 1500)
+        self.assertEqual({len(r['order']) for r in runs}, {150})
+
+    def test_toml_uses_real_sizes_control_operations_and_encrypted_profiles(self):
+        cases = campaign.extensions.extension_cases()
+        runs = campaign.schedule(cases, 3, 7, 42)
+        by_name = {name: (case, codec) for case in cases for codec, name in case['workloads'].items()}
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            campaign.write_scenarios(root, cases, runs, 10000, 1000, 1, 1)
+            for path in (root / 'scenarios').glob('*.toml'):
+                rows = tomllib.loads(path.read_text())['workloads']
+                self.assertEqual(len(rows), 150)
+                for row in rows:
+                    case, codec = by_name[row['name']]
+                    self.assertEqual(row['protocol'], f"wamp_{case['transport']}_{case['mode']}")
+                    self.assertEqual(row['request_bytes'], case['fields']['request_bytes'])
+                    self.assertEqual(row['response_bytes'], case['fields']['response_bytes'])
+                    self.assertEqual(row['iterations'], 1000)
+                    self.assertEqual(row['minimum_duration_ms'], 10000)
+                    if case['payload_profile'] == 'typed':
+                        self.assertEqual(row['ppt_serializer'], codec)
+                    elif case['group'] in ('encrypted_ppt', 'encrypted_progressive_results'):
+                        self.assertEqual(row['ppt_serializer'], case['fields']['ppt_serializer'])
+                        self.assertEqual(row.get('peer_serializer'), codec if case['group'] == 'encrypted_ppt' else 'cbor')
+                    else:
+                        self.assertNotIn('ppt_serializer', row)
+                        self.assertNotIn('ppt_scheme', row)
+
+    def test_actual_configuration_checks_all_profiles_and_rejects_corruption(self):
+        for case in campaign.extensions.extension_cases():
+            for codec in campaign.compare.CODECS:
+                fields = case['fields']
+                actual = {key: fields.get(key) for key in (
+                    'peer_serializer', 'ppt_scheme', 'ppt_serializer', 'ppt_cipher',
+                    'ppt_keyid', 'payload_construction', 'websocket_fragment_size')}
+                actual.update(serializer=codec, secure_transport=case['secure_transport'],
+                              payload_bytes=fields['request_bytes'], peer_count=fields['peer_count'],
+                              in_flight_per_session=1)
+                if case['payload_profile'] == 'typed':
+                    actual['ppt_serializer'] = codec
+                if case['group'] == 'encrypted_ppt':
+                    actual['peer_serializer'] = codec
+                report = {'protocol': f"wamp_{case['transport']}_{case['mode']}",
+                          'client_impl': case['client_impl'], 'concurrency': 1,
+                          'wamp_configuration': actual,
+                          'copy_metrics': {'websocket_mask_copy_bytes': 123},
+                          'samples': [{'request_bytes': fields['request_bytes'] * 3,
+                                       'response_bytes': fields['request_bytes'] * 3}]}
+                check = campaign.extensions.configuration_findings
+                self.assertEqual(check(report, case, codec, label='fixture'), [])
+                for key in actual:
+                    bad = json.loads(json.dumps(report))
+                    bad['wamp_configuration'][key] = 'wrong-value'
+                    self.assertTrue(check(bad, case, codec, label='corrupted'), key)
+                    del bad['wamp_configuration'][key]
+                    self.assertTrue(check(bad, case, codec, label='missing'), key)
+                if case['mode'] == 'progressive_rpc':
+                    for key in ('request_bytes', 'response_bytes'):
+                        for value in (None, True, 0, fields['request_bytes']):
+                            bad = json.loads(json.dumps(report))
+                            bad['samples'][0][key] = value
+                            self.assertTrue(check(bad, case, codec, label='missing stream'), key)
+                if fields.get('websocket_fragment_size'):
+                    for value in (None, 0, False, -1):
+                        report['copy_metrics']['websocket_mask_copy_bytes'] = value
+                        self.assertTrue(check(report, case, codec, label='unobserved mask'))
 
 
 if __name__ == '__main__':

@@ -6,6 +6,17 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      mqtt_compare_ref:
+        description: Optional full baseline commit SHA for matched MQTT comparisons on the same runner
+        required: false
+        default: ''
+        type: string
+      mqtt_profile:
+        description: Capture separate Linux perf diagnostics even when the MQTT gate passes
+        required: false
+        default: false
+        type: boolean
 
 # Supersede automated codex branch runs within each event/ref only. Unique
 # run-id groups preserve master, tags, manual runs and other branch histories.
@@ -174,6 +185,184 @@ jobs:
       - name: Format, analyze and verify tooling contracts
         run: bin/test-ci-fast
 
+  mqtt-qos0:
+    name: MQTT QoS 0 interoperability and benchmark gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - name: Bootstrap workspace and independent peers
+        run: |
+          set -euo pipefail
+          bin/bootstrap
+          sudo apt-get update
+          sudo apt-get install -y mosquitto
+          mosquitto_version="$(mosquitto -h 2>&1 || true)"
+          [[ "$mosquitto_version" == *'mosquitto version 2.0.18'* ]] || {
+            printf 'MQTT reference broker changed; rebaseline required: %s\n' "$mosquitto_version" >&2
+            exit 1
+          }
+          python3 -m venv "$RUNNER_TEMP/paho"
+          "$RUNNER_TEMP/paho/bin/pip" install paho-mqtt==2.1.0 coverage==7.16.2
+      - name: Build native MQTT transport
+        run: |
+          set -euo pipefail
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-native-target" \
+            cargo build --manifest-path native/transport/Cargo.toml \
+            -p ct_ffi --release --features ffi-test
+          echo "CONNECTANUM_NATIVE_LIB=$RUNNER_TEMP/mqtt-native-target/release/libct_ffi.so" >> "$GITHUB_ENV"
+      - name: Verify Paho and Connectanum QoS 0 exchange
+        env:
+          PAHO_PYTHON: ${{ runner.temp }}/paho/bin/python
+        run: |
+          set -euo pipefail
+          mkdir -p out/mqtt-qos0-gate
+          cd packages/connectanum_core
+          dart test test/mqtt \
+            --coverage-path=../../out/mqtt-qos0-gate/core-mqtt.lcov \
+            --coverage-package=connectanum_core --reporter=expanded
+          cd ../connectanum_router
+          dart test test/mqtt/mqtt_qos0_integration_test.dart \
+            test/mqtt/mqtt_native_router_integration_test.dart \
+            --coverage-path=../../out/mqtt-qos0-gate/router-mqtt.lcov \
+            --coverage-package='connectanum_(router|core|client)' --reporter=expanded
+          cd ../..
+          python3 tool/check_coverage.py \
+            out/mqtt-qos0-gate/core-mqtt.lcov \
+            out/mqtt-qos0-gate/router-mqtt.lcov \
+            --output out/mqtt-qos0-gate/dart-mqtt-coverage.json \
+            --policy tool/mqtt_coverage_policy.json --runtime vm
+      - name: Verify benchmark gate controls and matched delivery
+        id: mqtt_gate
+        env:
+          PYTHONPATH: tool
+          COVERAGE_FILE: ${{ runner.temp }}/mqtt-benchmark-coverage
+        run: |
+          set -euo pipefail
+          coverage="$RUNNER_TEMP/paho/bin/coverage"
+          "$coverage" run --source=run_mqtt_benchmark_gate \
+            -m unittest tool/test_run_mqtt_benchmark_gate.py
+          failed=0
+          run_profile() {
+            if ! "$coverage" run --append --source=run_mqtt_benchmark_gate \
+                -m run_mqtt_benchmark_gate "$@"; then
+              printf "MQTT benchmark profile failed: %s\n" "$*" >&2
+              failed=1
+            fi
+          }
+          run_profile \
+            --output out/mqtt-qos0-gate/burst --mosquitto "$(command -v mosquitto)"
+          run_profile \
+            --budget tool/mqtt_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/sustained --mosquitto "$(command -v mosquitto)"
+          run_profile \
+            --budget tool/mqtt_batched_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/batched --mosquitto "$(command -v mosquitto)"
+          run_profile \
+            --budget tool/mqtt_fanout_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/fanout --mosquitto "$(command -v mosquitto)"
+          run_profile \
+            --budget tool/mqtt_v311_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/v311-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --output out/mqtt-qos0-gate/native-burst --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_v311_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-v311-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_1k_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-1k-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_64k_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-64k-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_batched_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-batched --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_fanout_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-fanout --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_tls_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-tls-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_tls_v311_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-tls-v311-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_ws_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-ws-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_ws_v311_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-ws-v311-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_wss_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-wss-sustained --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_wss_single_smoke_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-wss-single-smoke --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_wss_v311_single_smoke_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-wss-v311-single-smoke --mosquitto "$(command -v mosquitto)"
+          run_profile --native-router \
+            --budget tool/mqtt_native_wss_v311_sustained_benchmark_budget.json \
+            --output out/mqtt-qos0-gate/native-wss-v311-sustained --mosquitto "$(command -v mosquitto)"
+          "$coverage" json --include='*/tool/run_mqtt_benchmark_gate.py' \
+            -o out/mqtt-qos0-gate/python-coverage.json
+          "$coverage" report --include='*/tool/run_mqtt_benchmark_gate.py' \
+            --fail-under=100 -m
+          python3 -c "from run_mqtt_benchmark_gate import require_exact_line_coverage; require_exact_line_coverage('out/mqtt-qos0-gate/python-coverage.json')"
+          exit "$failed"
+      - name: Upload MQTT QoS 0 benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-qos0-benchmark
+          path: out/mqtt-qos0-gate
+          if-no-files-found: warn
+      - name: Profile native MQTT on the failing runner
+        id: mqtt_profile
+        if: ${{ !cancelled() && (steps.mqtt_gate.outcome == 'failure' || (github.event_name == 'workflow_dispatch' && inputs.mqtt_profile)) }}
+        uses: ./.github/actions/profile-mqtt
+      - name: Upload native MQTT CPU profiles
+        if: ${{ always() && (steps.mqtt_profile.outcome == 'success' || steps.mqtt_profile.outcome == 'failure' || steps.mqtt_profile.outcome == 'cancelled') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-native-profile
+          path: out/mqtt-native-profile
+          if-no-files-found: error
+      - name: Compare native MQTT libraries on the same runner
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.mqtt_compare_ref != '' }}
+        env:
+          MQTT_COMPARE_REF: ${{ inputs.mqtt_compare_ref }}
+        run: |
+          set -euo pipefail
+          [[ "$MQTT_COMPARE_REF" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin "$MQTT_COMPARE_REF"
+          baseline_commit="$(git rev-parse FETCH_HEAD)"
+          git worktree add --detach "$RUNNER_TEMP/mqtt-baseline" "$baseline_commit"
+          cp native/transport/Cargo.lock "$RUNNER_TEMP/mqtt-baseline/native/transport/Cargo.lock"
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-baseline-target" \
+            cargo build --manifest-path "$RUNNER_TEMP/mqtt-baseline/native/transport/Cargo.toml" \
+            -p ct_ffi --release --features ffi-test --locked
+          mkdir -p out/mqtt-native-comparison
+          echo "$baseline_commit" > out/mqtt-native-comparison/baseline-ref.txt
+          git rev-parse HEAD > out/mqtt-native-comparison/candidate-ref.txt
+          bash tool/compare_mqtt_native.sh \
+            "$RUNNER_TEMP/mqtt-baseline-target/release/libct_ffi.so" \
+            "$CONNECTANUM_NATIVE_LIB" out/mqtt-native-comparison
+      - name: Upload matched native MQTT comparison
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.mqtt_compare_ref != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-native-comparison
+          path: out/mqtt-native-comparison
+          if-no-files-found: error
+
   wamp-app:
     name: WampApp Consumer
     runs-on: ubuntu-latest
@@ -241,7 +430,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
-    needs: [fast, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, router-mutations, browser-coverage]
+    needs: [fast, mqtt-qos0, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, router-mutations, browser-coverage]
     steps:
       - uses: actions/checkout@v5
       - name: Require every validation lane to succeed
@@ -434,7 +623,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: mcp-shards
-    if: always()
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci

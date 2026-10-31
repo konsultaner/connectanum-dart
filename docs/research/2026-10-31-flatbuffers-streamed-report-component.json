@@ -1,0 +1,119 @@
+{
+  "kind": "streamed sample report component; never acceptance",
+  "baseline": "f16ae5e9 full-chunk collection helper; unchanged source",
+  "candidate": "prevalidated immutable sample report stream",
+  "scope": "Complete actual 33991-row input plus all metadata; SHA consumption included in timing; sequential input loading avoids parsing an entire JSON string before measurement; balanced fresh ABBA; no explicit GC, allocator or VM flags",
+  "records": [
+    {
+      "mode": "baseline",
+      "format": "named",
+      "samples": 33991,
+      "chunks": 140,
+      "bytes": 9173502,
+      "sha256": "bc2ad4699fd77ee377004f59bd8bc92933294223d21e1526de821731d89f5223",
+      "elapsed_us": 98752,
+      "rss_before": 50364416,
+      "rss_after": 65421312,
+      "rss_peak": 65421312
+    },
+    {
+      "mode": "candidate",
+      "format": "named",
+      "samples": 33991,
+      "chunks": 143,
+      "bytes": 9173502,
+      "sha256": "bc2ad4699fd77ee377004f59bd8bc92933294223d21e1526de821731d89f5223",
+      "elapsed_us": 110053,
+      "rss_before": 50348032,
+      "rss_after": 57163776,
+      "rss_peak": 57163776
+    },
+    {
+      "mode": "candidate",
+      "format": "named",
+      "samples": 33991,
+      "chunks": 143,
+      "bytes": 9173502,
+      "sha256": "bc2ad4699fd77ee377004f59bd8bc92933294223d21e1526de821731d89f5223",
+      "elapsed_us": 111070,
+      "rss_before": 50462720,
+      "rss_after": 57278464,
+      "rss_peak": 57278464
+    },
+    {
+      "mode": "baseline",
+      "format": "named",
+      "samples": 33991,
+      "chunks": 140,
+      "bytes": 9173502,
+      "sha256": "bc2ad4699fd77ee377004f59bd8bc92933294223d21e1526de821731d89f5223",
+      "elapsed_us": 98817,
+      "rss_before": 50348032,
+      "rss_after": 65404928,
+      "rss_peak": 65404928
+    },
+    {
+      "mode": "baseline",
+      "format": "positional",
+      "samples": 33991,
+      "chunks": 45,
+      "bytes": 2919192,
+      "sha256": "ac04b8ff702f7b0adedf913305bc9b6fa9a2e3777eedebdb0b13aa9228943639",
+      "elapsed_us": 31998,
+      "rss_before": 50446336,
+      "rss_after": 56573952,
+      "rss_peak": 56573952
+    },
+    {
+      "mode": "candidate",
+      "format": "positional",
+      "samples": 33991,
+      "chunks": 47,
+      "bytes": 2919192,
+      "sha256": "ac04b8ff702f7b0adedf913305bc9b6fa9a2e3777eedebdb0b13aa9228943639",
+      "elapsed_us": 43807,
+      "rss_before": 50348032,
+      "rss_after": 57180160,
+      "rss_peak": 57180160
+    },
+    {
+      "mode": "candidate",
+      "format": "positional",
+      "samples": 33991,
+      "chunks": 47,
+      "bytes": 2919192,
+      "sha256": "ac04b8ff702f7b0adedf913305bc9b6fa9a2e3777eedebdb0b13aa9228943639",
+      "elapsed_us": 43561,
+      "rss_before": 50446336,
+      "rss_after": 57245696,
+      "rss_peak": 57245696
+    },
+    {
+      "mode": "baseline",
+      "format": "positional",
+      "samples": 33991,
+      "chunks": 45,
+      "bytes": 2919192,
+      "sha256": "ac04b8ff702f7b0adedf913305bc9b6fa9a2e3777eedebdb0b13aa9228943639",
+      "elapsed_us": 32392,
+      "rss_before": 50380800,
+      "rss_after": 56508416,
+      "rss_peak": 56508416
+    }
+  ],
+  "decision": "Adopt named HTTP report streaming only; keep f16ae5e9 full-chunk compact worker path. Positional streaming increases both peak memory and encoding time in this component.",
+  "limitations": [
+    "Component only; never transport/profile acceptance.",
+    "Complete actual 33,991 records and metadata; one fresh process per retained ABBA observation.",
+    "Input rows loaded sequentially before timing; hash consumption included for both modes.",
+    "Named encoding is slightly slower, while peak memory drops; positional streaming is rejected.",
+    "Model list/metadata remain retained; native/socket transport queues are not bounded by this encoder."
+  ],
+  "artifact_sha256": {
+    "probe": "b966cd59ed857d3d62f762dd0ddda7da82566a4b2af5bd8dbd896765710c01d3",
+    "probe.dart": "2aef7c199ec2502e5a455e2796bd1cb1000134a3d842a4b0ff75a038fe587c94",
+    "metadata.json": "55f4d17ec7324feb6ef9c78ac90528189c51c8bac270c2088b1707088c7beccb",
+    "records.jsonl": "c3c0dd994c06073e09aa25ede61bf84978d40698ebf3d329976e69fdde4ff08f",
+    "wamp_sample_json.dart": "62148ae41ad2fcde12755fa9cbe403aaf4552091aaed3baa3843163f69c89bd0"
+  }
+}

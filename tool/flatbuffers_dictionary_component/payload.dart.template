@@ -1,0 +1,14 @@
+import 'dart:typed_data';
+import 'package:connectanum_core/connectanum_core.dart';
+
+/// Selects the decoded byte vector without making another copy.
+Uint8List dictionaryComponentPayloadBytes(AbstractMessageWithPayload message) {
+  final opaque = message.transparentBinaryPayload;
+  if (opaque != null) return opaque;
+  final arguments = message.arguments;
+  if (arguments != null && arguments.length == 1) {
+    final bytes = arguments.single;
+    if (bytes is Uint8List) return bytes;
+  }
+  throw StateError('Component requires exactly one application byte vector');
+}

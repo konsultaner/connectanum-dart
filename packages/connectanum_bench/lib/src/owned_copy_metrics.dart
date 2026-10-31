@@ -2,6 +2,8 @@
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 
+import 'encoded_wamp_volume.dart';
+
 const ownedCopyObservationFields = [
   ...OwnedCopyMetrics.fields,
   'failed_copy_operations',
@@ -43,6 +45,7 @@ Map<String, Object?> ownedBufferCopyMetricsDelta(
   }
   return {
     'status': 'measured',
+    'encoded_wamp_volume': encodedWampVolumeDelta(before, after),
     ...delta,
     'known_copy_bytes': OwnedCopyMetrics.fields.fold<int>(
       0,
@@ -105,6 +108,11 @@ Map<String, Object?> routerOwnedBufferCopyMetricsDelta(
   return {
     'status': 'measured',
     'boss_generation': generation,
+    'encoded_wamp_volume': mergeEncodedWampVolumes({
+      'main_isolate': main['encoded_wamp_volume'],
+      for (final entry in workers.entries)
+        entry.key: entry.value['encoded_wamp_volume'],
+    }),
     'main_isolate': main,
     'workers': workers,
     'known_copy_bytes': components.fold<int>(

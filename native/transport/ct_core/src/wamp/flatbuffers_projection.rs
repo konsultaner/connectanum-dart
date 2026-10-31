@@ -12,13 +12,9 @@ pub(super) fn agree(
     dictionary: &ValueMap,
     reference: usize,
 ) -> Result<(), ParseError> {
-    let expected = project(name, dictionary, reference)?;
-    for field in schema::TABLES[reference].fields {
-        if ignored(name, field.name) {
-            continue;
-        }
+    project_fields(name, dictionary, reference, |field, projected| {
         let actual = body.get(field.name).unwrap_or(&Value::Null);
-        let target = expected.get(field.name).unwrap_or(&Value::Null);
+        let target = projected.as_ref().unwrap_or(&Value::Null);
         if field.kind == Kind::Table && schema::TABLES[field.reference].name == "Map" {
             if let Value::Table(pair) = actual {
                 let source =
@@ -38,7 +34,7 @@ pub(super) fn agree(
                     Some(Value::Text(value)) => Some(Cbor::String(
                         super::codec_copy_metrics::copy_codec_string(value),
                     )),
-                    Some(Value::Null) => Some(Cbor::Unit),
+                    None | Some(Value::Null) => Some(Cbor::Unit),
                     _ => None,
                 };
                 if value.as_ref().is_none_or(|value| {
@@ -48,14 +44,14 @@ pub(super) fn agree(
                 }) {
                     return Err(wire::invalid("contradictory Map metadata"));
                 }
-                continue;
+                return Ok(());
             }
         }
         if !matches(field, actual, target)? {
             return Err(wire::invalid("contradictory metadata"));
         }
-    }
-    Ok(())
+        Ok(())
+    })
 }
 fn ignored(name: &str, key: &str) -> bool {
     if [
@@ -87,6 +83,14 @@ fn ignored(name: &str, key: &str) -> bool {
     }
 }
 fn get<'a>(map: &'a ValueMap, key: &str) -> Option<&'a Cbor> {
+    // Common control dictionaries contain only a few keys. Borrow their keys
+    // instead of allocating a temporary serde value for each schema field.
+    if map.len() <= 8 {
+        return map.iter().find_map(|(candidate, value)| match candidate {
+            Cbor::String(candidate) if candidate == key => Some(value),
+            _ => None,
+        });
+    }
     map.get(&Cbor::String(super::codec_copy_metrics::copy_codec_string(
         key,
     )))
@@ -139,7 +143,36 @@ fn enumeration(key: &str) -> Option<&'static [(&'static str, u64)]> {
     })
 }
 pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fields, ParseError> {
-    let mut result = Fields::new();
+    project_into(
+        name,
+        map,
+        reference,
+        Fields::with_capacity(schema::TABLES[reference].fields.len()),
+    )
+}
+fn project_into(
+    name: &str,
+    map: &ValueMap,
+    reference: usize,
+    mut result: Fields,
+) -> Result<Fields, ParseError> {
+    project_fields(name, map, reference, |field, projected| {
+        if let Some(projected) = projected {
+            result.insert(field.name, projected);
+        }
+        Ok(())
+    })?;
+    Ok(result)
+}
+
+fn project_fields(
+    name: &str,
+    map: &ValueMap,
+    reference: usize,
+    mut consume: impl FnMut(&FieldSpec, Option<Value>) -> Result<(), ParseError>,
+) -> Result<(), ParseError> {
+    // Agreement consumes the same checked projection as encoding, one field
+    // at a time, without retaining an intermediate Fields allocation.
     for field in schema::TABLES[reference].fields {
         if ignored(name, field.name) {
             continue;
@@ -147,16 +180,16 @@ pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fi
         let extra = field.name == "extra" && ["Challenge", "Authenticate"].contains(&name);
         let value = if extra { None } else { get(map, field.name) };
         if !extra && (value.is_none() || value == Some(&Cbor::Unit)) {
-            if field.required {
-                result.insert(
-                    field.name,
-                    match field.kind {
-                        Kind::String => Value::Text(super::codec_copy_metrics::copy_text_arc("")),
-                        Kind::Table => Value::Table(Arc::new(Fields::new())),
-                        _ => return Err(wire::invalid("required metadata")),
-                    },
-                );
-            }
+            let projected = if field.required {
+                Some(match field.kind {
+                    Kind::String => Value::Text(super::codec_copy_metrics::copy_text_arc("")),
+                    Kind::Table => Value::Table(Arc::new(Fields::new())),
+                    _ => return Err(wire::invalid("required metadata")),
+                })
+            } else {
+                None
+            };
+            consume(field, projected)?;
             continue;
         }
         let invalid = || wire::invalid("metadata field type");
@@ -348,11 +381,9 @@ pub(super) fn project(name: &str, map: &ValueMap, reference: usize) -> Result<Fi
             }
             Kind::Union => return Err(invalid()),
         };
-        if let Some(projected) = projected {
-            result.insert(field.name, projected);
-        }
+        consume(field, projected)?;
     }
-    Ok(result)
+    Ok(())
 }
 fn matches(field: &FieldSpec, actual: &Value, expected: &Value) -> Result<bool, ParseError> {
     if field.kind == Kind::Scalar {
@@ -393,4 +424,103 @@ fn table_matches(reference: usize, actual: &Fields, expected: &Fields) -> Result
         }
     }
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::codec_copy_metrics;
+    use super::*;
+
+    #[test]
+    fn flatbuffers_metadata_lookup_preserves_exact_keys_and_borrowed_values() {
+        let queries = [
+            "",
+            "a",
+            "aa",
+            "a\0",
+            "é",
+            "e\u{301}",
+            "ppt_scheme",
+            "vendor",
+            "missing",
+            "PPT_scheme",
+        ];
+        for length in 0..24 {
+            for non_string_key in [false, true] {
+                let mut map = ValueMap::new();
+                for index in 0..length {
+                    let key = queries
+                        .get(index)
+                        .map(|v| (*v).to_owned())
+                        .unwrap_or_else(|| format!("vendor_{index}"));
+                    let value = match index % 3 {
+                        0 => Cbor::Unit,
+                        1 => Cbor::Bytes(vec![0xff, 0, 0x80]),
+                        _ => Cbor::Seq(vec![Cbor::Bool(false)]),
+                    };
+                    map.insert(Cbor::String(key), value);
+                }
+                if non_string_key {
+                    map.insert(Cbor::U64(1), Cbor::Unit);
+                }
+                for key in queries {
+                    let expected = map.get(&Cbor::String(key.to_owned()));
+                    let actual = get(&map, key);
+                    assert_eq!(actual, expected);
+                    if let (Some(actual), Some(expected)) = (actual, expected) {
+                        assert!(
+                            std::ptr::eq(actual, expected),
+                            "lookup must borrow the actual map entry"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn flatbuffers_small_metadata_lookup_copies_no_key_strings() {
+        for length in 0..10 {
+            let map = (0..length)
+                .map(|n| (Cbor::String(format!("key_{n}")), Cbor::U64(n)))
+                .collect();
+            let before = codec_copy_metrics::observed_on_current_thread();
+            for key in ["key_0", "key_7", "absent"] {
+                get(&map, key);
+            }
+            let after = codec_copy_metrics::observed_on_current_thread();
+            assert_eq!(
+                after.string_copy_bytes_total - before.string_copy_bytes_total,
+                if length <= 8 { 0 } else { 16 },
+                "bounded lookup should not allocate copied key strings"
+            );
+        }
+    }
+
+    #[test]
+    fn flatbuffers_small_ppt_projection_needs_no_key_copies() {
+        let map = ValueMap::from([
+            (
+                Cbor::String("ppt_scheme".into()),
+                Cbor::String("opaque".into()),
+            ),
+            (
+                Cbor::String("ppt_serializer".into()),
+                Cbor::String("flatbuffers".into()),
+            ),
+        ]);
+        let reference = schema::TABLES
+            .iter()
+            .position(|s| s.name == "Result")
+            .unwrap();
+        let before = codec_copy_metrics::observed_on_current_thread();
+        let body = project("Result", &map, reference).unwrap();
+        let after = codec_copy_metrics::observed_on_current_thread();
+        assert_eq!(body.get("ppt_scheme"), Some(&Value::Integer(4)));
+        assert_eq!(body.get("ppt_serializer"), Some(&Value::Integer(6)));
+        assert_eq!(
+            after.string_copy_bytes_total - before.string_copy_bytes_total,
+            0
+        );
+    }
 }

@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+import statistics
 import subprocess
 import tempfile
 import textwrap
@@ -25,6 +27,13 @@ BENCH_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_bench" / "CHANGELOG.md"
 )
 BENCH_README = REPO_ROOT / "packages" / "connectanum_bench" / "README.md"
+BENCHMARK_REPORTS = json.loads(
+    (REPO_ROOT / "tool" / "fixtures" / "benchmark_readme.json").read_text(encoding="utf-8")
+)["reports"]
+MQTT_BENCHMARK_REPORT = "mqtt-hosted-pr128-b1c611ba.json"
+MQTT_BENCHMARK_REPEAT = "mqtt-hosted-pr128-84b22de8.json"
+WAMP_BENCHMARK_SUMMARY = "wamp-four-serializer-2026-10-20/summary.json"
+WAMP_FILE_BENCHMARK_SUMMARY = "wamp-flatbuffers-file-segments-2026-10-20/summary.json"
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
 EXPECTED_PACKAGE_VERSION = "3.0.0-beta.8"
@@ -77,16 +86,292 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 self.assertIn("package:lints/recommended.yaml", analysis_options)
                 self.assertIn("trailing_commas: preserve", analysis_options)
 
+    def test_mqtt_comparison_table_matches_same_runner_samples(self) -> None:
+        report = BENCHMARK_REPORTS["mqtt-native-comparison-1660422d.json"]
+        readme = BENCH_README.read_text()
+        legs = report["legs"]
+        self.assertEqual([leg["name"] for leg in legs],
+                         ["baseline-1", "candidate-1", "baseline-2", "candidate-2"])
+        rows = [row for leg in legs for profile in leg["profiles"] for row in profile["rawRows"]]
+        self.assertEqual(report["totalRawRows"], len(rows))
+        self.assertEqual(report["totalExactDeliveries"], sum(row["received"] for row in rows))
+        self.assertTrue(all(row["received"] == row["sent"] * row["subscribers"] and row["duplicates"] == 0 for row in rows))
+        for name, label in [("ws_sustained", "WS MQTT 5"),
+                            ("ws_v311_sustained", "WS MQTT 3.1.1"),
+                            ("64k_sustained", "TCP 64 KiB")]:
+            summaries = [next(profile["summary"] for profile in leg["profiles"] if profile["name"] == name) for leg in legs]
+            self.assertTrue(all(summary["budgets"] == summaries[0]["budgets"] for summary in summaries))
+            self.assertTrue(all("EPYC 9V45" in summary["provenance"]["cpu_model"] for summary in summaries))
+            self.assertNotEqual(summaries[0]["provenance"]["native_lib_sha256"], summaries[1]["provenance"]["native_lib_sha256"])
+            for metric, field, fmt in [
+                ("Deliveries/s", "connectanum_delivered_per_sec_median", ",.0f"),
+                ("Broker CPU seconds", "connectanum_broker_cpu_seconds_median", ".2f"),
+            ]:
+                values = " | ".join(format(summary[field], fmt) for summary in summaries)
+                self.assertIn(f"| {label} | {metric} | {values} |", readme)
+
+    def test_direct_body_comparison_table_matches_interleaved_raw_samples(self) -> None:
+        report = BENCHMARK_REPORTS["mqtt-direct-body-local-comparison.json"]
+        readme = BENCH_README.read_text()
+        self.assertTrue(report["diagnosticOnly"])
+        total = 0
+        for profile in report["profiles"]:
+            rows = profile["rows"]
+            self.assertEqual(len(rows), 15)
+            self.assertTrue(all(row["received"] == row["sent"] and row["duplicates"] == 0 for row in rows))
+            total += sum(row["received"] for row in rows)
+            values = []
+            for variant, summary in [("before", profile["before"]), ("direct", profile["candidate"])]:
+                raw = [row for row in rows if row["variant"] == variant]
+                self.assertEqual([row["run"] for row in raw], [1, 2, 3, 4, 5])
+                self.assertEqual(summary["provenance"]["client_exe_sha256"], report["clientSha256"])
+                self.assertEqual(summary["provenance"]["native_lib_sha256"], report["nativeLibrarySha256"])
+                metrics = [statistics.median(row["throughput_delivered_per_sec"] for row in raw),
+                           statistics.median(row["broker_cpu_seconds"] for row in raw),
+                           max(row["broker_rss_bytes"] for row in raw)]
+                self.assertEqual(metrics, [summary["connectanum_delivered_per_sec_median"],
+                                           summary["connectanum_broker_cpu_seconds_median"],
+                                           summary["connectanum_broker_rss_bytes_max"]])
+                values.append(metrics)
+            label = {"64k_sustained": "TCP 64 KiB", "ws_sustained": "WS MQTT 5",
+                     "ws_v311_sustained": "WS MQTT 3.1.1"}[profile["id"]]
+            count = profile["candidate"]["budgets"]["messages_per_run"]
+            a, b = values
+            self.assertIn(f"| {label} | {count:,} | {a[0]:,.0f} → {b[0]:,.0f} | "
+                          f"{a[1]:.2f} → {b[1]:.2f} | {a[2]/1048576:.1f} → {b[2]/1048576:.1f} |", readme)
+        self.assertEqual(report["totalExactDeliveries"], total)
+
+    def test_worker_comparison_table_uses_identical_binaries_and_exact_raw_samples(self) -> None:
+        report = BENCHMARK_REPORTS["mqtt-runtime-workers-local-comparison.json"]
+        self.assertTrue(report["diagnosticOnly"])
+        self.assertEqual(report["workerPolicies"], {"before": "automatic", "direct": "1"})
+        self.assertEqual({profile["id"] for profile in report["profiles"]},
+                         {"ws_sustained", "ws_v311_sustained"})
+        readme = BENCH_README.read_text()
+        total = 0
+        for profile in report["profiles"]:
+            a, b = profile["automatic"], profile["oneWorker"]
+            for field in ("broker_exe_sha256", "client_exe_sha256", "native_lib_sha256"):
+                self.assertEqual(a["provenance"][field], b["provenance"][field])
+            rows = profile["rows"]
+            self.assertEqual(len(rows), 15)
+            self.assertTrue(all(row["received"] == row["sent"] and row["duplicates"] == 0 for row in rows))
+            total += sum(row["received"] for row in rows)
+            metrics = []
+            for variant in ("before", "direct"):
+                raw = [row for row in rows if row["variant"] == variant]
+                self.assertEqual([row["run"] for row in raw], [1, 2, 3, 4, 5])
+                metrics.append([statistics.median(row["throughput_delivered_per_sec"] for row in raw),
+                                statistics.median(row["broker_cpu_seconds"] for row in raw),
+                                max(row["broker_rss_bytes"] for row in raw)])
+            label = "WS MQTT 5" if profile["id"] == "ws_sustained" else "WS MQTT 3.1.1"
+            a, b = metrics
+            self.assertIn(f"| {label} | {a[0]:,.0f} → {b[0]:,.0f} | "
+                          f"{a[1]:.2f} → {b[1]:.2f} | {a[2]/1048576:.1f} → {b[2]/1048576:.1f} |", readme)
+        self.assertEqual(report["totalExactDeliveries"], total)
+
     def test_bench_readme_publishes_current_result_snapshot(self) -> None:
         readme = BENCH_README.read_text(encoding="utf-8")
+        mqtt_report = BENCHMARK_REPORTS[MQTT_BENCHMARK_REPORT]
+        mqtt_table = readme.split("## MQTT publish and subscribe", 1)[1].split(
+            "## WAMP throughput", 1
+        )[0]
+        profile_rows = [
+            line
+            for line in mqtt_table.splitlines()
+            if line.startswith(("| Dart |", "| Native |"))
+        ]
 
-        self.assertIn(
-            "78-workload production-gate snapshot below covers JSON, MessagePack and",
-            readme,
+        self.assertEqual(len(profile_rows), len(mqtt_report["profiles"]))
+        self.assertEqual(sum("Delivery pass" in row for row in profile_rows), 4)
+        self.assertEqual(
+            sum("**Fail**" in row for row in profile_rows),
+            sum(not profile["summary"]["passed"] for profile in mqtt_report["profiles"]),
         )
-        self.assertIn("does not count toward milestone issue #103 or establish", readme)
-        self.assertIn("sustained data-window / full-lifecycle throughput", readme)
-        self.assertIn("| Transport and path | JSON (Gbit/s) |", readme)
+        ordered_profiles = [
+            "burst", "sustained", "v311-sustained", "batched", "fanout",
+            "native-burst", "native-sustained", "native-v311-sustained",
+            "native-1k-sustained", "native-64k-sustained", "native-batched",
+            "native-fanout", "native-tls-sustained",
+            "native-tls-v311-sustained", "native-ws-sustained",
+            "native-ws-v311-sustained", "native-wss-single-smoke",
+            "native-wss-sustained", "native-wss-v311-single-smoke",
+            "native-wss-v311-sustained",
+        ]
+        summaries = {
+            profile["name"]: profile["summary"]
+            for profile in mqtt_report["profiles"]
+        }
+        self.assertEqual(set(ordered_profiles), set(summaries))
+        for row, profile_name in zip(profile_rows, ordered_profiles, strict=True):
+            cells = [cell.strip() for cell in row.strip("|").split("|")]
+            summary = summaries[profile_name]
+            self.assertEqual(
+                cells[3],
+                f'{summary["connectanum_delivered_per_sec_median"]:,.0f} / '
+                f'{summary["mosquitto_delivered_per_sec_median"]:,.0f}',
+            )
+            self.assertEqual(cells[4], f'{summary["throughput_ratio"]:.3f}')
+            self.assertEqual(
+                cells[5],
+                f'{summary["p95_ratio"]:.3f} / '
+                f'{summary["p99_ratio"]:.3f}',
+            )
+            self.assertEqual(cells[6], f'{summary["broker_cpu_ratio"]:.3f}')
+            self.assertEqual(
+                cells[7],
+                f'{summary["connectanum_broker_rss_bytes_max"] / 1048576:.1f} MiB',
+            )
+            self.assertEqual(
+                cells[8],
+                "Delivery pass" if summary["gate"] == "correctness"
+                else ("Pass" if summary["passed"] else "**Fail**"),
+            )
+        self.assertIn("mqtt-hosted-pr128-9aa6b17d.json", mqtt_table)
+        self.assertIn("mqtt-hosted-pr128-2dea8b8e.json", mqtt_table)
+        latest_row = next(
+            row for row in mqtt_table.splitlines()
+            if row.startswith("| [Latest `b1c611ba`]")
+        )
+        latest_cells = [cell.strip() for cell in latest_row.strip("|").split("|")]
+        self.assertIn("EPYC 7763", latest_cells[0])
+        self.assertEqual(
+            latest_cells[1:],
+            [
+                f'{summaries["native-ws-sustained"]["throughput_ratio"]:.3f}',
+                f'{summaries["native-ws-v311-sustained"]["throughput_ratio"]:.3f}',
+                f'{summaries["native-v311-sustained"]["throughput_ratio"]:.3f}',
+                f'{summaries["native-64k-sustained"]["broker_cpu_ratio"]:.3f}',
+                "Pass",
+            ],
+        )
+        repeat = BENCHMARK_REPORTS[MQTT_BENCHMARK_REPEAT]
+        self.assertIn("mqtt-hosted-pr128-84b22de8.json", mqtt_table)
+        self.assertEqual(
+            repeat["totalRawRows"],
+            sum(len(profile["rawRows"]) for profile in repeat["profiles"]),
+        )
+        self.assertEqual(
+            repeat["totalExactDeliveries"],
+            sum(
+                row["received"]
+                for profile in repeat["profiles"]
+                for row in profile["rawRows"]
+            ),
+        )
+        self.assertTrue(all(profile["summary"]["passed"] for profile in repeat["profiles"]))
+        repeat_summaries = {
+            profile["name"]: profile["summary"] for profile in repeat["profiles"]
+        }
+        comparison_row = next(
+            row for row in mqtt_table.splitlines()
+            if row.startswith("| [Same-code repeat `84b22de8`]")
+        )
+        comparison_cells = [
+            cell.strip() for cell in comparison_row.strip("|").split("|")
+        ]
+        self.assertIn(
+            "EPYC 9V74",
+            repeat_summaries["native-64k-sustained"]["provenance"]["cpu_model"],
+        )
+        self.assertIn("EPYC 9V74", comparison_cells[0])
+        self.assertEqual(
+            comparison_cells[1:],
+            [
+                f'{repeat_summaries["native-ws-sustained"]["throughput_ratio"]:.3f}',
+                f'{repeat_summaries["native-ws-v311-sustained"]["throughput_ratio"]:.3f}',
+                f'{repeat_summaries["native-v311-sustained"]["throughput_ratio"]:.3f}',
+                f'{repeat_summaries["native-64k-sustained"]["broker_cpu_ratio"]:.3f}',
+                "Pass",
+            ],
+        )
+        self.assertIn("mqtt-hosted-amd-fccc7566.json", mqtt_table)
+        self.assertIn("Intel Xeon 6973P-C | — | — | — | 5.000 | Fail", mqtt_table)
+        self.assertIn("| Required limit | ≥0.700 | ≥0.700 | ≥0.750 | ≤4.000 | — |", mqtt_table)
+        self.assertIn(
+            f'{mqtt_report["totalExactDeliveries"]:,} expected and received',
+            mqtt_table,
+        )
+        self.assertIn("No benchmark yet; the live gateway is pending", mqtt_table)
+        self.assertIn("sustained / full-lifecycle throughput", readme)
+        wamp_tables = readme.split("## WAMP throughput", 1)[1].split(
+            "## Run and reproduce", 1
+        )[0]
+        wamp_table_lines = [
+            line
+            for line in wamp_tables.splitlines()
+            if line.startswith("|")
+        ]
+        self.assertEqual(len(wamp_table_lines), 32)
+        self.assertTrue(all(line.count("|") == 6 for line in wamp_table_lines))
+        table_headers = [
+            line for line in wamp_table_lines if line.startswith("| Transport and ")
+        ]
+        self.assertEqual(len(table_headers), 3)
+        self.assertTrue(
+            all(
+                header
+                == (
+                    f"| Transport and {kind} | JSON (Gbit/s) | "
+                    "MessagePack (Gbit/s) | CBOR (Gbit/s) | "
+                    "FlatBuffers (Gbit/s) |"
+                )
+                for header, kind in zip(
+                    table_headers, ("path", "path", "workload"), strict=True
+                )
+            )
+        )
+        wamp_rows = [
+            line
+            for line in wamp_table_lines
+            if line not in table_headers and not line.startswith("| ---")
+        ]
+        self.assertEqual(len(wamp_rows), 26)
+        summary = BENCHMARK_REPORTS[WAMP_BENCHMARK_SUMMARY]
+        file_summary = BENCHMARK_REPORTS[WAMP_FILE_BENCHMARK_SUMMARY]["workloads"]
+        benchmark_groups = [
+            group
+            for scenario in (
+                "wamp_file_transfer_throughput",
+                "wamp_large_transport_frames_heavy",
+                "wamp_websocket_fragmentation_throughput",
+            )
+            for group in summary[scenario]
+        ]
+        self.assertEqual(len(benchmark_groups), len(wamp_rows))
+        self.assertEqual(len(file_summary), 40)
+        for group_index, (row, group) in enumerate(
+            zip(wamp_rows, benchmark_groups, strict=True)
+        ):
+            actual_cells = [cell.strip() for cell in row.split("|")[2:6]]
+            workloads = [
+                (
+                    file_summary[group["workloads"][serializer]["name"]]
+                    if group_index < 10
+                    else group["workloads"][serializer]
+                )
+                for serializer in ("json", "msgpack", "cbor", "flatbuffers")
+            ]
+            expected_cells = [
+                (
+                    f"{workload['median_data_gbit_s']:.3f} / "
+                    f"{workload['median_lifecycle_gbit_s']:.3f}"
+                )
+                for workload in workloads
+            ]
+            self.assertEqual(actual_cells, expected_cells)
+            for workload in workloads:
+                for metric in ("data_gbit_s", "lifecycle_gbit_s"):
+                    self.assertEqual(
+                        workload[f"median_{metric}"],
+                        statistics.median(run[metric] for run in workload["runs"]),
+                    )
+            self.assertTrue(
+                all(len(workload["runs"]) == 3 for workload in workloads)
+            )
+        self.assertIn("wamp-four-serializer-2026-10-20/README.md", wamp_tables)
+        self.assertIn("wamp-flatbuffers-file-segments-2026-10-20/README.md", wamp_tables)
+        self.assertIn("RawSocket frames are 60 MiB", wamp_tables)
         self.assertIn("### 64 MiB file transfer", readme)
         self.assertIn("### Large RPC frames", readme)
         self.assertIn("### WebSocket fragmentation and Pub/Sub", readme)

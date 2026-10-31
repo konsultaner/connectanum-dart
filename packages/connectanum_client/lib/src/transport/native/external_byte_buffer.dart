@@ -14,18 +14,41 @@ final _externalAnchors = Expando<_NativeExternalByteBuffer>(
 // The source allocation keeps its sole native-free finalizer.
 final _externalAliases = Finalizer<Object>((_) {});
 
+final class _NativeExternalAllocation implements ffi.Finalizable {
+  _NativeExternalAllocation(this.pointer, int length) {
+    _finalizer.attach(
+      this,
+      pointer.cast(),
+      detach: this,
+      externalSize: length,
+    );
+  }
+  static final _finalizer = ffi.NativeFinalizer(malloc.nativeFree);
+  final ffi.Pointer<ffi.Uint8> pointer;
+  bool released = false;
+
+  void release() {
+    if (released) return;
+    released = true;
+    _finalizer.detach(this);
+    malloc.free(pointer);
+  }
+}
+
 final class _NativeExternalByteBuffer {
   const _NativeExternalByteBuffer(
     this.pointer,
     this.buffer,
     this.baseOffsetInBytes,
     this.lengthInBytes,
+    this.allocation,
   );
 
   final ffi.Pointer<ffi.Uint8> pointer;
   final ByteBuffer buffer;
   final int baseOffsetInBytes;
   final int lengthInBytes;
+  final _NativeExternalAllocation allocation;
 }
 
 final class NativeExternalByteSlice {
@@ -53,53 +76,71 @@ Uint8List allocateNativeExternalBytes(int length) {
     return Uint8List(0);
   }
   final pointer = malloc<ffi.Uint8>(length);
-  Uint8List bytes;
+  _NativeExternalAllocation? allocation;
   try {
-    // Attach the allocator finalizer to the external typed-data allocation so
-    // subviews keep the storage alive even after the root list is unreachable.
-    bytes = pointer.asTypedList(
-      length,
-      finalizer: malloc.nativeFree,
-      token: pointer.cast(),
+    allocation = _NativeExternalAllocation(pointer, length);
+    final bytes = pointer.asTypedList(length);
+    final owner = _NativeExternalByteBuffer(
+      pointer,
+      bytes.buffer,
+      bytes.offsetInBytes,
+      bytes.lengthInBytes,
+      allocation,
     );
+    // The backing external typed data, its ByteBuffer and every derived view
+    // retain this owner. An explicit scope end can detach its sole finalizer.
+    _externalRoots[bytes] = owner;
+    return bytes;
   } catch (_) {
-    malloc.free(pointer);
+    if (allocation == null) {
+      malloc.free(pointer);
+    } else {
+      allocation.release();
+    }
     rethrow;
   }
-  final owner = _NativeExternalByteBuffer(
-    pointer,
-    bytes.buffer,
-    bytes.offsetInBytes,
-    bytes.lengthInBytes,
-  );
-  _externalRoots[bytes] = owner;
-  return bytes;
 }
 
 /// Retains the allocation behind [rootBytes] for the lifetime of [anchor].
 void retainNativeExternalBytes(Object anchor, Uint8List rootBytes) {
   final owner = _externalRoots[rootBytes];
-  if (owner != null) {
+  if (owner != null && !owner.allocation.released) {
     _externalAnchors[anchor] = owner;
   }
 }
 
 bool hasRetainedNativeExternalBytes(Object anchor) {
-  return _externalAnchors[anchor] != null;
+  final owner = _externalAnchors[anchor];
+  return owner != null && !owner.allocation.released;
 }
+
+/// Explicitly ends all use of this registered allocation and its aliases.
+/// Repeated releases are safe; no view may be accessed after the first release.
+bool releaseRetainedNativeExternalBytes(Object anchor) {
+  final owner =
+      _externalAnchors[anchor] ??
+      (anchor is Uint8List ? _externalRoots[anchor] : null);
+  if (owner == null) return false;
+  owner.allocation.release();
+  return true;
+}
+
+_NativeExternalByteBuffer? _retainedOwner(Uint8List bytes, Object? anchor) =>
+    (anchor == null ? null : _externalAnchors[anchor]) ??
+    _externalAnchors[bytes] ??
+    _externalRoots[bytes];
 
 /// Resolves [bytes] to validated native storage retained by [anchor].
 NativeExternalByteSlice? nativeExternalByteSlice(
   Uint8List bytes, {
   Object? anchor,
 }) {
-  final owner =
-      (anchor == null ? null : _externalAnchors[anchor]) ??
-      _externalAnchors[bytes] ??
-      _externalRoots[bytes];
+  final owner = _retainedOwner(bytes, anchor);
   // Buffer getters can return distinct wrappers for the same allocation.
   // Their equality checks backing storage, including read-only/nested views.
-  if (owner == null || bytes.buffer != owner.buffer) {
+  if (owner == null ||
+      owner.allocation.released ||
+      bytes.buffer != owner.buffer) {
     return null;
   }
   final start = bytes.offsetInBytes;
@@ -134,6 +175,7 @@ Uint8List? nativeExternalByteView(Uint8List bytes, {Object? anchor}) {
     backing.buffer,
     0,
     slice.length,
+    _retainedOwner(bytes, anchor)!.allocation,
   );
   _externalRoots[backing] = owner;
   _externalRoots[view] = owner;

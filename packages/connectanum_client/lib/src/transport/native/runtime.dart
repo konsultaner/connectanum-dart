@@ -10,6 +10,10 @@ import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:connectanum_core/connectanum_core.dart'
     show AbstractMessageWithPayload;
+// Native FlatBuffers parsing already validates application CBOR spans.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
+    show rememberValidatedFlatBufferCborSpan;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 import 'package:connectanum_client/native_buffers.dart';
@@ -67,6 +71,7 @@ typedef _NativeE2eeDecryptRequest = ({
 });
 
 typedef _NativeMessageParts = ({
+  NativeMessageByteLease byteLease,
   Object message,
   Uint8List bytes,
   Uint8List? argumentsBytes,
@@ -136,6 +141,13 @@ class NativeIncomingMessage {
     _released = true;
     _messageFinalizer.detach(this);
     _bindings.ctMessageRelease(handle);
+  }
+
+  /// Explicitly ends use of this payload and all of its exported byte aliases.
+  /// Unlike [release], this also releases the independent byte-view owners.
+  void releasePayloadStorage() {
+    release();
+    _payload?.byteLease.dispose();
   }
 
   void _markConsumed() {
@@ -709,6 +721,15 @@ class NativeClientRuntime {
     } on NativeBufferException catch (error) {
       _throwForError(error.code, 'Failed to encrypt native E2EE buffer');
     }
+  }
+
+  /// Records the Dart-to-native plaintext copy used to prepare an owned
+  /// encryption input. Native buffer encryption itself crosses no FFI byte
+  /// view and therefore records no additional bridge copy.
+  @internal
+  void recordE2eePlaintextInputCopy(int bytes) {
+    RangeError.checkNotNegative(bytes, 'bytes');
+    _e2eeDartToNativeCopiedBytesTotal += bytes;
   }
 
   Uint8List decryptE2ee(
@@ -1346,6 +1367,23 @@ class NativeClientRuntime {
     } finally {
       calloc.free(info);
     }
+  }
+
+  /// Independent serialized-volume carriers alongside the unchanged codec map.
+  /// Older libraries remain usable, without advertising absent observations.
+  Map<String, int>? boundaryCodecCopyMetricsSnapshot() {
+    final copies = codecCopyMetricsSnapshot();
+    if (copies == null) return null;
+    return {
+      ...copies,
+      if (_bindings.ctEncodedWampBytesAccepted != null &&
+          _bindings.ctEncodedWampSendRejections != null) ...{
+        'encoded_wamp_volume_version': 1,
+        'encoded_wamp_bytes_accepted': _bindings.ctEncodedWampBytesAccepted!(),
+        'encoded_wamp_send_rejections':
+            _bindings.ctEncodedWampSendRejections!(),
+      },
+    };
   }
 
   /// Cumulative explicit native codec buffer operations, or unavailable.
@@ -2091,6 +2129,7 @@ class NativeClientRuntime {
 
   _NativeMessageParts _readMessagePayload(int handle) {
     final infoPtr = calloc<CtMessageInfo>();
+    final byteLease = _messageBytes.createLease();
     try {
       var result = _bindings.ctMessagePeek(handle, infoPtr);
       if (result != NativeTransportErrorCode.success) {
@@ -2098,6 +2137,9 @@ class NativeClientRuntime {
       }
       var info = infoPtr.ref;
       final serializer = NativeMessageSerializer.fromId(info.serializer);
+      // The Rust FlatBuffers parser validates these exact CBOR roots, including
+      // unique string keys in root keyword maps. Exported views retain the
+      // immutable StoredMessage owner, so their bytes cannot be recycled.
       if (serializer == NativeMessageSerializer.flatbuffers) {
         _messageBytes.requireFlatbuffersBinding();
       }
@@ -2108,6 +2150,7 @@ class NativeClientRuntime {
               NativeMessageBytePart.arguments,
               borrowed: info.argsPtr,
               length: info.argsLen,
+              lease: byteLease,
             );
       final kwargs = info.kwargsLen == 0
           ? null
@@ -2116,8 +2159,26 @@ class NativeClientRuntime {
               NativeMessageBytePart.argumentsKeywords,
               borrowed: info.kwargsPtr,
               length: info.kwargsLen,
+              lease: byteLease,
             );
-      final metadata = _metadataFromFfi(info, handle, _messageBytes);
+      if (serializer == NativeMessageSerializer.flatbuffers) {
+        if (args != null) {
+          rememberValidatedFlatBufferCborSpan(args, rootMajor: 4);
+        }
+        if (kwargs != null) {
+          rememberValidatedFlatBufferCborSpan(
+            kwargs,
+            rootMajor: 5,
+            rootStringDictionaryKeys: true,
+          );
+        }
+      }
+      final metadata = _metadataFromFfi(
+        info,
+        handle,
+        _messageBytes,
+        byteLease: byteLease,
+      );
       var singleBinaryArgument =
           metadata.hasFlag(NativeMessageMetadata.flagTransparentPayload) ||
               info.binaryArgPtr == ffi.nullptr
@@ -2127,6 +2188,7 @@ class NativeClientRuntime {
               NativeMessageBytePart.singleBinaryArgument,
               borrowed: info.binaryArgPtr,
               length: info.binaryArgLen,
+              lease: byteLease,
             );
       if (singleBinaryArgument == null &&
           serializer == NativeMessageSerializer.json &&
@@ -2157,6 +2219,7 @@ class NativeClientRuntime {
           NativeMessageBytePart.frame,
           borrowed: info.framePtr,
           length: info.frameLen,
+          lease: byteLease,
         );
         message = bindSessionMessage(
           serializer,
@@ -2167,12 +2230,16 @@ class NativeClientRuntime {
         );
       }
       return (
+        byteLease: byteLease,
         message: message,
         bytes: frame,
         argumentsBytes: args,
         argumentsKeywordsBytes: kwargs,
         singleBinaryArgumentBytes: singleBinaryArgument,
       );
+    } catch (_) {
+      byteLease.dispose();
+      rethrow;
     } finally {
       calloc.free(infoPtr);
     }
@@ -2393,6 +2460,7 @@ NativeMessageMetadata _metadataFromFfi(
   int handle,
   NativeMessageBytes bytes, {
   bool readTransparentPayload = true,
+  NativeMessageByteLease? byteLease,
 }) {
   final flags = info.flags;
   final metadataBind = (flags & NativeMessageMetadata.flagMetadataBind) != 0;
@@ -2405,6 +2473,7 @@ NativeMessageMetadata _metadataFromFfi(
           NativeMessageBytePart.transparentPayload,
           borrowed: info.binaryArgPtr,
           length: info.binaryArgLen,
+          lease: byteLease,
         );
   NativeMessageMetadata build(Uint8List? details) => NativeMessageMetadata(
     messageCode: info.messageCode,

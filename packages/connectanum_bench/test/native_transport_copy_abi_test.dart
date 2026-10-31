@@ -134,6 +134,27 @@ void _probe() {
   try {
     final clientMetrics = nativeClient.transportCopyMetricsSnapshot();
     final routerMetrics = nativeRouter.transportCopyMetricsSnapshot();
+    final hasVolume =
+        library.providesSymbol('ct_wamp_encoded_bytes_accepted_total_v1') &&
+        library.providesSymbol('ct_wamp_encoded_send_rejections_total_v1');
+    for (final snapshot in [
+      nativeClient.boundaryCodecCopyMetricsSnapshot(),
+      nativeRouter.boundaryCodecCopyMetricsSnapshot(),
+    ]) {
+      _equal(snapshot?['encoded_wamp_volume_version'], hasVolume ? 1 : null);
+      if (hasVolume) {
+        final accepted = library
+            .lookupFunction<ffi.Uint64 Function(), int Function()>(
+              'ct_wamp_encoded_bytes_accepted_total_v1',
+            );
+        final rejected = library
+            .lookupFunction<ffi.Uint64 Function(), int Function()>(
+              'ct_wamp_encoded_send_rejections_total_v1',
+            );
+        _equal(snapshot?['encoded_wamp_bytes_accepted'], accepted());
+        _equal(snapshot?['encoded_wamp_send_rejections'], rejected());
+      }
+    }
 
     if (library.providesSymbol('ct_rustls_copy_metrics_snapshot')) {
       final info = calloc<client_ffi.CtRustlsCopyMetricsInfo>();

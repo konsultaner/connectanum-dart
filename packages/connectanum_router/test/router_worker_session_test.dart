@@ -12,6 +12,9 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
+import 'package:connectanum_core/flatbuffers_serializer.dart'
+    as flatbuffers_serializer;
+import 'package:connectanum_core/msgpack_serializer.dart' as msgpack_serializer;
 import 'package:connectanum_core/src/message/goodbye.dart' as goodbye_msg;
 import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
 import 'package:connectanum_core/src/message/event.dart' as event_msg;
@@ -250,160 +253,178 @@ void main() {
       expect(workerState.phase, equals(HandshakePhase.aborted));
     });
 
-    test(
-      'handles CANCEL killnowait by interrupting callee and notifying caller',
-      () async {
-        final bossMessages = <Map<String, Object?>>[];
-        final bossPort = ReceivePort()
-          ..listen((dynamic message) {
-            if (message is Map<String, Object?>) {
-              bossMessages.add(message);
+    for (final mode in ['skip', 'killnowait']) {
+      for (final responseKind in ['YIELD', 'progressive YIELD', 'ERROR']) {
+        test(
+          'handles CANCEL $mode and discards late $responseKind',
+          () async {
+            final bossMessages = <Map<String, Object?>>[];
+            final bossPort = ReceivePort()
+              ..listen((dynamic message) {
+                if (message is Map<String, Object?>) {
+                  bossMessages.add(message);
+                }
+              });
+            addTearDown(bossPort.close);
+
+            final listener = _buildListener();
+            final callerState =
+                createWorkerStateForTest(
+                      listener: listener,
+                      listenerSettings: routerSettings.listeners.first,
+                    )
+                    as WorkerConnectionState;
+            callerState
+              ..serializer = NativeMessageSerializer.json
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 761;
+            final calleeState =
+                createWorkerStateForTest(
+                      listener: listener,
+                      listenerSettings: routerSettings.listeners.first,
+                    )
+                    as WorkerConnectionState;
+            calleeState
+              ..serializer = NativeMessageSerializer.json
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 762;
+
+            _openSession(
+              stateStore,
+              sessionId: 761,
+              listener: listener,
+              connectionId: 121,
+            );
+            _openSession(
+              stateStore,
+              sessionId: 762,
+              listener: listener,
+              connectionId: 122,
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            final registerReply = ReceivePort();
+            stateStore.commandPort.send(
+              ProcedureRegisterCommand(
+                realmUri: 'realm1',
+                sessionId: 762,
+                procedure: 'com.example.cancelable',
+                details: const {},
+                replyPort: registerReply.sendPort,
+              ),
+            );
+            await registerReply.first;
+            registerReply.close();
+
+            final realmContexts = RealmContextCache(
+              statePort: stateStore.commandPort,
+            );
+            final call = call_msg.Call(9701, 'com.example.cancelable');
+
+            await handleSessionMessageForTest(
+              bossPort: bossPort.sendPort,
+              statePort: stateStore.commandPort,
+              realmContexts: realmContexts,
+              state: callerState,
+              message: call,
+              connectionId: 121,
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            final invocationForward = _extractForwardMessages(bossMessages);
+            expect(invocationForward, hasLength(1));
+            final invocationEnvelope = invocationForward.single;
+            expect(invocationEnvelope['connectionId'], equals(122));
+            final invocation =
+                invocationEnvelope['message'] as invocation_msg.Invocation;
+            final invocationId = invocation.requestId;
+            bossMessages.clear();
+
+            final cancelOptions = cancel_msg.CancelOptions()..mode = mode;
+            final cancel = cancel_msg.Cancel(9701, options: cancelOptions);
+
+            await handleSessionMessageForTest(
+              bossPort: bossPort.sendPort,
+              statePort: stateStore.commandPort,
+              realmContexts: realmContexts,
+              state: callerState,
+              message: cancel,
+              connectionId: 121,
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            final interruptForward = _extractForwardMessages(bossMessages);
+            expect(interruptForward, hasLength(mode == 'skip' ? 0 : 1));
+            if (mode != 'skip') {
+              final interruptEnvelope = interruptForward.single;
+              expect(interruptEnvelope['connectionId'], equals(122));
+              final interrupt =
+                  interruptEnvelope['message'] as interrupt_msg.Interrupt;
+              expect(interrupt.requestId, equals(invocationId));
+              expect(interrupt.options?.mode, equals(mode));
             }
-          });
-        addTearDown(bossPort.close);
 
-        final listener = _buildListener();
-        final callerState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        callerState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 761;
-        final calleeState =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        calleeState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 762;
+            final workerSends = _collectWorkerSends(bossMessages);
+            expect(workerSends, hasLength(1));
+            final cancelFrame =
+                jsonDecode(
+                      utf8.decode(workerSends.single['payload'] as Uint8List),
+                    )
+                    as List<dynamic>;
+            expect(cancelFrame.first, equals(MessageTypes.codeError));
+            expect(cancelFrame[1], equals(MessageTypes.codeCall));
+            expect(cancelFrame[2], equals(9701));
+            expect(
+              cancelFrame[4],
+              equals(error_msg.Error.errorInvocationCanceled),
+            );
 
-        _openSession(
-          stateStore,
-          sessionId: 761,
-          listener: listener,
-          connectionId: 121,
+            final remainingInvocation = await realmContexts
+                .contextFor('realm1')
+                .getInvocation(invocationId);
+            expect(remainingInvocation, isNull);
+
+            bossMessages.clear();
+            final lateResponse = responseKind == 'ERROR'
+                ? error_msg.Error(
+                    MessageTypes.codeInvocation,
+                    invocationId,
+                    const {},
+                    error_msg.Error.errorInvocationCanceled,
+                  )
+                : yield_msg.Yield(
+                    invocationId,
+                    options: yield_msg.YieldOptions(
+                      progress: responseKind == 'progressive YIELD',
+                    ),
+                  );
+
+            await handleSessionMessageForTest(
+              bossPort: bossPort.sendPort,
+              statePort: stateStore.commandPort,
+              realmContexts: realmContexts,
+              state: calleeState,
+              message: lateResponse,
+              connectionId: 122,
+            );
+            await Future<void>.delayed(Duration.zero);
+
+            expect(_collectWorkerSends(bossMessages), isEmpty);
+            expect(_extractForwardMessages(bossMessages), isEmpty);
+            expect(
+              await realmContexts
+                  .contextFor('realm1')
+                  .getInvocation(invocationId),
+              isNull,
+            );
+          },
         );
-        _openSession(
-          stateStore,
-          sessionId: 762,
-          listener: listener,
-          connectionId: 122,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final registerReply = ReceivePort();
-        stateStore.commandPort.send(
-          ProcedureRegisterCommand(
-            realmUri: 'realm1',
-            sessionId: 762,
-            procedure: 'com.example.cancelable',
-            details: const {},
-            replyPort: registerReply.sendPort,
-          ),
-        );
-        await registerReply.first;
-        registerReply.close();
-
-        final realmContexts = RealmContextCache(
-          statePort: stateStore.commandPort,
-        );
-        final call = call_msg.Call(9701, 'com.example.cancelable');
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: callerState,
-          message: call,
-          connectionId: 121,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final invocationForward = _extractForwardMessages(bossMessages);
-        expect(invocationForward, hasLength(1));
-        final invocationEnvelope = invocationForward.single;
-        expect(invocationEnvelope['connectionId'], equals(122));
-        final invocation =
-            invocationEnvelope['message'] as invocation_msg.Invocation;
-        final invocationId = invocation.requestId;
-        bossMessages.clear();
-
-        final cancelOptions = cancel_msg.CancelOptions()
-          ..mode = cancel_msg.CancelOptions.modeKillNoWait;
-        final cancel = cancel_msg.Cancel(9701, options: cancelOptions);
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: callerState,
-          message: cancel,
-          connectionId: 121,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final interruptForward = _extractForwardMessages(bossMessages);
-        expect(interruptForward, hasLength(1));
-        final interruptEnvelope = interruptForward.single;
-        expect(interruptEnvelope['connectionId'], equals(122));
-        final interrupt =
-            interruptEnvelope['message'] as interrupt_msg.Interrupt;
-        expect(interrupt.requestId, equals(invocationId));
-        expect(
-          interrupt.options?.mode,
-          equals(cancel_msg.CancelOptions.modeKillNoWait),
-        );
-
-        final workerSends = _collectWorkerSends(bossMessages);
-        expect(workerSends, hasLength(1));
-        final cancelFrame =
-            jsonDecode(utf8.decode(workerSends.single['payload'] as Uint8List))
-                as List<dynamic>;
-        expect(cancelFrame.first, equals(MessageTypes.codeError));
-        expect(cancelFrame[1], equals(MessageTypes.codeCall));
-        expect(cancelFrame[2], equals(9701));
-        expect(cancelFrame[4], equals(error_msg.Error.errorInvocationCanceled));
-
-        final remainingInvocation = await realmContexts
-            .contextFor('realm1')
-            .getInvocation(invocationId);
-        expect(remainingInvocation, isNull);
-
-        bossMessages.clear();
-        final lateYield = yield_msg.Yield(invocationId);
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: calleeState,
-          message: lateYield,
-          connectionId: 122,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final calleeError = _collectWorkerSends(bossMessages);
-        expect(calleeError, hasLength(1));
-        final calleeFrame =
-            jsonDecode(utf8.decode(calleeError.single['payload'] as Uint8List))
-                as List<dynamic>;
-        expect(calleeFrame.first, equals(MessageTypes.codeError));
-        expect(calleeFrame[1], equals(MessageTypes.codeInvocation));
-        expect(calleeFrame[2], equals(invocationId));
-        expect(calleeFrame[4], equals(wamp_core.Error.noSuchInvocation));
-      },
-    );
+      }
+    }
 
     test(
       'rejects unsupported CANCEL killall without interrupting callee',
@@ -857,39 +878,448 @@ void main() {
       );
     }
 
-    test(
-      'reuses retained native CALL payload for exact internal lazy result',
-      () async {
-        final bossMessages = <Map<String, Object?>>[];
-        final bossPort = ReceivePort()
-          ..listen((dynamic message) {
-            if (message is Map<String, Object?>) {
-              bossMessages.add(message);
+    for (final ppt in [false, true]) {
+      test(
+        'reuses retained native CALL payload for exact internal lazy result ppt=$ppt',
+        () async {
+          Completer<void>? progressiveForwarded;
+          final bossMessages = <Map<String, Object?>>[];
+          final bossPort = ReceivePort()
+            ..listen((dynamic message) {
+              if (message is Map<String, Object?>) {
+                bossMessages.add(message);
+                final result = message['message'];
+                if (result is result_msg.Result &&
+                    result.details.progress == true &&
+                    progressiveForwarded != null &&
+                    !progressiveForwarded.isCompleted) {
+                  progressiveForwarded.complete();
+                }
+              }
+            });
+          addTearDown(bossPort.close);
+
+          final invocationPort = ReceivePort();
+          addTearDown(invocationPort.close);
+          var returnExactPayload = true;
+          var holdProgressiveReply = false;
+          String? responsePptScheme = 'x_typed';
+          var responseExtraDetails = false;
+          var omitPptMetadata = false;
+          Object? seenTransferredPayload;
+          invocationPort.listen((dynamic rawMessage) {
+            final message = (rawMessage as Map).cast<String, Object?>();
+            if (message['type'] != 'invocation') return;
+            seenTransferredPayload = message['lazyPayload'];
+            final replyPort = message['replyPort'] as SendPort;
+            if (holdProgressiveReply) {
+              replyPort.send({
+                'type': 'result',
+                'progress': true,
+                'lazyPayload': message['lazyPayload'],
+                if (ppt && !omitPptMetadata) ...{
+                  'pptScheme': responsePptScheme,
+                  'pptSerializer': 'cbor',
+                  'details': {
+                    'ppt_scheme': responsePptScheme,
+                    'ppt_serializer': 'cbor',
+                    if (responseExtraDetails) 'extra': 1,
+                  },
+                },
+              });
+            } else if (returnExactPayload) {
+              replyPort.send({
+                'type': 'result',
+                'lazyPayload': message['lazyPayload'],
+                if (ppt && !omitPptMetadata) ...{
+                  'pptScheme': responsePptScheme,
+                  'pptSerializer': 'cbor',
+                  'details': {
+                    'ppt_scheme': responsePptScheme,
+                    'ppt_serializer': 'cbor',
+                    if (responseExtraDetails) 'extra': 1,
+                  },
+                },
+              });
+            } else {
+              replyPort.send({
+                'type': 'result',
+                'arguments': const ['modified'],
+              });
             }
           });
-        addTearDown(bossPort.close);
 
+          final listener = _buildListener();
+          final callerState =
+              createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState;
+          callerState
+            ..serializer = NativeMessageSerializer.messagePack
+            ..phase = HandshakePhase.open
+            ..realmUri = 'realm1'
+            ..realmSettings = routerSettings.realms.first
+            ..sessionId = 925;
+          _openSession(
+            stateStore,
+            sessionId: 925,
+            listener: listener,
+            connectionId: 51,
+          );
+          _openSession(
+            stateStore,
+            sessionId: 926,
+            listener: listener,
+            connectionId: -1,
+            internalSendPort: invocationPort.sendPort,
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          final registerReply = ReceivePort();
+          stateStore.commandPort.send(
+            ProcedureRegisterCommand(
+              realmUri: 'realm1',
+              sessionId: 926,
+              procedure: 'com.example.native.internal.echo',
+              details: const {},
+              replyPort: registerReply.sendPort,
+            ),
+          );
+          await registerReply.first;
+          registerReply.close();
+
+          final realmContexts = RealmContextCache(
+            statePort: stateStore.commandPort,
+          );
+          addTearDown(realmContexts.dispose);
+          final encodedArguments = Uint8List.fromList(
+            ppt
+                ? const [0x91, 0xc4, 2, 0x81, 1]
+                : const [0x91, 0xa7, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64],
+          );
+          final releasedHandles = <int>[];
+          final call = call_msg.Call(
+            9201,
+            'com.example.native.internal.echo',
+            options: ppt
+                ? call_msg.CallOptions(
+                    pptScheme: 'x_typed',
+                    pptSerializer: 'cbor',
+                  )
+                : null,
+          );
+          call.setLazyPayload(
+            argumentsBytes: encodedArguments,
+            argumentsDecoder: (_) => const ['payload'],
+            encoding: LazyPayloadEncoding.messagePack,
+          );
+          final incoming = NativeIncomingMessage.test(
+            serializer: NativeMessageSerializer.messagePack,
+            message: call,
+            handle: 411,
+            supportsPlaintextPptHandoff: true,
+            argumentsBytes: encodedArguments,
+            onRetain: (_) => 412,
+            onRelease: releasedHandles.add,
+          );
+
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: callerState,
+            message: call,
+            connectionId: 51,
+            incomingMessage: incoming,
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          final transferred = seenTransferredPayload as Map;
+          expect(transferred.values.whereType<Uint8List>(), isEmpty);
+          final nativeResults = bossMessages.where(
+            (message) =>
+                message['type'] == 'worker_forward_native_internal_result',
+          );
+          expect(nativeResults, hasLength(1));
+          expect(nativeResults.single['connectionId'], 51);
+          expect(nativeResults.single['handle'], 412);
+          expect(nativeResults.single['requestId'], 9201);
+          expect(releasedHandles, isEmpty);
+
+          if (ppt) {
+            for (final scenario in [
+              'missing capability',
+              'cipher',
+              'keyId',
+              'wamp',
+              'mutated headers',
+              'stripped headers',
+              'replaced source bytes',
+              'changed reply headers',
+              'custom reply details',
+              'removed reply headers',
+            ]) {
+              bossMessages.clear();
+              final rejectedCall =
+                  call_msg.Call(
+                    9300,
+                    'com.example.native.internal.echo',
+                    options: call_msg.CallOptions(
+                      pptScheme: scenario == 'wamp' ? 'wamp' : 'x_typed',
+                      pptSerializer: 'cbor',
+                      pptCipher: scenario == 'cipher' ? 'aes256gcm' : null,
+                      pptKeyId: scenario == 'keyId' ? 'key' : null,
+                    ),
+                  )..setLazyPayload(
+                    argumentsBytes: encodedArguments,
+                    argumentsDecoder: (_) => [
+                      Uint8List.fromList([0x81, 1]),
+                    ],
+                    encoding: LazyPayloadEncoding.messagePack,
+                  );
+              final rejectedReleases = <int>[];
+              final rejectedIncoming = NativeIncomingMessage.test(
+                serializer: NativeMessageSerializer.messagePack,
+                message: rejectedCall,
+                handle: 901,
+                argumentsBytes: encodedArguments,
+                supportsPlaintextPptHandoff: scenario != 'missing capability',
+                onRetain: (_) => 902,
+                onRelease: rejectedReleases.add,
+              );
+              if (scenario == 'mutated headers') {
+                rejectedCall.options!.pptScheme = 'x_changed';
+              }
+              if (scenario == 'stripped headers') rejectedCall.options = null;
+              if (scenario == 'replaced source bytes') {
+                rejectedCall.setLazyPayload(
+                  argumentsBytes: Uint8List.fromList(encodedArguments),
+                  argumentsDecoder: (_) => [
+                    Uint8List.fromList([0x81, 1]),
+                  ],
+                  encoding: LazyPayloadEncoding.messagePack,
+                );
+              }
+              responsePptScheme = scenario == 'changed reply headers'
+                  ? 'x_changed'
+                  : 'x_typed';
+              responseExtraDetails = scenario == 'custom reply details';
+              omitPptMetadata = scenario == 'removed reply headers';
+              await handleSessionMessageForTest(
+                bossPort: bossPort.sendPort,
+                statePort: stateStore.commandPort,
+                realmContexts: realmContexts,
+                state: callerState,
+                message: rejectedCall,
+                connectionId: 51,
+                incomingMessage: rejectedIncoming,
+              );
+              await Future<void>.delayed(Duration.zero);
+              expect(
+                bossMessages.where(
+                  (message) =>
+                      message['type'] ==
+                      'worker_forward_native_internal_result',
+                ),
+                isEmpty,
+                reason: scenario,
+              );
+              expect(
+                _extractForwardMessages(bossMessages),
+                hasLength(1),
+                reason: scenario,
+              );
+              expect(
+                (seenTransferredPayload as Map)['retainedNativeCallPayload'],
+                scenario.contains('reply') ? isTrue : isNot(isTrue),
+                reason: scenario,
+              );
+              expect(rejectedReleases, [902], reason: scenario);
+            }
+            responsePptScheme = 'x_typed';
+            responseExtraDetails = false;
+            omitPptMetadata = false;
+          }
+
+          bossMessages.clear();
+          returnExactPayload = false;
+          final fallbackCall = call_msg.Call(
+            9202,
+            'com.example.native.internal.echo',
+            options: ppt
+                ? call_msg.CallOptions(
+                    pptScheme: 'x_typed',
+                    pptSerializer: 'cbor',
+                  )
+                : null,
+          );
+          fallbackCall.setLazyPayload(
+            argumentsBytes: encodedArguments,
+            argumentsDecoder: (_) => const ['payload'],
+            encoding: LazyPayloadEncoding.messagePack,
+          );
+          final fallbackIncoming = NativeIncomingMessage.test(
+            serializer: NativeMessageSerializer.messagePack,
+            message: fallbackCall,
+            handle: 413,
+            supportsPlaintextPptHandoff: true,
+            argumentsBytes: encodedArguments,
+            onRetain: (_) => 414,
+            onRelease: releasedHandles.add,
+          );
+
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: callerState,
+            message: fallbackCall,
+            connectionId: 51,
+            incomingMessage: fallbackIncoming,
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          expect(
+            bossMessages.where(
+              (message) =>
+                  message['type'] == 'worker_forward_native_internal_result',
+            ),
+            isEmpty,
+          );
+          final fallback = _extractForwardMessages(bossMessages).single;
+          final fallbackResult = fallback['message'] as result_msg.Result;
+          expect(fallbackResult.arguments, const ['modified']);
+          expect(releasedHandles, [414]);
+
+          // Keep the borrowed CALL alive between progressive replies, then retire
+          // the pending port and loan even if the callee never sends a final reply.
+          bossMessages.clear();
+          holdProgressiveReply = true;
+          progressiveForwarded = Completer<void>();
+          final progressiveCall =
+              call_msg.Call(
+                9203,
+                'com.example.native.internal.echo',
+                options: call_msg.CallOptions(receiveProgress: true),
+              )..setLazyPayload(
+                argumentsBytes: encodedArguments,
+                argumentsDecoder: (_) =>
+                    throw StateError('progressive reply decoded'),
+                encoding: LazyPayloadEncoding.messagePack,
+              );
+          final progressiveIncoming = NativeIncomingMessage.test(
+            serializer: NativeMessageSerializer.messagePack,
+            message: progressiveCall,
+            handle: 415,
+            argumentsBytes: encodedArguments,
+            onRetain: (_) => 416,
+            onRelease: releasedHandles.add,
+          );
+          var completed = false;
+          final pendingReply = handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: callerState,
+            message: progressiveCall,
+            connectionId: 51,
+            incomingMessage: progressiveIncoming,
+          ).whenComplete(() => completed = true);
+          await progressiveForwarded.future.timeout(const Duration(seconds: 2));
+          expect(completed, isFalse);
+          expect(releasedHandles, [414]);
+          stateStore.commandPort.send(
+            SessionCloseCommand(realmUri: 'realm1', sessionId: 925),
+          );
+          await pendingReply.timeout(const Duration(seconds: 2));
+          expect(releasedHandles, [414, 416]);
+          expect(_extractForwardMessages(bossMessages), hasLength(1));
+        },
+      );
+    }
+
+    for (final profile in [
+      (
+        label: 'flatbuffers',
+        scheme: 'x_typed',
+        codec: 'flatbuffers',
+        cipher: null,
+        progressive: false,
+      ),
+      (
+        label: 'flatbuffers progressive',
+        scheme: 'x_typed',
+        codec: 'flatbuffers',
+        cipher: null,
+        progressive: true,
+      ),
+      (
+        label: 'cbor',
+        scheme: 'x_typed',
+        codec: 'cbor',
+        cipher: null,
+        progressive: false,
+      ),
+      (
+        label: 'msgpack',
+        scheme: 'x_typed',
+        codec: 'msgpack',
+        cipher: null,
+        progressive: false,
+      ),
+      (
+        label: 'encrypted',
+        scheme: 'wamp',
+        codec: 'cbor',
+        cipher: 'aes256gcm',
+        progressive: false,
+      ),
+      (
+        label: 'ordinary binary',
+        scheme: null,
+        codec: null,
+        cipher: null,
+        progressive: false,
+      ),
+    ]) {
+      test('preserves packed internal PPT reply: ${profile.label}', () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic value) {
+            bossMessages.add((value as Map).cast<String, Object?>());
+          });
+        addTearDown(bossPort.close);
         final invocationPort = ReceivePort();
         addTearDown(invocationPort.close);
-        var returnExactPayload = true;
-        Object? seenTransferredPayload;
-        invocationPort.listen((dynamic rawMessage) {
-          final message = (rawMessage as Map).cast<String, Object?>();
-          seenTransferredPayload = message['lazyPayload'];
-          final replyPort = message['replyPort'] as SendPort;
-          if (returnExactPayload) {
+        final packed = Uint8List.fromList(switch (profile.codec) {
+          'cbor' =>
+            profile.cipher == null
+                ? [0x81, 1]
+                : List<int>.generate(64, (i) => i),
+          'msgpack' => [0x91, 1],
+          _ => [0, 1, 2, 255],
+        });
+        invocationPort.listen((dynamic value) {
+          final request = value as Map;
+          final replyPort = request['replyPort'] as SendPort;
+          for (final progress in [if (profile.progressive) true, false]) {
             replyPort.send({
               'type': 'result',
-              'lazyPayload': message['lazyPayload'],
-            });
-          } else {
-            replyPort.send({
-              'type': 'result',
-              'arguments': const ['modified'],
+              'lazyPayload': {
+                r'$connectanumLazyPayload': true,
+                'encoding': profile.codec ?? 'cbor',
+                'arguments': [packed],
+              },
+              'progress': progress,
+              'pptScheme': profile.scheme,
+              'pptSerializer': profile.codec,
+              'pptCipher': profile.cipher,
+              'pptKeyId': profile.cipher == null ? null : 'test-key',
             });
           }
         });
-
         final listener = _buildListener();
         final callerState =
             createWorkerStateForTest(
@@ -898,7 +1328,7 @@ void main() {
                 )
                 as WorkerConnectionState;
         callerState
-          ..serializer = NativeMessageSerializer.messagePack
+          ..serializer = NativeMessageSerializer.cbor
           ..phase = HandshakePhase.open
           ..realmUri = 'realm1'
           ..realmSettings = routerSettings.realms.first
@@ -917,113 +1347,72 @@ void main() {
           internalSendPort: invocationPort.sendPort,
         );
         await Future<void>.delayed(Duration.zero);
-
-        final registerReply = ReceivePort();
-        stateStore.commandPort.send(
-          ProcedureRegisterCommand(
-            realmUri: 'realm1',
-            sessionId: 926,
-            procedure: 'com.example.native.internal.echo',
-            details: const {},
-            replyPort: registerReply.sendPort,
-          ),
-        );
-        await registerReply.first;
-        registerReply.close();
-
         final realmContexts = RealmContextCache(
           statePort: stateStore.commandPort,
         );
         addTearDown(realmContexts.dispose);
-        final encodedArguments = Uint8List.fromList(
-          const [0x91, 0xa7, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64],
+        final context = realmContexts.contextFor('realm1');
+        await context.registerProcedure(
+          sessionId: 926,
+          procedure: 'com.example.internal.ppt',
+          details: const {},
         );
-        final releasedHandles = <int>[];
-        final call = call_msg.Call(
-          9201,
-          'com.example.native.internal.echo',
-        );
-        call.setLazyPayload(
-          argumentsBytes: encodedArguments,
-          argumentsDecoder: (_) => const ['payload'],
-          encoding: LazyPayloadEncoding.messagePack,
-        );
-        final incoming = NativeIncomingMessage.test(
-          serializer: NativeMessageSerializer.messagePack,
-          message: call,
-          handle: 411,
-          argumentsBytes: encodedArguments,
-          onRetain: (_) => 412,
-          onRelease: releasedHandles.add,
-        );
-
         await handleSessionMessageForTest(
           bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
           realmContexts: realmContexts,
           state: callerState,
-          message: call,
           connectionId: 51,
-          incomingMessage: incoming,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final transferred = seenTransferredPayload as Map;
-        expect(transferred.values.whereType<Uint8List>(), isEmpty);
-        final nativeResults = bossMessages.where(
-          (message) =>
-              message['type'] == 'worker_forward_native_internal_result',
-        );
-        expect(nativeResults, hasLength(1));
-        expect(nativeResults.single['connectionId'], 51);
-        expect(nativeResults.single['handle'], 412);
-        expect(nativeResults.single['requestId'], 9201);
-        expect(releasedHandles, isEmpty);
-
-        bossMessages.clear();
-        returnExactPayload = false;
-        final fallbackCall = call_msg.Call(
-          9202,
-          'com.example.native.internal.echo',
-        );
-        fallbackCall.setLazyPayload(
-          argumentsBytes: encodedArguments,
-          argumentsDecoder: (_) => const ['payload'],
-          encoding: LazyPayloadEncoding.messagePack,
-        );
-        final fallbackIncoming = NativeIncomingMessage.test(
-          serializer: NativeMessageSerializer.messagePack,
-          message: fallbackCall,
-          handle: 413,
-          argumentsBytes: encodedArguments,
-          onRetain: (_) => 414,
-          onRelease: releasedHandles.add,
-        );
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: callerState,
-          message: fallbackCall,
-          connectionId: 51,
-          incomingMessage: fallbackIncoming,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        expect(
-          bossMessages.where(
-            (message) =>
-                message['type'] == 'worker_forward_native_internal_result',
+          message: call_msg.Call(
+            9201,
+            'com.example.internal.ppt',
+            options: call_msg.CallOptions(
+              receiveProgress: profile.progressive,
+              pptScheme: profile.scheme,
+              pptSerializer: profile.codec,
+              pptCipher: profile.cipher,
+              pptKeyId: profile.cipher == null ? null : 'test-key',
+            ),
+            arguments: [packed],
           ),
-          isEmpty,
         );
-        final fallback = _extractForwardMessages(bossMessages).single;
-        final fallbackResult = fallback['message'] as result_msg.Result;
-        expect(fallbackResult.arguments, const ['modified']);
-        expect(releasedHandles, [414]);
-      },
-    );
+        await Future<void>.delayed(Duration.zero);
+        final forwards = _extractForwardMessages(bossMessages);
+        expect(forwards, hasLength(profile.progressive ? 2 : 1));
+        for (var index = 0; index < forwards.length; index++) {
+          final result = forwards[index]['message'] as result_msg.Result;
+          expect(result.details.progress, profile.progressive && index == 0);
+          expect(result.details.pptScheme, profile.scheme);
+          expect(result.details.pptSerializer, profile.codec);
+          expect(result.details.pptCipher, profile.cipher);
+          expect(
+            result.details.pptKeyId,
+            profile.cipher == null ? null : 'test-key',
+          );
+          final payload = result.toLazyPayload();
+          if (profile.scheme == null) {
+            expect(payload.packedPayloadBytes, isNull);
+            expect(result.arguments, [packed]);
+          } else {
+            expect(payload.packedPayloadBytes, orderedEquals(packed));
+            expect(result.hasDecodedPptPayload, isFalse);
+          }
+          for (final codec in <AbstractSerializer>[
+            cbor_serializer.Serializer(),
+            msgpack_serializer.Serializer(),
+            flatbuffers_serializer.Serializer(),
+          ]) {
+            final decoded =
+                codec.deserialize(codec.serialize(result))!
+                    as result_msg.Result;
+            final body =
+                decoded.transparentBinaryPayload ??
+                decoded.wireArguments!.single;
+            expect(body, orderedEquals(packed));
+          }
+        }
+      });
+    }
 
     test('closing session removes subscriptions and registrations', () async {
       final bossMessages = <Map<String, Object?>>[];
@@ -2178,199 +2567,233 @@ void main() {
       expect(released, equals([140]));
     });
 
-    test('returns no_such_invocation when YIELD completion fails', () async {
-      final bossMessages = <Map<String, Object?>>[];
-      final bossPort = ReceivePort()
-        ..listen((dynamic message) {
-          if (message is Map<String, Object?>) {
-            bossMessages.add(message);
-          }
-        });
-      addTearDown(bossPort.close);
+    for (final result in [
+      'store error',
+      'completed elsewhere',
+      'cancelled progressive',
+    ]) {
+      test(
+        result == 'store error'
+            ? 'returns no_such_invocation when YIELD completion fails'
+            : 'discards late YIELD when cancellation wins $result',
+        () async {
+          final bossMessages = <Map<String, Object?>>[];
+          final bossPort = ReceivePort()
+            ..listen((dynamic message) {
+              if (message is Map<String, Object?>) {
+                bossMessages.add(message);
+              }
+            });
+          addTearDown(bossPort.close);
 
-      final calleeState =
-          createWorkerStateForTest(
-                listener: _buildListener(),
-                listenerSettings: routerSettings.listeners.first,
-              )
-              as WorkerConnectionState;
-      calleeState
-        ..serializer = NativeMessageSerializer.json
-        ..phase = HandshakePhase.open
-        ..realmUri = 'realm1'
-        ..realmSettings = routerSettings.realms.first
-        ..sessionId = 9301;
+          final calleeState =
+              createWorkerStateForTest(
+                    listener: _buildListener(),
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState;
+          calleeState
+            ..serializer = NativeMessageSerializer.json
+            ..phase = HandshakePhase.open
+            ..realmUri = 'realm1'
+            ..realmSettings = routerSettings.realms.first
+            ..sessionId = 9301;
 
-      final snapshot = RealmSnapshot(
-        realmUri: 'realm1',
-        version: 1,
-        sessions: [
-          SessionInfo(
-            id: 9301,
-            authId: null,
-            authRole: null,
-            roles: const {},
-            workerId: 1,
+          final snapshot = RealmSnapshot(
+            realmUri: 'realm1',
+            version: 1,
+            sessions: [
+              SessionInfo(
+                id: 9301,
+                authId: null,
+                authRole: null,
+                roles: const {},
+                workerId: 1,
+                connectionId: 411,
+                lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+              SessionInfo(
+                id: 9302,
+                authId: null,
+                authRole: null,
+                roles: const {},
+                workerId: 1,
+                connectionId: 412,
+                lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+            ],
+            subscriptions: const [],
+            registrations: const [],
+          );
+
+          final context = _StateErrorRealmContext(
+            realmUri: 'realm1',
+            statePort: stateStore.commandPort,
+            snapshot: snapshot,
+            invocationId: 12001,
+            registrationId: 901,
+            callerRequestId: 12002,
+            callerSessionId: 9302,
+            calleeSessionId: 9301,
+            calleeConnectionId: 411,
+            allowProgress: result == 'cancelled progressive',
+            completeThrows: result == 'store error',
+            completeReturnsNull: result == 'completed elsewhere',
+            touchReturnsFalse: result == 'cancelled progressive',
+            completeFailureMessage: 'completion failure',
+          );
+
+          final realmContexts = _StaticRealmContextCache(
+            statePort: stateStore.commandPort,
+            overrides: {'realm1': context},
+          );
+
+          final yieldMessage = yield_msg.Yield(
+            12001,
+            arguments: const ['payload'],
+            options: yield_msg.YieldOptions(
+              progress: result == 'cancelled progressive',
+            ),
+          );
+
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: calleeState,
+            message: yieldMessage,
             connectionId: 411,
-            lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
-          SessionInfo(
-            id: 9302,
-            authId: null,
-            authRole: null,
-            roles: const {},
-            workerId: 1,
-            connectionId: 412,
-            lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
-        ],
-        subscriptions: const [],
-        registrations: const [],
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          if (result != 'store error') {
+            expect(_collectWorkerSends(bossMessages), isEmpty);
+            expect(_extractForwardMessages(bossMessages), isEmpty);
+            return;
+          }
+          final workerSend = _extractWorkerSend(bossMessages);
+          final payload = workerSend['payload'] as Uint8List;
+          final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+          expect(frame.first, equals(MessageTypes.codeError));
+          expect(frame[1], equals(MessageTypes.codeInvocation));
+          expect(frame[2], equals(12001));
+          expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
+          final details = frame[3] as Map<String, Object?>;
+          expect(details['message'], contains('completion failure'));
+        },
       );
+    }
 
-      final context = _StateErrorRealmContext(
-        realmUri: 'realm1',
-        statePort: stateStore.commandPort,
-        snapshot: snapshot,
-        invocationId: 12001,
-        registrationId: 901,
-        callerRequestId: 12002,
-        callerSessionId: 9302,
-        calleeSessionId: 9301,
-        calleeConnectionId: 411,
-        allowProgress: false,
-        completeThrows: true,
-        completeFailureMessage: 'completion failure',
+    for (final completedElsewhere in [false, true]) {
+      test(
+        completedElsewhere
+            ? 'discards late ERROR when cancellation wins completion'
+            : 'returns no_such_invocation when invocation ERROR completion fails',
+        () async {
+          final bossMessages = <Map<String, Object?>>[];
+          final bossPort = ReceivePort()
+            ..listen((dynamic message) {
+              if (message is Map<String, Object?>) {
+                bossMessages.add(message);
+              }
+            });
+          addTearDown(bossPort.close);
+
+          final calleeState =
+              createWorkerStateForTest(
+                    listener: _buildListener(),
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState;
+          calleeState
+            ..serializer = NativeMessageSerializer.json
+            ..phase = HandshakePhase.open
+            ..realmUri = 'realm1'
+            ..realmSettings = routerSettings.realms.first
+            ..sessionId = 9401;
+
+          final snapshot = RealmSnapshot(
+            realmUri: 'realm1',
+            version: 1,
+            sessions: [
+              SessionInfo(
+                id: 9401,
+                authId: null,
+                authRole: null,
+                roles: const {},
+                workerId: 1,
+                connectionId: 421,
+                lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+              SessionInfo(
+                id: 9402,
+                authId: null,
+                authRole: null,
+                roles: const {},
+                workerId: 1,
+                connectionId: 422,
+                lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
+              ),
+            ],
+            subscriptions: const [],
+            registrations: const [],
+          );
+
+          final context = _StateErrorRealmContext(
+            realmUri: 'realm1',
+            statePort: stateStore.commandPort,
+            snapshot: snapshot,
+            invocationId: 13001,
+            registrationId: 902,
+            callerRequestId: 13002,
+            callerSessionId: 9402,
+            calleeSessionId: 9401,
+            calleeConnectionId: 421,
+            allowProgress: false,
+            completeThrows: !completedElsewhere,
+            completeReturnsNull: completedElsewhere,
+            completeFailureMessage: 'error completion failure',
+          );
+
+          final realmContexts = _StaticRealmContextCache(
+            statePort: stateStore.commandPort,
+            overrides: {'realm1': context},
+          );
+
+          final invocationError = error_msg.Error(
+            MessageTypes.codeInvocation,
+            13001,
+            const {},
+            'com.example.failure',
+          );
+
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: calleeState,
+            message: invocationError,
+            connectionId: 421,
+          );
+          await Future<void>.delayed(Duration.zero);
+
+          if (completedElsewhere) {
+            expect(_collectWorkerSends(bossMessages), isEmpty);
+            expect(_extractForwardMessages(bossMessages), isEmpty);
+            return;
+          }
+          final workerSend = _extractWorkerSend(bossMessages);
+          final payload = workerSend['payload'] as Uint8List;
+          final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
+          expect(frame.first, equals(MessageTypes.codeError));
+          expect(frame[1], equals(MessageTypes.codeInvocation));
+          expect(frame[2], equals(13001));
+          expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
+          final details = frame[3] as Map<String, Object?>;
+          expect(details['message'], contains('error completion failure'));
+        },
       );
-
-      final realmContexts = _StaticRealmContextCache(
-        statePort: stateStore.commandPort,
-        overrides: {'realm1': context},
-      );
-
-      final yieldMessage = yield_msg.Yield(12001, arguments: const ['payload']);
-
-      await handleSessionMessageForTest(
-        bossPort: bossPort.sendPort,
-        statePort: stateStore.commandPort,
-        realmContexts: realmContexts,
-        state: calleeState,
-        message: yieldMessage,
-        connectionId: 411,
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      final workerSend = _extractWorkerSend(bossMessages);
-      final payload = workerSend['payload'] as Uint8List;
-      final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
-      expect(frame.first, equals(MessageTypes.codeError));
-      expect(frame[1], equals(MessageTypes.codeInvocation));
-      expect(frame[2], equals(12001));
-      expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
-      final details = frame[3] as Map<String, Object?>;
-      expect(details['message'], contains('completion failure'));
-    });
-
-    test(
-      'returns no_such_invocation when invocation ERROR completion fails',
-      () async {
-        final bossMessages = <Map<String, Object?>>[];
-        final bossPort = ReceivePort()
-          ..listen((dynamic message) {
-            if (message is Map<String, Object?>) {
-              bossMessages.add(message);
-            }
-          });
-        addTearDown(bossPort.close);
-
-        final calleeState =
-            createWorkerStateForTest(
-                  listener: _buildListener(),
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        calleeState
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 9401;
-
-        final snapshot = RealmSnapshot(
-          realmUri: 'realm1',
-          version: 1,
-          sessions: [
-            SessionInfo(
-              id: 9401,
-              authId: null,
-              authRole: null,
-              roles: const {},
-              workerId: 1,
-              connectionId: 421,
-              lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
-            ),
-            SessionInfo(
-              id: 9402,
-              authId: null,
-              authRole: null,
-              roles: const {},
-              workerId: 1,
-              connectionId: 422,
-              lastActivity: DateTime.fromMillisecondsSinceEpoch(0),
-            ),
-          ],
-          subscriptions: const [],
-          registrations: const [],
-        );
-
-        final context = _StateErrorRealmContext(
-          realmUri: 'realm1',
-          statePort: stateStore.commandPort,
-          snapshot: snapshot,
-          invocationId: 13001,
-          registrationId: 902,
-          callerRequestId: 13002,
-          callerSessionId: 9402,
-          calleeSessionId: 9401,
-          calleeConnectionId: 421,
-          allowProgress: false,
-          completeThrows: true,
-          completeFailureMessage: 'error completion failure',
-        );
-
-        final realmContexts = _StaticRealmContextCache(
-          statePort: stateStore.commandPort,
-          overrides: {'realm1': context},
-        );
-
-        final invocationError = error_msg.Error(
-          MessageTypes.codeInvocation,
-          13001,
-          const {},
-          'com.example.failure',
-        );
-
-        await handleSessionMessageForTest(
-          bossPort: bossPort.sendPort,
-          statePort: stateStore.commandPort,
-          realmContexts: realmContexts,
-          state: calleeState,
-          message: invocationError,
-          connectionId: 421,
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final workerSend = _extractWorkerSend(bossMessages);
-        final payload = workerSend['payload'] as Uint8List;
-        final frame = jsonDecode(utf8.decode(payload)) as List<dynamic>;
-        expect(frame.first, equals(MessageTypes.codeError));
-        expect(frame[1], equals(MessageTypes.codeInvocation));
-        expect(frame[2], equals(13001));
-        expect(frame[4], equals(wamp_core.Error.noSuchInvocation));
-        final details = frame[3] as Map<String, Object?>;
-        expect(details['message'], contains('error completion failure'));
-      },
-    );
+    }
 
     test(
       'releases unsent publish handles when native boss sends fail',
@@ -9967,6 +10390,8 @@ class _StateErrorRealmContext extends RealmContext {
     this.cancelThrows = false,
     this.cancelFailureMessage = 'cancel failure',
     this.completeThrows = false,
+    this.completeReturnsNull = false,
+    this.touchReturnsFalse = false,
     this.completeFailureMessage = 'completion failure',
   });
 
@@ -9981,6 +10406,8 @@ class _StateErrorRealmContext extends RealmContext {
   final bool cancelThrows;
   final String cancelFailureMessage;
   final bool completeThrows;
+  final bool completeReturnsNull;
+  final bool touchReturnsFalse;
   final String completeFailureMessage;
 
   PendingInvocation _buildInvocation() => PendingInvocation(
@@ -10031,7 +10458,14 @@ class _StateErrorRealmContext extends RealmContext {
   }
 
   @override
+  Future<bool> touchInvocation(int invocationId) {
+    if (touchReturnsFalse) return Future.value(false);
+    return super.touchInvocation(invocationId);
+  }
+
+  @override
   Future<PendingInvocation?> completeInvocation(int invocationId) {
+    if (completeReturnsNull) return Future.value(null);
     if (completeThrows) {
       return Future<PendingInvocation?>.error(
         StateError(completeFailureMessage),

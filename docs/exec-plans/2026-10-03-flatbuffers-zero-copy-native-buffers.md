@@ -1,6 +1,1862 @@
 # FlatBuffers and zero-copy native buffers
 
-Status: active. Started: 2026-10-03.
+Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
+
+Current step: resolve the 102 strict primary numerical findings with measured
+runtime changes, then complete full 48-case primary and 50-case supplemental
+acceptance on frozen source. Ownership/master-integration correctness and CI
+pass on the predecessor; the new allocation candidate needs renewed evidence.
+No acceptance is claimed.
+
+## Named sample report streaming candidate (2026-10-31)
+
+- [x] Audit f16ae5e9 allocator capture: all 3,276 tracked inputs and retained
+  binary/wrapper hashes, 60 complete rows, 24 owned role snapshots, exact summary.
+  Keep initial private newline-hash audit error; corrected raw-byte audit passes.
+  Free bins/cached VM pages vary; do not subtract or relabel RSS.
+- [x] Complete/audit native/Dart CPU capture 41163196895 (3,279 inputs, native
+  hash, 18 snapshots). Primary profile request is already 65,536 bytes; reject
+  the mistaken ext_08/10-KiB-default lead without changing the profiler.
+- [x] Prepare all sample/metadata validation before publishing; stream every
+  standard JSON row in sample batches through the existing HTTP transport.
+  Preserve all sample/field bytes and unchanged windows; native transport queues
+  and retained sample/metadata memory stay explicit limitations.
+- [x] Run balanced fresh ABBA on all 33,991 actual rows/metadata, no forced GC or
+  runtime knobs. Full hashes/bytes match. Named peak falls ~65.4 -> ~57.2 MB,
+  with ~12% encoding/hash CPU cost. Positional worsens: keep original compact
+  worker and apply only to named HTTP reports, identically for every codec.
+- [x] Pass 2,866 experimental bench cases, final 69 boundary cases and four
+  final 2,048-sample live responses. Targeted analysis passes. Complete GLM
+  judgment and verify/reject negative-latency/ASCII/empty-case suggestions against
+  the existing contract and tests. Earlier capped review remains incomplete.
+- [ ] Freeze source, run canonical verification and current-head hosted
+  diagnostic/copy/CI. Adopt only if unchanged performance gates improve.
+- [ ] Retain full f16ae5e9 primary/supplemental campaigns to completion. Complete
+  final eligible acceptance before marking ready or closing #103/milestone.
+
+## Complete report staging candidate (2026-10-31)
+
+- [x] Audit successful component 41157110077 (160 rounds, 219 private artifacts,
+  exact summary, 3,275 tracked inputs) and copy/lifetime 41157111216 (3,279
+  source/resolved inputs; full 120/300/32 counts and native controls).
+- [x] Audit pre-encoded profile 41154814129: 3,277 inputs, native digest and all
+  18 snapshots. Native external storage is near zero after workload; large
+  complete JSON report buffers motivate reducing staging, not lease invalidation.
+- [x] Keep owned encoder chunks without a full UTF-8 join in worker/HTTP output.
+  Complete encoding before transmission; preserve every field/row/error, all
+  serializers and unchanged processes/windows. Use the standard slice-copying
+  sink adapter; never retain borrowed encoder buffers.
+- [x] Pass 136 exact-byte/record/error/lifecycle controls, targeted analysis and
+  eight live source smoke responses (four preserve 2,048 samples each). Keep
+  these distinct from production-symbol proofs or performance acceptance.
+- [x] Pass all 2,863 benchmark regressions and complete the balanced ABBA report
+  component: all 32,067 samples and output digests match; retain all eight runs.
+  Current RSS improves; lifetime peak gains are small/absent, not parity proof.
+- [x] Freeze f16ae5e9; canonical `bin/verify` passes on clean fixed HEAD with
+  complete Chrome JS/Wasm. Audit passing current copy/lifetime 41159938655:
+  all 3,280 inputs and full 120/300/32 counts/native controls. External build
+  binaries are digest-attested but not retained in this copy artifact.
+- [x] Audit paired 41159942894: all 90 rows and exact comparison. Pre-encoded
+  passes all seven; native-buffer RSS passes. Retain three misses: Dart RSS,
+  Dart GC upper confidence bound and native-buffer p99 upper bound.
+- [x] Complete/audit predecessor full CI 41153485459: 39 successful jobs,
+  all 20 MQTT / 12 matched master summaries exact, budgets unchanged.
+- [x] Audit Dart-values profile 41161593502 (3,279 inputs, native digest, 18
+  snapshots, exact hosted audit). Final external bytes are 112 for every codec;
+  after-work heaps do not attribute RSS peaks.
+- [ ] Complete current CI 41159940789 (24 passing jobs, none failed), fresh
+  allocator/memory 41162296996 and native/Dart CPU attribution 41163196895.
+  Select a measured fix. The fragmented-CALL gap is rejected: the actual
+  serializer already uses a builder-owned reference. A private vector-observer
+  prototype has no executed measurements after resource-lease rejection.
+- [ ] Run full unchanged 48-case primary and 50-case supplemental acceptance;
+  independently audit retained inputs, complete raw rows and comparisons.
+  Resolve actual failures; preserve predecessor failures and pending SDK limit.
+
+## Field projection allocation candidate (2026-10-31)
+
+- [x] Retain exact full-primary failure: 48 cases / 1,440 rows / 102 numerical
+  misses, zero integrity findings. Current master ef822e08 is still contained.
+- [x] Pass pre-change `bin/test-fast`. Remove temporary agreement projections
+  in native/Dart using the same field checks as encoding; keep common Dart
+  validation states inline and remove per-table captured closures.
+- [x] Verify 24 native component pairs with identical wires/payload aliases:
+  one fewer allocation / 224 fewer requested bytes per typed decode. Match
+  12,258 Dart inputs and 1,512 budget pairs against frozen 4dec9ddc source.
+  Keep this distinct from RSS/throughput acceptance.
+- [x] Pass 3,545 serializer cases, 111 frames with extended RESULT controls,
+  47 native FlatBuffers tests and all 167 source-bound mutation proofs.
+- [x] Reproduce/fix component setup rejecting this three-file combination;
+  all nine private package-isolation contracts pass. No gate/window changes.
+- [x] Freeze/push da5398a6 and pass canonical `bin/verify` with observed exit 0
+  on clean, fixed HEAD, including Chrome JS/Wasm. Preserve the first run's
+  audit failure caused by a commit changing HEAD mid-fixture. No audit weakening.
+- [x] Independently audit paired 41153557716: 90 rows, exact hosted reproduction,
+  retained inputs/binaries verified, diagnostic ineligibility only. Six numerical
+  misses remain: Dart-values speed/p99/GC/RSS; pre-encoded p99/RSS. Native-buffer
+  passes all seven. Keep full predecessor 102 misses and every budget.
+- [x] Retain blocked local attempts and final GLM 150-second incomplete stream;
+  neither is a completed review. Local timing remains unexecuted after lock denial.
+- [x] Diagnose component 41153337377's pre-measurement fixture failure. Fix only
+  the probe's accessor and share it with preflight tests. Sixteen direct controls,
+  546 regressions per private variant and nine tool contracts pass. Preserve
+  initial private compile/ordinary-alias assumption errors separately.
+- [x] Complete/audit memory attribution 41154814129 on da5398a6 (all source,
+  binary and 18 snapshot hashes, exact memory audit).
+- [ ] Complete current CI 41153485459 (37 passing jobs; Dart VM coverage pending).
+- [x] Renew/audit repaired component 41157110077; component time/allocation improve.
+- [ ] Resolve remaining RAM/tail failures and renew full acceptance. Keep draft/#103 open.
+
+## Ownership and final campaign renewal (2026-10-30)
+
+- [x] Audit paired 41112077193 exactly: native-buffer RAM passes; retain four
+  numerical misses (Dart-values p99/GC/RSS and pre-encoded RSS).
+- [x] Audit copy 41112073189: 3,277 source inputs, 120 live / 300 inventory /
+  32 zero-avoidable checks, E2EE/transcode/crypto and native view controls pass.
+- [x] Reproduce/fix two encrypted file metadata integration failures and wrong
+  allocation release after public reanchoring. Pass 512 lifetime/file cases,
+  186 socket/file contracts and canonical external-peer live release regression.
+- [x] Push owner/header fixes as 4dec9ddc. Canonical full `bin/verify` completes
+  with observed exit 0, including standalone consumers and Chrome/WebAssembly.
+- [x] Audit final copy/lifetime 41120169745: 3,277 source inputs, full 120/300/32
+  counts, E2EE/transcode/crypto observations and positive/negative native controls.
+- [x] Recompute all 20 current CI MQTT summaries exactly from raw rows; original
+  budgets all pass. Retain four predecessor CI misses and cancelled duplicate
+  jobs without claiming a source-level cause. Matched master comparison passes;
+  all 12 summaries reproduce exactly with pinned refs/consistent native hashes.
+- [x] Fully audit Dart-values profile 41116315782: 3,276 inputs, retained native
+  digest, all 18 snapshots and exact hosted memory audit; zero findings.
+- [x] Launch unchanged full 48-case primary 41120217349 and 50-case supplemental
+  41120221904, frozen at 4dec9ddc. Copy and correctness CI renew on the same SHA.
+- [x] Complete/audit primary 41120217349: all 48 cases / 1,440 rows, exact
+  hosted reproduction, retained input/native hashes and zero integrity failures.
+  Keep its 102 numerical failures: 41 RSS, 21 CPU, 17 throughput, 12 p99, seven
+  p95, three GC and one allocation. No acceptance is claimed.
+- [ ] Resolve current full-primary performance failures through measured
+  runtime changes, then renew strict acceptance on frozen source. Do not rerun
+  unchanged numerical tests or treat the earlier two RAM misses as current.
+- [x] Finish full CI 41120166268: all 39 jobs pass. Matched native comparison
+  also passes and its twelve raw summaries reproduce exactly.
+- [x] Audit failed payload-size shard: all 360 rows/12 cases reproduce exactly,
+  retained input/native hashes verify. Two MessagePack 1 MiB cases have complete
+  GC proof but 6.72–7.06% rounding uncertainty, above the unchanged 1% filter.
+  Privately validate all 14 rows up to that exact rejection; never rewrite or
+  mark the original failed observations measured. Keep 15 numerical diagnostics.
+- [x] Complete/audit encrypted-progressive supplemental shard: eight cases /
+  240 rows, exact hosted reproduction, retained input/native hashes verified,
+  zero integrity findings. Keep all 51 numerical supplemental cost diagnostics.
+- [x] Complete/audit protocol shard: 30 cases / 900 rows; retained input/native
+  hashes and exact comparison verify, zero integrity findings, 128 cost diagnostics.
+- [x] Complete all 50 supplemental cases / 1,500 raw rows. Reproduce the combined
+  failed report/manifest exactly: 38 validated cases / 1,140 rows, 179 costs and
+  four findings after strict payload-batch exclusion. Verify all three artifact
+  IDs; retain the initial private wrong-subcommand audit error separately.
+- [x] Reject a bounded stock-SDK C callback alternative: 92 natural GC events
+  capture successfully, but usage equivalence fails by 1,043,456 bytes; pinned
+  SDK source deliberately coarsens the C new-heap metric to capacity. Retain
+  both diagnostic probes/assertion failure; no acceptance setting changes.
+- [ ] Obtain the separate supplemental allocation-precision decision. The user
+  previously approved SDK copy internals unmeasured, not this allocation rule.
+  The completed primary has no SDK precision finding; all its gates remain.
+- [ ] Mark PR #132 ready only after actual acceptance; do not merge automatically.
+
+## Merged runtime and tooling contract renewal (2026-10-30)
+
+- [x] Push `40f8cec5`, incorporating MQTT master ef822e08, explicit payload
+  storage release and the reproduced three/four-fragment file-prefix repair.
+- [x] Audit old-runtime VM profile 41106228701: 3,224 inputs, native library,
+  18 snapshot hashes and exact normalized hosted audit, with no findings.
+  FlatBuffers external usage is 34,165,208 -> 112 bytes after diagnostic GC;
+  do not treat diagnostic GC or this attribution as acceptance.
+- [x] Retain full verification exit 1 and Fast Checks failure on stale test
+  expectation 1100–1257. Correct it to the already verified identical source
+  region 1108–1265; all 93 contracts pass (1 platform skip). Runtime/policy and
+  campaign source remain unchanged. Preserve all preceding reports.
+- [ ] Renew full CI and local verification on the tooling-only head. Supersede
+  only the failed duplicate correctness CI 41112069093 after renewal dispatch.
+- [ ] Leave paired 41112077193 and copy 41112073189 running untouched on 40f8cec5.
+  Then complete strict full-primary and final-runtime supplemental evidence.
+
+## Explicit payload release investigation (2026-10-30)
+
+- [x] Independently audit 3,225 copy inputs and 120 live / 300 inventory /
+  32 zero-avoidable checks; confirm current-head CI completes all 38 jobs.
+- [x] Reproduce a live 64 KiB FlatBuffers export after explicit payload release
+  with the native weak observer, without GC or measurement policy changes.
+- [x] Add fail-first regressions and reclaim the explicit release scope. Ten
+  native owner cases, Dart native frame release, 94 sockets, 405 lifetime/file/
+  crypto cases, 77 transport/frame regressions and derived-view GC pass.
+  Ordinary handle release and independent exports retain their lifetimes.
+- [x] Complete fresh baseline: `bin/test-fast` exits 0.
+- [x] Resolve new MQTT master integration conflicts, preserving both CI lane
+  inventories, notification cleanup and guarded MQTT dispatch. Analysis, Rust
+  formatting and 23 CI contracts pass. Revalidate all 167 mutation proofs after
+  mapping 12 unchanged sites and shifting the identical drain region +8 lines.
+- [x] Complete GLM review; verify/reject its three advisory claims against Arc
+  export semantics, existing whole-message ownership and released-owner lookup.
+- [x] Rebuild native source; merged analysis, 23 CI contracts, 667 router/MQTT
+  cases (7 optional Paho skips) and 10 Rust CLI cases pass. Reproduce/fix the
+  three/four-fragment file-prefix mismatch; all 480 related cases pass and
+  prefix coalescing copies are explicit.
+- [x] Commit/push merged source as 40f8cec5; renew all final checks.
+  Pre-merge full verification is deliberately superseded at tooling (exit 143).
+- [ ] Finish full verification and safety review, then evaluate a changed
+  runtime with all unchanged gates. Memory attribution `41106228701` is queued;
+  shared-resource lease currently blocks local companions. No bypass.
+
+## Audited readiness checkpoint (2026-10-30)
+
+- [x] Retrieve and independently reproduce paired `41056036677`: 90 rows,
+  exact hosted result and retained input/binary verification. No integrity issue.
+- [x] Confirm p99 now passes for every construction group, as do throughput,
+  CPU, p95, allocation, GC and pre-encoded RSS. Keep all prior failed reports.
+- [x] Confirm current-head CI `41057774775` and renewed copy `41057771623`
+  both complete successfully. Copy artifacts still need independent audit.
+- [ ] Resolve remaining RSS gates: Dart-values 1.0087769550
+  (CI [0.9965808754, 1.0243417666]); native-buffer 1.0285043000
+  (CI [0.9903861263, 1.0685564016]). No threshold relaxation or lucky rerun.
+- [ ] Finish full 48-case primary, final-runtime supplemental and renewed local
+  verification after the recorded dependency-network timeout. PR #132 stays draft.
+
+## Connectivity blocker and retained runs (2026-10-30)
+
+- [x] Preserve paired `41056036677` failure status and failed artifact/API reads:
+  repeated TLS timeouts and connection resets prevent numerical auditing.
+- [x] Record fresh tooling-head `bin/verify` exit 124: dependency resolution in
+  the MCP consumer fails after three 180-second attempts; earlier checks pass.
+  The previous runtime full run finishes all consumer and browser suites.
+- [ ] Restore connectivity, audit the existing numerical artifact and renewed
+  copy/CI runs, then renew failed local verification. No unchanged numerical
+  campaign rerun or measurement-policy change is allowed. User network context
+  is requested asynchronously; no runtime change is justified by this outage.
+
+## Private probe directive-order repair (2026-10-30)
+
+- [x] Retain failed copy `41056032556`: server never reaches READY. Its log shows
+  a marker constant before the new Dart part, not a measured lifetime failure.
+- [x] Reproduce actual/current and future-added part directive ordering with a
+  fail-first contract. Move marker insertion to the first declaration anchor,
+  after every directive, preserving missing/duplicate pattern refusal.
+- [x] Pass all 15 probe contracts and 167 mutation proofs. A real private copied
+  library analyzes cleanly; preserve the initial macOS /tmp URI alias failure
+  and its canonical-path correction. Production Dart, lockfiles, scenarios,
+  policy and measurement windows remain byte-identical to runtime `ef61b156`.
+- [ ] Renew copy `41057771623` and full CI `41057774775` on `2d0ee379`.
+  Packages/native code, dependencies and locks are byte-identical to `ef61b156`.
+  Supersede only its duplicate correctness CI `41056028434` to free runners,
+  retaining passed jobs/history. Fresh local verification records a sidecar exit.
+  Keep paired `41056036677`
+  running untouched. Do not rerun numerical campaigns on this tooling-only change.
+
+## Guarded native body generation investigation (2026-10-29)
+
+- [x] Renew baseline `bin/test-fast`: complete exit 0. Existing `9bf3235c` CI
+  `40929882938` passes all 38 jobs; `828721fd` CI `40949419438` also passes all 38 jobs.
+- [x] Minimal actual-constructor repro observes 65,536 Dart body staging bytes
+  in each native codec. A private scoped-writer model produces 76 exact CBEN
+  boundary vectors with zero input/growth copies and rejects escaped writes.
+- [x] Retain/reject the initial unleased own-test-overlapped timing before using
+  it. After the baseline exits, isolated leased scalar/stream timing is valid
+  only as component evidence. Existing FB putUint32 loops are about 10x slower;
+  the sequential scoped writer is 14–27% slower. A callback-per-word batch also
+  regresses. None is adopted or claimed as parity. Lease-refused attempts run
+  no measurements and are retained separately.
+- [x] Evaluate an indexed guarded region with zero-initialized vector storage,
+  closed-view checks and no raw mutable escape. No benchmark-native pattern
+  generator, body caching, SDK tuning or acceptance-policy change is allowed.
+- [x] Integrate a guarded word writer as a candidate. Its final private typed-data
+  field and closed guard avoid per-word prepare/cursor overhead. Fresh vectors
+  use the native ABI's zero initialization; every reset enables explicit span
+  clearing, including if reset fails. All word writers close before publication.
+  Callback/Future/copy failure blocks publication. The fixed byte-range API
+  intentionally preserves untouched existing values and has no reset method.
+- [x] Apply the same pure-Dart value generation to all three native codecs.
+  Preserve CBEN/PPT bytes and all data, observations and timing windows. CBOR/MP
+  use at most three untransmitted leading allocation bytes to align word stores.
+  Their frozen spans/wire sizes are unchanged. Explicit input/growth copies stay
+  counted; the complete native constructors now have zero body input-copy bytes.
+- [x] Pass 215 focused model/live transport cases and the initial 67 ownership
+  cases, including the standalone freed-allocation/closed-writer GC probe.
+  Complete analysis exits 0 with no new diagnostics. All 167 mutation proofs
+  remain valid. Source review rejects unsupported stale-view and span claims;
+  document/test fixed-range preservation rather than adding unwanted clearing.
+- [x] Complete all 70 ownership checks, including a fail-first isolate-port
+  transfer test. Both scoped types implement Finalizable and are unsendable,
+  so their active guard cannot be cloned into another isolate. The native
+  child verifies closed facades retain no actual native allocation.
+- [x] Reproduce a separate actual native owner-probe coalescing bug: a real
+  64 KiB fragmented Session RPC invokes its contiguous getter once. Move the
+  getter behind the existing owner/encoding checks, retaining every native
+  identity/ownership condition. It now reads zero times, with exact echoed bytes
+  and handshake/Goodbye codes. All 74 related regressions and 167 proofs pass;
+  focused review finds no concrete defect. Supersede the in-progress canonical
+  run before completion and retain its log; no numerical run is discarded.
+- [x] Complete checkpoint reporting: b7a6 supplemental `40925767834` finishes all
+  three shards and merge. Independent reproduction exactly matches comparison
+  and provenance: 50 cases / 1,500 rows / zero integrity findings / 195 numerical
+  diagnostics. Preserve d1b's 193 diagnostics and all earlier cost reports.
+- [x] Freeze/push `ef61b156`; canonical verification completes through all
+  VM/native, consumer and both browser suites with every test passing. The exec
+  session expires after completion; retain the full successful test log without
+  inventing a direct observed process exit status.
+- [ ] Complete frozen-source hosted CI `41056028434`, copy `41056032556` and
+  paired diagnostic `41056036677`. GuardMalloc and binding jobs already pass.
+  No new numerical result or parity acceptance yet; apply shared APIs to CBOR/MessagePack as well. Keep
+  ordinary Dart-values and pre-encoded groups semantically distinct.
+
+## Redundant typed-PPT projection follow-up (2026-10-29)
+
+- [x] Attribute remaining decoder work to its existing profile. Fully reconstructed
+  two-string PPT details are projected again after frame dictionary agreement;
+  the result is discarded. Skip only that duplicate call. All frame/schema,
+  metadata-agreement and other control/history checks remain in place.
+- [x] Private source clone matches 96 valid vectors and 488 mutated-input outcomes,
+  including re-encoded bytes and later model edits. Preserve the initial private
+  script's type-inference compilation failure and correction.
+- [x] Add actual model -> projection round-trips for Result/Event/Invocation at
+  normal/max IDs and partial/null/custom metadata history. All 3,593 VM
+  serializer/Session and 136 browser model/history cases pass; all 167 mutation
+  proofs remain valid. GLM judge/review find no concrete defect after the round-
+  trip regressions, and focused local test advice is checked against real behavior.
+- [x] Retain the refused timing admission. A later own-test-overlapped capture is
+  rejected in full, before using its timings. After both test processes exit,
+  isolated resource-leased ABBA timing records baseline 354,969/352,194 us and
+  candidate 296,254/296,057 us per 200,000 decodes, equal result checks. Local
+  Dart 3.13.1/macOS only; no forced GC or workload/parity claim.
+- [x] Complete canonical verification on `828721fd`: full `bin/verify` exits 0,
+  including native/FFI, VM, consumers and full Chrome/WebAssembly suites.
+- [x] Audit hosted copy proof `40941222405`: 3,224 inputs, 120 live / 300
+  inventory / 32 zero-avoidable-copy checks, all E2EE/transcode/native-crypto
+  counts, unchanged source/library, stable PIDs and cleanup. Three native-view
+  positive phases pass and the intentional negative control is observed.
+- [x] Independently reproduce all 90 rows from paired `40941226221`, including
+  exact comparison, pinned inputs/scenarios and retained production binaries.
+- [ ] Fix three remaining numerical misses: Dart-values RSS 1.016113
+  (CI [1.001543, 1.022033]); native-buffer p99 1.034644
+  (CI [0.800252, 1.330524]); pre-encoded RSS 1.001925
+  (CI [0.992392, 1.017865]). All throughput/CPU/p95/allocation/GC gates and
+  Dart-values p99 pass. Preserve every previous campaign; no unchanged
+  numerical rerun, threshold change, forced GC or measurement-window change.
+- [ ] Complete final-source hosted CI, all 48 primary cases and the final-source
+  50-case supplemental report only after the diagnostic parity prerequisite.
+
+
+## Pre-encoded staging follow-up (2026-10-29)
+
+- [x] Reproduce the remaining pre-encoded application-vector copy with an actual
+  runner/owner test: expected zero Dart staging bytes, observed 65,536.
+- [x] Use complete encoded Dart parts as input to the existing public native
+  builder, then freeze one native owner. The full encoded model, including
+  prefix/padding, is copied once and counted. Schema encoding remains in Dart;
+  this stays distinct from native schema construction. Body data/IDs, CBEN
+  bytes, lease identity, observations and preparation/latency windows stay fixed.
+- [x] Pass 59 focused model/source cases, including both-constructor all-codec
+  rejected-call cleanup, empty/nonaligned vectors,
+  exact ordinary-builder byte equivalence and native input/growth copy counts.
+  All 14 private native-view patch contracts and 167 mutation proofs pass.
+- [x] Complete canonical verification and source/behavior review. Runtime
+  `9bf3235c` complete `bin/verify` exits 0. Focused GLM/Qwen reviews complete;
+  their observer, disposal, race and schema claims are disproved by actual
+  contracts and tests. Keep the advisory evidence in the research record.
+- [x] Renew production copy proof `40929886924`: independent audit verifies
+  3,224 inputs, 120 live / 300 inventory / 32 zero-avoidable-copy checks, all
+  E2EE/transcode/native-crypto counts, raw hashes, stable PIDs and cleanup.
+  Three positive native-view phases pass and their negative control is observed.
+  Source/binary unchanged receipts hold; package_config remains digest-only.
+- [ ] Pass hosted CI `40929882938` and paired diagnostic `40929890341` on the
+  changed constructor. Preserve the five-failure report and earlier supplemental
+  runs. Do not waive numerical gates or start primary before diagnostic parity.
+- [x] Audit VM-only capture `40926807868` on the preceding runtime to attribute
+  the remaining Dart-values client GC/tail cost. Its Dart-values construction
+  is unchanged by this pre-encoded follow-up; profiling never accepts parity.
+  All three windows verify, inputs/library remain unchanged and cleanup is clean.
+  Post-GC-request source/sample counts are zero. The sampled GC intervals do not
+  explain the complete acceptance-run pause/tail cost; preserve that uncertainty.
+
+## Fragmented application-model candidate (2026-10-29)
+
+- [x] Reproduce the remaining application-builder staging copy. A private
+  Dart-only prototype preserves all encoded bytes for 72 CBEN vectors, including
+  zero/max uint32 IDs, empty/tiny/nonaligned sizes and read-only unaligned input.
+  Its 64 KiB body retains input identity: ordinary builder vector-copy counter
+  is 65,536 bytes; fragmented construction is zero body-vector bytes plus an
+  explicitly counted 40-byte owned prefix snapshot. This is correctness/copy
+  evidence only, not performance acceptance or a published API.
+- [x] Preserve the initial failed prototype: it omitted the file-identifier
+  alignment effect for non-multiple-of-eight lengths. Virtual tail alignment
+  fixes it; do not adopt the failed layout or omit boundary vectors.
+- [x] Complete fresh `bin/test-fast` before production edits. Design a generic
+  fragmented packed-source interface/convenience source in a new module; keep
+  the existing protected source identity and native ownership whitelist.
+- [x] Add an application-schema helper for one borrowed byte vector. Own the
+  small schema prefix, retain the original Dart body, validate root/footer/size,
+  and document borrowed-storage lifetime. A Dart reference cannot extend an
+  external database transaction's lifetime.
+- [x] Preserve parts only through the existing fragment-aware send path. Keep
+  ordinary serialization/fallback coalescing cached and explicitly counted;
+  preserve E2EE/transcode behavior. Reuse the existing WAMP tail-vector layout
+  so concatenated wire bytes stay unchanged. No Rust/ABI/schema change is needed.
+- [x] Use that public generic helper in the Dart-values model constructor while
+  preserving its Dart-allocated body, unique identities, CBEN schema, preparation
+  timer, validation, every observation and all measurement windows. Native-buffer
+  and pre-encoded constructors keep their separate declared semantics.
+- [ ] Prove model/frame byte equivalence, body identity, fallback copy counts,
+  caller-list snapshots, ownership/non-forgeability and VM/browser behavior;
+  rerun native correctness/copy evidence and canonical local/hosted verification. Full local `bin/verify` exits 0;
+  production proof `40922342731` passes and its independent audit verifies all
+  3,224 source inputs plus 120 live / 300 inventory / 32 zero-avoidable-copy
+  checks. All three native-view positive phases and their cleanup pass; the
+  intentional negative control is observed. Corrected-source CI `40923229188`
+  is pending, so this combined checklist item stays open.
+- [ ] Only adopt measured improvement under the existing paired policy, then
+  finish the 48-case primary. The final-runtime 50-case supplemental refresh
+  runs in parallel after local verification/copy proof to complete pending cost
+  reporting; retain every previous report and never substitute diagnostics for
+  primary acceptance.
+
+Current paired result `40922533817`: all 90 rows complete, independently matched
+against retained inputs and binaries. Five numerical misses remain: Dart-values
+throughput 0.995779, p99 1.114498, GC 1.212659 and RSS 1.020991; native pre-encoded
+RSS 1.006725. Native-buffer passes every metric. Keep both earlier seven-failure
+and current five-failure reports; no unchanged acceptance rerun or threshold
+change. The client's GC accounts for the excess despite lower allocation;
+router GC is similar. Inspect existing VM-only heap/GC attribution on this
+changed runtime before proposing another optimization. Supplemental refresh
+`40925767834` runs independently; it never accepts the 48-case primary.
+
+Local heavyweight architecture advice was attempted through the approved
+companion helper and refused because the native-mutation resource lease is
+active. Do not bypass that gate. The current work is a bounded pure-Dart
+correctness prototype and ordinary canonical tests, not local native profiling.
+
+Implementation checkpoint: 149 focused core/client/benchmark cases pass,
+including Session preservation and all three construction-source contracts.
+Additional nested-table/float64 alignment and invalid-identifier guards pass.
+All 167 mutation proofs and all 14 private native-view patch contracts pass.
+The first integration invocation found a test API-name typo and missing explicit
+native-library selection; both tests are corrected and pass. Companion test and
+review helpers remain lease-blocked. Full `bin/verify` is running. A direct
+dart2js browser invocation times out loading suites locally; the canonical
+macOS WebAssembly package-root route passes 49 core and 48 Session/E2EE cases,
+plus the unchanged browser control. Keep every failure log.
+The executable combined serializer wrapper catches metrics initialization order:
+keep the disabled-state contract first, then enable metrics for later groups.
+The corrected wrapper passes all 3,688 cases. This is a test-only follow-up to
+frozen runtime `490f60bf`, whose CI `40922324217`, production proof `40922342731`
+and paired diagnostic `40922533817` are running. No measured production input changes.
+
+## WAMP serializer compatibility
+
+The current [WAMP Internet-Draft](https://wamp-proto.org/wamp_latest_ietf.html)
+requires an implementation to support at least one serializer; its Basic
+Profile defines JSON, MessagePack and CBOR bindings, while the Advanced Profile
+may define more. The draft also lists FlatBuffers as a RawSocket serializer and
+as an E2EE `ppt_serializer`. This supports integrating FlatBuffers alongside
+the existing session serializers without adding an ObjectBox-specific wire
+format. The draft is experimental and can change.
+
+The WAMP repository's [issue #355](https://github.com/wamp-proto/wamp-proto/issues/355)
+discusses FlatBuffers as an additional serializer and points to Autobahn's
+WAMP-message schemas, but remains open with “Needs consensus” and describes
+that implementation as alpha. Treat that issue as historical precedent, not a
+normative recommendation. The current draft is the stronger compatibility
+reference.
+
+## Strict parity checkpoint and completed supplemental audit (2026-10-29)
+
+- [x] Pass complete local verification on `cd54760c`, including all 2,832
+  benchmark cases and Chrome/WebAssembly. Production proof `40784345437` passes
+  120 live / 300 inventory / 32 no-avoidable-copy with unchanged inputs/binaries.
+- [x] Preserve diagnostic `40784342071`: 90 rows, four numeric misses (three RSS
+  points and Dart-values p99 confidence). All throughput/CPU/allocation/GC/p95
+  gates pass. Do not discard the preceding two-RSS-miss report or waive gates.
+- [x] Audit fresh read-only Dart-values memory capture `40783409254`, six pairs,
+  unchanged inputs. Identical FB fresh-process peak medians span 388–421 MiB;
+  logical heap Used buckets include garbage. No retained leak is established.
+- [x] Keep the private generated CALL prototype unadopted: its ~0.3 us/frame
+  saving and variable component RSS are insufficient to identify the blocker.
+- [x] Confirm exact-runtime CI `40788573756` and preceding `40780584962`
+  entirely green.
+- [x] Complete supplemental `40789946129` on `cd54760c`: all three batches plus
+  merge job succeed. Independently revalidate raw rows and pinned inputs/binaries;
+  recomputed result exactly equals hosted output: 50 cases / 1,500 rows, no
+  integrity findings, 194 numerical diagnostic findings. Never primary acceptance.
+- [x] Retain obsolete-source `40782047961` partial artifacts; no report was
+  cancelled because of a result.
+- [x] Continue under unchanged strict RSS/latency budgets as requested by the
+  user. No relaxation has been authorized.
+- [ ] Fix the remaining three-case diagnostic performance failures and complete
+  the final-runtime 48-case primary. Refresh the complete supplemental report if
+  the runtime changes; retain all older reports.
+
+## Retire forwarded reply envelopes (2026-10-29)
+
+- [x] Preserve `f204100d` full bin/verify exit 0 and production proof
+  `40880838998` (120/300/32 with unchanged inputs/binaries). Independently
+  reproduce diagnostic `40880833788`: eight numerical misses, not acceptance.
+- [x] Reject/revert early report-byte staging; restore bench_main exactly to
+  `69193827`. Preserve every failed report and all strict budgets.
+- [x] Reproduce the internal reply envelope's retained application graph. After
+  successful SendPort snapshotting, retire only the private received payload
+  fields, preserving forwarded contents, control flags and nested application
+  objects. Actual 2,000-sample HTTP liveness is zero without extra JSON staging.
+- [x] Pass nine SDK contract tests (same/cross-isolate, progressive/final/error,
+  PPT/details, immutability, transferable moves, failed-send atomicity, closed
+  ports, invalid/missing progress), 785 native/router regressions, all nine HTTP
+  pairs, clean analysis and 167 mutation proofs. Resolve companion concerns
+  against actual SDK behavior and unchanged strict validation; no code waiver.
+- [x] Freeze runtime, renew full verify/copy/CI and retain the paired evidence.
+  Runtime `dec17f8b`: full local verify and copy proof `40891602695` pass.
+  Independent raw-row validation reproduces 120 live / 300 inventory / 32
+  zero-avoidable-copy checks. Paired `40891596427` is independently reproduced:
+  90 rows, seven numerical misses (three RSS and Dart throughput/CPU/p95/p99).
+  CI `40891584949` passes completely. CPU profile `40896349976` attempt 1 fails before
+  FlatBuffers readiness; preserve its partial MessagePack capture and unchanged
+  source/library receipts. Fix the masking cleanup error before renewing it.
+  The actual generated probe passes seven error/value/order cases and all 19
+  profile-tool tests; restoring old semantics fails the private negative control.
+  Follow-up `40899272991` preserves perf's actual pre-readiness exit 255.
+  Publish the existing VM-only path as `flatbuffers_vm_profile`, with native
+  stacks explicitly unmeasured. Pass both real shell argument branches, all
+  21 CI execution tests, 19 profile-tool tests and 167 mutation proofs.
+  Local private probe admission is blocked by the shared resource lease.
+  Preserve every report and the refusal; never bypass the lease or waive gates.
+- [x] Complete source-attributed VM-only profile `40901845935` on `d1b395e7`:
+  unchanged sources/library, all three calibrated CPU windows, retained class
+  heaps and existing traces, clean process exit. Native stacks are unmeasured.
+- [ ] Resolve the seven numerical misses; only then run the 48-case primary.
+- [ ] Finish fresh 50-case supplemental report `40906173218` on `d1b395e7`.
+  Run the diagnostic report alongside attribution to complete pending cost
+  reporting; it cannot accept primary parity. Keep the older report and every
+  new numerical difference, and never pool absolute timing across shards.
+
+## Encode completed reports before internal routing (2026-10-29)
+
+Status: rejected after the full `f204100d` paired diagnostic; restored the
+previous report-routing implementation. Liveness alone was insufficient.
+
+
+- [x] Trace the supervisor's retained samples through the internal response
+  lazyPayload/argumentsKeywords/body graph after a real 2,000-sample request.
+- [x] Prototype, then encode the same complete report into standard UTF-8 JSON
+  before routing. Preserve field order/schema, every observation, exact content
+  type/charset and post-window timing. Use the existing defensive bytes API.
+- [x] Confirm zero retained supervisor WampSamples after diagnostic collection
+  for both the private prototype and actual follow-up; original retains 2,000.
+- [x] Pass all nine live HTTP codec/construction pairs, content-type/charset,
+  clean analysis and all 167 mutation proofs. Complete the focused companion
+  review; reject its JSON-string staging speculation against actual encoder.
+- [ ] Renew full verification and frozen-source hosted gates, including the
+  repaired private native-view adapter. Never treat liveness as RSS acceptance.
+
+## Release completed request sample contexts (2026-10-29)
+
+- [x] Identify completed WampSample retention in the idle worker profile; confirm
+  the loop pattern in a controlled actual-model probe: inline retains 20,000
+  objects / 2,240,000 bytes, awaited handler retains zero after diagnostic-only
+  collection. Preserve identical 1,428,904-byte output/hash. No production GC.
+- [x] Move the unchanged request try/catch into an awaited function. Preserve
+  all snapshots/windows, sample values, complete JSON conversion, LF/flush,
+  error recovery, blank/STOP handling and outer native shutdown.
+- [x] Pass the extended real-worker malformed/unsupported/compact/named/STOP
+  regression, all 143 sample/boundary/lifecycle cases, clean analysis and all
+  167 mutation proofs. Qwen test advice completes; reject its suggested RSS/GC
+  acceptance assertion. Its review is incomplete at token limit; GLM times out. Request a smaller
+  focused review and keep incomplete outputs labelled.
+- [x] Verify handler statement tokens match the original exactly after ignoring
+  formatting-only trailing commas. No metric-window operation is reordered.
+- [x] Freeze runtime `69193827`. Actual standard-SDK worker capture has unchanged
+  source/library hashes and clean exit; all three client codecs retain zero
+  WampSamples after diagnostic-only collection. No production/acceptance GC.
+- [x] Complete the smaller Qwen review. Its window-order concern is unchanged
+  original behavior, rejected against the exact 537-token handler comparison.
+- [x] Reproduce stale private patcher anchors in full verification and hosted
+  copy prerequisite `40877485342`; repair its shadow-only helper/library wiring.
+  Pass all 14 tests, preserving exact-one-match refusal and post-window capture.
+- [ ] Renew full verification, CI and copy proof after the diagnostic tooling
+  repair. Paired diagnostic `40877480175` continues on unchanged runtime.
+  Keep existing gate policy.
+- [ ] After a passing paired diagnostic, complete all 48 primary and refresh
+  all 50 supplemental cases on the final runtime.
+
+## Generated opaque CALL encoder candidate (2026-10-29)
+
+- [x] Reproduce generic CALL table scratch-list/scanning costs with actual
+  production preparation and unchanged native-reference prefix construction.
+- [x] Add a guarded pinned generated CALL/Message writer for simple opaque PPT,
+  preserving metadata bytes, schema field order, deferred payload aliasing,
+  borrowed-builder identity, copy counters and complete generic fallback.
+- [x] Pass 210 focused serializer cases, including exact generic-wire equivalence
+  for inline/reference/deferred storage, all five scheme values, absent defaults,
+  zero/max IDs, empty/64-KiB bodies, UTF-8 and lone surrogates. Invalid numeric
+  doubles, unknown fields and foreign references remain rejected.
+- [x] Production AOT component, generic/generated/generated/generic: 500,000
+  full preparations and prefix encodes take 904/647/661/879 ms. Exact 192-byte
+  prefixes match. Component RSS is inconclusive; never primary acceptance.
+- [x] Keep analysis clean and all 167 source-bound mutation proofs valid.
+  Local test/review/debug companion requests remain lease-blocked.
+- [x] Pass 67 combined native lifetime/profile and writer checks with the canonical
+  ffi-test library. The initial direct command omitted the library environment;
+  its loader failure is retained, and the corrected command passes.
+- [x] Pass canonical `bin/test-fast`, including all 2,832 benchmark cases.
+- [x] Reproduce and fix the test-only JavaScript integral-double assumption;
+  runtime code is unchanged. Pass all 49 writer tests on Chrome and clean analysis.
+- [x] Complete production copy proof `40872810450`: unchanged source/binaries,
+  120/300/32 with all E2EE/transcode inventories. Preserve paired `40872805498`:
+  four numerical misses (Dart RSS/p99-confidence/GC-confidence; pre-encoded RSS).
+  Native-buffer passes all seven. Keep all original budgets and failed reports.
+- [ ] Renew full `bin/verify` after the storage failure: a benchmark test compile
+  fails with ENOSPC; do not claim a full passing checkpoint. Losslessly compress
+  owned historical raw reports with verified hashes, retaining all data/receipts.
+  Corrected-test CI `40873583513` is queued. Native perf capture attempt 1 retains
+  FB/MP but fails before CBOR; retain it and retry instrumentation once.
+- [ ] Establish end-to-end improvement, then renew full primary/supplemental
+  acceptance on the final runtime.
+
+## Direct worker JSON UTF-8 encoding (2026-10-29)
+
+- [x] Preserve `3a825a76` full `bin/verify` exit-0 checkpoint and its
+  120/300/32 production copy proof. Its two RSS failures remain blockers.
+- [x] Identify worker stdout JSON-string staging. Use the standard SDK UTF-8
+  encoder with the same named/positional projection; preserve every field,
+  byte, LF framing, flush and error response. No workload/window/SDK changes.
+- [x] Pass 121 focused boundary/lifecycle cases, clean analysis and all nine
+  live HTTP codec/construction pairs. Cover exact Unicode/surrogate, wide-int,
+  null/zero, empty, nonfinite/unsupported/cyclic and recovery behavior.
+- [x] Compare actual-source AOT components: identical 1,180,013 bytes/hash;
+  20,000-record peak RSS 28.15–28.16 -> 25.56 MB and encoding
+  12.47–13.63 -> 7.74–8.16 ms. Do not claim end-to-end acceptance.
+- [x] Pass full verification, production copy proof and exact-runtime CI. Complete
+  and independently audit all 50 supplemental cases. The paired diagnostic still
+  has four numerical failures, and the final primary remains outstanding.
+- [ ] Establish final primary performance acceptance. Companion tests/review are
+  still blocked by the native-mutation resource lease on retry; the prior GLM
+  semantic review exhausted its token limit and is not a completed review.
+
+## Final sample JSON projection (2026-10-28)
+
+- [x] Verify `5f54fe7d` with full local `bin/verify`. Production copy proof
+  `40774536906` passes 120 live / 300 inventory / 32 no-avoidable-copy checks
+  with unchanged inputs/binaries and the approved standard-SDK scope.
+- [x] Preserve diagnostic `40774531252`: 90 rows, six numerical findings;
+  native-buffer passes every metric, pre-encoded spans miss only RSS, and
+  Dart values miss GC/p95/p99/RSS/throughput. Do not relax any gate.
+- [x] Replace temporary named maps and private positional lists with read-only
+  sample projections at the final standard JSON encoder. Keep public snapshots,
+  all observations, worker negotiation, workloads and measured windows intact.
+- [x] Pass 119 focused schema/boundary/lifecycle cases, clean analysis, the
+  nine-pair live HTTP smoke and 167 source-bound mutation-proof checks.
+- [x] Compare actual-source AOT components: identical named/positional JSON
+  bytes; HTTP peak RSS 56.4–56.5 -> 43.8–43.9 MB and positional worker RSS
+  28.4–28.8 -> 25.7 MB for 20,000 samples. Do not call this WAMP acceptance.
+- [x] Pass the complete 2,830-case benchmark suite and production copy proof
+  `40780581127` on `3a825a76`: 120 live / 300 inventory / 32 no-avoidable-copy
+  checks, unchanged inputs and binaries.
+- [x] Preserve paired diagnostic `40780577426`: 90 rows, only two RSS failures
+  (Dart values 1.012515; pre-encoded 1.007746); all other metrics pass and
+  native-buffer passes all seven. Diagnostic ineligibility is the only other
+  finding. Keep every previous failed report and original gate.
+- [x] Retry local companions after their resource lease clears. Qwen debug
+  confirms numeric-comparison failure. Its review's null-presence premise is
+  incorrect against the unchanged public snapshot and 256-combination test;
+  derived containsKey/length findings do not apply. GLM review is running with
+  that original contract supplied.
+- [x] Complete full local `bin/verify` on `3a825a76`, including consumer/browser.
+- [ ] Complete hosted CI on that source; no failure has been reported.
+- [ ] Inspect fresh frozen-source Dart-values memory/allocator attribution
+  `40783409254`; it and supplemental campaign `40782047961` are queued. Reduce
+  actual memory use without changing GC/allocator settings or measured windows.
+- [ ] Pass all 48 primary and 50 supplemental cases on final source before
+  closing #103/milestone or marking PR #132 ready.
+
+## Interrupt native router idle polling (2026-10-28)
+
+- [x] Pass full local `bin/verify` on `c705b5bd`. Confirm current hosted Fast
+  Checks/binding/shared-build pass; fix any remaining CI failure before features.
+- [x] Audit `40716746367`: all throughput gates and all native-buffer numerical
+  gates pass; eight findings remain across Dart values/pre-encoded spans. Both
+  exact-runtime copy proofs `40716750991`/`40718047424` pass 120/300/32 inventories.
+- [x] Audit CPU capture `40720372509` and the byte-verified live poll control.
+  Preserve raw observations. Keep cases, polling defaults and budgets unchanged.
+- [ ] Add coalesced optional native readiness notification after successful
+  RawSocket/WebSocket queue publication, re-armed before router polling. Use
+  one synchronized nullable callback and preserve timer fallback.
+- [ ] Add a lifecycle-safe Dart broadcast bridge using NativeCallable.listener.
+  Detect the optional ABI as a pair, unregister before closing the callable,
+  ignore stale notifications and support cancel/relisten/shutdown/restart.
+- [ ] Connect router pacing, cancel abandoned idle timers, and verify queued/
+  in-flight wakes without transferring payloads or owners. Reproduce the old
+  scheduling floor with a deliberately long poll interval before the change.
+- [ ] Test native registration/coalescing/re-arm/unregister races, actual queue
+  publication, old ABI, process exit and a bounded live RPC with a long fallback.
+- [ ] Pass full verification/CI/copy proof and unchanged paired diagnostic;
+  then pass full primary and supplemental acceptance before closing #103.
+
+## Serializer test inventory repair (2026-10-28)
+
+- [x] Reproduce the five missing-inventory assertions during full verification
+  on `cb0c44aa`. Register the new matcher test in all four CBOR/MessagePack
+  support lists and the shared serializer suite; do not omit it from testing.
+- [x] Pass all 87 verification-tool and all 3,651 shared serializer-suite tests.
+  Add regressions for false/zero control fields introduced after a simple PPT
+  read. Product runtime and source-bound mutation proofs remain unchanged.
+- [x] Obtain the now-reachable Qwen debugger's inventory diagnosis and verify it
+  against the failing assertions. Broad GLM review/Qwen test planning requests
+  time out; they do not count as completed review. A completed bounded Qwen
+  review reports no concrete findings. The exact dictionary guard excludes
+  additional keys, and encoding fallbacks preserve payload-view semantics.
+- [x] Correct the new zero-value fixture: zero publisher IDs remain invalid;
+  legal zero trustlevel exercises the intended round-trip. Pass all 1,982
+  client/core cases and rerun all 3,651 serializer-suite cases successfully.
+- [ ] Pass full local verification and replacement hosted CI.
+
+## Source-bound mutation proof renewal (2026-10-28)
+
+- [x] Reproduce the `66282e65` local/hosted Fast Checks preflight failure. The
+  client file change shifts three unchanged mutation sites and invalidates the
+  old source hashes. Preserve the failure; do not waive the gate.
+- [x] Map each old mutation to an identical original/replacement/operator in
+  unchanged source blocks. Recheck cache validation, root string-key policy
+  call sites and null-to-integer conversion semantics; existing reasons hold.
+- [x] Execute all seven mutations at the three sites in a private source
+  snapshot with no equivalents. Exactly the three proven-equivalent mutations
+  survive; four controls are assertion-killed. Clean/restored tests and all
+  mutation input hashes pass. The expected raw 57.14%/95% failure is not a
+  production acceptance report. Renew only those three IDs/hashes/reasons.
+- [x] Pass the normal preflight: 157 proofs across 14 targets/11 sources.
+  Extend the client guard regression to every native string slot and flag.
+- [ ] Pass full local verification and replacement hosted CI. Runtime files
+  remain identical to `66282e65`; retain its separate copy/performance runs.
+
+## Complete simple-PPT metadata models (2026-10-28)
+
+- [x] Audit diagnostic `40710916340` on `8fdc0ad0`: 90 rows, eight numerical
+  failures, diagnostic ineligibility only. Native-buffer passes every numerical
+  comparison; Dart values and pre-encoded spans remain blockers. Preserve all
+  preceding failed observations and the unchanged budgets/case inventory.
+- [x] Audit production copy proof `40710922147`: 120 live cases, 300 inventory
+  rows, 32 zero-avoidable-copy checks, source/binaries unchanged. E2EE/transcode
+  accounting remains complete within the approved standard-SDK scope.
+- [x] Pass `bin/test-fast` on `8fdc0ad0`. Supersede its full verify during tooling
+  checks for the metadata follow-up; claim no frozen-source full pass for it.
+- [x] Identify eager FlatBuffers metadata history on complete two-field PPT
+  RESULT/EVENT/INVOCATION models. Share the router's bounded ASCII matcher with
+  native clients; guard all additional native flags/fields. The Dart reader
+  recognizes the already-validated two-string logical dictionary. Preserve
+  projection checks, payload anchors, extra fields/defaults/nulls and fallbacks.
+- [x] Pass 1,948 client/1,896 router binding cases, 54 core metadata/retention
+  cases and 37 browser cases. Cover source mutation, model edits, Unicode,
+  field order/header boundaries, malformed/truncated/duplicate/tagged bytes,
+  custom dictionaries and explicit null/false values. Local companion review
+  remains blocked by the native-mutation resource lease.
+- [x] Run precompiled before/after component probes in B/A/A/B order: median
+  run-time ratios 0.068 for native RESULT binding and 0.742 for the Dart reader.
+  These local component timings cannot replace the strict paired campaign.
+- [ ] Finish full local verification and exact-source CI, owned-copy proof and
+  paired diagnostic. Fix every remaining performance failure, including RSS.
+- [ ] Pass the full unchanged primary and supplemental campaigns before
+  closing #103/the milestone or changing PR #132 out of draft.
+
+## Shared deterministic body generation (2026-10-28)
+
+- [x] Pass full local `bin/verify` on `1c80fbf4` and confirm runtime hosted CI
+  `40693398693` passes on `28642b03`.
+- [x] Resolve Linux client CPU-clock samples from successful capture
+  `40705845411`, attempt 2. Preserve attempt 1's transient perf startup failure.
+  Shared body generation occupies 314/1135 FlatBuffers client samples, with
+  ambiguous reused JIT ranges and non-JIT samples kept separate.
+- [x] Before changing the loop, pass independent arithmetic-reference tests over
+  all 256 seeds, word tails, large bodies, high identities and buffer independence.
+- [x] Fill four successive deterministic bytes per little-endian word across
+  every codec; preserve the byte loop on other hosts and for the final tail.
+  All 36 payload-codec tests and targeted analysis pass. No workload bytes,
+  copy counters, benchmark cases, measurement floors or acceptance budgets change.
+- [x] Run the repeated local 64-KiB public-API component probe: median candidate/
+  reference time ratio 0.617 versus 0.999 before. These timings are diagnostic.
+  Local companion use remains blocked by the native-mutation resource lease.
+- [ ] Pass full verification, exact-source hosted CI/copy proof and paired
+  diagnostic. Resolve every remaining performance failure, including RSS.
+- [ ] Pass the full unchanged primary campaign and supplemental accounting
+  before closing #103 or the milestone and making PR #132 ready.
+
+## Client JIT attribution and allocator evidence (2026-10-28)
+
+- [x] Retain failed Linux capture `40703182372`: the worker-as-executable proxy
+  correctly trips the existing source-worker VM-metrics guard. Preserve that
+  guard. Use a profiling-only Dart-executable override instead, keeping the
+  normal `connectanum_bench:wamp_client_worker` entry point and VM arguments.
+  Regression assertions reproduce the wrong entry point before the correction.
+- [x] Pass the revised 18 profile tests and targeted analysis. A short local
+  live RPC smoke with a passthrough Dart proxy completes six rows and records
+  the original VM/source-worker arguments. Its short-run policy rejection is
+  expected; neither it nor the Linux-symbol-unavailable macOS attempt is parity.
+- [x] Pass the complete `bin/test-tooling` suite after the client-map changes.
+- [x] Audit allocator run `40696555847` on verified product source `28642b03`.
+  Six fresh process pairs complete without forced GC or allocator tuning.
+  Live glibc arena estimates are similar across codecs; cached VM pages and
+  free allocator bins differ. These non-atomic snapshots cannot identify all
+  resident memory or establish parity. Do not subtract free bins from RSS.
+- [x] Capture current Dart-values CPU profile `40698440958`. Its VM samples
+  include native/blocking stacks; hot client perf addresses remain unresolved
+  because the existing diagnostic retains only router JIT maps.
+- [x] Extend only the diagnostic launcher to request client JIT symbols on
+  Linux, preserving the existing VM/worker arguments without shell parsing.
+  Keep per-codec client maps, PID/source/hash attribution and launcher integrity.
+  Reject missing, malformed, foreign or changing client PID maps.
+- [x] Pass all 18 profiling-tool tests. Local macOS cannot validate the Linux-only
+  symbol flag; its real-worker startup attempt rejects that platform-specific
+  flag. Linux capture remains required. Local model testing/review is blocked
+  by an active native-mutation resource lease; do not bypass that lease.
+- [x] Capture Linux router/client JIT maps in `40705845411`, attempt 2, on
+  `1c80fbf4`, with source/launcher/binary hashes unchanged. Resolve hot shared
+  body-generation samples; preserve reused-address ambiguity. The diagnostic
+  changes no runtime behavior or acceptance gate.
+
+## Typed PPT envelope alignment (2026-10-28)
+
+- [x] Pass full local `bin/verify` on corrected source `28642b03`, including
+  native/VM, live router and Chrome/Dart2Wasm suites. Its production copy proof
+  `40693403608` passes 120 live cases/300 inventory rows and 32 no-copy checks
+  with unchanged source/binary receipts. Earlier `9204be2c` CI `40679539974`
+  passes; current CI `40693398693` also passes.
+- [x] Audit source `28642b03` diagnostic `40693409305`: 90 rows, eight numerical
+  failures, no integrity findings beyond explicit diagnostic ineligibility.
+  Both native modes pass throughput, latency, CPU, allocation and GC; all three
+  fail RSS. Dart values retain additional CPU/GC/throughput/latency failures.
+  Preserve the preceding six-failure diagnostic `40691719068` as well.
+- [x] Confirm ordinary Dart body offset 196 after promotion, versus the old
+  unaligned 202. Restore the privately instrumented runner byte-for-byte; the
+  short macOS probe is never performance acceptance.
+- [ ] Inspect allocator attribution `40696555847` and current Dart-values CPU
+  profile `40698440958`, then choose the next measured production improvement.
+- [x] Reproduce mixed MessagePack custom-metadata routing failures during full
+  verification of `647517fa`. Its fallback emits bare binary arguments; reuse
+  the existing JSON singleton list view for MessagePack without mutating the
+  source message or owner. All 122 live PPT/router cases pass after the fix.
+- [x] Preserve the internal retention check for direct, full-allocation payloads
+  as well as wrapped subviews. Read-only contents survive message/session close.
+- [x] Cancel superseded CI `40691714408` and copy proof `40691723293`. Keep
+  diagnostic `40691719068` and profile `40691881742` as observations only, never
+  follow-up-source acceptance. Rerun full local verification with the routing fix.
+- [x] Measure the existing public generated-list construction option before
+  adding an API: at 64 KiB it is roughly four times slower than typed staging
+  under equal builder capacity. Do not add a generator API based on this probe.
+- [x] Pass frozen-source full `bin/verify` on `9204be2c` and production owned-copy
+  proof `40679548417`. Prior-source CI `40674226241` passes; current CI
+  `40679539974` remains pending without reported failures.
+- [x] Audit 90-row diagnostic `40679544893`: all seven numerical metrics pass
+  for pre-encoded native spans; eight fail across Dart values/native buffers.
+  No integrity findings; diagnostic ineligibility remains explicit.
+- [x] Inspect fresh-process memory attribution `40679553230` and the preceding
+  post-GC heap profiles. Distinguish used heap from cached VM pages; do not
+  remove allocation owners or redesign schema retention without stronger proof.
+- [x] Reproduce live FlatBuffers body offsets: 202 for ordinary Dart values,
+  40 for native-buffer and pre-encoded spans. This short private macOS layout
+  probe is diagnostic only and never acceptance evidence.
+- [x] Reproduce the missing opaque vector for ordinary typed PPT wrappers.
+  Promote one `Uint8List` with effective custom FlatBuffers PPT metadata into
+  the existing opaque field. Preserve encoded args/kwargs, other serializers,
+  encrypted `wamp` and cipher/key paths. Read current wrappers rather than
+  caching byte identity across mutation.
+- [x] Pass 143 writer/fragment tests, 299 Session/PPT/key-selection tests and
+  targeted analysis. Test seven message types, empty/read-only/subview buffers,
+  mutable wrapper edits and effective-metadata guards.
+- [x] Preserve read-only opaque views without copying. Keep a legacy wrapped
+  fixture alongside the direct layout and explicitly decode both. Pass the
+  final 155 combined fragment/retention/Session tests and targeted analysis.
+  Local review's proposed kwargs regression does not reproduce: the helper's
+  optional kwargs default is null, while explicit/lazy kwargs have separate
+  passing guard tests. Other argument shapes continue to use CBOR.
+- [ ] Finish full verification, then rerun exact-source CI,
+  owned-copy proof and the three-case paired diagnostic.
+- [ ] Run and pass the unchanged full primary gates and supplemental accounting
+  before closing #103, the milestone or the PR's draft state.
+
+## Aligned typed payload reads (2026-10-28)
+
+- [x] Pass full local `bin/verify` on `3950a6b1`, owned-copy proof
+  `40674234871` and CPU profile `40674238323`. Hosted CI `40674226241` remains
+  pending, with no current failure.
+- [x] Audit diagnostic `40674230759`: all three throughput gates pass; nine
+  CPU/latency/RSS comparisons still fail, plus diagnostic-only ineligibility.
+  There are no other integrity findings. Keep all declared budgets unchanged.
+- [x] Add a shared aligned little-endian typed-word verification path. Preserve
+  ByteData reads for unaligned/other-endian input and byte-precise corruption
+  diagnostics for both paths. No payload bytes, tails or workload operations
+  are skipped.
+- [x] Pass all 34 payload-codec tests and targeted analysis. Check all bytes of
+  a read-only nonzero-offset view with matching prefix guards; a wrong-origin
+  negative control accepts a corrupted first word that the real reader rejects.
+  A bounded local GLM review reports no findings.
+- [x] Replay the public verification APIs locally on 64-KiB canonical payloads.
+  Candidate/baseline timing ratios are 0.554 FlatBuffers, 0.548 CBOR and 0.991
+  unaligned MessagePack. This is a component probe, not performance acceptance.
+- [ ] Complete frozen-source full verification, hosted CI and the three-case
+  paired diagnostic for this candidate.
+- [ ] Once diagnostic parity is credible, run the full 48-case primary and
+  complete supplemental campaign, audit reports and resolve every policy failure.
+
+## Scalar-string processing and CBOR count correction (2026-10-28)
+
+- [x] Confirm exact-source CI `40649318425` passes on `fed23eb6`.
+- [x] Audit strict primary `40635344416`: all 1,440 rows/48 cases complete,
+  no integrity findings, 229 numerical parity failures. Keep the unchanged
+  throughput, latency, CPU, allocation, GC and RSS gates.
+- [x] Audit supplemental `40635435979`: all 50 cases complete, no integrity
+  findings and 234 diagnostic performance findings. E2EE/transcode owned-copy
+  counters are present; dependency internals remain explicitly unmeasured.
+- [x] Remove the separate ASCII scan before writing scalar-array strings and
+  enable the standard builder's ASCII option for WAMP routing fields on
+  VM/native/web. Preserve normal Unicode fallback and the standard web builder.
+- [x] Reproduce invalid CBOR array headers for 24–47 scalar items before
+  changing behavior. Write the extended count header and include it in byte
+  budgets; verify count/string-header boundaries and partial ASCII fallback.
+  All 55 focused encoding/writer tests pass.
+- [x] Pass full local `bin/verify` on `d6d7ae4c`.
+- [x] Complete exact-source diagnostic `40668421252`: 90 rows, 12 numerical
+  parity failures and the expected diagnostic-only eligibility finding. CPU
+  point ratios remain 1.0267/1.0132/1.0015 for Dart values/native buffer/
+  pre-encoded span. There are no other integrity findings.
+- [x] Pass exact-source owned-copy proof `40668424984` and CPU profile
+  `40668691198` attempt 2. Retain attempt 1's failed perf attachment.
+- [x] Retain canceled warm-up runs `40668414193` (primary) and `40668418103`
+  (supplemental). Free those runners for CI/profiling until diagnostic parity
+  is credible; neither canceled run supplies acceptance evidence.
+- [x] Reproduce CI `40668529495`'s dart2js reference-test failure. Use a
+  string-only HELLO fixture with required roles rather than the SDK builder's
+  unsupported uint64 accessor. All 55 focused tests pass on VM and JavaScript.
+- [x] Reduce native opaque-control reserve from 1,024 to 256 bytes. The
+  canonical typed CALL prefix is 208 bytes and still needs one allocation/zero
+  growth; a 4,100-character procedure still grows safely and copies 16 bytes.
+  All seven native frame/ABI lifetime tests pass. Verify physical alignment in
+  `_NativeAllocator.allocate` and counted copies in `resize`; local GLM review
+  identifies no ownership change. Keep the potential extra growth for metadata
+  in the 256–1,024-byte band visible in subsequent measurements.
+- [x] Complete full local verification on `3950a6b1` with the simpler
+  all-builder ASCII option, smaller native reserve and browser-fixture correction.
+- [ ] Finish hosted CI `40674226241` on that source.
+- [ ] Resolve the focused performance gaps, then repeat exact-source primary
+  and supplemental acceptance campaigns without changing the policy.
+- [ ] Resolve remaining performance failures before marking PR #132 ready,
+  closing #103 or completing the milestone. Passing copy accounting alone
+  does not establish performance acceptance.
+
+## Hosted browser-coverage timeout correction (2026-10-28)
+
+- [x] Keep the core browser test suite and coverage policy unchanged while
+  extending its hard command deadline from 1,200 to 1,800 seconds. Exact-head
+  CI `40643065271` completed all 5,099 core browser tests but reached the old
+  deadline before coverage collection completed; its preceding successful run
+  took 19m32s for 5,098 tests.
+- [x] Run shell syntax validation, `git diff --check`, `bin/test-fast` and
+  full `bin/verify`; all pass on this working tree.
+- [x] Complete hosted exact-head CI after this deadline correction:
+  `40649318425` passes on `fed23eb6`.
+- [ ] Preserve strict performance acceptance. The exact-source primary and
+  E2EE/protocol benchmark campaigns are still running; the payload-size
+  diagnostic alone showed strong 1-MiB results but unresolved 10–100-KiB
+  parity misses and cannot close issue #103.
+
+## Exact-head verifier and byte-vector candidate (2026-10-27)
+
+- [x] Change the VM FlatBuffers byte-vector bulk copy from `setAll` to
+  `setRange`; retain the existing copying and ownership contract.
+- [x] Speed benchmark body verification for `Uint8List` using little-endian
+  32-bit groups and a precomputed expected-word table. On a mismatching word,
+  check constituent bytes so reports retain the exact corrupt offset. Keep
+  generic `List<int>` verification byte-wise.
+- [x] Test word-lane and trailing-byte corruption, unaligned read-only typed
+  views without a body copy, and the generic-list fallback.
+- [x] Run focused serializer and benchmark tests, `bin/test-fast`, full
+  `bin/verify`, and `git diff --check`; local VM, Chrome/Dart2Wasm, Rust/native,
+  live WAMP and consumer checks pass. The live integration matrix completed all
+  2,012 cases. These checks do not establish performance parity.
+- [x] Commit and push this candidate as `1101f91b38051871694722a3c29e45b7975ec4cf`.
+  Dispatch exact-head CI `40526111656`, strict primary `40526116631`,
+  supplemental shards `40526122419` and native-view/E2EE/transcode copy proof
+  `40526128344`.
+- [x] Complete the production copy proof: 120 live owned-path cases include
+  96 E2EE rows, 120 transcode rows and 48 native-crypto rows. The 300-row
+  inventory includes all 32 zero-avoidable-payload-copy checks. The report is
+  copy-correctness evidence only and does not claim performance acceptance.
+  Close issues #100 and #101 under the approved standard-SDK scope; SDK/TLS/
+  crypto dependency internals remain explicitly unmeasured.
+- [x] Audit the failed `payload_sizes` shard in supplemental run
+  `40526122419`: job `122266082173` completed three passes, then the next
+  1-MiB FlatBuffers RPC produced no samples and timed out at the unchanged
+  300-second workload deadline. Three earlier 1-MiB FlatBuffers RPC passes
+  completed at roughly 28.4–28.9 ms average latency. Retain this as a liveness
+  failure with incomplete data, not as a parity result.
+- [x] Reproduce the same 1-MiB TLS WebSocket stall in focused diagnostic run
+  `40548781096` on the unchanged candidate. The three-case schedule stops at
+  17/90 rows and retains three owned-process snapshots. They match router
+  socket inode 31937 (`127.0.0.1:8083`) to client socket inode 32841
+  (`127.0.0.1:58712`). Across the 120-second capture, the router remains
+  100% receive-window-limited with `snd_wnd=3072`; its unsent queue grows from
+  120,182 to 441,806 bytes. The client reports `rb2072`, and acknowledged
+  bytes continue at about 14.8 KiB/s. Application threads are idle and VM
+  stacks expose no runnable frames. Host memory pressure and the sampled TCP
+  prune/collapse counters remain unchanged. This confirms severe receive-window
+  backpressure on the owned connection, not an application deadlock or proof
+  of the kernel mechanism that shrank the window. The preceding first 1-MiB
+  FlatBuffers warm-up in this same replay did complete 1,000 RPCs at 24.65 ms
+  average; the next FlatBuffers warm-up stalled after the adjacent CBOR and
+  MessagePack passes. This confirms the failure is intermittent. The capture is
+  diagnostic and cannot establish acceptance.
+- [x] Pass exact-head CI `40526111656`: all 38 jobs succeeded.
+- [x] Audit supplemental `protocol` shard `40526122419`: all 30 cases have
+  three warmups and seven measured repetitions, exact source
+  `1101f91b38051871694722a3c29e45b7975ec4cf`, unchanged inputs, no overlap and
+  zero integrity findings. The diagnostic emits 157 performance findings.
+  All eight small-control operations/second point estimates are below the
+  faster binary baseline; CPU and p95 miss 26/30 rows, p99 misses 23/30, summed
+  peak RSS misses 27/30, and throughput misses 18/22. This shard is not primary
+  acceptance, but its measured regressions remain unresolved and must be
+  considered before claiming the requested benchmark parity.
+- [x] Audit supplemental `encrypted_progressive_results` shard
+  `40526122419`: all eight cases have three warmups and seven measured
+  repetitions on the exact source, with unchanged inputs, no overlap and zero
+  integrity findings. The report has 46 numerical performance findings,
+  including CPU misses in all eight cases and throughput misses in six. All
+  applicable FlatBuffers rows contain numeric E2EE and transcode totals, with
+  no unknown owned-copy boundaries; explicitly unmeasured SDK/TLS/crypto
+  dependency internals follow the approved scope. This is diagnostic evidence,
+  not parity acceptance.
+- [x] Complete the exact-source retry of the incomplete `payload_sizes` job,
+  run attempt 2, job `122381957515`. It completed the 36-row warm-up and one
+  1-MiB MessagePack WebSocket measured case, then the FlatBuffers WebSocket
+  request timed out. The native worker stopped while the router still had one
+  invocation pending. No workload, timeout or gate was changed.
+- [x] Rerun supplemental aggregation (`122393472680`); it failed because the
+  payload-size shard lacked the remaining measured cases, so no complete
+  50-case inventory was produced.
+- [x] Obtain usable diagnostic CPU attribution. The exact-candidate hosted
+  profile `40557646345` failed at `perf record` exit 255 before capturing
+  FlatBuffers samples. A repeated local no-perf Dart VM profile of
+  `ext_07_small_control` has a clean source audit (`1101f91b`, no changed
+  inputs). Its FlatBuffers client isolate retained 295 VM CPU samples; sampled
+  stacks include `serializeFragments`, `prepareWampFlatBufferMessage`,
+  `encodeWampFlatBufferCbor`, `wire_writer.table`, and
+  `projectWampFlatBufferMessage`. The three 30-second client runs contain
+  11,209 MessagePack, 11,203 FlatBuffers, and 11,332 CBOR operations. Mean
+  operation latency is 2.669 ms, 2.673 ms, and 2.643 ms respectively; client
+  allocated-byte deltas are 462,641,920, 567,256,560, and 534,461,216. This is
+  local macOS diagnostic evidence, not hosted parity acceptance; inclusive
+  sample counts overlap and are not percentages of CPU time.
+- [x] Finish the unchanged strict primary (`40526116631`): all 48 cases were
+  analyzed, with 225 numerical parity-gate findings. This is a failed
+  acceptance run, not evidence of an integrity or copy-accounting failure.
+- [ ] Rerun the full exact-source strict and supplemental campaigns after the
+  current working-tree candidate is committed and pushed.
+- [ ] Audit every report, resolve all policy findings without changing the
+  checked-in thresholds or workload definitions, and verify all previously
+  measured codec paths remain non-regressing.
+- [ ] Keep PR #132 in draft and issue #103 open until strict parity and
+  supplemental performance acceptance criteria are satisfied.
+
+Current hosted receive-window evidence: [focused capture run
+40548781096](https://github.com/konsultaner/connectanum-dart/actions/runs/40548781096).
+It uses the same candidate and Linux 6.17 runner family as the incomplete
+payload shard. Existing older-source syscall tracing found no application
+`SO_RCVBUF` or `TCP_WINDOW_CLAMP` calls, but that does not prove the cause on
+this candidate. No socket option, kernel policy, workload, timeout or
+acceptance budget has been changed.
+
+## Profile-directed serializer allocation candidate (working tree, 2026-10-28)
+
+- [x] Add bounded CBOR fast paths for short scalar argument arrays and small
+  ASCII scalar keyword maps. Nested values, wide integers, Unicode, byte
+  strings, and raw/pre-encoded input retain the regular encoder and structural
+  validation path. Tests assert exact CBOR bytes, integer header boundaries,
+  and nested-map/binary fallback behavior, including a byte vector beside a
+  scalar argument.
+- [x] Project schema dictionary fields directly into the message body and
+  combine per-table scalar/offset scratch storage while retaining schema
+  field-name and value checks.
+- [x] Pass the focused FlatBuffers writer suite (54 tests), `bin/test-fast`,
+  full `bin/verify`, and `git diff --check`. The fast and full verification
+  runs include all 2,012 live WAMP integration cases, native/Rust tests,
+  Chrome/Dart2Wasm and consumer-package smokes. The full verification preceded
+  the final test-only byte-vector fallback case; the focused 54-test suite
+  passed afterward.
+- [x] Capture the current working tree with the no-perf `ext_07_small_control`
+  diagnostic. Source inputs did not change during capture, but the report's
+  Git HEAD is parent `1101f91b`; this local single-pass profile is not
+  exact-head hosted acceptance. MessagePack/FlatBuffers/CBOR measured 11,024/
+  10,742/10,896 operations, or 367.45/358.04/363.17 ops/s. Mean latency was
+  2.714/2.787/2.748 ms and p95 was 3.633/3.865/3.742 ms. Client allocation
+  deltas were 455,219,248/449,822,256/514,003,200 bytes. FlatBuffers allocation
+  is within 1.2% of MessagePack in this run, but throughput and tail latency
+  are still lower; the run is noisy diagnostic evidence only.
+- [ ] Commit/push this candidate, then repeat exact-source CI, the unchanged
+  strict primary, all supplemental shards, and the production
+  E2EE/transcode/native-crypto copy proof. The preceding local profile predates
+  the final nullable-scratch and integer-boundary-test correction; it remains
+  directional evidence only.
+- [ ] Keep PR #132 draft and issue #103 open until hosted parity and copy
+  acceptance pass. The earlier exact-source copy proof closed #100 and #101;
+  rerun it for this candidate before claiming those results cover this source.
+
+## Native dispatch and typed dictionary reuse (working tree, 2026-10-28)
+
+- [x] Replace per-message schema-table and union-reference scans in the Rust
+  FlatBuffers encoder with direct union-tag lookup, retaining a table-name
+  guard so schema drift fails closed.
+- [x] Reuse already-typed Dart metadata maps in message projection while
+  retaining the detached-map fallback for other map types. Call sites only
+  read the projected dictionary or snapshot it before retention.
+- [x] Reuse native Rust CBOR validation for the exact immutable argument and
+  keyword spans exported from retained `StoredMessage` owners. The cache is
+  keyed by byte-view identity and CBOR root policy; the decoder validates on a
+  cache miss, and the public Dart frame reader never caches caller-mutable
+  input. Tests cover untrusted spans, argument/keyword roots, root-key policy
+  and a mutable-Dart-input writer regression.
+- [x] Pass focused VM and Chrome/Dart2Wasm regressions, `bin/test-fast`, full
+  `bin/verify`, formatting and `git diff --check`. Full verification includes
+  Rust/native, live WAMP, E2EE/copy-accounting and consumer checks.
+- [x] Commit and push the candidate as
+  `b27ccc9d5ee087d11776ce0bbe7a838c21c0bfaf`.
+- [x] Pass the exact-head CPU profile
+  [`40635434105`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635434105).
+  The `ext_22_progressive` FlatBuffers client top frames no longer include
+  `validateFlatBufferCbor`; UTF-8 conversion and typed-buffer growth are the
+  highest sampled frames. This is diagnostic, not performance acceptance.
+- [x] Pass production copy proof
+  [`40635434337`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635434337):
+  120 live owned cases include 96 E2EE rows, 120 transcode rows and 48
+  native-crypto rows. Its 300-row short inventory records all 32
+  zero-avoidable-payload-copy cases. Short rows intentionally fail the timing
+  policy and do not establish performance, allocation, GC or RSS acceptance.
+- [x] Audit the exact-head CI mutation-gate failure in run
+  [`40635344231`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344231).
+  Its `client-message-binding-vm` target has adjusted assertion score 94.656%
+  against the unchanged 95% threshold; conventional mutation score is 95.611%.
+  There are no baseline/test execution errors. Three surviving mutations are
+  behaviorally equivalent: removing `_asInt`'s null fast return reaches the
+  same `return null`; changing the root-string-key default is inert for every
+  call site; and forcing the validation-cache miss branch repeats validation
+  over the same immutable span that Rust already validated, changing CPU cost
+  only. No threshold or workload was changed.
+- [x] Add source-hash-pinned equivalence reasons for those three reported
+  mutation IDs in `tool/mutation_equivalents.json`. The equivalence preflight
+  validates 157 proofs; 106 focused mutation-runner tests pass. Replaying the
+  exact hosted mutation report with those reasons gives an adjusted assertion
+  score of 95.202% and passes the existing gate.
+- [ ] Complete exact-head CI after committing the equivalence-proof update.
+  The current run has one mutation-gate failure; other completed jobs passed
+  and the last coverage/browser-mutation jobs are still running.
+- [ ] Complete the unchanged strict primary
+  [`40635344416`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635344416)
+  and all supplemental shards
+  [`40635435979`](https://github.com/konsultaner/connectanum-dart/actions/runs/40635435979).
+  Both runs target this exact source commit; do not change thresholds or
+  workloads.
+- [ ] Keep PR #132 draft and issue #103 open until hosted CI and strict
+  performance acceptance pass.
+
+## Prior performance optimization candidate (2026-10-27)
+
+- [x] On source `715897a6`, retain the strict result from run `40021090649`:
+  all 48 cases/336 metric rows are present with zero integrity findings, but
+  200 point-estimate performance findings remain. The metric thresholds and
+  better-of-CBOR/MessagePack comparisons are unchanged.
+- [x] Avoid ephemeral maps in common FlatBuffers WAMP message projections and
+  return already-typed schema maps without a cast view or redundant key-type
+  scan. Schema field-name and value validation remain active.
+- [x] Reduce the FlatBuffers envelope reserve from 512 to 256 bytes, using the
+  existing initial-capacity path and retaining builder growth/copy accounting.
+- [x] Run focused FlatBuffers message, fragment and copy-accounting tests, then
+  full `bin/verify`; all passed on this candidate. A repeated local macOS
+  serialization probe showed ~12% lower small-control time and ~6–7% lower
+  dynamic-value time. Treat these as component diagnostics only.
+- [ ] Commit and push the candidate, then run exact-head hosted CI and the
+  complete production E2EE/transcode/native-crypto copy proof.
+- [ ] Run the unchanged complete strict primary and all supplemental campaigns.
+  Audit every row and resolve all numerical failures; do not lower thresholds,
+  omit scenarios or convert diagnostics into acceptance.
+- [ ] Keep PR #132 draft and issues #100, #101 and #103 open until exact-head
+  performance and copy acceptance pass. Profile run `40475920641` failed at
+  Linux `perf record` (exit 255), so it provides no FlatBuffers profile.
+
+## CBOR E2EE progressive file-transfer receiver (2026-10-23)
+
+- [x] Reproduce the production copy-proof failure from run `40013307815` on
+  source `dfc18733`: a native FlatBuffers client sending progressive CBOR E2EE
+  file chunks was rejected as `connectanum.error.file.invalid_chunk`. The run
+  stopped after 17/72 cases without a complete `owned_groups` inventory, so it
+  provides no copy-accounting acceptance.
+- [x] Trace the false rejection to the receiver's raw
+  `transparentBinaryPayload` check. `toPayload()` had already decoded the CBOR
+  WAMP arguments and applied PPT decryption, while retaining the transparent
+  view marker. Remove that redundant representation check and validate the
+  decoded one-binary-argument shape, keywords, nonempty progressive chunks,
+  declared size, per-chunk limit, total accepted bytes, buffer limit and final
+  digest as before.
+- [x] Add a live regression for a native FlatBuffers client with a CBOR peer,
+  progressive file transfer and native E2EE. Both XSalsa20-Poly1305 and
+  AES-GCM pass. Assert nonzero known E2EE staging, plaintext staging and
+  ciphertext staging for each cipher; keep the worker-local full E2EE metric
+  labelled partial because outer serializer and transcode copies are measured
+  by the production copy proof.
+- [x] Complete `bin/test-fast`, the focused integration regression and all 91
+  VM file-transfer tests on the current working tree.
+- [x] Complete full `bin/verify` on this working tree. Formatting, native/Rust
+  suites, 2,010 live WAMP benchmark cases, router tests, Chrome/Dart2Wasm and
+  consumer smokes pass at exit 0. The final defensive assertion on the returned
+  E2EE breakdown is covered by the focused live regression.
+- [ ] Commit and push the fix, then repeat exact-head CI, the unchanged strict
+  primary campaign, every supplemental campaign and the production E2EE,
+  transcode and native-crypto copy proof. The strict parity and complete owned
+  path copy gates are unchanged; SDK/TLS/crypto dependency internals remain
+  explicitly unmeasured.
+- [ ] Audit all fresh exact-head reports and resolve any measured failures.
+  Keep PR #132 draft and issues #100, #101 and #103 open until performance
+  parity and complete Connectanum-owned copy acceptance pass.
+
+## Performance, profiling and E2EE copy accounting (2026-10-23)
+
+- [x] Repair the CPU profiler's worker launch: use the declared package
+  executable so spawned isolates resolve workspace packages. The profile tool
+  tests pass (14 cases), and exact `ext_07_small_control` and
+  `ext_22_progressive` CPU profiles complete with clean worker shutdown and
+  source/input hashes.
+- [x] Profile the representative workloads. Small control is dominated by
+  router dispatch/timers; progressive handling includes CBOR UTF-8 scanning and
+  encoding. Profiling remains diagnostic and is not parity evidence.
+- [x] Reduce FlatBuffers table bookkeeping and envelope reserve allocations,
+  skip fragment projection for payload-free control messages, and optimize
+  ASCII-block validation without changing multibyte validation. Boundary tests
+  include multibyte sequences at every block offset and malformed/truncated
+  sequences; the component microbenchmark improves ASCII and sparse-Unicode
+  scans. No end-to-end performance claim follows from these measurements.
+- [x] Preserve native-owned ciphertext and its owner through native Session
+  sends for both CBOR and typed FlatBuffers E2EE. Count Dart-to-native
+  plaintext input, Rust plaintext staging, nonce/tag, ciphertext staging and
+  output copies separately. Add real AES-GCM, exact counter and retained-owner
+  tests, plus production probe coverage for typed FlatBuffers.
+- [x] Pass `bin/test-fast` and full `bin/verify` on the current working tree,
+  including Rust/native suites, 2,009 live WAMP integration cases, Chrome/
+  Dart2Wasm and package consumer smoke checks.
+- [x] Complete previous-source strict run `39953423478` on `9d9c26fc`: all
+  1,440 rows are present and eligible, with zero integrity findings but 139
+  numerical performance-gate findings. Complete supplemental run
+  `39953434939`: all 50 cases/1,500 rows are present in diagnostic mode, with
+  234 numerical findings. Keep these results as old-source evidence; neither
+  accepts the current working tree.
+- [x] Commit and push the verified source as `7621f701`. Dispatch exact-source
+  CI `39992992607`, strict primary `39992996231`, supplemental campaigns
+  `39992999450`, and production E2EE/transcode copy proof `39993003404`.
+- [x] Audit the production proof failure on `7621f701`: a live FlatBuffers
+  E2EE/progressive RPC crossed a CBOR WAMP peer, whose Rust parser rejected
+  the transparent binary value as `ExpectedList("invocation.arguments")`.
+  The encrypted-progressive supplemental shard reproduced the same parser
+  rejection. Preserve both failures against that exact source.
+- [x] Repair CBOR transparent-binary parsing in the current worktree. Contiguous
+  definite payloads borrow the input span; segmented parsing retains its old
+  decoder path and counts both its input read and decoded body materialization.
+  Indefinite strings count only the chunks that must be coalesced. Focused Rust
+  parser tests, native-message metadata tests and `bin/test-fast` pass, including
+  all 2,009 live WAMP integration cases.
+- [x] Extend the client and router native metadata binders to accept the same
+  borrowed transparent payload view for CBOR. Add positive subview/lifetime and
+  negative flag/bytes, unsupported-serializer and non-payload tests. The focused
+  client/router suites pass. Full `bin/verify` passes on `86c963a3`, including
+  native suites, all 2,009 live WAMP cases, Chrome/Dart2Wasm and consumer smokes.
+- [x] Fix the native E2EE decrypt bridge to accept a borrowed transparent CBOR
+  ciphertext alongside FlatBuffers. Verify the ciphertext remains a slice of
+  the receive frame and decrypts through the public native session API with
+  XSalsa20-Poly1305 and AES-GCM. Focused Rust tests and `bin/test-fast` pass,
+  including all 2,009 live WAMP integration cases and ObjectBox adapter tests.
+- [x] Complete `bin/test-fast` and full `bin/verify` on the corrected E2EE
+  bridge. Both pass, including all 2,009 live WAMP cases, native FFI tests,
+  Chrome/Dart2Wasm, ObjectBox and consumer-package smoke checks.
+- [x] Commit and push the corrected, fully verified source as `a4336fcc`.
+- [ ] Rerun exact-head CI, unchanged strict primary, every supplemental
+  campaign and the production E2EE/transcode copy proof. Keep all timing and
+  copy gates unchanged.
+- [ ] Audit source `236d25e5` campaigns: CI `40006741037`, strict primary
+  `40006740922`, supplemental shards `40006740888` and production copy proof
+  `40006741342`. The encrypted-progressive shard hit the native CBOR E2EE
+  rejection. The copy proof stopped on runner HTTP 500 before recording owned
+  groups. These runs do not accept the milestone.
+- [x] Push parser/binder commits `e0f5d141` and `86c963a3` (current remote
+  descendant `236d25e5`); initial exact-head campaigns have been dispatched.
+  The CBOR E2EE bridge fix and replacement campaigns remain outstanding below.
+- [ ] Audit exact-source CI `39992992607`, strict primary `39992996231`,
+  supplemental campaigns `39992999450` and production copy proof
+  `39993003404`, including their input/binary hashes. These runs belong to
+  `7621f701`; its copy proof failed, one supplemental shard failed on the CBOR
+  parser, strict/supplemental runs are still active, and CI is queued.
+  Dependency SDK/TLS/crypto internals remain explicitly unmeasured under the
+  approved standard-SDK scope.
+- [x] Commit the parser and router binding repair as `e0f5d141` and `86c963a3`;
+  `bin/verify` passes on `86c963a3`.
+- [ ] Repeat exact-source CI, production copy/lifetime proof, strict primary and
+  every unchanged supplemental campaign on the pushed head.
+- [ ] Fix any measured regressions and repeat the complete campaigns after every
+  source change. Do not close #100, #101 or #103 or claim performance parity
+  until all current-source acceptance criteria pass.
+
+## Encrypted binary arguments as CBOR fragments (2026-10-23)
+
+- [x] Reproduce the missing zero-copy path with a fail-first regression: an
+  encrypted WAMP binary argument was re-encoded as CBOR, then copied again into
+  its FlatBuffers vector.
+- [x] Use the exact `ext_44_encrypted_progressive_results` CPU profile at
+  `844a7913`. It has 810 client Dart samples and confirms copy work in the
+  inner CBOR/E2EE path; profiling is perturbative and never parity evidence.
+- [x] Let the FlatBuffers fragment path represent one binary argument as its
+  CBOR prefix plus original bytes, regardless of PPT metadata. Preserve the
+  outer FlatBuffers schema, the exact contiguous CBOR `args` bytes, keyword and
+  lazy-CBOR paths, byte limits, and buffer-owner contract.
+- [x] Test 23/24-byte CBOR-prefix boundaries, exact vector equivalence, PPT
+  metadata retention, and real AES-GCM/XSalsa20-Poly1305 decrypt round trips.
+  Focused writer, fragment and E2EE suites pass.
+- [x] Complete fresh `bin/test-fast` and full `bin/verify` on commit `9d9c26fc`;
+  both exit 0, including native router and Chrome/Dart2Wasm coverage.
+- [x] Complete the exact-head production copy/lifetime proof in run
+  `39953447152`: 120 owned rows (96 E2EE, 120 transcode, 48 native crypto),
+  unchanged source/binary hashes and clean process shutdown. Its 300 short rows
+  remain diagnostics, not timing acceptance. Dependency internals stay labelled
+  unmeasured under the approved standard-SDK scope.
+- [x] Previous-source CI `39953531177`, copy/lifetime proof `39953447152`, strict
+  primary `39953423478`, and supplemental run `39953434939` complete on
+  `9d9c26fc`. The old primary has 139 numerical findings; supplemental has 234.
+- [ ] Complete replacement CI, copy/lifetime proof and unchanged strict
+  primary/supplemental runs on the current working-tree source. Keep throughput,
+  latency, CPU, allocation, GC, RSS and copy gates unchanged; do not claim parity
+  until the reports pass. Baseline `844a7913` E2EE results have 44 numerical
+  findings across eight cases and no integrity findings.
+
+## Native sparse reader and complete kernel observation (2026-10-23)
+
+- [x] Audit current-runtime focused19 failure: original ext18 FB deadline, 3,215
+  source/four resolved/current binaries, three qualified captures with rb2072.
+  Reject incomplete 1MiB kernel trace; preserve all retained records and failure.
+- [x] Reproduce old metadata cap loss; pass35 private contracts with bounded64MiB
+  cap. Dispatch unchanged focused retry39903748528; no observation canceled.
+- [x] Audit canonical ext00 publish/ack128 untyped CPU profile39902735265:
+  exact requests/source/windows/native clock/18 memory snapshots/cleanup.
+  Retain small sample and instrumentation limits; existing cache alreadyinline4.
+- [x] Complete fresh baseline bin/test-fast on frozen `ca020025`: exit 0,
+  3,204 source/four resolved hashes fixed, 14m55s.
+- [x] Privately omit absent native references; exact capacity for larger tables,
+  full capacity for schemas of at most four fields. Preserve all validation.
+- [x] Baseline/candidate each pass 399 unit/three integration cases. Correct the
+  initial invalid Map-null fixture; incomplete Map and metadata controls then
+  fail semantic assertions, with separate actual-core markers and build targets.
+- [x] Audit 76 allocator inputs/836 cold and repeated observations/56 identical
+  wires; no request regression. Audit 160 balanced timing rows/ten inputs.
+  Nine CPU medians improve; challenge's 0.04% cost remains explicit. Exclude the
+  further early-skip variant without discarding its observations.
+- [x] Adopt selected tested source and semantic tests. Actual-source native
+  format/tests and 34 allocator/wire observations match the private candidate;
+  3,205 source/four resolved hashes remain fixed. Resolve final advisory review.
+- [x] Complete full kernel replay audit: 90 valid rows/44,784 paired events,
+  no trace loss/truncation; all events remain unowned without FD witnesses.
+- [x] Audit separate two-second connect-hook ownership smoke: actual unprivileged
+  FD inode/PID/tuple/namespace and monotonic clock match, graceful cleanup.
+- [ ] Complete full resulting-runtime bin/verify, all CI jobs and renewed
+  production copy/lifetime proof, retaining E2EE/transcode boundary scope.
+- [ ] Review/integrate private ownership witness into original focused replay;
+  attribute events before proposing any causal TLS repair.
+- [ ] Pass unchanged complete primary/supplemental performance acceptance on the
+  final runtime. No case, floor, repetition, deadline or better-codec comparison
+  is waived; independent approval of PR #130 remains required.
+
+## Validator memo keys (2026-10-23)
+
+- [x] Verify baseline code/resolution equality with fully verified `f2dbdfa4`.
+- [x] Stage exact integer keys with record fallback; preserve all validation and
+  same-offset/different-schema identity. Reject initial fixture-import failure.
+- [x] Pass 501 functional/63 JS/63 Wasm checks per variant; unsafe offset-only
+  control fails three cases, including actual table-budget undercount.
+- [x] Audit 160 rows/32 fresh workers/128 allocation windows, exact wires/aliases
+  and source/resolution/package/window guards. Save about 63–65 bytes/decode;
+  RESULT/CALL time ratios 0.98961/0.99163 are component evidence only.
+- [x] Resolve advisory review; adopt exact tested runtime bytes without probes.
+  Pass analysis, 3,457 serializer cases and eight component-isolation contracts.
+- [x] Pass frozen full verification on `629001a6` in 22m43s, including Chrome/Wasm,
+  with 3,204 source/four resolved hashes fixed and a clean tree.
+- [x] Audit Linux component: 492 cases per variant/160 rows/32 workers/128 allocation
+  windows/204 private hashes. RESULT/CALL ratios 1.00671/0.96892 retain the RESULT
+  cost; managed savings about 65/63 bytes. No end-to-end causal speed claim.
+- [x] Audit renewed production copy/lifetime: 120 owned/300 short cases/all 32
+  no-copy observations, 36 groups/108 post-GC and public owners zero before GC.
+- [x] Audit strict90: 90 valid rows/zero integrity findings/seven numerical costs.
+  Retain RSS, Dart-value GC confidence/throughput and pre-encoded latency failures.
+- [x] Complete current CI 39893888135: all 38 jobs pass.
+- [ ] Complete causal TLS repair and unchanged primary/supplemental
+  gates on the final runtime; preserve every started observation and budget.
+
+## Current acceptance and TLS follow-up (2026-10-23)
+
+- [x] Pass frozen full `bin/verify` on `984288cb` in 23m08s, including Chrome/Wasm,
+  with 3,202 sources/four resolved inputs fixed and a clean tree; fresh baseline
+  `bin/test-fast` also passes with identical sources/resolution.
+- [x] Audit both Linux components: 491 Dart cases per variant/160 rows/32 workers/
+  128 allocation windows; RESULT/CALL ratios 0.93782/0.91738 and about 456/812 fewer
+  managed bytes. Native 24 reader/ten encoder rows, same wires/nonregressing requests.
+- [x] Audit current production copy/lifetime: 120 owned/300 short cases/all 32
+  no-copy observations, 36 groups/108 post-GC, public owners zero before forced GC.
+- [x] Retain strict90's eight numerical costs despite all CPU/allocation passing;
+  retain current supplemental payload's 20-row and prior55's 139-row TLS failures.
+- [x] Audit current Dart profile; exclude ordinary-no-PPT proposal before measuring
+  because primary values already use typed PPT. Exclude getter annotation after
+  76 functional checks per variant/160 valid rows show no stable meaningful gain.
+- [x] Add bounded allowlisted namespace TCP prune/collapse/window/pressure counters;
+  reproduce missing/malformed/oversized/permission failures before implementation.
+- [x] Pass 30 owned Linux/service/TCP, 28 capture, eight smoke and 20 CI execution
+  contracts; resolve advisory review against explicit ASCII/uint64/failure tests.
+- [x] Pass resulting-source full verification on `f2dbdfa4` in 22m36s, including
+  Chrome/Wasm, with 3,203 source/four resolved hashes fixed and a clean tree.
+- [x] Audit both untraced focused failures: 72/four valid rows, three qualified
+  owned socket pairs each, original limits/cleanup; counter-enabled captures keep
+  all 15 known counters and explicit namespace scope with no missing fields.
+- [x] Inspect matching-version Ubuntu Azure source with checksum-matched package
+  inputs and one-file patch selection; reject earlier helper failures. Preserve
+  the distinction between source logic and an observed executed kernel path.
+- [x] Evaluate bounded large unmasked WS writes privately: full wire identity,
+  borrowed ranges, small paths, partial/error/Pending/flush/yield/cancellation and
+  connection-discard/owner-release tests. Baseline has ten passes/four intended
+  failures; candidate has 14 passes. Complete native suite passes 402 unit and
+  three integration tests, with 6,408 private inputs/separate binaries verified.
+- [x] Audit Linux focused replay 39892063835 on separate experiment commit
+  `2be50a0b`: three/90 rows, original ext18 CBOR TLS deadline, three qualified
+  captures/six owned socket records, worker rb35,812/peer window35,840. Exclude
+  scheduling candidate; never adopt it as a fix. No observation is canceled.
+- [x] Audit actual live BTF-derived inode layout, exact program render and Linux
+  attach/owned cleanup. Pass 34 private contracts and actual two-second UID/env/
+  argv/STOP/EOF smoke; deliberately failed observer cannot cancel sibling dummy.
+- [x] Audit historical runtime55 full primary: 1,440 rows/zero integrity findings,
+  exact comparison and 207 numerical failures. No current acceptance.
+- [ ] Observe original current-runtime focused90 under the private read-only probe;
+  match actual events to owned inode/tuple, preserve failures and every limit.
+- [ ] Establish a causal TLS fix if reproduced; do not infer the Ubuntu kernel's
+  behavior from upstream sources alone or change timeouts/socket/allocator policy.
+- [ ] Complete full primary/supplemental acceptance on the final runtime and full CI;
+  retain every started observation and required independent PR approval.
+
+## Temporary table allocation follow-up (2026-10-23)
+
+- [x] Pass baseline bin/test-fast on `2646ee69`, with 3,201 sources/four resolved
+  inputs fixed, after full verification on runtime `55ae6f4d`/docs `02840d2d`.
+- [x] Stage sparse internal Dart tables with unconditional vector validation;
+  baseline/candidate each pass 491 cases, incomplete variant fails 52 CBOR cases.
+- [x] Verify fresh/mutable public metadata, scalar/default/false/zero values,
+  exact byte aliases and all seven payload-bearing message tables.
+- [x] Reject native shared-target comparison without proven variant selection;
+  use disjoint builds plus actual-core markers checked outside measurements.
+- [x] Retain/fix empty-capacity Abort request regression through schema capping;
+  audit all 76 inputs/cold/repeat counts, same outcomes and 56 identical wires.
+- [x] Adopt only audited runtime methods and semantic tests; pass seven strict
+  component module-isolation tests and all 154 existing mutation proofs.
+- [x] Resolve Qwen questions by source/negative controls; GLM has no confirmed
+  finding. Correct its baseline wording: old code rejected malformed CBOR.
+- [x] Pass resulting-source analysis, 3,456 serializer and 39 native cases;
+  actual-source allocator rows match the audited candidate, with all 3,202 source/
+  four resolved hashes unchanged. Seven component/20 CI contracts and 154 proofs pass.
+- [x] Complete frozen full verification on the resulting committed source.
+- [x] Pass Linux components and production lifetime/copy proof.
+- [ ] Pass strict diagnostic; current 90 rows retain eight numerical costs.
+- [ ] Complete unchanged full primary and supplemental gates on the final runtime;
+  preserve every earlier started observation and required independent PR review.
+
+## Dictionary-field plan candidate (2026-10-23)
+
+- [x] Use audited 10-KiB profile stacks and 360-row current-runtime payload costs
+  to select repeated dictionary projection/agreement work as a concrete lead.
+- [x] Derive immutable schema field lists once; share exactly the old routing/
+  envelope exclusions in projection and agreement without changing value checks.
+- [x] Preserve native ABI, wire schema, metadata mutation/retention and payload
+  ownership contracts. Pass formatting and 154 existing mutation proofs.
+- [x] Prepare isolated before/after package configs with selected-core markers,
+  unchanged-wire/alias assertions, 12 existing functional suites per variant and
+  balanced fresh-worker timing/allocation windows, explicitly never acceptance.
+- [x] Pass five component integrity cases and 107 combined focused contracts.
+- [x] Pass hosted analysis and 434 cases per private variant in 39872554911.
+  Independently audit 160 raw rows/32 workers, matching wires/aliases, all inputs
+  and allocation proofs. RESULT/CALL decode ratios 0.82056/0.83085, about 80 fewer
+  managed bytes/decode. Local companion/verification remain machine-lease blocked.
+- [x] Pass frozen `bin/verify` on `02840d2d` in 22m54s, including Chrome/Wasm;
+  all 3,201 sources/four resolved inputs fixed, clean tree. Qwen review has no
+  demonstrated finding; verify schema constness and no public helper export.
+- [x] Audit renewed copy/lifetime 39874511303: 36 groups/108 post-GC, 120 owned,
+  300 short rows/all 32 no-copy cases, exact source/resolved/native hashes.
+- [x] Audit strict 39874514230: 90 valid rows, all timing/CPU/allocation pass;
+  retain Dart GC CI-high 1.13284 and pre-encoded RSS point 1.01949 as failures.
+- [x] Audit preceding-runtime full supplemental 39852994229: 50 cases/1,500
+  rows, zero integrity findings, all 244 numerical costs retained separately.
+- [ ] Complete resulting-source full CI and unchanged complete primary and
+  supplemental gates; candidate runs 39874517410/39874520570 are observing.
+- [x] Evaluate native agreement capacity and Dart sparse internal-table storage
+  with component/functional evidence before adoption, retaining CBOR validation,
+  shared aliases, scalar defaults and independently mutable public metadata.
+
+## Fresh-process result and passive memory attribution (2026-10-22)
+
+- [x] Pass frozen full verification on `76c4282c` in 22m59s, including browsers;
+  all 3,193 sources/four resolved inputs fixed, clean tree. Core CI passes 38/38.
+- [x] Independently audit both corrected RSS controls: 60 rows each, six fresh
+  process pairs, exact inputs/scenarios/binaries, stable PIDs and cleanup.
+- [x] Retain higher FlatBuffers RSS than CBOR in both fresh pairs for each case;
+  do not attribute it solely to workload history or waive the strict RSS gate.
+- [x] Prepare default-off owned VM memory buckets/maps at complete report
+  boundaries; preserve snapshots/errors, source inputs and cleanup ordering.
+- [x] Complete advisory review and 107 focused contracts; verify CRLF hashes
+  with fail-before/pass-after and pass the local standard-VM API smoke.
+- [x] Pass both pinned Linux ownership/maps smokes and independently audit
+  120 rows/48 owned role observations. Most native-case gap is unnamed mappings;
+  native allocation liveness versus free retained pages is unresolved.
+- [x] Validate wrappers and independently audit 39869871111: allocation/free,
+  owned compiled-kernel smoke, 60 rows/24 role observations, no compiler heap.
+  Most arena bytes are retained free space; final external usage is 112 bytes
+  for every codec. No runtime/SDK/allocator-policy/GC change or gate substitution.
+- [x] Wire the four omitted diagnostic regression suites into the canonical
+  tooling gate; reproduce all omissions before repair and pass after repair.
+- [x] Audit failed first allocator control: 20 complete driver rows, one failed
+  observation and retained 260+ MiB compiler heaps; no comparative RSS claim.
+- [x] Prepare JIT-kernel wrappers, checked magic/compiler exclusion and safe
+  validation phase/source locations; pass 99 focused contracts and syntax checks.
+- [x] Independently audit older primary 2de4: 1,440 rows, zero integrity findings,
+  exact recomputation and 144 numerical costs. Never current acceptance.
+- [x] Retain kernel retry: no compiler heap in complete snapshots; one failed
+  CBOR getMemoryUsage type check. Prepare safe protocol-kind/request-ID records
+  with Sentinel rejection, no retries/zero substitution; 17 memory contracts pass.
+- [x] Identify Collected Sentinel in isolate query; prepare one direct shared-heap
+  group query, preserving IDs/refs and failure on Expired Sentinel. Pass 101
+  combined focused contracts and group URL/one-query-per-group regressions.
+- [x] Audit current-runtime payload batch: 360 rows, zero integrity gaps, 28
+  numerical costs. Audit the exact 10-KiB CPU profile before interpreting stacks.
+- [x] Implement repeated dictionary-field projection/agreement optimization;
+  schema/metadata regressions and controlled component evidence pass above.
+  End-to-end parity remains required.
+- [ ] Complete current-head verification/CI and all unchanged acceptance gates.
+
+## Owned receive-window and fresh-process memory discrimination (2026-10-22)
+
+- [x] Audit real Linux smoke success and faithful replay 39845190356: 47/360
+  rows, all source/resolved contents/binaries/order/floors/cleanup fixed.
+- [x] Positively match three captures' tuples/inodes and counter deltas:
+  client buffer 2,072 bytes, peer window 3,072 bytes, continued ~14.8 KB/s transfer.
+- [x] Prepare opt-in launched-descendant socket-option tracing and fixed read-only
+  TCP policy/pressure observations. Preserve original replay inputs/limits.
+- [x] Prepare fresh-process six-pair RSS control, always excluded from acceptance;
+  pass 15 isolated contracts, including launch/wait/cleanup and retention failures.
+- [x] Retain failed initial controls; reproduce/fix report timestamp shape and
+  missing canonical worker-reuse environment. Pass 18 focused cases and validate
+  60 actual archived strict rows; keep failed pairs ineligible.
+- [ ] Pass resulting-source review/tooling/full verification and Linux smokes.
+- [x] Audit complete traced replay 39852837408: 360 rows/55 snapshots, 13,107
+  setsockopt calls, no SO_RCVBUF/TCP_WINDOW_CLAMP calls. One changing-progress
+  capture is excluded. This does not fix/explain earlier intermittent failure.
+- [ ] Identify a causal timeout fix if reproduced; preserve acceptance policy.
+- [ ] Complete all unchanged primary/supplemental timing gates and close issues
+  only with required independent review and actual passing acceptance evidence.
+
+## TCP_INFO smoke correction and remaining RSS costs (2026-10-22)
+
+- [x] Pass frozen full `bin/verify` on `c0aef5fa` in 23m22s, including browsers;
+  verify 3,189 source/four resolved hashes and a clean tree.
+- [x] Audit renewed production proof: 36 snapshot groups/108 post-GC observations,
+  120 owned cases/300 short cases and all 32 no-copy observations.
+- [x] Audit strict 90 rows: zero integrity gaps; all throughput/latency/CPU/
+  allocation/GC gates pass. Retain two RSS costs; no primary acceptance claim.
+- [x] Audit the current native-buffer profile: matching source/resolved contents,
+  conservative operation windows, 18 snapshots, native clocks/filter and cleanup.
+- [x] Preserve failed Linux smoke 39840625793: zero benchmark rows; no selected
+  owned IPv4 socket for advertised VM-service port; failed snapshot missing.
+- [x] Prepare explicit owned IPv4 listener/readiness and retained failed captures.
+  Pass five mocked cases and real local Dart analysis/socket acceptance/shutdown;
+  adopt independent positive endpoint assertion from advisory review.
+- [x] Pass all 54 combined capture/smoke contracts and 14 CI contracts.
+- [x] Retry real Linux smoke and unchanged faithful payload replay; smoke passes
+  and the 47-row replay failure is independently audited above.
+- [ ] Diagnose/fix the two RSS costs with measured source changes; preserve
+  primary/supplemental policies and all started observations.
+- [ ] Complete final-source full verification/hosted CI and unchanged final
+  primary/supplemental acceptance campaigns.
+
+## Metadata reuse and bounded TCP flow diagnosis (2026-10-22)
+
+- [x] Pass `dd6e674a` serializer cases/analysis and frozen full verification,
+  including Chrome/Wasm, with 3,186 sources/four resolved inputs unchanged.
+- [x] Audit its production lifetime/copy proof: 120 owned cases, 300 short
+  rows and all 32 no-copy observations; verify retained resolved contents.
+- [x] Audit its strict 90 rows: zero integrity gaps, twelve costs; allocation
+  and throughput pass in every case. Keep parity open.
+- [x] Measure private metadata-map reuse/generated enum switch: 160 balanced
+  windows, eight workers per variant/shape, identical wires/storage aliases,
+  about 382/392 fewer managed bytes and roughly 7% lower warm decode time.
+- [x] Pass 434 cases separately on baseline/candidate, including the public
+  ERROR map mutation/independent decode/lazy payload/re-encoding regression.
+- [x] Complete Qwen review; verify the generated switch and local synchronous
+  reader lifetime directly. No concrete finding remains.
+- [x] Adopt the exact measured behavior and prepare bounded owned-socket
+  TCP_INFO observations. Preserve the two failed private staging harness attempts;
+  corrected staging tests pass without changes to workloads or policy.
+- [x] Pass all 49 production-source capture contracts and 14 CI contracts.
+- [x] Pass resulting-source formatting, analysis and 3,399 serializer cases
+  with all 3,193 source/resolved inputs fixed.
+- [x] Pass frozen full runtime verification on `c0aef5fa`.
+- [ ] Repair the real Linux smoke preflight and finish faithful timeout replay
+  as tracked above.
+- [ ] Complete renewed CI/copy/strict timing, then primary acceptance on the
+  final runtime. Every started earlier campaign remains available separately.
+
+## Fixed-schema native table allocation candidate (2026-10-22)
+
+- [x] Locate per-root/message BTreeMap allocation in the checked wire reader.
+- [x] Implement sorted contiguous schema fields, reserving known table sizes;
+  application maps, schema, limits, validation and byte owners are unchanged.
+- [x] Add every-schema-field map equivalence, replacement/extension/order and
+  nested table/byte alias regressions. Rust formatting/diff checks pass.
+- [x] Pass all 39 native conformance tests and allocator components on `08efcd5b`.
+  Verify same lock/compiler/probes, all 34 identical wires, 552–1,368 fewer reader
+  allocator bytes/1–3 fewer requests and 720 fewer encoder bytes per fixture.
+- [x] Pass frozen `bin/verify` in 24m19s, including browser suites, with all
+  3,183 sources/four resolved inputs unchanged and a clean tree.
+- [x] Audit renewed production copy/lifetime proof: four phases, 36 snapshot
+  groups, 120 owned cases/300 short rows and all 32 no-copy observations.
+- [ ] Complete full hosted CI (all completed jobs currently pass).
+- [x] Complete advisory native review once the lease is available; independently
+  verify Qwen/GLM claims against sorting/COW methods, fixed schema size and tests.
+  No demonstrated defect remains from that review.
+- [x] Audit renewed strict 90 rows: zero integrity gaps, six retained costs
+  (Dart-value throughput/CPU/GC and all three RSS comparisons). All allocation
+  and p95/p99 gates pass. This is not primary acceptance.
+- [ ] Complete full candidate primary/supplemental timing and fix remaining costs.
+- [x] Measure private reader-cache copies after baseline verification: 40 ABBA
+  windows retain wire/storage identity and save about 259/456 managed bytes per
+  RESULT/CALL decode. Timing is inconclusive with two workers per variant.
+- [x] Pass all 433 selected cases on both configurations, including three new
+  shared-string/table/schema-type/overflow regressions. Preserve the failed
+  initial buffer-wrapper guard and the invalid CLI attempt as failed diagnostics.
+- [x] Reproduce five baseline wrapper-inventory failures after adding the new
+  test; register it in all VM/browser serializer wrappers and pass all 87 tooling
+  cases, without weakening inventory equality or skipping tests.
+- [x] Pass complete pre-adoption `bin/test-fast` on `de1b57f0` in 15m08s with
+  3,185 sources/four resolved inputs unchanged and a clean tree; adopt the exact
+  measured methods/field order without the private marker.
+- [x] Pass `dd6e674a` resulting-source focused/core checks, analysis and full
+  verification; dispatch hosted CI/copy/lifetime/strict and full timing.
+  Copy proof and strict diagnostic are independently audited above; CI/full
+  campaigns remain open.
+- [ ] Run final primary/supplemental campaigns with source-qualified queues so
+  independent hosted VMs can finish without waiting behind older revisions.
+  Preserve every observation and all existing acceptance rules.
+
+## Faithful payload timeout diagnosis (2026-10-22)
+
+- [x] Preserve failed E2EE profile 39816020705: MessagePack CPU sampling precedes
+  real data by about 27 seconds, correctly rejected; no FlatBuffers window.
+- [x] Replace assumed startup timing with complete-request capture and
+  conservative post-hoc selection. Ten clock/window regressions, 13 profile
+  contracts and 14 CI contracts pass; generated Dart syntax parses. Native perf
+  raw capture is retained; reports and VM samples select the data interior.
+- [ ] Run resulting-source E2EE integration and independently audit clocks,
+  selected timestamps, native filter/header, process cleanup and complete data.
+- [x] Independently audit completed `36a6df24` encrypted/progressive shard:
+  240 rows, zero integrity gaps, 240 E2EE/160 transcode/120 native-crypto copy
+  reconciliations, fixed processes/inputs and matching production binaries.
+  Retain 47 costs; native cases have about 6–7% CPU/4% allocation overhead.
+- [ ] Verify/profile exact ext_44 native progressive E2EE with fixed CBOR PPT/
+  peer serializer, XSalsa20-Poly1305 and 10-KiB application data. This is a
+  diagnostic selection, not a changed workload or performance acceptance.
+- [ ] Run the separately labelled 90-row reduced reproduction using declared
+  ext_15/ext_17/ext_18 transitions; keep full campaigns and original floors,
+  runtime/config/deadlines. This subset can never accept parity or a shard.
+- [x] Reproduce profiler ambient native-thread inheritance in hosted run
+  39811409005 on test-first `5b9f63c7`: all 32 mode/selection cases inherit nine
+  parent threads instead of required one, before workloads. Retain the failed
+  log and expected missing-artifact cascade. Pin/record one in the child only.
+- [x] Verify repaired contracts (all 13 tests) and repeat the 10-KiB profile with
+  the recorded pin on `80b16f4b`: 3,181 tracked/three resolved inputs fixed,
+  18 snapshots and cleanup pass independent audit. No causal hotspot established.
+  Actual prior thread count is unrecorded, so no causal timing comparison is
+  made from earlier profiles; accepted workloads were already explicitly pinned.
+- [x] Complete all 38 hosted runtime CI jobs on `2de4ec32`, including VM coverage.
+- [x] Audit current-runtime payload shard: all 360 rows, zero integrity gaps,
+  60 no-copy observations, stable processes, identical report and matching
+  production binaries; 36 performance costs remain. This pass does not explain
+  the separately reproduced intermittent stall.
+- [ ] Verify/profile exact canonical `ext_08_payload_sizes` (10-KiB Dart values,
+  clear RawSocket): about 19% throughput loss versus the better codec. The added
+  selection keeps existing 64-KiB defaults and every accepted workload unchanged.
+- [x] Pass hosted focused contracts and actual authenticated VM smoke on `f0875fef`.
+  Original-process run 39803270108 reproduces the same stall after 47/360 rows.
+  Audit all 3,178 sources, three lock contents, original command/config, retained
+  floors/order, production binaries, all invariance flags and cleanup. These diagnostics
+  do not change production Dart/Rust, workloads or acceptance budgets.
+- [x] Inspect three verified router/client captures: all nine isolates return
+  empty execution/async-continuation stacks, without errors. No crash or empty
+  message queue is inferred; the protocol's `Stack.messages` is always empty.
+- [ ] Verify added bounded owned Linux thread/TCP observations and retention of
+  all four resolved inputs. Local unit/verify/model attempts remain resource-blocked;
+  hosted units/real VM smoke must pass before the next unchanged full replay.
+- [x] Independently audit Dart-value CPU/heap run 39803478045: 3,178 tracked
+  sources/three resolved inputs fixed, 18 snapshots, actual 64-KiB request and
+  clean shutdown. Profiling build flags differ from acceptance; no reader-map,
+  builder-guard or retained-buffer bottleneck is established. See
+  [profile research](../research/2026-10-22-dart-value-profile.md).
+- [x] Independently audit checkpoint `36a6df24` failed payload shard: 85/360 rows,
+  original order/floors, 14 no-copy flags, available hashes and cleanup; final
+  source-invariance flag absent/unconfirmed. Same one-MiB TLS WebSocket Dart-value
+  FlatBuffers deadline, no worker-crash inference from cleanup warnings.
+- [x] Verify historical passing replay differs in entrypoint wrappers, listener
+  settings and resolved Cargo graphs. Both use JIT, so AOT is not a difference.
+- [x] Locate existing authenticated VM endpoints in owned metrics observers'
+  startup arguments; a new diagnostic can preserve actual entrypoints/config.
+- [x] Implement bounded original-process stack discovery and focused regressions,
+  keeping legacy replay behavior, PID/ownership checks and URL redaction.
+- [ ] Validate new contracts and the old-source regression check. Initial local
+  fail-before attempt expires at another task's preserved resource lease without
+  executing; no chronological fail-first result is claimed. Companion review is
+  likewise resource-blocked. Linux CI runs units before its real VM smoke.
+- [x] Run hosted focused tooling tests, real Linux discovery smoke and the full
+  original schedule attempt, preserving the incomplete failed observation.
+- [ ] Complete the 360-row replay after a causal fix, with unchanged floors,
+  300s workload and 19,800s campaign deadlines.
+- [ ] Diagnose and reproduce any captured failure before changing runtime behavior.
+
+## Native allocator owner follow-up (2026-10-22)
+
+- [x] Measure a private first-owner slot with identity-map fallback, using the
+  external production heap/GC collector: 24 windows, matched wire/copy controls,
+  about 209 fewer managed bytes per FlatBuffers construction; CBOR/MessagePack
+  controls remain effectively unchanged.
+- [x] Verify all 20 baseline/candidate lifecycle cases with zero native owned
+  allocations/handles after each case, including freeze/resize failures.
+- [x] Retain 56 balanced construction-time observations and complete wires:
+  empty and one-KiB components improve; growth/one-MiB intervals overlap parity.
+  All 3,176 tracked/resolved root and 346 private source/config inputs remain
+  unchanged through the final isolated bundle.
+- [x] Pass frozen pre-adoption `bin/test-fast` in 15m20s with unchanged inputs;
+  adopt only owner tracking, preserving field order and all public contracts.
+- [x] Add independent wire and isolated immediate native-cleanup regressions;
+  all 49 focused ownership/frame/segment cases pass. Fix helper style notices;
+  clean analysis and isolated helper rerun pass.
+- [x] Validate 154 existing mutation proofs and regenerate the changed target's
+  inventory. Correct the retained wrong-path tooling invocation; 13 proof and
+  93 runner tests pass, with one pre-existing skip.
+- [x] Verify the added parent-process input-failure coverage case; all 50 final
+  ownership/frame/segment cases and clean analysis pass with all inputs fixed.
+- [x] Complete actual-source review: no demonstrated ownership defect; record
+  source-backed dispositions for withdrawn/inapplicable companion claims.
+- [x] Pass frozen full `bin/verify` on `2de4ec32` in 23m58s: all 3,174 sources
+  and four resolved inputs unchanged, clean tree, including browser suites.
+- [x] Independently audit renewed `2de4ec32` lifetime/copy proof: four phases,
+  120 owned cases, 300 short rows, all 32 no-copy observations and 3,174 committed
+  source hashes. Production native binaries match the earlier checkpoint.
+- [x] Recompute all 90 renewed strict rows: zero integrity gaps, eight numerical
+  failures retained (Dart values CPU/throughput/p95/p99/GC/RSS, native-buffer RSS,
+  pre-encoded RSS). All allocation gates pass; no cross-runner causal inference.
+- [ ] Finish exact-head hosted CI/copy/timing renewal and full parity campaigns;
+  retain running checkpoint `36a6df24` campaigns and all historical observations.
+
+Research: [Native owner tracking](../research/2026-10-22-native-flatbuffers-inline-owner.md).
+
+## Full-campaign failure follow-up (2026-10-22)
+
+- [x] Confirm all 38 CI jobs pass on production source `f316941a`.
+- [x] Independently recompute all 1,440 primary rows: zero integrity gaps,
+  151 numerical failures; no budget or case is waived.
+- [x] Audit complete protocol and encrypted shards: 900 and 240 rows,
+  zero integrity gaps, 152 and 42 retained performance costs.
+- [x] Preserve the failed payload shard at 139/360 rows. The one-MiB TLS
+  WebSocket Dart-value FlatBuffers workload reaches its existing deadline;
+  the cleanup's worker-stopped warning does not prove an earlier crash.
+- [x] Dispatch unchanged full-schedule stack capture, run 39773158466.
+- [x] Reproduce and fix the local tooling liveness race: a process can exit
+  between `kill -0` and failed `ps`; recheck existence instead of reporting
+  live unconditionally. All 16 lab tests pass without deadline changes.
+- [x] Pass fresh complete precheck after the liveness repair: 15m03s, all
+  3,170 source inputs and four resolved inputs unchanged. Two baseline attempts retain failures:
+  an elapsed-time boundary and the optional-mirror warning. An isolated timing
+  rerun passes unchanged. A concurrent mutation campaign briefly blocks the
+  shared local lease; no lock is bypassed.
+- [x] Measure the original native string-cache allocation before changes. A
+  private lazy inline-prefix candidate removes one 108-byte allocation from
+  CALL/PUBLISH/ERROR, retains all 24 wires and payload spans, and passes 37 native
+  FlatBuffers tests. Original visit budgets and randomized overflow remain.
+- [x] Retain invalid shared-target timing, then repeat with isolated targets and
+  normal allocators. The lazy candidate avoids the eager-array control cost;
+  all 56 rows and allocation controls are retained, never primary acceptance.
+- [x] Add a reproducible reader allocation example to the existing hosted
+  component diagnostic; production reader still unchanged at this checkpoint.
+- [x] Audit the native-buffer profile: 3,173 source/dependency inputs and 18
+  snapshots. Builder objects disappear after the workload; no retained-builder
+  leak is established, and RSS/GC gates remain unresolved.
+- [x] Publish unchanged-reader component baseline `b1baf368`, run39779792736,
+  and adopt the privately verified lazy cache without schema/ABI/budget changes.
+- [x] Pass frozen `bin/verify` on `36a6df24` in 27m22s, with all 3,172 sources
+  and four resolved inputs unchanged, including Chrome/Dart2Wasm.
+- [x] Audit Linux component baseline/candidate: same compiler/lock/probe,
+  all 24 wires identical, one allocation/116 bytes saved on ordinary routing.
+- [x] Renew lifetime/copy proof: four phases, 120 owned cases, 300 short rows,
+  E2EE/native crypto/transcode and all 32 no-copy observations pass.
+- [x] Audit current strict 90-row timing: zero integrity gaps, three costs:
+  Dart GC confidence bounds and Dart/pre-encoded RSS. Every throughput,
+  latency, CPU and allocation comparison passes; copy binaries match.
+- [x] Audit historical full-schedule replay: all 360 rows and 60 no-copy flags,
+  unchanged inputs/locks/binaries and cleanup; no stall/capture, no causal fix.
+- [x] Reject private builder guard inlining after an external-controller
+  heap/GC-volume experiment finds no allocation reduction. Retain the earlier
+  inconclusive in-process probe and its profiler allocation overhead.
+- [x] Dispatch resulting-source full primary and supplemental campaigns,
+  runs 39784808712/39784813538; every original floor/budget remains.
+- [ ] Complete current-source hosted CI and independently audit final full
+  primary/supplemental results. Investigate measured remaining production costs.
+- [ ] Complete canonical/hosted verification and unchanged acceptance campaigns
+  for any adopted production fix. Keep #103 open until primary parity passes.
+
+## Current opaque-header follow-up (2026-10-21)
+
+- [x] Complete native writer `7a2af782` CI: all 38 jobs pass.
+- [x] Complete frozen `bin/verify` on `fe72c527` in 23m22s, with all 3,169
+  sources and four resolved inputs unchanged, including full browser suites.
+- [x] Audit the latest native/lifetime/copy proof: four phases, 120 owned cases,
+  300 short inventory rows and all 32 no-copy flags. No timing acceptance.
+- [x] Audit the latest strict 90-row diagnostic: zero integrity gaps, seven
+  numerical failures. Native pre-encoded passes; native-builder RSS and Dart-value
+  CPU/GC/latency/throughput/RSS remain blockers.
+- [x] Audit the completed earlier reader primary campaign: all 1,440 rows,
+  zero integrity gaps and 173 numerical failures. Retain the completed
+  1,500-row supplemental report and its 244 performance costs.
+- [x] Audit current Dart-value memory/CPU attribution: all 3,172 inputs,
+  18 snapshots, stable identities, actual sampling windows and cleanup.
+- [x] Reject fixed-capacity and general-writer prototypes after their measured
+  allocation/control regressions; retain their complete observations and source.
+- [x] Validate a serializer-only opaque terminal-header prototype on 93 cases,
+  original aliases, metadata, alignment and exact frame bounds. Run balanced
+  seven-pair component timing; report its non-opaque fallback costs too.
+- [x] Reproduce three fragments before the two-fragment regression; implement
+  the opaque shortcut with the existing vector-reference API. All 134 focused
+  cases, all 3,395 serializer VM cases, analysis and 154 static proofs pass.
+- [x] Pass all 67 resulting-source fragment contracts in Chrome/Dart2Wasm using
+  the canonical package directory; retain the failed workspace-root invocation.
+- [x] Confirm all 38 full CI jobs pass on fixture-policy source `fe72c527`.
+- [x] Pass frozen full `bin/verify` on resulting source `f316941a` in 22m33s,
+  with all 3,170 sources and four resolved inputs unchanged.
+- [x] Independently audit resulting-source lifetime/copy renewal: four phases,
+  120 owned cases, 300 short rows and all 32 no-copy flags, with zero public
+  native owners before GC. Timing and copy production binaries match exactly.
+- [x] Audit resulting-source 90-row timing: zero integrity gaps, six numerical
+  failures. Throughput medians pass; all RSS, Dart CPU and GC/p99 confidence
+  bounds still block acceptance.
+- [x] Retain the byte-vector type probe and both adaptive-capacity prototypes.
+  The second preserves 138 complete wires and source aliases, with smaller
+  backing in 51 cases but opaque encoder costs. No follow-up is adopted.
+- [x] Queue the unchanged current-source full primary and supplemental campaigns.
+- [ ] Complete current-source full CI and collect/audit all campaign artifacts.
+- [ ] Achieve final 48-case primary parity and complete final 50-case supplemental
+  evidence. Component results and historical passes cannot replace these gates.
+- [ ] Retain the required independent approving review for #130 before merging
+  #100/#101; leave #103 and #132 open/draft until their acceptance is achieved.
+
+Research: [Native string cache](../research/2026-10-22-flatbuffers-inline-string-cache.md).
+
+Research: [Dart opaque terminal header](../research/2026-10-21-flatbuffers-opaque-terminal-header.md).
 
 ## Resume after merged ObjectBox adapter (2026-10-20)
 
@@ -9,11 +1865,236 @@ Status: active. Started: 2026-10-03.
   historical performance campaigns as blockers.
 - [x] Pass fresh `bin/test-fast` on performance source `830c34cd`.
 - [x] Integrate master into #130, resolving the state-document conflict.
-- [ ] Carry the integration into stacked performance branch #132.
+- [x] Carry integration `1f46c70b` into stacked performance branch #132.
 - [x] Rebuild #130 native code and pass all 32 adapter tests, analysis and
   focused CI/coverage-policy/package-inventory checks.
-- [ ] Pass canonical verification on the full combined performance source.
-- [ ] Renew owned E2EE/transcode proofs and strict Linux performance diagnostics.
+- [x] Pass canonical verification on combined source `9e964951`; all 3,153
+  source inputs and resolved locks remain unchanged. Retain the preceding
+  failed lifecycle-timeout attempt and three successful isolated reruns.
+- [x] Reproduce the three captured Linux paired-RSS failures before changing
+  production code; preserve actual HWM independently of historical sampled RSS.
+  All 36 collector and 46 comparator tests pass; budgets remain unchanged.
+- [x] Pass full verification and fresh fast checks on RSS source `8104d339`;
+  all 3,154 source inputs and resolved locks remain unchanged.
+- [x] Confirm the full hosted CI run on `8104d339` passes as well.
+- [x] Confirm exact-head #130 CI passes all 38 jobs; retain required human review.
+- [x] Complete the strict 90-row Linux diagnostic and independently reproduce
+  its report: all three allocation comparisons pass, eleven numerical gates fail.
+- [x] Retain the renewed payload-size failure at twenty rows and its four
+  allocation-precision gaps. Replay all 36 original warmup rows locally; the
+  different platform/SDK does not reproduce the hosted timeout.
+- [ ] Verify the opt-in hosted stack capture, then capture the Linux failure
+  before cleanup and add a causal regression before application changes.
+- [x] Audit the first hosted 36-row replay: no timeout or allocation gap, but
+  changed runner image/kernel and actual Rust 1.99.1. Reproduce the ineffective
+  compiler pin for both jobs, then set the effective environment and verify it.
+- [x] Extend diagnostic traversal to the complete original scenario directory,
+  preserving ordering and repeated cross-pass names. All sixteen focused tests pass.
+- [x] Retain the six CLI startup failures in canonical verification on
+  `53c19b72` and the passing unchanged-source isolated run. Remove repeated
+  fixture compilation with a process-local immutable image cache, preserving
+  every private runtime resource and deadline. Forty focused tests pass;
+  compiler instrumentation confirms one compilation per process.
+- [x] Pass complete frozen canonical verification on `c43f4e62`, with all 3,157
+  source inputs and resolved locks unchanged. Preserve both failed Rust CLI
+  attempts before the existing retry passes; the startup flake is unresolved.
+  The previously blocked companion resource becomes available afterward.
+- [x] Independently recompute the effective-pin ninety-row diagnostic on
+  `53c19b72`: all three allocation comparisons pass, thirteen numerical gates
+  fail, stable process identities and cleanup are retained. No parity is claimed.
+- [x] Reproduce temporary native envelope allocations with a thread-local
+  allocator probe, then replace per-table staging vectors with schema-bounded
+  stack storage. Controlled restoration changes fifteen allocations to twelve
+  and 3,360 requested bytes to 2,520. Original application pointers are retained.
+- [x] Pass 31 isolated FlatBuffers tests and compare all 56 contiguous/segmented
+  streams for 25 public models plus three opaque body sizes byte for byte.
+- [x] Pass frozen full verification on writer source `40927925`, with all 3,158
+  source inputs and resolved locks unchanged and no Rust CLI retry. Renew all
+  120 production copy cases and 300 short supplemental rows, retaining all
+  32 zero-avoidable-copy observations and unchanged production binaries.
+- [x] Confirm all 38 hosted CI jobs pass on tooling source `53c19b72`.
+- [x] Reject the compact-field prototype after its 3.4% parsing slowdown.
+  Instead retain four table-cache entries inline with randomized overflow.
+  All 32 FlatBuffers tests and 56 wire comparisons pass; controlled restoration
+  changes decode allocations from seven to six and requested bytes 2,844 to 2,704.
+  A local seven-pair microbenchmark improves parsing 5.2%; it is not acceptance.
+- [x] Test distinct/shared table limits with independently generated frames on
+  both baseline and candidate. Separate paired-diagnostic and stack-replay
+  concurrency groups without changing the measurement contract.
+- [x] Pass frozen full `bin/verify` on reader-cache source `28fa8011` in 23m41s,
+  with all 3,159 source inputs and resolved locks unchanged and no CLI retry.
+  Renew all 120 production copy cases and 300 short supplemental rows with
+  identical production binary hashes and all 32 no-copy observations zero.
+- [x] Audit the reader-cache ninety-row diagnostic: zero integrity gaps,
+  eleven numerical failures. Native construction throughput/CPU/allocation
+  comparisons pass; every RSS comparison still fails. No parity is accepted.
+- [x] Complete the 360-row diagnostic with verified Rust 1.99.0: no stall,
+  all 720 allocation windows satisfy the unchanged 1% limit, inputs and process
+  cleanup are verified. Retain the original failure; no timeout fix is claimed.
+- [x] Confirm all 38 hosted CI checks pass on writer source `40927925`.
+- [x] Run a private eighteen-workload ffi-test forced-GC lifetime diagnostic:
+  all tracked native owners return to zero. No owner leak is reproduced; this
+  probe cannot establish timing, GC, allocation or RSS acceptance.
+- [x] Evaluate avoiding eager producer Dart-view exports without weakening
+  existing reusable-payload, disposal or exported-view lifetime contracts.
+- [x] Confirm all 38 current reader-cache CI checks pass (`39466446961`).
+- [x] Complete full primary/supplemental timing evidence (runs `39468662119`
+  and `39467640642`); retain every failed gate. Both complete with zero integrity
+  gaps, 173 primary failures and 244 supplemental costs; parity remains unproven.
+- [x] Add an opt-in private-source producer-view lifetime probe with a throwing
+  negative control and compile-time package marker. Ten tool tests, sixteen
+  capture tests and fourteen CI execution tests pass.
+- [x] Audit the current complete 360-row payload-size supplemental shard:
+  report recomputes identically, zero integrity gaps, 32 performance-cost findings.
+- [x] Observe the exact negative control on Linux; retain the positive
+  variant failure at session-layer deferred materialization (`39481115738`).
+- [x] Execute and independently audit the extended private session/transport
+  prototype on Linux (`39481566412`): six byte-validated cases, twelve snapshots,
+  zero native counters before and after forced GC, verified cleanup/invariance.
+- [x] Compare the same six unchanged-API baseline cases in one Linux job
+  (`39482582437`). Independent audit confirms retained producer allocations
+  before GC versus zero for the prototype; all owners reach zero after GC.
+  Negative control, byte checks, source invariance and cleanup pass.
+- [x] Implement a separately owned, trusted disposable payload lease, preserving
+  current APIs and exported-view lifetimes. Verify source identity, edits and
+  clones, disposal orders, foreign/old-library fallback and E2EE/transcodes
+  before using equivalent native benchmark construction paths.
+  Implementation started after the matched Linux comparison: add a core packed
+  byte source, retain it through session preparation, and recognize only the
+  final native lease type in transport. Access to mutable message arguments
+  must drop its native eligibility. Detached copies must drop source identity.
+  Existing packed/deferred factories and public native helpers retain behavior.
+- [x] Retain first lease candidate CI failures (`e9192132`): invalid annotations
+  and stale mutation source/offset records. Remove annotations and re-audit/re-key
+  the eight existing core-lazy proofs per target, adding no new equivalences.
+  All 154 proofs pass static preflight; thirteen checker tests pass. Full runtime
+  tests and all 393 current core-lazy mutants still require hosted execution.
+- [x] On `b54db44b`, pass 142 selected core cases, eight native lease tests,
+  repeated native sends without byte exports and foreign-library fallback.
+  Retain the six matching-reply failures on each VM/web backend and the Dart
+  fixture startup timeout. Preserve packed sources through YIELD/ERROR and
+  correct fixture receive ordering, with unchanged deadlines; analysis passes.
+- [x] Renew focused runtime contracts after the reply and fixture corrections.
+- [x] Complete canonical/CI/mutation checks before benchmark adoption.
+- [x] On `a5af2b95`, pass all 142 core and 433 client VM/browser/native contracts
+  and the retained lifetime controls. Reject overridable source getters as native
+  authority; use a private final core view and nonvirtual trusted lookup instead.
+  Existing public interfaces remain open, with forged-interface and legacy-type
+  regressions. All 144 pure-Dart core and 199 pure-Dart VM reply cases pass locally.
+  Re-audit/re-key the same eight proofs per target; static preflight passes all
+  154 existing proofs with a 404-mutation core-lazy inventory and no new exclusions.
+- [x] Run and independently audit all four lifetime phases on `100c7624`
+  (`39490332832`). All 144 core and 433 client contracts pass. The six public-API
+  cases forbid byte export, dispose producers, observe actual lease owners and
+  retain zero native owners before forced GC; sources/binaries/cleanup match.
+  All sixteen source contracts also pass locally in Chrome/Dart2Wasm.
+- [x] Retain full CI's obsolete five-file suite fixture failure (`39491312754`).
+  Update the exact expected six-file inventory and both wrapper checks. All 93
+  runner tests pass locally with one existing platform skip.
+- [x] Independently audit the complete writer primary campaign (`39457038168`):
+  all 1,440 rows meet the unchanged floors, with stable processes and zero integrity
+  gaps; 169 numerical gates fail. Retain its complete raw artifact and comparisons.
+- [x] Independently reproduce the complete reader supplemental report
+  (`39467640642`): fifty cases, 1,500 rows, zero integrity gaps, 244 retained costs.
+  All 1,500 volume, 480 E2EE, 360 native-crypto, 300 transcode and 160 no-copy
+  observations validate. Do not pool absolute observations across shards.
+- [x] Retain `6e490aef` full CI's core-lazy VM score failure (92.8125% against 95%).
+  Add independent metadata/getter/owner assertions and an observable regression
+  that wire keywords cannot expose decoded application keywords. All 147 selected
+  core and nineteen Chrome/Dart2Wasm source cases pass; no production code,
+  mutation thresholds, equivalences or exclusions change.
+- [x] Complete all 404 VM mutants with the final test inputs: 95.3125%, eight
+  additional assertion kills, unchanged source/equivalences and matching final
+  test/support hashes. Clean and restored baselines pass.
+- [x] Pass all 38 full hosted CI jobs on `c38ca52a` (`39500243765`). The hosted
+  VM mutation report independently matches local source/test/support hashes and
+  the 95.3125% score; the browser gate passes too. Retain the obsolete failed run.
+- [x] Preflight the complete benchmark/proof proposal in an isolated source
+  snapshot: all tooling, full analysis with thirty existing infos, fourteen
+  copy-proof guards, thirteen lifetime-tool cases and all 23 shell blocks pass.
+  Verify exact proposal hashes and remove the owned temporary Git clone.
+- [x] Adopt explicit leases for native and pre-encoded construction in all three
+  codecs. Close producers, observe actual lease owners, retain original metrics
+  and preserve the frozen legacy preparation in historical diagnostic controls.
+- [x] Make the original 120 owned cases and all 300 short inventory rows portable
+  for hosted production renewal. Require actual package roots, immutable resolved
+  inputs/binaries, no test oracles, complete counters, exact raw/pass equality and
+  the specific unchanged three-warmup-floor rejection. Preserve every deadline.
+- [x] Renew hosted source/lifetime and production copy proofs on `8bc62a3c`
+  (`39508516372`): verify 3,167 source hashes, four lifetime controls, six public
+  cases with no exported views and zero owners before GC, all 120 owned cases,
+  all 300 short inventory rows and the expected warmup-policy rejection. The
+  production binary hashes exactly match the paired timing binaries.
+- [ ] Complete full CI on adopted benchmark `8bc62a3c`; 34 jobs are green at
+  this checkpoint. Preserve the resource lease held by another task; local
+  native/canonical verification and companion review remain blocked.
+- [x] Independently audit strict-floor timing `39510196123`: all 90 rows, zero
+  integrity gaps, six numerical failures and exact comparison recomputation.
+  Native pre-encoded forwarding passes all seven diagnostic gates. Native-buffer
+  construction fails RSS/p99; Dart values fail CPU/RSS/GC/p99. No parity claim.
+- [ ] Attribute remaining memory costs using diagnostic class heaps, external
+  usage and Linux smaps with stable PID/isolate/source/binary evidence. Keep
+  forced-GC requests outside workloads and CPU windows; never use their results
+  as acceptance measurements or sum shared isolate-group heaps.
+  The optional probe compiles against the resolved SDK. Twelve profile tests,
+  complete tooling, Python syntax and all 23 workflow shell parsers pass. Retain
+  the resolved locks/package configuration and validate every snapshot's identity.
+- [x] Retain the first hosted profile failure (`39514441849`): an unused Rust
+  benchmark-driver lock is absent on fresh runners. Reproduce all three cases
+  before repair, then pass twelve profile tests while requiring and retaining
+  only the actual Dart/FFI transport dependencies. No workload ran on the failure.
+- [x] Pass live Linux CPU/memory capture on `3f20fc3f` (`39514813214`);
+  independently audit every snapshot, resolved input and actual sampling window
+  before attributing a cost or choosing a production change.
+- [x] Reproduce missing real native-build inputs in all three mocked profile
+  cases. Give those tests isolated temporary Git repositories and synthetic
+  resolutions; all twelve profile tests pass. Keep live dependency checks strict.
+- [x] Pass eleven diagnostic, 24 campaign-runner, nine profile and fourteen CI
+  checks, all workflow syntax checks, and a real three-codec one-MiB stack smoke
+  with source/lock/binary invariance and owned-process cleanup.
+- [ ] Confirm fresh paired-RSS evidence across every supplemental case.
+- [ ] Renew owned E2EE/transcode proofs on the final frozen production candidate.
+- [x] Renew 120 production copy cases and all 300 short supplemental rows on
+  `f88a8f3d`, with all 3,157 inputs unchanged. All 32 declared no-copy observations
+  are zero; criterion two in #103 is checked. Production inputs match the
+  verified `8104d339` binary. These diagnostics do not establish speed.
+- [x] Pass complete local tooling and hosted Fast Checks on isolated fixture
+  repair `3e7832bf`; preserve both preceding dependency-fixture failures.
+- [x] Record a pinned Linux native encoder allocation baseline for control,
+  opaque, positional and positional+keyword messages at zero/one-KiB/one-MiB
+  bodies. Keep input preparation outside counters, ten stable observations,
+  exact borrowed-pointer checks and full wire artifacts. These allocator counts
+  are component diagnostics, not Dart allocation or performance acceptance.
+- [x] Retain the first Linux component-baseline failure: all native contracts,
+  four lifetime controls and 34 codec tests pass; control/empty opaque counts
+  match, but first nonempty `bytes` sharing changes allocator requests. Verify
+  bytes 1.12.1's lazy `Shared` promotion in source. Keep the actual first-call
+  observation plus ten stable later calls and exact first/steady wire equality.
+- [x] Run the focused encoder-only campaign with immutable source/dependency,
+  compiler and executable provenance. It bypasses no acceptance checks: final
+  native/copy and complete timing campaigns remain required separately.
+- [ ] Keep the first deferred-vector record inline, preserve ordered overflow,
+  then verify native tests, exact wire equality, lifetimes/copies and allocations
+  before paired timing. Apply only after baseline `d57a9d5e`/`39519826093`
+  passes 34 codec tests and independent audit of 3,169 inputs, compiler, binary
+  and ten wire frames. Single-vector steady baseline: 12 requests / 2,520 bytes;
+  first nonempty Vec-backed use adds one 24-byte request. Candidate is now
+  applied; its matched component/native/performance validation is pending.
+- [x] Verify writer `7a2af782`: matched compiler/lock/fixture, all ten wires
+  identical, exactly one request/160 requested bytes removed for cold and steady
+  single-vector encoding; control/multi-vector counts unchanged. All native
+  lifetime/120-owned/300-short copy proofs pass independent audit on that source.
+- [x] Audit its strict 90-row run: zero integrity gaps, four numerical failures,
+  exact recomputation, same production binaries. Preserve throughput/RSS/p99
+  failures; component counts cannot override these gates.
+- [x] Reproduce the fixture policy mismatch in source: managed builder disables
+  deduplication for the single-table model, native helper retains the default
+  enabled list. Verify exact model wire equality across both policies at boundary
+  identities and body sizes; align only this native helper and expand hosted
+  codec/model tests. Pure-Dart test and focused analysis pass.
+- [ ] Renew native model bytes, ownership/copy and strict performance after this
+  fixture change. Existing source7a campaigns remain separately attributed; no
+  policy/case/floor/deadline/budget changes and no result is silently discarded.
 - [ ] Improve measured bottlenecks, then run complete unchanged-policy primary
   and supplemental acceptance before marking #103 complete.
 
@@ -68,7 +2149,7 @@ complete byte checks; fallback copies are counted. ObjectBox/SDK internals are
 not included in those counters. See the checked ObjectBox adapter research.
 
 Milestone: [GitHub milestone 1](https://github.com/konsultaner/connectanum-dart/milestone/1).
-Branch: `codex/flatbuffers-lazy-ppt-views` in the managed FlatBuffers worktree.
+Branch: `codex/flatbuffers-performance-parity` in the managed profile-cases worktree.
 Baseline: `54eafc5fb675886a04d390f069714c69de2aaac0`;
 released master `3bac4cf5` is integrated. Preceding checkpoint: `9b28c61c`.
 Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105) at `0e585405`.
@@ -76,6 +2157,533 @@ Merged PR: [#105](https://github.com/konsultaner/connectanum-dart/pull/105) at `
 Merged CI PR: [#108](https://github.com/konsultaner/connectanum-dart/pull/108), master `759d3d4c`.
 Merged release: [#107](https://github.com/konsultaner/connectanum-dart/pull/107) at `73d840c9`.
 
+
+Current verification follow-up (2026-10-19): `5600f1f7` passes every hosted CI
+job and the full local fast suite. The complete 816-mutation router gate passes
+95.2087% without exclusions. `1a20561d` repairs standard-SDK GC ring loss: the
+renewed 30-row 1 MiB TLS WebSocket run completes with all 60 client/server
+allocation windows measured and no timeout. Its CI stops at one unformatted test
+line before coverage tests. `8f6e753a` corrects it; all 736 files pass formatting.
+The first full `540ab37f` verification reproduces a synthetic VM fixture missing
+`clearVMTimeline`; that superseded run is failed, not a pass. The fixture now
+handles the RPC, and a new regression proves clear failure aborts measurement.
+All 221 collector/worker lifecycle tests pass, with causal source restoration.
+Fresh full verification and production proofs remain required. The prior 85
+focused Dart cases, analysis and 139 driver tests pass. See high-GC research.
+
+The complete b8 primary campaign finishes all 1,440 rows across 48 cases with
+complete allocation observations. Independent archive/source/binary/policy/
+config/lock/scenario and raw/split hashes match, and the unchanged evaluator
+reproduces its report exactly. It fails 176 performance gates. Supplemental
+protocol completes 900 rows with 152 performance findings; encrypted progressive
+completes 240 rows with 44 performance findings and three missing measured RSS
+endpoints. Payload sizes stops at 192/360 rows on the recorded 1 MiB timeout.
+No complete supplemental acceptance or parity is claimed. No budget, sample
+floor, workload, owned-copy requirement or dependency scope is waived. The b8
+frozen full verify, 300 short rows, 120 accounting cases, 36 progressive
+combinations and 190 five-platform consumers remain valid for that source.
+PR #132 remains draft for unmet parity; #130 still needs independent review.
+
+Current native envelope candidate (2026-10-17): source `b2fb8b63` passes
+frozen full `bin/verify`, 300 short supplemental rows, 120 accounting cases and
+36 progressive combinations with all 3,124 inputs unchanged. Its strict Linux
+90-row diagnostic still fails parity (CPU 1.0099 / 1.0057 / 1.0038), with all
+allocation comparisons passing and additional throughput/latency/GC/RSS failures.
+A fail-first regression now motivates keeping a single borrowed application's
+vector header in the native envelope, removing its separate header allocation.
+All 386 core, 26 segmented-forwarding FFI and 26 FlatBuffers FFI tests pass,
+including generated verification, original owners and multi-vector fallback.
+Fresh production copy/volume and performance evidence is pending; no acceptance
+budget, workload, measurement floor or dependency scope changes. See the checked
+terminal-vector research. PR #132 remains draft for unmet parity; #130 still
+requires independent review.
+
+Current fully represented CALL candidate: a fresh audited Linux profile on
+`65833214` still captures 24 inclusive native-metadata retention ticks (diagnostic
+only). A limited complete-grammar match now avoids the custom loader and retained
+history for two PPT strings exactly represented by fresh CALL options, with all
+other fields null. Unknown/null/default/tagged/Unicode or other control shapes
+keep their prior path. All 3,971 binding/metadata cases, both production consumers,
+nonminimal decoder comparisons and source-restored fail-first checks pass;
+analysis is clean. See the checked fully represented CALL research. Fresh
+performance measurements and final full verification are pending.
+
+The preceding `65833214` whole `bin/test-tooling` and hosted Fast Checks pass
+with all 3,123 inputs unchanged. Its nonfinal remaining CI jobs were cancelled
+to free the profiler runner; no full CI pass is claimed for it. The earlier
+`7388e666` hosted CI now passes every job, alongside its frozen full local verify
+and five-platform consumers. The `b4e2b4ea` strict 90-row diagnostic has complete
+allocation/RSS observations but fails CPU ratios 1.0122 / 1.0024 / 1.0045 and
+other gates. All three allocation comparisons pass. No budget is changed and no
+primary/supplemental performance acceptance or milestone closure is claimed.
+
+The complete local tooling run on `10d21c49` also reproduces a stale exact
+router-test-list assertion in the mutation-runner tests. Its expected list now
+includes the new router regression, while the client list remains exact. All
+93 runner checks (one existing skip) and the remaining five tooling scripts pass.
+The full tooling prefix had passed before that assertion. Fresh whole-tooling
+and hosted checks are required on the repaired fixture; no gate is loosened.
+
+Serializer mutation inventory repair: the hosted `b4e2b4ea` Fast Checks failure
+reproduces five omissions of the new core metadata test. All four CBOR/MessagePack
+VM/browser support inventories and the shared suite now include it; the router
+binding target also runs its new native regression file. All 87 tooling checks
+and all eight new cases through both VM and JavaScript wrappers pass. No test
+exclusion, inventory equality or mutation threshold is relaxed. The preceding
+source completes 300 short rows, 120 accounting cases and 36 progressive cases
+with all 3,123 inputs unchanged. Its redundant full verification is intentionally
+stopped for the known tooling failure; it is not a pass. Application code is
+unchanged by this inventory repair. Run resulting-source tooling/CI first, use
+the strict Linux diagnostic to choose the next performance step, and complete
+fresh full verification before handoff/acceptance.
+
+Deferred validation repair: a bounded 10,240-value tag diagnostic finds two
+well-formed date-tag values rejected by the materializer. A fail-first native
+retention test confirms rejection moved to resend. Tagged dictionaries now
+retain eager semantic decoding; tag-free dictionaries keep deferred snapshots.
+Tags nested in metadata are detected, while byte-string contents stay opaque.
+All 312 focused VM and 160 Chrome/WASM cases pass; focused analysis is clean.
+The superseded `a353ce56` proof/diagnostic attempts are stopped and preserved;
+no resulting-source full verification or parity is claimed for them.
+
+Current deferred-metadata candidate (2026-10-16): the hosted Linux profile
+passes source/PID/window/report/map audits, with 46 inclusive Dart retention
+ticks (not a CPU-cost or parity result). Native perf Dart addresses remain
+unresolved. Three fail-first cases reproduce 16 KiB of eager metadata clones
+for a 4 KiB binary extension. Native CALL/PUBLISH/YIELD now validate immediately
+and defer original decode/projection/snapshots, retaining immutable native bytes
+and payload-free original control fields. All 129 focused
+metadata cases, five Chrome/WASM cases and 3,877 binding/fragment regressions
+pass, including all 32 native flag combinations. Original eager
+semantics, unknown/default/null fields, edits before resend and application
+laziness are covered. Fresh full/hosted/accounting/performance proof is pending.
+
+Eligibility source `7388e666` now passes frozen full `bin/verify` with all 3,119
+inputs unchanged, all 190 production consumers on five platforms, 300 short
+supplemental rows, 120 accounting cases and 36 progressive combinations. The
+preceding `4738c452` hosted CI is fully green. Resulting-head hosted CI remains
+in progress without a known failure. No parity or milestone closure is claimed.
+
+CPU diagnosis follow-up: Linux native profiles now request standard Dart router
+JIT maps, retain PID/hash attribution and separate router/client perf reports.
+Nine tool tests cover startup/probe configuration and missing/corrupt/foreign
+maps; generated Dart analysis has no errors. Profiles remain diagnostic and
+cannot waive canonical parity. Hosted validation is pending. Eager native
+FlatBuffers dictionary retention (decode/project/snapshot) is a concrete next
+cost to profile before changing metadata semantics.
+
+Current native eligibility repair (2026-10-16): marker-only PPT borrowing can
+lose the scheme when raw null PPT fields become indistinguishable from absence
+in typed Dart options. Rust and real anonymous/ticket CBOR wire reproducers fail
+before the repair. Capability version 2 now requires a positive per-message
+native query on the held alias at lending and forwarding; ambiguous metadata
+uses the existing copying path. Older marker-only bindings reject version 2 as
+well. All 69 lifetime tests (eight new native binding cases), 110 worker tests,
+22 native predicate combinations plus invalid/non-CALL/released aliases and the
+two production consumers pass. Five native-library variants and older Dart
+bindings have live compatibility coverage. See the checked native eligibility
+research. Final resulting-source full/hosted verification is still required.
+
+The preceding `4738c452` source passes frozen full `bin/verify` with all 3,118
+inputs unchanged, all 190 production consumers across five platforms, 300 short
+supplemental rows, 120 accounting cases and 36 progressive combinations. The
+copy-boundary comparison across nine payload-size cases removes the three large
+router copies for all binary codecs; it does not establish speed improvement.
+The strict Linux diagnostic validates 90 rows, 180 allocation observations and
+all RSS endpoints, but fails parity: CPU ratios 1.0290 / 1.0086 / 0.9974, with
+additional latency/allocation/GC/RSS failures. All gates remain unchanged. Its
+hosted CI is still completing without a known failure. No milestone closure or
+performance acceptance is claimed for that preceding, marker-only source.
+
+Current internal PPT candidate (2026-10-16): a fail-first regression observes
+an argument-byte array crossing the internal CALL handoff for unchanged plaintext
+PPT. The candidate allows retained native handoff for exact original body identity
+and immutable original PPT headers, with a cached optional native version marker.
+Missing/unknown markers, changed/removed input or reply headers, replacements,
+custom details, active progress, encryption and reserved `wamp` payloads fall back.
+Both removed-header guards have independent fail-first/restoration proofs. All
+110 worker tests, 18 new-library live cases, 18 old-library fallback cases and the
+two production consumers (empty/3/65,536-byte opaque internal bodies, anonymous
+and ticket) pass. Final unchanged replies after progress may reuse their loan.
+Copied-but-equal reply bytes also fall back. The local companion review found
+and prompted the stripped-input-header guard; a final bounded GLM judgment finds
+no guard blocker. Baseline `bin/test-fast` passes. Live accounting and timing for
+this candidate are still pending.
+
+Baseline verification correction: hosted `895ff3d9` CI is now fully green, as are
+its five native artifact platforms. Local `ce897f98` full verification hit native
+receive-worker exits while a separate `bin/test-fast` overlapped the full suite.
+That failed attempt is retained with all 3,118 inputs unchanged; no cause or pass
+is claimed before a serial rerun. The three profiler-path assertions are fixed.
+The `4b840309` strict Linux diagnostic completes 90 rows/180 valid allocation
+observations but fails CPU parity at 1.0250 / 1.0131 / 1.0129 plus other gates.
+Three lifetime-RSS observations (one warmup, two measured) remain unavailable;
+reading final fields together does not remove that historical-peak contradiction.
+All unavailable evidence still blocks acceptance. No gate or budget is changed.
+
+Verified prefix checkpoint (2026-10-16): source `792cd99d` passes full frozen
+`bin/verify` with all 3,115 inputs unchanged, all 38 hosted CI jobs and 180 audited
+production consumers across five platforms, with zero skips and independently
+matched archive/library/manifest/log hashes. Renewed 300 short supplemental rows,
+120 accounting cases and 36 progressive codec combinations reconcile every owned
+copy and encoded-volume component. All 36 Linux RawSocket pointer probes pass.
+The strict Linux diagnostic validates all 90 rows / 180 allocation observations
+and every RSS endpoint, but still fails parity: CPU ratios 1.0057 / 1.0185 /
+1.0229, with additional throughput/latency/GC/RSS failures. No budget is waived.
+CPU profiling succeeds on a second unchanged-source attempt; the first attempt's
+CBOR `perf record` failure and partial data remain retained explicitly.
+
+Current cancellation repair (2026-10-16): pre-change `bin/test-fast` passes on
+`c15f2185`; the corrected native mutation inventory passes all 93 tool tests and
+hosted Fast Checks. A real workload-sequence probe also reproduces the rejected
+router send with CBOR. A temporary, restored diagnostic captures the rejected
+FlatBuffers frame: `ERROR(INVOCATION, 52, {}, wamp.error.no_such_invocation)` after
+callee close. WAMP requires late non-waiting cancellation responses to be ignored.
+The repair discards removed-invocation responses and cancellation races during
+completion/progressive update, without retaining cancelled-call state. Nine
+fail-first assertions now pass, alongside two existing store-error controls;
+all 109 session tests pass with default and enabled native forwarding. Analysis
+passes with the same 30 existing infos. The rejected-volume gate is unchanged.
+See [the checked research](../research/2026-10-16-wamp-late-cancellation-responses.md).
+Renewed 300 short supplemental rows, 120 independent accounting cases and
+36 progressive combinations pass on `895ff3d9`. Its full frozen `bin/verify`
+passes with all 3,116 inputs unchanged. All 190 production consumers across
+five platforms pass with zero skips and independently matched library/archive/
+manifest/log hashes. macOS Intel first failed SDK download DNS resolution;
+its unchanged-source retry passes, with the original failure retained. Hosted
+CI passes all 38 jobs. The strict `c15f2185` Linux diagnostic completes all 90 rows and
+validates 180 allocation observations, but CPU ratios 1.0867 / 1.0254 / 1.0216
+and other throughput/latency/GC/RSS gates fail. One lifetime-RSS observation is
+explicitly unavailable. No performance acceptance or milestone closure is claimed.
+
+CPU profiling now selects each of the three canonical diagnostic construction
+paths explicitly; the default remains native/native-buffer. Five mocked
+orchestration tests check startup/probe/audit attribution, unsupported selections
+and independent targets. The actual Dart SDK verifies the six probe argument
+positions; generated-probe analysis has no errors and workflow actionlint passes.
+Per-request JSON and selected-case provenance are retained. The `8cb54d20`
+Linux Dart-values profile succeeds: all 3,117 source hashes, the native binary,
+13 actual request files, process IDs and three real sampling windows are
+independently checked. These profiles never supply primary acceptance.
+
+Full verification of `4b840309` reproduced three profiler-test failures on
+macOS: the production launcher resolves output paths but the mocked assertion
+expected an unresolved `/var` path. The assertion now checks the same canonical
+path; all five profiler tests pass. Full verification is being rerun.
+
+The RSS endpoint repair reads final VmRSS and the first VmHWM from one procfs
+snapshot. All 32 metrics tests, including existing strict negative controls,
+pass and changed-file analysis is clean. Missing/contradictory values still
+block acceptance; fresh Linux observation is pending. See the paired Linux RSS
+research document. Router internal PPT handoff remains the next performance
+investigation: the existing Dart guards reject PPT even though the native
+result-from-call encoder can preserve opaque PPT headers and body slices.
+Measured router copies are about 128 KiB in Dart plus 64 KiB at native submission
+per 64 KiB RPC; no-copy forwarding requires careful ownership/metadata guards.
+
+Active native candidate (2026-10-16): a fail-first typed-send regression observes
+172 native control-string copy bytes. The private canonical Call/Publish path now
+builds an aligned native prefix with the vector length at its tail and submits it
+with the existing frozen payload through the existing owned-segment ABI. It avoids
+native reparse/composition and extra frame wrappers. Public supplied-frame checks,
+64 MiB full-frame limits, profile/connection guards and the old-ABI frame fallback
+remain. No native ABI, schema, payload copy, benchmark inventory or budget changes.
+
+All 76 focused native/ownership/transport cases pass in canonical separate
+processes, plus 36 complete-wire shape cases and 14 missing-optional-ABI fixture
+cases. The counter test uses an isolated child VM because native counters are
+process-wide. Parallel native-file runs reproduce shared-runtime teardown
+interference; their failures are retained, not used as accepted verification.
+The capability fixture changes only an optional dynamic export in a test copy,
+not a historical binary or production artifact. A balanced local preparation-only
+probe measures 8.24 to 4.18 us; it excludes send/network/session work and is not
+macro parity. Resulting-source full verification, renewed live accounting, hosted
+CI and strict timing remain required. Production consumers now require 14 first
+profile cases: all 190 pass on `4dab389f` across the five packaged platforms,
+with zero skips and independently matched log/archive/manifest/library hashes.
+Resulting-cancellation-source evidence remains pending.
+
+RawSocket prefix candidate (2026-10-16): frozen `bin/test-fast` passes on
+`2524d89b` with all 3,115 inputs unchanged. A focused fail-first regression proves
+large FlatBuffers/CBOR/MessagePack frames submit their small fragments separately.
+The candidate copies a bounded leading prefix (at most 4 KiB including the actual
+four/five-byte header), records every performed header/coalescing copy and retains
+all remaining fragments with their owner anchors. All 93 socket tests pass,
+including exact wire bytes, full and bounded native bodies, cap boundaries,
+independent prefix storage and failed-submission accounting. Review claims were
+checked against source and these regressions. No benchmark verification, policy
+or native transport changes. Resulting-source full verification, Linux pointer
+probes, renewed live accounting and strict parity remain required.
+
+Current verification (2026-10-16): source `edf3feda` passes frozen full
+`bin/verify` with all 3,113 inputs unchanged, renewed 120-case accounting and
+36 progressive codec combinations with independent copy/volume recomputation,
+and 180 audited five-platform production consumers with zero skips. Hosted CI
+passes all 38 jobs on that source. Its strict
+90-row Linux diagnostic validates all 180 allocation observations and every RSS
+endpoint. Allocation and GC gates pass for all three construction modes. CPU
+still fails at 1.03886 / 1.03192 / 1.02334; several latency/RSS/throughput gates
+also fail. Actual parity and full campaigns remain blockers; no budget is waived.
+
+The active CI change keeps all 50 supplemental cases / 1,500 rows but distributes
+complete cases over three controlled Linux jobs (30 protocol, 12 size, 8 encrypted
+progressive cases). Recorded two-minute workloads make the six-hour hosted job
+limit a real scheduling risk. Every case retains all codecs, three warmups,
+seven measurements and existing floors/guards. A strict raw-evidence merger
+requires all batches and records per-batch hardware/PIDs/attempts without pooling
+absolute costs. Primary acceptance remains separate. All 78 focused cases, the complete
+`bin/test-tooling` chain and actionlint workflow checks pass. Resulting-source
+full verification, live batch proof and hosted publication remain pending.
+
+Live batching proof on `8b92306c` completes all 50 cases / 300 short rows,
+with stable processes in each batch and all 3,115 inputs unchanged. Independent
+checks reconcile 96 E2EE, 60 active transcode, 72 native-crypto and 300 encoded
+WAMP-volume observations; all 32 eligible rows retain zero avoidable payload
+copies. The strict policy rejects these short runs as required. A local Dart-values
+CPU profile passes source/library/window audits; native CPU and interference
+observation remain unmeasured on macOS. Neither result establishes parity.
+
+Hosted Fast Checks on `8b92306c` reproduces a synthetic merger fixture depending
+on an ignored Cargo lockfile. A clean-archive regression confirms the failure;
+synthetic fixture locks now replace local files, and all ten merger tests pass
+in a clean archive with no generated locks. Production hash verification is
+unchanged. Resulting-source CI and full local verification remain required.
+
+Native composition candidate (2026-10-16): frozen `bin/test-fast` passes on
+`7452ab61` with all 3,113 inputs unchanged. That checkpoint also passes renewed
+120-case copy accounting, 36 progressive codec combinations and 180 independently
+audited production consumers across five platforms, with zero skips. Its Linux
+CPU diagnostic passes source/library/window audits; attribution shows native
+composition rebuilding already validated metadata.
+
+The candidate retains the full existing parser, reuses its validated field tree,
+changes only application slots and validates every supplied container. Original
+encoded metadata survives byte-for-byte. The regression fails first on reordered
+metadata keys. All 384 core / 295 FFI library cases, 71 Dart native/frame/network
+cases, 33/42 independent fixtures, all 25 public message models, generated bindings
+and independent live RawSocket/WebSocket peers pass. Every public model also
+rejects malformed/mixed/deep supplied containers and unsupported payload slots.
+A balanced local component probe improves composition from 4.50 to 3.77 us;
+this is not macro parity. Resulting-source full verification, renewed copy totals,
+Linux timing and fresh native consumers remain required. No public ABI, schema,
+primary inventory or performance budget changes.
+
+Verified checkpoint (2026-10-16): full frozen `bin/verify` passes on
+`87b89830` with HEAD and all 3,113 inputs unchanged, including 4,984 core and
+2,865 client Wasm cases (20 existing native-only skips). Hosted CI on `84fe0f29`
+passes all 38 jobs. Current hosted CI remains pending.
+
+The production native dry run on `87b89830` builds all five artifacts and passes
+all 12 first-profile consumer cases on every platform, but its verifier still
+expects 10. All five actual logs reproduce the count rejection and validate with
+12; the declaration now requires 12, retaining every omitted/skipped/unfinished
+failure guard and reporting expected/observed counts. Focused verifier checks
+pass. Replacement five-platform dry-run evidence remains required.
+
+The packed-reply Linux diagnostic on `01300605` completes 90 rows / 180 valid
+allocation observations. Allocation ratios now pass: 0.84549 / 0.89153 / 0.81924.
+CPU still fails: 1.03383 / 1.03914 / 1.03297; some throughput, latency, GC and
+sampled RSS gates also fail. Two lifetime RSS observations are unavailable,
+both in warmup; they remain explicit. Sampled RSS gates use actual
+available readings and fail. No numeric gate is waived. Fresh CPU attribution,
+actual parity and full campaign acceptance remain required.
+
+Progressive-result coverage (2026-10-16): the supplemental inventory is now
+version `flatbuffers_extensions_v2`, with 50 cases (1,500 full campaign rows).
+The four progressive RPC cases retain three CALL chunks and now validate two
+progressive RESULTs plus a terminal result. Eight added encrypted cases exercise
+both ciphers, Dart/native clients and mixed CBOR peers. A frozen-input short live
+proof passes all 36 codec combinations; independent arithmetic reconciles 24 E2EE,
+16 active transcode, 12 native-crypto paths and every encoded WAMP-volume total.
+All 92 focused Dart and 65 comparison/campaign cases pass; analysis is clean.
+The preceding packed-reply commit `01300605` separately passes all 120 renewed
+copy cases with 3,113 unchanged inputs. New-source full verification, hosted CI,
+full campaigns and actual primary parity remain required. No budget changes.
+
+Current packed-reply correction (2026-10-16): full frozen `bin/verify` on
+`84fe0f29` passes with all 3,113 inputs unchanged; its renewed 120 live accounting
+cases independently reconcile Connectanum E2EE, transcode and encoded WAMP volume
+components. Hosted CI currently has 36 passing jobs and VM coverage still running.
+The `f2b577ff` 90-row Linux diagnostic still fails parity: CPU ratios
+1.08631 / 1.07976 / 1.07664 and native-buffer allocation 1.03508. Every allocation
+observation validates; one warmup lifetime RSS endpoint is unavailable. Measured
+endpoints remain valid. No gate is relaxed.
+
+An actual typed RPC probe finds internal replies losing their packed-payload
+classification because PPT metadata was omitted from payload restoration. The
+candidate passes the existing four metadata fields to that restoration helper;
+a fresh probe preserves the exact 65,576-byte packed payload without materialized
+arguments. Progressive internal replies now consume their reply stream through
+the terminal result, retaining native loans until completion or cancellation.
+All 114 focused router regressions, analysis and 154 mutation proofs pass. Local
+companion suggestions were checked against source and resource-lifetime tests.
+Resulting-source full verification, renewed accounting and Linux parity remain
+required. Existing progressive benchmark cases measure CALL input chunks; explicit
+progressive-result cost coverage remains required before supplemental acceptance.
+No issue, milestone or release is closed.
+
+Encoded-volume CI repair (2026-10-16): source `1b751b72` passes all 120
+live copy/encoded-volume cases, with 3,108 unchanged inputs and independent
+component recomputation. Its full local verification and hosted Fast Checks
+reproduce 16 synthetic fixture failures: the older fixture producer emitted
+unmeasured encoded-volume observations. The producer now supplies explicit
+synthetic disjoint boundary observations through the real delta/merge code, and
+an independent Python test checks and corrupts every resulting combination.
+Current-source verification is pending; all performance budgets remain unchanged.
+The preceding `f2dc00f0` CI run passes every hosted job.
+
+Encoded-volume follow-up (2026-10-16): the `f2dc00f0` checkpoint passes frozen
+full `bin/verify`, with HEAD and all 3,105 inputs unchanged, all 120 audited live
+copy cases and 170 five-platform native consumers. Its 90-row Linux diagnostic
+still fails CPU (1.094–1.118) and native-buffer allocation (1.05324), among other
+gates. All 180 allocation observations validate; two warmup lifetime RSS
+endpoints remain unavailable and are retained explicitly. Measured endpoints
+are valid. The quiet CPU profile also retains all 3,105 inputs unchanged.
+
+The active change repairs `wire_bytes`, which actually contained application
+bytes, and adds separate actual serialized WAMP message-volume accounting at
+Dart/native send acceptance. No volume counter enters a copy total; optional
+native symbols preserve the existing 48-byte ABI. All budgets and inventories
+stay unchanged. Focused checks pass: 825 ownership/volume cases, 37 comparison
+cases, 85 VM transport cases, 122 native ABI/provider/runtime cases, both browser
+compilers and the older-native-library fallback. All 154 mutation proofs validate.
+Resulting-source full verification and live encoded-volume proof remain pending.
+Extension diagnostics and credible primary parity remain required; no issue,
+milestone or release is closed.
+See [encoded-volume evidence](../research/2026-10-16-encoded-wamp-volume.md).
+
+Current candidate (2026-10-16): a pinned, licensed SDK-derived VM builder
+bulk-copies typed byte vectors through the standard Builder API. Web retains the
+SDK backend after a read-only alias regression. Bool staging is eliminated and
+owned UTF-8 staging is observed as framing copies. All outgoing checks remain.
+Checks pass: 3,386 serializer VM / 3,391 JS / 3,381 Wasm, 30 native-owner cases,
+analysis, all 154 mutation proofs, generated bindings, and independent 33/42
+fixture plus 25-message interoperability. Component bulk-writer time is about
+1% of the SDK byte loop; no macro parity is claimed. Final full verification,
+renewed live accounting, hosted consumers and the Linux comparison are pending.
+Actual encoded-size measurement and extension diagnostics remain blockers.
+See [bulk writer evidence](../research/2026-10-16-flatbuffers-bulk-byte-writer.md).
+
+Current checkpoint (2026-10-16): `5dda2ecd` passes `bin/test-fast`, focused
+VM/JS/Wasm ownership checks, all 120 renewed copy cases with 3,099 unchanged
+inputs, and 170 audited five-platform production consumers with zero skips.
+Its 90-row Linux diagnostic improves CPU to 1.1590 / 1.1782 / 1.1633, but
+native-buffer allocation is still 1.0634 and other numerical gates fail. One
+baseline lifetime RSS endpoint is unavailable. Bounded rereads now retain every
+actual observation; all 30 focused Dart and 32 Rust library / 139 driver tests
+pass. Persistent or missing endpoints remain unavailable; no budget is changed.
+
+Performance and reporting remain blockers: investigate repeated metadata string
+allocations, measure actual encoded WAMP volume separately from logical
+application bytes, and complete the declared extension diagnostics. The 48-case
+primary campaign must wait for credible diagnostic parity. Full resulting-source
+verification remains required; no issue or milestone is closed and no release
+is made.
+
+Concrete typed-word candidate (2026-10-16): the preceding source `25862a53`
+passes frozen full `bin/verify` with all 3,098 inputs and HEAD unchanged. Its
+90-row Linux diagnostic has no RSS/duration measurement failures but still
+fails CPU (1.32–1.39) and native-buffer allocation (1.0838), among other gates.
+A concrete `Uint32List.view` writer matches the SDK wire/allocation layout in
+38,400 prototype cases and reduces 64 KiB component writer time to 0.307–0.317
+of the SDK path. Integrated VM serializer (3,378) and native ownership (30)
+cases pass; browser, final-source verification and end-to-end measurements are
+pending. This differs from the rejected generic word adapter. Native source188
+artifact retry now passes all five platforms, with 170 independently audited
+consumer cases and zero skips. No parity or release is claimed.
+See [concrete writer evidence](../research/2026-10-16-flatbuffers-concrete-word-writer.md).
+
+RSS/duration repair ready (2026-10-16): fresh Linux lifetime RSS is now read
+after the final sampled live boundary; missing or contradictory endpoints stay
+null through Dart/Rust reports while other resource observations are retained.
+The scheduler now performs real operations until actual sample coverage reaches
+the unchanged minimum; the fail-first logging-delay case reproduces 2.578 ms
+versus a required 30 ms. All 139 Rust driver, 31 library/artifact, 93 focused
+Dart, 35 comparator and 87 inventory-script checks pass; analysis and all 154
+mutation proofs pass. Resulting-source full verification is pending.
+
+The `188d33cd` Linux diagnostic completes but still fails CPU (1.24–1.34)
+and native-buffer allocation (1.0637), among other gates. A quiet CPU profile
+without allocation tracing identifies SDK byte-vector writing as a major cost.
+All 3,097 tracked/intended inputs stay unchanged during profiling. The next
+optimization targets that measured bottleneck; no parity is claimed. Native
+artifact source188 fails only Linux x64 manifest attestation due to a Sigstore
+network timeout; its failed job is retried. PR #130 source63 remains fully green.
+See [boundary repair evidence](../research/2026-10-16-linux-rss-duration-boundaries.md).
+
+Verification/measurement repair (2026-10-16): `188d33cd` passes all
+120 renewed HTTP copy cases with all 3,097 inputs unchanged. Its local diagnostic
+still fails: throughput 0.9827 / 1.0156 / 0.9838; allocation
+0.9758 / 1.0884 / 0.9853. Every observation remains retained. Frozen full
+verification fails five inventory assertions because the new metadata encoding
+test was absent from four serializer mutation support lists and their shared
+wrapper. The test is now added everywhere, preserving every prior source/test
+and floor; all 87 verification-script checks and 154 mutation proofs pass.
+Resulting-source full verification remains required.
+
+The preceding `249e0c8a` Linux 90-row/10-second diagnostic completes with full
+resource observations but fails all CPU gates (1.30–1.41), several resource and
+latency gates, stale child max-RSS versus later live-RSS checks, and one sample
+window just below 10 seconds. No gate is loosened. Current-head Linux diagnostic
+is running. Obsolete full campaigns are cancelled with artifacts retained;
+a fresh primary must follow measurement repairs and credible diagnostic parity.
+The next work repairs RSS/time boundary capture, then profiles actual CPU cost.
+
+Latest performance candidate (2026-10-16): source `249e0c8a` passes the
+renewed 120-case copy matrix with 3,097 inputs unchanged. The short diagnostic
+improves native-buffer throughput to 1.0170 and p95/p99 to 0.9625 / 0.9927,
+but allocation still fails at 1.1503; managed/pre-encoded throughput is below
+parity. Component probes show native construction is already cheaper than
+MessagePack. Sharing immutable membership sets in metadata projection reduces
+profile allocation from about 22,000 to 8,600 bytes while retaining every check.
+All 3,375 serializer VM tests, analysis and unchanged mutation preflight pass.
+Browser, whole-source and end-to-end verification are pending for that candidate.
+
+Current checkpoint (2026-10-16): `d12196ce` passes renewed 120-case owned
+E2EE/transcode proof with 3,096 inputs unchanged and all 170 audited five-platform
+production consumer checks. Its 90-row diagnostic still fails (throughput
+0.9518 / 0.9887 / 0.9740; allocation 1.0384 / 1.1694 / 1.0535), with every raw
+allocation observation valid. Full verification finds one existing FastCGI
+stdout-limit fixture race; a narrow test-only reset allowance fixes all 29
+focused cases while preserving HTTP status/reason/event/closure assertions.
+The next candidate removes CBOR wrapper/hash/UTF-8 staging for small ASCII
+scalar metadata while preserving exact wire bytes and all fallback/budget rules.
+A component probe drops allocation from about 8,900 to 650 bytes per dictionary.
+Whole-source verification and end-to-end performance remain pending. A separate
+hosted 90-row Linux diagnostic retains the primary durations/samples/repetitions;
+it never establishes primary acceptance. #103 remains open; no release is made.
+
+Current performance work (2026-10-16): all hosted CI checks pass at
+`63a802f7`, including the complete VM coverage policy with no findings and
+benchmark coverage 98.74% (3,846/3,895). Frozen local `bin/verify`, package
+publishing dry run and five-platform production consumers (170 cases, zero
+skips, independently audited hashes) also pass. PR #130 contains this reviewed
+accounting/coverage checkpoint.
+
+Experimental `1785387e` passes `bin/test-fast`, 120 HTTP copy checks with all
+3,096 inputs unchanged, and 170 audited production consumer cases. Its 90-row
+diagnostic fails the unchanged budgets: throughput 0.9347 / 0.9875 / 0.9478 and
+allocation 1.1348 / 1.1691 / 1.0589. All 180 allocation reports validate. Large
+read-only word writes regress, so the selected candidate restores the standard
+SDK byte writer while retaining the strict single-pass scalar metadata parser.
+
+The selected candidate avoids retained Call/Publish dictionary snapshots only
+in transient native outgoing profile checks, after the same wire/model/projection
+validation. Public deserialization and negotiation metadata remain unchanged.
+Fragmented typed FlatBuffers PPT arguments retain a canonical CBOR prefix and
+the original byte body, preserving the existing args wire representation and
+kwargs/crypto/metadata-authority rules. Explicit contiguous access accounts for
+its coalescing copy. Regression checks pass: 3,370 VM serializer tests, 3,376
+JavaScript tests, 3,366 Wasm tests and 54 serial native profile/network tests.
+Independent upstream/extended readers accept 33/42 fixtures, bidirectional
+Python/Dart/Rust Call conformance passes, and contiguous/segmented output for all
+25 public messages agrees. The bounded local judge finds no confirmed defect;
+all requested prefix boundaries are covered against an independent CBOR encoder.
+Mutation preflight and analysis pass. Current-source full verification, renewed
+120-case copy proof and paired timing remain pending; no parity acceptance or
+release is claimed. See [vector/metadata research](../research/2026-10-16-flatbuffers-vector-metadata-allocation.md).
+
+## Earlier checkpoints
 
 Coverage repair in progress (2026-10-16): the first full benchmark VM run
 passes all 2,657 tests but measures 93.81%, below the unchanged 98% gate.
@@ -2237,3 +4845,565 @@ for both processes and all rows satisfy current <= sampled peak. It is a
 640-sample wiring smoke, below the 1,000-sample acceptance floor. The same smoke retains
 `transport_copy_bytes: not_measured` for Dart-managed callers; copy attribution,
 the full campaign, hosted exact-head CI and every issue acceptance remain open.
+
+## Client mutation CI repair (2026-10-28)
+
+Hosted `40719790400` finishes with the client metadata mutation target at
+93.58%, below its unchanged 95% threshold. Pause the uncommitted native wake
+candidate. Reproduce the surviving mutations from its retained artifact. Add
+ordinary native-message restore/retain anchor regressions and individually
+justify only source-proven equivalents: strictly disabling the simple-PPT
+optimization, an explicitly supplied private default, and null-byte decoder
+closures that cannot install or run. Revalidate with clean/restored baselines
+and neighboring controls before pushing. The new tests and proofs do not
+change runtime source, ownership rules, performance gates or test thresholds.
+
+The CI repair is pushed separately as `81f06e1f`. All 1,950 client binding tests
+and 167 proof checks pass. The unexempted 49-mutation revalidation retains all
+ten proposed equivalents, kills all four new ownership controls by assertions
+and 22 neighbors; four are compile errors. Clean/restored baselines pass, and
+its raw 57.78% score correctly fails 95%. Full hosted CI `40735216483` is queued.
+The runtime remains unchanged from `66282e65` for that repair.
+
+The separate readiness candidate passes three Rust notifier tests and three
+FFI publication/shutdown tests. All 776 focused serial Dart router, native
+runtime, bridge and live typed-PPT cases pass, with clean analysis. The three
+long-poll live RPC deadlines fail against an unchanged old-library negative
+control and pass with the candidate; normal old-library polling cases pass.
+A GLM review's pre-registration lost-wake hypothesis is excluded by the
+immediate initial arm/scan; generation/teardown synchronization is retained.
+Record the independent pre-existing cross-isolate legacy callback crash in
+research notes. Complete full verification before using hosted measurements as
+acceptance; keep all earlier reports and unchanged budgets.
+
+## Readiness verification and remaining memory findings (2026-10-28)
+
+Full `bin/test-fast` and `bin/verify` pass on `7a5bdc76`. Production copy proof
+`40736194337` passes 120 live cases, 300 inventory rows and 32 no-avoidable-copy
+gates with unchanged inputs/binaries. CPU capture `40737157961` passes.
+Diagnostic `40736188467` completes 90 rows with four numerical findings:
+Dart-values p99 and peak RSS in every case. All throughput, CPU, allocation, GC
+and p95 comparisons pass. Keep the eight-failure predecessor and every budget.
+General CI `40736889265` supersedes the partial repair-only run `40735216483`.
+Do not close #103/milestone or ready PR #132 before final acceptance.
+
+Native exported views already pass their length to the SDK's external-memory
+finalizer. Investigate fresh read-only memory/allocator capture `40740363467`
+rather than changing ownership speculatively. A separate shared benchmark
+optimization removes redundant sample-map staging without changing records,
+copy counters, timing windows or resources measured. Its 20,000-sample AOT
+component control emits identical JSON and reduces peak RSS about 3.2 MB;
+that component does not establish transport/RSS acceptance.
+
+The shared sample-staging change passes clean Dart analysis, all 118 focused
+worker/sample cases, all 2,807 benchmark-package cases (including live typed,
+encrypted and mixed-codec transports), and the 167-proof preflight. The two
+edits preserve default JSON encoding and consume only JSON-decoder maps; every
+sample remains present. A broader companion request reports no concrete finding,
+but the exact-patch narrow retries hit output limits; do not claim those retries
+completed. Re-measure the unchanged diagnostic policy on the committed candidate.
+
+## Negotiated compact worker observations (2026-10-28)
+
+`aa090feb` diagnostic `40743480042` retains four numerical findings after all
+90 rows complete: Dart-values throughput/p95/RSS and pre-encoded RSS. All
+native-buffer metrics and all CPU/allocation/GC/p99 comparisons pass. Keep both
+its report and the distinct four-findings `7a5bdc76` report; do not loosen gates.
+
+The next source candidate makes private worker observation IPC positional and
+versioned. Parent requests `sample_encoding: positional_v1`; no request keeps
+legacy named output. Parent accepts old named workers and rejects malformed or
+unknown marked responses, with failed-process cleanup/recovery. Every one of
+13 sample values survives; public JSON, copy counters, workloads and measurement
+windows are unchanged. Optional zero/null and wide integer semantics reuse the
+named decoder's validators. This reduces actual common process work in the
+existing measurement window rather than excluding it.
+
+The actual-method AOT component preserves the 20,000-record public JSON SHA-256,
+reduces internal bytes 7,000,013→1,180,013, peak RSS 85.5–86.0→31.2 MB, and
+encode/decode time 65.9–67.0→16.5–17.0 ms. These are isolated component observations.
+All 125 initial focused cases and the complete 2,823-case benchmark suite pass;
+two additional schema boundary tests follow. Local GLM test planning and exact
+source review complete. Its null/copy-validator suggestions do not describe a
+change from the named contract; source inspection and regressions verify that.
+Run final full verification and fresh paired/copy evidence on the committed
+candidate before acceptance. No native owner or SDK/allocator policy changes.
+
+The full hosted client mutation target in `40736889265` now passes its unchanged
+95% assertion gate. The compact IPC candidate passes 127 final focused cases,
+including numeric spellings and unmarked positional-row rejection/recovery;
+the complete benchmark suite passed 2,823 cases before those test-only additions.
+Its final legacy producer branch delegates to the original standard JSON encoder.
+Freeze this source and complete full verification plus fresh hosted evidence.
+
+## Public HTTP observation staging (2026-10-28)
+
+Full local verification and copy proof `40748144948` pass on `e72638be`; the
+runtime checkpoint `7a5bdc76` is fully green in hosted `40736889265`. Current
+`40748136642` is still running without a reported failure. Paired `40748141357`
+completes 90 rows with eleven numeric findings. Keep it and both earlier
+four-finding reports; no component optimization establishes acceptance.
+
+The public report still eagerly creates a map per observation before internal
+routing recursively clones map entries. Retain immutable sample models until
+the existing HTTP JSON encoder instead. The relay's transfer/materialization
+functions preserve plain Dart objects, and the final encoder uses toJson.
+A 2,048-sample cross-isolate HTTP payload test preserves named JSON bytes; an
+actual server smoke passes all nine codec/construction pairs with complete
+sample fields. Initial readiness-control timeout was a private harness issue
+(Dart hook prefix before READY), fixed without product changes. Run full
+verification and paired diagnostics on the committed reporting candidate.
+
+## Standard HTTP JSON byte encoding (2026-10-28)
+
+`ebb7bff1` passes full local verification. Diagnostic `40754675709` completes
+90 rows with seven numerical findings: Dart-values CPU/GC confidence/p95/RSS/
+throughput, native-buffer p99 confidence and pre-encoded RSS. Keep this and all
+prior reports; no point/confidence threshold or resource window is weakened.
+
+Replace the shared HTTP string/UTF-8/Uint8List staging with standard SDK
+JsonUtf8Encoder, preserving the declared Uint8List result through a checked
+fallback. No SDK, GC or allocator tuning. A 20,000-sample AOT old/fused/fused/
+old control preserves all 7,000,013 bytes and SHA-256 while reducing peak RSS
+76.4–76.5→56.3 MB and encoding time 47.9–54.4→39.2–39.5 ms. Component only.
+All 63 focused public/native HTTP cases, 167 proof checks and nine live HTTP
+codec/construction combinations pass. GLM review catches a valid paired-
+surrogate fixture gap; add actual lone-surrogate cases. Source/tests reject its
+unchecked-cast suggestion and Qwen's incorrect map-key/error expectations.
+Full local verification is running; freeze and remeasure the committed source.
+All copy counts, complete observations, workloads and acceptance gates remain.
+
+`2f92dcc7` full local verification passes, including Chrome/WebAssembly. Its
+production copy proof `40759868387` passes 120 live/300 inventory/32 no-avoidable
+copy checks with unchanged inputs/binaries. Paired `40759863991` completes
+90 rows with seven numeric findings: Dart-values CPU/GC/p95/p99/throughput;
+native-buffer and pre-encoded RSS (1.006378/1.011142). Native throughput ratios
+are 1.039422/1.024165 and their CPU/allocation/GC/p95/p99 pass. Dart-values RSS
+passes but throughput is 0.990235 and CPU 1.001236. No acceptance is claimed.
+Preserve every prior failed report and all budgets. Capture the actual Dart-
+values path in `40763175368` and fresh read-only native memory attribution in
+`40763180032` before choosing a further runtime change. Keep source frozen.
+
+## Measured native reply candidate (2026-10-28)
+
+Current `2f92dcc7` remains the frozen production source. Hosted CI
+`40759920152` has 35 successful jobs and no failures; VM coverage and client
+mutation remain. Its preceding `40748136642` is entirely green. CPU capture
+`40763175368` and fresh read-only native memory control `40763180032` complete.
+The latter retains six process pairs with unchanged inputs, with FlatBuffers
+summed peak medians 436/422 MB, CBOR 375/387 MB and MessagePack 411/457 MB.
+These diagnostic process baselines remain distinct from primary acceptance.
+
+Current perf call-chain export loses leaf instruction addresses when unwind
+fails. A private reader of the original PERF_RECORD_SAMPLE layout recovers all
+six PID/window sample sets exactly (1,730/4,198 FB, 1,781/3,982 MessagePack,
+2,982/2,223 CBOR), with zero recorded lost samples. Preserve JIT-address-reuse
+ambiguity. ELF/mapping attribution finds 315 FB versus 252 MessagePack router
+leaf samples in ct_ffi, with VM/kernel work dominant. The temporary older perf
+6.12 Linux container rejects the 7.0 record format; it is removed and its error
+retained. No SDK, GC, allocator or measurement-window setting changed.
+
+Reject speculative fixes: actual RawSocket normalization-copy counters are
+zero for all codecs; bounded prefix coalescing occurs on every typed send;
+Bytes cloning is shared ownership, not a payload memcpy. Args/binary duplicate
+exports concern INVOCATION, not these RESULT RPC cases. The completed local
+judge suggests those unsupported possibilities; source and measurements
+exclude them. Private actual-code AOT payload roundtrip is FB 48–51 us,
+MessagePack 56–57 us. The Dart envelope writer is only about 1.5 us. Neither
+component is acceptance.
+
+A private native prototype in `/tmp/connectanum-simple-result-prototype`
+uses the pinned generated Result/Message builders for exact two-string PPT
+RESULT dictionaries, retaining the original opaque payload. Its final version
+uses the standard serde_cbor writer with exact bounded staging capacity; no
+retained-metadata hint or new public API is needed. It preserves all dictionary
+content and fallback for extended controls, typed mismatches, ordinary args or
+kwargs. Bounds cover IDs, metadata, whole frame and vector alignment. Actual
+old/new/new/old 200,000-iteration component observations fall from 256.8–266.6
+to 47.0–48.8 ms and from 18/1,969 to 6/458 allocator requests/bytes per reply.
+Both outputs have the same length and decode identically in native and Dart,
+including all 65,536 bytes; output bytes differ in legal table placement.
+
+Before adopting, complete the current pre-change `bin/test-fast`, add native
+regressions for full logical equivalence against the original generic writer,
+UTF-8/CBOR length transitions, ID/frame/metadata bounds, extended/invalid
+controls and payload lifetime/pointer identity. Use the existing CodecAllocator
+and record every metadata vector/growth copy, including failed fast attempts.
+Qwen test planning completes; correct its false expectations that fallback
+emits no frame, cloned Bytes changes its pointer, and the inclusive frame limit
+must reject equality. Keep whitespace and unknown nonempty schemes intact.
+Run focused native tests, current-library Dart interoperability and full
+verification, then freeze and rerun paired/copy evidence. No acceptance gates
+or workloads change, and #103/milestone stay open until full acceptance.
+
+The pre-change `bin/test-fast` passes, as does complete hosted `40759920152`
+on `2f92dcc7`. The private prototype first exposes a missing generated-module
+production gate and missing private test fixtures; copy fixtures and enable the
+already-pinned generated module without editing it. The first new assertions
+incorrectly assumed strict serde-value identity and that the old writer accepts
+an exactly 64MiB physical frame; source inspection shows normalization and an
+additional conservative estimate. Preserve both behaviors. Derive that budget
+from the actual pinned Result/Message table sizes, and independently discover
+the generic boundary in the regression rather than mirroring the formula.
+All ten focused native encoder tests then pass on the adopted source. Full
+verification is running in `/tmp/connectanum-simple-result-full-verify.log`.
+The completed first GLM review's allocator uncertainty is excluded by source
+instrumentation and the growth regression; add an explicit checked u32 vector
+length conversion as well. The final exact-patch review is running. No acceptance
+claim or gate/workload changes. The generated module remains private to ct_core.
+
+The final exact-patch GLM review completes with no concrete findings. Its
+residual dead-code comment misplaces a generated-module attribute; handwritten
+helper code is not exempted. Native source now has the explicit checked vector
+length and schema-derived generic budget. Retain prior private failed setup/
+assertion logs. Full verification and exact-source hosted measurements remain
+required before acceptance; no claim follows from the component improvement.
+
+
+## Scalar observation storage candidate (2026-10-31)
+
+After frozen `6575b7e9`, share only eight immutable scalar sample context
+values in a bounded 64-entry cache. Each observation retains its own iteration,
+latency, preparation time and start/end timestamps. Public getters and all 13
+named/positional fields are unchanged; there is no payload, builder, owner or
+lease in the cache. Apply identically to every serializer. Do not alter work,
+windows, copy accounting or acceptance thresholds.
+
+[Complete-record component](../research/2026-10-31-flatbuffers-sample-context-component.json)
+retains eight fresh balanced ABBA observations. All 33,991 Dart and 32,067
+native records preserve complete output hashes. Peak RSS falls about 4–5 MB;
+loaded sample memory falls about 12 MB without a measured CPU penalty in this
+component. This is not transport/RAM acceptance. Observable eviction, independent
+observation values, mutation isolation and null-versus-zero controls pass.
+Completed GLM review suggests reset/worker-affinity changes; source inspection
+rejects them: the cache is capped at 64, a new tuple becomes the last-entry fast
+path immediately, and matches explicitly compares worker along with all seven
+other scalars. No mutable data is shared. Preserve linear-scan cost as a risk for
+workloads with many distinct tuples; full regression and hosted measurements
+remain required.
+
+Frozen `6575b7e9` canonical `bin/verify` exits 0 on a clean, fixed HEAD, including
+full Chrome JS/Wasm core/client and Rust/tooling/VM/native/router/live/consumer
+checks. Log SHA-256:
+0f00180523045487ae379076f369cd8becdbf1ecd9d2e2b577f07f0b9a2df864.
+Paired diagnostic 41165318716 completes all 90 rows with exact independent
+reproduction and verified retained inputs/binaries. Five numerical misses remain:
+Dart-values throughput median 0.9892592301, p99 upper CI 1.4569961489,
+GC upper CI 1.0755105768, RSS median 1.0100816168; pre-encoded RSS median
+1.0091516331 (upper CI 1.1159422793). Native-buffer passes all seven metrics.
+Keep all failed reports; no unchanged numerical retry is used to seek a pass.
+
+Copy renewal 41165320239 passes; independently verify 3,281 source/resolved
+inputs and 120 live / 300 inventory / 32 zero-avoidable checks. Live
+E2EE/transcode/native-crypto counts remain 96/120/48; inventory 96/60/72.
+External native binaries are digest-only hosted-guard attestations in this copy
+artifact, not independently rehashed retained files. CI 41159940789 completes
+successfully; its MQTT artifacts reproduce exactly. Full primary 41159934237
+and supplemental 41159936492 continue on f16ae5e9. The completed supplemental
+payload shard reproduces exactly with 30 SDK-allocation precision findings and
+13 numerical cost diagnostics; the other shards and final aggregate remain.
+PR #132 stays draft; full strict acceptance and the separate SDK precision
+scope decision are outstanding.
+
+
+The scalar-context candidate's full benchmark suite now passes all 2,867 tests;
+focused tests and targeted analysis also pass. Native lifetime renewal on
+6575b7e9 independently reproduces three six-row/twelve-observation positives
+and the expected zero-row/single-failure negative, with stable PIDs and clean
+shutdown. Preserve the private audit's initial exit_code/process_exit field
+lookup error; the corrected audit does not change evidence.
+
+Latest CI 41165321973 has an MQTT performance failure. All 32 MQTT summaries
+independently reproduce exactly with unchanged budgets and library hashes;
+four absolute gate profiles fail (TCP CPU for versions 5/3.1.1 and clear WS
+throughput for versions 5/3.1.1), and matched controls retain their failures too.
+The candidate native digest is byte-identical to the preceding all-green f16ae5
+run; different runner CPU models are recorded, not asserted as the cause.
+Investigate before claiming clean CI. Do not retry unchanged numerical jobs
+for a favorable runner, weaken gates or mark PR ready.
+
+
+## MQTT gate repair candidate (2026-10-31)
+
+An isolated `codex/flatbuffers-mqtt-egress` worktree branches from 66b4814d,
+leaving the main PR source frozen for its canonical verification. Native MQTT
+writers currently issue one socket write per already-queued packet/frame.
+A fail-first counting writer reproduces 32 writes for 32 packets in both TCP
+and WS. A ready-only bounded scatter/gather candidate uses two writes while
+preserving every TCP byte and separate WS frame. Reuse batch descriptors and
+retain every payload owner / byte permit through IO and WS flush; keep the
+original singleton and nonvectored paths. No timer, new packet wait, payload
+copy, frame merge, environment policy, workload or acceptance budget changes.
+
+[Counter component](../research/2026-10-31-mqtt-ready-egress-component.json)
+retains exact counts and input hashes. All 43 MQTT tests pass, including six new
+byte/frame/counter/partial-write/nonvectored/control-close/permit-release cases;
+full ct_core passes 454 unit and three integration cases. Preserve the private
+missing-lock/fixture setup failures and the expected baseline counter failures.
+Local companion review and numerical timing are blocked by another workload's
+exclusive machine reservation; do not bypass it. Manual source review finds no
+concrete ownership/protocol regression. No transport improvement or CI pass is
+claimed before hosted measurements. The main 66b4814d bin/verify remains running;
+no main-worktree source or HEAD changes occur during it. Full primary and
+supplemental f16ae5 runs are retained to completion, not acceptance for this
+candidate. PR #132 remains draft and every strict gate stays unchanged.
+
+
+## Frozen runtime verification and copy-tool port repair (2026-10-31)
+
+Canonical `bin/verify` now exits 0 on clean, fixed `66b4814d`, including all
+Rust/tooling/VM/native/router/live/consumer and full Chrome JS/Wasm core/client
+checks. Log SHA-256: 550018813bd651ada4e9f872a89f6db93990ac347513c0f3f2b90b6d9f7d632c.
+Do not infer strict RAM/throughput acceptance from this correctness result.
+
+MQTT candidate runtime stays frozen at `35f4b84c`. Completed GLM review has no
+concrete production regression after checking its advisories: the sole caller
+caps batches at 16, 32 descriptors suffice, and the queue byte budget is 8 MiB.
+CurrentThread test runtime and the task's lack of suspension after close signal
+exclude the proposed test-yield race. A private exact-source follow-up proves
+all 16 chunks' byte permits remain held through an asynchronously paused WS
+flush and return after completion. Preserve initial blocked companion attempts.
+Hosted CI/paired/full primary/full supplemental remain pending on this runtime.
+
+Copy 41169320675 fails before any payload proof: its tooling startup-failure
+test obtains the same ephemeral port twice after immediately closing each
+reservation. A deterministic released-port-reuse fixture reproduces the exact
+ValueError on the old tool. Reserve all listener sockets together with ExitStack,
+then close them before launching the child; all 15 probe tests pass, including
+real-child cleanup and evidence retention. Preserve the failed workflow's logs/
+2,832-byte artifact and fail-first repro. The completed advisory debug proposes
+a child/listener leak, but source and reproduction exclude it: failure occurs
+before child launch. Final tool review's hypothetical reuse flags do not apply
+to default TCP sockets; the release-to-launch external race remains pre-existing.
+No workload, metric, native/Dart runtime or acceptance gate changes occur.
+
+Renew copy proof on the tooling-only commit while retaining the numerical
+campaigns pinned to identical runtime `35f4b84c`: diagnostic 41169319403,
+48-case primary 41169321811 and 50-case supplemental 41169323042. CI is
+41169255165 and separate MQTT attribution 41169256479 completes. PR #132 stays
+draft; nothing is waived and no PR is merged.
+
+
+## Isolated scalar-CBOR scanner component (2026-10-31)
+
+PR runtime remains `35f4b84c`, published tooling head `e02d6c27`. Its clean fixed-
+head `bin/verify` passes all Rust/tooling/VM/native/router/consumer and complete
+Chrome JS/Wasm core/client suites. Log SHA-256:
+4e77ea9ef68f73f5de1cc625615db42e1a0c586a7cf8b842c3f9d42ac98582d5.
+Preserve the earlier fresh-worktree formatter failure without resolved lint
+packages; bootstrap resolves dependencies and no tracked file was changed.
+
+Paired 41169319403 independently reproduces all 90 rows with source/binaries
+verified and no integrity issue. Both native constructions pass all seven gates;
+RSS medians are 0.9920871187 / 0.9969105252. Dart-values throughput now passes
+(1.0054030768). Remaining Dart misses: RSS median 1.0047214273, GC upper CI
+1.1915303221, and p99 upper CI 1.0523479600. Do not weaken any point/CI gate.
+Full primary 41169321811 and supplemental 41169323042 remain running on this
+runtime, together with predecessor f16ae5 complete campaigns.
+
+Renewed copy 41170259967 passes; independently verify 3,283 source/resolved
+inputs, 120 live / 300 inventory / 32 zero-avoidable checks and three six-row/
+twelve-observation native positives plus expected zero-row/single-failure
+negative. Stable PIDs and clean shutdown agree. Live E2EE/transcode/native-crypto
+counts 96/120/48; inventory 96/60/72. External build-directory native binaries
+are hosted-guard digest attestations, not retained independent rehashes.
+Current standard-SDK VM profile 41170959383 verifies all 3,282 inputs, native
+digest, 18 snapshots and exact hosted audit with no findings. Native owners and
+sample instances disappear after diagnostic GC; no persistent native leak is
+proven, and diagnostic GC is never used for acceptance. After-work snapshots
+show differing transient garbage/VM capacity, not exact peak allocation sites.
+Mint census is one instance for both codecs, so speculative timestamp boxing
+is rejected. Fully represented PPT already bypasses dictionary retention.
+
+An isolated `codex/flatbuffers-cbor-chunk-component` candidate only lifts the
+CBOR scanner's nested string-chunk closure into a private method, preserving
+all byte/cursor/UTF-8/charging operations and generic behavior. No new parser
+fast path or omitted validation. Both private variants pass 265 metadata/frame
+cases; the actual candidate passes all 3,546 serializer cases and analysis.
+Qwen review completes: Git availability is an existing hosted-checkout
+precondition; a pinned full `git show` is independent of index state; private
+core/dependency input guards exclude its generic contamination concern. Reuse
+the new target path constant in fixture checks. Runtime benefit is unmeasured.
+Two local numerical attempts collect no samples after shared resource reservation
+rejections; do not bypass them. Extend hosted component isolation to permit only
+this single new core file and restore its actual baseline, reject mixed scanner/
+validator changes, and include the CBOR validation suite. The fail-first contract
+rejects the old tool; all ten final isolation/audit contracts pass. No primary
+workload, metric window, payload construction, policy or gate changes occur.
+
+MQTT candidate's 20 absolute gates and 12 matched summaries independently
+reproduce exactly with all candidate gates passing against 66b4814d. Same-runner
+WS throughput is essentially unchanged (0.9953/1.0048), so do not claim causal
+repair of the old CPU-model WS failures from the 32-to-two write component.
+CI 41169255165 and latest 41170261916 remain pending. The predecessor encrypted
+progressive supplemental in 41159936492 completes all eight cases/240 rows,
+exactly reproduced with verified inputs/native binaries and no integrity issue;
+its 47 numerical cost diagnostics are retained. Protocol/final aggregate remain.
+The separate SDK allocation-precision decision stays pending; PR #132 stays draft.
+
+## 2026-10-31: scanner component verified; event-queue pacing candidate
+
+Hosted scanner component 41172911103 succeeds: independently verify 3,279 source
+inputs, four resolved inputs and 219 private artifacts; all 160 rounds and the
+summary reproduce exactly. Complete RESULT decode time falls 3.38%, CALL 1.81%;
+managed allocations fall about 384/373 bytes per decode. Both private correctness
+suites pass. See research/2026-10-31-flatbuffers-cbor-chunk-component.json. This
+isolated component is not transport, RAM or primary acceptance.
+
+Latest e02d6c CI still fails MQTT absolute TCP CPU and clear WS throughput gates
+on EPYC 7763. All 32 summaries reproduce exactly; native ready-write batching did
+not establish repair. Retain its failed job log/artifacts; no lucky runner retry.
+The 35f4b8 three-case diagnostic now passes every native metric and Dart-values
+throughput, but Dart RSS median 1.0047214, GC upper CI 1.1915303 and p99 upper CI
+1.052348 remain failures. No gate is changed.
+
+The new router candidate replaces only per-busy-pass zero-delay SDK timers with
+a reusable RawReceivePort event. It preserves idle timers, wake flags, scan order,
+full payload work and workload/measurement policies. Pending work keeps its
+isolate alive; idle ports do not, and boss-loop finally closes its port. Fail-first
+reproduces eight SDK timers before the change, zero after. Ten focused tests pass,
+including original-zone continuations, timer/message progress, pending close,
+reuse and natural child-isolate exit. Targeted analysis passes. The first broad
+router attempt fails because the new worktree lacks its native library; preserve
+that setup failure and rerun with the existing source-identical native build.
+Local advisory tests/judge are blocked by the shared native-mutation resource
+lease; do not bypass it. The native-enabled rerun passes all 636 selected router/MQTT tests (six existing
+skips); targeted analysis also passes. Performance and final canonical
+verification are still required. No numerical improvement is yet claimed.
+
+Full 48-case primary and 50-case supplemental 35f4b8 campaigns remain running and
+must be retained to completion. Older f16 supplemental retains all 1,500 raw rows;
+38 validated cases reproduce 176 cost diagnostics, while payload precision leaves
+four aggregate findings. Two SDK-limited allocation metrics remain a separate,
+unanswered product decision. No acceptance, readiness or milestone closure.
+
+## 2026-10-31 07:07 UTC: final-candidate correctness/copy pass, RAM still fails
+
+Published runtime 4b99d15d5bac88c6fa611bbbdfae5d06f83117e6 combines a83d85 scalar
+CBOR scanning with reusable busy-loop event turns. Canonical bin/verify passes
+on the clean frozen PR worktree with HEAD unchanged; log SHA256
+65d3083ec58df6bba2f4efc3d39ed9d39cecf407987df91d7e64dce4723cb33a.
+All Rust/tooling/VM/native/router/consumer/standalone and Chrome JS/Wasm suites
+pass. Earlier dependency/setup and incomplete local-review attempts stay retained.
+
+Paired diagnostic 41176299437 independently reproduces all 90 rows/three cases
+with inputs/binaries verified. Six numerical findings remain: Dart-values
+throughput median .99372646, p99 median 1.06333568 / upper1.11837456, GC median
+1.06951168 / upper1.27463089, RSS median1.03226995; native-buffer RSS1.00888312
+(upper1.12594078), pre-encoded RSS1.00577164. Native other metrics all pass.
+Dart RSS median per-role delta is client +9,179,136B, server +1,073,152B against
+the same per-repetition better memory baseline. These peaks do not identify
+allocation sites; no claim that RAM is fixed. Full 48/50 campaigns 41176301519 /
+41176304174 remain running and must finish. No gate, sample/window, body work,
+VM/allocator flag, validation or copy scope is changed. No unchanged lucky rerun.
+
+Copy/lifetime 41176306351 passes: independently check 3,284 source/resolved inputs,
+120 live / 300 inventory / 32 zero-avoidable checks. Live E2EE/transcode/native-
+crypto 96/120/48; inventory96/60/72. Three native positives each retain six rows /
+twelve observations with stable PIDs; negative has zero rows/one expected failure;
+clean exits and group cleanup agree. Build-directory native inputs retain hosted
+digest invariance attestations, not independent rehashes of missing binaries.
+All 20 absolute plus 12 matched MQTT summaries in 41176297129 reproduce exactly
+with unchanged budgets; all candidate gates pass, native controls pinned master
+ef822e08. CPU9V45 differs from failed7763, so causal older-runner repair is not
+claimed. CI has23 successful jobs/no failures at this checkpoint and remains active.
+
+VM profile41177813663 verifies3,283 inputs, retained native digest,18 snapshots,
+exact hosted audit and clean cleanup with no findings. Its heavy class census
+and diagnostic GC are not acceptance. External usage after diagnostic GC112B;
+no persistent native-owner leak is proven. Weak properties52/~1.6KiB and one Mint
+cannot explain multi-MiB RSS excess. Targeted standard-SDK/glibc RSS attribution
+41178785283 is queued to inspect heap/native process footprints; never subtract
+free bins, force acceptance GC or replace allocators. Explicit native-frame release
+already detaches its sized native finalizer before malloc.free; SDK internals
+remain unmeasured. Request/result owners
+already dispose/release in finally; don't repeat these rejected leak hypotheses.
+
+Older full primary41159934237 finishes:48cases/1,440rows,104 numerical misses,
+zero integrity findings, exact independent reproduction; full metrics include
+34RSS/22CPU/19throughput/13p99/12p95/3GC/1allocation misses. Old f16 supplemental
+all1,500 raw rows remain: exact aggregate38validated cases/1,140rows/176costs and
+four findings, payload precision exclusion retained. Newer35f4b8 full campaigns
+continue to completion. Separate two SDK allocation-precision figures still need
+a product scope answer; standard-SDK copy scope does not waive precision.
+
+Completed Qwen review/GLM judge are advisory. Alleged synchronous thread races
+are impossible in one Dart isolate; port reuse, pending keep-alive and root-zone
+success completion are verified by tests. Suggested idle-close regression already
+exists and awaits an actual pending idle wait within one second. Keep existing
+wake-check logic unchanged. Qwen test suggestions reopen/busy-close are covered;
+other synchronous interleaving claims are rejected. No extra code change follows.
+PR132 remains draft; do not merge, retarget, close103 or close the milestone.
+
+## Validated root-envelope record candidate (2026-10-31)
+
+Allocator/RSS diagnostic41178785283 completes all six fresh process cohorts /
+60rows and24role snapshots. Independently verify3,280 source inputs, retained
+binary/wrapper digests, unchanged policy, every raw row, exact summaries, stable
+PIDs and cleanup with no finding. Fresh cohorts show substantial VM page-cache,
+main/service-isolate and allocator differences; they do not localize a persistent
+owner leak or waive the actual failed RSS gates. No subtraction/custom allocator.
+Private loopback probes preserve two successful2MiB native releases and aligned
+64KiB Dart-owned whole frames (bodyoffset204mod4=0). An initial64KiB assertion
+wrongly required a native allocation despite complete SDK frames; preserve it as
+a probe assumption failure, not a product defect. Original test was restored.
+
+A separate candidate removes only the temporary outer root Map during frame
+reading. It returns a typed tag/body/metadata record after the same full generic
+validator, uses generated root field widths/union references and retains the
+existing body table reader. The old Map API is unchanged. No wire, schema,
+validation, bytes/cursor, payload/model, native code or policy changes. Shared
+body table/string cache identity and mutable byte-view aliasing are preserved.
+Six new API/differential cases cover defaults, absent metadata, aliases, shared
+physical tables with different schema types and every one-bit root mutation in
+the fixture. All3,552 serializer tests and targeted analysis pass. Initial tests
+incorrectly required ByteBuffer wrapper identity; corrected direct mutation tests
+prove actual shared storage. Both histories remain retained.
+
+Completed Qwen review's enum/union bounds and null-body claims are excluded by
+unchanged full validation (enum membership and nonzero/in-range union tags checked
+before any read); table() has a nonnullable Map return. Copying metadata would
+break the intentionally unchanged borrowed-byte contract. No confirmed finding.
+Keep the new API tests in their own file: existing shared component suites can
+run unchanged on both source variants, and all six new cases run on the actual
+candidate. The existing component isolation already permits precisely frame.dart
+plus wire_reader.dart. Measure against4b99d15d before integrating; no transport,
+RAM or primary acceptance is yet established for this optimization.
+
+
+The807ff2f0 root-envelope component41181756276 now passes: independently verify
+3,281 source inputs, four resolved inputs,219 private artifacts, exact original
+frame/reader files for both variants,160 raw rounds and exact summary. Both shared
+correctness suites pass; all six new API tests and all3,552 serializers pass on
+the actual candidate. RESULT elapsed ratio .92929817, allocated3,055.64688 to
+2,880.72624B/decode; CALL .93981717,5,696.25324 to5,510.9956B/decode. This isolated
+complete model decode preserves the10KiB byte-vector contents and is never
+transport/RAM/primary acceptance. Adopt the measured implementation, then freeze
+and renew canonical verification, CI, paired/full/supplemental and copy evidence.
+Earlier4b99d15d full verification/copy proof remain valid predecessor evidence;
+its six numerical misses remain failures. No gate or workload changes occur.
+
+## Serializer wrapper registration repair (2026-10-31)
+
+First fd983af8 frozen bin/verify exits1 on five existing inventory assertions:
+the new envelope test was absent from four CBOR/MessagePack VM/web support-file
+sets and the shared wrapper imports/group. Preserve the clean-head failure
+receipt and CI Fast Checks job124482556278 log. Fix by adding the file to all
+four inventories and the shared wrapper, without changing any inventory check.
+All87 verification-script contracts now pass; the complete VM wrapper runs3,697
+cases and Chrome JS wrapper3,702 cases, including all six envelope cases.
+
+The original per-loop exception-capture differential test also fails under the
+full browser wrapper. Per-call normalized outcomes retain every one-bit mutant
+and compare the exact decoded fields or rejection type without a captured loop
+failure variable. All six cases pass on VM/Chrome, the complete Chrome wrapper
+passes, and targeted analysis is clean. The hardcoded browser-path attempt and
+its missing-executable failure remain retained; use canonical ensure_chrome_env.
+Do not claim an SDK or production parser defect from those test/setup failures.
+
+These changes affect only tests, verification inventory and documentation. The
+production code, native sources/build, workload/scenario/policy, measurement
+windows and serializer wire behavior remain byte-identical to fd983af8. Keep its
+running numerical campaigns; do not repeat unchanged measurements for a favorable
+result. Renew full canonical verification and CI on this repair, retain runtime
+input equality evidence, and renew owned copy/lifetime checking as needed.

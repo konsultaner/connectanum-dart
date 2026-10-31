@@ -1037,6 +1037,16 @@ void main() {
           [123, 34, 120, 34, 58, 91, 49, 44, 116, 114, 117, 101, 93, 125],
         ),
         (NativeHttpResponseJson(null), [110, 117, 108, 108]),
+        for (final value in <Object?>[
+          {'unicode': '\u0000\b\t\n\r"\\ é中😀\ud800\udfff'},
+          {
+            'unpaired': ['\ud800', '\udfff', 'x\ud800y', 'x\udfffy'],
+          },
+          <Object?>[true, false, -0.0, 1.25, 1e-100, 1e100, 9007199254740993],
+          for (final length in [254, 255, 256, 257, 1023, 1024, 1025])
+            {'padding': 'x' * length, 'tail': '中😀'},
+        ])
+          (NativeHttpResponseJson(value), utf8.encode(jsonEncode(value))),
         (NativeHttpResponseFile(file.path), [0, 128, 255, 13, 10]),
         (NativeHttpResponseText(''), []),
       ];
@@ -1055,6 +1065,14 @@ void main() {
         addTearDown(handshake.release);
         for (final (invalid, matcher) in <(NativeHttpResponseBody, Matcher)>[
           (NativeHttpResponseJson(Object()), isA<JsonUnsupportedObjectError>()),
+          (
+            NativeHttpResponseJson(double.nan),
+            isA<JsonUnsupportedObjectError>(),
+          ),
+          (
+            NativeHttpResponseJson({1: 'non-string key'}),
+            isA<JsonUnsupportedObjectError>(),
+          ),
           (
             NativeHttpResponseFile('${directory.path}/missing'),
             isA<FileSystemException>(),

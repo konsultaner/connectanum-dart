@@ -10,6 +10,8 @@ const int _http3RequestDrainBudgetPerConnection = 1;
 
 @visibleForTesting
 final class RouterBossLoopPacer {
+  RawReceivePort? _eventPort;
+  Completer<void>? _eventCompleter;
   Completer<void>? _wakeCompleter;
   bool _wakeRequested = false;
 
@@ -30,7 +32,7 @@ final class RouterBossLoopPacer {
       pollInterval: pollInterval,
     );
     if (delay == Duration.zero) {
-      await Future<void>.delayed(Duration.zero);
+      await _nextEventTurn();
       return;
     }
 
@@ -40,20 +42,50 @@ final class RouterBossLoopPacer {
       if (identical(_wakeCompleter, wakeCompleter)) {
         _wakeCompleter = null;
       }
-      await Future<void>.delayed(Duration.zero);
+      await _nextEventTurn();
       return;
     }
 
+    final timer = Timer(delay, () {
+      if (!wakeCompleter.isCompleted) wakeCompleter.complete();
+    });
     try {
-      await Future.any<void>(<Future<void>>[
-        Future<void>.delayed(delay),
-        wakeCompleter.future,
-      ]);
+      await wakeCompleter.future;
     } finally {
+      timer.cancel();
       if (identical(_wakeCompleter, wakeCompleter)) {
         _wakeCompleter = null;
       }
     }
+  }
+
+  // Yield through the event queue without creating a timer on every busy pass.
+  Future<void> _nextEventTurn() {
+    final pending = _eventCompleter;
+    if (pending != null) return pending.future;
+    final completer = Completer<void>();
+    _eventCompleter = completer;
+    final port = _eventPort ??= RawReceivePort(_completeEventTurn);
+    // Keep pending work alive, but allow an idle pacer to leave its isolate.
+    port.keepIsolateAlive = true;
+    port.sendPort.send(null);
+    return completer.future;
+  }
+
+  void _completeEventTurn(dynamic _) {
+    _eventPort?.keepIsolateAlive = false;
+    final completer = _eventCompleter;
+    _eventCompleter = null;
+    completer?.complete();
+  }
+
+  void close() {
+    _eventPort?.close();
+    _eventPort = null;
+    final completer = _eventCompleter;
+    _eventCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+    requestWake();
   }
 
   bool _consumeWakeRequest() {
@@ -149,6 +181,14 @@ class _RouterBoss {
   final Map<int, RouterListener> _http3ConnectionListeners = {};
   final Map<int, _WebSocketSelection> _webSocketSelectionByConnection = {};
   final RouterStateStore _stateStore;
+  late final MqttQos0Broker _mqttBroker = MqttQos0Broker.native(
+    onNativeClose: (connectionId, reason) => onEvent?.call({
+      'source': 'boss',
+      'type': 'mqtt_connection_closed',
+      'connectionId': connectionId,
+      'reason': reason,
+    }),
+  );
   late final Map<String, RealmSettings> _realmByName;
   final Map<int, DateTime> _lastActivityByConnection = {};
   final Map<int, String> _realmByConnection = {};
@@ -171,6 +211,7 @@ class _RouterBoss {
   bool _running = false;
   bool _stopping = false;
   Future<void>? _loopFuture;
+  StreamSubscription<void>? _messageReadySubscription;
   int _nextWorkerIndex = 0;
   int _nextWorkerId = 1;
   int _nextPendingWorkerToken = -1;
@@ -204,6 +245,11 @@ class _RouterBoss {
   void start() {
     if (_running) {
       return;
+    }
+    if (runtime case NativeRuntimeWithMessageReadyNotifications notifier) {
+      _messageReadySubscription = notifier.messageReadyNotifications.listen(
+        (_) => _loopPacer.requestWake(),
+      );
     }
     _running = true;
     _loopFuture = _loop();
@@ -289,6 +335,11 @@ class _RouterBoss {
     cleanup(_eventPort.close);
     cleanup(_commandPort.close);
     cleanup(_stateStore.dispose);
+    try {
+      await _mqttBroker.close();
+    } catch (error, stackTrace) {
+      recordCleanupFailure(error, stackTrace);
+    }
     // Detach ownership before worker teardown or native release callbacks.
     final connections = _http3Connections.values.toList(growable: false);
     _http3Connections.clear();
@@ -316,23 +367,34 @@ class _RouterBoss {
   }
 
   Future<void> _loop() async {
-    while (_running) {
-      var didWork = false;
-      didWork = await _ensureMinimumWorkers() || didWork;
-      for (final listener in listeners) {
-        didWork = await _acceptConnections(listener) || didWork;
+    try {
+      while (_running) {
+        if (runtime case NativeRuntimeWithMessageReadyNotifications notifier) {
+          notifier.armMessageReadyNotifications();
+        }
+        var didWork = false;
+        didWork = await _ensureMinimumWorkers() || didWork;
+        for (final listener in listeners) {
+          didWork = await _acceptConnections(listener) || didWork;
+        }
+        didWork = _dispatchMessages() || didWork;
+        didWork = _drainMqtt() || didWork;
+        didWork = _expireIdleConnections() || didWork;
+        didWork = _drainHttpRequests() || didWork;
+        didWork = _drainHttp2Requests() || didWork;
+        didWork = _drainHttp3Requests() || didWork;
+        didWork = _drainHttpConnectionEvents() || didWork;
+        didWork = _emitRouterMetrics() || didWork;
+        await _loopPacer.waitForNextTick(
+          didWork: didWork,
+          pollInterval: pollInterval,
+        );
       }
-      didWork = _dispatchMessages() || didWork;
-      didWork = _expireIdleConnections() || didWork;
-      didWork = _drainHttpRequests() || didWork;
-      didWork = _drainHttp2Requests() || didWork;
-      didWork = _drainHttp3Requests() || didWork;
-      didWork = _drainHttpConnectionEvents() || didWork;
-      didWork = _emitRouterMetrics() || didWork;
-      await _loopPacer.waitForNextTick(
-        didWork: didWork,
-        pollInterval: pollInterval,
-      );
+    } finally {
+      _loopPacer.close();
+      final subscription = _messageReadySubscription;
+      _messageReadySubscription = null;
+      await subscription?.cancel();
     }
   }
 
@@ -391,7 +453,38 @@ class _RouterBoss {
       }
 
       if (protocol != NativeConnectionProtocol.rawsocket) {
-        if (protocol == NativeConnectionProtocol.http ||
+        if (protocol == NativeConnectionProtocol.mqtt) {
+          _lastActivityByConnection.remove(connectionId);
+          final mqttRuntime = runtime is NativeRuntimeWithMqtt
+              ? runtime as NativeRuntimeWithMqtt
+              : null;
+          if (mqttRuntime == null) {
+            runtime.closeConnection(connectionId);
+            continue;
+          }
+          try {
+            mqttRuntime.setMqttWake(
+              connectionId,
+              (_) => _loopPacer.requestWake(),
+            );
+          } on NativeTransportException catch (error) {
+            // The native reader may reject a malformed frame before this
+            // accepted connection reaches the broker loop.
+            if (error.code == NativeTransportErrorCode.connectionNotFound) {
+              continue;
+            }
+            rethrow;
+          }
+          _mqttBroker.attachNativeConnection(
+            connectionId,
+            send: (bytes) => mqttRuntime.sendMqttChunk(connectionId, bytes),
+            close: () {
+              mqttRuntime.setMqttWake(connectionId, null);
+              runtime.closeConnection(connectionId);
+            },
+          );
+          continue;
+        } else if (protocol == NativeConnectionProtocol.http ||
             protocol == NativeConnectionProtocol.http2) {
           if (protocol == NativeConnectionProtocol.http) {
             _registerHttpConnection(listener, connectionId);
@@ -576,7 +669,38 @@ class _RouterBoss {
         return 'http2';
       case NativeConnectionProtocol.http3:
         return 'http3';
+      case NativeConnectionProtocol.mqtt:
+        return 'mqtt';
     }
+  }
+
+  bool _drainMqtt() {
+    final mqttRuntime = runtime is NativeRuntimeWithMqtt
+        ? runtime as NativeRuntimeWithMqtt
+        : null;
+    if (mqttRuntime == null) return false;
+    var didWork = false;
+    var remaining = 256;
+    for (final connectionId in _mqttBroker.nativeConnectionIds.toList()) {
+      while (remaining > 0) {
+        Uint8List? bytes;
+        try {
+          bytes = mqttRuntime.pollMqttChunk(connectionId);
+        } on NativeTransportException {
+          _mqttBroker.closeNativeConnection(
+            connectionId,
+            reason: 'native_poll_error',
+          );
+          break;
+        }
+        if (bytes == null) break;
+        _mqttBroker.receiveNativeChunk(connectionId, bytes);
+        didWork = true;
+        remaining--;
+      }
+      if (remaining == 0) break;
+    }
+    return didWork;
   }
 
   void _handleHttpConnectionEvent(NativeHttpConnectionEvent event) {
@@ -1740,7 +1864,7 @@ class _RouterBoss {
     return {
       'status': 'measured',
       'boss_generation': _copyObserverGeneration,
-      'main_isolate': OwnedCopyMetrics.snapshot(),
+      'main_isolate': OwnedCopyMetrics.boundarySnapshot(),
       'workers': {
         for (var i = 0; i < workers.length; i++) '${workers[i].id}': values[i],
       },

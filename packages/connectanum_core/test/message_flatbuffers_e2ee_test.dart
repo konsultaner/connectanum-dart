@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/src/serializer/flatbuffers/serializer.dart'
+    as flatbuffers;
+import 'package:connectanum_core/src/serializer/flatbuffers/validation.dart';
 import 'package:pinenacl/api.dart' show EncryptedMessage;
 import 'package:pinenacl/x25519.dart' show SecretBox;
 import 'package:test/test.dart';
@@ -65,6 +68,62 @@ void main() {
           );
 
     group(cipher, () {
+      test('encrypted WAMP CBOR bytes round-trip in FlatBuffers fragments', () {
+        final cborProvider = cipher == ConnectanumE2eeProfile.aes256Gcm
+            ? WampCborAes256GcmProvider(
+                keys: {'bench-key': key},
+                defaultKeyId: 'bench-key',
+              )
+            : WampCborXsalsa20Poly1305Provider(
+                keys: {'bench-key': key},
+                defaultKeyId: 'bench-key',
+              );
+        final plaintext = Uint8List.fromList(
+          List<int>.generate(1024, (index) => index & 0xff),
+        );
+        final options = PublishOptions();
+        final encrypted = cborProvider.packPayload(
+          [plaintext],
+          null,
+          options,
+          runtimeContext: _runtimeContext,
+        );
+        final ciphertext = encrypted.single as Uint8List;
+        final message = Publish(
+          7,
+          'com.probe',
+          options: options,
+          arguments: encrypted,
+        );
+        final serializer = flatbuffers.Serializer();
+        final fragments = serializer.serializeFragments(message)!;
+        expect(fragments.any((part) => identical(part, ciphertext)), isTrue);
+
+        final builder = BytesBuilder(copy: false);
+        for (final fragment in fragments) {
+          builder.add(fragment);
+        }
+        final encoded = builder.takeBytes();
+        validateWampFlatBuffer(encoded);
+        final received = serializer.deserialize(encoded) as Publish;
+        expect(
+          serializer.metadataFor(received),
+          serializer.metadataFor(message),
+        );
+        expect(serializer.metadataFor(received)['ppt_scheme'], 'wamp');
+        expect(serializer.metadataFor(received)['ppt_serializer'], 'cbor');
+        expect(serializer.metadataFor(received)['ppt_cipher'], cipher);
+        final decrypted = cborProvider.unpackPayload(
+          received.wireArguments!,
+          received.options!,
+          runtimeContext: const WampE2eeRuntimeContext(
+            direction: WampE2eeDirection.inbound,
+            messageType: WampE2eeMessageType.event,
+          ),
+        );
+        expect(decrypted.arguments, [plaintext]);
+      });
+
       for (final direction in WampE2eeDirection.values) {
         for (final selection in [
           'explicit',

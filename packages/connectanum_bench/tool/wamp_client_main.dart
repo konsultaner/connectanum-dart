@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/transport_copy_metrics.dart';
+import 'package:connectanum_bench/src/wamp_sample_json.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_bench/src/e2ee_copy_metrics.dart';
 import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
@@ -133,112 +134,135 @@ Future<void> main(List<String> args) async {
       if (trimmed == 'STOP') {
         break;
       }
-      try {
-        final scenario = WampScenario.fromJson(
-          Map<String, Object?>.from(jsonDecode(trimmed) as Map),
-        );
-        final ownedCopiesBefore = core_buffers.OwnedCopyMetrics.snapshot();
-        final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
-        final copyMetricsBefore = nativeRuntime.transportCopyMetricsSnapshot();
-        final e2eeMetricsBefore = nativeRuntime.e2eeCopyMetricsSnapshot();
-        final rawFrameMetricsBefore = nativeRuntime
-            .rawFrameCopyMetricsSnapshot();
-        final codecBefore = nativeRuntime.codecCopyMetricsSnapshot();
-        final rssBeforeBytes = ProcessInfo.currentRss;
-        late final List<WampSample> samples;
-        late final DartTransportCopyMetricsSnapshot dartCopyMetrics;
-        late final PortableE2eeCopyMetricsSnapshot portableE2eeMetrics;
-        late final PptCopyMetricsSnapshot pptMetrics;
-        DartTransportCopyMetrics.beginWindow();
-        PortableE2eeCopyMetrics.beginWindow();
-        PptCopyMetrics.beginWindow();
-        try {
-          samples = await runner.run(scenario);
-        } finally {
-          dartCopyMetrics = DartTransportCopyMetrics.endWindow();
-          portableE2eeMetrics = PortableE2eeCopyMetrics.endWindow();
-          pptMetrics = PptCopyMetrics.endWindow();
-        }
-        final fileMetrics = nativeRuntime
-            .fileSegmentMetricsSnapshot()
-            .deltaFrom(fileMetricsBefore);
-        final copyMetricsAfter = nativeRuntime.transportCopyMetricsSnapshot();
-        final copyMetrics = copyMetricsAfter.deltaFrom(copyMetricsBefore);
-        final nativeTransportWindow = nativeClientTransportCopyWindow(
-          copyMetricsBefore,
-          copyMetricsAfter,
-        );
-        final e2eeMetricsAfter = nativeRuntime.e2eeCopyMetricsSnapshot();
-        final e2eeMetrics = e2eeMetricsAfter.deltaFrom(e2eeMetricsBefore);
-        final rawFrameMetrics = rawFrameCopyMetricsDelta(
-          rawFrameMetricsBefore,
-          nativeRuntime.rawFrameCopyMetricsSnapshot(),
-        );
-        stdout.writeln(
-          jsonEncode({
-            'samples': samples.map((sample) => sample.toJson()).toList(),
-            'file_segment_metrics': {
-              'rawsocket_zero_copy_calls':
-                  fileMetrics.rawSocketZeroCopyCallsTotal,
-              'rawsocket_zero_copy_bytes':
-                  fileMetrics.rawSocketZeroCopyBytesTotal,
-              'buffered_file_segment_calls':
-                  fileMetrics.bufferedFileSegmentCallsTotal,
-              'buffered_file_segment_bytes':
-                  fileMetrics.bufferedFileSegmentBytesTotal,
-            },
-            'copy_metrics': {
-              ..._copyMetricsFor(
-                scenario,
-                samples,
-                copyMetrics,
-                dartCopyMetrics,
-                e2eeMetrics,
-                portableE2eeMetrics,
-                pptMetrics,
-                rawFrameMetrics,
-                nativeTransportWindow: nativeTransportWindow,
-              ),
-              'native_crypto_copy_breakdown': nativeCryptoCopyMetricsDelta(
-                e2eeMetricsBefore,
-                e2eeMetricsAfter,
-                active:
-                    scenario.pptScheme == 'wamp' &&
-                    scenario.clientImplementation ==
-                        WampClientImplementation.native,
-              ),
-              'native_codec_copy_breakdown': {
-                'client': codecCopyMetricsDelta(
-                  codecBefore,
-                  nativeRuntime.codecCopyMetricsSnapshot(),
-                ),
-              },
-              'dart_owned_buffer_copy_breakdown': {
-                'client': ownedBufferCopyMetricsDelta(
-                  ownedCopiesBefore,
-                  core_buffers.OwnedCopyMetrics.snapshot(),
-                ),
-              },
-            },
-            'process_metrics': {
-              'pid': pid,
-              'rss_before_bytes': rssBeforeBytes,
-              'current_rss_bytes': ProcessInfo.currentRss,
-              'max_rss_bytes': ProcessInfo.maxRss,
-            },
-          }),
-        );
-        await stdout.flush();
-      } catch (error, stackTrace) {
-        Logger(
-          'NativeWampWorker',
-        ).warning('Failed to run WAMP workload', error, stackTrace);
-        stdout.writeln(jsonEncode({'error': _describeWorkerError(error)}));
-        await stdout.flush();
-      }
+      await _handleRequest(trimmed, runner, nativeRuntime);
     }
   } finally {
     NativeClientRuntime.shutdownShared();
+  }
+}
+
+// Keep completed samples and response staging in a per-request async frame.
+// Returning releases those references before the input loop awaits another line.
+Future<void> _handleRequest(
+  String trimmed,
+  WampWorkloadRunner runner,
+  NativeClientRuntime nativeRuntime,
+) async {
+  try {
+    final request = Map<String, Object?>.from(jsonDecode(trimmed) as Map);
+    final sampleEncoding = request['sample_encoding'];
+    if (sampleEncoding != null &&
+        sampleEncoding != WampSample.workerRecordEncoding) {
+      throw const FormatException('Unsupported worker sample encoding');
+    }
+    final compactSamples = sampleEncoding == WampSample.workerRecordEncoding;
+    final scenario = WampScenario.fromJson(request);
+    final ownedCopiesBefore = core_buffers.OwnedCopyMetrics.boundarySnapshot();
+    final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
+    final copyMetricsBefore = nativeRuntime.transportCopyMetricsSnapshot();
+    final e2eeMetricsBefore = nativeRuntime.e2eeCopyMetricsSnapshot();
+    final rawFrameMetricsBefore = nativeRuntime.rawFrameCopyMetricsSnapshot();
+    final codecBefore = nativeRuntime.boundaryCodecCopyMetricsSnapshot();
+    final rssBeforeBytes = ProcessInfo.currentRss;
+    late final List<WampSample> samples;
+    late final DartTransportCopyMetricsSnapshot dartCopyMetrics;
+    late final PortableE2eeCopyMetricsSnapshot portableE2eeMetrics;
+    late final PptCopyMetricsSnapshot pptMetrics;
+    DartTransportCopyMetrics.beginWindow();
+    PortableE2eeCopyMetrics.beginWindow();
+    PptCopyMetrics.beginWindow();
+    try {
+      samples = await runner.run(scenario);
+    } finally {
+      dartCopyMetrics = DartTransportCopyMetrics.endWindow();
+      portableE2eeMetrics = PortableE2eeCopyMetrics.endWindow();
+      pptMetrics = PptCopyMetrics.endWindow();
+    }
+    final fileMetrics = nativeRuntime.fileSegmentMetricsSnapshot().deltaFrom(
+      fileMetricsBefore,
+    );
+    final copyMetricsAfter = nativeRuntime.transportCopyMetricsSnapshot();
+    final copyMetrics = copyMetricsAfter.deltaFrom(copyMetricsBefore);
+    final nativeTransportWindow = nativeClientTransportCopyWindow(
+      copyMetricsBefore,
+      copyMetricsAfter,
+    );
+    final e2eeMetricsAfter = nativeRuntime.e2eeCopyMetricsSnapshot();
+    final e2eeMetrics = e2eeMetricsAfter.deltaFrom(e2eeMetricsBefore);
+    final rawFrameMetrics = rawFrameCopyMetricsDelta(
+      rawFrameMetricsBefore,
+      nativeRuntime.rawFrameCopyMetricsSnapshot(),
+    );
+    final responseChunks = wampResponseJsonChunks(
+      {
+        // Private IPC avoids repeating field names for every observation.
+        // The supervisor restores unchanged named fields in public reports.
+        if (compactSamples) 'sample_encoding': WampSample.workerRecordEncoding,
+        'samples': samples,
+        'file_segment_metrics': {
+          'rawsocket_zero_copy_calls': fileMetrics.rawSocketZeroCopyCallsTotal,
+          'rawsocket_zero_copy_bytes': fileMetrics.rawSocketZeroCopyBytesTotal,
+          'buffered_file_segment_calls':
+              fileMetrics.bufferedFileSegmentCallsTotal,
+          'buffered_file_segment_bytes':
+              fileMetrics.bufferedFileSegmentBytesTotal,
+        },
+        'copy_metrics': {
+          ..._copyMetricsFor(
+            scenario,
+            samples,
+            copyMetrics,
+            dartCopyMetrics,
+            e2eeMetrics,
+            portableE2eeMetrics,
+            pptMetrics,
+            rawFrameMetrics,
+            nativeTransportWindow: nativeTransportWindow,
+          ),
+          'native_crypto_copy_breakdown': nativeCryptoCopyMetricsDelta(
+            e2eeMetricsBefore,
+            e2eeMetricsAfter,
+            active:
+                scenario.pptScheme == 'wamp' &&
+                scenario.clientImplementation ==
+                    WampClientImplementation.native,
+          ),
+          'native_codec_copy_breakdown': {
+            'client': codecCopyMetricsDelta(
+              codecBefore,
+              nativeRuntime.boundaryCodecCopyMetricsSnapshot(),
+            ),
+          },
+          'dart_owned_buffer_copy_breakdown': {
+            'client': ownedBufferCopyMetricsDelta(
+              ownedCopiesBefore,
+              core_buffers.OwnedCopyMetrics.boundarySnapshot(),
+            ),
+          },
+        },
+        'process_metrics': {
+          'pid': pid,
+          'rss_before_bytes': rssBeforeBytes,
+          'current_rss_bytes': ProcessInfo.currentRss,
+          'max_rss_bytes': ProcessInfo.maxRss,
+        },
+      },
+      compactSamples: compactSamples,
+    );
+    for (final chunk in responseChunks) {
+      stdout.add(chunk);
+    }
+    stdout.add(const [10]);
+    await stdout.flush();
+  } catch (error, stackTrace) {
+    Logger(
+      'NativeWampWorker',
+    ).warning('Failed to run WAMP workload', error, stackTrace);
+    stdout.add(
+      wampWorkerResponseJsonBytes({'error': _describeWorkerError(error)}),
+    );
+    stdout.add(const [10]);
+    await stdout.flush();
   }
 }
 

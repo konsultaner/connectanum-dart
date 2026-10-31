@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -54,6 +55,72 @@ void _expectChunk(Yield message, List<int>? bytes, {required bool progress}) {
 
 void main() {
   group('HTTP payload byte encoding', () {
+    test('JSON matches standard encoding across byte chunk boundaries', () {
+      final fixtures = <Object?>[
+        null,
+        <Object?>[],
+        <String, Object?>{},
+        <Object?>[true, false, -0.0, 1.25, 1e-100, 1e100, 9007199254740993],
+        {'unicode': '\u0000\b\t\n\r"\\ é中😀\ud800\udfff'},
+        {
+          'unpaired': ['\ud800', '\udfff', 'x\ud800y', 'x\udfffy'],
+        },
+        for (final length in [254, 255, 256, 257, 1023, 1024, 1025])
+          {'padding': 'x' * length, 'tail': '中😀'},
+        {
+          'custom': _JsonBodyFixture({
+            'nested': _JsonBodyFixture([1, null]),
+          }),
+        },
+      ];
+      for (final fixture in fixtures) {
+        final payload = HttpResponseUtil.json(
+          requestId: 37,
+          status: 207,
+          body: fixture,
+        );
+        final expected = utf8.encode(jsonEncode(fixture));
+        final encoded = payload.encodeBodyBytes()!;
+        expect(encoded, orderedEquals(expected));
+        encoded[0] ^= 1;
+        expect(payload.encodeBodyBytes(), orderedEquals(expected));
+      }
+    });
+
+    test('JSON preserves unsupported-value and cycle errors', () {
+      final cycle = <Object?>[];
+      cycle.add(cycle);
+      for (final fixture in <Object?>[
+        Object(),
+        {1: 'non-string key'},
+        double.nan,
+        double.infinity,
+        -double.infinity,
+        _JsonBodyFixture(Object()),
+        cycle,
+      ]) {
+        Object? originalError;
+        try {
+          jsonEncode(fixture);
+        } catch (error) {
+          originalError = error;
+        }
+        expect(originalError, isNotNull);
+        expect(
+          () => HttpResponseUtil.json(
+            requestId: 37,
+            status: 207,
+            body: fixture,
+          ).encodeBodyBytes(),
+          throwsA(
+            predicate<Object>(
+              (error) => error.runtimeType == originalError.runtimeType,
+            ),
+          ),
+        );
+      }
+    });
+
     for (final kind in ['bytes', 'text']) {
       test('$kind absent body encodes to empty bytes', () {
         final payload = HttpResponsePayload.fromKeywordArguments(
@@ -523,4 +590,12 @@ void main() {
       });
     }
   });
+}
+
+class _JsonBodyFixture {
+  _JsonBodyFixture(this.value);
+
+  final Object? value;
+
+  Object? toJson() => value;
 }

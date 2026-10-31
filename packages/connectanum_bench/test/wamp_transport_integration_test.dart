@@ -17,6 +17,8 @@ import 'package:connectanum_bench/src/raw_frame_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart' as client;
 import 'package:connectanum_client/native_buffers.dart' as native_buffers;
+import 'package:connectanum_client/src/transport/native/external_byte_buffer.dart'
+    as external_bytes;
 import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart'
     as native_e2ee;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
@@ -56,6 +58,57 @@ void main() {
     tearDownAll(() async {
       await harness?.close();
     });
+
+    test('Dart typed RPC release follows the actual backing ownership', () async {
+      final listener = harness!.binding.listeners.firstWhere(
+        (listener) =>
+            listener.settings!.protocols.contains(ListenerProtocol.rawsocket),
+      );
+      var releases = 0;
+      final runner = WampWorkloadRunner(
+        sessionFactory: (scenario) => RawSocketWampSessionFactory(
+          host: '127.0.0.1',
+          port: listener.port,
+          realmUri: scenario.realmUri,
+          serializer: WampSerializer.flatbuffers,
+        ).call(),
+        releaseMessagePayload: (payload) {
+          final anchorNative =
+              payload.anchor != null &&
+              external_bytes.hasRetainedNativeExternalBytes(payload.anchor!);
+          final ownerNative =
+              payload.storageOwner != null &&
+              external_bytes.hasRetainedNativeExternalBytes(
+                payload.storageOwner!,
+              );
+          final released = client.releaseNativeMessagePayload(payload);
+          expect(
+            released,
+            ownerNative,
+            reason:
+                'anchor=${payload.anchor.runtimeType}, owner=${payload.storageOwner.runtimeType}, anchorNative=$anchorNative ownerNative=$ownerNative',
+          );
+          releases++;
+          return released;
+        },
+      );
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.flatbuffers,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 2,
+          concurrency: 1,
+          payloadBytes: 128 * 1024,
+          peerSerializer: WampSerializer.flatbuffers,
+          pptScheme: 'x_connectanum_bench_typed',
+          pptSerializer: 'flatbuffers',
+        ),
+      );
+      expect(samples, hasLength(2));
+      expect(releases, 2);
+    }, skip: skipReason);
 
     test(
       'owned router observations include stable fenced worker snapshots',
@@ -472,7 +525,7 @@ void main() {
                 case WampPayloadConstruction.dartValues:
                   expect(copiedBytes, everyElement(0));
                 case WampPayloadConstruction.nativeBuffer:
-                  expect(copiedBytes, everyElement(bodyBytes));
+                  expect(copiedBytes, everyElement(0));
                 case WampPayloadConstruction.preEncodedSpan:
                   expect(
                     copiedBytes.every((bytes) => bytes! > bodyBytes),
@@ -524,7 +577,7 @@ void main() {
                 expect(
                   samples.map((sample) => sample.nativeBuilderInputCopiedBytes),
                   construction == WampPayloadConstruction.nativeBuffer
-                      ? everyElement(bodyBytes)
+                      ? everyElement(0)
                       : everyElement(greaterThan(bodyBytes)),
                 );
               },
@@ -589,7 +642,7 @@ void main() {
               expect(copiedBytes, everyElement(isNotNull));
               switch (construction) {
                 case WampPayloadConstruction.nativeBuffer:
-                  expect(copiedBytes, everyElement(bodyBytes));
+                  expect(copiedBytes, everyElement(0));
                 case WampPayloadConstruction.preEncodedSpan:
                   expect(
                     copiedBytes.every((bytes) => bytes! > bodyBytes),
@@ -1080,6 +1133,102 @@ void main() {
     );
 
     test(
+      'native FlatBuffers client completes CBOR E2EE progressive file transfer',
+      () async {
+        for (final cipher in ['xsalsa20poly1305', 'aes256gcm']) {
+          final result = await harness!.nativeWorker.runWithMetrics(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              clientImplementation: WampClientImplementation.native,
+              serializer: WampSerializer.flatbuffers,
+              peerSerializer: WampSerializer.cbor,
+              mode: WampMode.fileTransfer,
+              uri: 'bench.file.flatbuffers_cbor_e2ee',
+              iterations: 2,
+              concurrency: 1,
+              payloadBytes: 65536,
+              fileChunkBytes: 8192,
+              pptScheme: 'wamp',
+              pptSerializer: 'cbor',
+              pptCipher: cipher,
+              pptKeyId: 'benchmark-key',
+            ),
+          );
+
+          expect(result.samples, hasLength(2), reason: cipher);
+          expect(
+            result.copyMetrics['known_e2ee_staging_copy_bytes'],
+            greaterThan(0),
+            reason: '$cipher must report the known E2EE staging copies',
+          );
+          final breakdownValue = result.copyMetrics['e2ee_copy_breakdown'];
+          expect(
+            breakdownValue,
+            isA<Map>(),
+            reason: '$cipher must return an E2EE staging breakdown',
+          );
+          final breakdown = breakdownValue! as Map;
+          expect(breakdown['coverage'], 'known_staging_only', reason: cipher);
+          expect(
+            breakdown['client_process_plaintext_staging_copy_bytes'],
+            greaterThan(0),
+            reason: '$cipher must report native plaintext staging',
+          );
+          expect(
+            breakdown['client_process_ciphertext_staging_copy_bytes'],
+            greaterThan(0),
+            reason: '$cipher must report native ciphertext staging',
+          );
+          expect(
+            (result.copyMetrics['e2ee_copy_bytes'] as Map)['status'],
+            'not_measured',
+            reason:
+                '$cipher is only a staging subset; outer serializer/transcode '
+                'accounting remains a production copy-proof gate',
+          );
+        }
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    for (final transport in [
+      WampTransport.rawsocket,
+      WampTransport.websocket,
+    ]) {
+      for (final encrypted in [false, true]) {
+        test(
+          'native FlatBuffers file chunks ${transport.name} encrypted=$encrypted',
+          () async {
+            final samples = await harness!.runNative(
+              WampScenario(
+                transport: transport,
+                clientImplementation: WampClientImplementation.native,
+                serializer: WampSerializer.flatbuffers,
+                peerSerializer: WampSerializer.flatbuffers,
+                mode: WampMode.fileTransfer,
+                uri: 'bench.file.flatbuffers_${transport.name}_$encrypted',
+                iterations: 1,
+                concurrency: 1,
+                payloadBytes: 2 * 1024 * 1024,
+                fileChunkBytes: 256 * 1024,
+                pptScheme: encrypted ? 'wamp' : null,
+                pptSerializer: encrypted ? 'cbor' : null,
+                pptCipher: encrypted ? 'aes256gcm' : null,
+                pptKeyId: encrypted ? 'benchmark-key' : null,
+              ),
+            );
+
+            expect(samples, hasLength(1));
+            expect(samples.single.requestBytes, 2 * 1024 * 1024);
+          },
+          skip: skipReason,
+          timeout: const Timeout(Duration(seconds: 45)),
+        );
+      }
+    }
+
+    test(
       'Dart CBOR file transfer uses native progressive invocation forwarding',
       () async {
         final samples = await harness!.runDart(
@@ -1479,7 +1628,7 @@ void main() {
     );
 
     test(
-      'native WAMP worker process exits cleanly after STOP following a native cancel workload',
+      'native WAMP worker recovers across errors and sample encodings before STOP',
       () async {
         final rawSocketListener = harness!.binding.listeners.firstWhere(
           (listener) =>
@@ -1543,28 +1692,65 @@ void main() {
           );
           expect(ready, 'READY');
 
-          process.stdin.writeln(
-            jsonEncode(
-              WampScenario(
-                transport: WampTransport.rawsocket,
-                clientImplementation: WampClientImplementation.native,
-                serializer: WampSerializer.json,
-                mode: WampMode.cancelCycle,
-                uri: 'bench.control.cancel',
-                iterations: 1,
-                concurrency: 1,
-                payloadBytes: 0,
-              ).toJson(),
-            ),
-          );
-          await process.stdin.flush();
+          Future<Map<String, Object?>> request(String input) async {
+            final responseLine = stdoutLines
+                .firstWhere((line) => line != 'READY')
+                .timeout(const Duration(seconds: 20));
+            process.stdin.writeln(input);
+            await process.stdin.flush();
+            return jsonDecode(await responseLine) as Map<String, Object?>;
+          }
 
-          final responseLine = await stdoutLines
-              .firstWhere((line) => line != 'READY')
-              .timeout(const Duration(seconds: 20));
-          final response = jsonDecode(responseLine) as Map<String, Object?>;
-          expect(response['error'], isNull, reason: stderrLines.join('\n'));
-          expect(response['samples'], isA<List<Object?>>());
+          final scenario = WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.json,
+            mode: WampMode.cancelCycle,
+            uri: 'bench.control.cancel',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 0,
+          ).toJson();
+          final malformed = await request('{invalid JSON');
+          expect(malformed.keys, ['error']);
+          expect(malformed['error'], isA<String>());
+          final unsupported = await request(
+            jsonEncode({...scenario, 'sample_encoding': 'positional_v2'}),
+          );
+          expect(unsupported.keys, ['error']);
+          expect(unsupported['error'], contains('Unsupported worker sample'));
+          final compact = await request(
+            jsonEncode({
+              ...scenario,
+              'sample_encoding': WampSample.workerRecordEncoding,
+            }),
+          );
+          expect(compact['error'], isNull, reason: stderrLines.join('\n'));
+          expect(compact['sample_encoding'], WampSample.workerRecordEncoding);
+          final compactRows = compact['samples'] as List;
+          expect(compactRows, hasLength(1));
+          final restored = WampSample.fromWorkerRecord(
+            compactRows.single as List,
+          );
+          expect(restored.iteration, 0);
+          expect(restored.requestBytes, 0);
+          expect(restored.responseBytes, 0);
+
+          final named = await request(jsonEncode(scenario));
+          expect(named['error'], isNull, reason: stderrLines.join('\n'));
+          expect(named, isNot(contains('sample_encoding')));
+          final namedRows = named['samples'] as List;
+          expect(namedRows, hasLength(1));
+          final sample = WampSample.fromJson(
+            (namedRows.single as Map).cast<String, Object?>(),
+          );
+          expect(sample.iteration, 0);
+          expect(sample.requestBytes, restored.requestBytes);
+          expect(sample.responseBytes, restored.responseBytes);
+          expect(
+            named['file_segment_metrics'],
+            compact['file_segment_metrics'],
+          );
 
           process.stdin.writeln('STOP');
           await process.stdin.flush();

@@ -425,7 +425,10 @@ owned_process_is_live() {
 
   kill -0 "$pid" 2>/dev/null || return 1
   if ! state="$(ps -o stat= -p "$pid" 2>/dev/null)"; then
-    return 0
+    # It may have exited between the first probe and ps. Keep the conservative
+    # live result only while the process still exists.
+    kill -0 "$pid" 2>/dev/null
+    return $?
   fi
   [[ -n "$state" && "$state" != *Z* ]]
 }

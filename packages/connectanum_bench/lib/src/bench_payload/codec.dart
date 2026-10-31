@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_buffers.dart';
+import 'package:connectanum_core/connectanum_core.dart' show PackedPayloadParts;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 
 import 'generated/workload_payload_connectanum.bench_generated.dart' as schema;
@@ -11,6 +12,7 @@ import 'generated/workload_payload_connectanum.bench_generated.dart' as schema;
 /// or cross-worker payloads. The body is deterministic across codec variants.
 abstract final class BenchPayloadCodec {
   static const fileIdentifier = 'CBEN';
+  static final Uint32List _expectedBodyWords = _buildExpectedBodyWords();
 
   static Map<String, Object?> dynamicValue({
     required int worker,
@@ -31,7 +33,16 @@ abstract final class BenchPayloadCodec {
     RangeError.checkValueInInterval(length, 0, 64 * 1024 * 1024, 'length');
     final bytes = Uint8List(length);
     var value = (worker * 17 + iteration * 29) & 0xff;
-    for (var index = 0; index < length; index++) {
+    var index = 0;
+    if (Endian.host == Endian.little && length >= 4) {
+      final words = bytes.buffer.asUint32List(0, length >> 2);
+      for (var word = 0; word < words.length; word++) {
+        words[word] = _expectedBodyWords[value];
+        value = (value + 124) & 0xff;
+      }
+      index = words.length << 2;
+    }
+    for (; index < length; index++) {
       bytes[index] = value;
       value = (value + 31) & 0xff;
     }
@@ -58,6 +69,26 @@ abstract final class BenchPayloadCodec {
     return builder.buffer;
   }
 
+  /// Builds the same application model around its original Dart body buffer.
+  /// The regular fragment-aware transport can send these views directly;
+  /// contiguous consumers use the source's measured, cached fallback.
+  static PackedPayloadParts encodeDartParts({
+    required int worker,
+    required int iteration,
+    required int bodyBytes,
+  }) => flatbuffers.buildFlatBufferPayloadParts(
+    bytes: body(worker: worker, iteration: iteration, length: bodyBytes),
+    fileIdentifier: fileIdentifier,
+    buildRoot: (builder, vector) {
+      final table = schema.WorkloadPayloadBuilder(builder)..begin();
+      table
+        ..addWorker(worker)
+        ..addIteration(iteration)
+        ..addBodyOffset(vector.offset);
+      return table.finish();
+    },
+  );
+
   static NativeOwnedBuffer encodeNative(
     NativeBufferAllocator allocator, {
     required int worker,
@@ -65,21 +96,49 @@ abstract final class BenchPayloadCodec {
     required int bodyBytes,
     int? initialSize,
   }) {
+    _checkIdentity(worker, iteration);
+    final capacity = _initialFlatBufferSize(bodyBytes);
     final builder = allocator.flatBuffers(
-      initialSize: initialSize ?? _initialFlatBufferSize(bodyBytes),
+      initialSize: initialSize ?? capacity,
+      // This fixture contains one table, so there is no vtable to reuse.
+      // Match encodeDart rather than allocating a per-message vtable list.
+      deduplicateTables: false,
     );
     try {
-      builder.finish(
-        schema.WorkloadPayloadObjectBuilder(
-          worker: worker,
-          iteration: iteration,
-          body: body(worker: worker, iteration: iteration, length: bodyBytes),
-        ).finish(builder),
-        fileIdentifier,
+      final vector = builder.writeByteVector(
+        bodyBytes,
+        (bytes) => _fillNativeBody(bytes, worker: worker, iteration: iteration),
       );
+      final table = schema.WorkloadPayloadBuilder(builder)..begin();
+      table
+        ..addWorker(worker)
+        ..addIteration(iteration)
+        ..addBodyOffset(vector);
+      builder.finish(table.finish(), fileIdentifier);
       return builder.freeze();
     } finally {
       builder.dispose();
+    }
+  }
+
+  // The same Dart-generated words as body(), stored directly into native
+  // output. Every byte is produced here; no native pattern generator or
+  // reusable body buffer participates in native construction.
+  static void _fillNativeBody(
+    NativeWritableBytes bytes, {
+    required int worker,
+    required int iteration,
+  }) {
+    final count = bytes.length >> 2;
+    final words = bytes.uint32Words(count: count);
+    var value = (worker * 17 + iteration * 29) & 0xff;
+    for (var word = 0; word < count; word++) {
+      words[word] = _expectedBodyWords[value];
+      value = (value + 124) & 0xff;
+    }
+    for (var index = count << 2; index < bytes.length; index++) {
+      bytes.setUint8(index, value);
+      value = (value + 31) & 0xff;
     }
   }
 
@@ -112,7 +171,7 @@ abstract final class BenchPayloadCodec {
       : 5;
 
   /// Encodes the fixed CBOR/MessagePack benchmark PPT model in native storage.
-  /// Header/scalar fields are written directly; only the body input is copied.
+  /// Header/scalar fields and the Dart-generated body are written directly.
   /// Other serializers continue to use their regular public codecs.
   static NativeOwnedBuffer encodeNativePpt(
     NativeBufferAllocator allocator, {
@@ -126,10 +185,12 @@ abstract final class BenchPayloadCodec {
       'msgpack' => false,
       _ => throw ArgumentError.value(serializer, 'serializer'),
     };
-    final data = body(
-      worker: worker,
-      iteration: iteration,
-      length: bodyBytes,
+    _checkIdentity(worker, iteration);
+    RangeError.checkValueInInterval(
+      bodyBytes,
+      0,
+      64 * 1024 * 1024,
+      'bodyBytes',
     );
     // Two maps, one array, five short ASCII keys, and the null keyword value.
     final length =
@@ -138,8 +199,13 @@ abstract final class BenchPayloadCodec {
         _uintWidth(iteration, cbor) +
         _binaryWidth(bodyBytes, cbor) +
         bodyBytes;
-    final builder = allocator.allocate(length);
-    var offset = 0;
+    // Keep the body physically word-aligned. The leading allocation slack is
+    // outside the frozen encoded span and never changes the PPT wire bytes.
+    const suffixBytes = 8; // kwargs key plus null value.
+    final bodyOffset = length - bodyBytes - suffixBytes;
+    final leadingBytes = (-bodyOffset) & 3;
+    final builder = allocator.allocate(length + leadingBytes);
+    var offset = leadingBytes;
     void byte(int value) => builder.setUint8(offset++, value);
     void key(String value) {
       byte((cbor ? 0x60 : 0xa0) | value.length);
@@ -188,12 +254,21 @@ abstract final class BenchPayloadCodec {
       unsigned(iteration);
       key('body');
       unsigned(bodyBytes, binary: true);
-      builder.writeBytes(offset, data);
-      offset += data.length;
+      if (offset != leadingBytes + bodyOffset) {
+        throw StateError('Invalid native PPT body offset');
+      }
+      builder.writeByteRange(
+        offset,
+        bodyBytes,
+        (bytes) => _fillNativeBody(bytes, worker: worker, iteration: iteration),
+      );
+      offset += bodyBytes;
       key('kwargs');
       byte(cbor ? 0xf6 : 0xc0);
-      if (offset != length) throw StateError('Invalid native PPT fixture size');
-      return builder.freeze();
+      if (offset != leadingBytes + length) {
+        throw StateError('Invalid native PPT fixture size');
+      }
+      return builder.freeze(offset: leadingBytes, length: length);
     } finally {
       builder.dispose();
     }
@@ -221,12 +296,7 @@ abstract final class BenchPayloadCodec {
     if (actual == null || actual.length != bodyBytes) {
       throw const FormatException('Benchmark payload body length mismatch');
     }
-    for (var index = 0; index < bodyBytes; index += 1) {
-      final expected = (index * 31 + worker * 17 + iteration * 29) & 0xff;
-      if (actual[index] != expected) {
-        throw FormatException('Benchmark payload body mismatch at byte $index');
-      }
-    }
+    _verifyBody(actual, worker: worker, iteration: iteration);
   }
 
   static bool matchesIdentity(
@@ -265,12 +335,81 @@ abstract final class BenchPayloadCodec {
     if (actual is! List<int> || actual.length != bodyBytes) {
       throw const FormatException('Benchmark payload body length mismatch');
     }
-    for (var index = 0; index < bodyBytes; index += 1) {
-      final expected = (index * 31 + worker * 17 + iteration * 29) & 0xff;
+    _verifyBody(actual, worker: worker, iteration: iteration);
+  }
+
+  static void _verifyBody(
+    List<int> actual, {
+    required int worker,
+    required int iteration,
+  }) {
+    if (actual is Uint8List) {
+      final length = actual.length;
+      final wordEnd = length & ~3;
+      var expected = (worker * 17 + iteration * 29) & 0xff;
+      var index = 0;
+      if (Endian.host == Endian.little && (actual.offsetInBytes & 3) == 0) {
+        final words = actual.buffer.asUint32List(
+          actual.offsetInBytes,
+          wordEnd ~/ 4,
+        );
+        for (var word = 0; word < words.length; word += 1) {
+          if (words[word] != _expectedBodyWords[expected]) {
+            _verifyBodyWord(actual, word * 4, expected);
+          }
+          expected = (expected + 124) & 0xff;
+        }
+        index = wordEnd;
+      } else {
+        final data = ByteData.sublistView(actual);
+        for (; index < wordEnd; index += 4) {
+          if (data.getUint32(index, Endian.little) !=
+              _expectedBodyWords[expected]) {
+            _verifyBodyWord(actual, index, expected);
+          }
+          expected = (expected + 124) & 0xff;
+        }
+      }
+      for (; index < length; index += 1) {
+        if (actual[index] != expected) {
+          throw FormatException(
+            'Benchmark payload body mismatch at byte $index',
+          );
+        }
+        expected = (expected + 31) & 0xff;
+      }
+      return;
+    }
+
+    var expected = (worker * 17 + iteration * 29) & 0xff;
+    for (var index = 0; index < actual.length; index += 1) {
       if (actual[index] != expected) {
         throw FormatException('Benchmark payload body mismatch at byte $index');
       }
+      expected = (expected + 31) & 0xff;
     }
+  }
+
+  static void _verifyBodyWord(List<int> actual, int index, int expected) {
+    for (var byte = 0; byte < 4; byte += 1) {
+      final offset = index + byte;
+      if (actual[offset] != ((expected + byte * 31) & 0xff)) {
+        throw FormatException(
+          'Benchmark payload body mismatch at byte $offset',
+        );
+      }
+    }
+  }
+
+  static Uint32List _buildExpectedBodyWords() {
+    final words = Uint32List(256);
+    for (var start = 0; start < words.length; start += 1) {
+      final second = (start + 31) & 0xff;
+      final third = (start + 62) & 0xff;
+      final fourth = (start + 93) & 0xff;
+      words[start] = start | (second << 8) | (third << 16) | (fourth << 24);
+    }
+    return words;
   }
 
   static void _checkIdentity(int worker, int iteration) {

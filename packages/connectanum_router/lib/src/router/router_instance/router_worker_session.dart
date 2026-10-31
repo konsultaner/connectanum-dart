@@ -1959,6 +1959,28 @@ Future<void> _handleInternalInvocation({
   if (dispatch.progressiveInvocation) {
     invocationOptions['progress'] = dispatch.progress;
   }
+  Timer? pendingCheck;
+  var checkingPendingInvocation = false;
+  var responseClosed = false;
+  if (dispatch.progressiveInvocation ||
+      message.options?.receiveProgress == true) {
+    // A progressive callee can stop after cancellation or disconnect without
+    // another reply. Retire its port and retained native loan when state ends.
+    pendingCheck = Timer.periodic(const Duration(milliseconds: 250), (_) async {
+      if (responseClosed || checkingPendingInvocation) return;
+      checkingPendingInvocation = true;
+      try {
+        final pending = await realmContexts
+            .contextFor(realmUri)
+            .getInvocation(dispatch.invocationId);
+        if (!responseClosed && pending == null) replyPort.close();
+      } catch (_) {
+        if (!responseClosed) replyPort.close();
+      } finally {
+        checkingPendingInvocation = false;
+      }
+    });
+  }
   try {
     dispatch.calleeInternalSendPort!.send({
       'type': 'invocation',
@@ -1974,57 +1996,66 @@ Future<void> _handleInternalInvocation({
       'callerRequestId': message.requestId,
       'replyPort': replyPort.sendPort,
     });
-    final response = await replyPort.first;
-    if (response is Map<String, Object?> && response['type'] == 'result') {
-      retainedHandleTransferred = await _sendInternalInvocationResult(
-        bossPort: bossPort,
-        realmContexts: realmContexts,
-        realmUri: realmUri,
-        invocationId: dispatch.invocationId,
-        calleeSessionId: dispatch.calleeSessionId,
-        retainedNativeHandle: retainedHandle,
-        retainedNativeMessage: nativeMessage,
-        transferredPayload: response[_internalMsgLazyPayload],
-        arguments: response['arguments'] as List<dynamic>?,
-        argumentsKeywords:
-            response['argumentsKeywords'] as Map<String, Object?>?,
-        progress: response['progress'] as bool? ?? false,
-        pptScheme: response['pptScheme'] as String?,
-        pptSerializer: response['pptSerializer'] as String?,
-        pptCipher: response['pptCipher'] as String?,
-        pptKeyId: response['pptKeyId'] as String?,
-        details: response['details'] as Map<String, Object?>?,
-      );
-    } else if (response is Map<String, Object?> &&
-        response['type'] == 'error') {
-      await _sendInternalInvocationError(
-        bossPort: bossPort,
-        realmContexts: realmContexts,
-        realmUri: realmUri,
-        invocationId: dispatch.invocationId,
-        calleeSessionId: dispatch.calleeSessionId,
-        errorUri: (response['error'] as String?) ?? 'wamp.error.runtime_error',
-        transferredPayload: response[_internalMsgLazyPayload],
-        arguments: response['arguments'] as List<dynamic>?,
-        argumentsKeywords:
-            response['argumentsKeywords'] as Map<String, Object?>?,
-        details: response['details'] as Map<String, Object?>?,
-      );
-    } else {
-      await _sendInternalInvocationError(
-        bossPort: bossPort,
-        realmContexts: realmContexts,
-        realmUri: realmUri,
-        invocationId: dispatch.invocationId,
-        calleeSessionId: dispatch.calleeSessionId,
-        errorUri: 'wamp.error.runtime_error',
-        arguments: <String>[
-          'Internal session returned invalid response for '
-              '${message.procedure}',
-        ],
-      );
+    await for (final response in replyPort) {
+      if (response is Map<String, Object?> && response['type'] == 'result') {
+        retainedHandleTransferred = await _sendInternalInvocationResult(
+          bossPort: bossPort,
+          realmContexts: realmContexts,
+          realmUri: realmUri,
+          invocationId: dispatch.invocationId,
+          calleeSessionId: dispatch.calleeSessionId,
+          retainedNativeHandle: retainedHandle,
+          retainedNativeMessage: nativeMessage,
+          transferredPayload: response[_internalMsgLazyPayload],
+          arguments: response['arguments'] as List<dynamic>?,
+          argumentsKeywords:
+              response['argumentsKeywords'] as Map<String, Object?>?,
+          progress: response['progress'] as bool? ?? false,
+          pptScheme: response['pptScheme'] as String?,
+          pptSerializer: response['pptSerializer'] as String?,
+          pptCipher: response['pptCipher'] as String?,
+          pptKeyId: response['pptKeyId'] as String?,
+          details: response['details'] as Map<String, Object?>?,
+        );
+        if (response['progress'] == true &&
+            message.options?.receiveProgress == true) {
+          continue;
+        }
+      } else if (response is Map<String, Object?> &&
+          response['type'] == 'error') {
+        await _sendInternalInvocationError(
+          bossPort: bossPort,
+          realmContexts: realmContexts,
+          realmUri: realmUri,
+          invocationId: dispatch.invocationId,
+          calleeSessionId: dispatch.calleeSessionId,
+          errorUri:
+              (response['error'] as String?) ?? 'wamp.error.runtime_error',
+          transferredPayload: response[_internalMsgLazyPayload],
+          arguments: response['arguments'] as List<dynamic>?,
+          argumentsKeywords:
+              response['argumentsKeywords'] as Map<String, Object?>?,
+          details: response['details'] as Map<String, Object?>?,
+        );
+      } else {
+        await _sendInternalInvocationError(
+          bossPort: bossPort,
+          realmContexts: realmContexts,
+          realmUri: realmUri,
+          invocationId: dispatch.invocationId,
+          calleeSessionId: dispatch.calleeSessionId,
+          errorUri: 'wamp.error.runtime_error',
+          arguments: <String>[
+            'Internal session returned invalid response for '
+                '${message.procedure}',
+          ],
+        );
+      }
+      break;
     }
   } finally {
+    responseClosed = true;
+    pendingCheck?.cancel();
     replyPort.close();
     if (retainedHandle > 0 && !retainedHandleTransferred) {
       nativeMessage!.releaseRetainedHandle(retainedHandle);
@@ -2181,11 +2212,24 @@ Future<bool> _sendInternalInvocationResult({
     if (retainedNativeHandle > 0 &&
         receivedNativeHandle == retainedNativeHandle &&
         !progress &&
-        pptScheme == null &&
-        pptSerializer == null &&
-        pptCipher == null &&
-        pptKeyId == null &&
-        (details == null || details.isEmpty)) {
+        ((retainedNativeMessage?.pptHeaders == null &&
+                pptScheme == null &&
+                pptSerializer == null &&
+                pptCipher == null &&
+                pptKeyId == null &&
+                (details == null || details.isEmpty)) ||
+            (_matchesPlaintextPptHeaders(
+                  retainedNativeMessage?.pptHeaders,
+                  pptScheme: pptScheme,
+                  pptSerializer: pptSerializer,
+                  pptCipher: pptCipher,
+                  pptKeyId: pptKeyId,
+                  details: details,
+                ) &&
+                retainedNativeMessage?.canBorrowPlaintextPptPayload(
+                      retainedNativeHandle,
+                    ) ==
+                    true))) {
       bossPort.send({
         'type': 'worker_forward_native_internal_result',
         'connectionId': callerConnectionId,
@@ -2220,6 +2264,10 @@ Future<bool> _sendInternalInvocationResult({
       ),
       fallbackArguments: arguments,
       fallbackArgumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyId: pptKeyId,
     );
     _forwardToConnection(
       bossPort: bossPort,
@@ -2340,13 +2388,8 @@ Future<void> _handleYield({
     final context = realmContexts.contextFor(state.realmUri!);
     final invocation = await context.getInvocation(invocationId);
     if (invocation == null) {
-      await _sendInvocationErrorToCallee(
-        bossPort: bossPort,
-        state: state,
-        connectionId: connectionId,
-        invocationId: invocationId,
-        reason: _wampErrorNoSuchInvocation,
-      );
+      // Non-waiting cancellation and caller teardown remove the invocation
+      // immediately. WAMP requires their late callee responses to be discarded.
       return;
     }
     if (invocation.calleeSessionId != state.sessionId) {
@@ -2389,23 +2432,11 @@ Future<void> _handleYield({
 
     if (isProgress) {
       if (!await context.touchInvocation(invocationId)) {
-        await _sendInvocationErrorToCallee(
-          bossPort: bossPort,
-          state: state,
-          connectionId: connectionId,
-          invocationId: invocationId,
-          reason: _wampErrorNoSuchInvocation,
-        );
+        // The invocation may have been cancelled since the lookup.
         return;
       }
     } else if (await context.completeInvocation(invocationId) == null) {
-      await _sendInvocationErrorToCallee(
-        bossPort: bossPort,
-        state: state,
-        connectionId: connectionId,
-        invocationId: invocationId,
-        reason: _wampErrorNoSuchInvocation,
-      );
+      // Cancellation can win while awaiting completion after the lookup.
       return;
     }
 
@@ -2560,13 +2591,8 @@ Future<void> _handleInvocationError({
     final context = realmContexts.contextFor(state.realmUri!);
     final invocation = await context.getInvocation(invocationId);
     if (invocation == null) {
-      await _sendInvocationErrorToCallee(
-        bossPort: bossPort,
-        state: state,
-        connectionId: connectionId,
-        invocationId: invocationId,
-        reason: _wampErrorNoSuchInvocation,
-      );
+      // Non-waiting cancellation and caller teardown remove the invocation
+      // immediately. WAMP requires their late callee responses to be discarded.
       return;
     }
     if (invocation.calleeSessionId != state.sessionId) {
@@ -2582,13 +2608,7 @@ Future<void> _handleInvocationError({
     }
 
     if (await context.completeInvocation(invocationId) == null) {
-      await _sendInvocationErrorToCallee(
-        bossPort: bossPort,
-        state: state,
-        connectionId: connectionId,
-        invocationId: invocationId,
-        reason: _wampErrorNoSuchInvocation,
-      );
+      // Cancellation can win while awaiting completion after the lookup.
       return;
     }
 

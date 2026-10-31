@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
-    mpsc, Arc, Mutex,
+    mpsc, Arc, Mutex, MutexGuard, OnceLock,
 };
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -14,13 +14,43 @@ use serde_json::{json, Value};
 
 struct ScratchDirectory(PathBuf);
 
+// Each fixture compiles and launches a process. Parallel fixtures can delay
+// READY past the bounded timeout on loaded CI and developer machines.
+static PEER_TEST_LOCK: Mutex<()> = Mutex::new(());
+
 impl Drop for ScratchDirectory {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
 }
 
+fn install_peer_worker(destination: &Path) {
+    // Concurrent tests share only immutable compiler output. Each peer still
+    // owns its executable path and all of its runtime state and resources.
+    static IMAGE: OnceLock<(Vec<u8>, fs::Permissions)> = OnceLock::new();
+    let (bytes, permissions) = IMAGE.get_or_init(|| {
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/bench_peer.rs");
+        let compiled = Command::new("rustc")
+            .arg("--edition=2021")
+            .arg(source)
+            .arg("-o")
+            .arg(destination)
+            .output()
+            .unwrap();
+        assert!(compiled.status.success(), "{compiled:?}");
+        (
+            fs::read(destination).unwrap(),
+            fs::metadata(destination).unwrap().permissions(),
+        )
+    });
+    if !destination.exists() {
+        fs::write(destination, bytes).unwrap();
+    }
+    fs::set_permissions(destination, permissions.clone()).unwrap();
+}
+
 struct Peer {
+    _guard: MutexGuard<'static, ()>,
     root: PathBuf,
     address: String,
     stop: Arc<AtomicBool>,
@@ -33,6 +63,9 @@ struct Peer {
 
 impl Peer {
     fn new(mode: &str) -> Self {
+        let guard = PEER_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let root = std::env::temp_dir().join(format!(
             "connectanum-http-cli-{}-{}-{}",
@@ -46,15 +79,7 @@ impl Peer {
         fs::create_dir(&root).unwrap();
         let directory = ScratchDirectory(root.clone());
         let worker = root.join(format!("stdio-peer{}", std::env::consts::EXE_SUFFIX));
-        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/bench_peer.rs");
-        let compiled = Command::new("rustc")
-            .arg("--edition=2021")
-            .arg(source)
-            .arg("-o")
-            .arg(&worker)
-            .output()
-            .unwrap();
-        assert!(compiled.status.success(), "{compiled:?}");
+        install_peer_worker(&worker);
         fs::write(
             root.join("router.json"),
             r#"{"router":{"worker_pool":{"min_workers":1}}}"#,
@@ -125,6 +150,7 @@ warmup_ms = 0
             assert!(!worker_failed, "HTTP fixture worker panicked");
         });
         Self {
+            _guard: guard,
             root,
             address,
             stop,
@@ -158,7 +184,7 @@ warmup_ms = 0
             .arg("--control-base")
             .arg(&self.address)
             .arg("--workload-timeout-ms")
-            .arg("2000")
+            .arg("5000")
             .env("BENCH_CLI_TEST_ROOT", &self.root)
             .env("BENCH_CLI_TEST_MODE", mode)
             .env("CONNECTANUM_NATIVE_RUNTIME_THREADS", "99");
@@ -247,7 +273,7 @@ impl Drop for Peer {
 fn serve(stream: TcpStream, mode: &str, recorded: &Mutex<Vec<(String, Vec<u8>)>>, stop: &Path) {
     stream.set_nonblocking(false).unwrap();
     stream
-        .set_read_timeout(Some(Duration::from_secs(5)))
+        .set_read_timeout(Some(Duration::from_secs(15)))
         .unwrap();
     stream
         .set_write_timeout(Some(Duration::from_secs(5)))

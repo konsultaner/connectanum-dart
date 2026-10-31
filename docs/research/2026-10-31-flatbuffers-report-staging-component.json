@@ -1,0 +1,111 @@
+{
+  "kind": "report_serialization_component_never_acceptance",
+  "source_report_sha256": "d9aaef733edb98f69601b449868d8625f1e77f7f4f3248c440ffdbc9009d1e81",
+  "executable_sha256": "e1b64b61591a2ef5aa6c29516e1bbf5ec52f3d4cd41e6b9b6b66c1d8c28c8790",
+  "helper_source_sha256": "b546a78c87ade365d973096fa81ae68c4aeb0b8752dac370d75af087e991b2dc",
+  "measurement": "fresh processes; balanced ABBA; no explicit GC or VM/allocator settings",
+  "records": [
+    {
+      "mode": "baseline",
+      "format": "named",
+      "samples": 32067,
+      "chunks": 1,
+      "bytes": 12168713,
+      "sha256": "d9aaef733edb98f69601b449868d8625f1e77f7f4f3248c440ffdbc9009d1e81",
+      "elapsed_us": 75410,
+      "rss_before": 90865664,
+      "rss_after": 87277568,
+      "rss_peak": 114655232
+    },
+    {
+      "mode": "candidate",
+      "format": "named",
+      "samples": 32067,
+      "chunks": 186,
+      "bytes": 12168713,
+      "sha256": "d9aaef733edb98f69601b449868d8625f1e77f7f4f3248c440ffdbc9009d1e81",
+      "elapsed_us": 69374,
+      "rss_before": 90832896,
+      "rss_after": 72417280,
+      "rss_peak": 113180672
+    },
+    {
+      "mode": "candidate",
+      "format": "named",
+      "samples": 32067,
+      "chunks": 186,
+      "bytes": 12168713,
+      "sha256": "d9aaef733edb98f69601b449868d8625f1e77f7f4f3248c440ffdbc9009d1e81",
+      "elapsed_us": 69247,
+      "rss_before": 90898432,
+      "rss_after": 71991296,
+      "rss_peak": 113278976
+    },
+    {
+      "mode": "baseline",
+      "format": "named",
+      "samples": 32067,
+      "chunks": 1,
+      "bytes": 12168713,
+      "sha256": "d9aaef733edb98f69601b449868d8625f1e77f7f4f3248c440ffdbc9009d1e81",
+      "elapsed_us": 71062,
+      "rss_before": 90800128,
+      "rss_after": 86786048,
+      "rss_peak": 114622464
+    },
+    {
+      "mode": "baseline",
+      "format": "positional",
+      "samples": 32067,
+      "chunks": 1,
+      "bytes": 2837250,
+      "sha256": "0802aa604511a61e0e8cf670ac1fce9ab749b879f160e02aa590f24665b9fe9f",
+      "elapsed_us": 18133,
+      "rss_before": 90800128,
+      "rss_after": 93667328,
+      "rss_peak": 103186432
+    },
+    {
+      "mode": "candidate",
+      "format": "positional",
+      "samples": 32067,
+      "chunks": 44,
+      "bytes": 2837250,
+      "sha256": "0802aa604511a61e0e8cf670ac1fce9ab749b879f160e02aa590f24665b9fe9f",
+      "elapsed_us": 17492,
+      "rss_before": 90882048,
+      "rss_after": 90898432,
+      "rss_peak": 103251968
+    },
+    {
+      "mode": "candidate",
+      "format": "positional",
+      "samples": 32067,
+      "chunks": 44,
+      "bytes": 2837250,
+      "sha256": "0802aa604511a61e0e8cf670ac1fce9ab749b879f160e02aa590f24665b9fe9f",
+      "elapsed_us": 17628,
+      "rss_before": 90849280,
+      "rss_after": 90865664,
+      "rss_peak": 103235584
+    },
+    {
+      "mode": "baseline",
+      "format": "positional",
+      "samples": 32067,
+      "chunks": 1,
+      "bytes": 2837250,
+      "sha256": "0802aa604511a61e0e8cf670ac1fce9ab749b879f160e02aa590f24665b9fe9f",
+      "elapsed_us": 19134,
+      "rss_before": 90849280,
+      "rss_after": 93716480,
+      "rss_peak": 103219200
+    }
+  ],
+  "limitations": [
+    "Component only; never primary acceptance.",
+    "Complete response chunks remain live; this is not bounded-memory streaming.",
+    "Input report parsing precedes measurement and can dominate lifetime peak RSS.",
+    "Only serialization output changes; workloads, samples and measured windows stay unchanged."
+  ]
+}

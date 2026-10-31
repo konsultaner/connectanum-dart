@@ -9,6 +9,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart';
 import 'package:connectanum_client/native_buffers.dart';
+import 'package:connectanum_client/src/transport/native/e2ee_payload.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as cbor;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
@@ -122,6 +123,10 @@ void main() {
     expect(
       result.stdout,
       contains('exact native and Dart bridge deltas passed'),
+    );
+    expect(
+      result.stdout,
+      contains('native typed Session E2EE owner deltas passed'),
     );
   }, skip: nativeClientRuntimeUnavailableReason);
 
@@ -272,6 +277,52 @@ void main() {
           expect(decoded.argumentsKeywords, isNull);
         });
       }
+
+      test('Session packing accounts typed FlatBuffers owner copies', () {
+        final runtime = NativeClientRuntime.instance();
+        final provider = NativeWampFlatBuffersAes256GcmProvider.single(
+          keyId: 'native-flatbuffer-key',
+          key: List<int>.generate(32, (index) => index + 1),
+        );
+        addTearDown(provider.release);
+
+        final options = CallOptions(
+          pptScheme: 'wamp',
+          pptSerializer: 'flatbuffers',
+        );
+        final application = Uint8List.fromList(
+          List<int>.generate(1024, (index) => (index * 17) & 0xff),
+        );
+        final arguments = <dynamic>[application];
+        final plaintext = flatbuffers.Serializer().serializePPT(
+          PPTPayload(arguments: arguments),
+        );
+        final before = runtime.e2eeCopyMetricsSnapshot();
+        final packed = (provider as NativeE2eePayloadPacker).packNativePayload(
+          arguments,
+          null,
+          options,
+        );
+        expect(packed, isNotNull);
+        final payload = packed!;
+        final owner = payload.storageOwner as NativeOwnedBuffer;
+        addTearDown(owner.dispose);
+
+        final delta = runtime.e2eeCopyMetricsSnapshot().deltaFrom(before);
+        expect(delta.dartToNativeCopiedBytesTotal, plaintext.length);
+        expect(delta.nativeToDartCopiedBytesTotal, 0);
+        expect(delta.plaintextStagingCopyBytesTotal, plaintext.length);
+        expect(delta.ciphertextStagingCopyBytesTotal, 0);
+        expect(delta.nonceTagCopyBytesTotal, 28);
+        expect(payload.bytes.length, plaintext.length + 28);
+        expect(payload.encoding, LazyPayloadEncoding.flatbuffers);
+        expect(options.pptCipher, ConnectanumE2eeProfile.aes256Gcm);
+        expect(options.pptKeyId, 'native-flatbuffer-key');
+
+        final decoded = provider.unpackPayload([payload.bytes], options);
+        expect(decoded.arguments, [application]);
+        expect(decoded.argumentsKeywords, isNull);
+      });
 
       test('revalidates a native input released by key-selection policy', () {
         final allocator = NativeBufferAllocator.instance();
@@ -597,6 +648,56 @@ void main() {
 
   group('NativeWampCborAes256GcmProvider', () {
     tearDown(NativeClientRuntime.shutdownShared);
+
+    test(
+      'native Session packing retains ciphertext and accounts its copies',
+      () {
+        final runtime = NativeClientRuntime.instance();
+        final provider = NativeWampCborAes256GcmProvider.single(
+          keyId: 'owned-session-key',
+          key: List<int>.generate(32, (index) => index + 1),
+        );
+        addTearDown(provider.release);
+        final arguments = <dynamic>[
+          Uint8List.fromList(List<int>.generate(4096, (index) => index & 255)),
+        ];
+        final plaintext = cbor.Serializer().serializePPT(
+          PPTPayload(arguments: arguments),
+        );
+        final options = PublishOptions(
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+        );
+        final before = runtime.e2eeCopyMetricsSnapshot();
+        final packed = (provider as NativeE2eePayloadPacker).packNativePayload(
+          arguments,
+          null,
+          options,
+        );
+
+        if (!runtime.nativeBuffers.supportsOwnedE2eeEncryption) {
+          expect(packed, isNull);
+          return;
+        }
+        expect(packed, isNotNull);
+        final owned = packed!;
+        final after = runtime.e2eeCopyMetricsSnapshot().deltaFrom(before);
+        expect(after.dartToNativeCopiedBytesTotal, plaintext.length);
+        expect(after.nativeToDartCopiedBytesTotal, 0);
+        expect(owned.encoding, LazyPayloadEncoding.cbor);
+        expect(owned.bytes.length, plaintext.length + 28);
+        expect(options.pptCipher, 'aes256gcm');
+        expect(options.pptKeyId, 'owned-session-key');
+
+        final ciphertextOwner = owned.storageOwner as NativeOwnedBuffer;
+        final ciphertext = owned.bytes;
+        final decoded = provider.unpackPayload(<dynamic>[ciphertext], options);
+        expect(decoded.arguments, [arguments.single]);
+        expect(decoded.argumentsKeywords, isNull);
+        ciphertextOwner.dispose();
+        expect(ciphertextOwner.isDisposed, isTrue);
+      },
+    );
 
     test('interoperates between independent native providers', () {
       final key = List<int>.generate(32, (index) => index + 1);

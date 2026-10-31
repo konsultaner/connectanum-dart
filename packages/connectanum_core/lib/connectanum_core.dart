@@ -3,6 +3,7 @@ library;
 export 'authentication.dart';
 export 'src/message/abstract_message.dart';
 export 'src/message/abstract_message_with_payload.dart';
+export 'src/message/fragmented_payload_source.dart';
 export 'src/message/abstract_ppt_options.dart';
 export 'src/message/abort.dart';
 export 'src/message/authenticate.dart';

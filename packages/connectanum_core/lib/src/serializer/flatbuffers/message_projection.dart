@@ -6,6 +6,50 @@ import 'validation_types.dart';
 import 'wamp_dictionary.dart';
 import 'dictionary_retention.dart';
 
+// The wire schema is fixed. Avoid scanning it and allocating predicates for
+// every projection, including metadata-only native message binding.
+final _messageTags = {
+  for (final tag in wire.AnyMessageTypeId.values) tag.name: tag.value,
+};
+final _dictionaryFields = {
+  for (final table in wampValidationTables)
+    table.name: _selectDictionaryFields(table),
+};
+
+// Both projection and agreement must inspect the same fixed schema fields.
+// Keep the plans immutable so sharing them cannot weaken later validation.
+List<FlatBufferFieldSpec> flatBufferDictionaryFields(String name) =>
+    _dictionaryFields[name] ?? (throw StateError('No element'));
+
+List<FlatBufferFieldSpec> _selectDictionaryFields(FlatBufferTableSpec table) {
+  final routingFields = switch (table.name) {
+    'Hello' => const {'realm'},
+    'Authenticate' => const {'signature'},
+    'Abort' || 'Goodbye' => const {'reason'},
+    'Error' => const {'request_type', 'error'},
+    'Publish' || 'Subscribe' => const {'topic'},
+    'Event' => const {'subscription', 'publication'},
+    'Call' || 'Register' => const {'procedure'},
+    'Invocation' => const {'registration'},
+    _ => const <String>{},
+  };
+  return List<FlatBufferFieldSpec>.unmodifiable(
+    table.fields.where(
+      (field) =>
+          !routingFields.contains(field.name) &&
+          !(const {
+            'session',
+            'request',
+            'args',
+            'kwargs',
+            'payload',
+            'method',
+            'method_name',
+          }).contains(field.name),
+    ),
+  );
+}
+
 /// The message envelope and its complete logical WAMP dictionary. Application
 /// byte vectors are supplied separately by the serializer or native builder.
 class FlatBufferMessageProjection {
@@ -22,8 +66,12 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
   String name;
   final body = <String, Object?>{};
   Map<String, Object?>? dictionary;
-  Map<String, Object?> map(Map? value) =>
-      value == null ? {} : Map<String, Object?>.from(value);
+  Map<String, Object?> map(Map? value) {
+    if (value == null) return {};
+    if (value is Map<String, Object?>) return value;
+    return Map<String, Object?>.from(value);
+  }
+
   switch (message) {
     case Hello():
       name = 'Hello';
@@ -61,44 +109,46 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
           'message': message.message!.message,
       };
     case Error():
-      if (!{16, 32, 34, 48, 64, 66, 68}.contains(message.requestTypeId)) {
+      if (!(const {
+        16,
+        32,
+        34,
+        48,
+        64,
+        66,
+        68,
+      }).contains(message.requestTypeId)) {
         throw ArgumentError('Unsupported ERROR request type');
       }
       name = 'Error';
-      body.addAll({
-        'request_type': message.requestTypeId,
-        'request': message.requestId,
-        'error': message.error,
-      });
+      body['request_type'] = message.requestTypeId;
+      body['request'] = message.requestId;
+      body['error'] = message.error;
       dictionary = map(message.details);
     case Publish():
       name = 'Publish';
-      body.addAll({'request': message.requestId, 'topic': message.topic});
-      dictionary = map(WampDictionaryCodec.serializePublish(message.options));
+      body['request'] = message.requestId;
+      body['topic'] = message.topic;
+      dictionary = WampDictionaryCodec.serializePublish(message.options);
     case Published():
       name = 'Published';
-      body.addAll({
-        'request': message.publishRequestId,
-        'publication': message.publicationId,
-      });
+      body['request'] = message.publishRequestId;
+      body['publication'] = message.publicationId;
     case Subscribe():
       name = 'Subscribe';
-      body.addAll({'request': message.requestId, 'topic': message.topic});
+      body['request'] = message.requestId;
+      body['topic'] = message.topic;
       dictionary = map(
         WampDictionaryCodec.serializeSubscribeOptions(message.options),
       );
     case Subscribed():
       name = 'Subscribed';
-      body.addAll({
-        'request': message.subscribeRequestId,
-        'subscription': message.subscriptionId,
-      });
+      body['request'] = message.subscribeRequestId;
+      body['subscription'] = message.subscriptionId;
     case Unsubscribe():
       name = 'Unsubscribe';
-      body.addAll({
-        'request': message.requestId,
-        'subscription': message.subscriptionId,
-      });
+      body['request'] = message.requestId;
+      body['subscription'] = message.subscriptionId;
     case Unsubscribed():
       name = 'Unsubscribed';
       body['request'] = message.unsubscribeRequestId;
@@ -109,20 +159,14 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
       };
     case Event():
       name = 'Event';
-      body.addAll({
-        'subscription': message.subscriptionId,
-        'publication': message.publicationId,
-      });
+      body['subscription'] = message.subscriptionId;
+      body['publication'] = message.publicationId;
       dictionary = WampDictionaryCodec.serializeEventDetails(message.details);
     case Call():
       name = 'Call';
-      body.addAll({
-        'request': message.requestId,
-        'procedure': message.procedure,
-      });
-      dictionary = map(
-        WampDictionaryCodec.serializeCallOptions(message.options),
-      );
+      body['request'] = message.requestId;
+      body['procedure'] = message.procedure;
+      dictionary = WampDictionaryCodec.serializeCallOptions(message.options);
     case Cancel():
       name = 'Cancel';
       body['request'] = message.requestId;
@@ -144,35 +188,27 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
       };
     case Register():
       name = 'Register';
-      body.addAll({
-        'request': message.requestId,
-        'procedure': message.procedure,
-      });
+      body['request'] = message.requestId;
+      body['procedure'] = message.procedure;
       dictionary = map(
         WampDictionaryCodec.serializeRegisterOptions(message.options),
       );
     case Registered():
       name = 'Registered';
-      body.addAll({
-        'request': message.registerRequestId,
-        'registration': message.registrationId,
-      });
+      body['request'] = message.registerRequestId;
+      body['registration'] = message.registrationId;
     case Unregister():
       name = 'Unregister';
-      body.addAll({
-        'request': message.requestId,
-        'registration': message.registrationId,
-      });
+      body['request'] = message.requestId;
+      body['registration'] = message.registrationId;
     case Unregistered():
       name = 'Unregistered';
       body['request'] = message.unregisterRequestId;
       dictionary = {};
     case Invocation():
       name = 'Invocation';
-      body.addAll({
-        'request': message.requestId,
-        'registration': message.registrationId,
-      });
+      body['request'] = message.requestId;
+      body['registration'] = message.registrationId;
       dictionary = WampDictionaryCodec.serializeInvocationDetails(
         message.details,
       );
@@ -185,20 +221,16 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
     case Yield():
       name = 'Yield';
       body['request'] = message.invocationRequestId;
-      dictionary = map(
-        WampDictionaryCodec.serializeYieldOptions(message.options),
-      );
+      dictionary = WampDictionaryCodec.serializeYieldOptions(message.options);
     case Heartbeat():
       name = 'Heartbeat';
-      body.addAll({
-        'ping': message.ping,
-        'incoming': message.incoming,
-        'outgoing': message.outgoing,
-        'presence':
-            (message.ping == null ? 0 : 1) |
-            (message.incoming == null ? 0 : 2) |
-            (message.outgoing == null ? 0 : 4),
-      });
+      body['ping'] = message.ping;
+      body['incoming'] = message.incoming;
+      body['outgoing'] = message.outgoing;
+      body['presence'] =
+          (message.ping == null ? 0 : 1) |
+          (message.incoming == null ? 0 : 2) |
+          (message.outgoing == null ? 0 : 4);
       dictionary = map(message.details);
     default:
       throw UnsupportedError(
@@ -209,13 +241,10 @@ FlatBufferMessageProjection projectWampFlatBufferMessage(
     dictionary = retainedWampFlatBufferDictionary(message, dictionary);
   }
   if (dictionary != null && name != 'Heartbeat') {
-    body.addAll(projectFlatBufferDictionary(name, dictionary));
+    projectFlatBufferDictionaryInto(name, dictionary, body);
   }
-  final tag = wire.AnyMessageTypeId.values.singleWhere(
-    (tag) => tag.name == name,
-  );
   return FlatBufferMessageProjection({
-    'msg_type': tag.value,
+    'msg_type': _messageTags[name]!,
     'msg': body,
   }, dictionary);
 }
@@ -254,117 +283,109 @@ Map<String, Object?> projectFlatBufferDictionary(
   String name,
   Map<String, Object?> dictionary,
 ) {
-  final table = wampValidationTables.singleWhere((table) => table.name == name);
   final fields = <String, Object?>{};
-  final routingFields = switch (name) {
-    'Hello' => {'realm'},
-    'Authenticate' => {'signature'},
-    'Abort' || 'Goodbye' => {'reason'},
-    'Error' => {'request_type', 'error'},
-    'Publish' || 'Subscribe' => {'topic'},
-    'Event' => {'subscription', 'publication'},
-    'Call' || 'Register' => {'procedure'},
-    'Invocation' => {'registration'},
-    _ => <String>{},
-  };
-  for (final field in table.fields) {
-    if (routingFields.contains(field.name) ||
-        {
-          'session',
-          'request',
-          'args',
-          'kwargs',
-          'payload',
-          'method',
-          'method_name',
-        }.contains(field.name)) {
-      continue;
-    }
-    final value =
-        field.name == 'extra' && (name == 'Challenge' || name == 'Authenticate')
-        ? dictionary
-        : dictionary[field.name];
-    if (value == null) {
-      if (field.required && field.kind == FlatBufferFieldKind.string) {
-        fields[field.name] = '';
-      } else if (field.required && field.kind == FlatBufferFieldKind.table) {
-        fields[field.name] = <String, Object?>{};
-      }
-      continue;
-    }
-    switch (field.kind) {
-      case FlatBufferFieldKind.string:
-        if (value is! String) _invalid(field.name);
-        fields[field.name] = value;
-      case FlatBufferFieldKind.scalar:
-        if (_enums.containsKey(field.name)) {
-          if (value is! String) _invalid(field.name);
-          final projected = _enums[field.name]![value];
-          if (projected != null) fields[field.name] = projected;
-        } else if (field.width == 1 && field.values.length == 2) {
-          if (value is! bool) _invalid(field.name);
-          fields[field.name] = value;
-        } else {
-          if (value is! int || value < 0 || value > 9007199254740992) {
-            _invalid(field.name);
-          }
-          final maximum = switch (field.width) {
-            1 => 255,
-            2 => 65535,
-            4 => 4294967295,
-            _ => 9007199254740992,
-          };
-          if (value <= maximum) fields[field.name] = value;
-        }
-      case FlatBufferFieldKind.scalarVector:
-        if (value is! List) _invalid(field.name);
-        if (field.name == 'authmethods') {
-          if (value.any((item) => item is! String || item.isEmpty)) {
-            _invalid(field.name);
-          }
-          fields[field.name] = [
-            for (final item in value)
-              if (flatBufferAuthMethods.containsKey(item))
-                flatBufferAuthMethods[item],
-          ];
-        } else {
-          if (value.any(
-            (item) => item is! int || item < 0 || item > 9007199254740992,
-          )) {
-            _invalid(field.name);
-          }
-          fields[field.name] = value;
-        }
-      case FlatBufferFieldKind.stringVector:
-        if (value is! List || value.any((item) => item is! String)) {
-          _invalid(field.name);
-        }
-        fields[field.name] = value;
-      case FlatBufferFieldKind.table:
-        if (value is! Map || value.keys.any((key) => key is! String)) {
-          _invalid(field.name);
-        }
-        final nested = Map<String, Object?>.from(value);
-        final nestedTable = wampValidationTables[field.reference];
-        if (nestedTable.name == 'Map') {
-          for (final entry in nested.entries) {
-            if (entry.value is String &&
-                RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(entry.key)) {
-              fields[field.name] = {'key': entry.key, 'value': entry.value};
-              break;
-            }
-          }
-        } else {
-          fields[field.name] = _roles(nestedTable, nested);
-        }
-      case FlatBufferFieldKind.tableVector:
-        if (value is! List) _invalid(field.name);
-        fields[field.name] = [for (final item in value) _principal(item)];
-      case FlatBufferFieldKind.union:
-        _invalid(field.name);
-    }
-  }
+  projectFlatBufferDictionaryInto(name, dictionary, fields);
   return fields;
+}
+
+/// Project schema fields into [fields] without an intermediate map.
+void projectFlatBufferDictionaryInto(
+  String name,
+  Map<String, Object?> dictionary,
+  Map<String, Object?> fields,
+) {
+  for (final field in flatBufferDictionaryFields(name)) {
+    final value = projectFlatBufferDictionaryField(name, dictionary, field);
+    if (value != null) fields[field.name] = value;
+  }
+}
+
+/// Project one field with the same defaults and type checks as the writer.
+/// A null result leaves an optional or unrepresentable field absent.
+Object? projectFlatBufferDictionaryField(
+  String name,
+  Map<String, Object?> dictionary,
+  FlatBufferFieldSpec field,
+) {
+  final value =
+      field.name == 'extra' && (name == 'Challenge' || name == 'Authenticate')
+      ? dictionary
+      : dictionary[field.name];
+  if (value == null) {
+    if (field.required && field.kind == FlatBufferFieldKind.string) return '';
+    if (field.required && field.kind == FlatBufferFieldKind.table) {
+      return <String, Object?>{};
+    }
+    return null;
+  }
+  switch (field.kind) {
+    case FlatBufferFieldKind.string:
+      if (value is! String) _invalid(field.name);
+      return value;
+    case FlatBufferFieldKind.scalar:
+      if (_enums.containsKey(field.name)) {
+        if (value is! String) _invalid(field.name);
+        return _enums[field.name]![value];
+      }
+      if (field.width == 1 && field.values.length == 2) {
+        if (value is! bool) _invalid(field.name);
+        return value;
+      }
+      if (value is! int || value < 0 || value > 9007199254740992) {
+        _invalid(field.name);
+      }
+      final maximum = switch (field.width) {
+        1 => 255,
+        2 => 65535,
+        4 => 4294967295,
+        _ => 9007199254740992,
+      };
+      return value <= maximum ? value : null;
+    case FlatBufferFieldKind.scalarVector:
+      if (value is! List) _invalid(field.name);
+      if (field.name == 'authmethods') {
+        if (value.any((item) => item is! String || item.isEmpty)) {
+          _invalid(field.name);
+        }
+        return [
+          for (final item in value)
+            if (flatBufferAuthMethods.containsKey(item))
+              flatBufferAuthMethods[item],
+        ];
+      }
+      if (value.any(
+        (item) => item is! int || item < 0 || item > 9007199254740992,
+      )) {
+        _invalid(field.name);
+      }
+      return value;
+    case FlatBufferFieldKind.stringVector:
+      if (value is! List || value.any((item) => item is! String)) {
+        _invalid(field.name);
+      }
+      return value;
+    case FlatBufferFieldKind.table:
+      if (value is! Map || value.keys.any((key) => key is! String)) {
+        _invalid(field.name);
+      }
+      final nested = Map<String, Object?>.from(value);
+      final nestedTable = wampValidationTables[field.reference];
+      if (nestedTable.name == 'Map') {
+        for (final entry in nested.entries) {
+          if (entry.value is String &&
+              RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(entry.key)) {
+            return {'key': entry.key, 'value': entry.value};
+          }
+        }
+        return null;
+      }
+      return _roles(nestedTable, nested);
+    case FlatBufferFieldKind.tableVector:
+      if (value is! List) _invalid(field.name);
+      return [for (final item in value) _principal(item)];
+    case FlatBufferFieldKind.union:
+      _invalid(field.name);
+  }
 }
 
 Map<String, Object?> _roles(

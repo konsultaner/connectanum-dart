@@ -306,8 +306,10 @@ impl FileSegmentMetricsDelta {
 pub struct ClientProcessMetrics {
     pub pid: u32,
     pub rss_before_bytes: u64,
-    pub current_rss_bytes: u64,
-    pub max_rss_bytes: u64,
+    #[serde(default)]
+    pub current_rss_bytes: Option<u64>,
+    #[serde(default)]
+    pub max_rss_bytes: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cpu_user_us_delta: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -322,6 +324,8 @@ pub struct ClientProcessMetrics {
     pub gc_pause_us_delta: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peak_rss_during_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rss_lifetime_max_read_attempts_bytes: Option<Vec<Option<u64>>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -686,5 +690,26 @@ mod tests {
         .unwrap();
         let legacy_json = serde_json::to_value(legacy).unwrap();
         assert!(legacy_json.get("payload_preparation_us").is_none());
+    }
+
+    #[test]
+    fn rss_attempts_survive_without_inventing_a_missing_maximum() {
+        let value = json!({
+            "pid": 42,
+            "rss_before_bytes": 8192,
+            "current_rss_bytes": 16384,
+            "max_rss_bytes": null,
+            "rss_lifetime_max_read_attempts_bytes": [4096, 8192, null],
+            "allocated_bytes_delta": 12345
+        });
+        let metrics: super::ClientProcessMetrics = serde_json::from_value(value).unwrap();
+        assert_eq!(metrics.max_rss_bytes, None);
+        assert_eq!(metrics.allocated_bytes_delta, Some(12345));
+        let encoded = serde_json::to_value(metrics).unwrap();
+        assert_eq!(encoded["max_rss_bytes"], serde_json::Value::Null);
+        assert_eq!(
+            encoded["rss_lifetime_max_read_attempts_bytes"],
+            json!([4096, 8192, null])
+        );
     }
 }

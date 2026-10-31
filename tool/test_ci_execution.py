@@ -9,6 +9,8 @@ import tempfile
 import shutil
 import re
 import platform
+import sys
+import textwrap
 import unittest
 from unittest.mock import patch
 
@@ -21,6 +23,30 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CompositeSetupTests(unittest.TestCase):
+    def test_shared_native_jobs_use_one_fixed_rust_toolchain(self):
+        action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
+        rust_step = action.split('uses: dtolnay/rust-toolchain@stable', 1)[1].split(
+            '    - ', 1)[0]
+        pin = re.search(
+            r'(?m)^\s+toolchain:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$',
+            rust_step,
+        )
+        self.assertIsNotNone(pin)
+        # rust-toolchain.toml selects `stable` for bare cargo/rustc commands.
+        # The action must override it after installing the pinned toolchain.
+        selected = f'RUSTUP_TOOLCHAIN={pin.group(1)}'
+        self.assertIn(selected, action)
+        self.assertLess(action.index(selected), action.index('    - id: rust'))
+
+        workflow = (ROOT / '.github/workflows/dart.yml').read_text()
+        for start, end in (('  native-build:', '  fast:'),
+                           ('  verification:', '  mutation-gates:')):
+            job = workflow.split(start, 1)[1].split(end, 1)[0]
+            with self.subTest(job=start.strip()):
+                self.assertIn('uses: ./.github/actions/setup-ci', job)
+                self.assertIn("rust: 'true'", job)
+                self.assertNotIn('dtolnay/rust-toolchain', job)
+
     def test_nested_dart_setup_does_not_register_a_matcher_from_the_parent_path(self):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
         dart_step = action.split('uses: dart-lang/setup-dart@v1', 1)[1].split(
@@ -33,6 +59,101 @@ class CompositeSetupTests(unittest.TestCase):
         fast = (ROOT / 'bin/test-ci-fast').read_text()
         self.assertIn('dart analyze', fast)
         self.assertIn('set -euo pipefail', fast)
+
+
+class FlatbuffersDiagnosticModesTests(unittest.TestCase):
+    def test_vm_only_profile_omits_native_perf_without_changing_workload_arguments(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        block = workflow.split('  linux-flatbuffers-cpu-profile:', 1)[1].split(
+            '  linux-flatbuffers-encoder-component:', 1)[0]
+        self.assertIn("inputs.campaign == 'flatbuffers_profile' || inputs.campaign == 'flatbuffers_vm_profile'", block)
+        self.assertIn("inputs.campaign == 'flatbuffers_profile' && 'true' || 'false'", block)
+        self.assertIn('Linux native perf stacks are explicitly unmeasured', block)
+        self.assertLess(block.index('uses: dart-lang/setup-dart@v1'),
+                        block.index('- name: Verify CPU diagnostic contracts'))
+        self.assertLess(block.index('bin/bootstrap'), block.index('- name: Verify CPU diagnostic contracts'))
+        capture = block.split('- name: Capture CPU stacks and diagnostic heap snapshots', 1)[1].split(
+            '- name: Explain profiling scope', 1)[0]
+        script = textwrap.dedent(capture.split('run: |', 1)[1])
+        observed = {}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'out/wamp-flatbuffers-profile').mkdir(parents=True)
+            fake_bin = root / 'fake bin'; fake_bin.mkdir()
+            fake_python = fake_bin / 'python3'
+            fake_python.write_text(f'#!{sys.executable}\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n')
+            fake_python.chmod(0o700)
+            for native in (True, False):
+                env = {**os.environ, 'PATH': str(fake_bin) + os.pathsep + os.environ['PATH'],
+                       'INPUT_NATIVE_PERF': str(native).lower(),
+                       'INPUT_PROFILE_CASE': 'rpc_rawsocket_clear_dart_values'}
+                env.pop('CONNECTANUM_PROFILE_PERF', None)
+                if native: env['CONNECTANUM_PROFILE_PERF'] = '/diagnostic tools/perf'
+                completed = subprocess.run(['bash', '-c', script], cwd=root, env=env,
+                                           text=True, capture_output=True, timeout=10)
+                self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                observed[native] = json.loads((root / 'out/wamp-flatbuffers-profile/capture.log').read_text())
+        expected = ['tool/profile_wamp_serializers.py', '--output', 'out/wamp-flatbuffers-profile/cpu',
+                    '--native-lib', 'out/wamp-flatbuffers-profile/setup/libct_ffi.so',
+                    '--memory', '--case', 'rpc_rawsocket_clear_dart_values']
+        self.assertEqual(observed[False], expected)
+        self.assertEqual(observed[True], expected[:5] + ['--perf', '/diagnostic tools/perf',
+            '--native-call-graph', 'fp'] + expected[5:])
+
+    def test_rss_control_is_separate_from_acceptance_and_never_cancels_started_runs(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        block = workflow.split('  linux-flatbuffers-primary:', 1)[1].split('  merge-flatbuffers-extensions:', 1)[0]
+        self.assertIn('flatbuffers_rss_control', workflow.split('      profile_case:', 1)[0])
+        self.assertIn('python3 tool/test_diagnose_wamp_rss.py', block)
+        self.assertIn('python3 tool/diagnose_wamp_rss.py', block)
+        self.assertIn("format('flatbuffers-rss-control-{0}-{1}', github.sha, inputs.rss_case)", block)
+        self.assertIn('cancel-in-progress: false', block)
+        self.assertIn('This never establishes parity or replaces primary gates.', block)
+        runner = block.split('if [[ "$INPUT_CAMPAIGN" == flatbuffers_rss_control ]]; then', 1)[1].split('          diagnostic_args=()', 1)[0]
+        self.assertIn('exit 0', runner)
+        self.assertNotIn('run_wamp_serializer_campaign.py', runner)
+
+    def test_memory_attribution_is_opt_in_and_has_owned_linux_smoke_and_units(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        options = workflow.split('      memory_attribution:', 1)[1].split('      trace_socket_options:', 1)[0]
+        self.assertIn('default: false', options)
+        self.assertIn('python3 tool/test_wamp_rss_memory.py', workflow)
+        self.assertIn('if [[ "$INPUT_MEMORY_ATTRIBUTION" == true ]]; then', workflow)
+        self.assertIn('--output out/wamp-flatbuffers-primary/memory-smoke --memory-attribution', workflow)
+        self.assertIn('memory_args=(--memory-attribution)', workflow)
+
+    def test_optional_socket_trace_requires_explicit_diagnostic_input_and_real_smoke(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        self.assertIn('trace_socket_options:', workflow)
+        self.assertIn("inputs.trace_socket_options && (inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus')", workflow)
+        self.assertIn("if 'SO_RCVBUF' not in trace.read_text():", workflow)
+        self.assertIn("*(['--trace-socket-options'] if os.environ.get('INPUT_TRACE_SOCKET_OPTIONS') == 'true' else [])", workflow)
+
+    def test_allocator_attribution_is_opt_in_and_requires_real_owned_glibc_smoke(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        options = workflow.split('      allocator_attribution:', 1)[1].split('      trace_socket_options:', 1)[0]
+        self.assertIn('default: false', options)
+        self.assertIn('if [[ "$INPUT_ALLOCATOR_ATTRIBUTION" == true ]]; then', workflow)
+        self.assertIn('--output out/wamp-flatbuffers-primary/memory-smoke --allocator-attribution', workflow)
+        self.assertIn('memory_args=(--allocator-attribution)', workflow)
+
+    def test_canonical_tooling_gate_always_runs_diagnostic_regressions(self):
+        gate = (ROOT / 'bin/test-tooling').read_text()
+        for name in ('test_wamp_stall_vm_services.py', 'test_smoke_wamp_stall_discovery.py',
+                     'test_diagnose_wamp_rss.py', 'test_wamp_rss_memory.py'):
+            with self.subTest(name=name):
+                self.assertIn('python3 tool/' + name, gate)
+
+    def test_dictionary_component_requires_explicit_baseline_and_never_replaces_parity(self):
+        workflow = (ROOT / '.github/workflows/wamp-profile-benchmarks.yml').read_text()
+        self.assertIn('          - flatbuffers_dictionary_component', workflow)
+        self.assertIn('git fetch --no-tags --depth=1 origin "$INPUT_BASELINE_REF"', workflow)
+        self.assertIn('[[ "$INPUT_BASELINE_REF" =~ ^[0-9a-f]{40}$ ]]', workflow)
+        branch = workflow.split('if [[ "$INPUT_CAMPAIGN" == flatbuffers_dictionary_component ]]; then', 1)[1].split('fi\n', 1)[0]
+        self.assertIn('python3 tool/benchmark_flatbuffers_dictionary.py', branch)
+        self.assertIn('exit 0', branch)
+        self.assertNotIn('run_wamp_serializer_campaign.py', branch)
+        self.assertIn('python3 tool/test_benchmark_flatbuffers_dictionary.py', (ROOT / 'bin/test-tooling').read_text())
 
 
 class ShardingTests(unittest.TestCase):
@@ -106,13 +227,24 @@ class ShardingTests(unittest.TestCase):
 
 
 class RequiredGateTests(unittest.TestCase):
+    def test_cancellation_preserves_required_gate_and_skips_heavy_aggregate(self):
+        workflow = (ROOT / '.github/workflows/dart.yml').read_text()
+        # A skipped required job counts as success; keep its strict summary active.
+        for name, expected in {'verify': 'always()',
+                               'mcp-mutations': '${{ !cancelled() }}'}.items():
+            with self.subTest(job=name):
+                stanza = re.search(rf'^  {name}:\n(.*?)(?=^  \S|\Z)',
+                                   workflow, re.MULTILINE | re.DOTALL)[1]
+                condition = re.search(r'^    if: (.+)$', stanza, re.MULTILINE)[1]
+                self.assertEqual(condition, expected)
+
     def execute(self, needs):
         return subprocess.run(['python3', str(ROOT / 'tool/check_ci_needs.py')],
             env=dict(os.environ, CONNECTANUM_CI_NEEDS=json.dumps(needs)),
             capture_output=True, text=True, timeout=10)
 
     def test_required_gate_accepts_only_complete_success(self):
-        names = ('fast', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
+        names = ('fast', 'mqtt-qos0', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
                  'mutation-gates', 'mcp-mutations', 'router-mutations', 'browser-coverage')
         needs = {name: {'result': 'success'} for name in names}
         self.assertEqual(self.execute(needs).returncode, 0)
@@ -123,7 +255,10 @@ class RequiredGateTests(unittest.TestCase):
                 broken[name]['result'] = status
                 with self.subTest(status=status, lane=name):
                     self.assertNotEqual(self.execute(broken).returncode, 0)
-        for broken in ({}, {k: v for k, v in needs.items() if k != 'mcp-mutations'}):
+        for broken in ({},
+                       {k: v for k, v in needs.items() if k != 'mcp-mutations'},
+                       {k: v for k, v in needs.items() if k != 'mqtt-qos0'},
+                       {k: v for k, v in needs.items() if k != 'router-mutations'}):
             self.assertNotEqual(self.execute(broken).returncode, 0)
 
 

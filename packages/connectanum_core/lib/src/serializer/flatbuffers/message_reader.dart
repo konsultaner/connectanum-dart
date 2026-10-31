@@ -9,12 +9,28 @@ import 'package:typed_data/typed_buffers.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/src/serializer/limits.dart';
 import 'frame.dart';
+import 'message_projection.dart';
+
+/// Internal outgoing profile reader. Calls and publications are used only for
+/// their kind; their dictionaries are not retained for later model edits.
+/// Other messages preserve the metadata needed for capability negotiation.
+AbstractMessage readWampFlatBufferProfileMessage(Uint8List bytes) =>
+    _readMessageChecked(bytes, retainApplicationMetadata: false);
 
 /// Reconstruct models from a validated extended frame. This internal stage
 /// deliberately rejects unacknowledged legacy dictionary placeholders.
-AbstractMessage readWampFlatBufferMessage(Uint8List bytes) {
+AbstractMessage readWampFlatBufferMessage(Uint8List bytes) =>
+    _readMessageChecked(bytes, retainApplicationMetadata: true);
+
+AbstractMessage _readMessageChecked(
+  Uint8List bytes, {
+  required bool retainApplicationMetadata,
+}) {
   try {
-    return _readMessage(bytes);
+    return _readMessage(
+      bytes,
+      retainApplicationMetadata: retainApplicationMetadata,
+    );
   } on TypeError {
     throw const FormatException('Invalid FlatBuffers model dictionary type');
   } on ArgumentError {
@@ -24,7 +40,10 @@ AbstractMessage readWampFlatBufferMessage(Uint8List bytes) {
   }
 }
 
-AbstractMessage _readMessage(Uint8List bytes) {
+AbstractMessage _readMessage(
+  Uint8List bytes, {
+  required bool retainApplicationMetadata,
+}) {
   final frame = readWampFlatBufferFrame(bytes);
   if (frame.name == 'EventReceived') {
     throw UnsupportedError('No public WAMP model for EventReceived');
@@ -32,16 +51,17 @@ AbstractMessage _readMessage(Uint8List bytes) {
   final fields = frame.fields;
   final map = frame.dictionary;
   if (map == null &&
-      !{
+      !(const {
         'Published',
         'Subscribed',
         'Unsubscribe',
         'Registered',
         'Unregister',
-      }.contains(frame.name)) {
+      }).contains(frame.name)) {
     throw const FormatException('Extended FlatBuffers metadata is required');
   }
-  final dictionary = Map<String, dynamic>.from(map ?? const {});
+  // Frame decoding creates a fresh, validated dictionary for this message.
+  final dictionary = map ?? <String, dynamic>{};
   int integer(String key) => fields[key] as int;
   String text(String key) => fields[key] as String;
   final AbstractMessage message;
@@ -145,7 +165,8 @@ AbstractMessage _readMessage(Uint8List bytes) {
   if (message is AbstractMessageWithPayload) {
     message.restoreLazyPayload(
       LazyMessagePayload.encoded(
-        transparentBinaryPayload: fields['payload'] as Uint8List?,
+        transparentBinaryPayload: (fields['payload'] as Uint8List?)
+            ?.asUnmodifiableView(),
         encoding: LazyPayloadEncoding.cbor,
         argumentsBytes: fields['args'] as Uint8List?,
         argumentsKeywordsBytes: fields['kwargs'] as Uint8List?,
@@ -163,7 +184,23 @@ AbstractMessage _readMessage(Uint8List bytes) {
       ),
     );
   }
-  retainWampFlatBufferDictionary(message, frame.bytes, frame.dictionary);
+  // These freshly reconstructed details fully represent both dictionary keys.
+  // Explicit defaults, nulls, other fields and custom metadata retain history.
+  final fullyRepresentedPpt =
+      (message is Result || message is Event || message is Invocation) &&
+      dictionary.length == 2 &&
+      dictionary['ppt_scheme'] is String &&
+      dictionary['ppt_serializer'] is String;
+  if (!fullyRepresentedPpt &&
+      (retainApplicationMetadata ||
+          (message is! Call && message is! Publish))) {
+    retainWampFlatBufferDictionary(message, frame.bytes, frame.dictionary);
+  } else if (!fullyRepresentedPpt) {
+    // Fully represented PPT already passed frame agreement and copies both
+    // dictionary values directly into typed details. Other controls keep their
+    // existing post-construction projection checks.
+    projectWampFlatBufferMessage(message, retainMetadata: false);
+  }
   return message;
 }
 
@@ -219,6 +256,28 @@ ResultDetails _resultDetails(Map<String, dynamic> map) => ResultDetails(
 /// as the public FlatBuffers reader. Decoding happens only on application access.
 Object? decodeWampFlatBufferApplication(Uint8List bytes) {
   validateFlatBufferCbor(bytes);
+  return _decodeApplication(bytes);
+}
+
+/// Decode application CBOR after an enclosing native reader may have
+/// validated this exact immutable span. Untrusted or unmarked spans are
+/// validated here before decoding.
+Object? decodeValidatedWampFlatBufferApplication(
+  Uint8List bytes, {
+  required int rootMajor,
+  bool rootStringDictionaryKeys = false,
+}) {
+  if (!isValidatedFlatBufferCborSpan(
+    bytes,
+    rootMajor: rootMajor,
+    rootStringDictionaryKeys: rootStringDictionaryKeys,
+  )) {
+    validateFlatBufferCbor(
+      bytes,
+      rootMajor: rootMajor,
+      rootStringDictionaryKeys: rootStringDictionaryKeys,
+    );
+  }
   return _decodeApplication(bytes);
 }
 

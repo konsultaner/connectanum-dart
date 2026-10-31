@@ -25,6 +25,7 @@ import 'package:connectanum_bench/src/owned_pipeline_copy_metrics.dart';
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'package:connectanum_bench/src/wamp_echo_handler.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
+import 'package:connectanum_bench/src/wamp_sample_json.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
 Future<void> main(List<String> args) async {
@@ -417,6 +418,12 @@ class _BenchControlRegistry {
       secureWampTargets: secureWampTargets,
       nativeLibraryPath: nativeLibraryPath,
       workerScriptPath: workerScriptPath,
+      // CPU diagnostics can wrap Dart while preserving the source-worker and
+      // VM-metrics contracts. Ordinary campaigns retain the default executable.
+      dartExecutable:
+          Platform.environment['CONNECTANUM_BENCH_PROFILE_WORKER_URI'] == null
+          ? null
+          : Platform.environment['CONNECTANUM_BENCH_PROFILE_DART_EXECUTABLE'],
       enableVmMetrics: enableVmMetrics,
       reuseSuccessfulWorkers:
           Platform.environment['CONNECTANUM_BENCH_WAMP_REUSE_WORKER'] == '1',
@@ -736,7 +743,7 @@ class _BenchControlRegistry {
       final ownedCopiesBefore = await binding.collectOwnedBufferCopies();
       final codecBefore = binding.runtime is NativeTransportRuntime
           ? (binding.runtime as NativeTransportRuntime)
-                .codecCopyMetricsSnapshot()
+                .boundaryCodecCopyMetricsSnapshot()
           : null;
       final rawFrameMetricsBefore = _routerRawFrameCopyMetrics(binding.runtime);
       final routerCopyMetricsBefore = _routerTransportCopyMetrics(
@@ -801,7 +808,7 @@ class _BenchControlRegistry {
           codecBefore,
           binding.runtime is NativeTransportRuntime
               ? (binding.runtime as NativeTransportRuntime)
-                    .codecCopyMetricsSnapshot()
+                    .boundaryCodecCopyMetricsSnapshot()
               : null,
         ),
       };
@@ -815,9 +822,9 @@ class _BenchControlRegistry {
         ),
       };
       final dataWindow = WampSampleWindow.fromSamples(samples);
-      context.sendJson(
-        body: {
-          'samples': samples.map((sample) => sample.toJson()).toList(),
+      final responseJson = prepareWampSampleReportJson(
+        samples: samples,
+        fields: {
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           'file_segment_metrics': fileSegmentMetrics.toJson(),
           'copy_metrics': mergeOwnedPipelineCopyMetrics(
@@ -829,6 +836,17 @@ class _BenchControlRegistry {
             'client_process_metrics': clientProcessMetrics.toJson(),
         },
       );
+      final response = context.streamResponse(
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+      for (final chunk in responseJson.chunks) {
+        response.add(chunk);
+        // Let the existing stream flush its Dart queue between sample batches.
+        // Native/socket buffering remains transport-owned, with no new cap.
+        await Future<void>.delayed(Duration.zero);
+      }
+      response.close();
+      await response.done;
     } catch (error, stackTrace) {
       _reportError('wamp_error', error, stackTrace);
       try {
@@ -874,7 +892,9 @@ class _BenchControlRegistry {
       'current_rss_bytes':
           measured.currentRssBytes ??
           (!Platform.isLinux ? currentRssAtWindowEnd : null),
-      'max_rss_bytes': ProcessInfo.maxRss,
+      'max_rss_bytes':
+          rssSnapshot?.lifetimeMaxRssBytes ??
+          (!Platform.isLinux ? ProcessInfo.maxRss : null),
       'cpu_user_us_delta': measured.cpuUserMicros,
       'cpu_system_us_delta': measured.cpuSystemMicros,
       'allocated_bytes_delta': measured.allocatedBytes,
@@ -882,6 +902,9 @@ class _BenchControlRegistry {
       'gc_count_delta': measured.gcCount,
       'gc_pause_us_delta': measured.gcPauseMicros,
       'peak_rss_during_bytes': measured.peakRssBytes,
+      if (Platform.isLinux && rssSnapshot != null)
+        'rss_lifetime_max_read_attempts_bytes':
+            rssSnapshot.lifetimeMaxReadAttemptsBytes,
     };
   }
 

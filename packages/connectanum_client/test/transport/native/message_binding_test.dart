@@ -10,12 +10,307 @@ import 'package:connectanum_client/src/transport/native/message_binding.dart';
 import 'package:connectanum_client/src/transport/native/message_protocol.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
+    show rememberValidatedFlatBufferCborSpan, validateFlatBufferCbor;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  for (final code in [36, 50, 68]) {
+    for (final extra in <Map<String, Object?>>[
+      {},
+      {
+        'extension': {
+          'bytes': Uint8List.fromList([1, 2, 3]),
+        },
+      },
+      if (code == 50) {'progress': false},
+      {'ppt_cipher': null},
+    ]) {
+      test(
+        'FlatBuffers direct PPT metadata preserves edits code=$code extra=$extra',
+        () {
+          final dictionary = <String, Object?>{
+            'ppt_scheme': 'x_application',
+            'ppt_serializer': 'flatbuffers',
+            ...extra,
+          };
+          final bytes = Uint8List.fromList(
+            cbor.cbor.encode(cbor.CborValue(dictionary)),
+          );
+          final message = bindMessage(
+            NativeMessageSerializer.flatbuffers,
+            Uint8List(0),
+            metadata: _metadata(
+              messageCode: code,
+              primaryId: 17,
+              secondaryId: 19,
+              flags: NativeMessageMetadata.flagDirectBind,
+              detailsBytes: bytes,
+              stringA: code == 50 ? 'x_application' : null,
+              stringB: code == 50 ? 'flatbuffers' : 'x_application',
+              stringC: code == 50 ? null : 'flatbuffers',
+            ),
+          );
+          final PPTOptions details = switch (message) {
+            Event value => value.details,
+            Result value => value.details,
+            Invocation value => value.details,
+            _ => throw StateError('unexpected message'),
+          };
+          final serializer = flatbuffers.Serializer();
+          expect(serializer.metadataFor(message), dictionary);
+          details.pptScheme = 'x_changed';
+          expect(serializer.metadataFor(message), {
+            ...dictionary,
+            'ppt_scheme': 'x_changed',
+          });
+          final custom = switch (details) {
+            EventDetails value => value.custom,
+            ResultDetails value => value.custom,
+            InvocationDetails value => value.custom,
+            _ => throw StateError('unexpected details'),
+          };
+          custom['added'] = 7;
+          final introduced = <String, Object?>{};
+          if (details is ResultDetails) {
+            details.progress = false;
+            introduced['progress'] = false;
+          } else if (details is EventDetails) {
+            details.trustlevel = 0;
+            introduced['trustlevel'] = 0;
+          } else if (details is InvocationDetails) {
+            details.timeout = 0;
+            introduced['timeout'] = 0;
+          }
+          final roundTrip = serializer.deserialize(
+            serializer.serialize(message),
+          )!;
+          expect(serializer.metadataFor(roundTrip), {
+            ...dictionary,
+            'ppt_scheme': 'x_changed',
+            'added': 7,
+            ...introduced,
+          });
+          if (extra.containsKey('extension')) {
+            bytes.fillRange(0, bytes.length, 0);
+            expect(serializer.metadataFor(message)['extension'], {
+              'bytes': [1, 2, 3],
+            });
+          }
+        },
+      );
+    }
+  }
+
+  for (final code in [36, 50, 68]) {
+    test(
+      'FlatBuffers PPT fast path preserves native control guards code=$code',
+      () {
+        final dictionary = {
+          'ppt_scheme': 'x_application',
+          'ppt_serializer': 'flatbuffers',
+        };
+        final encoded = Uint8List.fromList(
+          cbor.cbor.encode(cbor.CborValue(dictionary)),
+        );
+        for (final guard in <Object>[
+          2,
+          4,
+          8,
+          32,
+          64,
+          128,
+          'stringA',
+          'stringB',
+          'stringC',
+          'stringD',
+          'stringE',
+        ]) {
+          final flag = guard is int ? guard : 0;
+          final message = bindMessage(
+            NativeMessageSerializer.flatbuffers,
+            Uint8List(0),
+            metadata: _metadata(
+              messageCode: code,
+              primaryId: 17,
+              secondaryId: 19,
+              flags: NativeMessageMetadata.flagDirectBind | flag,
+              detailsBytes: encoded,
+              stringA: guard == 'stringA'
+                  ? 'native-control'
+                  : code == 50
+                  ? 'x_application'
+                  : null,
+              stringB: guard == 'stringB'
+                  ? 'native-control'
+                  : code == 50
+                  ? 'flatbuffers'
+                  : 'x_application',
+              stringC: guard == 'stringC'
+                  ? 'native-control'
+                  : code == 50
+                  ? null
+                  : 'flatbuffers',
+              stringD: guard == 'stringD' ? 'native-control' : null,
+              stringE: guard == 'stringE' ? 'native-control' : null,
+            ),
+          );
+          expect(
+            flatbuffers.Serializer().metadataFor(message),
+            dictionary,
+            reason: 'guard=$guard',
+          );
+        }
+      },
+    );
+  }
+
+  test('untrusted native FlatBuffers argument bytes still get validated', () {
+    final message =
+        bindSessionMessage(
+              NativeMessageSerializer.flatbuffers,
+              Uint8List(0),
+              argsBytes: Uint8List.fromList([0x81]),
+              metadata: _metadata(
+                messageCode: MessageTypes.codeResult,
+                primaryId: 1,
+                flags: NativeMessageMetadata.flagDirectBind,
+              ),
+            )
+            as AbstractMessageWithPayload;
+
+    expect(() => message.arguments, throwsFormatException);
+  });
+
+  test('untrusted native FlatBuffers keyword bytes still get validated', () {
+    final message =
+        bindSessionMessage(
+              NativeMessageSerializer.flatbuffers,
+              Uint8List(0),
+              kwargsBytes: Uint8List.fromList([0x81]),
+              metadata: _metadata(
+                messageCode: MessageTypes.codeResult,
+                primaryId: 1,
+                flags: NativeMessageMetadata.flagDirectBind,
+              ),
+            )
+            as AbstractMessageWithPayload;
+
+    expect(() => message.argumentsKeywords, throwsFormatException);
+  });
+
+  test(
+    'validated native FlatBuffers argument span decodes with same values',
+    () {
+      final args = Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue([1, 'value'])),
+      );
+      validateFlatBufferCbor(args, rootMajor: 4);
+      rememberValidatedFlatBufferCborSpan(args, rootMajor: 4);
+      final message =
+          bindSessionMessage(
+                NativeMessageSerializer.flatbuffers,
+                Uint8List(0),
+                argsBytes: args,
+                metadata: _metadata(
+                  messageCode: MessageTypes.codeResult,
+                  primaryId: 1,
+                  flags: NativeMessageMetadata.flagDirectBind,
+                ),
+              )
+              as AbstractMessageWithPayload;
+
+      expect(message.arguments, [1, 'value']);
+    },
+  );
+
+  test(
+    'validated native FlatBuffers keyword span decodes with same values',
+    () {
+      final kwargs = Uint8List.fromList(
+        cbor.cbor.encode(cbor.CborValue({'enabled': true})),
+      );
+      validateFlatBufferCbor(
+        kwargs,
+        rootMajor: 5,
+        rootStringDictionaryKeys: true,
+      );
+      rememberValidatedFlatBufferCborSpan(
+        kwargs,
+        rootMajor: 5,
+        rootStringDictionaryKeys: true,
+      );
+      final message =
+          bindSessionMessage(
+                NativeMessageSerializer.flatbuffers,
+                Uint8List(0),
+                kwargsBytes: kwargs,
+                metadata: _metadata(
+                  messageCode: MessageTypes.codeResult,
+                  primaryId: 1,
+                  flags: NativeMessageMetadata.flagDirectBind,
+                ),
+              )
+              as AbstractMessageWithPayload;
+
+      expect(message.argumentsKeywords, {'enabled': true});
+    },
+  );
+
+  test('FlatBuffers validation evidence is bound to its application root', () {
+    final map = Uint8List.fromList(
+      cbor.cbor.encode(cbor.CborValue({'enabled': true})),
+    );
+    validateFlatBufferCbor(
+      map,
+      rootMajor: 5,
+      rootStringDictionaryKeys: true,
+    );
+    rememberValidatedFlatBufferCborSpan(
+      map,
+      rootMajor: 5,
+      rootStringDictionaryKeys: true,
+    );
+    final message =
+        bindSessionMessage(
+              NativeMessageSerializer.flatbuffers,
+              Uint8List(0),
+              argsBytes: map,
+              metadata: _metadata(
+                messageCode: MessageTypes.codeResult,
+                primaryId: 1,
+                flags: NativeMessageMetadata.flagDirectBind,
+              ),
+            )
+            as AbstractMessageWithPayload;
+
+    expect(() => message.arguments, throwsFormatException);
+  });
+
+  test('FlatBuffers keyword evidence must include string-key validation', () {
+    final kwargs = Uint8List.fromList([0xa1, 0x01, 0x02]);
+    validateFlatBufferCbor(kwargs, rootMajor: 5);
+    rememberValidatedFlatBufferCborSpan(kwargs, rootMajor: 5);
+    final message =
+        bindSessionMessage(
+              NativeMessageSerializer.flatbuffers,
+              Uint8List(0),
+              kwargsBytes: kwargs,
+              metadata: _metadata(
+                messageCode: MessageTypes.codeResult,
+                primaryId: 1,
+                flags: NativeMessageMetadata.flagDirectBind,
+              ),
+            )
+            as AbstractMessageWithPayload;
+
+    expect(() => message.argumentsKeywords, throwsFormatException);
+  });
+
   for (final serializer in [
     NativeMessageSerializer.cbor,
     NativeMessageSerializer.flatbuffers,
@@ -2680,62 +2975,69 @@ void _flatBuffersMetadataContracts() {
     },
   );
 
-  for (final code in [8, 16, 36, 48, 50, 68, 70]) {
-    for (final empty in [false, true]) {
-      test(
-        'native FlatBuffers opaque span stays borrowed code=$code empty=$empty',
-        () {
-          final bytes = Uint8List.fromList(empty ? [] : [1, 2, 3]);
-          final value = _validFrame(
-            () => NativeSessionMessage(
-              serializer: NativeMessageSerializer.flatbuffers,
-              metadata: _metadata(
-                messageCode: code,
-                primaryId: 17,
-                secondaryId: 29,
-                flags:
-                    NativeMessageMetadata.flagDirectBind |
-                    NativeMessageMetadata.flagTransparentPayload,
-                transparentPayloadBytes: bytes,
+  for (final serializer in [
+    NativeMessageSerializer.flatbuffers,
+    NativeMessageSerializer.cbor,
+  ]) {
+    for (final code in [8, 16, 36, 48, 50, 68, 70]) {
+      for (final empty in [false, true]) {
+        test(
+          'native $serializer transparent span stays borrowed code=$code empty=$empty',
+          () {
+            final bytes = Uint8List.fromList(empty ? [] : [1, 2, 3]);
+            final value = _validFrame(
+              () => NativeSessionMessage(
+                serializer: serializer,
+                metadata: _metadata(
+                  messageCode: code,
+                  primaryId: 17,
+                  secondaryId: 29,
+                  flags:
+                      NativeMessageMetadata.flagDirectBind |
+                      NativeMessageMetadata.flagTransparentPayload,
+                  transparentPayloadBytes: bytes,
+                ),
               ),
-            ),
-          );
-          expect(value.transparentBinaryPayload, same(bytes));
-          expect(value.arguments, isNull);
-          expect(value.argumentsKeywords, isNull);
-          if ([8, 36, 50, 68].contains(code)) {
-            final model = _expectMessage<AbstractMessageWithPayload>(
-              _validFrame(value.materialize),
             );
-            expect(model.id, code);
-            expect(model.transparentBinaryPayload, same(bytes));
-            expect(model.arguments, isNull);
-            expect(model.argumentsKeywords, isNull);
-          }
-        },
-      );
+            expect(value.transparentBinaryPayload, same(bytes));
+            expect(value.arguments, isNull);
+            expect(value.argumentsKeywords, isNull);
+            if ([8, 36, 50, 68].contains(code)) {
+              final model = _expectMessage<AbstractMessageWithPayload>(
+                _validFrame(value.materialize),
+              );
+              expect(model.id, code);
+              expect(model.transparentBinaryPayload, same(bytes));
+              expect(model.arguments, isNull);
+              expect(model.argumentsKeywords, isNull);
+            }
+          },
+        );
+      }
     }
   }
 
   for (final flagged in [false, true]) {
-    test('native opaque payload rejects inconsistent flag=$flagged', () {
-      expect(
-        () => NativeSessionMessage(
-          serializer: NativeMessageSerializer.flatbuffers,
-          metadata: _metadata(
-            messageCode: MessageTypes.codeResult,
-            flags: flagged ? NativeMessageMetadata.flagTransparentPayload : 0,
-            transparentPayloadBytes: flagged ? null : Uint8List(0),
+    test(
+      'native FlatBuffers opaque payload rejects inconsistent flag=$flagged',
+      () {
+        expect(
+          () => NativeSessionMessage(
+            serializer: NativeMessageSerializer.flatbuffers,
+            metadata: _metadata(
+              messageCode: MessageTypes.codeResult,
+              flags: flagged ? NativeMessageMetadata.flagTransparentPayload : 0,
+              transparentPayloadBytes: flagged ? null : Uint8List(0),
+            ),
           ),
-        ),
-        throwsArgumentError,
-      );
-    });
+          throwsArgumentError,
+        );
+      },
+    );
   }
   for (final serializer in [
     NativeMessageSerializer.json,
     NativeMessageSerializer.messagePack,
-    NativeMessageSerializer.cbor,
     NativeMessageSerializer.ubjson,
   ]) {
     test('native opaque payload rejects serializer $serializer', () {
@@ -3531,4 +3833,41 @@ void _deferredBindingContracts() {
     expect(message.e2eeRuntimeContext, same(context));
     expect(message.toLazyPayload().hasEncodedArguments, isTrue);
   });
+
+  for (final operation in ['restore', 'retain']) {
+    test(
+      'ordinary binding $operation preserves the incoming native anchor',
+      () {
+        final meta = _typedBindingMetadata(MessageTypes.codeInvocation);
+        final context = WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.inbound,
+          messageType: WampE2eeMessageType.invocation,
+          realm: 'incoming',
+          payloadAnchor: Object(),
+        );
+        final payload = LazyMessagePayload.materialized(
+          arguments: [
+            Uint8List.fromList([7, 8, 9]),
+          ],
+          e2eeRuntimeContext: context,
+        );
+        final message = NativeSessionMessage(
+          serializer: NativeMessageSerializer.json,
+          metadata: meta,
+        );
+        if (operation == 'restore') {
+          message.restoreLazyPayload(payload);
+        } else {
+          message.retainLazyPayload(payload);
+        }
+        expect(message.hasModifiedNativeWirePayload, isFalse);
+        expect(message.e2eeRuntimeContext, same(context));
+        expect(message.toLazyPayload().e2eeRuntimeContext, same(context));
+        expect(
+          message.toLazyPayload().e2eeRuntimeContext!.payloadAnchor,
+          same(context.payloadAnchor),
+        );
+      },
+    );
+  }
 }

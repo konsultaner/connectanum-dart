@@ -510,8 +510,15 @@ class WampFileReceiver {
     final decoded = invocation.toPayload();
     final arguments = decoded.arguments;
     final keywords = decoded.argumentsKeywords;
+    // FlatBuffers can retain wire ciphertext after authenticated PPT decoding.
+    // Validate its decoded metadata, rather than rejecting that wire view.
+    final decodedCborE2ee =
+        invocation.pptScheme == ConnectanumE2eeProfile.scheme &&
+        invocation.pptSerializer == ConnectanumE2eeProfile.serializer &&
+        invocation.pptCipher != null;
     if (!invocation.progress ||
-        invocation.payload.transparentBinaryPayload != null ||
+        (invocation.payload.transparentBinaryPayload != null &&
+            !decodedCborE2ee) ||
         arguments?.isNotEmpty == true) {
       _respondError(
         invocation,
@@ -611,7 +618,6 @@ class WampFileReceiver {
       decodedKeywords = decoded.argumentsKeywords;
     }
     final chunk = bytes;
-
     void releaseChunkStorage() {
       if (chunk != null) {
         digest_factory.releaseNativeFileChunkBytes(chunk);
@@ -619,8 +625,11 @@ class WampFileReceiver {
       digest_factory.releaseNativeFileChunkMessage(invocation.payload.anchor);
     }
 
+    // CBOR may keep a one-binary-argument chunk as a transparent wire view.
+    // `toPayload()` above has already decoded it and applied PPT decryption
+    // when enabled, so validate the resulting WAMP arguments instead of
+    // rejecting that view.
     if (chunk == null ||
-        invocation.payload.transparentBinaryPayload != null ||
         decodedKeywords?.isNotEmpty == true ||
         (invocation.progress && chunk.isEmpty)) {
       releaseChunkStorage();

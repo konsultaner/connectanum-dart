@@ -723,6 +723,29 @@ class _HttpCleanupRuntime extends _HandleRuntime {
   }
 }
 
+class _WakingHandleRuntime extends _HandleRuntime
+    implements NativeRuntimeWithMessageReadyNotifications {
+  final ready = StreamController<void>.broadcast(sync: true);
+  Completer<void> nextPoll = Completer<void>();
+  int arms = 0;
+  int polls = 0;
+  bool polledWithoutArming = false;
+
+  @override
+  Stream<void> get messageReadyNotifications => ready.stream;
+
+  @override
+  void armMessageReadyNotifications() => arms++;
+
+  @override
+  int pollConnection(int listenerId) {
+    if (arms <= polls) polledWithoutArming = true;
+    polls++;
+    if (!nextPoll.isCompleted) nextPoll.complete();
+    return super.pollConnection(listenerId);
+  }
+}
+
 class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
   final Map<int, Queue<int>> _pendingHandles = {};
   int _nextHandle = 1;
@@ -952,6 +975,7 @@ Future<({NativeHttpResponse response, List<Map<String, Object?>> events})>
 _fastCgiResponseFixture(
   Future<void> Function(Socket socket) respond, {
   Map<String, Object?> options = const {},
+  bool upstreamMayReset = false,
 }) async {
   final upstream = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
   final sockets = <Socket>[];
@@ -970,7 +994,18 @@ _fastCgiResponseFixture(
       );
       served.complete();
     } catch (error, stack) {
-      served.completeError(error, stack);
+      // An early rejection can reset unread response records instead of EOF.
+      // EPIPE: macOS/Linux; ECONNRESET: macOS/Linux/Windows.
+      // All response/reason assertions remain with the rejecting test case.
+      final peerClosed =
+          upstreamMayReset &&
+          error is SocketException &&
+          const {32, 54, 104, 10054}.contains(error.osError?.errorCode);
+      if (peerClosed) {
+        served.complete();
+      } else {
+        served.completeError(error, stack);
+      }
     }
   });
   // Observe failures immediately, while the router's reply is still pending.
@@ -5295,6 +5330,7 @@ void main() {
 
     test('waits for the poll interval only when idle', () async {
       final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
       final stopwatch = Stopwatch()..start();
       await pacer.waitForNextTick(
         didWork: false,
@@ -5309,6 +5345,7 @@ void main() {
 
     test('yields immediately after a busy loop pass', () async {
       final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
       await pacer
           .waitForNextTick(
             didWork: true,
@@ -5317,8 +5354,184 @@ void main() {
           .timeout(const Duration(milliseconds: 200));
     });
 
+    test(
+      'native readiness arms before scanning and releases its subscription',
+      () async {
+        final runtime = _WakingHandleRuntime();
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.disabled,
+                maxRawSocketSizeExponent: 16,
+              ),
+            ],
+          ),
+          settings: _buildRouterSettingsWithMinWorkers(0),
+        );
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _idleWorkerEntryPoint,
+          workerPollInterval: const Duration(seconds: 30),
+        );
+        addTearDown(binding.dispose);
+        addTearDown(runtime.ready.close);
+        await runtime.nextPoll.future.timeout(const Duration(seconds: 1));
+        expect(runtime.ready.hasListener, isTrue);
+        expect(runtime.polledWithoutArming, isFalse);
+        final initialPolls = runtime.polls;
+        runtime.nextPoll = Completer<void>();
+        runtime.ready.add(null);
+        await runtime.nextPoll.future.timeout(
+          const Duration(milliseconds: 500),
+        );
+        expect(runtime.polls, greaterThan(initialPolls));
+        expect(runtime.polledWithoutArming, isFalse);
+        await binding.dispose();
+        expect(runtime.ready.hasListener, isFalse);
+      },
+    );
+
+    test('busy passes yield to events without creating SDK timers', () async {
+      final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
+      final marker = Object();
+      var timers = 0;
+      var microtaskRan = false;
+      await runZoned(
+        () async {
+          scheduleMicrotask(() => microtaskRan = true);
+          for (var index = 0; index < 8; index++) {
+            await pacer.waitForNextTick(
+              didWork: true,
+              pollInterval: const Duration(seconds: 30),
+            );
+            expect(Zone.current[marker], isTrue);
+          }
+          expect(microtaskRan, isTrue);
+        },
+        zoneValues: {marker: true},
+        zoneSpecification: ZoneSpecification(
+          createTimer: (self, parent, zone, duration, callback) {
+            timers++;
+            return parent.createTimer(zone, duration, callback);
+          },
+        ),
+      );
+      expect(timers, 0);
+    });
+
+    test('busy passes allow queued messages and timers to progress', () async {
+      final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
+      final messages = ReceivePort();
+      addTearDown(messages.close);
+      var messageReceived = false;
+      final subscription = messages.listen((_) => messageReceived = true);
+      addTearDown(subscription.cancel);
+      var timerRan = false;
+      final timer = Timer(Duration.zero, () => timerRan = true);
+      addTearDown(timer.cancel);
+      messages.sendPort.send(null);
+      for (
+        var index = 0;
+        index < 100 && (!messageReceived || !timerRan);
+        index++
+      ) {
+        await pacer.waitForNextTick(
+          didWork: true,
+          pollInterval: const Duration(seconds: 30),
+        );
+      }
+      expect(messageReceived, isTrue);
+      expect(timerRan, isTrue);
+    });
+
+    test('close completes pending waits and permits reuse', () async {
+      final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
+      final first = pacer.waitForNextTick(
+        didWork: true,
+        pollInterval: const Duration(seconds: 30),
+      );
+      final second = pacer.waitForNextTick(
+        didWork: true,
+        pollInterval: const Duration(seconds: 30),
+      );
+      pacer.close();
+      await Future.wait([first, second]).timeout(const Duration(seconds: 1));
+      await pacer.waitForNextTick(
+        didWork: true,
+        pollInterval: const Duration(seconds: 30),
+      );
+      // Consume the wake queued by close before testing a pending idle wait.
+      await pacer.waitForNextTick(
+        didWork: false,
+        pollInterval: const Duration(seconds: 30),
+      );
+      final idle = pacer.waitForNextTick(
+        didWork: false,
+        pollInterval: const Duration(seconds: 30),
+      );
+      pacer.close();
+      await idle.timeout(const Duration(seconds: 1));
+      pacer.close();
+    });
+
+    test('an idle event port allows its isolate to exit', () async {
+      final replies = ReceivePort();
+      final exits = ReceivePort();
+      addTearDown(replies.close);
+      addTearDown(exits.close);
+      final reply = replies.first;
+      final exit = exits.first;
+      final isolate = await Isolate.spawn(
+        _busyPacerExitProbe,
+        replies.sendPort,
+        onExit: exits.sendPort,
+        errorsAreFatal: true,
+      );
+      addTearDown(() => isolate.kill(priority: Isolate.immediate));
+      expect(await reply.timeout(const Duration(seconds: 5)), 16);
+      await exit.timeout(const Duration(seconds: 5));
+    });
+
+    test('early wake cancels the idle fallback timer', () async {
+      final timers = <Timer>[];
+      try {
+        await runZoned(
+          () async {
+            final pacer = RouterBossLoopPacer();
+            addTearDown(pacer.close);
+            final wait = pacer.waitForNextTick(
+              didWork: false,
+              pollInterval: const Duration(seconds: 30),
+            );
+            pacer.requestWake();
+            await wait;
+            expect(timers, hasLength(1));
+            expect(timers.single.isActive, isFalse);
+          },
+          zoneSpecification: ZoneSpecification(
+            createTimer: (self, parent, zone, duration, callback) {
+              final timer = parent.createTimer(zone, duration, callback);
+              timers.add(timer);
+              return timer;
+            },
+          ),
+        );
+      } finally {
+        for (final timer in timers) {
+          timer.cancel();
+        }
+      }
+    });
+
     test('wakes an idle wait from queued or in-flight work', () async {
       final preSignaled = RouterBossLoopPacer()..requestWake();
+      addTearDown(preSignaled.close);
       await preSignaled
           .waitForNextTick(
             didWork: false,
@@ -5327,6 +5540,7 @@ void main() {
           .timeout(const Duration(milliseconds: 200));
 
       final pacer = RouterBossLoopPacer();
+      addTearDown(pacer.close);
       final wait = pacer.waitForNextTick(
         didWork: false,
         pollInterval: const Duration(seconds: 1),
@@ -7924,15 +8138,19 @@ void main() {
   );
 
   test('FastCGI enforces the cumulative stdout limit', () async {
-    final result = await _fastCgiResponseFixture((socket) async {
-      socket
-        ..add(
-          _testFastCgiRecord(6, Uint8List.fromList(utf8.encode('X: y\n\n'))),
-        )
-        ..add(_testFastCgiRecord(6, Uint8List.fromList([1, 2, 3, 4])))
-        ..add(_testFastCgiRecord(3, Uint8List(8)));
-      await socket.flush();
-    }, options: {'max_response_bytes': 9});
+    final result = await _fastCgiResponseFixture(
+      (socket) async {
+        socket
+          ..add(
+            _testFastCgiRecord(6, Uint8List.fromList(utf8.encode('X: y\n\n'))),
+          )
+          ..add(_testFastCgiRecord(6, Uint8List.fromList([1, 2, 3, 4])))
+          ..add(_testFastCgiRecord(3, Uint8List(8)));
+        await socket.flush();
+      },
+      options: {'max_response_bytes': 9},
+      upstreamMayReset: true,
+    );
     expect(result.response.status, 502);
     expect(
       _jsonResponseBody(result.response)['reason'],
@@ -17146,7 +17364,7 @@ void main() {
         );
         for (final id in [85, 86]) {
           runtime.setConnectionProtocol(id, NativeConnectionProtocol.http3);
-          if (id != 85 || !failHandshake)
+          if (id != 85 || !failHandshake) {
             runtime.enqueueHttp3Handshake(
               id,
               NativeHttp3Handshake.synthetic(
@@ -17156,6 +17374,7 @@ void main() {
                 },
               ),
             );
+          }
           runtime.enqueueHandle(binding.listeners.single.listenerId, id);
         }
         await _waitUntil(
@@ -18302,4 +18521,16 @@ void main() {
       );
     }
   }
+}
+
+// Deliberately leaves the idle pacer open to verify its port cannot leak isolates.
+Future<void> _busyPacerExitProbe(SendPort reply) async {
+  final pacer = RouterBossLoopPacer();
+  for (var index = 0; index < 16; index++) {
+    await pacer.waitForNextTick(
+      didWork: true,
+      pollInterval: const Duration(seconds: 30),
+    );
+  }
+  reply.send(16);
 }

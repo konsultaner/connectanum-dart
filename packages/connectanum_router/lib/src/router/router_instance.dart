@@ -29,6 +29,7 @@ import 'dart:io'
 import 'package:cbor/cbor.dart';
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'copy_metrics_fence.dart';
+import 'router_instance/internal_reply_forwarder.dart';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:connectanum_core/connectanum_core.dart'
@@ -116,6 +117,7 @@ import 'state/session.dart';
 import 'config/router_settings.dart';
 import 'config/router_settings_builder.dart';
 import 'config/router_settings_codec.dart';
+import '../mqtt/qos0_broker.dart';
 import 'auth/authorization.dart';
 import 'auth/default_authenticators.dart';
 import 'auth/http_auth_provider.dart';

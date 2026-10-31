@@ -25,6 +25,7 @@ void main() {
       final cases = {
         ListenerProtocol.rawsocket: ('rawsocket', false),
         ListenerProtocol.websocket: ('websocket', false),
+        ListenerProtocol.mqtt: ('mqtt', false),
         ListenerProtocol.http: ('http', true),
         ListenerProtocol.http2: ('http2', true),
         ListenerProtocol.http3: ('http3', true),

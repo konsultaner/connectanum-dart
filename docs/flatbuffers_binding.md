@@ -78,7 +78,8 @@ to Dart and Rust, and reads their emitted CALLs with the upstream Python reader.
 The typed-payload fixture nests a pre-encoded `wamp.proto.Message` FlatBuffer as
 opaque application data, with `PPTScheme.OPAQUE`, `PPTSerializer.FLATBUFFERS` and
 explicit schema metadata. It proves byte preservation without requiring a
-database entity schema; actual typed/PPT session support remains issue #101.
+database entity schema. Typed PPT sessions and explicit FlatBuffers E2EE profiles
+are supported; see [the ownership contract](native_buffer_ownership.md).
 
 Coverage reports keep the two compiler-generated Dart artifacts in raw file
 totals and `generatedArtifacts`, separately from the handwritten-code gate.
@@ -103,6 +104,43 @@ they are not separate messages. The layouts can differ while using the same
 pinned binding. Keep backing owners and immutable contents valid until the
 transport completes its local write. Ordinary Dart arguments still require CBOR
 encoding, and an external database lease needs the adapter's own lifetime policy.
+
+For a nonempty custom PPT scheme with `ppt_serializer: flatbuffers`, exactly
+one `Uint8List` argument and no kwargs, cipher or key ID, the serializer writes
+the existing opaque payload vector directly. Fragmented output retains that
+exact encoded buffer without an additional CBOR array/byte-string wrapper.
+Other argument shapes and reserved `wamp` encryption keep their existing paths;
+older wrapped typed frames remain readable.
+
+Application schemas can use `buildFlatBufferPayloadParts` from
+`flatbuffers_serializer.dart` to build a model around one existing `Uint8List`
+vector. Its `buildRoot` callback receives the builder and vector reference;
+write the generated application table with that offset and return the root,
+without finishing or resetting the builder. The helper snapshots the small
+schema prefix and borrows the original body, preserving ordinary FlatBuffers
+alignment and wire bytes. It does not generate or validate the application
+schema.
+
+The helper supplies `WampFlatBufferBuilder`, including its portable unsigned
+64-bit limit of 2^53. Applications needing wider integer fields can build their
+encoded parts with their own FlatBuffers builder and use `PackedPayloadParts`
+directly; opaque payload forwarding does not reinterpret those fields.
+
+Pass the resulting `PackedPayloadParts` as the source of
+`LazyMessagePayload.packedSource`, with FlatBuffers encoding and the application's
+packed decoder, to the Session lazy-payload APIs with custom PPT metadata.
+`serializeFragments` preserves those body views. A contiguous consumer coalesces
+them once, caches a read-only view and records that copy. Keep every borrowed
+buffer valid and unchanged until use completes; use `toOwned()` when a detached
+snapshot is needed. The source grants no native pointer ownership or database
+transaction lifetime. Native sends of Dart fragments retain their usual copy
+boundary.
+
+A raw deserialized direct envelope exposes `transparentBinaryPayload` rather
+than a wrapped argument list. Session APIs expose the application arguments;
+raw codec consumers can use `decodeLazyPayloadView` with the message's PPT
+metadata. Opaque payload views are read-only and borrow the input storage, which
+must remain valid and unchanged for their lifetime.
 
 The ordinary RawSocket transport frames small fragments in one payload copy and
 submits large fragments separately. Linux pointer checks verify that full/read-only
@@ -580,6 +618,36 @@ its original allocation through an independent native owner. Selector 4 remains
 the separate INVOCATION single-binary-argument API; consumers must check the flag
 before choosing a selector. An absent or empty export has no owner, consistently
 with the existing byte-view ABI; flag 8 distinguishes present-empty from absent.
+
+The optional `ct_internal_ppt_handoff_version()` returns 2 for internal plaintext
+PPT borrowing. Bindings must also require the optional
+`ct_internal_ppt_handoff_eligible_v1_wide(handle)` and a positive result on the
+held CALL before creating a loan descriptor and before forwarding its reply.
+The query does not consume the handle or decode application data; it checks the
+original native metadata and body representation. Explicit null PPT fields are
+ineligible because typed nullable Dart fields lose their presence and the native
+result encoder may not recognize that body as PPT. These inputs use the existing
+copying path, preserving the reply's scheme. Valid sources retain their opaque
+body and PPT header contract. Invalid/expired handles return a negative status.
+
+Dart caches the library capability, requires wide handles, version 2 and the
+query export, and rejects missing or unknown families. The earlier marker-only
+version 1 falls back. Older version-1 bindings also fall back against version 2,
+preventing them from selecting an unsafe borrow on newer libraries. No C structure layout or remote negotiation
+changes. The optimization applies to CBOR, MessagePack and FlatBuffers.
+
+An internal plaintext reply may reuse the CALL loan only when its actual wire
+body is the original byte object and its PPT headers match an immutable snapshot
+of the received CALL. An opaque FlatBuffers body may be returned as the same
+single binary PPT argument. Replaced bodies, altered or removed headers, custom
+result details, active progressive replies, encryption and the reserved `wamp`
+scheme retain the ordinary path. A final unchanged reply after progress may
+reuse the loan. CALL-only options are not copied to RESULT details. Worker and
+callee each validate the contract; only primitive handle metadata crosses the
+isolate boundary. Independently owned read-only body views may outlive the
+routing handle, internal session and runtime; they never acquire ownership of
+foreign database memory. The boss releases a transferred loan on success or
+failure; cancellation follows the existing retained-CALL cleanup contract.
 
 Both Dart materializers and the payload-only CALL reader preserve opaque bytes
 separately from encoded CBOR args/kwargs. The session wrapper and final model

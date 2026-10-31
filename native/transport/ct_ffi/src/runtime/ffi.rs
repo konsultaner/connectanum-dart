@@ -36,14 +36,15 @@ use ct_core::{
     accept_channel, apply_router_config, close_connection, close_listener, connect_rawsocket,
     connect_websocket, connection_accept_websocket, connection_http3_connection,
     connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
-    connection_poll_http_event, connection_protocol, connection_rawsocket_max_exponent,
-    connection_reject_websocket, connection_supports_file_segments,
-    connection_take_http2_handshake, connection_take_http3_handshake,
-    connection_take_websocket_handshake, connection_websocket_protocol, listen,
-    listen_configured_endpoint, listen_router_endpoint, listener_http3_port, local_addr,
-    poll_connection_message, reload_router_tls, reload_tls, response_stream_channel,
-    send_wamp_base64_file_segment, send_wamp_deferred_segment_with_suffix, send_wamp_file_segment,
-    send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
+    connection_mqtt_version, connection_poll_http_event, connection_protocol,
+    connection_rawsocket_max_exponent, connection_reject_websocket,
+    connection_supports_file_segments, connection_take_http2_handshake,
+    connection_take_http3_handshake, connection_take_websocket_handshake,
+    connection_websocket_protocol, listen, listen_configured_endpoint, listen_router_endpoint,
+    listener_http3_port, local_addr, poll_connection_message, poll_mqtt_chunk, reload_router_tls,
+    reload_tls, response_stream_channel, send_mqtt_chunk, send_wamp_base64_file_segment,
+    send_wamp_deferred_segment_with_suffix, send_wamp_file_segment, send_wamp_message,
+    send_wamp_segments, set_mqtt_wakeup, shutdown, start_runtime, wait_connection_message,
     ConnectionId, ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot,
     HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
     HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
@@ -1069,7 +1070,11 @@ fn borrowed_e2ee_message_ciphertext(message: &StoredMessage) -> Result<&[u8], c_
         return Err(ERR_UNSUPPORTED);
     }
     if let Some(payload) = extract_transparent_payload(&message.message) {
-        if message.serializer != RawSocketSerializer::Flatbuffers || message.args.is_some() {
+        if !matches!(
+            message.serializer,
+            RawSocketSerializer::Flatbuffers | RawSocketSerializer::Cbor
+        ) || message.args.is_some()
+        {
             return Err(ERR_UNSUPPORTED);
         }
         return Ok(payload.as_ref());
@@ -3345,11 +3350,92 @@ pub extern "C" fn ct_connection_protocol(connection_id: c_int) -> c_int {
     match connection_protocol(connection_id) {
         Ok(protocol) => match protocol {
             ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+            ConnectionProtocol::Mqtt => PROTOCOL_MQTT,
             ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
             ConnectionProtocol::Http => PROTOCOL_HTTP,
             ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
             ConnectionProtocol::Http3 => PROTOCOL_HTTP3,
         },
+        Err(err) => map_error(err),
+    }
+}
+
+/// Returns MQTT protocol level 4 or 5, or a negative error code.
+#[no_mangle]
+pub extern "C" fn ct_connection_mqtt_version(connection_id: c_int) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match connection_mqtt_version(ConnectionId(connection_id as u32)) {
+        Ok(version) => c_int::from(version),
+        Err(err) => map_error(err),
+    }
+}
+
+/// Notify Dart when a native MQTT read chunk becomes available.
+/// A null callback unregisters and waits for any in-flight invocation.
+#[no_mangle]
+pub extern "C" fn ct_set_mqtt_wakeup(
+    connection_id: c_int,
+    callback: Option<extern "C" fn(c_int)>,
+) -> c_int {
+    if connection_id <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match set_mqtt_wakeup(ConnectionId(connection_id as u32), callback) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+/// Copies one native MQTT read chunk into a caller-owned buffer. Older callers
+/// using 16 KiB buffers receive larger reads in consecutive bounded slices.
+/// Returns byte count, zero when no chunk is ready, or a negative error code.
+#[no_mangle]
+pub extern "C" fn ct_poll_mqtt_chunk(
+    connection_id: c_int,
+    out_ptr: *mut u8,
+    out_capacity: c_int,
+) -> c_int {
+    if connection_id <= 0 || out_ptr.is_null() || out_capacity < 16 * 1024 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match poll_mqtt_chunk(ConnectionId(connection_id as u32), out_capacity as usize) {
+        Ok(Some(bytes)) => unsafe { copy_mqtt_chunk(&bytes, out_ptr, out_capacity as usize) },
+        Ok(None) => 0,
+        Err(err) => map_error(err),
+    }
+}
+
+/// Copies a polled MQTT chunk after validating the destination capacity.
+///
+/// # Safety
+/// `out_ptr` must point to `out_capacity` writable bytes.
+#[inline]
+unsafe fn copy_mqtt_chunk(bytes: &[u8], out_ptr: *mut u8, out_capacity: usize) -> c_int {
+    if bytes.len() > out_capacity {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe { ptr::copy_nonoverlapping(bytes.as_ptr(), out_ptr, bytes.len()) };
+    bytes.len() as c_int
+}
+
+/// Enqueues an encoded MQTT byte chunk without WAMP framing.
+#[no_mangle]
+pub extern "C" fn ct_send_mqtt_chunk(
+    connection_id: c_int,
+    bytes_ptr: *const u8,
+    bytes_len: c_int,
+) -> c_int {
+    if connection_id <= 0 || bytes_ptr.is_null() || !(1..=1_048_576).contains(&bytes_len) {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let bytes = unsafe { slice::from_raw_parts(bytes_ptr, bytes_len as usize) };
+    match send_mqtt_chunk(
+        ConnectionId(connection_id as u32),
+        Bytes::copy_from_slice(bytes),
+    ) {
+        Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }
 }
@@ -3754,6 +3840,7 @@ pub extern "C" fn ct_http_connection_event_get(
         info_ref.connection_id = stored.connection_id.0 as i32;
         info_ref.protocol = match stored.protocol {
             ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+            ConnectionProtocol::Mqtt => PROTOCOL_MQTT,
             ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
             ConnectionProtocol::Http => PROTOCOL_HTTP,
             ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
@@ -4032,6 +4119,7 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
                 listener_id: entry.listener_id.0,
                 protocol: match entry.protocol {
                     ConnectionProtocol::RawSocket => PROTOCOL_RAWSOCKET,
+                    ConnectionProtocol::Mqtt => PROTOCOL_MQTT,
                     ConnectionProtocol::WebSocket => PROTOCOL_WEBSOCKET,
                     ConnectionProtocol::Http => PROTOCOL_HTTP,
                     ConnectionProtocol::Http2 => PROTOCOL_HTTP2,
@@ -5340,6 +5428,47 @@ pub extern "C" fn ct_flatbuffers_binding_version() -> c_uint {
     1
 }
 
+/// Version 2 requires the per-message v1 eligibility query before borrowing.
+/// Marker-only version 1 bindings must fall back: raw null PPT fields can lose
+/// their presence in typed nullable options. The wire and struct ABIs are unchanged.
+#[no_mangle]
+pub extern "C" fn ct_internal_ppt_handoff_version() -> c_uint {
+    2
+}
+
+// Typed nullable bindings cannot distinguish absent PPT fields from raw nulls.
+// Validate the immutable native message before borrowing through result-from-CALL.
+fn internal_plaintext_ppt_handoff_eligible(message: &StoredMessage) -> bool {
+    let WampMessage::Call {
+        payload, options, ..
+    } = &message.message
+    else {
+        return false;
+    };
+    for (key, value) in options {
+        match serde_value_str(key) {
+            Some("ppt_scheme") if serde_value_str(value) == Some("wamp") => return false,
+            // Even null entries are deliberately ineligible: Dart loses their presence.
+            Some("ppt_cipher" | "ppt_keyid") => return false,
+            _ => {}
+        }
+    }
+    binary_ppt_body(message.serializer, payload, options).is_some()
+}
+
+/// Optional v1 per-message eligibility, without consuming the held CALL or
+/// decoding application data. A marker alone is insufficient for borrowing.
+#[no_mangle]
+pub extern "C" fn ct_internal_ppt_handoff_eligible_v1_wide(handle: i64) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    super::message_handles::with_message(handle as u64, |message| {
+        i32::from(internal_plaintext_ppt_handoff_eligible(message))
+    })
+    .unwrap_or(ERR_INVALID_ARGUMENT)
+}
+
 /// Version 1 is the complete additive signed 64-bit message-handle family.
 /// All `_wide` producers/consumers must be selected together by a binding.
 /// Other resource handles, status codes, and WAMP wire IDs are unchanged.
@@ -5988,6 +6117,7 @@ pub extern "C" fn ct_test_push_http_connection_event(
     }
     let protocol = match protocol {
         PROTOCOL_RAWSOCKET => ConnectionProtocol::RawSocket,
+        PROTOCOL_MQTT => ConnectionProtocol::Mqtt,
         PROTOCOL_WEBSOCKET => ConnectionProtocol::WebSocket,
         PROTOCOL_HTTP => ConnectionProtocol::Http,
         PROTOCOL_HTTP2 => ConnectionProtocol::Http2,
@@ -8218,6 +8348,18 @@ pub extern "C" fn ct_forward_error_from_error_wide(
     }
 }
 
+/// Optional coalesced WAMP queue wake signal. Remove before closing a callable.
+#[no_mangle]
+pub extern "C" fn ct_set_message_ready_callback_v1(callback: Option<extern "C" fn()>) {
+    ct_core::set_message_ready_callback(callback);
+}
+
+/// Arm before polling queues; existing messages remain available to poll/wait.
+#[no_mangle]
+pub extern "C" fn ct_arm_message_ready_callback_v1() {
+    ct_core::arm_message_ready_callback();
+}
+
 #[no_mangle]
 pub extern "C" fn ct_set_on_listener_started(callback: extern "C" fn(c_int, c_int)) {
     register_listener_callback(callback);
@@ -8278,6 +8420,33 @@ mod tests {
             ERR_HANDLE_UNAVAILABLE
         );
         assert!(ERR_HANDLE_UNAVAILABLE < 0);
+    }
+
+    #[test]
+    fn mqtt_chunk_copy_rejects_oversize_without_writing_and_accepts_exact_fit() {
+        let mut output = [0_u8; 4];
+        assert_eq!(
+            unsafe { copy_mqtt_chunk(b"five!", output.as_mut_ptr(), output.len()) },
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(output, [0; 4]);
+        assert_eq!(
+            unsafe { copy_mqtt_chunk(b"four", output.as_mut_ptr(), output.len()) },
+            4
+        );
+        assert_eq!(&output, b"four");
+    }
+
+    #[test]
+    fn mqtt_chunk_poll_maps_missing_connection_error() {
+        let _guard = test_guard();
+        let started = ct_start_runtime();
+        assert!(started == SUCCESS || started == ERR_ALREADY_STARTED);
+        let mut output = [0_u8; 16 * 1024];
+        assert_eq!(
+            ct_poll_mqtt_chunk(i32::MAX, output.as_mut_ptr(), output.len() as c_int),
+            ERR_CONNECTION_NOT_FOUND
+        );
     }
 
     #[test]
@@ -11291,6 +11460,44 @@ mod tests {
 
     #[cfg(feature = "ffi-test")]
     #[test]
+    fn mqtt_connection_event_and_metrics_keep_mqtt_protocol_identity() {
+        let _guard = test_guard();
+        let start_result = ct_start_runtime();
+        assert!(
+            start_result == SUCCESS
+                || start_result == crate::runtime::constants::ERR_ALREADY_STARTED
+        );
+        let event = HttpConnectionEvent {
+            connection_id: ConnectionId(91006),
+            protocol: ConnectionProtocol::Mqtt,
+            reason: HttpConnectionCloseReason::Graceful,
+            request_count: 0,
+            idle_timeouts: 0,
+            body_timeouts: 0,
+            backpressure_events: 0,
+            max_backpressure_depth: 0,
+            goaway_events: 0,
+            detail: None,
+        };
+        let handle = resource_handle_result(store_http_connection_event(event.clone()));
+        assert!(handle > 0);
+        let mut info = CtHttpConnectionEventInfo::default();
+        assert_eq!(ct_http_connection_event_get(handle, &mut info), SUCCESS);
+        assert_eq!(info.protocol, PROTOCOL_MQTT);
+        assert_eq!(ct_http_connection_event_release(handle), SUCCESS);
+
+        let before = snapshot_router_metrics();
+        push_http_connection_event(ListenerId(9104), event);
+        let after = snapshot_router_metrics();
+        assert_eq!(after.total_events, before.total_events + 1);
+        assert_eq!(
+            after.breakdown_for(9104, PROTOCOL_MQTT).total_events,
+            before.breakdown_for(9104, PROTOCOL_MQTT).total_events + 1
+        );
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
     fn router_metrics_snapshot_surfaces_file_segment_counters() {
         let _guard = test_guard();
         let core = ct_core::file_segment_metrics_snapshot();
@@ -12119,5 +12326,137 @@ mod tests {
             .unwrap(),
             r#"{"fields":[91,{"trace_id":"unknown-1"}],"request_id":91}"#
         );
+    }
+    #[test]
+    fn internal_ppt_handoff_query_preserves_loan_and_rejects_raw_nulls() {
+        let _guard = test_guard();
+        assert_eq!(
+            ct_internal_ppt_handoff_eligible_v1_wide(0),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_internal_ppt_handoff_eligible_v1_wide(-1),
+            ERR_INVALID_ARGUMENT
+        );
+        let result = ct_core::parse_message(
+            RawSocketSerializer::Cbor,
+            Bytes::from(serde_cbor::to_vec(&json!([50, 1, {}])).unwrap()),
+        )
+        .unwrap();
+        let result_handle = store_parsed_message_wide(result);
+        assert_eq!(ct_internal_ppt_handoff_eligible_v1_wide(result_handle), 0);
+        ct_message_release_wide(result_handle);
+        for serializer in [RawSocketSerializer::Cbor, RawSocketSerializer::MessagePack] {
+            for scenario in [
+                "plain",
+                "without serializer",
+                "null serializer",
+                "null cipher",
+                "null keyid",
+                "cipher",
+                "keyid",
+                "wamp",
+                "ordinary",
+                "non-binary",
+                "extra argument",
+            ] {
+                let mut options = std::collections::BTreeMap::from([
+                    (
+                        SerdeValue::String("ppt_scheme".into()),
+                        SerdeValue::String("x_echo".into()),
+                    ),
+                    (
+                        SerdeValue::String("ppt_serializer".into()),
+                        SerdeValue::String("cbor".into()),
+                    ),
+                ]);
+                match scenario {
+                    "without serializer" => {
+                        options.remove(&SerdeValue::String("ppt_serializer".into()));
+                    }
+                    "null serializer" => {
+                        options.insert(
+                            SerdeValue::String("ppt_serializer".into()),
+                            SerdeValue::Unit,
+                        );
+                    }
+                    "null cipher" => {
+                        options.insert(SerdeValue::String("ppt_cipher".into()), SerdeValue::Unit);
+                    }
+                    "null keyid" => {
+                        options.insert(SerdeValue::String("ppt_keyid".into()), SerdeValue::Unit);
+                    }
+                    "cipher" => {
+                        options.insert(
+                            SerdeValue::String("ppt_cipher".into()),
+                            SerdeValue::String("aes256gcm".into()),
+                        );
+                    }
+                    "keyid" => {
+                        options.insert(
+                            SerdeValue::String("ppt_keyid".into()),
+                            SerdeValue::String("key".into()),
+                        );
+                    }
+                    "wamp" => {
+                        options.insert(
+                            SerdeValue::String("ppt_scheme".into()),
+                            SerdeValue::String("wamp".into()),
+                        );
+                    }
+                    "ordinary" => options.clear(),
+                    _ => {}
+                }
+                let mut args = vec![if scenario == "non-binary" {
+                    SerdeValue::String("text".into())
+                } else {
+                    SerdeValue::Bytes(vec![0x81, 1])
+                }];
+                if scenario == "extra argument" {
+                    args.push(SerdeValue::U64(2));
+                }
+                let wire = SerdeValue::Seq(vec![
+                    SerdeValue::U64(48),
+                    SerdeValue::U64(9),
+                    SerdeValue::Map(options),
+                    SerdeValue::String("bench.rpc.echo".into()),
+                    SerdeValue::Seq(args),
+                ]);
+                let raw = match serializer {
+                    RawSocketSerializer::Cbor => serde_cbor::to_vec(&wire).unwrap(),
+                    _ => rmp_serde::to_vec(&wire).unwrap(),
+                };
+                let parsed = ct_core::parse_message(serializer, Bytes::from(raw)).unwrap();
+                if scenario.starts_with("null ") {
+                    let WampMessage::Call {
+                        payload, options, ..
+                    } = &parsed.message
+                    else {
+                        unreachable!()
+                    };
+                    assert!(
+                        binary_ppt_body(serializer, payload, options).is_none(),
+                        "raw null is outside result-from-CALL's PPT recognition domain"
+                    );
+                }
+                let handle = store_parsed_message_wide(parsed);
+                assert!(handle > 0);
+                let expected = i32::from(matches!(scenario, "plain" | "without serializer"));
+                assert_eq!(
+                    ct_internal_ppt_handoff_eligible_v1_wide(handle),
+                    expected,
+                    "{serializer:?} {scenario}"
+                );
+                let alias = ct_message_retain_wide(handle);
+                assert!(alias > 0);
+                ct_message_release_wide(handle);
+                assert_eq!(ct_internal_ppt_handoff_eligible_v1_wide(alias), expected);
+                ct_message_release_wide(alias);
+                assert_eq!(
+                    ct_internal_ppt_handoff_eligible_v1_wide(alias),
+                    ERR_INVALID_ARGUMENT
+                );
+            }
+        }
     }
 }

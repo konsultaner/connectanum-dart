@@ -255,11 +255,21 @@ class WampWorkloadRunner {
         'must be positive',
       );
     }
-    if (scenario.mode != WampMode.rpc && scenario.mode != WampMode.pubsub) {
+    final supported = switch (scenario.mode) {
+      WampMode.rpc ||
+      WampMode.pubsub ||
+      WampMode.progressiveRpc ||
+      WampMode.publishAck ||
+      WampMode.subscribeCycle ||
+      WampMode.registerCycle ||
+      WampMode.cancelCycle => true,
+      _ => false,
+    };
+    if (!supported) {
       throw ArgumentError.value(
         scenario.mode,
         'mode',
-        'minimum duration is supported for RPC and pub/sub workloads only',
+        'minimum duration is supported for RPC, pub/sub, progressive RPC and control cycles only',
       );
     }
   }
@@ -1052,6 +1062,16 @@ class WampWorkloadRunner {
             return;
           }
           chunksByInvocation.remove(invocation.requestId);
+          respondEchoLazyInvocation(
+            invocation,
+            logger: _logger,
+            progress: true,
+          );
+          respondEchoLazyInvocation(
+            invocation,
+            logger: _logger,
+            progress: true,
+          );
           respondEchoLazyInvocation(invocation, logger: _logger);
         },
         scenario: peerScenario,
@@ -1134,15 +1154,31 @@ class WampWorkloadRunner {
     final call = session.startProgressiveCall(
       procedure,
       arguments: [payload],
-      options: _buildCallOptions(scenario),
+      options: _buildCallOptions(scenario, receiveProgress: true),
     );
     call.sendChunk(arguments: [payload]);
     call.finish(arguments: [payload]);
     try {
-      await call.results.single.timeout(
+      final results = await call.results.toList().timeout(
         _eventTimeout,
         onTimeout: () => throw TimeoutException('progressive_rpc_timeout'),
       );
+      if (results.length != 3) {
+        throw StateError(
+          'expected 3 progressive results, got ${results.length}',
+        );
+      }
+      for (var index = 0; index < results.length; index++) {
+        final result = results[index];
+        final arguments = result.arguments;
+        if (result.isProgressive() != (index < 2) ||
+            arguments == null ||
+            arguments.length != 1 ||
+            arguments.single != payload ||
+            (result.argumentsKeywords?.isNotEmpty ?? false)) {
+          throw StateError('invalid progressive result at index $index');
+        }
+      }
     } on wamp_core.Error catch (error) {
       throw StateError(
         'progressive RPC failed with ${error.error} '
@@ -1155,7 +1191,7 @@ class WampWorkloadRunner {
       iteration: iteration,
       latencyMs: latencyMs,
       requestBytes: scenario.payloadBytes * 3,
-      responseBytes: scenario.payloadBytes,
+      responseBytes: scenario.payloadBytes * 3,
     );
   }
 
@@ -2021,9 +2057,15 @@ class WampWorkloadRunner {
         ? maxInFlight.clamp(1, iterations)
         : maxInFlight;
     var nextIteration = 0;
+    int? sampleWindowStartUs;
+    int? sampleWindowEndUs;
     bool shouldScheduleNext() =>
         nextIteration < iterations ||
-        (minimumDuration != null && timer.elapsed < minimumDuration);
+        (minimumDuration != null &&
+            (timer.elapsed < minimumDuration ||
+                sampleWindowStartUs == null ||
+                sampleWindowEndUs! - sampleWindowStartUs <
+                    minimumDuration.inMicroseconds));
     while (shouldScheduleNext() || pending.isNotEmpty) {
       while (shouldScheduleNext() && pending.length < boundedInFlight) {
         final iteration = nextIteration;
@@ -2040,7 +2082,21 @@ class WampWorkloadRunner {
       }
       final completed = await Future.any(pending.map((entry) => entry.future));
       pending.removeWhere((entry) => entry.iteration == completed.iteration);
-      samples.add(completed.sample);
+      final sample = completed.sample;
+      if (minimumDuration != null) {
+        final start = sample.startedAtUs;
+        final end = sample.completedAtUs;
+        if (start == null || end == null || end < start) {
+          throw StateError('Duration workloads require valid sample timing');
+        }
+        if (sampleWindowStartUs == null || start < sampleWindowStartUs) {
+          sampleWindowStartUs = start;
+        }
+        if (sampleWindowEndUs == null || end > sampleWindowEndUs) {
+          sampleWindowEndUs = end;
+        }
+      }
+      samples.add(sample);
     }
     return samples;
   }
@@ -2106,16 +2162,26 @@ class WampWorkloadRunner {
       _ => throw StateError('Unvalidated benchmark PPT serializer'),
     };
     native_buffers.NativeOwnedBuffer? owner;
+    native_buffers.NativePptPayloadLease? lease;
     try {
       Object? value;
+      wamp_core.PackedPayloadParts? dartParts;
       switch (scenario.payloadConstruction) {
         case WampPayloadConstruction.dartValues:
-          value = _buildTypedBenchmarkValue(
-            serializer,
-            worker: worker,
-            iteration: iteration,
-            bodyBytes: scenario.payloadBytes,
-          );
+          if (serializer == 'flatbuffers') {
+            dartParts = BenchPayloadCodec.encodeDartParts(
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+          } else {
+            value = _buildTypedBenchmarkValue(
+              serializer,
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+          }
         case WampPayloadConstruction.nativeBuffer:
           owner = serializer == 'flatbuffers'
               ? BenchPayloadCodec.encodeNative(
@@ -2132,46 +2198,77 @@ class WampWorkloadRunner {
                   bodyBytes: scenario.payloadBytes,
                 );
         case WampPayloadConstruction.preEncodedSpan:
-          final valueToEncode = _buildTypedBenchmarkValue(
-            serializer,
-            worker: worker,
-            iteration: iteration,
-            bodyBytes: scenario.payloadBytes,
-          );
-          owner = _copyToNative(_encodePptValue(serializer, valueToEncode));
+          if (serializer == 'flatbuffers') {
+            final encoded = BenchPayloadCodec.encodeDartParts(
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+            owner = _copyPartsToNative(encoded);
+          } else {
+            final valueToEncode = _buildTypedBenchmarkValue(
+              serializer,
+              worker: worker,
+              iteration: iteration,
+              bodyBytes: scenario.payloadBytes,
+            );
+            owner = _copyToNative(_encodePptValue(serializer, valueToEncode));
+          }
       }
       preparation.stop();
-      final payload = owner != null
-          ? serializer == 'flatbuffers'
-                ? owner.asFlatBuffersPptPayload()
-                : owner.asPptPayload(
-                    encoding: encoding,
-                    packedPayloadDecoder: (bytes) {
-                      final decoded = serializer == 'cbor'
-                          ? wamp_cbor.Serializer().deserializePPT(bytes)
-                          : wamp_msgpack.Serializer().deserializePPT(bytes);
-                      if (decoded == null) {
-                        throw const FormatException(
-                          'Invalid benchmark PPT payload',
-                        );
-                      }
-                      return (
-                        arguments: decoded.arguments,
-                        argumentsKeywords: decoded.argumentsKeywords,
-                      );
-                    },
-                  )
-          : wamp_core.LazyMessagePayload.materialized(
-              encoding: encoding,
-              arguments: [value],
-            );
+      final wamp_core.LazyMessagePayload payload;
+      if (owner != null) {
+        lease = serializer == 'flatbuffers'
+            ? owner.leaseFlatBuffersPptPayload()
+            : owner.leasePptPayload(
+                encoding: encoding,
+                packedPayloadDecoder: (bytes) {
+                  final decoded = serializer == 'cbor'
+                      ? wamp_cbor.Serializer().deserializePPT(bytes)
+                      : wamp_msgpack.Serializer().deserializePPT(bytes);
+                  if (decoded == null) {
+                    throw const FormatException(
+                      'Invalid benchmark PPT payload',
+                    );
+                  }
+                  return (
+                    arguments: decoded.arguments,
+                    argumentsKeywords: decoded.argumentsKeywords,
+                  );
+                },
+              );
+        payload = lease.payload;
+        final producer = owner;
+        final leasedOwner = lease.nativeOwnerFor(payload);
+        if (leasedOwner == null) {
+          throw StateError('Benchmark payload lease lost its native owner');
+        }
+        producer.dispose();
+        owner = leasedOwner;
+      } else if (dartParts != null) {
+        payload = wamp_core.LazyMessagePayload.packedSource(
+          encoding: encoding,
+          source: dartParts,
+          packedPayloadDecoder: (bytes) => (
+            arguments: [bytes],
+            argumentsKeywords: null,
+          ),
+        );
+      } else {
+        payload = wamp_core.LazyMessagePayload.materialized(
+          encoding: encoding,
+          arguments: [value],
+        );
+      }
       if (owner != null) observeNativeFlatBufferPptSubmissions(owner);
       return _PreparedBenchPayload(
         payload: payload,
         owner: owner,
+        lease: lease,
         preparationUs: preparation.elapsedMicroseconds,
       );
     } catch (_) {
+      lease?.dispose();
       owner?.dispose();
       rethrow;
     }
@@ -2211,6 +2308,22 @@ class WampWorkloadRunner {
     final builder = _nativeBuffers.allocate(bytes.length);
     try {
       builder.writeBytes(0, bytes);
+      return builder.freeze();
+    } finally {
+      builder.dispose();
+    }
+  }
+
+  native_buffers.NativeOwnedBuffer _copyPartsToNative(
+    wamp_core.PackedPayloadParts encoded,
+  ) {
+    final builder = _nativeBuffers.allocate(encoded.length);
+    try {
+      var offset = 0;
+      for (final part in encoded.fragments) {
+        builder.writeBytes(offset, part);
+        offset += part.length;
+      }
       return builder.freeze();
     } finally {
       builder.dispose();
@@ -2314,12 +2427,14 @@ class WampWorkloadRunner {
   wamp_core.CallOptions? _buildCallOptions(
     WampScenario scenario, {
     int? timeout,
+    bool receiveProgress = false,
   }) {
-    if (scenario.pptScheme == null && timeout == null) {
+    if (scenario.pptScheme == null && timeout == null && !receiveProgress) {
       return null;
     }
     return wamp_core.CallOptions(
       timeout: timeout,
+      receiveProgress: receiveProgress ? true : null,
       pptScheme: scenario.pptScheme,
       pptSerializer: _resolvePptSerializer(scenario),
       pptCipher: scenario.pptCipher,
@@ -3329,11 +3444,13 @@ class _PreparedBenchPayload {
   const _PreparedBenchPayload({
     required this.payload,
     required this.owner,
+    this.lease,
     required this.preparationUs,
   });
 
   final wamp_core.LazyMessagePayload payload;
   final native_buffers.NativeOwnedBuffer? owner;
+  final native_buffers.NativePptPayloadLease? lease;
   final int preparationUs;
 
   int get nativeBuilderInputCopiedBytes => owner?.inputCopiedBytes ?? 0;
@@ -3346,7 +3463,13 @@ class _PreparedBenchPayload {
       ? null
       : nativeFlatBufferPptSubmissionSnapshot(owner!).reusedBytes;
 
-  void dispose() => owner?.dispose();
+  void dispose() {
+    if (lease != null) {
+      lease!.dispose();
+    } else {
+      owner?.dispose();
+    }
+  }
 }
 
 class WampScenario {
@@ -3859,7 +3982,105 @@ enum WampMode {
   }
 }
 
+// Immutable scalar observation context only; never payload data or owners.
+final class _SampleContext {
+  const _SampleContext(
+    this.worker,
+    this.requestBytes,
+    this.responseBytes,
+    this.nativeBuilderInputCopiedBytes,
+    this.nativeBuilderGrowthCopiedBytes,
+    this.nativePptFrameSubmissions,
+    this.nativePptPayloadBytes,
+    this.nativePptPayloadReusedBytes,
+  );
+  final int worker;
+  final int requestBytes;
+  final int responseBytes;
+  final int? nativeBuilderInputCopiedBytes;
+  final int? nativeBuilderGrowthCopiedBytes;
+  final int? nativePptFrameSubmissions;
+  final int? nativePptPayloadBytes;
+  final int? nativePptPayloadReusedBytes;
+
+  static _SampleContext? _last;
+  static final _recent = <_SampleContext>[];
+  bool matches(
+    int worker,
+    int requestBytes,
+    int responseBytes,
+    int? nativeBuilderInputCopiedBytes,
+    int? nativeBuilderGrowthCopiedBytes,
+    int? nativePptFrameSubmissions,
+    int? nativePptPayloadBytes,
+    int? nativePptPayloadReusedBytes,
+  ) =>
+      this.worker == worker &&
+      this.requestBytes == requestBytes &&
+      this.responseBytes == responseBytes &&
+      this.nativeBuilderInputCopiedBytes == nativeBuilderInputCopiedBytes &&
+      this.nativeBuilderGrowthCopiedBytes == nativeBuilderGrowthCopiedBytes &&
+      this.nativePptFrameSubmissions == nativePptFrameSubmissions &&
+      this.nativePptPayloadBytes == nativePptPayloadBytes &&
+      this.nativePptPayloadReusedBytes == nativePptPayloadReusedBytes;
+  static _SampleContext intern(
+    int worker,
+    int requestBytes,
+    int responseBytes,
+    int? nativeBuilderInputCopiedBytes,
+    int? nativeBuilderGrowthCopiedBytes,
+    int? nativePptFrameSubmissions,
+    int? nativePptPayloadBytes,
+    int? nativePptPayloadReusedBytes,
+  ) {
+    final last = _last;
+    if (last != null &&
+        last.matches(
+          worker,
+          requestBytes,
+          responseBytes,
+          nativeBuilderInputCopiedBytes,
+          nativeBuilderGrowthCopiedBytes,
+          nativePptFrameSubmissions,
+          nativePptPayloadBytes,
+          nativePptPayloadReusedBytes,
+        )) {
+      return last;
+    }
+    for (final entry in _recent) {
+      if (entry.matches(
+        worker,
+        requestBytes,
+        responseBytes,
+        nativeBuilderInputCopiedBytes,
+        nativeBuilderGrowthCopiedBytes,
+        nativePptFrameSubmissions,
+        nativePptPayloadBytes,
+        nativePptPayloadReusedBytes,
+      )) {
+        return _last = entry;
+      }
+    }
+    final entry = _SampleContext(
+      worker,
+      requestBytes,
+      responseBytes,
+      nativeBuilderInputCopiedBytes,
+      nativeBuilderGrowthCopiedBytes,
+      nativePptFrameSubmissions,
+      nativePptPayloadBytes,
+      nativePptPayloadReusedBytes,
+    );
+    if (_recent.length == 64) _recent.removeAt(0);
+    _recent.add(entry);
+    return _last = entry;
+  }
+}
+
 class WampSample {
+  /// Internal worker IPC version; public reports retain named JSON fields.
+  static const workerRecordEncoding = 'positional_v1';
+
   factory WampSample({
     required int worker,
     required int iteration,
@@ -3894,33 +4115,46 @@ class WampSample {
     );
   }
 
-  const WampSample._({
-    required this.worker,
+  WampSample._({
+    required int worker,
     required this.iteration,
     required this.latencyMs,
-    required this.requestBytes,
-    required this.responseBytes,
+    required int requestBytes,
+    required int responseBytes,
     required this.payloadPreparationUs,
-    required this.nativeBuilderInputCopiedBytes,
-    required this.nativeBuilderGrowthCopiedBytes,
-    required this.nativePptFrameSubmissions,
-    required this.nativePptPayloadBytes,
-    required this.nativePptPayloadReusedBytes,
+    required int? nativeBuilderInputCopiedBytes,
+    required int? nativeBuilderGrowthCopiedBytes,
+    required int? nativePptFrameSubmissions,
+    required int? nativePptPayloadBytes,
+    required int? nativePptPayloadReusedBytes,
     required this.startedAtUs,
     required this.completedAtUs,
-  });
+  }) : _context = _SampleContext.intern(
+         worker,
+         requestBytes,
+         responseBytes,
+         nativeBuilderInputCopiedBytes,
+         nativeBuilderGrowthCopiedBytes,
+         nativePptFrameSubmissions,
+         nativePptPayloadBytes,
+         nativePptPayloadReusedBytes,
+       );
 
-  final int worker;
+  final _SampleContext _context;
+
+  int get worker => _context.worker;
   final int iteration;
   final double latencyMs;
-  final int requestBytes;
-  final int responseBytes;
+  int get requestBytes => _context.requestBytes;
+  int get responseBytes => _context.responseBytes;
   final int? payloadPreparationUs;
-  final int? nativeBuilderInputCopiedBytes;
-  final int? nativeBuilderGrowthCopiedBytes;
-  final int? nativePptFrameSubmissions;
-  final int? nativePptPayloadBytes;
-  final int? nativePptPayloadReusedBytes;
+  int? get nativeBuilderInputCopiedBytes =>
+      _context.nativeBuilderInputCopiedBytes;
+  int? get nativeBuilderGrowthCopiedBytes =>
+      _context.nativeBuilderGrowthCopiedBytes;
+  int? get nativePptFrameSubmissions => _context.nativePptFrameSubmissions;
+  int? get nativePptPayloadBytes => _context.nativePptPayloadBytes;
+  int? get nativePptPayloadReusedBytes => _context.nativePptPayloadReusedBytes;
   final int? startedAtUs;
   final int? completedAtUs;
 
@@ -3953,6 +4187,45 @@ class WampSample {
       completedAtUs: _readOptionalJsonInt(json['completed_at_us']),
     );
   }
+
+  /// Reads the complete fixed-version worker record without a field-name map.
+  factory WampSample.fromWorkerRecord(List<Object?> row) {
+    if (row.length != 13) {
+      throw const FormatException('Invalid positional_v1 WAMP sample length');
+    }
+    return WampSample._(
+      worker: _readJsonInt(row[0]),
+      iteration: _readJsonInt(row[1]),
+      latencyMs: _readJsonDouble(row[2]),
+      requestBytes: _readJsonInt(row[3]),
+      responseBytes: _readJsonInt(row[4]),
+      payloadPreparationUs: _readOptionalJsonInt(row[5]),
+      nativeBuilderInputCopiedBytes: _readOptionalJsonInt(row[6]),
+      nativeBuilderGrowthCopiedBytes: _readOptionalJsonInt(row[7]),
+      nativePptFrameSubmissions: _readOptionalCopyCount(row[8]),
+      nativePptPayloadBytes: _readOptionalCopyCount(row[9]),
+      nativePptPayloadReusedBytes: _readOptionalCopyCount(row[10]),
+      startedAtUs: _readOptionalJsonInt(row[11]),
+      completedAtUs: _readOptionalJsonInt(row[12]),
+    );
+  }
+
+  /// Lossless worker-only field order, identified by [workerRecordEncoding].
+  List<Object?> toWorkerRecord() => [
+    worker,
+    iteration,
+    latencyMs,
+    requestBytes,
+    responseBytes,
+    payloadPreparationUs,
+    nativeBuilderInputCopiedBytes,
+    nativeBuilderGrowthCopiedBytes,
+    nativePptFrameSubmissions,
+    nativePptPayloadBytes,
+    nativePptPayloadReusedBytes,
+    startedAtUs,
+    completedAtUs,
+  ];
 
   Map<String, Object?> toJson() => {
     'worker': worker,

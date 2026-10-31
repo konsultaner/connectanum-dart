@@ -451,6 +451,15 @@ class RouterSession {
         });
         return;
       }
+      // Capture the received wire contract before calling application code. The
+      // byte views retain their native allocation independently of the CALL loan.
+      final originalPayload = invocation.toLazyPayload();
+      final originalPptHeaders = (
+        scheme: details.pptScheme,
+        serializer: details.pptSerializer,
+        cipher: details.pptCipher,
+        keyId: details.pptKeyId,
+      );
       invocation.onResponse((response) {
         if (response is yield_msg.Yield) {
           final details = <String, Object?>{};
@@ -474,7 +483,8 @@ class RouterSession {
           }
           final retainedNativePayload = _reuseTransferredNativeCallPayload(
             response,
-            invocation,
+            originalPayload,
+            originalPptHeaders,
             transferredPayload,
           );
           replyPort.send({
@@ -1057,7 +1067,7 @@ const String _internalMsgCallResult = 'call_result';
 const String _internalMsgCallError = 'call_error';
 const String _internalMsgCallProgress = 'call_progress';
 const String _internalMsgForwardInterrupt = 'forward_interrupt';
-const String _internalMsgLazyPayload = 'lazyPayload';
+const String _internalMsgLazyPayload = internalSessionLazyPayloadKey;
 
 const String _transferredLazyPayloadMarkerKey = r'$connectanumLazyPayload';
 const String _transferredLazyPayloadEncodingKey = 'encoding';
@@ -1146,24 +1156,61 @@ Object? _buildTransferredNativeCallPayload({
   required int retainedHandle,
 }) {
   final options = message.options;
-  if (retainedHandle <= 0 ||
-      message.lazyPayloadEncoding == null ||
-      message.hasDecodedPptPayload ||
-      message.transparentBinaryPayload != null ||
-      options?.pptScheme != null ||
-      options?.pptSerializer != null ||
-      options?.pptCipher != null ||
-      options?.pptKeyId != null) {
+  final headers = (
+    scheme: options?.pptScheme,
+    serializer: options?.pptSerializer,
+    cipher: options?.pptCipher,
+    keyId: options?.pptKeyId,
+  );
+  final hasPpt =
+      headers != (scheme: null, serializer: null, cipher: null, keyId: null);
+  final encoding =
+      message.lazyPayloadEncoding ??
+      (incomingMessage.serializer == NativeMessageSerializer.flatbuffers
+          ? LazyPayloadEncoding.cbor
+          : null);
+  if (retainedHandle <= 0 || encoding == null || message.hasDecodedPptPayload) {
     return null;
   }
   final argumentsBytes = message.debugEncodedArgumentsBytes;
   final argumentsKeywordsBytes = message.debugEncodedArgumentsKeywordsBytes;
+  final opaque = message.transparentBinaryPayload;
+  if (hasPpt) {
+    if (incomingMessage.pptHeaders != headers ||
+        !_matchesPlaintextPptHeaders(
+          headers,
+          pptScheme: headers.scheme,
+          pptSerializer: headers.serializer,
+          pptCipher: headers.cipher,
+          pptKeyId: headers.keyId,
+        ) ||
+        argumentsKeywordsBytes != null ||
+        message.wireArgumentsKeywords != null ||
+        !incomingMessage.canBorrowPlaintextPptPayload(retainedHandle)) {
+      return null;
+    }
+    if (opaque != null) {
+      if (incomingMessage.serializer != NativeMessageSerializer.flatbuffers ||
+          !_sameByteView(opaque, incomingMessage.transparentPayloadBytes) ||
+          argumentsBytes != null ||
+          message.wireArguments != null ||
+          message.wireArgumentsKeywords != null) {
+        return null;
+      }
+    } else if (argumentsBytes == null ||
+        binaryPptArgumentView(encoding, argumentsBytes) == null) {
+      return null;
+    }
+  } else if (incomingMessage.pptHeaders != null ||
+      opaque != null ||
+      (argumentsBytes == null && argumentsKeywordsBytes == null)) {
+    return null;
+  }
   if (!_sameByteView(argumentsBytes, incomingMessage.argumentsBytes) ||
       !_sameByteView(
         argumentsKeywordsBytes,
         incomingMessage.argumentsKeywordsBytes,
       ) ||
-      (argumentsBytes == null && argumentsKeywordsBytes == null) ||
       (argumentsBytes != null && incomingMessage.argumentsAddress <= 0) ||
       (argumentsKeywordsBytes != null &&
           incomingMessage.argumentsKeywordsAddress <= 0)) {
@@ -1171,7 +1218,7 @@ Object? _buildTransferredNativeCallPayload({
   }
   return <String, Object?>{
     _transferredLazyPayloadMarkerKey: true,
-    _transferredLazyPayloadEncodingKey: message.lazyPayloadEncoding!.name,
+    _transferredLazyPayloadEncodingKey: encoding.name,
     _transferredNativeCallPayloadKey: true,
     _transferredNativeCallHandleKey: retainedHandle,
     _transferredNativeSerializerKey: incomingMessage.serializer.name,
@@ -1200,23 +1247,102 @@ bool _sameByteView(Uint8List? left, Uint8List? right) {
       left.lengthInBytes == right.lengthInBytes;
 }
 
+// Result-from-CALL preserves exactly these headers. All transforms, extra result
+// details and reserved WAMP payload processing keep the ordinary send path.
+bool _matchesPlaintextPptHeaders(
+  NativeCallPptHeaders? source, {
+  String? pptScheme,
+  String? pptSerializer,
+  String? pptCipher,
+  String? pptKeyId,
+  Map<String, Object?>? details,
+}) {
+  if (source == null ||
+      source.scheme == null ||
+      source.scheme!.isEmpty ||
+      source.scheme == 'wamp' ||
+      source.cipher != null ||
+      source.keyId != null ||
+      source.scheme != pptScheme ||
+      source.serializer != pptSerializer ||
+      pptCipher != null ||
+      pptKeyId != null) {
+    return false;
+  }
+  if (details != null) {
+    for (final key in details.keys) {
+      final value = details[key];
+      final matches = switch (key) {
+        'ppt_scheme' => value == source.scheme,
+        'ppt_serializer' =>
+          source.serializer != null && value == source.serializer,
+        // An absent progress field and its WAMP default have the same meaning.
+        'progress' => value == false,
+        _ => false,
+      };
+      if (!matches) return false;
+    }
+  }
+  return true;
+}
+
 Object? _reuseTransferredNativeCallPayload(
   yield_msg.Yield response,
-  invocation_msg.Invocation invocation,
+  LazyMessagePayload originalPayload,
+  NativeCallPptHeaders originalHeaders,
   Object? transferredPayload,
 ) {
   if (!_isTransferredNativeCallPayload(transferredPayload) ||
-      response.options != null ||
-      response.hasDecodedPptPayload ||
+      response.hasDecodedPptPayload) {
+    return null;
+  }
+  if (originalHeaders.scheme != null) {
+    final options = response.options;
+    if (options == null ||
+        options.progress ||
+        !_matchesPlaintextPptHeaders(
+          originalHeaders,
+          pptScheme: options.pptScheme,
+          pptSerializer: options.pptSerializer,
+          pptCipher: options.pptCipher,
+          pptKeyId: options.pptKeyId,
+          details: options.custom,
+        ) ||
+        response.debugEncodedArgumentsBytes != null ||
+        response.debugEncodedArgumentsKeywordsBytes != null) {
+      return null;
+    }
+    final body =
+        originalPayload.packedPayloadBytes ??
+        originalPayload.transparentBinaryPayload;
+    if (body == null) return null;
+    final arguments = response.wireArguments;
+    final opaque = response.transparentBinaryPayload;
+    if (response.wireArgumentsKeywords != null ||
+        !(opaque != null &&
+                _sameByteView(
+                  opaque,
+                  originalPayload.transparentBinaryPayload,
+                ) &&
+                arguments == null ||
+            opaque == null &&
+                arguments != null &&
+                arguments.length == 1 &&
+                identical(arguments.single, body))) {
+      return null;
+    }
+    return transferredPayload;
+  }
+  if (response.options != null ||
       response.transparentBinaryPayload != null ||
-      response.lazyPayloadEncoding != invocation.lazyPayloadEncoding ||
+      response.lazyPayloadEncoding != originalPayload.encoding ||
       !_sameByteView(
         response.debugEncodedArgumentsBytes,
-        invocation.debugEncodedArgumentsBytes,
+        originalPayload.argumentsBytes,
       ) ||
       !_sameByteView(
         response.debugEncodedArgumentsKeywordsBytes,
-        invocation.debugEncodedArgumentsKeywordsBytes,
+        originalPayload.argumentsKeywordsBytes,
       )) {
     return null;
   }
@@ -1293,6 +1419,9 @@ Object? _copyTransferredNativeCallPayload(
     encoding: _lazyPayloadEncodingFromName(
       raw[_transferredLazyPayloadEncodingKey] as String?,
     ),
+    transparentBinaryPayload: source.transparentPayloadBytes == null
+        ? null
+        : OwnedCopyMetrics.copyBytes(source.transparentPayloadBytes!),
     argumentsBytes: argumentsBytes == null
         ? null
         : OwnedCopyMetrics.copyBytes(argumentsBytes),
@@ -2502,17 +2631,7 @@ class _InternalSessionIsolate {
               });
               break;
             }
-            replyPort.send(response);
-            final type = response['type'];
-            if (type == 'error') {
-              break;
-            }
-            if (type == 'result') {
-              final progress = response['progress'] as bool? ?? false;
-              if (!progress) {
-                break;
-              }
-            }
+            if (forwardInternalSessionReply(replyPort, response)) break;
           }
         } finally {
           _pendingInvocations.remove(invocationId);

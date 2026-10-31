@@ -38,6 +38,28 @@ session; allocation alone does not negotiate that profile. Use a fresh
 ObjectBuilder for each build because the upstream runtime caches offsets in model
 instances.
 
+`NativeFlatBufferBuilder.writeByteVector(length, fill)` also constructs a byte
+vector directly in native storage. Pass its returned offset to the application's
+generated table builder. The synchronous callback receives `NativeWritableBytes`:
+use checked scalar setters or `uint32Words(count: ...)` and indexed word stores.
+No mutable typed-data view, backing buffer or pointer is exposed. All scoped
+writers reject writes after the callback returns, including after reset, growth
+or native owner disposal. Scoped writers cannot be sent through isolate ports.
+Unwritten vector bytes are zero, including after reset.
+
+`NativeBufferBuilder.writeByteRange(offset, length, fill)` provides the same
+scoped access to an existing initialized range. Untouched bytes retain their
+previous values. New allocations start at zero. During either callback, native
+builder mutation, finish, reset, freeze and disposal are blocked. A thrown error,
+failed source copy or returned Future prevents publication; reset the FlatBuffers
+builder or dispose it. Fixed-size builders require disposal after a failed fill.
+
+Primitive stores construct output values and count no input byte-array copy.
+`NativeWritableBytes.writeBytes` counts each completed source copy, and failed
+copies remain explicit. Growth accounting is unchanged. This measures builder
+operations; it does not measure application work before the callback or claim
+that encoding, SDK/TLS/crypto internals or output stores have no cost.
+
 ## Storage and ownership
 
 Storage is initialized to zero before any builder writes. FlatBuffers allocation
@@ -106,6 +128,15 @@ newly serialized metadata fragments; those header copies appear in the normal
 Dart-to-native submission counter. The optimized path requires a nonempty PPT
 scheme other than `wamp`, a serializer, and no cipher/key ID. Explicit WebSocket
 fragment sizing continues through the regular fragment-size path.
+
+`buffer.leasePptPayload(encoding: ..., packedPayloadDecoder: ...)` adds an
+independently disposable reference and delays exporting a Dart byte view until
+one is needed. Use `lease.payload` with the same Session calls and dispose the
+lease after its last use. FlatBuffers has the schema-opaque convenience helper
+`leaseFlatBuffersPptPayload()`. Native CBOR/MessagePack fragment serialization
+still needs a Dart byte view to identify its native span; a lease does not
+promise to remove that export. Already exported views survive lease disposal.
+No native ABI version changes are required.
 
 Copied/replaced lists and untagged derived views use their supplied bytes through
 the regular serializer. A forged owner record cannot substitute an unrelated

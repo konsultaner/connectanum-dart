@@ -1,3 +1,4 @@
+import 'package:connectanum_core/src/serializer/flatbuffers/validation_types.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/wire_reader.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/generated/validation_schema.dart';
 import 'dart:convert';
@@ -36,6 +37,7 @@ Uint8List encoded(
 }
 
 void main() {
+  _sparseTableChecks();
   test('aliased wire strings share one decoded allocation', () {
     final builder = WampFlatBufferBuilder();
     builder.finish(
@@ -141,6 +143,46 @@ void main() {
     );
     expect(frame.challengeMethod, 'wamp-scram');
   });
+  test('opaque RESULT validates controls beyond its PPT headers', () {
+    const principal = {'session': 9, 'authid': 'alice', 'authrole': 'member'};
+    final body = <String, Object?>{
+      'request': 42,
+      'ppt_serializer': 6,
+      'payload': Uint8List.fromList([0, 255]),
+      'callee': 9,
+      'callee_authrole': 'member',
+      'forward_for': [principal],
+    };
+    final dictionary = <String, Object?>{
+      'ppt_scheme': 'x_example',
+      'ppt_serializer': 'flatbuffers',
+      'callee': 9,
+      'callee_authrole': 'member',
+      'forward_for': [principal],
+    };
+    final frame = readWampFlatBufferFrame(
+      encoded(body, dictionary, name: 'Result'),
+    );
+    expect(frame.fields['payload'], [0, 255]);
+    expect(frame.dictionary, dictionary);
+    for (final change in <Map<String, Object?>>[
+      {'callee': 10},
+      {'callee_authrole': 42},
+      {
+        'forward_for': [
+          {...principal, 'session': 10},
+        ],
+      },
+    ]) {
+      expect(
+        () => readWampFlatBufferFrame(
+          encoded(body, {...dictionary, ...change}, name: 'Result'),
+        ),
+        throwsFormatException,
+        reason: '$change',
+      );
+    }
+  });
   test('unexpected root metadata on an acknowledgement is rejected', () {
     expect(
       () => readWampFlatBufferFrame(
@@ -192,5 +234,100 @@ void main() {
       ),
       throwsFormatException,
     );
+  });
+}
+
+void _sparseTableChecks() {
+  for (final table in wampValidationTables) {
+    final names = {for (final field in table.fields) field.name};
+    if (!names.contains('args')) continue;
+    final body = <String, Object?>{
+      for (final field in table.fields)
+        if (field.required && field.kind == FlatBufferFieldKind.string)
+          field.name: 'com.example.value',
+      if (names.contains('request')) 'request': 42,
+      if (names.contains('request_type')) 'request_type': 48,
+    };
+    test(
+      'optional payload omitted ${table.name} preserves defaults and args/kwargs views',
+      () {
+        final bytes = encoded(
+          {
+            ...body,
+            'args': [0x80],
+            'kwargs': [0xa0],
+          },
+          {},
+          name: table.name,
+        );
+        final frame = readWampFlatBufferFrame(bytes);
+        expect(frame.fields['payload'], isNull);
+        expect(frame.fields['args'], isA<Uint8List>());
+        expect(frame.fields['kwargs'], isA<Uint8List>());
+        if (table.name == 'Call') {
+          expect(frame.fields['request'], 42);
+          expect(frame.fields['session'], 0);
+          expect(frame.fields['timeout'], 0);
+          expect(frame.fields['receive_progress'], isFalse);
+        }
+        final args = frame.fields['args'] as Uint8List;
+        final position = args.offsetInBytes - bytes.offsetInBytes;
+        expect(position, inInclusiveRange(0, bytes.length - args.length));
+        bytes[position] = 0x81;
+        expect(
+          args.single,
+          0x81,
+          reason: 'the exact backing storage is retained',
+        );
+        for (final field in table.fields) {
+          if (field.kind == FlatBufferFieldKind.scalar) {
+            expect(frame.fields.containsKey(field.name), isTrue);
+            expect(frame.fields[field.name], isNotNull);
+          }
+        }
+      },
+    );
+    for (final item in <String, List<int>>{
+      'args_empty': [],
+      'args_truncated': [0x81],
+      'args_root': [0xa0],
+      'kwargs_empty': [],
+      'kwargs_truncated': [0xa1],
+      'kwargs_root': [0x80],
+      'kwargs_key': [0xa1, 0x01, 0x01],
+    }.entries) {
+      test('optional payload omitted ${table.name} rejects ${item.key}', () {
+        final key = item.key.startsWith('args_') ? 'args' : 'kwargs';
+        final bytes = encoded({...body, key: item.value}, {}, name: table.name);
+        expect(
+          () => readWampFlatBufferFrame(bytes),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'CBOR validation',
+              startsWith('Invalid FlatBuffers CBOR'),
+            ),
+          ),
+        );
+      });
+    }
+  }
+  test('public metadata stays independently mutable with explicit nulls', () {
+    final bytes = encoded(
+      {'request': 42, 'procedure': 'com.example.echo'},
+      {
+        'user_null': null,
+        'nested': {'value': null},
+      },
+    );
+    final first = readWampFlatBufferFrame(bytes).dictionary!;
+    final second = readWampFlatBufferFrame(bytes).dictionary!;
+    expect(first.containsKey('user_null'), isTrue);
+    expect(second.containsKey('user_null'), isTrue);
+    first.remove('user_null');
+    (first['nested'] as Map)['value'] = 42;
+    expect(second.containsKey('user_null'), isTrue);
+    expect((second['nested'] as Map).containsKey('value'), isTrue);
+    expect((second['nested'] as Map)['value'], isNull);
   });
 }

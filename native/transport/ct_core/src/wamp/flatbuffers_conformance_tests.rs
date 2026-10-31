@@ -284,3 +284,62 @@ fn verifier_rejects_missing_roots_and_out_of_bounds_offsets() {
     bad[..4].copy_from_slice(&u32::MAX.to_le_bytes());
     assert!(wire::root_as_message(&bad).is_err());
 }
+
+#[test]
+fn bounded_reader_counts_unique_tables_and_preserves_shared_principals() {
+    fn frame(unique: usize, count: usize) -> bytes::Bytes {
+        let mut builder = FlatBufferBuilder::new();
+        let principals: Vec<_> = (0..unique)
+            .map(|index| {
+                wire::Principal::create(
+                    &mut builder,
+                    &wire::PrincipalArgs {
+                        session: index as u64 + 1,
+                        ..Default::default()
+                    },
+                )
+            })
+            .collect();
+        let indices: Vec<_> = (0..count).map(|index| index.min(unique - 1)).collect();
+        let references: Vec<_> = indices.iter().map(|index| principals[*index]).collect();
+        let forwarded = builder.create_vector(&references);
+        let metadata = serde_cbor::to_vec(&serde_json::json!({
+            "forward_for": indices.iter().map(|index| serde_json::json!({"session": index + 1})).collect::<Vec<_>>()
+        })).unwrap();
+        let metadata = builder.create_vector(&metadata);
+        let procedure = builder.create_string("bench.rpc.echo");
+        let call = wire::Call::create(
+            &mut builder,
+            &wire::CallArgs {
+                request: 42,
+                procedure: Some(procedure),
+                forward_for: Some(forwarded),
+                ..Default::default()
+            },
+        );
+        let message = wire::Message::create(
+            &mut builder,
+            &wire::MessageArgs {
+                msg_type: wire::AnyMessage::Call,
+                msg: Some(call.as_union_value()),
+                metadata: Some(metadata),
+                ..Default::default()
+            },
+        );
+        wire::finish_message_buffer(&mut builder, message);
+        bytes::Bytes::copy_from_slice(builder.finished_data())
+    }
+    // Many references to shared tables are valid; the limit counts distinct
+    // (offset, schema) tables, including the root and CALL control table.
+    let shared = super::parse_message(super::Serializer::Flatbuffers, frame(5, 10_001)).unwrap();
+    let super::WampMessage::Call { options, .. } = shared.message else {
+        panic!("CALL")
+    };
+    assert!(
+        matches!(options.get(&serde_value::Value::String("forward_for".into())), Some(serde_value::Value::Seq(values)) if values.len() == 10_001)
+    );
+    super::parse_message(super::Serializer::Flatbuffers, frame(9_998, 9_998)).unwrap();
+    let error =
+        super::parse_message(super::Serializer::Flatbuffers, frame(9_999, 9_999)).unwrap_err();
+    assert!(error.to_string().contains("table limit"), "{error}");
+}

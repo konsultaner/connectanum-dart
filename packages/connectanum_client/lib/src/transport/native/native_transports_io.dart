@@ -1,6 +1,10 @@
 // Observe the core buffer operations without changing public codec APIs.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
+// Outgoing profile checks do not expose editable reconstructed messages.
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/flatbuffers/message_reader.dart'
+    show readWampFlatBufferProfileMessage;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
@@ -21,12 +25,17 @@ import '../abstract_transport.dart';
 import '../socket/socket_helper.dart';
 import '../websocket/websocket_transport_serialization.dart';
 import 'e2ee_file_segment.dart';
+import 'e2ee_payload.dart';
+import 'external_byte_buffer.dart';
 import 'flatbuffers_payload_anchor.dart';
 import 'message_binding.dart';
 import 'message_protocol.dart';
 import 'runtime.dart';
 
 const _nativeReceiveBatchSize = 32;
+// Common opaque CALL/PUBLISH prefixes fit here. Larger routing metadata grows
+// through the same guarded native allocator.
+const _nativeFlatBufferControlReserveBytes = 256;
 
 @visibleForTesting
 List<int> collectNativeReceiveBatch(
@@ -51,18 +60,22 @@ NativeIncomingMessage? nativeIncomingMessageForAnchor(Object? anchor) {
   return incoming is NativeIncomingMessage ? incoming : null;
 }
 
-/// Releases storage borrowed by a lazy payload from the native runtime.
+/// Releases native storage borrowed by a lazy payload, including native frame
+/// allocations made by Dart transports.
 ///
 /// Returns `true` when [payload] has native backing storage. After this call,
 /// the payload and any byte views obtained from it must not be accessed. Calls
 /// for Dart-owned payloads are safe no-ops, and repeated native releases are
 /// idempotent.
 bool releaseNativeMessagePayload(LazyMessagePayload payload) {
-  final incoming = nativeIncomingMessageForAnchor(payload.anchor);
+  // Protocol bookkeeping can replace the public anchor. The retained storage
+  // owner continues to identify the bytes, including after PPT decoding.
+  final owner = payload.storageOwner ?? payload.anchor;
+  final incoming = nativeIncomingMessageForAnchor(owner);
   if (incoming == null) {
-    return false;
+    return owner != null && releaseRetainedNativeExternalBytes(owner);
   }
-  incoming.release();
+  incoming.releasePayloadStorage();
   return true;
 }
 
@@ -136,7 +149,7 @@ abstract class _NativeTransportBase extends AbstractTransport
   _prepareEncodedBytes(Uint8List bytes) {
     final profile = _flatBuffersProfile;
     if (profile == null) return null;
-    final message = (_serializer as flatbuffers.Serializer).deserialize(bytes)!;
+    final message = readWampFlatBufferProfileMessage(bytes);
     return (
       profile: profile.prepareOutgoing(message, advertise: false),
       message: message,
@@ -153,6 +166,7 @@ abstract class _NativeTransportBase extends AbstractTransport
 
   bool _sendNativeFlatBufferPptPayload(
     AbstractMessage message,
+    int connectionId,
   ) {
     if (_nativeSerializer != NativeMessageSerializer.flatbuffers ||
         !nativeBuffers.supportsFlatBufferFrames ||
@@ -174,12 +188,19 @@ abstract class _NativeTransportBase extends AbstractTransport
       ),
       _ => (null, null, null, null),
     };
-    if (scheme == null ||
-        scheme.isEmpty ||
-        scheme == 'wamp' ||
-        serializer != 'flatbuffers' ||
-        cipher != null ||
-        keyId != null) {
+    final nativeWampE2ee =
+        scheme == 'wamp' &&
+        (serializer == 'cbor' || serializer == 'flatbuffers') &&
+        cipher != null &&
+        keyId != null;
+    final nativeOpaquePpt =
+        scheme != null &&
+        scheme.isNotEmpty &&
+        scheme != 'wamp' &&
+        serializer == 'flatbuffers' &&
+        cipher == null &&
+        keyId == null;
+    if (!nativeWampE2ee && !nativeOpaquePpt) {
       return false;
     }
 
@@ -199,7 +220,18 @@ abstract class _NativeTransportBase extends AbstractTransport
       return false;
     }
 
-    final builder = nativeBuffers.flatBuffers(initialSize: 1024);
+    if (nativeBuffers.supportsSegmentedBuffers &&
+        _sendCanonicalNativeFlatBufferPptSegments(
+          message,
+          connectionId,
+          payloadOwner,
+        )) {
+      return true;
+    }
+
+    final builder = nativeBuffers.flatBuffers(
+      initialSize: _nativeFlatBufferControlReserveBytes,
+    );
     NativeOwnedBuffer? control;
     late final NativeFlatBufferFrame frame;
     try {
@@ -220,7 +252,21 @@ abstract class _NativeTransportBase extends AbstractTransport
       control?.dispose();
     }
     try {
-      sendNativeFrame(frame, transfer: true);
+      // This control frame was just projected from the supplied message and
+      // validated by native composition. Reconstructing that same model is
+      // unnecessary; caller-supplied frames still use _prepareNativeFrame.
+      // Recheck the current phase after any model accessors have run.
+      if (_connectionId != connectionId) {
+        throw StateError(
+          'Transport connection changed during frame construction',
+        );
+      }
+      final nextProfile = _flatBuffersProfile?.prepareOutgoing(
+        message,
+        advertise: false,
+      );
+      nativeBuffers.sendFrame(connectionId, frame, transfer: true);
+      _commitSend(nextProfile, message);
       recordNativeFlatBufferPptSubmission(payloadOwner, payloadOwner.length);
       return true;
     } finally {
@@ -228,9 +274,80 @@ abstract class _NativeTransportBase extends AbstractTransport
     }
   }
 
+  bool _sendCanonicalNativeFlatBufferPptSegments(
+    AbstractMessage message,
+    int connectionId,
+    NativeOwnedBuffer payloadOwner,
+  ) {
+    const maximumFrameBytes = 64 * 1024 * 1024;
+    if (payloadOwner.length > maximumFrameBytes) {
+      return false;
+    }
+    final builder = nativeBuffers.flatBuffers(
+      initialSize: _nativeFlatBufferControlReserveBytes,
+    );
+    NativeOwnedBuffer? prefix;
+    try {
+      // The SDK builds backwards: this first word ends the prefix, directly
+      // before the separately retained body. The prefix alone is incomplete.
+      builder.putUint32(payloadOwner.length);
+      final vector = flatbuffers.FlatBufferByteVectorReference(
+        builder,
+        builder.offset,
+      );
+      // Keep the opaque body's logical wire offset eight-byte aligned even
+      // when all uint64 fields have their default values and are omitted.
+      builder.putFloat64(0.0);
+      builder.finish(
+        flatbuffers.writeWampFlatBufferMessage(
+          message,
+          builder,
+          payloadVector: vector,
+        ),
+      );
+      prefix = builder.freeze();
+      if (prefix.length + payloadOwner.length > maximumFrameBytes) {
+        return false;
+      }
+      final nextProfile = _flatBuffersProfile?.prepareOutgoing(
+        message,
+        advertise: false,
+      );
+      // Canonical projection and profile accessors may run user code. Public
+      // raw-frame submission keeps its independent structural/profile checks.
+      if (_connectionId != connectionId) {
+        throw StateError(
+          'Transport connection changed during frame construction',
+        );
+      }
+      nativeBuffers.sendSegments(connectionId, [prefix, payloadOwner]);
+      _commitSend(nextProfile, message);
+      recordNativeFlatBufferPptSubmission(payloadOwner, payloadOwner.length);
+      return true;
+    } finally {
+      builder.dispose();
+      prefix?.dispose();
+    }
+  }
+
   NativeOwnedBuffer? _nativeFlatBufferPayloadOwner(
     LazyMessagePayload payload,
-  ) => _nativePptPayloadOwner(payload, flatBuffersOnly: true)?.buffer;
+  ) {
+    final owner = payload.storageOwner;
+    if (owner is NativeE2eeOwnedPayload) {
+      final packed = payload.packedPayloadBytes;
+      if (identical(packed, owner.bytes) &&
+          owner.storageOwner is NativeOwnedBuffer) {
+        return owner.storageOwner as NativeOwnedBuffer;
+      }
+    }
+    final source = packedPayloadSourceOf(payload);
+    if (payload.encoding == LazyPayloadEncoding.flatbuffers &&
+        source is NativePptPayloadLease) {
+      return source.nativeOwnerFor(payload);
+    }
+    return _nativePptPayloadOwner(payload, flatBuffersOnly: true)?.buffer;
+  }
 
   ({NativeOwnedBuffer buffer, Uint8List bytes})? _nativePptPayloadOwner(
     LazyMessagePayload payload, {
@@ -240,12 +357,19 @@ abstract class _NativeTransportBase extends AbstractTransport
     Object? owner = payload.storageOwner ?? payload.anchor;
     var current = payload;
     while (seen.add(current)) {
-      final packed = current.packedPayloadBytes;
+      final source = packedPayloadSourceOf(current);
+      if (!flatBuffersOnly && source is NativePptPayloadLease) {
+        final owner = source.nativeOwnerFor(current);
+        if (owner != null) return (buffer: owner, bytes: source.bytes);
+      }
       if ((!flatBuffersOnly ||
               current.encoding == LazyPayloadEncoding.flatbuffers) &&
-          packed != null) {
-        if (owner is NativeFlatBufferPptOwnerAnchor &&
-            owner.buffer is NativeOwnedBuffer &&
+          owner is NativeFlatBufferPptOwnerAnchor &&
+          owner.buffer is NativeOwnedBuffer) {
+        // Ineligible owners must not materialize a fragmented source just to
+        // fail this probe. Its serializer can consume the original fragments.
+        final packed = current.packedPayloadBytes;
+        if (packed != null &&
             identical(packed, owner.bytes) &&
             (owner.buffer as NativeOwnedBuffer).ownsPptPayloadBytes(packed)) {
           return (buffer: owner.buffer as NativeOwnedBuffer, bytes: packed);
@@ -564,7 +688,7 @@ abstract class _NativeTransportBase extends AbstractTransport
       throw StateError('Transport is not connected.');
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
-    if (_sendNativeFlatBufferPptPayload(message)) return;
+    if (_sendNativeFlatBufferPptPayload(message, connectionId)) return;
     if (_sendNativeEncodedPptPayload(message)) {
       _commitSend(nextProfile, message);
       return;
@@ -804,6 +928,80 @@ Uint8List buildNativeFileSegmentPrefix(
   return prefix;
 }
 
+/// Replace the empty CBOR byte argument in a deferred FlatBuffers vector with
+/// a file-backed byte string. The vector length covers the CBOR header and the
+/// file bytes; the native writer supplies the file bytes without a Dart copy.
+@visibleForTesting
+Uint8List buildNativeFlatBuffersFileSegmentPrefix(
+  AbstractMessage message, {
+  required int fileLength,
+}) {
+  if (fileLength < 0) {
+    throw ArgumentError.value(fileLength, 'fileLength', 'must be non-negative');
+  }
+  final fragments = flatbuffers.Serializer().serializeFragments(message);
+  if (fragments == null ||
+      (fragments.length != 3 &&
+          !(fragments.length == 4 && fragments[3].isEmpty)) ||
+      fragments[2].length != 2 ||
+      fragments[2][0] != 0x81 ||
+      fragments[2][1] != 0x40) {
+    throw StateError(
+      'FlatBuffers file chunk must contain one empty CBOR byte argument',
+    );
+  }
+  final control = fragments[0];
+  final vectorHeader = fragments[1];
+  final byteHeader = _cborBinaryHeader(fileLength);
+  final vectorLength = 1 + byteHeader.length + fileLength;
+  const maximumFrameBytes = 64 * 1024 * 1024;
+  if (control.length + vectorHeader.length + vectorLength > maximumFrameBytes) {
+    throw ArgumentError.value(
+      fileLength,
+      'fileLength',
+      'FlatBuffers frame exceeds the byte limit',
+    );
+  }
+  ByteData.sublistView(vectorHeader).setUint32(
+    vectorHeader.length - 4,
+    vectorLength,
+    Endian.little,
+  );
+  final prefix = Uint8List(
+    control.length + vectorHeader.length + 1 + byteHeader.length,
+  );
+  prefix.setRange(0, control.length, control);
+  OwnedCopyMetrics.record(OwnedCopyKind.coalescing, control.length);
+  prefix.setRange(
+    control.length,
+    control.length + vectorHeader.length,
+    vectorHeader,
+  );
+  OwnedCopyMetrics.record(OwnedCopyKind.coalescing, vectorHeader.length);
+  final argumentOffset = control.length + vectorHeader.length;
+  prefix[argumentOffset] = 0x81;
+  prefix.setRange(
+    argumentOffset + 1,
+    prefix.length,
+    byteHeader,
+  );
+  OwnedCopyMetrics.record(OwnedCopyKind.coalescing, byteHeader.length);
+  return prefix;
+}
+
+Uint8List _nativeFileSegmentPrefix(
+  AbstractMessage message, {
+  required int serializerType,
+  required int fileLength,
+  required Uint8List Function(AbstractMessage) encode,
+}) => serializerType == SocketHelper.serializationFlatBuffers
+    ? buildNativeFlatBuffersFileSegmentPrefix(message, fileLength: fileLength)
+    : buildNativeFileSegmentPrefix(
+        encode(message),
+        serializerType: serializerType,
+        fileLength: fileLength,
+      );
+
 Uint8List _nativeFileSegmentSuffix(int serializerType) {
   return serializerType == SocketHelper.serializationJson
       ? OwnedCopyMetrics.copyBytes(const [0x22, 0x5d, 0x5d])
@@ -994,8 +1192,7 @@ class NativeRawSocketTransport extends _NativeTransportBase
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return _nativeSerializer != NativeMessageSerializer.flatbuffers &&
-        connectionId != null &&
+    return connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -1045,11 +1242,11 @@ class NativeRawSocketTransport extends _NativeTransportBase
     if (source.isClosed) {
       throw StateError('The native file source is already closed');
     }
-    final encoded = _encodeMessage(message);
-    final prefix = buildNativeFileSegmentPrefix(
-      encoded,
+    final prefix = _nativeFileSegmentPrefix(
+      message,
       serializerType: _serializerType,
       fileLength: length,
+      encode: _encodeMessage,
     );
     _runtime.sendMessageFileSegment(
       connectionId,
@@ -1090,10 +1287,11 @@ class NativeRawSocketTransport extends _NativeTransportBase
       length,
       e2ee.cipher,
     );
-    final prefix = buildNativeFileSegmentPrefix(
-      _encodeMessage(message),
+    final prefix = _nativeFileSegmentPrefix(
+      message,
       serializerType: _serializerType,
       fileLength: ciphertextLength,
+      encode: _encodeMessage,
     );
     _runtime.sendMessageNativeE2eeFileSegment(
       connectionId,
@@ -1235,8 +1433,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return _nativeSerializer != NativeMessageSerializer.flatbuffers &&
-        connectionId != null &&
+    return connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -1287,11 +1484,11 @@ class NativeWebSocketTransport extends _NativeTransportBase
       throw StateError('The native file source is already closed');
     }
     final serializerType = _fileSegmentSerializerType;
-    final encoded = _encodeMessage(message);
-    final prefix = buildNativeFileSegmentPrefix(
-      encoded,
+    final prefix = _nativeFileSegmentPrefix(
+      message,
       serializerType: serializerType,
       fileLength: length,
+      encode: _encodeMessage,
     );
     _runtime.sendMessageFileSegment(
       connectionId,
@@ -1332,10 +1529,11 @@ class NativeWebSocketTransport extends _NativeTransportBase
       length,
       e2ee.cipher,
     );
-    final prefix = buildNativeFileSegmentPrefix(
-      _encodeMessage(message),
+    final prefix = _nativeFileSegmentPrefix(
+      message,
       serializerType: _fileSegmentSerializerType,
       fileLength: ciphertextLength,
+      encode: _encodeMessage,
     );
     _runtime.sendMessageNativeE2eeFileSegment(
       connectionId,
@@ -1359,7 +1557,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
       throw StateError('Transport is not connected.');
     }
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
-    if (_sendNativeFlatBufferPptPayload(message)) return;
+    if (_sendNativeFlatBufferPptPayload(message, connectionId)) return;
     if ((_fragmentSize ?? 0) == 0 && _sendNativeEncodedPptPayload(message)) {
       _commitSend(nextProfile, message);
       return;

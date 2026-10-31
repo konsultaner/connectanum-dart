@@ -13,6 +13,8 @@ import 'message_writer.dart';
 import 'runtime.dart';
 import 'wire_writer.dart';
 
+const _flatBufferEnvelopeReserveBytes = 256;
+
 /// The pinned Connectanum WAMP FlatBuffers binding.
 ///
 /// Dynamic WAMP arguments use CBOR vectors inside a FlatBuffers envelope.
@@ -28,10 +30,10 @@ class Serializer extends AbstractSerializer {
     for (final value in body.values) {
       if (value is Uint8List) vectorBytes += value.length;
     }
-    // Encoding already produced these vectors. Reserve their bytes once instead
-    // of growing a small envelope to twice the large application payload size.
+    // Encoding already produced these vectors. Reserve their bytes once and
+    // leave a bounded envelope allowance without retaining excess capacity.
     final builder = WampFlatBufferBuilder(
-      initialSize: vectorBytes > 1024 ? (vectorBytes + 1024 + 7) & ~7 : 1024,
+      initialSize: (vectorBytes + _flatBufferEnvelopeReserveBytes + 7) & ~7,
     );
     builder.finish(writeWampFlatBufferFields(fields, builder));
     final bytes = builder.buffer;
@@ -44,14 +46,74 @@ class Serializer extends AbstractSerializer {
   /// Encode one WAMP frame while retaining its encoded application byte views.
   /// Concatenate the fragments in order; each fragment is part of that frame.
   /// Keep their backing owners and contents valid until transmission completes.
-  /// Ordinary Dart arguments still require CBOR encoding before composition.
+  /// General Dart arguments still require CBOR encoding before composition.
+  /// A single binary WAMP argument, including opaque encrypted ciphertext,
+  /// can retain its bytes after a small CBOR prefix.
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is! AbstractMessageWithPayload) return null;
-    final builder = WampFlatBufferBuilder();
-    final vectors = <DeferredFlatBufferVector>[];
-    final root = writeWampFlatBufferMessage(
+    final lazyPayload = message.toLazyPayload();
+    if (lazyPayload.transparentBinaryPayload == null &&
+        !lazyPayload.hasPackedPayloadBytes &&
+        !lazyPayload.hasEncodedArguments &&
+        !lazyPayload.hasEncodedArgumentsKeywords &&
+        lazyPayload.arguments == null &&
+        lazyPayload.argumentsKeywords == null) {
+      // Payload-capable control messages are common in CALL/CANCEL and
+      // REGISTER/INVOCATION cycles. Avoid projecting and building them here
+      // only to return null and have the transport serialize them again.
+      return null;
+    }
+    final fields = prepareWampFlatBufferMessage(
       message,
+      lazyPayload: lazyPayload,
+      fragmentBinaryArguments: true,
+      fragmentPackedPayload: true,
+    );
+    final body = fields['msg'] as Map<String, Object?>;
+    final payload = body['payload'];
+    final payloadLength = switch (payload) {
+      Uint8List bytes => bytes.length,
+      FlatBufferByteVectorParts parts => parts.length,
+      _ => null,
+    };
+    if (payloadLength != null) {
+      final builder = WampFlatBufferBuilder(
+        initialSize: _flatBufferEnvelopeReserveBytes,
+      );
+      // The builder grows backwards. An empty vector written first places its
+      // length word at the end of the envelope, directly before the body span.
+      final vector = builder.writeListUint8(const <int>[]);
+      body['payload'] = FlatBufferByteVectorReference(builder, vector);
+      builder.finish(writeWampFlatBufferFields(fields, builder));
+      final control = builder.buffer;
+      if (vector == 4 && control.length % 8 == 0) {
+        if (payloadLength > 64 * 1024 * 1024 - control.length) {
+          throw ArgumentError('FlatBuffers frame exceeds the byte limit');
+        }
+        // Both fragments form one FlatBuffer. Its vector length covers the
+        // following original body; the root offset at the start stays intact.
+        ByteData.sublistView(
+          control,
+        ).setUint32(control.length - 4, payloadLength, Endian.little);
+        return [
+          control,
+          if (payload is Uint8List)
+            payload
+          else
+            ...(payload as FlatBufferByteVectorParts).parts,
+        ];
+      }
+      // Keep the existing layout if a builder cannot place the original body
+      // at an eight-byte wire boundary.
+      body['payload'] = payload;
+    }
+    final builder = WampFlatBufferBuilder(
+      initialSize: _flatBufferEnvelopeReserveBytes,
+    );
+    final vectors = <DeferredFlatBufferVector>[];
+    final root = writeWampFlatBufferFields(
+      fields,
       builder,
       deferredVectors: vectors,
     );
@@ -80,6 +142,30 @@ class Serializer extends AbstractSerializer {
       message,
       encodedDictionary,
       decodeFlatBufferMetadata(encodedDictionary),
+    );
+  }
+
+  /// Retain immutable, owner-backed native metadata for a forwarding path.
+  /// Validation is immediate. Untagged dictionaries defer decoding/snapshots
+  /// until a Dart resend; tagged dictionaries keep eager semantic decoding.
+  /// [initialMessage] must reconstruct the original control fields without
+  /// payloads or retained metadata, independently of later edits to [message].
+  /// The native bytes must remain unchanged while the message is alive. A
+  /// successful call replaces prior retained metadata; invalid bytes leave it
+  /// unchanged. The factory must not re-enter retention on this message.
+  void retainNativeMetadata(
+    AbstractMessage message,
+    Uint8List encodedDictionary,
+    AbstractMessage Function() initialMessage,
+  ) {
+    if (!validateDeferredFlatBufferMetadata(encodedDictionary)) {
+      retainMetadata(message, encodedDictionary);
+      return;
+    }
+    retainNativeWampFlatBufferDictionary(
+      message,
+      encodedDictionary,
+      initialMessage,
     );
   }
 

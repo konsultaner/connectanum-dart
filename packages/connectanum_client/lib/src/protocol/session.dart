@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 
 import '../transport/abstract_transport.dart';
 import '../transport/native/e2ee_file_segment.dart';
+import '../transport/native/e2ee_payload.dart';
 import '../transport/native/message_binding.dart';
 import '../transport/native/message_protocol.dart';
 
@@ -2073,6 +2074,15 @@ class Session {
     message.transparentBinaryPayload = options?.pptScheme == null
         ? payload.transparentBinaryPayload
         : null;
+    if (packedPayloadSourceOf(payload) != null &&
+        options?.pptScheme != null &&
+        options?.pptScheme != 'wamp' &&
+        _matchesPayloadEncoding(payload.encoding, options?.pptSerializer)) {
+      // Preserve encoded source identity until transport selection. Neither a
+      // native send nor a detached metadata view needs a Dart application view.
+      message.restoreLazyPayload(payload);
+      return;
+    }
     Uint8List? packedPayload;
     if (options?.pptScheme != null && options?.pptScheme != 'wamp') {
       packedPayload = _packMatchingLazyPayload(payload, options!.pptSerializer);
@@ -2080,6 +2090,42 @@ class Session {
     if (options?.pptScheme == 'wamp') {
       // Packed CBOR can be plaintext or use another key/cipher. Applying the
       // outbound provider also preserves its contextual key-selection policy.
+      final provider = runtimeE2eeProvider ?? message.e2eeProvider;
+      if (provider != null && provider is NativeE2eePayloadPacker) {
+        final nativePacker = provider as NativeE2eePayloadPacker;
+        final runtimeContext = message.e2eeRuntimeContext;
+        final packed = nativePacker.packNativePayload(
+          payload.arguments ?? fallbackArguments,
+          payload.argumentsKeywords ?? fallbackArgumentsKeywords,
+          options!,
+          runtimeContext: runtimeContext,
+        );
+        if (packed != null) {
+          message.restoreLazyPayload(
+            LazyMessagePayload.packed(
+              encoding: packed.encoding,
+              packedPayloadBytes: packed.bytes,
+              packedPayloadDecoder: (bytes) {
+                final decoded = provider.unpackPayload(
+                  <dynamic>[bytes],
+                  options,
+                  runtimeContext: runtimeContext,
+                );
+                return (
+                  arguments: decoded.arguments,
+                  argumentsKeywords: decoded.argumentsKeywords,
+                );
+              },
+              pptDecoded: false,
+              e2eeProvider: provider,
+              e2eeRuntimeContext: runtimeContext,
+              anchor: payload,
+              storageOwner: packed,
+            ),
+          );
+          return;
+        }
+      }
       message.arguments = E2EEPayload.packE2EEPayload(
         payload.arguments ?? fallbackArguments,
         payload.argumentsKeywords ?? fallbackArgumentsKeywords,
@@ -2326,7 +2372,8 @@ class _NegotiatedSessionE2eeProvider
     implements
         WampE2eeProvider,
         WampE2eeRuntimePayloadProvider,
-        NativeE2eeFileSegmentProvider {
+        NativeE2eeFileSegmentProvider,
+        NativeE2eePayloadPacker {
   _NegotiatedSessionE2eeProvider({
     required this.provider,
     required this.negotiated,
@@ -2371,6 +2418,29 @@ class _NegotiatedSessionE2eeProvider
       runtimeContext: mergedRuntimeContext,
     );
     return provider.packPayload(
+      arguments,
+      argumentsKeywords,
+      options,
+      runtimeContext: mergedRuntimeContext,
+    );
+  }
+
+  @override
+  NativeE2eeOwnedPayload? packNativePayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    final nativeProvider = provider as Object;
+    if (nativeProvider is! NativeE2eePayloadPacker) return null;
+    final mergedRuntimeContext = _mergeRuntimeContext(runtimeContext);
+    _applyDefaults(
+      options,
+      outbound: true,
+      runtimeContext: mergedRuntimeContext,
+    );
+    return nativeProvider.packNativePayload(
       arguments,
       argumentsKeywords,
       options,

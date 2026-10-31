@@ -302,6 +302,23 @@ typedef CtConnectionMaxRawsocketExponentDart = int Function(int);
 typedef CtConnectionProtocolNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionProtocolDart = int Function(int);
 
+typedef CtConnectionMqttVersionNative = ffi.Int32 Function(ffi.Int32);
+typedef CtConnectionMqttVersionDart = int Function(int);
+typedef CtMqttWakeNative = ffi.Void Function(ffi.Int32);
+typedef CtSetMqttWakeNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.NativeFunction<CtMqttWakeNative>>,
+    );
+typedef CtSetMqttWakeDart =
+    int Function(int, ffi.Pointer<ffi.NativeFunction<CtMqttWakeNative>>);
+typedef CtPollMqttChunkNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtPollMqttChunkDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+typedef CtSendMqttChunkNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtSendMqttChunkDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
 typedef CtConnectionCloseNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionCloseDart = int Function(int);
 
@@ -453,6 +470,12 @@ typedef CtTokioRustlsCopyMetricsSnapshotNative =
 typedef CtTokioRustlsCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<ffi.Uint64>);
 
+typedef CtInternalPptHandoffEligibleNative = ffi.Int32 Function(ffi.Int64);
+typedef CtInternalPptHandoffEligibleDart = int Function(int);
+
+typedef CtInternalPptHandoffVersionNative = ffi.Uint32 Function();
+typedef CtInternalPptHandoffVersionDart = int Function();
+
 typedef CtRawFrameCopyMetricsVersionNative = ffi.Uint32 Function();
 typedef CtRawFrameCopyMetricsVersionDart = int Function();
 typedef CtRawFrameCopyMetricsSnapshotNative =
@@ -460,6 +483,8 @@ typedef CtRawFrameCopyMetricsSnapshotNative =
 typedef CtRawFrameCopyMetricsSnapshotDart =
     int Function(ffi.Pointer<CtRawFrameCopyMetricsInfo>);
 
+typedef CtEncodedWampVolumeNative = ffi.Uint64 Function();
+typedef CtEncodedWampVolumeDart = int Function();
 typedef CtCodecCopyMetricsVersionNative = ffi.Uint32 Function();
 typedef CtCodecCopyMetricsVersionDart = int Function();
 typedef CtCodecCopyMetricsSnapshotNative =
@@ -1246,6 +1271,20 @@ class CtFfiBindings {
                   );
               return (int a0) => call(checkedLegacyMessageHandle(a0));
             })(),
+      ctInternalPptHandoffEligibleV1 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtInternalPptHandoffEligibleNative,
+              CtInternalPptHandoffEligibleDart
+            >('ct_internal_ppt_handoff_eligible_v1_wide'),
+      ),
+      ctInternalPptHandoffVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtInternalPptHandoffVersionNative,
+              CtInternalPptHandoffVersionDart
+            >('ct_internal_ppt_handoff_version'),
+      ),
       ctMessageCanForwardToV1 = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1455,6 +1494,30 @@ class CtFfiBindings {
           .lookupFunction<CtConnectionProtocolNative, CtConnectionProtocolDart>(
             'ct_connection_protocol',
           ),
+      ctConnectionMqttVersion = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtConnectionMqttVersionNative,
+              CtConnectionMqttVersionDart
+            >('ct_connection_mqtt_version'),
+      ),
+      ctSetMqttWake = _tryLookup(
+        () => library.lookupFunction<CtSetMqttWakeNative, CtSetMqttWakeDart>(
+          'ct_set_mqtt_wakeup',
+        ),
+      ),
+      ctPollMqttChunk = _tryLookup(
+        () =>
+            library.lookupFunction<CtPollMqttChunkNative, CtPollMqttChunkDart>(
+              'ct_poll_mqtt_chunk',
+            ),
+      ),
+      ctSendMqttChunk = _tryLookup(
+        () =>
+            library.lookupFunction<CtSendMqttChunkNative, CtSendMqttChunkDart>(
+              'ct_send_mqtt_chunk',
+            ),
+      ),
       ctConnectionClose = library
           .lookupFunction<CtConnectionCloseNative, CtConnectionCloseDart>(
             'ct_connection_close',
@@ -1630,6 +1693,18 @@ class CtFfiBindings {
               CtCodecCopyMetricsVersionDart
             >('ct_codec_copy_metrics_coverage_version'),
       ),
+      ctEncodedWampBytesAccepted = _tryLookup(
+        () => library
+            .lookupFunction<CtEncodedWampVolumeNative, CtEncodedWampVolumeDart>(
+              'ct_wamp_encoded_bytes_accepted_total_v1',
+            ),
+      ),
+      ctEncodedWampSendRejections = _tryLookup(
+        () => library
+            .lookupFunction<CtEncodedWampVolumeNative, CtEncodedWampVolumeDart>(
+              'ct_wamp_encoded_send_rejections_total_v1',
+            ),
+      ),
       ctCodecCopyMetricsSnapshot = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1759,6 +1834,12 @@ class CtFfiBindings {
   final CtMessagePeekDart ctMessagePeek;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
+  final CtInternalPptHandoffEligibleDart? ctInternalPptHandoffEligibleV1;
+  final CtInternalPptHandoffVersionDart? ctInternalPptHandoffVersion;
+  late final bool supportsPlaintextPptHandoff =
+      messageHandleAbi == NativeMessageHandleAbi.wide &&
+      ctInternalPptHandoffEligibleV1 != null &&
+      ctInternalPptHandoffVersion?.call() == 2;
   final CtMessageCanForwardToV1Dart? ctMessageCanForwardToV1;
   final CtMessageCanForwardToV1Dart? ctMessageCanForwardToConnectionV1;
   final CtForwardPublishEventDart ctForwardPublishEvent;
@@ -1775,6 +1856,10 @@ class CtFfiBindings {
   final CtReloadTlsDart ctReloadTls;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionProtocolDart ctConnectionProtocol;
+  final CtConnectionMqttVersionDart? ctConnectionMqttVersion;
+  final CtSetMqttWakeDart? ctSetMqttWake;
+  final CtPollMqttChunkDart? ctPollMqttChunk;
+  final CtSendMqttChunkDart? ctSendMqttChunk;
   final CtConnectionCloseDart ctConnectionClose;
   final CtConnectionWebSocketProtocolDart ctConnectionWebSocketProtocol;
   final CtConnectionTakeHttpHandshakeDart ctConnectionTakeHttpHandshake;
@@ -1811,6 +1896,8 @@ class CtFfiBindings {
   final CtRawFrameCopyMetricsSnapshotDart? ctRawFrameCopyMetricsSnapshot;
   final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsVersion;
   final CtCodecCopyMetricsVersionDart? ctCodecCopyMetricsCoverageVersion;
+  final CtEncodedWampVolumeDart? ctEncodedWampBytesAccepted;
+  final CtEncodedWampVolumeDart? ctEncodedWampSendRejections;
   final CtCodecCopyMetricsSnapshotDart? ctCodecCopyMetricsSnapshot;
   final CtRustlsCopyMetricsSnapshotDart? ctRustlsCopyMetricsSnapshot;
   final CtTransportCopyMetricsSnapshotV2Dart? ctTransportCopyMetricsSnapshotV2;

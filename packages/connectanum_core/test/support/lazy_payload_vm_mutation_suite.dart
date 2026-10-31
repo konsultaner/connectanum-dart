@@ -2,6 +2,7 @@ import 'package:test/test.dart';
 
 import '../message_invocation_test.dart' as invocation;
 import '../message_lazy_payload_regression_test.dart' as lazy_payload;
+import '../message_packed_payload_source_test.dart' as packed_source;
 import '../message_flatbuffers_ppt_view_test.dart' as flatbuffers_ppt;
 import '../message_payload_contract_test.dart' as payload_contract;
 import '../message_result_test.dart' as result;
@@ -12,6 +13,7 @@ void main() {
   group('payload contract', payload_contract.main);
   group('FlatBuffers PPT view', flatbuffers_ppt.main);
   group('lazy payload', lazy_payload.main);
+  group('packed payload source', packed_source.main);
   group('invocation', invocation.main);
   group('result', result.main);
 }

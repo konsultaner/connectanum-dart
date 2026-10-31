@@ -1,0 +1,133 @@
+{
+  "kind": "scalar observation context component; never protocol parity",
+  "source_head": "6575b7e9c827a12de7c41e4fe44ee780ed28d623",
+  "scope": "Every actual Dart/native input record preserved; fresh balanced ABBA; unchanged compact JSON encoding; no payload body reuse, explicit GC, VM or allocator tuning",
+  "records": [
+    {
+      "dataset": "dart",
+      "variant": "baseline",
+      "samples": 33991,
+      "bytes": 2840647,
+      "sha256": "cd56558d757fa2b9bbb90b503125ce529d81a15c8a2f8f5ed2ec8829e62efd99",
+      "load_us": 26249,
+      "encode_and_hash_us": 33203,
+      "rss_loaded": 49840128,
+      "rss_peak_loaded": 49840128,
+      "rss_after": 56393728,
+      "rss_peak": 56393728
+    },
+    {
+      "dataset": "dart",
+      "variant": "candidate",
+      "samples": 33991,
+      "bytes": 2840647,
+      "sha256": "cd56558d757fa2b9bbb90b503125ce529d81a15c8a2f8f5ed2ec8829e62efd99",
+      "load_us": 25003,
+      "encode_and_hash_us": 32461,
+      "rss_loaded": 38010880,
+      "rss_peak_loaded": 38010880,
+      "rss_after": 52396032,
+      "rss_peak": 52396032
+    },
+    {
+      "dataset": "dart",
+      "variant": "candidate",
+      "samples": 33991,
+      "bytes": 2840647,
+      "sha256": "cd56558d757fa2b9bbb90b503125ce529d81a15c8a2f8f5ed2ec8829e62efd99",
+      "load_us": 25657,
+      "encode_and_hash_us": 32376,
+      "rss_loaded": 37289984,
+      "rss_peak_loaded": 37289984,
+      "rss_after": 51675136,
+      "rss_peak": 51675136
+    },
+    {
+      "dataset": "dart",
+      "variant": "baseline",
+      "samples": 33991,
+      "bytes": 2840647,
+      "sha256": "cd56558d757fa2b9bbb90b503125ce529d81a15c8a2f8f5ed2ec8829e62efd99",
+      "load_us": 26548,
+      "encode_and_hash_us": 34677,
+      "rss_loaded": 49872896,
+      "rss_peak_loaded": 49872896,
+      "rss_after": 56459264,
+      "rss_peak": 56459264
+    },
+    {
+      "dataset": "native",
+      "variant": "baseline",
+      "samples": 32067,
+      "bytes": 2776307,
+      "sha256": "3d1780ddfdfee377115310f84f2f2174f91cac235c33d698b9af3e977ffff396",
+      "load_us": 24637,
+      "encode_and_hash_us": 32198,
+      "rss_loaded": 46563328,
+      "rss_peak_loaded": 46563328,
+      "rss_after": 56082432,
+      "rss_peak": 56082432
+    },
+    {
+      "dataset": "native",
+      "variant": "candidate",
+      "samples": 32067,
+      "bytes": 2776307,
+      "sha256": "3d1780ddfdfee377115310f84f2f2174f91cac235c33d698b9af3e977ffff396",
+      "load_us": 23787,
+      "encode_and_hash_us": 31812,
+      "rss_loaded": 34684928,
+      "rss_peak_loaded": 34684928,
+      "rss_after": 51560448,
+      "rss_peak": 51560448
+    },
+    {
+      "dataset": "native",
+      "variant": "candidate",
+      "samples": 32067,
+      "bytes": 2776307,
+      "sha256": "3d1780ddfdfee377115310f84f2f2174f91cac235c33d698b9af3e977ffff396",
+      "load_us": 24077,
+      "encode_and_hash_us": 31775,
+      "rss_loaded": 34668544,
+      "rss_peak_loaded": 34668544,
+      "rss_after": 51544064,
+      "rss_peak": 51544064
+    },
+    {
+      "dataset": "native",
+      "variant": "baseline",
+      "samples": 32067,
+      "bytes": 2776307,
+      "sha256": "3d1780ddfdfee377115310f84f2f2174f91cac235c33d698b9af3e977ffff396",
+      "load_us": 25783,
+      "encode_and_hash_us": 33775,
+      "rss_loaded": 46497792,
+      "rss_peak_loaded": 46497792,
+      "rss_after": 56033280,
+      "rss_peak": 56033280
+    }
+  ],
+  "artifact_sha256": {
+    "probe.dart": "abf2944810d0e31d4d843d3d728448c7058616f7840a285b37ecea895e589aaa",
+    "inputs.json": "42493d5c670915b4e5bbbaf6fce39a9166875a4f73595e88c1007af62a36771a",
+    "dart-records.jsonl": "c3c0dd994c06073e09aa25ede61bf84978d40698ebf3d329976e69fdde4ff08f",
+    "native-records.jsonl": "de77d96c1735ebfa671fbf66c1f79b58146dd8a86402fe0b6db58db8526095ef",
+    "candidate/package_config.json": "268740a8f9df8d13c45160c25cd918c0d56cb265414265af6c6336c0bb4701fd",
+    "candidate/probe": "461e4f31e4f029197b0f10982371f1398c48b6f38bd5890b3c17adaa011f5077",
+    "baseline/package_config.json": "aeaffb55f39b0441112e07fd6493bda76018f442679c9920bd0987cdbc3f18d6",
+    "baseline/probe": "4735f9305d9e1a3b1025e7e3ca251d6df032ca905874a411f1d8d157bfc3e308",
+    "baseline/bench/lib/src/wamp_sample_json.dart": "62148ae41ad2fcde12755fa9cbe403aaf4552091aaed3baa3843163f69c89bd0",
+    "baseline/bench/lib/src/wamp_workload_runner.dart": "883279d44f3a9cbc6f495f5a4323659f73eea7553222fccbb0e95b598785408c",
+    "candidate/bench/lib/src/wamp_sample_json.dart": "62148ae41ad2fcde12755fa9cbe403aaf4552091aaed3baa3843163f69c89bd0",
+    "candidate/bench/lib/src/wamp_workload_runner.dart": "adf2632ec2c01109a30909c44f7c3cc0f1d1c39dc526e691514374a312933c0b"
+  },
+  "decision": "Adopt bounded scalar context sharing for every serializer; public fields and both report encodings remain unchanged. No protocol parity claim.",
+  "limitations": [
+    "Private AOT component, not transport acceptance.",
+    "All 33,991 Dart and 32,067 native actual input records retained; complete positional output hashes match.",
+    "Eight immutable scalar fields may share storage; five per-observation values stay independent. Cache retains at most 64 scalar contexts and no payload/owner.",
+    "No explicit GC, VM/allocator options, work omission or measurement-window change.",
+    "Private source differs from adopted source only in formatting, braces and a private probe marker."
+  ]
+}

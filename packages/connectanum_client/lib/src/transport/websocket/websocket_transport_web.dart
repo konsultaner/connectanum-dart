@@ -1,4 +1,6 @@
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
+// ignore: implementation_imports
+import 'package:connectanum_core/src/serializer/owned_copy_metrics.dart';
 import 'dart:async';
 import 'package:web/web.dart';
 import 'dart:typed_data';
@@ -205,11 +207,17 @@ class WebSocketTransport extends AbstractTransport {
     final nextProfile = _flatBuffersProfile?.prepareOutgoing(message);
     var serializedMessage = _serializer.serialize(message);
     // toJS only works on casted objects
-    _socket!.send(
-      serializedMessage is String
-          ? serializedMessage.toJS
-          : (serializedMessage as Uint8List).toJS,
-    );
+    try {
+      _socket!.send(
+        serializedMessage is String
+            ? serializedMessage.toJS
+            : (serializedMessage as Uint8List).toJS,
+      );
+      OwnedCopyMetrics.recordEncodedWampSubmission(serializedMessage);
+    } on Object {
+      OwnedCopyMetrics.recordRejectedWampSubmission();
+      rethrow;
+    }
     _flatBuffersProfile = nextProfile;
     if (message is Goodbye) _closeState.goodbyeSent = true;
   }

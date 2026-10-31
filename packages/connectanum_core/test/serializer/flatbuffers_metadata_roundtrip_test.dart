@@ -15,6 +15,77 @@ void main() {
   Uint8List metadata(Object? value) => Uint8List.fromList(
     cbor.cbor.encode(cbor.CborValue(value)),
   );
+  for (final code in [36, 50, 68]) {
+    for (final scheme in ['x_profile', 'x_µ']) {
+      test(
+        'PPT details preserve logical metadata and edits code=$code scheme=$scheme',
+        () {
+          for (final extra in <Map<String, Object?>>[
+            {},
+            {
+              'extension': {
+                'nested': [1, 2],
+              },
+            },
+            {'ppt_cipher': null},
+            if (code == 50) {'progress': false},
+          ]) {
+            final dictionary = <String, Object?>{
+              'ppt_scheme': scheme,
+              'ppt_serializer': 'flatbuffers',
+              ...extra,
+            };
+            final input = code == 50
+                ? [code, 17, dictionary]
+                : [code, 17, 19, dictionary];
+            final original = jsonCodec.deserialize(
+              Uint8List.fromList(utf8.encode(jsonEncode(input))),
+            )!;
+            flatCodec.retainMetadataValues(original, dictionary);
+            final received = flatCodec.deserialize(
+              flatCodec.serialize(original),
+            )!;
+            expect(flatCodec.metadataFor(received), dictionary);
+            final core.PPTOptions details = switch (received) {
+              core.Event value => value.details,
+              core.Result value => value.details,
+              core.Invocation value => value.details,
+              _ => throw StateError('unexpected message'),
+            };
+            details.pptScheme = 'x_changed';
+            final custom = switch (details) {
+              core.EventDetails value => value.custom,
+              core.ResultDetails value => value.custom,
+              core.InvocationDetails value => value.custom,
+              _ => throw StateError('unexpected details'),
+            };
+            custom['added'] = true;
+            final introduced = <String, Object?>{};
+            if (details is core.ResultDetails) {
+              details.progress = false;
+              introduced['progress'] = false;
+            } else if (details is core.EventDetails) {
+              details.trustlevel = 0;
+              introduced['trustlevel'] = 0;
+            } else if (details is core.InvocationDetails) {
+              details.timeout = 0;
+              introduced['timeout'] = 0;
+            }
+            final forwarded = flatCodec.deserialize(
+              flatCodec.serialize(received),
+            )!;
+            expect(flatCodec.metadataFor(forwarded), {
+              ...dictionary,
+              'ppt_scheme': 'x_changed',
+              'added': true,
+              ...introduced,
+            });
+          }
+        },
+      );
+    }
+  }
+
   test('native metadata decoding preserves portable integer principals', () {
     const ids = [1, 4294967296, 9007199254740992];
     expect(flatCodec.deserializeMetadata(metadata({'exclude': ids})), {

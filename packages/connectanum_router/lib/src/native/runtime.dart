@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:io';
@@ -5,12 +6,20 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_message_bytes.dart';
-import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
+import 'package:connectanum_core/connectanum_core.dart'
+    show AbstractMessage, AbstractMessageWithPayload, Call;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
 import 'ffi_bindings.dart';
 import 'message_binding.dart';
+import 'message_ready_notifications.dart';
+
+/// Optional wake signal for native WAMP queues; polling remains the fallback.
+abstract interface class NativeRuntimeWithMessageReadyNotifications {
+  Stream<void> get messageReadyNotifications;
+  void armMessageReadyNotifications();
+}
 
 abstract class NativeRuntime {
   void start();
@@ -89,6 +98,14 @@ abstract class NativeRuntimeWithConfiguredListeners implements NativeRuntime {
     int endpointIndex, {
     int backlog = 128,
   });
+}
+
+/// Raw byte channel for MQTT connections accepted by the native listener.
+abstract class NativeRuntimeWithMqtt implements NativeRuntime {
+  int mqttVersion(int connectionId);
+  Uint8List? pollMqttChunk(int connectionId);
+  void sendMqttChunk(int connectionId, Uint8List bytes);
+  void setMqttWake(int connectionId, void Function(int)? callback);
 }
 
 /// Creates and reloads listeners without replacing process-wide configuration.
@@ -198,7 +215,8 @@ enum NativeConnectionProtocol {
   websocket(2),
   http(3),
   http2(4),
-  http3(5);
+  http3(5),
+  mqtt(6);
 
   const NativeConnectionProtocol(this.id);
 
@@ -1592,6 +1610,31 @@ class _NativeMessageMetadata {
   bool hasFlag(int flag) => (flags & flag) != 0;
 }
 
+/// Immutable header snapshot taken before application code can mutate a CALL.
+typedef NativeCallPptHeaders = ({
+  String? scheme,
+  String? serializer,
+  String? cipher,
+  String? keyId,
+});
+
+NativeCallPptHeaders? _nativeCallPptHeaders(AbstractMessage message) {
+  if (message is! Call) return null;
+  final options = message.options;
+  if (options?.pptScheme == null &&
+      options?.pptSerializer == null &&
+      options?.pptCipher == null &&
+      options?.pptKeyId == null) {
+    return null;
+  }
+  return (
+    scheme: options?.pptScheme,
+    serializer: options?.pptSerializer,
+    cipher: options?.pptCipher,
+    keyId: options?.pptKeyId,
+  );
+}
+
 class NativeIncomingMessage {
   NativeIncomingMessage._({
     required this.serializer,
@@ -1607,10 +1650,16 @@ class NativeIncomingMessage {
     int Function(int handle)? takeOverride,
     int Function(int handle)? retainOverride,
     void Function(int handle)? releaseOverride,
+    bool? testPlaintextPptHandoff,
   }) : _bindings = bindings,
        _takeOverride = takeOverride,
        _retainOverride = retainOverride,
-       _releaseOverride = releaseOverride;
+       _releaseOverride = releaseOverride,
+       _testPlaintextPptHandoff = testPlaintextPptHandoff,
+       pptHeaders = _nativeCallPptHeaders(message),
+       transparentPayloadBytes = message is AbstractMessageWithPayload
+           ? message.transparentBinaryPayload
+           : null;
 
   factory NativeIncomingMessage.synthetic({
     required NativeMessageSerializer serializer,
@@ -1639,10 +1688,12 @@ class NativeIncomingMessage {
     return instance;
   }
 
+  @visibleForTesting
   factory NativeIncomingMessage.test({
     required NativeMessageSerializer serializer,
     required AbstractMessage message,
     required int handle,
+    bool supportsPlaintextPptHandoff = false,
     Uint8List? bytes,
     Uint8List? argumentsBytes,
     Uint8List? argumentsKeywordsBytes,
@@ -1660,6 +1711,7 @@ class NativeIncomingMessage {
       argumentsKeywordsAddress: argumentsKeywordsBytes == null ? 0 : 1,
       handle: handle,
       bindings: null,
+      testPlaintextPptHandoff: supportsPlaintextPptHandoff,
       argumentsBytes: argumentsBytes,
       argumentsKeywordsBytes: argumentsKeywordsBytes,
       takeOverride: onTake ?? (handle > 0 ? (_) => handle : null),
@@ -1683,6 +1735,28 @@ class NativeIncomingMessage {
   int Function(int handle)? _takeOverride;
   final int Function(int handle)? _retainOverride;
   final void Function(int handle)? _releaseOverride;
+
+  // Fake messages have no native binding; only the test factory supplies this.
+  final bool? _testPlaintextPptHandoff;
+  final NativeCallPptHeaders? pptHeaders;
+  final Uint8List? transparentPayloadBytes;
+
+  /// Older libraries must use the ordinary, copying PPT handoff.
+  bool get supportsPlaintextPptHandoff =>
+      _bindings?.supportsPlaintextPptHandoff ??
+      _testPlaintextPptHandoff ??
+      false;
+
+  /// Checks the original native contract, including fields whose explicit null
+  /// presence cannot be represented by the Dart PPT options model. The held
+  /// alias remains valid independently of this incoming routing reference.
+  bool canBorrowPlaintextPptPayload(int retainedHandle) {
+    if (retainedHandle <= 0) return false;
+    final bindings = _bindings;
+    if (bindings == null) return _testPlaintextPptHandoff ?? false;
+    return bindings.supportsPlaintextPptHandoff &&
+        bindings.ctInternalPptHandoffEligibleV1!(retainedHandle) == 1;
+  }
 
   bool get hasNativeHandle => handle > 0;
 
@@ -2050,10 +2124,10 @@ _NativeMessageMetadata _metadataFromFfi(
 }
 
 String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
-  if (len <= 0 || ptr.address == 0) {
+  if (ptr == ffi.nullptr) {
     return null;
   }
-  return String.fromCharCodes(ptr.asTypedList(len));
+  return utf8.decode(ptr.asTypedList(len));
 }
 
 String _buildNativeErrorMessage(int code, String context) {
@@ -2309,9 +2383,11 @@ abstract final class NativeLibraryLoader {
 class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
+        NativeRuntimeWithMqtt,
         NativeRuntimeWithConfiguredListeners,
         NativeRuntimeWithRouterConfiguration,
-        NativeRuntimeWithInternalCallForwarding {
+        NativeRuntimeWithInternalCallForwarding,
+        NativeRuntimeWithMessageReadyNotifications {
   /// Loads `ct_ffi` and creates the process-wide native transport runtime.
   factory NativeTransportRuntime({String? libraryPath}) {
     if (_instance != null) {
@@ -2339,6 +2415,10 @@ class NativeTransportRuntime
   final String _libraryPath;
   final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.
   final CtFfiBindings _bindings;
+  ffi.Pointer<ffi.Uint8>? _mqttReadBuffer;
+  ffi.Pointer<ffi.Uint8>? _mqttWriteBuffer;
+  ffi.NativeCallable<CtMqttWakeNative>? _mqttWake;
+  final Map<int, void Function(int)> _mqttWakeCallbacks = {};
   int _dartToNativeCopiedBytesTotal = 0;
   // Resolve lazily so older libraries still support unambiguous listeners.
   late final CtListenConfiguredDart _listenConfigured = _library
@@ -2358,6 +2438,13 @@ class NativeTransportRuntime
         'ct_reload_router_tls',
       );
   final _MessageBindings _messageBindings;
+  late final _messageReady = NativeMessageReadyNotifications(_library);
+
+  @override
+  Stream<void> get messageReadyNotifications => _messageReady.events;
+
+  @override
+  void armMessageReadyNotifications() => _messageReady.arm();
   RandomAccessFile? _runtimeLock;
 
   static NativeTransportRuntime? _instance;
@@ -2383,6 +2470,9 @@ class NativeTransportRuntime
 
   /// Releases Dart-side callbacks and process-wide runtime ownership.
   void dispose() {
+    _messageReady.dispose();
+    _releaseMqttWake();
+    _releaseMqttBuffers();
     _releaseRuntimeLock();
     if (_instance == this) {
       _instance = null;
@@ -2454,6 +2544,7 @@ class NativeTransportRuntime
     _acquireRuntimeLock();
     try {
       _checkZero(_bindings.ctStartRuntime(), 'Failed to start runtime');
+      _messageReady.resume();
     } catch (_) {
       _releaseRuntimeLock();
       rethrow;
@@ -2463,11 +2554,38 @@ class NativeTransportRuntime
   /// Stops the native runtime and releases its process-wide lock.
   @override
   void shutdown() {
+    _messageReady.suspend();
     try {
       _checkZero(_bindings.ctShutdown(), 'Failed to shutdown runtime');
     } finally {
+      _releaseMqttWake();
+      _releaseMqttBuffers();
       _releaseRuntimeLock();
     }
+  }
+
+  void _releaseMqttBuffers() {
+    final read = _mqttReadBuffer;
+    if (read != null) calloc.free(read);
+    _mqttReadBuffer = null;
+    final write = _mqttWriteBuffer;
+    if (write != null) calloc.free(write);
+    _mqttWriteBuffer = null;
+  }
+
+  void _releaseMqttWake() {
+    final call = _bindings.ctSetMqttWake;
+    if (call != null) {
+      for (final connectionId in _mqttWakeCallbacks.keys) {
+        call(
+          connectionId,
+          ffi.nullptr.cast<ffi.NativeFunction<CtMqttWakeNative>>(),
+        );
+      }
+    }
+    _mqttWakeCallbacks.clear();
+    _mqttWake?.close();
+    _mqttWake = null;
   }
 
   /// Opens a native listener and returns its runtime identifier.
@@ -2753,6 +2871,84 @@ class NativeTransportRuntime
       _throwForError(result, 'Failed to query connection protocol');
     }
     return NativeConnectionProtocol.fromId(result);
+  }
+
+  @override
+  int mqttVersion(int connectionId) {
+    final call = _bindings.ctConnectionMqttVersion;
+    if (call == null) {
+      throw UnsupportedError('Native MQTT transport unavailable');
+    }
+    final result = call(connectionId);
+    if (result < 0) {
+      _throwForError(result, 'Failed to query MQTT version');
+    }
+    return result;
+  }
+
+  @override
+  void setMqttWake(int connectionId, void Function(int)? callback) {
+    final call = _bindings.ctSetMqttWake;
+    if (call == null) {
+      throw UnsupportedError('Native MQTT wakeup unavailable');
+    }
+    if (callback == null) {
+      final result = call(
+        connectionId,
+        ffi.nullptr.cast<ffi.NativeFunction<CtMqttWakeNative>>(),
+      );
+      _mqttWakeCallbacks.remove(connectionId);
+      if (result < 0 && result != NativeTransportErrorCode.connectionNotFound) {
+        _throwForError(result, 'Failed to clear MQTT wakeup');
+      }
+      return;
+    }
+    final wake = _mqttWake ??= ffi.NativeCallable<CtMqttWakeNative>.listener(
+      (int connectionId) =>
+          _mqttWakeCallbacks[connectionId]?.call(connectionId),
+    );
+    _mqttWakeCallbacks[connectionId] = callback;
+    final result = call(connectionId, wake.nativeFunction);
+    if (result < 0) {
+      _mqttWakeCallbacks.remove(connectionId);
+      _throwForError(result, 'Failed to set MQTT wakeup');
+    }
+  }
+
+  @override
+  Uint8List? pollMqttChunk(int connectionId) {
+    final call = _bindings.ctPollMqttChunk;
+    if (call == null) {
+      throw UnsupportedError('Native MQTT transport unavailable');
+    }
+    final buffer = _mqttReadBuffer ??= calloc<ffi.Uint8>(64 * 1024);
+    final result = call(connectionId, buffer, 64 * 1024);
+    if (result < 0) {
+      _throwForError(result, 'Failed to poll MQTT bytes');
+    }
+    if (result == 0) return null;
+    return Uint8List.fromList(buffer.asTypedList(result));
+  }
+
+  @override
+  void sendMqttChunk(int connectionId, Uint8List bytes) {
+    final call = _bindings.ctSendMqttChunk;
+    if (call == null) {
+      throw UnsupportedError('Native MQTT transport unavailable');
+    }
+    if (bytes.isEmpty || bytes.length > 1 << 20) {
+      throw ArgumentError.value(
+        bytes.length,
+        'bytes',
+        'Invalid MQTT chunk size',
+      );
+    }
+    final buffer = _mqttWriteBuffer ??= calloc<ffi.Uint8>(1 << 20);
+    buffer.asTypedList(bytes.length).setAll(0, bytes);
+    final result = call(connectionId, buffer, bytes.length);
+    if (result < 0) {
+      _throwForError(result, 'Failed to send MQTT bytes');
+    }
   }
 
   /// Closes [connectionId] and releases its native transport resources.
@@ -3755,6 +3951,23 @@ class NativeTransportRuntime
     }
   }
 
+  /// Independent serialized-volume carriers alongside the unchanged codec map.
+  /// Older libraries remain usable, without advertising absent observations.
+  Map<String, int>? boundaryCodecCopyMetricsSnapshot() {
+    final copies = codecCopyMetricsSnapshot();
+    if (copies == null) return null;
+    return {
+      ...copies,
+      if (_bindings.ctEncodedWampBytesAccepted != null &&
+          _bindings.ctEncodedWampSendRejections != null) ...{
+        'encoded_wamp_volume_version': 1,
+        'encoded_wamp_bytes_accepted': _bindings.ctEncodedWampBytesAccepted!(),
+        'encoded_wamp_send_rejections':
+            _bindings.ctEncodedWampSendRejections!(),
+      },
+    };
+  }
+
   /// Cumulative explicit native codec buffer operations, or unavailable.
   Map<String, int>? codecCopyMetricsSnapshot() {
     final snapshot = _bindings.ctCodecCopyMetricsSnapshot;
@@ -3879,7 +4092,8 @@ class NativeTransportRuntime
         return Uint8List.fromList(encoding.encode(textBody.text));
       case NativeHttpResponseBodyKind.json:
         final jsonBody = body as NativeHttpResponseJson;
-        return Uint8List.fromList(utf8.encode(jsonEncode(jsonBody.value)));
+        final bytes = JsonUtf8Encoder().convert(jsonBody.value);
+        return bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
       case NativeHttpResponseBodyKind.file:
         final fileBody = body as NativeHttpResponseFile;
         return File(fileBody.path).readAsBytesSync();

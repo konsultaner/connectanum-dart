@@ -38,6 +38,17 @@ incoming responses or establish a receive subscription. With a `StreamIterator`,
 start `moveNext()` before sending, then await the receipt and the pending receive.
 The public Session path establishes its listener before the handshake.
 
+For received lazy payloads, `releaseNativeMessagePayload(payload)` ends their
+native storage lifetime explicitly. Call it after the last read, asynchronous
+send and other consumer finishes. Every byte view and derived alias from that
+payload becomes unusable. The function releases both the routing handle and
+its exported native view owners; it also covers native frame allocations used
+by Dart RawSocket transports. Repeated calls are safe, and ordinary Dart-owned
+payloads return `false`. Without this explicit release, automatic finalization
+keeps exported views valid. Low-level `NativeIncomingMessage.release()` releases
+only its routing handle and preserves those exported views. Independently
+exported owners and outbound producer leases retain their separate lifetimes.
+
 `composeFlatBufferFrame` retains all supplied buffers, including present-empty
 spans, on success. It consumes none on failure. Argument/keyword vectors are
 encoded CBOR; a typed application FlatBuffer uses the opaque payload input and
@@ -58,6 +69,37 @@ requires a nonempty PPT scheme other than the reserved `wamp` transparent mode,
 the negotiated session profile before submission. Other payloads continue
 through the regular serializer. The payload schema and its identity remain the
 application's responsibility.
+
+For explicit lifetime control, use `buffer.leaseFlatBuffersPptPayload()` and
+pass `lease.payload` to the same Session APIs. The lease retains its own native
+reference, so the producer can be disposed first. Eligible native FlatBuffers
+CALL/PUBLISH sends do not export a Dart application-byte view. Dispose the lease
+after its last asynchronous use. For example:
+
+```dart
+final lease = producer.leaseFlatBuffersPptPayload();
+producer.dispose();
+try {
+  await session.callLazyPayload(
+    'com.entity.store',
+    payload: lease.payload,
+    options: CallOptions(
+      pptScheme: 'x_my_entity',
+      pptSerializer: 'flatbuffers',
+    ),
+  ).first;
+} finally {
+  lease.dispose();
+}
+```
+
+Application reads and safe serializer/foreign-library fallbacks export a cached,
+independently owned read-only view. Those exported and derived views remain
+valid after disposal and can keep the native allocation alive until collection.
+Disposal before any export prevents later byte access. Mutable message-argument
+access and transparent-payload replacement drop the native source optimization;
+detached `toOwned` copies drop source identity entirely. Existing `as...Payload`
+helpers retain their reusable exported-view contract.
 
 `NativeOwnedBuffer.asPptPayload` also retains encoded CBOR/MessagePack PPT with
 an explicit lazy decoder. Native CBOR/MessagePack CALL/PUBLISH paths now reuse
@@ -168,6 +210,8 @@ evaluates the loader and copies the resulting graph.
 | Boundary | Behavior |
 | --- | --- |
 | Ordinary Dart value encoding | Constructs encoded bytes; binary vectors copy supplied input bytes. |
+| Ordinary typed FlatBuffers PPT singleton | Uses the existing opaque vector for eligible custom PPT. Contiguous output writes the vector; fragmented output retains the original encoded buffer without a CBOR wrapper. Native submission ownership remains a separate boundary. |
+| Fragmented application FlatBuffer | Snapshots the small schema prefix and borrows its original Dart byte vector. Fragment-aware output retains the parts; contiguous access coalesces once and records the copy. This grants no native ownership or external transaction lease. |
 | Native construction | Writes in native storage; growth copies are reported separately. |
 | Immutable native frame composition | Retains application spans without flattening them; control assembly still writes bytes. |
 | Owned/native frame submission | Transfers or retains ownership without a Dart-to-native application copy. |
@@ -388,3 +432,34 @@ Run `python3 tool/run_native_guardmalloc.py --output out/native-guardmalloc` on
 macOS to generate `out/native-guardmalloc/report.json` and the per-group logs.
 The CI job publishes these records as the `native-ownership-guardmalloc` artifact.
 Hosted acceptance requires a successful execution on the feature commit.
+
+
+Canonical native FlatBuffers PPT Call/Publish sends may use the existing owned
+segment ABI to queue a native prefix together with the frozen application buffer.
+The private prefix ends at the vector length word; the combined wire frame keeps
+the payload eight-byte aligned. This bypasses re-parsing an envelope produced by
+the canonical writer. Caller-supplied frames keep their existing validation.
+Both allocations remain retained through the native write/flush, while caller
+body handles remain valid after either acceptance or rejection. Libraries without
+the optional segment ABI keep the existing frame-composition path. The full-frame
+64 MiB bound and session-profile checks still apply. This does not extend foreign
+storage or database transaction lifetimes.
+
+The optional `ct_set_message_ready_callback_v1` and
+`ct_arm_message_ready_callback_v1` pair wakes the router when a complete native
+RawSocket or WebSocket WAMP message has entered its existing queue. The void
+signal carries no pointer, message, lease or ownership transfer. Re-arm before
+scanning queues: existing messages are found by the scan, and later arrivals
+wake the idle timer. Notifications coalesce until re-armed; all subscribers in
+one runtime share a broadcast listener. Libraries missing either symbol keep
+the existing polling fallback and interval.
+
+Native callback invocation, removal and re-arming use the same mutex. Callbacks
+must return promptly without re-entering these functions or runtime shutdown.
+The Dart bridge uses an asynchronous `NativeCallable.listener`, unregisters it
+before closing executable callback storage, and ignores queued notifications
+from previous lifecycle generations. Shutdown removes the callback before
+joining native readers; restart registers a new listener when needed. A router
+starts with an immediate queue scan, so arrivals before listener registration
+do not require a retrospective notification. Payload lifetime and copy counters
+remain governed by the existing message handles.
