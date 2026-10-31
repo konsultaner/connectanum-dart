@@ -11,6 +11,19 @@ remain isolated; PR132 stays draft until complete acceptance. No gate is waived.
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
+Checkpoint: 49b831d5 canonical verification and all 32 hosted MQTT profiles pass;
+owned-copy/E2EE/transcode and native lifetime reports independently reproduce.
+Its paired diagnostic still misses two RSS gates plus Dart GC/p99 confidence.
+Complete 48-case primary 41196965823 and 50-case supplemental 41196967775 are
+running on that frozen source, without altered gates. A separate serial-workload
+candidate avoids completion-race allocations when only one operation is allowed
+in flight. It preserves every operation/sample/window and the concurrent path;
+All 2,873 benchmark VM cases pass. Require its own complete validation before adoption.
+The fd983af8 supplemental predecessor is failed evidence: all 1,500 raw rows
+retained; exact independent aggregate has 173 numerical misses across 38 eligible
+cases and four evidence findings. The SDK allocation-precision question stays
+pending, separately from actual RSS and owned-copy acceptance.
+
 The abb0905b full frozen bin/verify passes, including actual Chrome JS/Wasm,
 with log SHA-256 a54ac89771dd954c543e639dc51c67e63a92c1423e2f4a70ed17540ee6495d91.
 Its MQTT CI still fails on EPYC 7763: independently reproduce all 32 summaries,

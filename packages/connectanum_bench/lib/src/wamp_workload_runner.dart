@@ -2081,22 +2081,33 @@ class WampWorkloadRunner {
                 sampleWindowEndUs! - sampleWindowStartUs <
                     minimumDuration.inMicroseconds));
     while (shouldScheduleNext() || pending.isNotEmpty) {
-      while (shouldScheduleNext() && pending.length < boundedInFlight) {
-        final iteration = nextIteration;
-        pending.add(
-          _PendingWampSample(
-            iteration: iteration,
-            future: launch(iteration).then(
-              (sample) =>
-                  _CompletedWampSample(iteration: iteration, sample: sample),
+      final WampSample sample;
+      if (boundedInFlight == 1) {
+        // A serial workload has no completion race to arbitrate. Keep the same
+        // launch, timing validation and complete sample history without a
+        // pending wrapper, completion wrapper or Future.any listener per call.
+        final iteration = nextIteration++;
+        sample = await launch(iteration);
+      } else {
+        while (shouldScheduleNext() && pending.length < boundedInFlight) {
+          final iteration = nextIteration;
+          pending.add(
+            _PendingWampSample(
+              iteration: iteration,
+              future: launch(iteration).then(
+                (sample) =>
+                    _CompletedWampSample(iteration: iteration, sample: sample),
+              ),
             ),
-          ),
+          );
+          nextIteration += 1;
+        }
+        final completed = await Future.any(
+          pending.map((entry) => entry.future),
         );
-        nextIteration += 1;
+        pending.removeWhere((entry) => entry.iteration == completed.iteration);
+        sample = completed.sample;
       }
-      final completed = await Future.any(pending.map((entry) => entry.future));
-      pending.removeWhere((entry) => entry.iteration == completed.iteration);
-      final sample = completed.sample;
       if (minimumDuration != null) {
         final start = sample.startedAtUs;
         final end = sample.completedAtUs;

@@ -1,0 +1,70 @@
+{
+  "elapsed_median_ratio": 0.8301065810039192,
+  "harness_sha256": "b975f51264271a1121a6262e6c076c9a2900906fb55b35e9de52285361016de1",
+  "rows": [
+    {
+      "elapsed_us": 135717,
+      "index": 0,
+      "label": "baseline",
+      "operations": 100000,
+      "rss_bytes": 487620608,
+      "scope": "fake-session serial scheduler component, not network/RSS acceptance",
+      "source": "49b831d57d24879a6480727c363aaeeae66e953e",
+      "source_file_sha256": "0a3d35094e1da72c2dd53fbcf42f3cb1bc884c776526ea87ff53f97531b80286"
+    },
+    {
+      "elapsed_us": 105937,
+      "index": 1,
+      "label": "candidate",
+      "operations": 100000,
+      "rss_bytes": 494567424,
+      "scope": "fake-session serial scheduler component, not network/RSS acceptance",
+      "source": "49b831d57d24879a6480727c363aaeeae66e953e",
+      "source_file_sha256": "cbf08e5101358e64ebedb9893787ad0af572f4562fee3589b202722bb6d40f49"
+    },
+    {
+      "elapsed_us": 105690,
+      "index": 2,
+      "label": "candidate",
+      "operations": 100000,
+      "rss_bytes": 487620608,
+      "scope": "fake-session serial scheduler component, not network/RSS acceptance",
+      "source": "49b831d57d24879a6480727c363aaeeae66e953e",
+      "source_file_sha256": "cbf08e5101358e64ebedb9893787ad0af572f4562fee3589b202722bb6d40f49"
+    },
+    {
+      "elapsed_us": 127321,
+      "index": 3,
+      "label": "baseline",
+      "operations": 100000,
+      "rss_bytes": 493682688,
+      "scope": "fake-session serial scheduler component, not network/RSS acceptance",
+      "source": "49b831d57d24879a6480727c363aaeeae66e953e",
+      "source_file_sha256": "0a3d35094e1da72c2dd53fbcf42f3cb1bc884c776526ea87ff53f97531b80286"
+    },
+    {
+      "elapsed_us": 122968,
+      "index": 4,
+      "label": "baseline",
+      "operations": 100000,
+      "rss_bytes": 485523456,
+      "scope": "fake-session serial scheduler component, not network/RSS acceptance",
+      "source": "49b831d57d24879a6480727c363aaeeae66e953e",
+      "source_file_sha256": "0a3d35094e1da72c2dd53fbcf42f3cb1bc884c776526ea87ff53f97531b80286"
+    },
+    {
+      "elapsed_us": 93537,
+      "index": 5,
+      "label": "candidate",
+      "operations": 100000,
+      "rss_bytes": 498057216,
+      "scope": "fake-session serial scheduler component, not network/RSS acceptance",
+      "source": "49b831d57d24879a6480727c363aaeeae66e953e",
+      "source_file_sha256": "cbf08e5101358e64ebedb9893787ad0af572f4562fee3589b202722bb6d40f49"
+    }
+  ],
+  "rss_conclusion": "No RAM improvement established by this fake-peer component; strict hosted RSS/full acceptance remains required.",
+  "rss_median_ratio": 1.0142463544116658,
+  "scope": "local fake-session diagnostic, never network/RSS acceptance",
+  "source_identity_note": "Both programs report their common parent HEAD; the candidate was uncommitted. Source file SHA-256 identifies each actually executed runner. This diagnostic is not canonical or network/RSS acceptance."
+}

@@ -302,6 +302,89 @@ void main() {
       );
     });
 
+    for (final delay in [Duration.zero, const Duration(milliseconds: 1)]) {
+      test(
+        'serial RPC retains every ordered sample with delay $delay',
+        () async {
+          final broker = _FakeWampBroker(callDelay: delay);
+          final session = _FakeWampSession(broker);
+          final runner = WampWorkloadRunner(
+            sessionFactory: (_) async => session,
+            logger: Logger.detached('serial_rpc_samples_test'),
+          );
+          final samples = await runner.run(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              serializer: WampSerializer.cbor,
+              mode: WampMode.rpc,
+              uri: 'bench.rpc.echo',
+              iterations: 16,
+              concurrency: 1,
+              inFlightPerSession: 1,
+              payloadBytes: 16,
+            ),
+          );
+          expect(broker.callCounts['bench.rpc.echo'], 16);
+          expect(broker.maxConcurrentCalls, 1);
+          expect(
+            samples.map((s) => s.iteration),
+            orderedEquals(List.generate(16, (i) => i)),
+          );
+          expect(
+            samples.every((s) => s.requestBytes == 16 && s.responseBytes == 16),
+            isTrue,
+          );
+          expect(
+            samples.every((s) => s.completedAtUs! >= s.startedAtUs!),
+            isTrue,
+          );
+          expect(session.isClosed, isTrue);
+        },
+      );
+    }
+
+    test(
+      'serial RPC stops on the original error and closes its session',
+      () async {
+        final error = StateError('third serial operation failed');
+        var calls = 0;
+        final broker = _FakeWampBroker(
+          lazyResultFactory: (payload) {
+            if (++calls == 3) throw error;
+            return wamp_core.LazyResultPayload(
+              callRequestId: calls,
+              progress: false,
+              payload: payload,
+            );
+          },
+        );
+        final session = _FakeWampSession(broker);
+        final runner = WampWorkloadRunner(
+          sessionFactory: (_) async => session,
+          logger: Logger.detached('serial_rpc_error_test'),
+        );
+        await expectLater(
+          runner.run(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              serializer: WampSerializer.cbor,
+              mode: WampMode.rpc,
+              uri: 'bench.rpc.echo',
+              iterations: 16,
+              concurrency: 1,
+              inFlightPerSession: 1,
+              payloadBytes: 16,
+            ),
+          ),
+          throwsA(same(error)),
+        );
+        expect(calls, 3);
+        expect(broker.callCounts['bench.rpc.echo'], 3);
+        expect(broker.maxConcurrentCalls, 1);
+        expect(session.isClosed, isTrue);
+      },
+    );
+
     test('runs RPC operations until the configured minimum duration', () async {
       final broker = _FakeWampBroker(
         callDelay: const Duration(milliseconds: 2),

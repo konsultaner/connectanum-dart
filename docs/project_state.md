@@ -9,6 +9,42 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+## Serial workload candidate and complete campaign checkpoint (2026-10-31)
+
+The independently reproduced 49b831d5 diagnostic has four numerical misses:
+Dart-value RSS 1.01967105, native pre-encoded RSS 1.00405113, Dart GC
+1.06776769 and Dart p99 confidence (median 0.96862745, upper 1.08339709).
+Its full frozen bin/verify passes, and all 32 hosted MQTT comparisons pass on
+EPYC 9V74. This does not establish a repair on the earlier 7763 runner.
+Owned-copy accounting independently verifies 3,291 source inputs, 120 live and
+300 inventory rows, including E2EE/transcoding; all native lifetime controls pass.
+Complete primary/supplemental runs 41196965823 / 41196967775 now test that exact
+49b831d5 source. Retain them to completion; they cannot validate later edits.
+
+A separate candidate removes completion-race scaffolding from serial workloads.
+With one operation in flight, directly await that operation instead of allocating
+pending/completion wrappers and Future.any listeners. The existing scheduling
+condition, timing validation, full sample history, payload verification, copy
+accounting and concurrent path remain. This is an instrumentation allocation
+optimization, not demonstrated RSS or full performance acceptance. All
+2,873 benchmark VM tests pass, including the live transport matrix, new ordered
+serial samples and original-error/session-cleanup checks. Independent GLM review
+finds no confirmed correctness defect; its hypothetical side-effect concern does
+not apply because the scheduling predicate only reads time and sample bounds.
+A local fake-peer component retains all 100,000 operations in each of six
+interleaved processes: elapsed median ratio 0.83010658. It establishes no RAM
+improvement (RSS median ratio 1.01424635). See the checked-in component
+receipt for exact code fingerprints and its limited scope. Baseline49b831d5
+bin/test-fast also passes on an unchanged separate worktree. Canonical and hosted
+validation remain required on the candidate's own frozen commit. No gates or SDK settings change.
+
+The fd983af8 supplemental predecessor completed: retain all 1,500 raw rows.
+Independent recomputation exactly matches its hosted aggregate: 38 eligible
+cases, 1,140 rows, 173 numerical misses and four evidence findings; the payload
+batch is excluded because the separately pending SDK allocation-precision scope
+decision remains unresolved. This is failed historical evidence, not acceptance.
+PR132 remains at 40ddcb3f/draft; complete final-source acceptance is still required.
+
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
