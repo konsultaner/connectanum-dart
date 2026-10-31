@@ -1,0 +1,133 @@
+{
+  "PR_draft": true,
+  "PR_head": "40ddcb3ff0dbf947ef21b8e7fb9cca3465a502b5",
+  "accepted": false,
+  "candidate": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+  "copy_rows": {
+    "inventory": 300,
+    "live": 120,
+    "zero_avoidable_payload_copy": 32
+  },
+  "copy_source_inputs": 3295,
+  "diagnostic": {
+    "case_count": 3,
+    "inputs_and_binaries_verified": true,
+    "matches_hosted": true,
+    "numeric_findings": [
+      {
+        "case": "rpc_rawsocket_clear_dart_values",
+        "ci_95_high": 1.005667485864726,
+        "ci_95_low": 0.9777983306119216,
+        "median_ratio": 0.99008444244191,
+        "metric": "throughput_mbps",
+        "passed": false
+      },
+      {
+        "case": "rpc_rawsocket_clear_dart_values",
+        "ci_95_high": 1.3026315789473684,
+        "ci_95_low": 0.9949558638083228,
+        "median_ratio": 1.2683760683760685,
+        "metric": "latency_p99_ms",
+        "passed": false
+      },
+      {
+        "case": "rpc_rawsocket_clear_dart_values",
+        "ci_95_high": 1.0108428864078627,
+        "ci_95_low": 0.9937243775457988,
+        "median_ratio": 1.0021109161268906,
+        "metric": "cpu_us_per_operation",
+        "passed": false
+      },
+      {
+        "case": "rpc_rawsocket_clear_dart_values",
+        "ci_95_high": 1.1288941627492877,
+        "ci_95_low": 0.7787064277658761,
+        "median_ratio": 0.8638993001616194,
+        "metric": "gc_pause_us_per_operation",
+        "passed": false
+      },
+      {
+        "case": "rpc_rawsocket_clear_dart_values",
+        "ci_95_high": 1.0201730549199084,
+        "ci_95_low": 1.0043006038985087,
+        "median_ratio": 1.0113323782234958,
+        "metric": "summed_sampled_peak_rss_bytes",
+        "passed": false
+      },
+      {
+        "case": "rpc_rawsocket_clear_native_native_buffer",
+        "ci_95_high": 1.2700228832951945,
+        "ci_95_low": 0.8050541516245487,
+        "median_ratio": 0.964963503649635,
+        "metric": "latency_p99_ms",
+        "passed": false
+      },
+      {
+        "case": "rpc_rawsocket_clear_native_pre_encoded_span",
+        "ci_95_high": 1.010282062958957,
+        "ci_95_low": 0.9989585410711516,
+        "median_ratio": 1.0077044013971785,
+        "metric": "summed_sampled_peak_rss_bytes",
+        "passed": false
+      }
+    ],
+    "other_findings": [
+      "diagnostic campaigns cannot establish primary acceptance"
+    ],
+    "rows": 90,
+    "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8"
+  },
+  "final_runs": {
+    "CI": 41204759414,
+    "copy": 41204180565,
+    "diagnostic": 41204160963,
+    "primary48": 41204163088,
+    "supplemental50": 41204164884
+  },
+  "local_canonical": {
+    "exit": 0,
+    "finished_utc": "2026-10-31T13:37:17.427676+00:00",
+    "head": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+    "log_sha256": "b68f7a1a52449dcf4c6c074f4147da9e52f5f3abb04cdd75f6b0a2e4016bafa8",
+    "native_lib": "/Users/konsultaner/.codex/worktrees/flatbuffers-event-turn/connectanum-dart/native/transport/target/ffi-test/release/libct_ffi.dylib",
+    "native_sha256_after": "0296500b15971c2c2feaaf3d3e4875669f3b082bdbcf242f5acb430334c88850",
+    "native_sha256_before": "0296500b15971c2c2feaaf3d3e4875669f3b082bdbcf242f5acb430334c88850",
+    "scope": "Full canonical bin/verify on frozen f7d60f directUTF8/nativeMQTT candidate, actual ChromiumJS/Wasm and prebuilt own ffi-test library. The canonical helper rebuilds/selects this same own-worktree library path.",
+    "status": ""
+  },
+  "mqtt": {
+    "all_budgets_unchanged": true,
+    "all_summaries_exact": true,
+    "candidate_passes": true,
+    "cpu_models": [
+      "AMD EPYC 9V45 96-Core Processor"
+    ],
+    "head": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+    "library_hashes": [
+      "0b8f9c2cf11f480e82e5f5fd96ea28cad1dea5275f24cb3397ed3dfd145e6f32"
+    ],
+    "selected": [
+      {
+        "passed": true,
+        "profile": "mqtt-qos0-benchmark/native-ws-sustained/summary.json",
+        "throughput_ratio": 0.7451023446934013
+      },
+      {
+        "passed": true,
+        "profile": "mqtt-qos0-benchmark/native-ws-v311-sustained/summary.json",
+        "throughput_ratio": 0.7484904480519919
+      }
+    ],
+    "summaries": 20
+  },
+  "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
+  "pending_product_question": "Separate 1% allocation estimate precision for2 nativeMessagePack1MiB supplemental cases; label SDK-limited/unmeasured or instrument customSDK. No answer yet; prior standardSDK copy scope does not waive precision. Do not infer approval.",
+  "scope": "Documentation-only checkpoint, does not change the frozen runtime or acceptance inputs.",
+  "temporary_followup": {
+    "bounded_runs": 32,
+    "cadence_minutes": 15,
+    "id": "finish-pr-132-acceptance",
+    "status": "ACTIVE"
+  },
+  "updated_utc": "2026-10-31T13:43:25.678990+00:00"
+}

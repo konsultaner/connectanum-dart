@@ -9,6 +9,43 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+## Current acceptance checkpoint (2026-10-31)
+
+Candidatef7d60f2f is frozen on codex/flatbuffers-report-direct-utf8. Its full
+canonical bin/verify passes with actual ChromeJS/Wasm and unchanged own native
+binary0296500b15971c2c2feaaf3d3e4875669f3b082bdbcf242f5acb430334c88850.
+The verify log SHA-256 is
+b68f7a1a52449dcf4c6c074f4147da9e52f5f3abb04cdd75f6b0a2e4016bafa8.
+Copy/lifetime evidence41204180565 independently verifies3,295 source inputs,
+120 live/300 inventory rows,32 zero-avoidable payload-copy rows, E2EE/transcode
+counters, native lifetime phases and cleanup. All20 MQTT profiles independently
+pass onEPYC9V45 (WS5 ratio0.74510234, WS3.1.1 ratio0.74849045); native binary
+0b8f9c2cf11f480e82e5f5fd96ea28cad1dea5275f24cb3397ed3dfd145e6f32 is retained.
+Do not claim these establish repair of the earlier7763 failure.
+
+RAM is not fixed. The exact90-row diagnostic41204160963 has seven numerical
+misses: Dart throughput0.99008444, p99 median1.26837607/upper1.30263158, CPU
+1.00211092, GC upper1.12889416, RSS1.01133238; native-buffer p99 upper1.27002288;
+native pre-encoded RSS1.00770440. Retain these failures. Do not select another
+unchanged numerical run or weaken a gate to obtain acceptance.
+
+Complete final-source48-case primary41204163088 and50-case supplemental
+41204164884 are running; fullCI41204759414 has passing MQTT but remaining jobs
+are pending. Preserve every row of these predeclared complete campaigns and all
+remaining955e4a/49b831 historical campaigns. Independently reproduce complete
+reports before any adoption intoPR132. Source40ddcb3f stays the PR head/draft;
+no PR merge/retarget or #103/milestone closure occurs.
+
+Temporary current-chat follow-up finish-pr-132-acceptance is active every15minutes
+for at most32 runs. It continues analysis/fixes, checks full evidence and stays
+quiet on unchanged state; stop it after completion or a required unanswered
+product decision. The separate1% SDK allocation-precision question is still
+pending; approved standard-SDK copy scope does not waive it.
+
+This checkpoint branch changes documentation only. Numerical acceptance remains
+attributed to frozenf7d60f2f. Further work should first read
+/tmp/connectanum-current-task-checkpoint.json, this state and the active plan.
+
 ## Direct UTF8 report candidate (2026-10-31)
 
 A small child ofef20e64b removes the remaining intermediate report string.
