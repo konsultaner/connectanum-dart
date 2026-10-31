@@ -65,6 +65,18 @@ all48 cases/1,440 rows independently reproduce90 numerical misses and zero
 integrity findings. Its previously retained supplemental result remains failed.
 Neither historical report replaces current-source acceptance.
 
+## Retained49b831 supplemental evidence (2026-10-31)
+
+Historical run41196967775 is complete and independently matches both hosted
+aggregate files. All1,500 raw rows are retained:38 eligible cases/1,140 rows
+have165 numerical misses and four evidence findings. The excluded12-case
+payload-size shard independently verifies all360 rows,22 measured numerical
+misses, two SDK-limited allocation metrics and30 evidence findings. Its aggregate
+comparison SHA-256 is
+df71ff6ca33c265d1a4cf21db7fb2a6f538afc6d2920f72a8aae28d9ef1ee057.
+This is historical49b831d5 evidence. Final-sourcef7d60f2f primary and remaining
+supplemental shards continue; no final acceptance or RAM repair is established.
+
 ## Retained historical supplemental evidence (2026-10-31)
 
 Historical supplemental run41190896355 on rejected text-cache source955e4a91

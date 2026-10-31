@@ -118,6 +118,19 @@
     "primary48": 41204163088,
     "supplemental50": 41204164884
   },
+  "historical_49_supplemental": {
+    "accepted_inventory_cases": 38,
+    "accepted_inventory_rows": 1140,
+    "all_raw_rows_verified": true,
+    "comparison_sha256": "df71ff6ca33c265d1a4cf21db7fb2a6f538afc6d2920f72a8aae28d9ef1ee057",
+    "evidence_findings": 4,
+    "matches_hosted": true,
+    "numerical_misses": 165,
+    "payload_measured_numerical_misses": 22,
+    "payload_unmeasured_metrics": 2,
+    "raw_rows": 1500,
+    "source": "49b831d57d24879a6480727c363aaeeae66e953e"
+  },
   "historical_955_primary": {
     "cases": 48,
     "integrity_findings": 0,
@@ -185,5 +198,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T15:11:34.214887+00:00"
+  "updated_utc": "2026-10-31T15:27:16.891907+00:00"
 }
