@@ -1,0 +1,26 @@
+{
+  "head": "807ff2f0636480e5ab1528f50643fefd1b8fe58f",
+  "baseline": "4b99d15d5bac88c6fa611bbbdfae5d06f83117e6",
+  "source_inputs_verified": 3281,
+  "private_artifacts_verified": 219,
+  "resolved_inputs_verified": 4,
+  "rows": 160,
+  "exact_summary": true,
+  "exact_variant_reader_sources": true,
+  "metrics": {
+    "result": {
+      "median_elapsed_ratio": 0.9292981675850995,
+      "baseline_bytes_per_decode": 3055.64688,
+      "candidate_bytes_per_decode": 2880.72624
+    },
+    "call": {
+      "median_elapsed_ratio": 0.9398171740224845,
+      "baseline_bytes_per_decode": 5696.25324,
+      "candidate_bytes_per_decode": 5510.9956
+    }
+  },
+  "limitations": "Isolated full model decoding of10KiB CBOR byte-vector arguments; never transport/RAM/primary acceptance.",
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41181756276",
+  "artifact_id": 13035217863,
+  "primary_eligible": false
+}

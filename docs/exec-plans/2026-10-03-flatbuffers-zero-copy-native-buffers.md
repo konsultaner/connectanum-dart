@@ -5369,3 +5369,16 @@ run unchanged on both source variants, and all six new cases run on the actual
 candidate. The existing component isolation already permits precisely frame.dart
 plus wire_reader.dart. Measure against4b99d15d before integrating; no transport,
 RAM or primary acceptance is yet established for this optimization.
+
+
+The807ff2f0 root-envelope component41181756276 now passes: independently verify
+3,281 source inputs, four resolved inputs,219 private artifacts, exact original
+frame/reader files for both variants,160 raw rounds and exact summary. Both shared
+correctness suites pass; all six new API tests and all3,552 serializers pass on
+the actual candidate. RESULT elapsed ratio .92929817, allocated3,055.64688 to
+2,880.72624B/decode; CALL .93981717,5,696.25324 to5,510.9956B/decode. This isolated
+complete model decode preserves the10KiB byte-vector contents and is never
+transport/RAM/primary acceptance. Adopt the measured implementation, then freeze
+and renew canonical verification, CI, paired/full/supplemental and copy evidence.
+Earlier4b99d15d full verification/copy proof remain valid predecessor evidence;
+its six numerical misses remain failures. No gate or workload changes occur.
