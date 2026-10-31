@@ -4,6 +4,25 @@
   "accepted": false,
   "all_955_49_historical_campaigns_complete_audited": true,
   "candidate": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+  "completed_primary": {
+    "audit_sha256": "b83b95bbe162cf0f9a6ea1f8ddbc1035df14e3792373e7abaf0fbc511c2261ea",
+    "by_metric": {
+      "cpu_us_per_operation": 28,
+      "gc_pause_us_per_operation": 5,
+      "latency_p95_ms": 17,
+      "latency_p99_ms": 20,
+      "summed_sampled_peak_rss_bytes": 41,
+      "throughput_mbps": 24
+    },
+    "cases": 48,
+    "inputs_and_binaries_verified": true,
+    "integrity_findings": 0,
+    "matches_hosted": true,
+    "numerical_misses": 135,
+    "raw_rows": 1440,
+    "run": 41204163088,
+    "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8"
+  },
   "control_ack_component": {
     "actual_production_integration": "Pending pre-change fast verification in isolated worktree.",
     "allocations_before_after": [
@@ -267,6 +286,113 @@
   },
   "native_controls": "All3 positive phases/expected throwing-loader control and cleanup independently verified.",
   "pending_product_question": "Separate 1% allocation estimate precision for2 nativeMessagePack1MiB supplemental cases; label SDK-limited/unmeasured or instrument customSDK. No answer yet; prior standardSDK copy scope does not waive precision. Do not infer approval.",
+  "published_control_candidate": {
+    "CI_run": 41226137592,
+    "CI_setup_failure": {
+      "cause": "Failed to get ID Token: socket hang up",
+      "job": 124610848497,
+      "log_sha256": "faf080badb9c1d65e9c0cfa553e2bf9df0ac9c10753c5f8a80e8a198cbdcc300",
+      "name": "Dart VM Coverage",
+      "official_job_API_message": "HTTP403: The workflow run containing this job is already running.",
+      "official_job_API_retry_exit": 1,
+      "phase": "setup-ci -> dart-lang/setup-dart",
+      "retry_status": "Deferred until containing CIrun completes, then retry only setup-failed coverage/nonnumerical dependents; never rerun passing numerical jobs.",
+      "test_or_metric_execution_started": false
+    },
+    "branch": "codex/flatbuffers-control-ack-encoding",
+    "canonical_receipt": {
+      "exit": 0,
+      "finished_utc": "2026-10-31T18:11:08.207174+00:00",
+      "head_after": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+      "head_before": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+      "log_sha256": "32186204dc7a0ce0d82c1b8ea5123790cf12cb906b3ee6992d74f38c9ef8137b",
+      "native_sha256_after": "880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898",
+      "native_sha256_before": "880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898",
+      "status_after": "",
+      "status_before": ""
+    },
+    "canonical_status": "complete_pass",
+    "copy_audit": {
+      "binaries_unchanged": true,
+      "head": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+      "inventory": {
+        "e2ee": 96,
+        "encoded_volume": 300,
+        "native_crypto": 72,
+        "rows": 300,
+        "transcode": 60,
+        "zero_avoidable_payload_copy": 32
+      },
+      "live": {
+        "e2ee": 96,
+        "encoded_volume": 120,
+        "native_crypto": 48,
+        "rows": 120,
+        "transcode": 120
+      },
+      "retained_generated_inputs": [
+        "pubspec.lock",
+        "native/bench/Cargo.lock",
+        "native/transport/Cargo.lock",
+        ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
+      ],
+      "source_inputs_unchanged": true,
+      "verified_source_inputs": 3296
+    },
+    "copy_run": 41226052076,
+    "final_all_native_exit": 0,
+    "final_allocation_requests": [
+      9,
+      5
+    ],
+    "final_client_cases": 1969,
+    "final_client_focused_exit": 0,
+    "final_ffi_build_exit": 0,
+    "final_native_sha256": "880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898",
+    "final_native_source_sha256": "ff84ad959794e5d058a39e23cfae2c89eaaf769dbe3a97c2eac15d5be5b2b381",
+    "final_requested_bytes": [
+      960,
+      168
+    ],
+    "final_router_cases": 142,
+    "final_router_focused_exit": 0,
+    "frozen": false,
+    "head": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+    "native_view_controls": {
+      "cleanup_verified": true,
+      "head": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
+      "negative_control": {
+        "expected_failures": 1,
+        "rows": 0
+      },
+      "phases": [
+        {
+          "failures": 0,
+          "name": "existing-api-baseline",
+          "observations": 12,
+          "pid": 5486,
+          "rows": 6
+        },
+        {
+          "failures": 0,
+          "name": "direct-native",
+          "observations": 12,
+          "pid": 5654,
+          "rows": 6
+        },
+        {
+          "failures": 0,
+          "name": "public-native-lease",
+          "observations": 12,
+          "pid": 5818,
+          "rows": 6
+        }
+      ]
+    },
+    "published": true,
+    "runtime_base": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+    "scope": "Canonical/copy/component/functional evidence pass. CI setup retry pending; no RSS or transport acceptance."
+  },
   "scope": "Documentation-only checkpoint, does not change the frozen runtime or acceptance inputs.",
   "temporary_followup": {
     "bounded_runs": 32,
@@ -274,5 +400,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T17:05:05.726920+00:00"
+  "updated_utc": "2026-10-31T18:21:30.206368+00:00"
 }

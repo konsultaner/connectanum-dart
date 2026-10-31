@@ -14,6 +14,45 @@ absolute workstation path in the evidence JSON. Record the failure and replace
 it with a repository-relative library path before continuing new code. The frozen
 f7d60f2f runtime and its completed39-job CI evidence are unchanged.
 
+## Completed primary and published control candidate (2026-10-31)
+
+The f7d60f2f primary run41204163088 is complete and failed. Independent
+recomputation verifies all48 cases/1,440 raw rows, exact source/binary inputs,
+135 numerical misses and zero integrity findings. Its audit SHA-256 is
+b83b95bbe162cf0f9a6ea1f8ddbc1035df14e3792373e7abaf0fbc511c2261ea.
+Its complete supplemental result remains failed:172 numerical misses across38
+eligible cases and four evidence findings, with all1,500 raw rows preserved and
+the excluded payload shard separately audited. No full acceptance is established.
+
+Published candidate0c4bb57c on codex/flatbuffers-control-ack-encoding implements
+the pinned generated writer for Published/Subscribed/Registered in both encoder
+entry points. Invalid IDs/other variants keep generic validation; existing RESULT
+specialization stays first. The final compiled component verifies nine to five
+allocation requests and960 to168 requested bytes, preserving56-byte envelopes.
+All463 native tests/three codec integrations,1,969 client and142 router native
+cases pass. Native library SHA-256:
+880fb2071db7d29937e52826c2fb93579d1cb137a05a2fccc90c109bcd05b898.
+This is an allocation improvement, not RSS or end-to-end performance acceptance.
+
+The frozen0c4bb57c full canonical bin/verify now passes with actual ChromeJS/Wasm,
+unchanged clean source and own native library. Verify log SHA-256:
+32186204dc7a0ce0d82c1b8ea5123790cf12cb906b3ee6992d74f38c9ef8137b.
+Copy41226052076 independently verifies3,296 source inputs,120 live/300 inventory
+rows and32 zero-avoidable-copy rows, including E2EE/transcoding, all native
+lifetime phases/cleanup and the expected negative control.
+
+CI41226137592 remains in progress with22 successful jobs and one setup-only
+failure. Dart VM Coverage never reached tests: dart-lang/setup-dart failed to
+obtain GitHub's ID token with a socket hang-up. Missing coverage artifacts are a
+secondary consequence. Both CLI and official job-rerun API reject retry while
+the containing run is active (HTTP403). Wait for completion, then retry only
+this failed nonnumerical job/dependents; preserve passing numerical jobs and
+artifacts. Fix CI before further feature/benchmark work. Local review is blocked by another native mutation workload's exclusive
+resource lease; manual source review has no confirmed finding and the lease is
+not bypassed. The repaired public-path scanner and pre-change fast suite pass.
+The candidate is separate from PR132, which stays40ddcb3f/draft on130. Neither RPC
+RAM failure is solved; no gate is waived or milestone/issue closed.
+
 ## Current acceptance checkpoint (2026-10-31)
 
 Candidatef7d60f2f is frozen on codex/flatbuffers-report-direct-utf8. Its full
@@ -34,7 +73,8 @@ misses: Dart throughput0.99008444, p99 median1.26837607/upper1.30263158, CPU
 native pre-encoded RSS1.00770440. Retain these failures. Do not select another
 unchanged numerical run or weaken a gate to obtain acceptance.
 
-Complete final-source48-case primary41204163088 is running. The supplemental
+Complete final-source48-case primary41204163088 is failed with135 numerical
+misses and zero integrity findings, all1,440 rows independently verified. The supplemental
 41204164884 is complete and failed: all1,500 rows independently verified;172
 numerical misses across38 eligible cases, with the12-case payload batch retained
 separately due SDK allocation-precision findings. FullCI41204759414 is complete: all39 jobs pass on the
