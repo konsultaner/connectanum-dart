@@ -4,6 +4,36 @@
   "accepted": false,
   "all_955_49_historical_campaigns_complete_audited": true,
   "candidate": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+  "control_ack_component": {
+    "actual_production_integration": "Pending pre-change fast verification in isolated worktree.",
+    "allocations_before_after": [
+      9,
+      5
+    ],
+    "native_library_unchanged": true,
+    "requested_bytes_before_after": [
+      960,
+      232
+    ],
+    "rounds_per_shape": 8,
+    "runtime_source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
+    "scope": "Local guarded prototype only; not transport/RAM/CI acceptance.",
+    "shapes": [
+      "Published",
+      "Subscribed",
+      "Registered"
+    ],
+    "source_sha256": "de9a0f16d4c3dea3ce452115b103f005e011f0e2e879be05cd4e22d672722377",
+    "uninstrumented_elapsed_ratios": [
+      0.302941946567306,
+      0.31125315109455287,
+      0.3101303548447424
+    ],
+    "wire_bytes_before_after": [
+      56,
+      56
+    ]
+  },
   "copy_rows": {
     "inventory": 300,
     "live": 120,
@@ -82,7 +112,8 @@
     "failure": "Public-artifact scanner found an absolute workstation path in this evidence JSON. Use a repository-relative native library path. Runtime/campaign source remains f7d60f2f.",
     "prechange_log_sha256": "2eb3cbb4a46f8c3d8d9e15676867acee58ecdbbc627117da522ab4d3b76ecf61",
     "prechange_source": "aacce95cadafc923d49df2e3d99d164b186b8676",
-    "prechange_test_fast_exit": 1
+    "prechange_test_fast_exit": 1,
+    "repaired_public_artifact_scanner_exit": 0
   },
   "final_CI": {
     "all_jobs_success": true,
@@ -124,6 +155,24 @@
     "diagnostic": 41204160963,
     "primary48": 41204163088,
     "supplemental50": 41204164884
+  },
+  "final_supplemental": {
+    "all_raw_rows_verified": true,
+    "comparison_sha256": "a9254f6354f2022dd3638ef76b4139f8fdfde9c9459787f4b2607429d38c73f7",
+    "complete_acceptance": false,
+    "eligible_cases": 38,
+    "eligible_rows": 1140,
+    "encrypted_progressive_numerical_misses": 48,
+    "evidence_findings": 4,
+    "excluded_payload_evidence_findings": 30,
+    "excluded_payload_numerical_misses": 15,
+    "excluded_payload_unmeasured_metrics": 2,
+    "matches_hosted": true,
+    "numerical_misses": 172,
+    "protocol_numerical_misses": 124,
+    "raw_rows": 1500,
+    "run": 41204164884,
+    "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8"
   },
   "historical_49_primary": {
     "audit_sha256": "f16ac21a9c8cd492601fd4bbed02f1fad0cff798802142afe2c16392a636ea72",
@@ -225,5 +274,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T16:10:51.081687+00:00"
+  "updated_utc": "2026-10-31T17:05:05.726920+00:00"
 }

@@ -36,10 +36,12 @@ misses: Dart throughput0.99008444, p99 median1.26837607/upper1.30263158, CPU
 native pre-encoded RSS1.00770440. Retain these failures. Do not select another
 unchanged numerical run or weaken a gate to obtain acceptance.
 
-Complete final-source48-case primary41204163088 and50-case supplemental
-41204164884 are running. FullCI41204759414 is complete: all39 jobs pass on the
+Complete final-source48-case primary41204163088 is running. The supplemental
+41204164884 is complete and failed: all1,500 rows independently verified;172
+numerical misses across38 eligible cases, with the12-case payload batch retained
+separately due SDK allocation-precision findings. FullCI41204759414 is complete: all39 jobs pass on the
 exact final candidate, including coverage, mutation and standard MQTT gates. Preserve every row of these predeclared complete campaigns and all
-remaining955e4a/49b831 historical campaigns. Independently reproduce complete
+completed955e4a/49b831 historical campaigns. Independently reproduce complete
 reports before any adoption intoPR132. Source40ddcb3f stays the PR head/draft;
 no PR merge/retarget or #103/milestone closure occurs.
 
@@ -52,6 +54,35 @@ pending; approved standard-SDK copy scope does not waive it.
 This checkpoint branch changes documentation only. Numerical acceptance remains
 attributed to frozenf7d60f2f. Further work should first read
 /tmp/connectanum-current-task-checkpoint.json, this state and the active plan.
+
+## Complete final-source supplemental report (2026-10-31)
+
+Run41204164884 is complete and failed. Independent recomputation exactly matches
+both hosted aggregate files and verifies all1,500 raw rows. The38 eligible
+cases/1,140 rows have172 numerical misses (124 protocol and48 encrypted/
+progressive). The excluded12-case payload batch retains15 measured numerical
+misses plus two SDK-limited allocation comparisons/30 evidence findings. The
+aggregate has four evidence findings and is not complete acceptance. Comparison
+SHA-256: a9254f6354f2022dd3638ef76b4139f8fdfde9c9459787f4b2607429d38c73f7.
+The primary48-case campaign still runs; final-source canonical/copy/all39CIjobs
+pass. Keep all failures and the separate allocation-precision question visible.
+
+The protocol failures identify consistent small-control/progressive overhead.
+A private local guarded prototype for Published/Subscribed/Registered removes
+intermediate field maps using the pinned generated schema: nine allocations/
+960 requested bytes become five/232, with56-byte frames unchanged. Separate
+uninstrumented timing builds have median elapsed ratios0.303/0.311/0.310 across
+eight interleaved rounds per shape. This local Rust1.95 component is not transport,
+RAM or hosted acceptance. Its valid-ID/invalid-fallback/real-decoder checks pass;
+no payload, worker sample, window, policy, SDK or forced-GC change occurs.
+
+An isolated control-ACK worktree starts from the documentation-only checkpoint.
+Its pre-change fast check exposed the absolute evidence path; the relative-path
+repair passes the public-artifact scanner and the full pre-change fast check is
+running again. Keep that worktree frozen until it finishes. Only then integrate
+the bounded helper and validate both encoder entry points, schema/segmentation,
+malformed fallback and buffer ownership. It does not establish repair of either
+RPC RAM failure. The current PR head remains40ddcb3f/draft.
 
 ## Final-source payload-size evidence (2026-10-31)
 
