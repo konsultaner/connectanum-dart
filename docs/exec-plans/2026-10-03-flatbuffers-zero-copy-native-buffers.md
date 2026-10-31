@@ -5182,3 +5182,61 @@ campaigns pinned to identical runtime `35f4b84c`: diagnostic 41169319403,
 48-case primary 41169321811 and 50-case supplemental 41169323042. CI is
 41169255165 and separate MQTT attribution 41169256479 completes. PR #132 stays
 draft; nothing is waived and no PR is merged.
+
+
+## Isolated scalar-CBOR scanner component (2026-10-31)
+
+PR runtime remains `35f4b84c`, published tooling head `e02d6c27`. Its clean fixed-
+head `bin/verify` passes all Rust/tooling/VM/native/router/consumer and complete
+Chrome JS/Wasm core/client suites. Log SHA-256:
+4e77ea9ef68f73f5de1cc625615db42e1a0c586a7cf8b842c3f9d42ac98582d5.
+Preserve the earlier fresh-worktree formatter failure without resolved lint
+packages; bootstrap resolves dependencies and no tracked file was changed.
+
+Paired 41169319403 independently reproduces all 90 rows with source/binaries
+verified and no integrity issue. Both native constructions pass all seven gates;
+RSS medians are 0.9920871187 / 0.9969105252. Dart-values throughput now passes
+(1.0054030768). Remaining Dart misses: RSS median 1.0047214273, GC upper CI
+1.1915303221, and p99 upper CI 1.0523479600. Do not weaken any point/CI gate.
+Full primary 41169321811 and supplemental 41169323042 remain running on this
+runtime, together with predecessor f16ae5 complete campaigns.
+
+Renewed copy 41170259967 passes; independently verify 3,283 source/resolved
+inputs, 120 live / 300 inventory / 32 zero-avoidable checks and three six-row/
+twelve-observation native positives plus expected zero-row/single-failure
+negative. Stable PIDs and clean shutdown agree. Live E2EE/transcode/native-crypto
+counts 96/120/48; inventory 96/60/72. External build-directory native binaries
+are hosted-guard digest attestations, not retained independent rehashes.
+Current standard-SDK VM profile 41170959383 verifies all 3,282 inputs, native
+digest, 18 snapshots and exact hosted audit with no findings. Native owners and
+sample instances disappear after diagnostic GC; no persistent native leak is
+proven, and diagnostic GC is never used for acceptance. After-work snapshots
+show differing transient garbage/VM capacity, not exact peak allocation sites.
+Mint census is one instance for both codecs, so speculative timestamp boxing
+is rejected. Fully represented PPT already bypasses dictionary retention.
+
+An isolated `codex/flatbuffers-cbor-chunk-component` candidate only lifts the
+CBOR scanner's nested string-chunk closure into a private method, preserving
+all byte/cursor/UTF-8/charging operations and generic behavior. No new parser
+fast path or omitted validation. Both private variants pass 265 metadata/frame
+cases; the actual candidate passes all 3,546 serializer cases and analysis.
+Qwen review completes: Git availability is an existing hosted-checkout
+precondition; a pinned full `git show` is independent of index state; private
+core/dependency input guards exclude its generic contamination concern. Reuse
+the new target path constant in fixture checks. Runtime benefit is unmeasured.
+Two local numerical attempts collect no samples after shared resource reservation
+rejections; do not bypass them. Extend hosted component isolation to permit only
+this single new core file and restore its actual baseline, reject mixed scanner/
+validator changes, and include the CBOR validation suite. The fail-first contract
+rejects the old tool; all ten final isolation/audit contracts pass. No primary
+workload, metric window, payload construction, policy or gate changes occur.
+
+MQTT candidate's 20 absolute gates and 12 matched summaries independently
+reproduce exactly with all candidate gates passing against 66b4814d. Same-runner
+WS throughput is essentially unchanged (0.9953/1.0048), so do not claim causal
+repair of the old CPU-model WS failures from the 32-to-two write component.
+CI 41169255165 and latest 41170261916 remain pending. The predecessor encrypted
+progressive supplemental in 41159936492 completes all eight cases/240 rows,
+exactly reproduced with verified inputs/native binaries and no integrity issue;
+its 47 numerical cost diagnostics are retained. Protocol/final aggregate remain.
+The separate SDK allocation-precision decision stays pending; PR #132 stays draft.

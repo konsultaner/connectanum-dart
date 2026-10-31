@@ -67,6 +67,9 @@ class ComponentTests(unittest.TestCase):
         self._assert_private_configs(component.TARGETS[:3])
         self._assert_private_configs(component.TARGETS)
 
+    def test_scalar_cbor_scanner_change_preserves_private_baseline_source(self):
+        self._assert_private_configs((component.CBOR_SCANNER,))
+
     def test_validator_key_change_preserves_actual_private_baseline_source(self):
         self._assert_private_configs((component.CORE + 'src/serializer/flatbuffers/validation.dart',))
 
@@ -78,7 +81,7 @@ class ComponentTests(unittest.TestCase):
             root = Path(directory) / 'with spaces'
             output = root / 'output'
             output.mkdir(parents=True)
-            for name in component.TARGETS:
+            for name in (*component.TARGETS, component.CBOR_SCANNER):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('candidate source\n')
@@ -108,7 +111,7 @@ class ComponentTests(unittest.TestCase):
                 self.assertTrue(all(p['rootUri'].startswith('file:') for p in packages))
                 projection = output / variant / 'core/lib/src/serializer/flatbuffers/message_projection.dart'
                 self.assertIn(f"dictionaryPlanProbeVariant = '{variant}'", projection.read_text())
-                for name in component.TARGETS:
+                for name in (*component.TARGETS, component.CBOR_SCANNER):
                     expected = 'baseline' if variant == 'baseline' and name in changed else 'candidate'
                     path = output / variant / 'core/lib' / name.removeprefix(component.CORE)
                     self.assertTrue(path.read_text().startswith(expected + ' source'))
@@ -122,6 +125,7 @@ class ComponentTests(unittest.TestCase):
 
     def test_baseline_must_be_full_explicit_and_core_diff_must_be_isolated(self):
         for changed in ('unrelated.dart', '', component.TARGETS[0],
+                        '\n'.join((component.CBOR_SCANNER, component.TARGETS[3])),
                         '\n'.join((*component.TARGETS, component.CORE + 'unrelated.dart'))):
             with mock.patch.object(component.subprocess, 'check_output', return_value=changed):
                 for baseline in ('HEAD~1', 'a' * 39, 'a' * 40):

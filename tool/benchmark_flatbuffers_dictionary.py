@@ -23,9 +23,10 @@ CORE = 'packages/connectanum_core/lib/'
 TARGETS = tuple(CORE + 'src/serializer/flatbuffers/' + name
                 for name in ('frame.dart', 'message_projection.dart', 'wire_reader.dart',
                              'validation.dart'))
+CBOR_SCANNER = CORE + 'src/serializer/flatbuffers/cbor_validation.dart'
 SUITES = ('binding', 'validation', 'wire_writer', 'frame', 'message_reader',
           'metadata_roundtrip', 'fragments', 'copy_retention', 'metadata_access',
-          'deferred_metadata', 'metadata_encoding', 'reader_cache')
+          'deferred_metadata', 'metadata_encoding', 'reader_cache', 'cbor_validation')
 
 
 def prepare(root, output, baseline):
@@ -33,7 +34,8 @@ def prepare(root, output, baseline):
         raise ValueError('Component baseline must be an explicit full commit SHA')
     changed = subprocess.check_output(['git', 'diff', '--name-only', baseline, 'HEAD', '--', CORE], cwd=root, text=True).splitlines()
     allowed = (set(TARGETS[:2]), {TARGETS[0], TARGETS[2]}, set(TARGETS[:3]),
-               {TARGETS[0], TARGETS[1], TARGETS[3]}, {TARGETS[3]}, set(TARGETS))
+               {TARGETS[0], TARGETS[1], TARGETS[3]}, {TARGETS[3]}, set(TARGETS),
+               {CBOR_SCANNER})
     if set(changed) not in allowed:
         raise ValueError('Component must isolate dictionary agreement/projection, sparse decoding or validation')
     config_path = root / '.dart_tool/package_config.json'
@@ -51,7 +53,7 @@ def prepare(root, output, baseline):
         library = folder / 'core/lib'
         shutil.copytree(root / CORE, library)
         if variant == 'baseline':
-            for name in TARGETS:
+            for name in (*TARGETS, CBOR_SCANNER):
                 (library / name.removeprefix(CORE)).write_bytes(
                     subprocess.check_output(['git', 'show', baseline + ':' + name], cwd=root))
         projection = library / 'src/serializer/flatbuffers/message_projection.dart'

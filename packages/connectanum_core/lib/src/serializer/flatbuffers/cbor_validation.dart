@@ -317,19 +317,19 @@ class _Scanner {
     return ascii;
   }
 
-  String? string(int major, int info, {bool key = false}) {
-    String? chunk(int chunkInfo) {
-      final count = length(chunkInfo);
-      final start = cursor;
-      skip(count);
-      final ascii = major == 3 && utf8Range(start, cursor);
-      if (!key) return null;
-      return ascii
-          ? String.fromCharCodes(bytes, start, cursor)
-          : utf8.decode(Uint8List.sublistView(bytes, start, cursor));
-    }
+  String? _stringChunk(int major, int chunkInfo, bool key) {
+    final count = length(chunkInfo);
+    final start = cursor;
+    skip(count);
+    final ascii = major == 3 && utf8Range(start, cursor);
+    if (!key) return null;
+    return ascii
+        ? String.fromCharCodes(bytes, start, cursor)
+        : utf8.decode(Uint8List.sublistView(bytes, start, cursor));
+  }
 
-    if (info != 31) return chunk(info);
+  String? string(int major, int info, {bool key = false}) {
+    if (info != 31) return _stringChunk(major, info, key);
     final output = key ? StringBuffer() : null;
     while (!takeBreak()) {
       charge();
@@ -337,7 +337,7 @@ class _Scanner {
       if (initial ~/ 32 != major || initial % 32 == 31) {
         invalid('indefinite string chunk');
       }
-      final value = chunk(initial % 32);
+      final value = _stringChunk(major, initial % 32, key);
       if (key) output!.write(value);
     }
     return output?.toString();
