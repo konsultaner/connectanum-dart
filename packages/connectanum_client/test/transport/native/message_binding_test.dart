@@ -12,77 +12,13 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flatbuffers;
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
-    show
-        decodeFlatBufferUtf8,
-        rememberValidatedFlatBufferCborSpan,
-        validateFlatBufferCbor;
+    show rememberValidatedFlatBufferCborSpan, validateFlatBufferCbor;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:test/test.dart';
 
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
-  test('native text decoder preserves strict UTF-8 and logical byte views', () {
-    final values = <List<int>>[
-      [],
-      for (final length in [1, 63, 64, 65, 1000]) utf8.encode('x' * length),
-      utf8.encode('\u0000\u007f é€🧪'),
-      for (final codePoint in [
-        0x7f,
-        0x80,
-        0x7ff,
-        0x800,
-        0xd7ff,
-        0xe000,
-        0xffff,
-        0x10000,
-        0x10ffff,
-      ])
-        utf8.encode('prefix${String.fromCharCode(codePoint)}suffix'),
-      [0xef, 0xbb, 0xbf, 0x61],
-      [0xc0, 0x80],
-      [0xed, 0xa0, 0x80],
-      [0xf4, 0x90, 0x80, 0x80],
-      [0xc3],
-      [0xe2, 0x82],
-      [0xf0, 0x9f, 0xa7],
-    ];
-    for (final value in values) {
-      for (var offset = 0; offset < 8; offset++) {
-        final backing = Uint8List(value.length + offset + 3)
-          ..fillRange(0, value.length + offset + 3, 255)
-          ..setRange(offset, offset + value.length, value);
-        final view = Uint8List.sublistView(
-          backing,
-          offset,
-          offset + value.length,
-        ).asUnmodifiableView();
-        String? expected;
-        try {
-          expected = utf8.decode(value);
-        } on FormatException {
-          expect(() => decodeFlatBufferUtf8(view), throwsFormatException);
-          continue;
-        }
-        expect(decodeFlatBufferUtf8(view), expected);
-      }
-    }
-  });
-
-  test('native text reuse does not retain mutable input contents', () {
-    final bytes = Uint8List.fromList([0x73, 0x61, 0x78]);
-    final first = decodeFlatBufferUtf8(bytes.asUnmodifiableView());
-    bytes[1] = 0x62;
-    expect(decodeFlatBufferUtf8(bytes), 'sbx');
-    expect(first, 'sax');
-    for (var unit = 0; unit < 128; unit++) {
-      bytes[1] = unit;
-      expect(decodeFlatBufferUtf8(bytes), 's${String.fromCharCode(unit)}x');
-    }
-    bytes[1] = 0xff;
-    expect(() => decodeFlatBufferUtf8(bytes), throwsFormatException);
-  });
-
   for (final code in [36, 50, 68]) {
     for (final extra in <Map<String, Object?>>[
       {},

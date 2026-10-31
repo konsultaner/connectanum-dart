@@ -4,48 +4,6 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
 
-// A fixed, small cache retains immutable text only, never a borrowed buffer or
-// its owner. Metadata repeats short protocol keys and values on every message.
-final _shortAsciiText = List<String?>.filled(64, null);
-
-int _asciiTextSlot(Uint8List bytes, int start, int end) =>
-    ((end - start) * 7 ^ bytes[start] ^ bytes[end - 1] * 3) & 63;
-
-String? _matchingAsciiText(Uint8List bytes, int start, int end) {
-  final length = end - start;
-  if (length == 0) return '';
-  if (length > 64) return null;
-  final cached = _shortAsciiText[_asciiTextSlot(bytes, start, end)];
-  if (cached != null && cached.length == length) {
-    var index = 0;
-    while (index < length && cached.codeUnitAt(index) == bytes[start + index]) {
-      index++;
-    }
-    if (index == length) return cached;
-  }
-  return null;
-}
-
-void _rememberAsciiText(String value, Uint8List bytes, int start, int end) {
-  if (end > start && end - start <= 64) {
-    _shortAsciiText[_asciiTextSlot(bytes, start, end)] = value;
-  }
-}
-
-/// Decode strict UTF-8, sharing only bounded immutable ASCII protocol text.
-/// The cache never retains [bytes], including external/native backing storage.
-String decodeFlatBufferUtf8(Uint8List bytes) {
-  final cached = _matchingAsciiText(bytes, 0, bytes.length);
-  if (cached != null) return cached;
-  final value = utf8.decode(bytes);
-  // Strict UTF-8 uses more bytes than UTF-16 units for every non-ASCII code
-  // point. Equality therefore proves the decoded text is entirely ASCII.
-  if (value.length == bytes.length) {
-    _rememberAsciiText(value, bytes, 0, bytes.length);
-  }
-  return value;
-}
-
 final _validatedCborSpans = Expando<_ValidatedCborSpan>();
 
 class _ValidatedCborSpan {
@@ -363,20 +321,11 @@ class _Scanner {
     final count = length(chunkInfo);
     final start = cursor;
     skip(count);
-    if (key && major == 3) {
-      // Matching every byte against known ASCII is itself full UTF-8
-      // validation. No validation proof is inherited from the input buffer.
-      final cached = _matchingAsciiText(bytes, start, cursor);
-      if (cached != null) return cached;
-    }
     final ascii = major == 3 && utf8Range(start, cursor);
     if (!key) return null;
-    if (ascii) {
-      final value = String.fromCharCodes(bytes, start, cursor);
-      _rememberAsciiText(value, bytes, start, cursor);
-      return value;
-    }
-    return utf8.decode(Uint8List.sublistView(bytes, start, cursor));
+    return ascii
+        ? String.fromCharCodes(bytes, start, cursor)
+        : utf8.decode(Uint8List.sublistView(bytes, start, cursor));
   }
 
   String? string(int major, int info, {bool key = false}) {

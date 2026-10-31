@@ -13,7 +13,7 @@ import 'package:connectanum_core/connectanum_core.dart'
 // Native FlatBuffers parsing already validates application CBOR spans.
 // ignore: implementation_imports
 import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart'
-    show decodeFlatBufferUtf8, rememberValidatedFlatBufferCborSpan;
+    show rememberValidatedFlatBufferCborSpan;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 import 'package:connectanum_client/native_buffers.dart';
@@ -27,7 +27,7 @@ String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
   if (ptr == ffi.nullptr) {
     return null;
   }
-  return decodeFlatBufferUtf8(ptr.asTypedList(len));
+  return utf8.decode(ptr.asTypedList(len));
 }
 
 abstract final class NativeTransportErrorCode {

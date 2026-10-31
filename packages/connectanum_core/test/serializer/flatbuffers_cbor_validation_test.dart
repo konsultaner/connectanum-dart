@@ -42,7 +42,7 @@ void main() {
   });
 
   test('short text churn preserves every key and value across revisits', () {
-    // Equal length and first/last bytes deliberately exercise cache collisions.
+    // Preserve short text with equal lengths and shared boundary characters.
     for (var pass = 0; pass < 3; pass++) {
       for (var unit = 0; unit < 128; unit++) {
         final key = 's${String.fromCharCode(unit)}x';

@@ -1,0 +1,55 @@
+{
+  "head": "abb0905bba0c1fd99aa1935338ed4e1ed7b28f45",
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41189749134",
+  "rows": 90,
+  "case_count": 3,
+  "matches_hosted": true,
+  "inputs_and_binaries_verified": true,
+  "numeric_findings": [
+    {
+      "case": "rpc_rawsocket_clear_dart_values",
+      "ci_95_high": 1.249618320610687,
+      "ci_95_low": 0.7735969387755103,
+      "median_ratio": 1.0038699690402475,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_values",
+      "ci_95_high": 1.1560883855494808,
+      "ci_95_low": 0.9014172999983731,
+      "median_ratio": 1.0453489797835307,
+      "metric": "gc_pause_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0164711014176664,
+      "ci_95_low": 1.0011155256723716,
+      "median_ratio": 1.0112728365477226,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_native_native_buffer",
+      "ci_95_high": 1.1171147119024638,
+      "ci_95_low": 0.8774465118773125,
+      "median_ratio": 0.9974173952586466,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_native_pre_encoded_span",
+      "ci_95_high": 1.0132320509679,
+      "ci_95_low": 1.004802395118578,
+      "median_ratio": 1.0104716625953263,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    }
+  ],
+  "other_findings": [
+    "diagnostic campaigns cannot establish primary acceptance"
+  ],
+  "decision": "Reject the bounded text cache from the next candidate: it does not meet RAM/GC/p99 gates and both controlled components show a CALL elapsed regression. This cross-run result is not causal attribution. Keep independently reproduced logging and literal MQTT fixes.",
+  "primary_acceptance_eligible": false
+}

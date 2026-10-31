@@ -9,6 +9,38 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+## Smaller candidate after cache rejection (2026-10-31)
+
+Independently reproduce all 90 abb0905b diagnostic rows, exact source/binaries,
+and hosted summary: five numerical misses remain. Dart-values p99 median is
+1.00386997 (upper 1.24961832), GC 1.04534898 (upper 1.15608839), RSS 1.01127284.
+Native-buffer RSS median 0.99741740 passes its point gate but upper 1.11711471
+fails confidence; native pre-encoded RSS median is 1.01047166. All throughput,
+CPU, allocation and p95 comparisons pass. Do not call the cache a RAM fix or
+causally attribute differences across runners. Both independently controlled
+components also retain a CALL decode regression around 2.7%.
+
+Exclude this unaccepted cache from the smaller candidate. Restore the exact
+40ddcb3f production CBOR scanner, native client text decoder and its original
+binding test file; no accepted root-envelope/scanner optimization is removed.
+Retain the generic metadata mutation/Unicode/range/churn checks, the reproduced
+lazy-logging fix and literal-MQTT matching. This new runtime differs from the
+older accepted baseline by those actual fixes; it is not an unchanged-code
+numerical retry. Metadata validation and every payload operation remain intact.
+The rejected-cache and 955e4a91 complete campaigns continue to completion with
+all raw evidence retained. Only a source that passes the full strict matrix can
+be adopted into PR132. The 955e4a91 full/copy/CI run set is 41190894898 /
+41190896355 / 41190897817 / 41190899393, with diagnostic 41190893418. No result
+from those runs is attributed to this smaller candidate.
+
+A product question now explicitly requests the separate issue103 SDK allocation-
+precision scope decision: the existing 1% requirement is distinct from actual
+RAM gates and the user's earlier standard-SDK copy scope. Keep that question
+pending and do not waive any allocation figure or alter policy without an answer.
+The smaller candidate needs its own paired/full canonical and final campaign
+verification; PR132 stays at 40ddcb3f and remains draft.
+
+
 ## Latest checkpoint: lazy logging and final acceptance (2026-10-31)
 
 PR132 remains at fully verified 40ddcb3f; final candidates are isolated. Latest
