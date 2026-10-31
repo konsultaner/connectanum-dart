@@ -5058,3 +5058,66 @@ helper code is not exempted. Native source now has the explicit checked vector
 length and schema-derived generic budget. Retain prior private failed setup/
 assertion logs. Full verification and exact-source hosted measurements remain
 required before acceptance; no claim follows from the component improvement.
+
+
+## Scalar observation storage candidate (2026-10-31)
+
+After frozen `6575b7e9`, share only eight immutable scalar sample context
+values in a bounded 64-entry cache. Each observation retains its own iteration,
+latency, preparation time and start/end timestamps. Public getters and all 13
+named/positional fields are unchanged; there is no payload, builder, owner or
+lease in the cache. Apply identically to every serializer. Do not alter work,
+windows, copy accounting or acceptance thresholds.
+
+[Complete-record component](../research/2026-10-31-flatbuffers-sample-context-component.json)
+retains eight fresh balanced ABBA observations. All 33,991 Dart and 32,067
+native records preserve complete output hashes. Peak RSS falls about 4–5 MB;
+loaded sample memory falls about 12 MB without a measured CPU penalty in this
+component. This is not transport/RAM acceptance. Observable eviction, independent
+observation values, mutation isolation and null-versus-zero controls pass.
+Completed GLM review suggests reset/worker-affinity changes; source inspection
+rejects them: the cache is capped at 64, a new tuple becomes the last-entry fast
+path immediately, and matches explicitly compares worker along with all seven
+other scalars. No mutable data is shared. Preserve linear-scan cost as a risk for
+workloads with many distinct tuples; full regression and hosted measurements
+remain required.
+
+Frozen `6575b7e9` canonical `bin/verify` exits 0 on a clean, fixed HEAD, including
+full Chrome JS/Wasm core/client and Rust/tooling/VM/native/router/live/consumer
+checks. Log SHA-256:
+0f00180523045487ae379076f369cd8becdbf1ecd9d2e2b577f07f0b9a2df864.
+Paired diagnostic 41165318716 completes all 90 rows with exact independent
+reproduction and verified retained inputs/binaries. Five numerical misses remain:
+Dart-values throughput median 0.9892592301, p99 upper CI 1.4569961489,
+GC upper CI 1.0755105768, RSS median 1.0100816168; pre-encoded RSS median
+1.0091516331 (upper CI 1.1159422793). Native-buffer passes all seven metrics.
+Keep all failed reports; no unchanged numerical retry is used to seek a pass.
+
+Copy renewal 41165320239 passes; independently verify 3,281 source/resolved
+inputs and 120 live / 300 inventory / 32 zero-avoidable checks. Live
+E2EE/transcode/native-crypto counts remain 96/120/48; inventory 96/60/72.
+External native binaries are digest-only hosted-guard attestations in this copy
+artifact, not independently rehashed retained files. CI 41159940789 completes
+successfully; its MQTT artifacts reproduce exactly. Full primary 41159934237
+and supplemental 41159936492 continue on f16ae5e9. The completed supplemental
+payload shard reproduces exactly with 30 SDK-allocation precision findings and
+13 numerical cost diagnostics; the other shards and final aggregate remain.
+PR #132 stays draft; full strict acceptance and the separate SDK precision
+scope decision are outstanding.
+
+
+The scalar-context candidate's full benchmark suite now passes all 2,867 tests;
+focused tests and targeted analysis also pass. Native lifetime renewal on
+6575b7e9 independently reproduces three six-row/twelve-observation positives
+and the expected zero-row/single-failure negative, with stable PIDs and clean
+shutdown. Preserve the private audit's initial exit_code/process_exit field
+lookup error; the corrected audit does not change evidence.
+
+Latest CI 41165321973 has an MQTT performance failure. All 32 MQTT summaries
+independently reproduce exactly with unchanged budgets and library hashes;
+four absolute gate profiles fail (TCP CPU for versions 5/3.1.1 and clear WS
+throughput for versions 5/3.1.1), and matched controls retain their failures too.
+The candidate native digest is byte-identical to the preceding all-green f16ae5
+run; different runner CPU models are recorded, not asserted as the cause.
+Investigate before claiming clean CI. Do not retry unchanged numerical jobs
+for a favorable runner, weaken gates or mark PR ready.

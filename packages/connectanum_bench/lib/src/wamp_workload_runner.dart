@@ -3982,6 +3982,101 @@ enum WampMode {
   }
 }
 
+// Immutable scalar observation context only; never payload data or owners.
+final class _SampleContext {
+  const _SampleContext(
+    this.worker,
+    this.requestBytes,
+    this.responseBytes,
+    this.nativeBuilderInputCopiedBytes,
+    this.nativeBuilderGrowthCopiedBytes,
+    this.nativePptFrameSubmissions,
+    this.nativePptPayloadBytes,
+    this.nativePptPayloadReusedBytes,
+  );
+  final int worker;
+  final int requestBytes;
+  final int responseBytes;
+  final int? nativeBuilderInputCopiedBytes;
+  final int? nativeBuilderGrowthCopiedBytes;
+  final int? nativePptFrameSubmissions;
+  final int? nativePptPayloadBytes;
+  final int? nativePptPayloadReusedBytes;
+
+  static _SampleContext? _last;
+  static final _recent = <_SampleContext>[];
+  bool matches(
+    int worker,
+    int requestBytes,
+    int responseBytes,
+    int? nativeBuilderInputCopiedBytes,
+    int? nativeBuilderGrowthCopiedBytes,
+    int? nativePptFrameSubmissions,
+    int? nativePptPayloadBytes,
+    int? nativePptPayloadReusedBytes,
+  ) =>
+      this.worker == worker &&
+      this.requestBytes == requestBytes &&
+      this.responseBytes == responseBytes &&
+      this.nativeBuilderInputCopiedBytes == nativeBuilderInputCopiedBytes &&
+      this.nativeBuilderGrowthCopiedBytes == nativeBuilderGrowthCopiedBytes &&
+      this.nativePptFrameSubmissions == nativePptFrameSubmissions &&
+      this.nativePptPayloadBytes == nativePptPayloadBytes &&
+      this.nativePptPayloadReusedBytes == nativePptPayloadReusedBytes;
+  static _SampleContext intern(
+    int worker,
+    int requestBytes,
+    int responseBytes,
+    int? nativeBuilderInputCopiedBytes,
+    int? nativeBuilderGrowthCopiedBytes,
+    int? nativePptFrameSubmissions,
+    int? nativePptPayloadBytes,
+    int? nativePptPayloadReusedBytes,
+  ) {
+    final last = _last;
+    if (last != null &&
+        last.matches(
+          worker,
+          requestBytes,
+          responseBytes,
+          nativeBuilderInputCopiedBytes,
+          nativeBuilderGrowthCopiedBytes,
+          nativePptFrameSubmissions,
+          nativePptPayloadBytes,
+          nativePptPayloadReusedBytes,
+        )) {
+      return last;
+    }
+    for (final entry in _recent) {
+      if (entry.matches(
+        worker,
+        requestBytes,
+        responseBytes,
+        nativeBuilderInputCopiedBytes,
+        nativeBuilderGrowthCopiedBytes,
+        nativePptFrameSubmissions,
+        nativePptPayloadBytes,
+        nativePptPayloadReusedBytes,
+      )) {
+        return _last = entry;
+      }
+    }
+    final entry = _SampleContext(
+      worker,
+      requestBytes,
+      responseBytes,
+      nativeBuilderInputCopiedBytes,
+      nativeBuilderGrowthCopiedBytes,
+      nativePptFrameSubmissions,
+      nativePptPayloadBytes,
+      nativePptPayloadReusedBytes,
+    );
+    if (_recent.length == 64) _recent.removeAt(0);
+    _recent.add(entry);
+    return _last = entry;
+  }
+}
+
 class WampSample {
   /// Internal worker IPC version; public reports retain named JSON fields.
   static const workerRecordEncoding = 'positional_v1';
@@ -4020,33 +4115,46 @@ class WampSample {
     );
   }
 
-  const WampSample._({
-    required this.worker,
+  WampSample._({
+    required int worker,
     required this.iteration,
     required this.latencyMs,
-    required this.requestBytes,
-    required this.responseBytes,
+    required int requestBytes,
+    required int responseBytes,
     required this.payloadPreparationUs,
-    required this.nativeBuilderInputCopiedBytes,
-    required this.nativeBuilderGrowthCopiedBytes,
-    required this.nativePptFrameSubmissions,
-    required this.nativePptPayloadBytes,
-    required this.nativePptPayloadReusedBytes,
+    required int? nativeBuilderInputCopiedBytes,
+    required int? nativeBuilderGrowthCopiedBytes,
+    required int? nativePptFrameSubmissions,
+    required int? nativePptPayloadBytes,
+    required int? nativePptPayloadReusedBytes,
     required this.startedAtUs,
     required this.completedAtUs,
-  });
+  }) : _context = _SampleContext.intern(
+         worker,
+         requestBytes,
+         responseBytes,
+         nativeBuilderInputCopiedBytes,
+         nativeBuilderGrowthCopiedBytes,
+         nativePptFrameSubmissions,
+         nativePptPayloadBytes,
+         nativePptPayloadReusedBytes,
+       );
 
-  final int worker;
+  final _SampleContext _context;
+
+  int get worker => _context.worker;
   final int iteration;
   final double latencyMs;
-  final int requestBytes;
-  final int responseBytes;
+  int get requestBytes => _context.requestBytes;
+  int get responseBytes => _context.responseBytes;
   final int? payloadPreparationUs;
-  final int? nativeBuilderInputCopiedBytes;
-  final int? nativeBuilderGrowthCopiedBytes;
-  final int? nativePptFrameSubmissions;
-  final int? nativePptPayloadBytes;
-  final int? nativePptPayloadReusedBytes;
+  int? get nativeBuilderInputCopiedBytes =>
+      _context.nativeBuilderInputCopiedBytes;
+  int? get nativeBuilderGrowthCopiedBytes =>
+      _context.nativeBuilderGrowthCopiedBytes;
+  int? get nativePptFrameSubmissions => _context.nativePptFrameSubmissions;
+  int? get nativePptPayloadBytes => _context.nativePptPayloadBytes;
+  int? get nativePptPayloadReusedBytes => _context.nativePptPayloadReusedBytes;
   final int? startedAtUs;
   final int? completedAtUs;
 

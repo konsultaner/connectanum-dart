@@ -373,6 +373,57 @@ void main() {
       expect(sample.toJson(), named);
     });
 
+    test('observation scalars remain independent across context changes', () {
+      final samples = <WampSample>[];
+      final expected = <List<Object?>>[];
+      for (var index = 0; index < 160; index++) {
+        final row = <Object?>[
+          index,
+          index,
+          1.25,
+          index * 7,
+          index * 11,
+          index * 13,
+          index.isEven ? null : 0,
+          index * 17,
+          index * 19,
+          index * 23,
+          index * 29,
+          9007199254740993 + index,
+          9007199254742243 + index,
+        ];
+        expected.add(List.of(row));
+        samples.add(WampSample.fromWorkerRecord(row));
+      }
+      // Revisit an earlier scalar tuple with distinct per-observation values.
+      final repeated = List<Object?>.of(expected[130])
+        ..[1] = 999
+        ..[2] = 2.5
+        ..[5] = 1000
+        ..[11] = 9007199254745001
+        ..[12] = 9007199254746001;
+      samples.add(WampSample.fromWorkerRecord(repeated));
+      expected.add(repeated);
+      for (var index = 0; index < samples.length; index++) {
+        final sample = samples[index];
+        expect(sample.toWorkerRecord(), expected[index]);
+        sample.toJson()['worker'] = -1;
+        sample.toWorkerRecord()[6] = -1;
+        expect(sample.toWorkerRecord(), expected[index]);
+      }
+      final absent = WampSample.fromWorkerRecord(
+        List<Object?>.of(positional)..[8] = null,
+      );
+      final zero = WampSample.fromWorkerRecord(
+        List<Object?>.of(positional)..[8] = 0,
+      );
+      expect(
+        absent.toJson().containsKey('native_ppt_frame_submissions'),
+        isFalse,
+      );
+      expect(zero.toJson()['native_ppt_frame_submissions'], 0);
+    });
+
     test('numeric JSON spellings match named-field parsing', () {
       final row = positional.map((value) {
         return value is int && value <= 9007199254740991
