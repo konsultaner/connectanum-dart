@@ -822,21 +822,27 @@ class _BenchControlRegistry {
         ),
       };
       final dataWindow = WampSampleWindow.fromSamples(samples);
-      context.sendJson(
-        body: {
-          // Preserve every model through routing and project fields lazily.
-          'samples': wampSamplesForJsonEncoding(samples),
-          if (dataWindow != null) 'data_window': dataWindow.toJson(),
-          'file_segment_metrics': fileSegmentMetrics.toJson(),
-          'copy_metrics': mergeOwnedPipelineCopyMetrics(
-            copyMetrics,
-            scenario: scenario,
-          ),
-          'server_process_metrics': serverProcessMetrics,
-          if (clientProcessMetrics != null)
-            'client_process_metrics': clientProcessMetrics.toJson(),
-        },
+      final responseChunks = wampResponseJsonChunks({
+        // Preserve every model through routing and project fields lazily.
+        'samples': wampSamplesForJsonEncoding(samples),
+        if (dataWindow != null) 'data_window': dataWindow.toJson(),
+        'file_segment_metrics': fileSegmentMetrics.toJson(),
+        'copy_metrics': mergeOwnedPipelineCopyMetrics(
+          copyMetrics,
+          scenario: scenario,
+        ),
+        'server_process_metrics': serverProcessMetrics,
+        if (clientProcessMetrics != null)
+          'client_process_metrics': clientProcessMetrics.toJson(),
+      });
+      final response = context.streamResponse(
+        headers: const {'content-type': 'application/json; charset=utf-8'},
       );
+      for (final chunk in responseChunks) {
+        response.add(chunk);
+      }
+      response.close();
+      await response.done;
     } catch (error, stackTrace) {
       _reportError('wamp_error', error, stackTrace);
       try {

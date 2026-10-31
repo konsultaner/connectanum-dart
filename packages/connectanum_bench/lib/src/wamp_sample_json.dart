@@ -25,6 +25,38 @@ List<int> wampWorkerResponseJsonBytes(
       : null,
 ).convert(response);
 
+/// Encode the complete report before sending, without joining its UTF-8 chunks.
+/// This keeps encoder failures atomic and retains every sample. The ordinary
+/// sink adapter owns each slice; encoder buffers must not be retained by view.
+/// 64 KiB batches avoid one transport write per 256-byte SDK default chunk.
+List<List<int>> wampResponseJsonChunks(
+  Map<String, Object?> response, {
+  bool compactSamples = false,
+}) {
+  final output = _JsonChunks();
+  final encoder = JsonUtf8Encoder(
+    null,
+    compactSamples
+        ? (object) =>
+              wampSampleWorkerRecordForJsonEncoding(object as WampSample)
+        : null,
+    65536,
+  ).startChunkedConversion(output);
+  encoder.add(response);
+  encoder.close();
+  return output.chunks;
+}
+
+class _JsonChunks implements Sink<List<int>> {
+  final chunks = <List<int>>[];
+
+  @override
+  void add(List<int> bytes) => chunks.add(bytes);
+
+  @override
+  void close() {}
+}
+
 // Shared named/positional order. Boundary tests compare both projections with
 // the existing public snapshots, including all optional null/zero combinations.
 const _fieldNames = [

@@ -8,6 +8,29 @@ acceptance on frozen source. Ownership/master-integration correctness and CI
 pass on the predecessor; the new allocation candidate needs renewed evidence.
 No acceptance is claimed.
 
+## Complete report staging candidate (2026-10-31)
+
+- [x] Audit successful component 41157110077 (160 rounds, 219 private artifacts,
+  exact summary, 3,275 tracked inputs) and copy/lifetime 41157111216 (3,279
+  source/resolved inputs; full 120/300/32 counts and native controls).
+- [x] Audit pre-encoded profile 41154814129: 3,277 inputs, native digest and all
+  18 snapshots. Native external storage is near zero after workload; large
+  complete JSON report buffers motivate reducing staging, not lease invalidation.
+- [x] Keep owned encoder chunks without a full UTF-8 join in worker/HTTP output.
+  Complete encoding before transmission; preserve every field/row/error, all
+  serializers and unchanged processes/windows. Use the standard slice-copying
+  sink adapter; never retain borrowed encoder buffers.
+- [x] Pass 136 exact-byte/record/error/lifecycle controls, targeted analysis and
+  eight live source smoke responses (four preserve 2,048 samples each). Keep
+  these distinct from production-symbol proofs or performance acceptance.
+- [x] Pass all 2,863 benchmark regressions and complete the balanced ABBA report
+  component: all 32,067 samples and output digests match; retain all eight runs.
+  Current RSS improves; lifetime peak gains are small/absent, not parity proof.
+- [ ] Freeze source; complete canonical verification and hosted CI/copy renewal.
+- [ ] Run full unchanged 48-case primary and 50-case supplemental acceptance;
+  independently audit retained inputs, complete raw rows and comparisons.
+  Resolve actual failures; preserve predecessor failures and pending SDK limit.
+
 ## Field projection allocation candidate (2026-10-31)
 
 - [x] Retain exact full-primary failure: 48 cases / 1,440 rows / 102 numerical
@@ -36,10 +59,11 @@ No acceptance is claimed.
   the probe's accessor and share it with preflight tests. Sixteen direct controls,
   546 regressions per private variant and nine tool contracts pass. Preserve
   initial private compile/ordinary-alias assumption errors separately.
-- [ ] Complete current CI 41153485459 and native pre-encoded memory attribution
-  41154814129 on da5398a6. Audit inputs/snapshots before selecting another fix.
-- [ ] Renew the repaired hosted component, resolve remaining RAM/tail failures
-  with measured runtime changes, then renew full acceptance. Keep draft/#103 open.
+- [x] Complete/audit memory attribution 41154814129 on da5398a6 (all source,
+  binary and 18 snapshot hashes, exact memory audit).
+- [ ] Complete current CI 41153485459 (37 passing jobs; Dart VM coverage pending).
+- [x] Renew/audit repaired component 41157110077; component time/allocation improve.
+- [ ] Resolve remaining RAM/tail failures and renew full acceptance. Keep draft/#103 open.
 
 ## Ownership and final campaign renewal (2026-10-30)
 

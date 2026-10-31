@@ -193,67 +193,65 @@ Future<void> _handleRequest(
       rawFrameMetricsBefore,
       nativeRuntime.rawFrameCopyMetricsSnapshot(),
     );
-    stdout.add(
-      wampWorkerResponseJsonBytes(
-        {
-          // Private IPC avoids repeating field names for every observation.
-          // The supervisor restores unchanged named fields in public reports.
-          if (compactSamples)
-            'sample_encoding': WampSample.workerRecordEncoding,
-          'samples': samples,
-          'file_segment_metrics': {
-            'rawsocket_zero_copy_calls':
-                fileMetrics.rawSocketZeroCopyCallsTotal,
-            'rawsocket_zero_copy_bytes':
-                fileMetrics.rawSocketZeroCopyBytesTotal,
-            'buffered_file_segment_calls':
-                fileMetrics.bufferedFileSegmentCallsTotal,
-            'buffered_file_segment_bytes':
-                fileMetrics.bufferedFileSegmentBytesTotal,
-          },
-          'copy_metrics': {
-            ..._copyMetricsFor(
-              scenario,
-              samples,
-              copyMetrics,
-              dartCopyMetrics,
-              e2eeMetrics,
-              portableE2eeMetrics,
-              pptMetrics,
-              rawFrameMetrics,
-              nativeTransportWindow: nativeTransportWindow,
+    final responseChunks = wampResponseJsonChunks(
+      {
+        // Private IPC avoids repeating field names for every observation.
+        // The supervisor restores unchanged named fields in public reports.
+        if (compactSamples) 'sample_encoding': WampSample.workerRecordEncoding,
+        'samples': samples,
+        'file_segment_metrics': {
+          'rawsocket_zero_copy_calls': fileMetrics.rawSocketZeroCopyCallsTotal,
+          'rawsocket_zero_copy_bytes': fileMetrics.rawSocketZeroCopyBytesTotal,
+          'buffered_file_segment_calls':
+              fileMetrics.bufferedFileSegmentCallsTotal,
+          'buffered_file_segment_bytes':
+              fileMetrics.bufferedFileSegmentBytesTotal,
+        },
+        'copy_metrics': {
+          ..._copyMetricsFor(
+            scenario,
+            samples,
+            copyMetrics,
+            dartCopyMetrics,
+            e2eeMetrics,
+            portableE2eeMetrics,
+            pptMetrics,
+            rawFrameMetrics,
+            nativeTransportWindow: nativeTransportWindow,
+          ),
+          'native_crypto_copy_breakdown': nativeCryptoCopyMetricsDelta(
+            e2eeMetricsBefore,
+            e2eeMetricsAfter,
+            active:
+                scenario.pptScheme == 'wamp' &&
+                scenario.clientImplementation ==
+                    WampClientImplementation.native,
+          ),
+          'native_codec_copy_breakdown': {
+            'client': codecCopyMetricsDelta(
+              codecBefore,
+              nativeRuntime.boundaryCodecCopyMetricsSnapshot(),
             ),
-            'native_crypto_copy_breakdown': nativeCryptoCopyMetricsDelta(
-              e2eeMetricsBefore,
-              e2eeMetricsAfter,
-              active:
-                  scenario.pptScheme == 'wamp' &&
-                  scenario.clientImplementation ==
-                      WampClientImplementation.native,
-            ),
-            'native_codec_copy_breakdown': {
-              'client': codecCopyMetricsDelta(
-                codecBefore,
-                nativeRuntime.boundaryCodecCopyMetricsSnapshot(),
-              ),
-            },
-            'dart_owned_buffer_copy_breakdown': {
-              'client': ownedBufferCopyMetricsDelta(
-                ownedCopiesBefore,
-                core_buffers.OwnedCopyMetrics.boundarySnapshot(),
-              ),
-            },
           },
-          'process_metrics': {
-            'pid': pid,
-            'rss_before_bytes': rssBeforeBytes,
-            'current_rss_bytes': ProcessInfo.currentRss,
-            'max_rss_bytes': ProcessInfo.maxRss,
+          'dart_owned_buffer_copy_breakdown': {
+            'client': ownedBufferCopyMetricsDelta(
+              ownedCopiesBefore,
+              core_buffers.OwnedCopyMetrics.boundarySnapshot(),
+            ),
           },
         },
-        compactSamples: compactSamples,
-      ),
+        'process_metrics': {
+          'pid': pid,
+          'rss_before_bytes': rssBeforeBytes,
+          'current_rss_bytes': ProcessInfo.currentRss,
+          'max_rss_bytes': ProcessInfo.maxRss,
+        },
+      },
+      compactSamples: compactSamples,
     );
+    for (final chunk in responseChunks) {
+      stdout.add(chunk);
+    }
     stdout.add(const [10]);
     await stdout.flush();
   } catch (error, stackTrace) {

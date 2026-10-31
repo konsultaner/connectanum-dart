@@ -9,6 +9,56 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+The next RAM candidate removes the full-size UTF-8 join when preparing worker
+and HTTP benchmark reports. It retains owned 64 KiB encoder chunks, completes
+encoding before publishing, and sends the same complete JSON through existing
+stdout/HTTP stream transports. All observations, named/positional fields,
+processes and resource windows remain unchanged for every serializer. This is
+a report staging optimization, not a claim of bounded report memory or payload
+zero-copy. The SDK sink adapter copies its slices according to its ownership
+contract; no borrowed encoder buffer is retained.
+
+Byte-equivalence/atomic-error controls and worker lifecycle tests pass (136
+cases), as does targeted analysis. Four live large responses preserve all 2,048
+samples each across Dart/native worker paths and mixed serializers; four small
+responses retain E2EE/transcode accounting and clean process shutdown. The complete
+benchmark suite passes all 2,863 cases. The balanced fresh-process ABBA
+[report component](research/2026-10-31-flatbuffers-report-staging-component.json)
+preserves 32,067 samples and identical output digests in both formats. Named
+output remains 12,168,713 bytes; positional output remains 2,837,250 bytes.
+Current RSS after encoding is lower; lifetime peak improvements are small or
+absent because input-report parsing precedes measurement. This is not acceptance.
+Source freeze, canonical verification and strict hosted renewal remain pending. A completed Qwen
+review suggests invalid/mixed sample/null casts, but source inspection confirms
+the same pre-existing callback and concrete List<WampSample>; null/invalid cases
+are covered by exact-byte/error tests. No actual regression is identified.
+A bounded GLM judgment also completes with no evidenced correctness/fairness
+regression. Its fresh-buffer explanation is not the ownership guarantee: SDK
+source confirms the ordinary sink adapter copies addSlice data, as required.
+
+Hosted component 41157110077 on 07807a6e succeeds. Independent audit verifies
+3,275 tracked source inputs, retained locks and all 219 private artifacts; all
+160 raw rounds reproduce the summary exactly. Median candidate/baseline decode
+time is 0.951223 for RESULT and 0.985733 for CALL; measured managed allocation
+falls from 3,855.82 to 3,439.31 bytes per RESULT and 6,475.20 to 6,068.32 per CALL.
+These are isolated decoder measurements, never transport/RAM acceptance.
+
+Copy/lifetime renewal 41157111216 also succeeds on 07807a6e. Independent audit
+verifies all 3,279 source/resolved inputs and complete 120 live / 300 inventory /
+32 zero-avoidable checks, including E2EE/transcode/native-crypto. The native view
+controls reproduce three six-row positives and the expected single-failure,
+zero-row negative with unchanged inputs, stable processes and clean shutdown.
+
+Native pre-encoded profile 41154814129 succeeds on da5398a6: independently verify
+all 3,277 input hashes, native binary, 18 snapshots and exact memory audit with
+zero findings. FlatBuffers has only 112 external client bytes after workload
+and diagnostic GC, so these snapshots do not establish a native storage leak.
+The completed public response is 12,168,713 bytes / 32,067 samples, compared with
+11,542,082 / 29,993 for MessagePack and 7,354,966 / 19,352 for CBOR. FlatBuffers
+router snapshots include 26,632,672 Uint8List bytes and client snapshots include
+14,108,064. This motivates reducing temporary report staging; exact attribution
+to one allocation site is not claimed. Diagnostic GC is never added to acceptance.
+
 Current candidate removes temporary dictionary projections in native
 and Dart FlatBuffers agreement, and keeps the common two-table Dart validator
 cache inline without allocating a captured height-update closure. Full schema,
@@ -53,9 +103,10 @@ private regressions per frozen baseline/candidate pass, along with all nine
 tool contracts. Retain the private initial nullable-ResultDetails compile error
 and invalid ordinary-alias test assumptions; neither is a production defect.
 No shipped runtime, workload, wire, copy scope or acceptance gate changes in
-this probe repair. Renew its hosted comparison. Native pre-encoded VM attribution
-`41154814129` is queued on da5398a6; current-head correctness CI `41153485459`
-is running. Do not renew unchanged numerical tests to seek a lucky pass.
+this probe repair. Its renewed hosted comparison and memory attribution are
+completed/audited above. Correctness CI `41153485459` on da5398a6 is still running
+with 37 successful jobs and only Dart VM coverage pending. Do not renew unchanged
+numerical tests to seek a lucky pass.
 
 Predecessor runtime: `4dec9ddc978b3b6fd47275e67cf46fd40ac46931`.
 It fixes public reanchoring releasing the wrong allocation: explicit payload

@@ -156,6 +156,82 @@ void main() {
       }
     });
 
+    test('chunked reports retain every named/positional sample and byte', () {
+      final samples = List.generate(
+        2048,
+        (index) => WampSample.fromJson({...named, 'iteration': index}),
+      );
+      for (final compact in [false, true]) {
+        final response = <String, Object?>{
+          if (compact) 'sample_encoding': WampSample.workerRecordEncoding,
+          'samples': compact ? samples : wampSamplesForJsonEncoding(samples),
+          // Cross several chunk boundaries inside multibyte/escaped strings.
+          'extra': List.filled(65537, 'é 🪄 \n \r \u0000 \ud800').join(),
+          'absent': null,
+          'empty': [],
+        };
+        final expected = wampWorkerResponseJsonBytes(
+          response,
+          compactSamples: compact,
+        );
+        final chunks = wampResponseJsonChunks(
+          response,
+          compactSamples: compact,
+        );
+        expect(chunks.length, greaterThan(2));
+        expect(chunks.every((chunk) => chunk.length <= 65536), isTrue);
+        expect(chunks.expand((chunk) => chunk), expected);
+        final decoded =
+            jsonDecode(utf8.decode(chunks.expand((c) => c).toList()))
+                as Map<String, Object?>;
+        final rows = decoded['samples'] as List;
+        expect(rows.length, samples.length);
+        for (var index = 0; index < samples.length; index++) {
+          final restored = compact
+              ? WampSample.fromWorkerRecord(
+                  (rows[index] as List).cast<Object?>(),
+                )
+              : WampSample.fromJson(rows[index] as Map<String, Object?>);
+          expect(restored.toJson(), samples[index].toJson());
+        }
+      }
+    });
+
+    test('chunked encoding fails before publishing any partial report', () {
+      for (final compact in [false, true]) {
+        for (final invalid in [double.nan, double.infinity, Object()]) {
+          List<List<int>>? published;
+          expect(
+            () => published = wampResponseJsonChunks({
+              'valid_prefix': List.filled(131073, 'x').join(),
+              'invalid': invalid,
+            }, compactSamples: compact),
+            throwsA(isA<JsonUnsupportedObjectError>()),
+          );
+          expect(published, isNull);
+        }
+        final cycle = <Object?>[];
+        cycle.add(cycle);
+        expect(
+          () =>
+              wampResponseJsonChunks({'cycle': cycle}, compactSamples: compact),
+          throwsA(isA<JsonCyclicError>()),
+        );
+        for (final response in <Map<String, Object?>>[
+          {'samples': []},
+          {'error': 'bad request 🪄 \n \r \u0000'},
+        ]) {
+          expect(
+            wampResponseJsonChunks(
+              response,
+              compactSamples: compact,
+            ).expand((chunk) => chunk),
+            wampWorkerResponseJsonBytes(response, compactSamples: compact),
+          );
+        }
+      }
+    });
+
     test('record input and output cannot mutate a parsed sample', () {
       final row = List<Object?>.from(positional);
       final sample = WampSample.fromWorkerRecord(row);
