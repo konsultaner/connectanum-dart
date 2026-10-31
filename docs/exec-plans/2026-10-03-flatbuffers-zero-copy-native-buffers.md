@@ -5121,3 +5121,29 @@ The candidate native digest is byte-identical to the preceding all-green f16ae5
 run; different runner CPU models are recorded, not asserted as the cause.
 Investigate before claiming clean CI. Do not retry unchanged numerical jobs
 for a favorable runner, weaken gates or mark PR ready.
+
+
+## MQTT gate repair candidate (2026-10-31)
+
+An isolated `codex/flatbuffers-mqtt-egress` worktree branches from 66b4814d,
+leaving the main PR source frozen for its canonical verification. Native MQTT
+writers currently issue one socket write per already-queued packet/frame.
+A fail-first counting writer reproduces 32 writes for 32 packets in both TCP
+and WS. A ready-only bounded scatter/gather candidate uses two writes while
+preserving every TCP byte and separate WS frame. Reuse batch descriptors and
+retain every payload owner / byte permit through IO and WS flush; keep the
+original singleton and nonvectored paths. No timer, new packet wait, payload
+copy, frame merge, environment policy, workload or acceptance budget changes.
+
+[Counter component](../research/2026-10-31-mqtt-ready-egress-component.json)
+retains exact counts and input hashes. All 43 MQTT tests pass, including six new
+byte/frame/counter/partial-write/nonvectored/control-close/permit-release cases;
+full ct_core passes 454 unit and three integration cases. Preserve the private
+missing-lock/fixture setup failures and the expected baseline counter failures.
+Local companion review and numerical timing are blocked by another workload's
+exclusive machine reservation; do not bypass it. Manual source review finds no
+concrete ownership/protocol regression. No transport improvement or CI pass is
+claimed before hosted measurements. The main 66b4814d bin/verify remains running;
+no main-worktree source or HEAD changes occur during it. Full primary and
+supplemental f16ae5 runs are retained to completion, not acceptance for this
+candidate. PR #132 remains draft and every strict gate stays unchanged.

@@ -4273,6 +4273,89 @@ fn spawn_connection_heartbeat(
     task.abort_handle()
 }
 
+// Drain only ready entries; stop at 16 chunks or after reaching the 64 KiB
+// target. The final chunk may cross that target; queue permits bound its size.
+// Reuse descriptors and preserve every payload owner and WebSocket frame.
+fn mqtt_ready_batch(
+    first: MqttOutboundChunk,
+    receiver: &mut mpsc::Receiver<MqttOutboundChunk>,
+    batch: &mut Vec<MqttOutboundChunk>,
+) {
+    debug_assert!(batch.is_empty());
+    let mut total = first.0.len();
+    batch.push(first);
+    while batch.len() < 16 && total < 64 * 1024 {
+        let Ok(next) = receiver.try_recv() else { break };
+        total += next.0.len();
+        batch.push(next);
+    }
+}
+
+async fn write_mqtt_ready_batch<W: AsyncWrite + Unpin>(
+    writer: &mut W,
+    batch: &[MqttOutboundChunk],
+    websocket: bool,
+    scratch: &mut Vec<u8>,
+) -> io::Result<()> {
+    if batch.len() == 1 || !writer.is_write_vectored() {
+        for (bytes, _) in batch {
+            if websocket {
+                write_websocket_frame_mode(
+                    writer,
+                    0x2,
+                    bytes.len(),
+                    std::slice::from_ref(bytes),
+                    &[],
+                    false,
+                    scratch,
+                )
+                .await?;
+            } else {
+                writer.write_all(bytes).await?;
+            }
+        }
+        return Ok(());
+    }
+    let headers = if websocket {
+        batch
+            .iter()
+            .map(|(bytes, _)| websocket_frame_header(0x2, true, bytes.len(), false).0)
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    let mut slices: [io::IoSlice<'_>; 32] = std::array::from_fn(|_| io::IoSlice::new(&[]));
+    let mut count = 0;
+    for (index, (bytes, _)) in batch.iter().enumerate() {
+        if websocket {
+            slices[count] = io::IoSlice::new(&headers[index]);
+            count += 1;
+        }
+        if !bytes.is_empty() {
+            slices[count] = io::IoSlice::new(bytes);
+            count += 1;
+        }
+    }
+    let mut remaining = &mut slices[..count];
+    while !remaining.is_empty() {
+        let written = match writer.write_vectored(remaining).await {
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {
+                tokio::task::yield_now().await;
+                continue;
+            }
+            result => result?,
+        };
+        if written == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "failed to write MQTT batch",
+            ));
+        }
+        io::IoSlice::advance_slices(&mut remaining, written);
+    }
+    Ok(())
+}
+
 fn spawn_mqtt_tcp_writer<W: AsyncWrite + Unpin + Send + 'static>(
     handle: tokio::runtime::Handle,
     mut writer: W,
@@ -4280,10 +4363,17 @@ fn spawn_mqtt_tcp_writer<W: AsyncWrite + Unpin + Send + 'static>(
     close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
     let task = handle.spawn(async move {
-        while let Some((bytes, _permit)) = send_rx.recv().await {
-            if writer.write_all(&bytes).await.is_err() {
+        let mut scratch = Vec::new();
+        let mut batch = Vec::with_capacity(16);
+        while let Some(first) = send_rx.recv().await {
+            mqtt_ready_batch(first, &mut send_rx, &mut batch);
+            if write_mqtt_ready_batch(&mut writer, &batch, false, &mut scratch)
+                .await
+                .is_err()
+            {
                 break;
             }
+            batch.clear();
         }
         let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
     });
@@ -4598,6 +4688,7 @@ fn spawn_mqtt_websocket_writer<W: AsyncWrite + Unpin + Send + 'static>(
 ) -> AbortHandle {
     let task = handle.spawn(async move {
         let mut mask_scratch = Vec::new();
+        let mut batch = Vec::with_capacity(16);
         let mut controls_open = true;
         loop {
             let (opcode, bytes, _permit) = tokio::select! {
@@ -4611,19 +4702,36 @@ fn spawn_mqtt_websocket_writer<W: AsyncWrite + Unpin + Send + 'static>(
                     None => break,
                 },
             };
-            if write_websocket_frame_mode(
-                &mut writer,
-                opcode,
-                bytes.len(),
-                std::slice::from_ref(&bytes),
-                &[],
-                false,
-                &mut mask_scratch,
-            )
-            .await
-            .is_err()
-                || writer.flush().await.is_err()
-            {
+            let result = if let Some(permit) = _permit {
+                mqtt_ready_batch((bytes, permit), &mut send_rx, &mut batch);
+                let result =
+                    write_mqtt_ready_batch(&mut writer, &batch, true, &mut mask_scratch).await;
+                // Keep all byte permits through flush, including slow TLS writes.
+                let result = if result.is_ok() {
+                    writer.flush().await
+                } else {
+                    result
+                };
+                batch.clear();
+                result
+            } else {
+                let result = write_websocket_frame_mode(
+                    &mut writer,
+                    opcode,
+                    bytes.len(),
+                    std::slice::from_ref(&bytes),
+                    &[],
+                    false,
+                    &mut mask_scratch,
+                )
+                .await;
+                if result.is_ok() {
+                    writer.flush().await
+                } else {
+                    result
+                }
+            };
+            if result.is_err() {
                 break;
             }
             if opcode == 0x8 {
@@ -14186,5 +14294,241 @@ mod connection_id_lifetime_tests {
             .collect();
         ids.sort_unstable();
         assert_eq!(ids, (1..=512).collect::<Vec<_>>());
+    }
+}
+#[cfg(test)]
+mod mqtt_egress_batch_tests {
+    use super::*;
+    #[derive(Default)]
+    struct Capture {
+        bytes: Vec<u8>,
+        writes: usize,
+        flushes: usize,
+    }
+    struct CaptureWriter {
+        state: Arc<Mutex<Capture>>,
+        max_write: usize,
+        vectored: bool,
+    }
+    impl AsyncWrite for CaptureWriter {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _: &mut Context<'_>,
+            bytes: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            let n = bytes.len().min(self.max_write);
+            let mut state = self.state.lock().unwrap();
+            state.writes += 1;
+            state.bytes.extend_from_slice(&bytes[..n]);
+            Poll::Ready(Ok(n))
+        }
+        fn is_write_vectored(&self) -> bool {
+            self.vectored
+        }
+        fn poll_write_vectored(
+            self: Pin<&mut Self>,
+            _: &mut Context<'_>,
+            buffers: &[io::IoSlice<'_>],
+        ) -> Poll<io::Result<usize>> {
+            let mut state = self.state.lock().unwrap();
+            state.writes += 1;
+            let mut n = 0;
+            for buffer in buffers {
+                let take = buffer.len().min(self.max_write - n);
+                state.bytes.extend_from_slice(&buffer[..take]);
+                n += take;
+                if n == self.max_write {
+                    break;
+                }
+            }
+            Poll::Ready(Ok(n))
+        }
+        fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+            self.state.lock().unwrap().flushes += 1;
+            Poll::Ready(Ok(()))
+        }
+        fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+    async fn capture_mode(
+        websocket: bool,
+        max_write: usize,
+        vectored: bool,
+    ) -> (Arc<Mutex<Capture>>, Vec<u8>) {
+        let state = Arc::new(Mutex::new(Capture::default()));
+        let writer = CaptureWriter {
+            state: Arc::clone(&state),
+            max_write,
+            vectored,
+        };
+        let (outbound, send_rx) = MqttOutboundQueue::new(64);
+        let mut expected = Vec::new();
+        for index in 0..32 {
+            let bytes = Bytes::from(vec![index; 128]);
+            if websocket {
+                expected.extend_from_slice(&[0x82, 126, 0, 128]);
+            }
+            expected.extend_from_slice(&bytes);
+            outbound.enqueue(ConnectionId(900), bytes).unwrap();
+        }
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let abort = if websocket {
+            let (control_tx, control_rx) = mpsc::channel(4);
+            drop(control_tx);
+            spawn_mqtt_websocket_writer(
+                tokio::runtime::Handle::current(),
+                writer,
+                send_rx,
+                control_rx,
+                close_tx,
+            )
+        } else {
+            spawn_mqtt_tcp_writer(tokio::runtime::Handle::current(), writer, send_rx, close_tx)
+        };
+        drop(outbound);
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::WriterClosed)
+        );
+        abort.abort();
+        (state, expected)
+    }
+    #[tokio::test]
+    async fn queued_tcp_egress_preserves_bytes_with_bounded_write_calls() {
+        let (state, expected) = capture_mode(false, usize::MAX, true).await;
+        let state = state.lock().unwrap();
+        assert_eq!(state.bytes, expected);
+        println!(
+            "MQTT_EGRESS_COUNTER {}",
+            serde_json::json!({"bytes":state.bytes.len(),"writes":state.writes,"flushes":state.flushes})
+        );
+        assert!(
+            state.writes <= 4,
+            "{} writes for 32 already queued chunks",
+            state.writes
+        );
+    }
+    #[tokio::test]
+    async fn queued_ws_egress_preserves_frames_with_bounded_write_calls() {
+        let (state, expected) = capture_mode(true, usize::MAX, true).await;
+        let state = state.lock().unwrap();
+        assert_eq!(state.bytes, expected);
+        println!(
+            "MQTT_EGRESS_COUNTER {}",
+            serde_json::json!({"bytes":state.bytes.len(),"writes":state.writes,"flushes":state.flushes})
+        );
+        assert!(
+            state.writes <= 4,
+            "{} writes for 32 already queued frames",
+            state.writes
+        );
+    }
+    #[tokio::test]
+    async fn queued_egress_partial_vectors_preserve_every_byte() {
+        for websocket in [false, true] {
+            let (state, expected) = capture_mode(websocket, 3, true).await;
+            assert_eq!(state.lock().unwrap().bytes, expected);
+        }
+    }
+    #[tokio::test]
+    async fn nonvectored_fallback_preserves_exact_bytes_and_frames() {
+        for websocket in [false, true] {
+            let (state, expected) = capture_mode(websocket, 3, false).await;
+            assert_eq!(state.lock().unwrap().bytes, expected);
+        }
+    }
+    #[tokio::test]
+    async fn queued_close_control_precedes_all_data() {
+        let state = Arc::new(Mutex::new(Capture::default()));
+        let writer = CaptureWriter {
+            state: Arc::clone(&state),
+            max_write: usize::MAX,
+            vectored: true,
+        };
+        let (outbound, send_rx) = MqttOutboundQueue::new(32);
+        let permits = Arc::clone(&outbound.byte_budget);
+        let full_budget = permits.available_permits();
+        for _ in 0..32 {
+            outbound
+                .enqueue(ConnectionId(901), Bytes::from_static(b"queued-data"))
+                .unwrap();
+        }
+        let (control_tx, control_rx) = mpsc::channel(2);
+        control_tx
+            .try_send((0x8, Bytes::from_static(&[3, 232])))
+            .unwrap();
+        let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+        let abort = spawn_mqtt_websocket_writer(
+            tokio::runtime::Handle::current(),
+            writer,
+            send_rx,
+            control_rx,
+            close_tx,
+        );
+        assert_eq!(
+            time::timeout(Duration::from_secs(5), close_rx.recv())
+                .await
+                .unwrap(),
+            Some(ConnectionTaskSignal::WriterClosed)
+        );
+        assert_eq!(state.lock().unwrap().bytes, [0x88, 2, 3, 232]);
+        // Writer completion also drops every unconsumed queued data permit.
+        for _ in 0..8 {
+            if permits.available_permits() == full_budget {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(permits.available_permits(), full_budget);
+        abort.abort();
+    }
+    #[tokio::test]
+    async fn write_zero_releases_queued_and_inflight_permits() {
+        for websocket in [false, true] {
+            let state = Arc::new(Mutex::new(Capture::default()));
+            let writer = CaptureWriter {
+                state,
+                max_write: 0,
+                vectored: true,
+            };
+            let (outbound, send_rx) = MqttOutboundQueue::new(32);
+            let permits = Arc::clone(&outbound.byte_budget);
+            let full_budget = permits.available_permits();
+            for _ in 0..32 {
+                outbound
+                    .enqueue(ConnectionId(902), Bytes::from_static(b"queued-data"))
+                    .unwrap();
+            }
+            let (close_tx, mut close_rx) = mpsc::unbounded_channel();
+            let abort = if websocket {
+                let (_control_tx, control_rx) = mpsc::channel(2);
+                spawn_mqtt_websocket_writer(
+                    tokio::runtime::Handle::current(),
+                    writer,
+                    send_rx,
+                    control_rx,
+                    close_tx,
+                )
+            } else {
+                spawn_mqtt_tcp_writer(tokio::runtime::Handle::current(), writer, send_rx, close_tx)
+            };
+            assert_eq!(
+                time::timeout(Duration::from_secs(5), close_rx.recv())
+                    .await
+                    .unwrap(),
+                Some(ConnectionTaskSignal::WriterClosed)
+            );
+            for _ in 0..8 {
+                if permits.available_permits() == full_budget {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+            assert_eq!(permits.available_permits(), full_budget);
+            abort.abort();
+        }
     }
 }

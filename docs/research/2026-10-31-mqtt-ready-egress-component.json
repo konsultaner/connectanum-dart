@@ -1,0 +1,39 @@
+{
+  "kind": "deterministic native MQTT outbound write-count component; never FlatBuffers acceptance",
+  "baseline_head": "66b4814d1f164a01ed57f05819a957116127c796",
+  "baseline_source_sha256": "3650426a483e5698ae210ca64c9734536993a057a2ac692f3b7050e2e4cb99c3",
+  "candidate_source_sha256": "a0a45cd1d3df862989a0dcb79548dc52f3aba21aae786400bda3f8e3678cac0b",
+  "records": [
+    {
+      "transport": "tcp",
+      "queued_chunks": 32,
+      "payload_bytes": 4096,
+      "baseline_write_calls": 32,
+      "candidate_write_calls": 2,
+      "output_bytes_equal": true
+    },
+    {
+      "transport": "ws",
+      "queued_frames": 32,
+      "payload_bytes": 4096,
+      "wire_bytes": 4224,
+      "baseline_write_calls": 32,
+      "candidate_write_calls": 2,
+      "output_bytes_equal": true
+    }
+  ],
+  "verification": {
+    "baseline_expected_failures": 2,
+    "prototype_specific_tests": 6,
+    "all_mqtt_tests": 43,
+    "ct_core_unit_tests": 454,
+    "ct_core_integration_tests": 3
+  },
+  "limitations": [
+    "Counting AsyncWrite component only; no observed transport throughput, CPU, latency or RSS benefit claimed.",
+    "Existing WebSocket frame boundaries and FIFO bytes remain exact. Payload owners and queue byte permits stay held through IO and WS flush.",
+    "Drain only ready entries, at most16; stop after reaching64KiB target, with final-chunk overshoot still governed by queue byte budget. No timer delay or wait for future packets.",
+    "Nonvectored/TLS fallback preserves per-frame encoding; singleton and reusable descriptors avoid per-message batch allocations.",
+    "Local review/timing blocked by another workload exclusive machine reservation. Manual review and hosted acceptance remain required."
+  ]
+}
