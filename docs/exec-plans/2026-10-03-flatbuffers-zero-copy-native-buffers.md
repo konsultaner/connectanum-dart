@@ -11,6 +11,11 @@ remain isolated; PR132 stays draft until complete acceptance. No gate is waived.
 
 ## Native MQTT singleton-prefix coalescing (2026-10-31)
 
+The pre-change fast check on documentation-only checkpoint aacce95c exposed an
+absolute workstation path in the evidence JSON. Record the failure and replace
+it with a repository-relative library path before continuing new code. The frozen
+f7d60f2f runtime and its completed39-job CI evidence are unchanged.
+
 ## Current acceptance checkpoint (2026-10-31)
 
 Candidatef7d60f2f is frozen on codex/flatbuffers-report-direct-utf8. Its full

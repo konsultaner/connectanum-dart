@@ -9,6 +9,11 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
+The pre-change fast check on documentation-only checkpoint aacce95c exposed an
+absolute workstation path in the evidence JSON. Record the failure and replace
+it with a repository-relative library path before continuing new code. The frozen
+f7d60f2f runtime and its completed39-job CI evidence are unchanged.
+
 ## Current acceptance checkpoint (2026-10-31)
 
 Candidatef7d60f2f is frozen on codex/flatbuffers-report-direct-utf8. Its full

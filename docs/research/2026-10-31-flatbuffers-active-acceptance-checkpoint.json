@@ -78,6 +78,12 @@
     "rows": 90,
     "source": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8"
   },
+  "documentation_validation": {
+    "failure": "Public-artifact scanner found an absolute workstation path in this evidence JSON. Use a repository-relative native library path. Runtime/campaign source remains f7d60f2f.",
+    "prechange_log_sha256": "2eb3cbb4a46f8c3d8d9e15676867acee58ecdbbc627117da522ab4d3b76ecf61",
+    "prechange_source": "aacce95cadafc923d49df2e3d99d164b186b8676",
+    "prechange_test_fast_exit": 1
+  },
   "final_CI": {
     "all_jobs_success": true,
     "artifact_count": 39,
@@ -179,7 +185,7 @@
     "finished_utc": "2026-10-31T13:37:17.427676+00:00",
     "head": "f7d60f2f6b3c4dbbc6dbda2d01616436e0038fb8",
     "log_sha256": "b68f7a1a52449dcf4c6c074f4147da9e52f5f3abb04cdd75f6b0a2e4016bafa8",
-    "native_lib": "/Users/konsultaner/.codex/worktrees/flatbuffers-event-turn/connectanum-dart/native/transport/target/ffi-test/release/libct_ffi.dylib",
+    "native_lib": "native/transport/target/ffi-test/release/libct_ffi.dylib",
     "native_sha256_after": "0296500b15971c2c2feaaf3d3e4875669f3b082bdbcf242f5acb430334c88850",
     "native_sha256_before": "0296500b15971c2c2feaaf3d3e4875669f3b082bdbcf242f5acb430334c88850",
     "scope": "Full canonical bin/verify on frozen f7d60f directUTF8/nativeMQTT candidate, actual ChromiumJS/Wasm and prebuilt own ffi-test library. The canonical helper rebuilds/selects this same own-worktree library path.",
