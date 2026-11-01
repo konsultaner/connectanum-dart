@@ -1,0 +1,30 @@
+{
+  "source": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+  "full_canonical_pass": true,
+  "actual_source_HEAD_tree_clean": true,
+  "actual_tracked_tree_sha256": "2fad870a53c8e01c3db91c75da48947b04e61adb61f0df26c97f1047d765d496",
+  "own_native_sha256": "bf607a9bd74823a8c8152b0f2dbfc8ca19444d68fd3b108c214392fb54b7a474",
+  "all_guarded_sources_and_three_locks_unchanged": true,
+  "guarded_sources": {
+    "packages/connectanum_router/lib/src/router/router_instance/router_boss.dart": "a0d546a15c588ea8d3059682cba48c105017c24ec7c0831c0fbebcfd76ef7923",
+    "packages/connectanum_router/test/router_boss_busy_wake_test.dart": "a6b1d252be4af0cfed2e048397a7ae4cca0fa5db7dd6c49519a778cda79742fd",
+    "packages/connectanum_router/test/router_runtime_test.dart": "8db222674a9c8034a6f6adf6a2f5aeea11265249885ad6a052beaebfcc5ae5e6",
+    "native/transport/ct_core/src/lib.rs": "0e88607d1bfeacd115097d14e3edc9077404590c1d392ec380c6dc1e55bc4265",
+    "native/transport/ct_core/src/wamp/flatbuffers_encoder.rs": "c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2",
+    "tool/probe_native_ppt_views.py": "942a4adf969b9048f1756f4cf0d350984de3302c4b29bf30bdd80a4d2eeb16bb",
+    "tool/test_probe_native_ppt_views.py": "5a0d7a62e16bb9988714e8e56a16a96ff03f22c2d9e04be79251915fa09cded2",
+    ".github/workflows/dart.yml": "f979616b8adaa3e4b805238111e60010f1e708ae218aeb51b922011a5c1c16ff",
+    "tool/profile_wamp_serializers.py": "32aeea2c408f2f46c72b2470a3aa83f2727559b48fe358c74884497c0593f103"
+  },
+  "three_locks": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "log_sha256": "c2b55d400650c27f82e8133a1c4c900a64f1c579222c4263be4b2223dcc525a6",
+  "receipt_sha256": "30ee2894c0a5209e4d51080c68cfd381e863a9c21b274054f3800174acb80e86",
+  "actual_local_Chrome_Wasm_observations": 8308,
+  "actual_local_JavaScript_observations": 0,
+  "scope": "Own frozen600E full bin/verify; exact clean source/HEAD/tree/ownnative/three locks independently rehashed. Actual local ChromeWasm only; hostedJS separate. No transport/RAM or strict48/50 acceptance claim.",
+  "audited_utc": "2026-11-01T23:42:22.768570+00:00"
+}

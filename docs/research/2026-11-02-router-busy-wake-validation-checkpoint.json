@@ -4,7 +4,7 @@
   "base": "1152116064651ee01bd6fd52a798fee975d954bf",
   "branch": "codex/router-busy-wake-consumption",
   "focused_correctness_audit": "docs/research/2026-11-02-router-busy-wake-correctness-audit.json",
-  "canonical_status": "ACTIVE own bin/verify, not yet complete/pass; source/HEAD/tree/native/locks remain frozen",
+  "canonical_status": "COMPLETEPASS independently audited; source/HEAD/tree/ownnative/locks unchanged; actual localWasm8308 and no localJS",
   "own_native_sha256": "bf607a9bd74823a8c8152b0f2dbfc8ca19444d68fd3b108c214392fb54b7a474",
   "tracked_tree_sha256": "2fad870a53c8e01c3db91c75da48947b04e61adb61f0df26c97f1047d765d496",
   "three_locks_sha256": {
@@ -15,14 +15,16 @@
   "CI_run": 41361205057,
   "copy_run": 41361207942,
   "CI_and_copy_source_heads_verified": true,
-  "controlled_Dart_source_comparison": "Predeclared exact600E/1152; external wrapper draft, readinessfalse, owncandidatecanonical/guardtests/review stillrequired. All5profiles5ABBA50rows8050000freshbodies; sameactualnative/client, separatelycompiledactualDartbrokers. No capture yet.",
+  "controlled_Dart_source_comparison": "Predeclared600E/1152; owncanonicalsPASS,16actualpositive/negativeguardsPASS. Externalwrapper readinessfalse untilboundedcompanion/rootreview complete; no captureyet. All5profiles5ABBA50rows8050000freshbodies/sameactualnativeclient/separatelycompiledDartbrokers.",
   "final_strict48_50_dispatched": false,
   "adopted": false,
-  "scope": "Actualbefore-failing component and focused615router/115MQTT incl7Paho pass. Owncopy/lifetime and MQTT20 pass exact current-source audits; fullcanonical/fullCI/control/finalstrictacceptance pending. Host-specific pass does not prove causal7763repair or RAMparity.",
+  "scope": "Own frozen fullcanonical/copy/lifetime/MQTT20/hostedJS pass exactsource audits. FullCI/control/finalstrictacceptance pending. Xeon pass does not prove causal7763repair or RAMparity; source stays frozen.",
   "copy_complete_pass": true,
   "copy_audit": "docs/research/2026-11-02-router-busy-wake-copy-audit.json",
   "MQTT20_complete_pass": true,
   "MQTT_host": "Xeon Platinum 8573C",
   "MQTT_audit": "docs/research/2026-11-02-router-busy-wake-mqtt-audit.json",
-  "full_CI_complete": false
+  "full_CI_complete": false,
+  "canonical_audit": "docs/research/2026-11-02-router-busy-wake-canonical-audit.json",
+  "control_guard_tests_passed": 16
 }

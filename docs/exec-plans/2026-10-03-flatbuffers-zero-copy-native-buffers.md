@@ -4,7 +4,7 @@ Status: active; the user resumed the FlatBuffers milestone after the MQTT/master
 
 Current step: verify frozen busy-pass wake runtime `600e82f5` after the actual
 before-failing deterministic regression, fresh full fast baseline and all615
-router-runtime/115MQTT cases pass. Own canonical and exact-source CI/copy are
+router-runtime/115MQTT cases pass. Own canonical/copy/MQTT now pass; full exact-source CI remains
 active; the predeclared full Dart-source comparison awaits canonical/guard/review
 readiness. Preserve every original numerical result. No source/HEAD/native
 changes during canonical, or adoption before complete final-runtime acceptance.
@@ -29,10 +29,13 @@ reuse fixture removes its obsolete extra consumption turn; new deterministic
 checks cover the replacement idle-wait behavior. No fallback delay, fairness,
 body/copy, native, SDK, GC, allocator or acceptance policy changes.
 
-Own frozen full canonical is **active**, with actual local Chrome/Wasm enabled,
-clean source/HEAD/tree `2fad870a…`, explicit pacer/native/test guards and three
-locks. Do not edit this source/HEAD/native during verification. No canonical
-pass or local JS proof is claimed yet. Exact-source
+Own frozen full canonical **passes independent audit**, with clean unchanged
+source/HEAD/tree `2fad870a…`, own native `bf607a9b…`, explicit pacer/native/test
+guards and all three locks. Log SHA is
+`c2b55d400650c27f82e8133a1c4c900a64f1c579222c4263be4b2223dcc525a6`.
+There are 8,308 actual local Chrome/Wasm observations and no local JS; current
+hosted JS is independently audited separately. Do not rerun unchanged canonical.
+Exact-source
 [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41361205057) and
 [copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41361207942)
 were predeclared once and their source heads independently checked.
@@ -62,11 +65,13 @@ The new complete Dart-source control is predeclared for `11521160` versus
 `600e82f5`: separately compiled actual Dart brokers, same actual verified native
 and client, all five profiles/five AB/BA pairs/fifty rows/8.05 million fresh
 verified deliveries. Its external guarded wrapper is a draft with readiness
-false; own canonical pass, source/provenance guard checks and review are still
-required before capture. A native-only comparison does not isolate this Dart
+false; own canonical now passes and all sixteen source/provenance/body/output
+guard tests pass. Bounded companion and root review are still required before
+capture; readiness remains false. A native-only comparison does not isolate this Dart
 change. No original numerical run is retried or selected. The candidate is not
 adopted; throughput/RAM impact, complete final strict 48/50 and clean final CI
 remain outstanding.
+[Own canonical audit](../research/2026-11-02-router-busy-wake-canonical-audit.json),
 [Change and focused proof](../research/2026-11-02-router-busy-wake-consumption.md),
 [current frozen verification scope](../research/2026-11-02-router-busy-wake-validation-checkpoint.json).
 
