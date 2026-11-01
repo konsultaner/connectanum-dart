@@ -81,6 +81,25 @@ finish unchanged. No numerical retry or predecessor report substitution occurs.
 
 [Candidate design and complete paired evidence](https://github.com/konsultaner/connectanum-dart/blob/4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7/docs/research/2026-11-01-mqtt-validated-forwarding.md).
 
+## Predecessor INVOCATION protocol shard failed strict parity (2026-11-01)
+
+The `7476ff6e` protocol shard in supplemental run `41306091671` is complete.
+Independent reproduction verifies thirty cases / all 900 original rows, exact
+source-derived inventory, seed/order schedule and every canonical scenario byte.
+Policy, locks, router configuration and actual retained native/driver binaries
+also verify, with zero integrity findings. The unchanged three warmups / seven
+repetitions / 10 s / 1,000-sample windows remain intact.
+
+Strict parity fails 129 measured metrics: twenty throughput/operation-rate,
+twenty p95, twenty-one p99, twenty CPU, eleven allocation, eleven GC and
+twenty-six RSS. The EPYC 7763 reporting job is green because it produced complete
+diagnostic evidence; that is not a strict acceptance pass. Mode classifications
+are descriptive and do not establish a root cause. Preserve all rows without
+an unchanged numerical retry. The primary and final encrypted/progressive shard
+are still running; this is not complete fifty-case acceptance.
+
+[Protocol reproduction summary](research/2026-11-01-flatbuffers-7476ff6e-protocol-audit.json).
+
 ## Predecessor INVOCATION payload shard failed (2026-11-01)
 
 The `7476ff6e` payload shard in supplemental run `41306091671` has completed.
