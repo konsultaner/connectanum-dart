@@ -20,6 +20,19 @@ pub fn encode_segments(message: &WampMessage) -> Result<Vec<Bytes>, ParseError> 
             return Ok(parts);
         }
     }
+    if let WampMessage::Invocation {
+        request_id,
+        registration_id,
+        details,
+        payload,
+    } = message
+    {
+        if let Some(parts) =
+            simple_ppt_envelope(*request_id, Some(*registration_id), details, payload)?
+        {
+            return Ok(parts);
+        }
+    }
     if matches!(
         message,
         WampMessage::Published { .. }
@@ -113,20 +126,30 @@ fn control_ack(message: &WampMessage) -> Option<Bytes> {
     Some(Bytes::from(allocation.into_vec()).slice(start..))
 }
 
-// An opaque RESULT with the two PPT strings and an optional progress boolean
-// can use the pinned generated tables while keeping the complete dictionary
-// and original application allocation. Other dictionaries and ordinary
-// argument vectors retain the generic writer.
+// Common opaque RESULT/INVOCATION headers can use the pinned generated tables
+// while retaining the complete dictionary and original application allocation.
+// Other dictionaries and ordinary argument vectors keep the generic writer.
 fn simple_ppt_result(
     request: u64,
     details: &ValueMap,
     payload: &Payload,
 ) -> Result<Option<Vec<Bytes>>, ParseError> {
+    simple_ppt_envelope(request, None, details, payload)
+}
+
+fn simple_ppt_envelope(
+    request: u64,
+    registration: Option<u64>,
+    details: &ValueMap,
+    payload: &Payload,
+) -> Result<Option<Vec<Bytes>>, ParseError> {
     use super::codec_copy_metrics::{self, CodecAllocator};
     use super::flatbuffers_generated::wamp::proto as generated;
-    if request == 0
+    let invocation = registration.is_some();
+    if registration.is_some_and(|id| id == 0 || id > 9_007_199_254_740_992)
+        || request == 0
         || request > 9_007_199_254_740_992
-        || !(2..=3).contains(&details.len())
+        || !(2..=if invocation { 4 } else { 3 }).contains(&details.len())
         || payload.args.is_some()
         || payload.kwargs.is_some()
     {
@@ -144,6 +167,7 @@ fn simple_ppt_result(
     let mut scheme = None;
     let mut serializer = None;
     let mut progress = None;
+    let mut receive_progress = None;
     for (key, value) in details {
         match (key, value) {
             (Cbor::String(key), Cbor::String(value)) if key == "ppt_scheme" => {
@@ -155,6 +179,9 @@ fn simple_ppt_result(
             (Cbor::String(key), Cbor::Bool(value)) if key == "progress" => {
                 progress = Some(*value);
             }
+            (Cbor::String(key), Cbor::Bool(value)) if invocation && key == "receive_progress" => {
+                receive_progress = Some(*value);
+            }
             _ => return Ok(None),
         }
     }
@@ -165,11 +192,15 @@ fn simple_ppt_result(
         return Ok(None);
     }
 
-    // The optional progress boolean has fixed encoded size; only the scheme
-    // has variable length. The standard CBOR writer encodes the complete map.
+    // Both optional booleans have fixed encoded sizes; only the scheme has
+    // variable length. The standard CBOR writer retains the complete map,
+    // including absent versus explicit false and INVOCATION's metadata-only
+    // progress key (the pinned INVOCATION table has no progress field).
     const FIXED_BYTES: usize =
         1 + 1 + "ppt_scheme".len() + 1 + "ppt_serializer".len() + 1 + "flatbuffers".len();
-    let fixed_bytes = FIXED_BYTES + usize::from(progress.is_some()) * (1 + "progress".len() + 1);
+    let fixed_bytes = FIXED_BYTES
+        + usize::from(progress.is_some()) * (1 + "progress".len() + 1)
+        + usize::from(receive_progress.is_some()) * (1 + "receive_progress".len() + 1);
     let scheme_header = match scheme.len() {
         0..=23 => 1,
         24..=255 => 2,
@@ -185,11 +216,14 @@ fn simple_ppt_result(
     };
     // Preserve the generic writer's conservative table/vector budget as well
     // as the final encoded-frame bound. Both tables and both vectors occur.
-    let result_reference = schema::TABLES[schema::ROOT].fields[1].values
-        [usize::from(generated::AnyMessage::Result.0)] as usize;
+    let tag = if invocation {
+        generated::AnyMessage::Invocation
+    } else {
+        generated::AnyMessage::Result
+    };
+    let reference = schema::TABLES[schema::ROOT].fields[1].values[usize::from(tag.0)] as usize;
     let budget_overhead = 2 * 8
-        + 16 * (schema::TABLES[schema::ROOT].fields.len()
-            + schema::TABLES[result_reference].fields.len())
+        + 16 * (schema::TABLES[schema::ROOT].fields.len() + schema::TABLES[reference].fields.len())
         + 2 * 8;
     if metadata_len
         .checked_add(body.len())
@@ -224,7 +258,8 @@ fn simple_ppt_result(
     // Reserve the pinned control tables alongside metadata, including root
     // alignment. The checked 1 MiB metadata limit makes this addition bounded;
     // rounding capacity to eight keeps the external payload vector tail aligned.
-    let capacity = (metadata_len + 96).next_multiple_of(8);
+    let header_reserve = if invocation { 128 } else { 96 };
+    let capacity = (metadata_len + header_reserve).next_multiple_of(8);
     let mut builder =
         flatbuffers::FlatBufferBuilder::new_in(CodecAllocator::with_capacity(capacity));
     let vector = builder.create_vector::<u8>(&[]);
@@ -237,22 +272,39 @@ fn simple_ppt_result(
         "opaque" => generated::PPTScheme::OPAQUE,
         _ => generated::PPTScheme::NONE,
     };
-    let result = generated::Result::create(
-        &mut builder,
-        &generated::ResultArgs {
-            request,
-            progress: progress.unwrap_or(false),
-            payload: Some(vector),
-            ppt_scheme: scheme,
-            ppt_serializer: generated::PPTSerializer::FLATBUFFERS,
-            ..Default::default()
-        },
-    );
+    let body_table = if let Some(registration) = registration {
+        generated::Invocation::create(
+            &mut builder,
+            &generated::InvocationArgs {
+                request,
+                registration,
+                receive_progress: receive_progress.unwrap_or(false),
+                payload: Some(vector),
+                ppt_scheme: scheme,
+                ppt_serializer: generated::PPTSerializer::FLATBUFFERS,
+                ..Default::default()
+            },
+        )
+        .as_union_value()
+    } else {
+        generated::Result::create(
+            &mut builder,
+            &generated::ResultArgs {
+                request,
+                progress: progress.unwrap_or(false),
+                payload: Some(vector),
+                ppt_scheme: scheme,
+                ppt_serializer: generated::PPTSerializer::FLATBUFFERS,
+                ..Default::default()
+            },
+        )
+        .as_union_value()
+    };
     let root = generated::Message::create(
         &mut builder,
         &generated::MessageArgs {
-            msg_type: generated::AnyMessage::Result,
-            msg: Some(result.as_union_value()),
+            msg_type: tag,
+            msg: Some(body_table),
             metadata: Some(metadata),
         },
     );
@@ -702,6 +754,319 @@ mod tests {
     use super::super::{parse_message, Serializer};
     use super::*;
 
+    fn typed_invocation(
+        request: u64,
+        registration: u64,
+        scheme: &str,
+        bytes: Bytes,
+        flags: (Option<bool>, Option<bool>),
+    ) -> WampMessage {
+        let WampMessage::Result {
+            mut details,
+            payload,
+            ..
+        } = typed_result(request, scheme, bytes)
+        else {
+            unreachable!()
+        };
+        for (key, value) in [("progress", flags.0), ("receive_progress", flags.1)] {
+            if let Some(value) = value {
+                details.insert(Cbor::String(key.into()), Cbor::Bool(value));
+            }
+        }
+        WampMessage::Invocation {
+            request_id: request,
+            registration_id: registration,
+            details,
+            payload,
+        }
+    }
+
+    #[test]
+    fn typed_invocations_preserve_metadata_without_growth() {
+        use super::super::codec_copy_metrics::observed_on_current_thread;
+        use super::super::flatbuffers_generated::wamp::proto as generated;
+        let mut schemes = vec![
+            "cryptobox".into(),
+            "mqtt".into(),
+            "xbr".into(),
+            "opaque".into(),
+            "é".repeat(44),
+            "🚀".repeat(22),
+        ];
+        schemes.extend(
+            [
+                1, 23, 24, 25, 58, 59, 60, 61, 86, 87, 88, 127, 128, 255, 256, 65535, 65536,
+            ]
+            .map(|n| "x".repeat(n)),
+        );
+        for scheme in schemes {
+            for flags in [None, Some(false), Some(true)]
+                .into_iter()
+                .flat_map(|p| [None, Some(false), Some(true)].map(|r| (p, r)))
+            {
+                for (request, registration) in
+                    [(1, 9_007_199_254_740_992), (9_007_199_254_740_992, 1)]
+                {
+                    let body = Bytes::from(vec![0x71, 0, 0xff, 0x83, 0x27, 0x14, 0x51]);
+                    let message =
+                        typed_invocation(request, registration, &scheme, body.clone(), flags);
+                    let WampMessage::Invocation { details, .. } = &message else {
+                        unreachable!()
+                    };
+                    let metadata = serde_cbor::to_vec(details).unwrap();
+                    let before = observed_on_current_thread();
+                    let parts = encode_segments(&message).unwrap();
+                    let after = observed_on_current_thread();
+                    assert_eq!(
+                        after.growth_copy_bytes_total,
+                        before.growth_copy_bytes_total,
+                        "scheme bytes {}, flags {:?}",
+                        scheme.len(),
+                        flags
+                    );
+                    assert_eq!(
+                        after.vector_copy_bytes_total - before.vector_copy_bytes_total,
+                        metadata.len() as u64
+                    );
+                    assert_eq!(parts.len(), 2);
+                    assert_eq!(parts[1].as_ptr(), body.as_ptr());
+                    assert_eq!(parts[0].len() % 8, 0);
+                    let joined: Vec<u8> = parts.iter().flat_map(|p| p.iter().copied()).collect();
+                    let root = generated::root_as_message(&joined).unwrap();
+                    let invocation = root.msg_as_invocation().unwrap();
+                    assert_eq!(invocation.request(), request);
+                    assert_eq!(invocation.registration(), registration);
+                    assert_eq!(invocation.receive_progress(), flags.1.unwrap_or(false));
+                    assert_eq!(root.metadata().unwrap().bytes(), metadata);
+                    assert_segmented_result_matches_generic(&message);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn typed_invocation_other_shapes_preserve_generic_fallback() {
+        for (key, value) in [
+            ("caller", Cbor::U64(7)),
+            ("caller_authid", Cbor::String("alice".into())),
+            ("procedure", Cbor::String("com.example.echo".into())),
+            ("progress", Cbor::Unit),
+            ("progress", Cbor::String("true".into())),
+            ("receive_progress", Cbor::U8(1)),
+            ("ppt_cipher", Cbor::String("xsalsa20poly1305".into())),
+            ("ppt_keyid", Cbor::String("key".into())),
+            ("ppt_scheme", Cbor::String(String::new())),
+            ("ppt_serializer", Cbor::String("json".into())),
+            ("custom", Cbor::Map(ValueMap::new())),
+        ] {
+            let mut message =
+                typed_invocation(73, 91, "opaque", Bytes::from(vec![1, 2, 3]), (None, None));
+            let WampMessage::Invocation {
+                details, payload, ..
+            } = &mut message
+            else {
+                unreachable!()
+            };
+            details.insert(Cbor::String(key.into()), value);
+            assert!(simple_ppt_envelope(73, Some(91), details, payload)
+                .unwrap()
+                .is_none());
+            assert_segmented_result_matches_generic(&message);
+        }
+        for missing in ["ppt_scheme", "ppt_serializer"] {
+            let mut message = typed_invocation(73, 91, "opaque", Bytes::new(), (None, None));
+            let WampMessage::Invocation {
+                details, payload, ..
+            } = &mut message
+            else {
+                unreachable!()
+            };
+            details.remove(&Cbor::String(missing.into()));
+            assert!(simple_ppt_envelope(73, Some(91), details, payload)
+                .unwrap()
+                .is_none());
+            assert_segmented_result_matches_generic(&message);
+        }
+        let mut invalid_key = typed_invocation(73, 91, "opaque", Bytes::new(), (None, None));
+        let WampMessage::Invocation {
+            details, payload, ..
+        } = &mut invalid_key
+        else {
+            unreachable!()
+        };
+        details.remove(&Cbor::String("ppt_serializer".into()));
+        details.insert(Cbor::U64(1), Cbor::String("flatbuffers".into()));
+        assert!(simple_ppt_envelope(73, Some(91), details, payload)
+            .unwrap()
+            .is_none());
+        assert_segmented_result_matches_generic(&invalid_key);
+        for (request, registration) in [
+            (0, 91),
+            (73, 0),
+            (9_007_199_254_740_993, 91),
+            (73, 9_007_199_254_740_993),
+            (u64::MAX, u64::MAX),
+        ] {
+            let message =
+                typed_invocation(request, registration, "opaque", Bytes::new(), (None, None));
+            let WampMessage::Invocation {
+                details, payload, ..
+            } = &message
+            else {
+                unreachable!()
+            };
+            assert!(
+                simple_ppt_envelope(request, Some(registration), details, payload)
+                    .unwrap()
+                    .is_none()
+            );
+            assert_segmented_result_matches_generic(&message);
+        }
+        for payload in [
+            Payload::default(),
+            Payload {
+                args: Some(Bytes::from_static(&[0x80])),
+                ..Default::default()
+            },
+            Payload {
+                kwargs: Some(Bytes::from_static(&[0xa0])),
+                ..Default::default()
+            },
+            Payload {
+                args: Some(Bytes::from_static(&[0x80])),
+                transparent: Some(Bytes::from_static(b"body")),
+                ..Default::default()
+            },
+            Payload {
+                kwargs: Some(Bytes::from_static(&[0xa0])),
+                transparent: Some(Bytes::from_static(b"body")),
+                ..Default::default()
+            },
+        ] {
+            let mut message = typed_invocation(73, 91, "opaque", Bytes::new(), (None, None));
+            let WampMessage::Invocation {
+                payload: target, ..
+            } = &mut message
+            else {
+                unreachable!()
+            };
+            *target = payload;
+            let WampMessage::Invocation {
+                details, payload, ..
+            } = &message
+            else {
+                unreachable!()
+            };
+            assert!(simple_ppt_envelope(73, Some(91), details, payload)
+                .unwrap()
+                .is_none());
+            assert_segmented_result_matches_generic(&message);
+        }
+    }
+
+    #[test]
+    fn typed_invocation_limits_and_body_ownership_match_generic() {
+        // The encoded CBOR metadata ceiling is independent of the full frame budget.
+        for n in [1_048_504, 1_048_505] {
+            let message = typed_invocation(
+                73,
+                91,
+                &"x".repeat(n),
+                Bytes::new(),
+                (Some(true), Some(true)),
+            );
+            let WampMessage::Invocation {
+                details, payload, ..
+            } = &message
+            else {
+                unreachable!()
+            };
+            let size = serde_cbor::to_vec(details).unwrap().len();
+            assert_eq!(size, n + 72);
+            assert_eq!(
+                simple_ppt_envelope(73, Some(91), details, payload)
+                    .unwrap()
+                    .is_some(),
+                size <= 1_048_576
+            );
+            assert_segmented_result_matches_generic(&message);
+        }
+        let mut message = typed_invocation(73, 91, "opaque", Bytes::new(), (None, None));
+        let WampMessage::Invocation {
+            details, payload, ..
+        } = &mut message
+        else {
+            unreachable!()
+        };
+        let tag =
+            super::super::flatbuffers_generated::wamp::proto::AnyMessage::Invocation.0 as usize;
+        let reference = schema::TABLES[schema::ROOT].fields[1].values[tag] as usize;
+        let overhead = 2 * 8
+            + 16 * (schema::TABLES[schema::ROOT].fields.len()
+                + schema::TABLES[reference].fields.len())
+            + 2 * 8;
+        let len = wire::MAX_BYTES - overhead - serde_cbor::to_vec(details).unwrap().len() + 1;
+        payload.transparent = Some(Bytes::from(vec![0x71; len]));
+        assert!(simple_ppt_envelope(73, Some(91), details, payload)
+            .unwrap()
+            .is_none());
+        assert!(fields(&message)
+            .and_then(|f| flatbuffers_writer::write_segments(&f))
+            .is_err());
+        assert!(encode_segments(&message).is_err());
+        drop(message);
+
+        for n in [0, 1, 7, 8, 255] {
+            let message = typed_invocation(
+                73,
+                91,
+                "opaque",
+                Bytes::from((0..n).map(|i| i as u8).collect::<Vec<_>>()),
+                (Some(false), Some(true)),
+            );
+            let expected = typed_invocation(
+                73,
+                91,
+                "opaque",
+                Bytes::from((0..n).map(|i| i as u8).collect::<Vec<_>>()),
+                (Some(false), Some(true)),
+            );
+            let parts = encode_segments(&message).unwrap();
+            drop(message);
+            std::thread::spawn(move || {
+                let joined = Bytes::from(
+                    parts
+                        .iter()
+                        .flat_map(|p| p.iter().copied())
+                        .collect::<Vec<_>>(),
+                );
+                assert_eq!(
+                    super::super::parse_message_segments(Serializer::Flatbuffers, parts)
+                        .unwrap()
+                        .message,
+                    expected
+                );
+                for split in 0..=joined.len() {
+                    assert_eq!(
+                        super::super::parse_message_segments(
+                            Serializer::Flatbuffers,
+                            vec![joined.slice(..split), joined.slice(split..)]
+                        )
+                        .unwrap()
+                        .message,
+                        expected
+                    );
+                }
+                for end in 0..joined.len() {
+                    assert!(parse_message(Serializer::Flatbuffers, joined.slice(..end)).is_err());
+                }
+            })
+            .join()
+            .unwrap();
+        }
+    }
+
     fn typed_result(request: u64, scheme: &str, bytes: Bytes) -> WampMessage {
         WampMessage::Result {
             request_id: request,
@@ -748,6 +1113,14 @@ mod tests {
                 super::super::flatbuffers_generated::wamp::proto::root_as_message(&actual_frame)
                     .unwrap();
                 if let WampMessage::Result {
+                    payload:
+                        Payload {
+                            transparent: Some(body),
+                            ..
+                        },
+                    ..
+                }
+                | WampMessage::Invocation {
                     payload:
                         Payload {
                             transparent: Some(body),
