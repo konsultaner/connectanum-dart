@@ -24,10 +24,15 @@ on:
         required: false
         default: ''
         type: string
+      ffi_census:
+        description: Count FFI calls using exact retained 11521160 bytes without a performance gate
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ inputs.ffi_census != true }}
 
 permissions:
   contents: read
@@ -35,7 +40,7 @@ permissions:
 
 jobs:
   profile:
-    if: ${{ inputs.probe_intel != true }}
+    if: ${{ inputs.probe_intel != true && inputs.ffi_census != true }}
     name: MQTT native CPU diagnostic
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -103,7 +108,7 @@ jobs:
           if-no-files-found: error
 
   intel:
-    if: ${{ inputs.probe_intel == true }}
+    if: ${{ inputs.probe_intel == true && inputs.ffi_census != true }}
     name: Intel 8370C MQTT availability and comparison
     runs-on: ubuntu-22.04
     timeout-minutes: 45
@@ -200,4 +205,55 @@ jobs:
         with:
           name: mqtt-intel-proof
           path: ${{ runner.temp }}/mqtt-intel-proof
+          if-no-files-found: error
+
+  ffi-census:
+    if: ${{ inputs.ffi_census == true }}
+    name: Retained native MQTT FFI census (diagnostic only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Require this isolated diagnostic mode
+        env:
+          RECOVER_RUN: ${{ inputs.recover_run }}
+          COMPARE_WORKERS: ${{ inputs.compare_workers }}
+          PROBE_INTEL: ${{ inputs.probe_intel }}
+        run: |
+          set -euo pipefail
+          [[ -z "$RECOVER_RUN" && -z "$COMPARE_WORKERS" && "$PROBE_INTEL" != true ]]
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.13.1'
+      - name: Verify actual compiled forwarding and failure controls
+        run: python3 tool/test_mqtt_ffi_census.py -v
+      - name: Download exact original bytes and receipts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p out/mqtt-ffi-census-inputs
+          gh run download 41351945654 --repo "$GITHUB_REPOSITORY" \
+            --name mqtt-native-profile --name mqtt-native-comparison \
+            --dir out/mqtt-ffi-census-inputs
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/41351945654" \
+            > out/mqtt-ffi-census-inputs/source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/41351945654/jobs?per_page=100" \
+            > out/mqtt-ffi-census-inputs/source-jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/41351945654/artifacts?per_page=100" \
+            > out/mqtt-ffi-census-inputs/source-artifacts.json
+      - name: Count full original workloads with the unchanged retained runtime
+        run: |
+          python3 tool/run_mqtt_ffi_census.py --inputs out/mqtt-ffi-census-inputs \
+            --output out/mqtt-ffi-census
+      - name: Retain every original input, partial row and counter
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-native-ffi-census
+          path: |
+            out/mqtt-ffi-census
+            out/mqtt-ffi-census-inputs
           if-no-files-found: error
