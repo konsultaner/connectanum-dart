@@ -14,9 +14,9 @@ authorized gateway (#116/#117) and translation performance/memory gates (#131).
 See the [MQTT contract](mqtt.md) and active plan.
 
 The opt-in authorized gateway and process-isolated AOT benchmarks are implemented.
-Coverage currently passes 744/744 gateway/shared Dart executable lines, 758/758
+Coverage currently passes 744/744 gateway/shared Dart executable lines, 759/759
 MQTT lines, 270/270 gateway component lines and 885/885 Python gate lines with
-zero exclusions. Independent Paho/Connectanum MQTT checks pass all 102 tests;
+zero exclusions. Independent Paho/Connectanum MQTT checks pass all 104 tests;
 56 benchmark/worker cases pass. The first clean sequential `bin/verify`, strict
 publishing, 150 WAMP integration tests and 50 shutdown/restart cycles pass. A
 fresh full verify also passes after adding publisher-disconnect observation.
@@ -30,8 +30,13 @@ and both MQTT versions. The superseded release run
 exposed Python byte-by-byte payload checking as a 64 KiB client bottleneck and
 exceeded the load deadline. The identical byte formula now uses C-backed byte
 construction/comparison; golden-byte and corruption regressions pass. Load
-phases allow 300 seconds; startup/control deadlines remain 60 seconds. A fresh
-immutable release baseline is required before freezing numeric limits.
+phases allow 300 seconds; startup/control deadlines remain 60 seconds.
+The next hosted run (`9477e2ab`) passed all normal smoke rows but the stricter
+exit check caught a slow MQTT client retaining its write socket after peer FIN.
+Both version-specific regressions fail before the one-line socket release fix
+and pass afterward. A fresh local AOT run passes all four overload cases twice,
+including zero-exit teardown. Restart the hosted baseline from this fixed source;
+full current-source verification and immutable numeric limits remain pending.
 
 Locally prepared strict CI wiring makes smoke and all four numeric shards
 prerequisites of Full Verify; gate tests reject every missing/unsuccessful lane.

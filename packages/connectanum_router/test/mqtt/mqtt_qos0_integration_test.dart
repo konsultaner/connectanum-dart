@@ -1186,6 +1186,43 @@ void main() {
     await terminal.timeout(const Duration(seconds: 3));
   });
 
+  for (final version in MqttVersion.values) {
+    test('client releases its socket after peer FIN: $version', () async {
+      final server = await ServerSocket.bind('127.0.0.1', 0);
+      addTearDown(server.close);
+      final accepted = Completer<Socket>();
+      final peerReadClosed = Completer<void>();
+      server.listen((socket) {
+        accepted.complete(socket);
+        addTearDown(socket.destroy);
+        final decoder = MqttFrameDecoder();
+        socket.listen((bytes) {
+          for (final frame in decoder.add(bytes)) {
+            expect(frame.type, MqttPacketType.connect);
+            socket.add(MqttPacketCodec.encodeConnack(version, reasonCode: 0));
+          }
+        }, onDone: peerReadClosed.complete);
+      });
+      final client = await MqttQos0Client.connect(
+        '127.0.0.1',
+        server.port,
+        clientId: 'peer-fin',
+        version: version,
+      );
+      addTearDown(client.close);
+      final terminal = expectLater(
+        client.messages,
+        emitsInOrder([emitsError(isA<MqttProtocolException>()), emitsDone]),
+      );
+      // A FIN closes only the peer's writing half. The client must release its
+      // writing half too, even when close() follows the remote stream ending.
+      await (await accepted.future).close();
+      await terminal.timeout(const Duration(seconds: 3));
+      await client.close();
+      await peerReadClosed.future.timeout(const Duration(seconds: 2));
+    });
+  }
+
   test('client rejects a nonzero CONNACK reason', () async {
     final server = await ServerSocket.bind('127.0.0.1', 0);
     server.listen((socket) {

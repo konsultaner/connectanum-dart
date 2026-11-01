@@ -50,9 +50,9 @@ gateway acceptance evidence.
 
 The gateway implementation has focused live, policy, cancellation, interoperability
 and ownership tests. Initial scoped receipts passed 679/679 gateway/shared lines,
-758/758 MQTT lines and 270/270 gateway lines. The expanded Python gate and peers
+759/759 MQTT lines and 270/270 gateway lines. The expanded Python gate and peers
 now pass 885/885 executable lines with zero exclusions. Current Dart collection passes 744/744 gateway/shared lines. The independent
-Paho/Connectanum MQTT suite passes 102 tests; full `bin/verify` is running; earlier line-number receipts cannot validate
+Paho/Connectanum MQTT suite passes 104 tests; full verification of the socket release fix is pending; earlier line-number receipts cannot validate
 subsequent edits. The mutation inventory includes the caller-state regression.
 
 An intentionally stalled WAMP consumer exposed uncredited receive-isolate handle
@@ -79,7 +79,12 @@ exposed per-byte Python payload work as a 64 KiB client bottleneck and exceeded
 the load deadline. The byte-identical oracle now uses C-backed construction and
 comparison, with independent golden-byte/corruption tests. Load phases allow
 300 seconds while startup/control deadlines remain 60 seconds. Rerun the complete
-release baseline from this corrected harness.
+release baseline from this corrected harness. The `9477e2ab` smoke passed all
+normal rows but rejected a stalled MQTT client's nonzero exit: peer FIN marked
+it closed without releasing the writing half. Both MQTT versions have fail-first
+socket-release regressions. The one-line production fix passes 104 MQTT tests,
+759/759 MQTT lines and two local AOT cycles of all four overload cases, including
+clean process exits. Restart hosted measurements from this fixed revision.
 Validate every one of the 960 normal samples and 12 overload cycles before
 freezing numeric budgets or publishing tables. Raw archives, minimal fixtures
 and all required strict CI remain completion requirements.

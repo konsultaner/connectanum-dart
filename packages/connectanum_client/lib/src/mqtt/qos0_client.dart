@@ -294,6 +294,8 @@ final class MqttQos0Client {
 
   void _onDone() {
     _onError(const MqttProtocolException('MQTT connection closed'));
+    // A peer FIN ends the read stream but can leave our writing half open.
+    _socket?.destroy();
     if (!_closed) {
       _closed = true;
       _messages.close();
