@@ -52,6 +52,8 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertIn('workflow_call:',workflow)
         self.assertIn('needs: native-build',workflow)
         self.assertIn('needs: smoke',workflow)
+        self.assertIn('timeout-minutes: 30',workflow.split('  smoke:',1)[1].split('  release:',1)[0])
+        self.assertIn('timeout-minutes: 90',workflow.split('  release:',1)[1])
         self.assertIn('shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]',workflow)
         self.assertIn('shard: ${{ matrix.shard }}/16',workflow)
         self.assertIn('ci_native_artifact.py record',workflow)
@@ -59,6 +61,9 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertNotIn('run-id:',workflow)
         self.assertIn('gateway_benchmarks == true',wrapper)
         self.assertEqual(wrapper.count('gateway_benchmarks != true'),2)
+        concurrency=wrapper.split('concurrency:',1)[1].split('permissions:',1)[0]
+        self.assertIn("inputs.gateway_benchmarks && github.run_id || 'latest'",concurrency)
+        self.assertIn('cancel-in-progress: ${{ !inputs.gateway_benchmarks }}',concurrency)
         self.assertIn('require_python_coverage',action)
         self.assertIn('paho-mqtt==2.1.0',action)
         self.assertIn('mosquitto version 2.0.18',action)
@@ -71,6 +76,7 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertEqual(budget['retention_protocol'],'bounded_nursery_v1')
         self.assertIn('--budget "$GATEWAY_BUDGET"',action)
         main=(ROOT/'.github/workflows/dart.yml').read_text()
+        self.assertIn('timeout-minutes: 30',main.split('  mqtt-gateway-smoke:',1)[1].split('  mqtt-gateway:',1)[0])
         gateway=main.split('  mqtt-gateway:',1)[1].split('  wamp-app:',1)[0]
         self.assertIn('needs: [native-build, mqtt-gateway-smoke]',gateway)
         self.assertIn("record_only: 'false'",gateway)

@@ -35,6 +35,7 @@ void main() {
     for (final value in [
       null,
       '',
+      '--new_gen_semi_max_size=1',
       '--new_gen_semi_max_size=2',
       '--new_gen_semi_max_size=8 --verbose_gc',
     ]) {

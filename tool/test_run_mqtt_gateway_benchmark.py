@@ -641,6 +641,9 @@ class GatewayControlTest(unittest.TestCase):
                 self.assertFalse(output.exists())
             with mock.patch.object(gate.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(dict(good,rooted_witness_rss_growth_bytes=1)),stderr='')),self.assertRaises(ValueError):
                 gate.compile_retention_worker(Path('/bundle'),output)
+            for field,value in [('native_witness_rss_growth_bytes',1),('native_witness_rss_drop_bytes',1),('max_young_capacity_bytes',16*1048576+1)]:
+                with mock.patch.object(gate.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(dict(good,**{field:value})),stderr='')),self.assertRaises(ValueError):
+                    gate.compile_retention_worker(Path('/bundle'),output)
             for error in [subprocess.CalledProcessError(1,['worker'],output='partial proof',stderr='hook unavailable'),
                           subprocess.TimeoutExpired(['worker'],30,output=b'partial proof',stderr=b'hook unavailable')]:
                 with mock.patch.object(gate.subprocess,'run',side_effect=error),self.assertRaisesRegex(RuntimeError,'hook unavailable'):
