@@ -334,6 +334,21 @@
       124677524919
     ],
     "CI_passed_jobs_last": 36,
+    "CI_recovery": {
+      "attempt": 2,
+      "explicitly_approved": true,
+      "initial_preservation_check": {
+        "MQTT_artifact_id": 13057819369,
+        "all36_passing_execution_timestamps_unchanged": true,
+        "prior_artifact_ids_retained": true
+      },
+      "original_job": 124658928256,
+      "performance_rerun_requested": false,
+      "recovery_job": 124815460391,
+      "run": 41242443320,
+      "scope": "Interrupted MCP shard and necessary nonnumerical gates only; preserve performance executions/artifacts.",
+      "status": "in_progress"
+    },
     "CI_run": 41242443320,
     "CI_runner_interruption": {
       "CI_run": 41242443320,
@@ -1662,5 +1677,5 @@
     "reason": "All authorized campaign audits complete; CI recovery requires existing unanswered retry decision.",
     "status": "DELETED"
   },
-  "updated_utc": "2026-11-01T01:43:11.020049+00:00"
+  "updated_utc": "2026-11-01T10:03:10.508850+00:00"
 }

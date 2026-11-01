@@ -2,14 +2,29 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: await the existing unanswered CI retry decision. Both complete
-290480a3 acceptance campaigns have been independently audited and fail: primary
-48 cases / 1,440 rows / 114 measured misses / zero integrity; supplemental retains
-all 50 cases / 1,500 rows, with 173 eligible measured misses / four evidence
-findings plus separate payload 14 measured misses / two unmeasured allocations.
-No numerical campaign is active. The temporary follow-up was removed; do not
-repeat pending questions or infer authorization. CI recovery precedes further
-runtime/benchmark work; preserve passing numerical executions and all evidence.
+Current step: finish the explicitly approved scoped MCP recovery in CI
+41242443320 attempt 2 on unchanged 290480a3. Only the interrupted partition and
+necessary nonnumerical dependents may execute again. Preserve and recheck all
+passing numerical execution timestamps/artifact IDs. Then diagnose the measured
+performance failures with controlled profiling; no gate, SDK/GC/allocator policy,
+window/sample count or body verification may change. Both complete acceptance
+campaigns remain failed and retained. The CI retry question is resolved.
+
+## Scoped CI recovery approved and running (2026-11-01)
+
+The user explicitly approved rerunning the interrupted MCP mutation shard and
+its necessary dependent gates, preserving all performance results. The official
+job-rerun endpoint accepted the request for original job `124658928256` in
+workflow `41242443320`. Attempt 2 runs on unchanged `290480a3`; the recovery
+partition is job `124815460391`. Its MCP aggregate and Full Verify must pass
+before runtime/benchmark work resumes. No numerical rerun was requested.
+
+The initial independent preservation check confirms that all 36 previously
+passing jobs retain their original status and execution timestamps, and every
+prior artifact ID remains present. MQTT artifact `13057819369` is unchanged.
+Verify this again after the recovery gates finish. All completed primary and
+supplemental failures remain retained; this retry cannot establish performance
+parity or waive a gate. No runtime source change has been made.
 
 ## Current acceptance campaigns complete and failed (2026-11-01)
 
@@ -32,15 +47,14 @@ canonical/copy/MQTT/browser checks establish RAM or transport parity.
 
 No numerical campaign remains running. CI still lacks the interrupted MCP
 mutation partition; its cause is unmeasured and its aggregate correctly fails.
-The already-requested exception to the setup-only retry rule remains unanswered.
-Do not repeat that question or infer approval. Recover only the interrupted
-partition and necessary nonnumerical dependents if explicitly approved, preserving
-all passing numerical executions/artifacts. CI recovery precedes further runtime
-or benchmark work under the repository's priority rule.
+The user has now explicitly approved the exception to the setup-only retry rule.
+Only the interrupted partition and necessary nonnumerical dependents are being
+recovered, preserving passing numerical executions/artifacts. CI recovery still
+precedes further runtime or benchmark work under the repository's priority rule.
 
-The temporary follow-up was removed after completing these authorized audits:
-further progress now requires the existing CI retry decision. This chat remains
-open. The separate allocation-precision decision is still unanswered and is not
+The temporary follow-up was removed after completing these authorized audits.
+The user's explicit retry decision has now resumed work in this chat. The
+separate allocation-precision decision is still unanswered and is not
 the sole performance blocker. PR #132 stays `40ddcb3f` / draft on #130; issue #103
 and the milestone remain open. Runtime source stays frozen and no gate, window,
 sample, body verification, SDK, GC or allocator policy has been weakened.
