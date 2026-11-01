@@ -213,5 +213,18 @@
     "scope": "Own sharedCI actual bytes and inputs. SharedAB99 is distinct from measuredMQTT/native-view10C9; never substitute.",
     "audited_utc": "2026-11-01T23:37:25.022404+00:00"
   },
-  "scope": "All20 current-source MQTT gates pass on Xeon8573C; no causal7763 repair, controlled Dart-source benefit, RAM parity or fullCI claim. Actual diagnostic/nativeview10C9 and sharedCIAB99 verified separately."
+  "scope": "All20 current-source MQTT gates pass on Xeon8573C; no causal7763 repair, controlled Dart-source benefit, RAM parity or fullCI claim. Actual diagnostic/nativeview10C9 and sharedCIAB99 verified separately.",
+  "hosted_Chrome_JavaScript": {
+    "source": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+    "job": 125011759887,
+    "success": true,
+    "log_sha256": "d42c03620ae01d7bd00ce62583e30adfd6a85ac570b42f64795f925551e57ecd",
+    "log_counts": {
+      "[Chrome, Dart2Js]": 8192,
+      "\u2705 [Chrome, Dart2Js]": 8172,
+      "[Chrome, Dart2Wasm]": 0
+    },
+    "scope": "Own exact600E hostedChromeJS coverage; no localJS. LocalcanonicalWasm is separate, stillactive at thisaudit. Original8192observations/8172success20skip, no rerun.",
+    "audited_utc": "2026-11-01T23:41:24.341597+00:00"
+  }
 }

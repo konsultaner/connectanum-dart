@@ -52,7 +52,9 @@ Xeon Platinum 8573C / Dart 3.13.1. All raw summaries reproduce exactly; WS 5 /
 retain and verify all ten raw rows, actual native/AOT/client bytes and sampler
 provenance. Separately, 965 shared-CI native source inputs, lock and actual
 `ab99dad7…` library verify. The shared-CI build is distinct from measured
-`10c9aaa7…`. Full CI remains active. This host-specific pass does not prove
+`10c9aaa7…`. The same-source hosted Chrome/JS job also passes: 8,192 log observations,
+8,172 successes and 20 skips, independently audited. It is separate from
+actual local Chrome/Wasm. Full CI remains active. This host-specific pass does not prove
 repair of the previous 7763 failures or a Dart-source performance benefit.
 [Copy/lifetime and binary scope](research/2026-11-02-router-busy-wake-copy-audit.json),
 [MQTT/raw inputs and binary audit](research/2026-11-02-router-busy-wake-mqtt-audit.json).
