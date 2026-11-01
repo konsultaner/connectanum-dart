@@ -1,5 +1,8 @@
 """Exercise diagnostic attribution, fail-closed controls and lease isolation."""
 import copy
+import errno
+from contextlib import ExitStack
+from types import SimpleNamespace
 import json
 import os
 from pathlib import Path
@@ -196,7 +199,7 @@ class NativePptViewProbeTests(unittest.TestCase):
                 probe.verify_package_roots(shadow)
 
     @unittest.skipUnless(os.name == "posix", "POSIX machine lease")
-    def test_startup_failure_stops_real_owned_process_and_retains_evidence(self):
+    def _exercise_startup_failure(self, *, exited=False, linux_range=False):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             shadow, out = root / "source", root / "negative-control"
@@ -222,12 +225,20 @@ class NativePptViewProbeTests(unittest.TestCase):
                 def __enter__(self):
                     return self
                 def __exit__(self, *_):
-                    occupied.remove(self.port)
+                    self.close()
+                def close(self):
+                    if self.port is not None:
+                        occupied.discard(self.port)
+                        self.port = None
                 def bind(self, address):
-                    self.port = 40000
-                    while self.port in occupied:
-                        self.port += 1
-                    occupied.add(self.port)
+                    port = address[1] or 40000
+                    if not address[1]:
+                        while port in occupied:
+                            port += 1
+                    if port in occupied:
+                        raise OSError(errno.EADDRINUSE, "fixture port already bound")
+                    self.port = port
+                    occupied.add(port)
                 def getsockname(self):
                     return ("127.0.0.1", self.port)
             children = []
@@ -236,7 +247,11 @@ class NativePptViewProbeTests(unittest.TestCase):
                 if args[0][0] != "dart":
                     return real_popen(*args, **kwargs)
                 self.assertFalse(occupied, "release port reservations before launch")
-                child = real_popen([sys.executable, "-u", "-c", "input()"], **kwargs)
+                code = ("print('fixture native listener failure', flush=True); raise SystemExit(17)"
+                        if exited else "input()")
+                child = real_popen([sys.executable, "-u", "-c", code], **kwargs)
+                if exited:
+                    child.wait(timeout=5)
                 children.append(child)
                 return child
             ready = probe.threading.Event()
@@ -245,21 +260,99 @@ class NativePptViewProbeTests(unittest.TestCase):
             events = [ready]
             def event():
                 return events.pop() if events else real_event()
-            with mock.patch.object(probe.subprocess, "Popen", side_effect=launch), \
-                    mock.patch.object(probe.threading, "Event", side_effect=event), \
-                    mock.patch.object(probe.socket, "socket", side_effect=ReservedSocket):
-                with self.assertRaisesRegex(RuntimeError, "did not become ready"):
+            real_read = Path.read_text
+            def read(path, *args, **kwargs):
+                if linux_range and str(path) == "/proc/sys/net/ipv4/ip_local_port_range":
+                    return "32768 60999\n"
+                if linux_range and str(path) == "/proc/sys/net/ipv4/ip_unprivileged_port_start":
+                    return "1024\n"
+                return real_read(path, *args, **kwargs)
+            with ExitStack() as patches:
+                patches.enter_context(mock.patch.object(probe.subprocess, "Popen", side_effect=launch))
+                patches.enter_context(mock.patch.object(probe.threading, "Event", side_effect=event))
+                patches.enter_context(mock.patch.object(probe.socket, "socket", side_effect=ReservedSocket))
+                patches.enter_context(mock.patch.object(probe, "STARTUP_TIMEOUT_SECONDS", 0, create=True))
+                patches.enter_context(mock.patch.object(Path, "read_text", read))
+                if linux_range:
+                    patches.enter_context(mock.patch.object(probe, "sys", SimpleNamespace(platform="linux"), create=True))
+                pattern = "exited before READY.*17" if exited else "did not become ready"
+                with self.assertRaisesRegex(RuntimeError, pattern) as error:
                     probe.run_phase(root, shadow, out, library, "dart", "marker", True)
+                if exited:
+                    self.assertIn("fixture native listener failure", str(error.exception))
             self.assertFalse(occupied)
-            self.assertEqual(len({sock.port for sock in reservations}), len(reservations))
+            config = json.loads((out / "router.json").read_text())
+            ports = [int(row["endpoint"].rsplit(":", 1)[1]) for row in config["router"]["listeners"]]
+            self.assertEqual(len(set(ports)), len(ports))
+            if linux_range:
+                self.assertTrue(all(not 32768 <= port <= 60999 for port in ports), ports)
             self.assertEqual(len(children), 1)
-            self.assertEqual(children[0].returncode, 0)
+            self.assertEqual(children[0].returncode, 17 if exited else 0)
             result = json.loads((out / "result.json").read_text())
             self.assertTrue(result["process_group_stopped"])
             self.assertTrue(result["reader_stopped"])
             self.assertTrue(result["inputs_unchanged"])
             self.assertEqual(result["reader_errors"], [])
             self.assertNotIn("negative_control_observed", result)
+
+    def test_startup_failure_stops_real_owned_process_and_retains_evidence(self):
+        self._exercise_startup_failure()
+
+    def test_exited_server_reports_status_and_log_instead_of_readiness_timeout(self):
+        self._exercise_startup_failure(exited=True)
+
+    def test_listener_pool_avoids_linux_automatic_port_range(self):
+        self._exercise_startup_failure(linux_range=True)
+
+    def test_linux_port_bounds_honor_namespace_privileges_and_reject_bad_ranges(self):
+        with mock.patch.object(probe.sys, "platform", "linux"):
+            with mock.patch.object(Path, "read_text", side_effect=["32768 60999", "10000"]):
+                self.assertEqual(probe.listener_port_bounds(), (32768, 60999, 10000))
+            for values in [("60999 32768", "1024"), ("0 60000", "0"),
+                           ("32768 60999", "65536")]:
+                with self.subTest(values=values), mock.patch.object(Path, "read_text", side_effect=values):
+                    with self.assertRaises(ValueError):
+                        probe.listener_port_bounds()
+
+    def test_exhausted_non_ephemeral_pool_cannot_fall_back_to_automatic_ports(self):
+        with ExitStack() as reservations, mock.patch.object(probe.socket, "socket") as socket:
+            with self.assertRaisesRegex(RuntimeError, "no unprivileged listener ports"):
+                probe.reserve_listener_port(reservations, (1024, 65535, 1024))
+            socket.assert_not_called()
+
+    def test_port_reservation_retries_only_address_in_use_and_closes_failed_sockets(self):
+        sockets = [mock.MagicMock() for _ in range(3)]
+        for socket in sockets[:2]:
+            socket.bind.side_effect = OSError(errno.EADDRINUSE, "fixture occupied")
+        sockets[2].getsockname.return_value = ("127.0.0.1", 1026)
+        with mock.patch.object(probe.socket, "socket", side_effect=sockets), \
+                mock.patch.object(probe.secrets, "randbelow", side_effect=[0, 1, 2]):
+            with ExitStack() as reservations:
+                self.assertEqual(probe.reserve_listener_port(reservations, (32768, 60999, 1024)), 1026)
+            for socket in sockets[:2]:
+                socket.close.assert_called_once()
+            sockets[2].__exit__.assert_called_once()
+        socket = mock.MagicMock()
+        socket.bind.side_effect = OSError(errno.EACCES, "fixture denied")
+        with ExitStack() as reservations, mock.patch.object(probe.socket, "socket", return_value=socket):
+            with self.assertRaises(PermissionError):
+                probe.reserve_listener_port(reservations, (32768, 60999, 1024))
+            socket.close.assert_called_once()
+
+    def test_living_server_keeps_original_sixty_second_readiness_deadline(self):
+        clock = [0.0]
+        ready = mock.Mock()
+        ready.is_set.return_value = False
+        ready.wait.side_effect = lambda delay: clock.__setitem__(0, clock[0] + delay)
+        process = mock.Mock()
+        process.poll.return_value = None
+        reader = mock.Mock()
+        with mock.patch.object(probe.time, "monotonic", side_effect=lambda: clock[0]):
+            with self.assertRaisesRegex(RuntimeError, "did not become ready"):
+                probe.wait_for_server_ready(process, ready, reader, Path("unused.log"))
+        self.assertEqual(clock[0], 60)
+        self.assertTrue(all(0 < call.args[0] <= 0.1 for call in ready.wait.call_args_list))
+        reader.join.assert_not_called()
 
     @unittest.skipUnless(os.name == "posix", "POSIX machine lease")
     def test_resource_lease_respects_existing_holder_and_rejects_symlink(self):

@@ -1,17 +1,40 @@
 # Project State
 
-Last updated: 2026-10-31.
+Last updated: 2026-11-01.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
+Isolated candidate: `codex/mqtt-websocket-nodelay-control`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Validate the isolated typed/progressive RESULT header candidate below. The
-published0c4bb57c predecessor has clean canonical/copy/all39CI evidence; full
-RAM/protocol/progressive parity is still unresolved.
+Validate the isolated native MQTT socket-option correction with own frozen
+canonical and controlled transport evidence. Keep current-source CI/copy proof
+strict and preserve all running primary/supplemental rows. No candidate is
+adopted and RAM/broad protocol acceptance remains incomplete.
+
+## Native MQTT WebSocket socket option correction (2026-11-01)
+
+The isolated candidate on `codex/mqtt-websocket-nodelay-control` starts at
+`7476ff6e` and keeps TCP_NODELAY enabled after cleartext MQTT WebSocket upgrade.
+A real duplicated-descriptor regression fails before at the socket option;
+after the minimal correction all 470 Rust core/three codec integrations pass.
+Fresh pre-change bootstrap/full fast regression passes with clean source/HEAD
+and unchanged locks. Own newly rebuilt native `4b77cb82…` passes 36 core MQTT and
+115 router MQTT cases, including all seven Paho cases. Exact verified `290eae37`
+startup/input-retention tooling is ported; 21 probe / 23 CI contracts pass.
+
+This is provisional correctness evidence. Own frozen canonical, an actual
+50-row source comparison, hosted copy/CI and complete final-runtime
+strict 48/50 remain required before adoption. Prior external labelled legs use
+one identical reported native hash and do not establish a source benefit.
+Body generation/verification, gates/windows/samples, SDK/GC/allocator policy and
+native ownership remain unchanged. Every prior failed or active campaign is
+retained; RAM/broad WAMP parity remain unresolved. PR #132 stays`40ddcb3f` OPEN DRAFT,
+based on #130. [Source, repro and validation](research/2026-11-01-mqtt-websocket-nodelay-control.md).
+
+## Historical retained header checkpoints
 
 ## Typed and progressive RESULT header candidate (2026-10-31)
 
@@ -46,7 +69,7 @@ encoders independently reproduce all48 allocation rows on unchanged own binaries
 See the component receipt.
 
 The new candidate still needs its own full canonical verification, hosted copy/
-lifetime evidence, clean CI and complete strict48/50 campaigns. The predecessor
+lifetime evidence, clean CI and complete strict 48/50 campaigns. The predecessor
 0c4bb57c has canonical/copy/all39CI checks passing. Neither that success nor this
 component establishes repair of either RPC RAM failure. PR132 stays40ddcb3f/draft;
 no gate, SDK/allocator/GC policy, sample/window or body verification is changed.

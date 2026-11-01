@@ -352,6 +352,13 @@ jobs:
           mkdir -p out/mqtt-native-comparison
           echo "$baseline_commit" > out/mqtt-native-comparison/baseline-ref.txt
           git rev-parse HEAD > out/mqtt-native-comparison/candidate-ref.txt
+          mkdir -p out/mqtt-native-comparison/inputs
+          cp "$RUNNER_TEMP/mqtt-baseline-target/release/libct_ffi.so" out/mqtt-native-comparison/inputs/baseline-libct_ffi.so
+          cp "$CONNECTANUM_NATIVE_LIB" out/mqtt-native-comparison/inputs/candidate-libct_ffi.so
+          cp native/transport/Cargo.lock out/mqtt-native-comparison/inputs/Cargo.lock
+          git archive "$baseline_commit" -o out/mqtt-native-comparison/inputs/baseline-source.tar
+          git archive HEAD -o out/mqtt-native-comparison/inputs/candidate-source.tar
+          sha256sum out/mqtt-native-comparison/inputs/* > out/mqtt-native-comparison/inputs.sha256
           bash tool/compare_mqtt_native.sh \
             "$RUNNER_TEMP/mqtt-baseline-target/release/libct_ffi.so" \
             "$CONNECTANUM_NATIVE_LIB" out/mqtt-native-comparison

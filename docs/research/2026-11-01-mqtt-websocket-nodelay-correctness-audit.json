@@ -1,0 +1,39 @@
+{
+  "scope": "Provisional pre-commit correctness evidence only; runtime-source bytes match guarded focused tests. Own frozen canonical/controlled transport/hosted copy+CI/final strict acceptance still required.",
+  "baseline_revision": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "baseline_fast_log_sha256": "0a14dc3a6fbc94679f9cd16b8b6435c8c037513756d7e1529785fe350d88e3a1",
+  "before_regression": {
+    "test": "tests::mqtt_websocket_upgrade_preserves_tcp_nodelay_for_sparse_publications",
+    "exit": 101,
+    "actual_socket_assertion_failed": true,
+    "log_sha256": "c2a4fe9fbb41d5dfd26db753e73802e65f2bcddf96fbb04441cf935dc18df851"
+  },
+  "after_regression": {
+    "Rust_core_passed": 470,
+    "codec_integrations_passed": 3,
+    "exit": 0,
+    "log_sha256": "0f3e3c0ac20bbec06c81c55de181db7b282bf6ebb005bc480eff1b118f1b3546"
+  },
+  "runtime_source_sha256": "0e88607d1bfeacd115097d14e3edc9077404590c1d392ec380c6dc1e55bc4265",
+  "focused_native_sha256": "4b77cb823852e2dce3e04b35541c828bf686b0a1c9b82d9beb2a2c92a317ba14",
+  "focused_core_MQTT_passed": 36,
+  "focused_router_MQTT_passed": 115,
+  "actual_Paho_cases_passed": 7,
+  "focused_log_sha256": {
+    "core": "df4e4b00eed5ed9cdd14e22e376df9986f0fcd7bdd66fcae43a1774d5cf53a2b",
+    "router": "3356e061cde620c4cf358da35f786236740ef28b8b8e03c6d99f49423868ee86"
+  },
+  "tracked_tree_source_HEAD_three_locks_and_own_native_unchanged_during_focused_tests": true,
+  "focused_tracked_tree_sha256": "e7c055d79cce08b2b957f9d8eaa6b895bfbb745e2d4ca92fa10237993fe16a4c",
+  "three_locks_sha256": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "verified_startup_and_input_retention_tooling_revision": "290eae37e47425b5be71a4b78dd68ed6136d2585",
+  "ported_tooling_files_byte_identical": true,
+  "probe_contract_tests_passed": 21,
+  "CI_contract_tests_passed": 23,
+  "local_review": "Broad Qwen request timed out and is not approval. Header-only narrowing input was discarded; corrected bounded actual-source review completed with no confirmed defect. Its inferred historical logical-inversion intent is not established; original false setting was intentional coalescing. Root independently checks the actual option, unchanged guards, batching and error handling. Performance/packet-overhead tradeoff requires controlled evidence.",
+  "performance_or_RSS_acceptance": false
+}

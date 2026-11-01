@@ -2,12 +2,33 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: validate the isolated typed/progressive RESULT header candidate.
-Its466native tests/three codec integrations pass after two reproduced failures.
-Require its own frozen canonical, hosted copy/lifetime and clean CI, then complete
-strict48/50 acceptance on one final runtime. The predecessor0c4bb57c CI is clean.
-Prior full48/50 reports remain failed evidence. PR132 stays draft; waive no gate,
-SDK/allocator/GC policy, sample/window or body verification.
+Current step: validate the isolated native MQTT TCP_NODELAY correction. Its
+real before-failing socket regression, full native suite and own rebuilt MQTT/
+Paho checks pass. Require own canonical, controlled transport evidence, copy/CI
+and complete final-runtime strict 48/50 before adoption. Keep every prior row and
+all active campaigns; no source/HEAD/native changes during canonical verification.
+
+## Native MQTT WebSocket socket option correction (2026-11-01)
+
+The isolated candidate on `codex/mqtt-websocket-nodelay-control` starts at
+`7476ff6e` and keeps TCP_NODELAY enabled after cleartext MQTT WebSocket upgrade.
+A real duplicated-descriptor regression fails before at the socket option;
+after the minimal correction all 470 Rust core/three codec integrations pass.
+Fresh pre-change bootstrap/full fast regression passes with clean source/HEAD
+and unchanged locks. Own newly rebuilt native `4b77cb82…` passes 36 core MQTT and
+115 router MQTT cases, including all seven Paho cases. Exact verified `290eae37`
+startup/input-retention tooling is ported; 21 probe / 23 CI contracts pass.
+
+This is provisional correctness evidence. Own frozen canonical, an actual
+50-row source comparison, hosted copy/CI and complete final-runtime
+strict 48/50 remain required before adoption. Prior external labelled legs use
+one identical reported native hash and do not establish a source benefit.
+Body generation/verification, gates/windows/samples, SDK/GC/allocator policy and
+native ownership remain unchanged. Every prior failed or active campaign is
+retained; RAM/broad WAMP parity remain unresolved. PR #132 stays`40ddcb3f` OPEN DRAFT,
+based on #130. [Source, repro and validation](../research/2026-11-01-mqtt-websocket-nodelay-control.md).
+
+## Historical retained header checkpoints
 
 ## Typed and progressive RESULT header candidate (2026-10-31)
 
@@ -42,7 +63,7 @@ encoders independently reproduce all48 allocation rows on unchanged own binaries
 See the component receipt.
 
 The new candidate still needs its own full canonical verification, hosted copy/
-lifetime evidence, clean CI and complete strict48/50 campaigns. The predecessor
+lifetime evidence, clean CI and complete strict 48/50 campaigns. The predecessor
 0c4bb57c has canonical/copy/all39CI checks passing. Neither that success nor this
 component establishes repair of either RPC RAM failure. PR132 stays40ddcb3f/draft;
 no gate, SDK/allocator/GC policy, sample/window or body verification is changed.
