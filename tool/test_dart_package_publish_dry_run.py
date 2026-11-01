@@ -54,6 +54,37 @@ PUBLISHABLE_PACKAGE_ORDER = (
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
+    def test_native_mqtt_coverage_proof_matches_current_sources_and_full_union(self):
+        import gzip
+        import hashlib
+        directory=REPO_ROOT/'docs/benchmarks'
+        proof=json.loads((directory/'mqtt-native-added-line-coverage-ready-yield.json').read_text())
+        union={}
+        for report in proof['reports'].values():
+            archive=directory/report['file'];data=archive.read_bytes()
+            self.assertEqual(hashlib.sha256(data).hexdigest(),report['sha256'])
+            raw=gzip.decompress(data)
+            self.assertEqual(hashlib.sha256(raw).hexdigest(),report['productionInfoSha256'])
+            current=None
+            for line in raw.decode().splitlines():
+                if line.startswith('SF:'):current=line[3:];union.setdefault(current,{})
+                elif line.startswith('DA:'):
+                    number,hits=map(int,line[3:].split(',')[:2])
+                    union[current][number]=max(union[current].get(number,0),hits)
+        self.assertTrue(proof['files'])
+        for name,row in proof['files'].items():
+            with self.subTest(source=name):
+                self.assertEqual(hashlib.sha256((REPO_ROOT/name).read_bytes()).hexdigest(),row['sourceSha256'])
+                lines=row['executableAddedLines']
+                self.assertTrue(lines)
+                self.assertEqual(len(lines),len(set(lines)))
+                self.assertEqual(len(lines),row['total'])
+                self.assertEqual(row['covered'],row['total'])
+                self.assertEqual(row['uncoveredLines'],[])
+                self.assertTrue(all(union[name].get(line,0)>0 for line in lines))
+        self.assertEqual(sum(row['total'] for row in proof['files'].values()),proof['total'])
+        self.assertEqual(proof['covered'],proof['total'])
+
     def test_publishable_workspace_packages_are_publishable_archives(
         self,
     ) -> None:

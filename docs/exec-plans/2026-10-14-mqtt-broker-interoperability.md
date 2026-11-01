@@ -130,6 +130,13 @@ coverage and sustained WS throughput acceptance are required before accepting
 this correction and rerunning the gateway baseline. The earlier f7235055 native
 coverage receipt does not validate this edited source.
 
+The one-line WS correction now passes all 12 sustained Linux comparison checks
+in [41322497967](https://github.com/konsultaner/connectanum-dart/actions/runs/41322497967),
+including production-default worker legs, with every old numeric limit intact.
+Current-source Cargo + Dart FFI coverage is freshly 882/882. A new source-hash /
+LCOV-union regression rejects stale native proof. Start a complete new gateway
+baseline; no numeric limits or README fixture may use the rejected `545e53a1` run.
+
 ## Goal and contract
 
 Accept standard MQTT clients, provide a Connectanum MQTT client, and route

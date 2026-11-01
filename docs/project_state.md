@@ -103,3 +103,13 @@ it fails before and passes after retaining TCP_NODELAY. Existing input
 coalescing and numeric budgets are unchanged. Fresh current-source native
 coverage and Linux sustained WS acceptance are pending; the old f7235055
 882-line proof applies to the earlier source only. Do not freeze this baseline.
+
+Native candidate `61bba1c4` now has fresh 882/882 added-production-line coverage
+(Cargo + instrumented Dart FFI, current Rust source SHA-256 `1254e227…c93fc01`).
+A required tooling regression rejects stale source hashes and recomputes the
+compressed LCOV union. All 12 Linux sustained comparison checks pass in
+[41322497967](https://github.com/konsultaner/connectanum-dart/actions/runs/41322497967),
+including both automatic/default-worker legs. WS ratios are 0.807–0.868 against
+the unchanged 0.700 floor; 64 KiB CPU ratios are 2.867–3.133 against 4.000.
+Rerun the complete gateway baseline from this accepted correction before
+freezing limits. The previous gateway samples remain rejected and archived.

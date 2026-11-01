@@ -54,8 +54,8 @@
       "ffiCovered": 12
     },
     "native/transport/ct_core/src/lib.rs": {
-      "sourceSha256": "f723505558d8ba530aef92f6e9373fc4831f4670517706d917942fa85159cf17",
-      "addedLines": 2354,
+      "sourceSha256": "1254e2279369f2d3e5f5b78236d5beeda58295e201f9ba2b2f3edbd52c93fc01",
+      "addedLines": 2405,
       "executableAddedLines": [
         1344,
         1700,
@@ -781,8 +781,8 @@
       "covered": 720,
       "total": 720,
       "uncoveredLines": [],
-      "cargoCovered": 679,
-      "ffiCovered": 600
+      "cargoCovered": 699,
+      "ffiCovered": 596
     },
     "native/transport/ct_core/src/protocol.rs": {
       "sourceSha256": "50bfa19af69466b4ee4cdfc0d285c3ddae2d2316d87c3e2ebcf6974e8b59f779",
@@ -949,15 +949,15 @@
   "reports": {
     "cargo-unit": {
       "file": "mqtt-native-added-line-coverage-ready-yield-cargo-unit.info.gz",
-      "sha256": "9a7c22dd23e1edb61c82156a8329b6864a4c528e414a09e277893db97092884f",
-      "productionInfoSha256": "c211a61dd1344a6dd330e55655b29f53879e7e58ef70e587a14d826cd0370b2e",
-      "sourceScopeSha256": "ea0179cabdb0cdc86d5e74206e257801e39e12857ea45395168b4f60ab079690"
+      "sha256": "18c19550b6dff75f25bc2dff20b4be0386f4af2ddcfed66df285d1dbdc503112",
+      "productionInfoSha256": "2302684ff9151cba17d0bf26d7e042c7c6ec7cea3889707260d43099a71b2e70",
+      "sourceScopeSha256": "6bd8c76571621f4faebaef18a9b9958ab38f744c26a0e0130bbb8fe58fcd0c7e"
     },
     "dart-ffi": {
       "file": "mqtt-native-added-line-coverage-ready-yield-dart-ffi.info.gz",
-      "sha256": "aac151428c83cb29794033e164fca56c3f19accd8209031dc06a01759128905f",
-      "productionInfoSha256": "5ceba03c78162f73917fbcd63b57b7eb76b6d785d4e42265bc7d857cbf7c51be",
-      "sourceScopeSha256": "bbc143b0a97d037d72bbea0db03430efe33be3b8bc08fe7598d73b385d200772"
+      "sha256": "9f8cbf5bb7a3764162fdbef6a31bb4957bf0a27c5b2b89da83561d809176c010",
+      "productionInfoSha256": "39284f3849503e842ef2ed11544559ca3911ff5d56c655290a10f8d8511cef3a",
+      "sourceScopeSha256": "4ba52cf935d02cf097de5ad45407b37b2fda214aa2b1d368bafa56ff74d41260"
     }
   },
   "covered": 882,
