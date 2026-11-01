@@ -51,8 +51,8 @@ driver is drafted but not yet guard-tested/reviewed or launched; it waits for
 canonical pass and the official resource lease. External same-library checks
 from another branch do not supply this candidate's source-comparison evidence.
 
-No transport/RSS improvement or final 48-/50-case acceptance is claimed. All
-`75295eb0` primary and remaining supplemental rows continue untouched. RAM and
+No transport/RSS improvement or final 48-/50-case acceptance is claimed. The `75295eb0` primary campaign continues untouched; its complete supplemental
+campaign is now independently audited failed below. RAM and
 broad WAMP parity remain unresolved; PR #132 stays draft at `40ddcb3f`, base #130.
 [Source and repro](research/2026-11-01-mqtt-websocket-nodelay-control.md),
 [correctness audit](research/2026-11-01-mqtt-websocket-nodelay-correctness-audit.json),
@@ -194,15 +194,22 @@ transport improvement; implement no speculative GC accounting change. Future
 WAMP optimization follows CI recovery and controlled validation.
 [Census](research/2026-11-01-wamp-encoder-allocation-census.json).
 
-Existing `75295eb0` strict campaigns continue to completion. Its payload shard
-is complete and independently reproduces all twelve cases / 360 raw rows:
-nineteen measured misses (including seven RSS), plus two unmeasured allocation
-metrics / thirty evidence findings. These null ratios are excluded from numerical
-counts. Canonical case order/scenario bytes, original streams, policy/locks and
-actual retained native/driver binaries verify. Protocol, encrypted/progressive
-and primary remain active; no shard is cancelled or rerun.
-[Payload audit](research/2026-11-01-mqtt-idle-payload-audit.json).
-Its full CI independently passes all 39 jobs. All predecessor failures remain retained.
+The complete `75295eb0` [supplemental campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334139728)
+independently reproduces all fifty cases / 1,500 original raw rows and the hosted
+manifest/comparison exactly. Strict acceptance fails: 173 measured misses across
+38 eligible cases / 1,140 rows (126 protocol + 47 encrypted/progressive), with
+four aggregate evidence findings. Both eligible shards have zero integrity
+findings; green reporting jobs do not establish parity. Separately retained
+payload contributes nineteen measured misses, including seven RSS, plus two
+unmeasured allocation metrics / thirty evidence findings across 360 rows. All
+fifty cases total **192 measured misses**; the two null ratios are excluded from
+that count. Exact inventories, seeded schedules, scenario bytes, original
+streams, policy/config/locks and actual retained native/driver binaries verify.
+No root cause or cross-host source improvement is inferred.
+[Complete supplemental audit](research/2026-11-01-mqtt-idle-supplemental-audit.json).
+Only its primary 48-case campaign remains active; preserve all 1,440 rows to
+completion. Do not poll or redownload completed supplemental artifacts.
+Its full CI independently passes all 39 jobs; all failed evidence remains.
 No prototype is adopted; RAM/broad protocol parity and final strict acceptance
 remain unresolved. [Exact framing component](research/2026-11-01-mqtt-ready-frame-component-audit.json).
 
@@ -266,10 +273,13 @@ audit preserves all 37 previously passing execution timestamps and original
 measured MQTT/main-profile/shared-native artifact IDs. All forty artifacts
 remain retained; no job or numerical campaign was retried. This clean CI does
 not overturn the negative controlled scheduler result.
-The predeclared complete [primary 48-case campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334137150)
-and [supplemental 50-case campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334139728)
-continue unchanged. Preserve all 1,440 + 1,500 raw rows and every shard to
-completion despite the negative source control. No strict acceptance or RSS
+The [primary 48-case campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334137150)
+continues unchanged; preserve all 1,440 rows to completion. The complete
+[supplemental 50-case campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334139728)
+is independently audited failed with all 1,500 rows retained: 173 eligible
+measured misses plus nineteen payload measured misses and two unmeasured
+allocation metrics, without counting null ratios as numbers.
+[Complete audit](research/2026-11-01-mqtt-idle-supplemental-audit.json). No strict acceptance or RSS
 repair is claimed. Any subsequent genuine fix must be isolated and validated
 with its own complete acceptance.
 

@@ -1,0 +1,47 @@
+{
+  "source": "75295eb05b08d4bb9ef5b034be0182250bab9fc9",
+  "run": 41334139728,
+  "aggregate_artifact_id": 13101785501,
+  "matches_hosted_manifest_and_comparison_exactly": true,
+  "all50_raw_rows_inventory_scenarios_policy_config_locks_and_actual_native_driver_bytes_verified": true,
+  "raw_rows": 1500,
+  "case_batches": [
+    {
+      "shard": "protocol",
+      "cases": 30,
+      "rows": 900,
+      "measured_numerical_misses": 126,
+      "unmeasured_metrics": 0,
+      "evidence_findings": 0
+    },
+    {
+      "shard": "payload_sizes",
+      "cases": 12,
+      "rows": 360,
+      "measured_numerical_misses": 19,
+      "unmeasured_metrics": 2,
+      "evidence_findings": 30
+    },
+    {
+      "shard": "encrypted_progressive_results",
+      "cases": 8,
+      "rows": 240,
+      "measured_numerical_misses": 47,
+      "unmeasured_metrics": 0,
+      "evidence_findings": 0
+    }
+  ],
+  "eligible_cases": 38,
+  "eligible_rows": 1140,
+  "eligible_measured_numerical_misses": 173,
+  "aggregate_evidence_findings": 4,
+  "separately_retained_payload_measured_misses": 19,
+  "separately_retained_payload_unmeasured_metrics": 2,
+  "separately_retained_payload_evidence_findings": 30,
+  "all50_measured_numerical_misses": 192,
+  "comparison_sha256": "50a49be692768306e1330ca03c3575609b53d1c99090518362afab60c5f2a390",
+  "strict_acceptance": false,
+  "scope": "Complete supplemental50 original campaign, every1500row retained. Null/unmeasured ratios excluded from measured counts. Green protocol/encrypted reporting jobs do not establish parity. No numerical rerun, gate weakening, source substitution or root-cause inference.",
+  "audited_utc": "2026-11-01T21:41:56.409232+00:00",
+  "numerical_source_archive_scope": "Source revision/clean receipt, exact source-derived inventories/schedules/scenarios and retained policy/locks/native/driver bytes verify. Numerical artifacts do not contain a complete source archive; own copy source archive is retained and independently audited separately."
+}

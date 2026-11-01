@@ -1,0 +1,42 @@
+{
+  "source": "75295eb05b08d4bb9ef5b034be0182250bab9fc9",
+  "run": 41334139728,
+  "shard": "encrypted_progressive_results",
+  "artifact_id": 13101099273,
+  "cases": 8,
+  "raw_rows": 240,
+  "matches_hosted": true,
+  "all_raw_streams_inventory_order_and_canonical_scenarios_verified": true,
+  "all_policy_config_locks_and_actual_retained_native_driver_bytes_verified": true,
+  "retained_binary_hashes": {
+    "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940",
+    "native_library": "b682e6132642f070dc5971053198da164e61a528f17885577df58742d0d026bd"
+  },
+  "measured_numerical_misses": 47,
+  "unmeasured_metrics": 0,
+  "evidence_findings": 0,
+  "by_metric": {
+    "cpu_us_per_operation": 7,
+    "gc_pause_us_per_operation": 8,
+    "summed_sampled_peak_rss_bytes": 7,
+    "latency_p99_ms": 7,
+    "allocated_bytes_per_operation": 7,
+    "throughput_mbps": 5,
+    "latency_p95_ms": 6
+  },
+  "platform": {
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "dart_version": "Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_x64\"",
+    "kernel": "7.0.0-1017-azure",
+    "logical_cpu_count": 4,
+    "os": "Linux",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "runner_image": "github-hosted/ubuntu24/20261026.354.1",
+    "rustc_version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "comparison_sha256": "76b7b2583ca68e7b8ec4fa44c7a0d9f0d907923c023e78c33f50a9ce7850bfbc",
+  "strict_parity_pass": false,
+  "scope": "Complete original single shard; reporting job success is not strict parity. Every row retained, no numerical rerun/source substitution or root-cause inference.",
+  "audited_utc": "2026-11-01T21:40:54.068530+00:00",
+  "numerical_source_archive_scope": "Source revision/clean receipt, exact source-derived inventories/schedules/scenarios and retained policy/locks/native/driver bytes verify. Numerical artifacts do not contain a complete source archive; own copy source archive is retained and independently audited separately."
+}
