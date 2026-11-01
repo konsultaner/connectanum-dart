@@ -1,0 +1,791 @@
+{
+  "diagnosticOnly": true,
+  "scope": "Root-zone lifecycle counters at public main return, localDarwin only. Observer implementation is byte-identical except imported exact broker source. Same actual native/client bytes and original fully verified bodies/workloads. Observer callbacks perturb scheduling; counts do not establish CPU/transport/RAM or Linux7763 acceptance. Uninstrumented timing is separate.",
+  "rows": 40,
+  "verified_deliveries": 8000000,
+  "legs": {
+    "baseline": {
+      "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+      "rows": 20,
+      "verified_deliveries": 4000000,
+      "full_raw_stdout_traces_all_five_repetitions_and_clean_exits_verified": true,
+      "observer_source_sha256": "102464e7add81aaf279dd4d79cbb542f769ef92a9677ffec815cdb957920a8fc",
+      "observer_broker_sha256": "6e56f53d19e95359e141ce8766a6fa6f42cbb5c7a589d4a213867be386543d2c",
+      "native_sha256": "35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649",
+      "client_sha256": "5514fb580ca58506a822d87e89be29121243502fef1079e74c05e797aaeb7ed0"
+    },
+    "candidate": {
+      "source": "ea5751dd3cfeef346d57d0580147acf1116fdd87",
+      "rows": 20,
+      "verified_deliveries": 4000000,
+      "full_raw_stdout_traces_all_five_repetitions_and_clean_exits_verified": true,
+      "observer_source_sha256": "110c27c950fc3aa1312370be08bad1514d5b6c9e275ae05aa8ad2f714dcb1f63",
+      "observer_broker_sha256": "f985bde9ce998b51818c42f0ec4d4ca4457ec8928aeb0e6680164c1f031f0800",
+      "native_sha256": "35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649",
+      "client_sha256": "5514fb580ca58506a822d87e89be29121243502fef1079e74c05e797aaeb7ed0"
+    }
+  },
+  "comparisons": [
+    {
+      "profile": "ws_sustained",
+      "baseline_median_idle_timer_creations": 58864,
+      "candidate_median_idle_timer_creations": 55590,
+      "creation_ratio": 0.9443802663767328,
+      "baseline_all_five_traces": [
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 57438,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 190
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 57248,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 1
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 56220,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 45
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 56175,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 2
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 59257,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 46
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 59211,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 3
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 60621,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 46
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 60575,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 4
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 58864,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 43
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 58821,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 5
+        }
+      ],
+      "candidate_all_five_traces": [
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 55590,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 44
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 55546,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 1
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 56457,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 43
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 56414,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 2
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 52458,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 52416,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 3
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 58232,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 46
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 58186,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 4
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 55434,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 55392,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_sustained",
+          "run": 5
+        }
+      ]
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "baseline_median_idle_timer_creations": 56731,
+      "candidate_median_idle_timer_creations": 52299,
+      "creation_ratio": 0.9218769279582592,
+      "baseline_all_five_traces": [
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 59128,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 46
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 59082,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 1
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 38533,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 51
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 38482,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 2
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 51474,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 44
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 51430,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 3
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 56731,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 44
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 56687,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 4
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 58958,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 43
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 58915,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 5
+        }
+      ],
+      "candidate_all_five_traces": [
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 52299,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 44
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 52255,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 1
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 47637,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 47595,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 2
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 55011,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 45
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 54966,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 3
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 54187,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 44
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 54143,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 4
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 49452,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 49410,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "ws_v311_sustained",
+          "run": 5
+        }
+      ]
+    },
+    {
+      "profile": "sustained",
+      "baseline_median_idle_timer_creations": 10577,
+      "candidate_median_idle_timer_creations": 8591,
+      "creation_ratio": 0.8122340928429611,
+      "baseline_all_five_traces": [
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 10577,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 41
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 10536,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 1
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 10933,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 43
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 10890,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 2
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 11277,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 44
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 11233,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 3
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 10181,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 10139,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 4
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 10481,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 43
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 10438,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 5
+        }
+      ],
+      "candidate_all_five_traces": [
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 8591,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 38
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 8553,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 1
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 7200,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 40
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 7160,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 2
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 8886,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 40
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 8846,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 3
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 8355,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 39
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 8316,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 4
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 8788,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 41
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 8747,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "sustained",
+          "run": 5
+        }
+      ]
+    },
+    {
+      "profile": "v311_sustained",
+      "baseline_median_idle_timer_creations": 10691,
+      "candidate_median_idle_timer_creations": 8015,
+      "creation_ratio": 0.7496960059863437,
+      "baseline_all_five_traces": [
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 10532,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 10490,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 1
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 10691,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 10649,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 2
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 11583,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 41
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 11542,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 3
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 10905,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 44
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 10861,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 4
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 10139,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 40
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 10099,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 5
+        }
+      ],
+      "candidate_all_five_traces": [
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 8015,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 40
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 7975,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 1
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 8907,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 40
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 8867,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 2
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 8468,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 8426,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 3
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 5601,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 42
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 5559,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 4
+        },
+        {
+          "diagnosticOnly": true,
+          "scope": "Observer counts in the root public broker zone; this instrumented run is not performance acceptance.",
+          "created_by_delay_us": {
+            "1000": 7358,
+            "15000000": 1
+          },
+          "fired_by_delay_us": {
+            "1000": 43
+          },
+          "active_cancelled_by_delay_us": {
+            "1000": 7315,
+            "15000000": 1
+          },
+          "periodic_created": 0,
+          "profile": "v311_sustained",
+          "run": 5
+        }
+      ]
+    }
+  ],
+  "audited_utc": "2026-11-01T17:15:30.214961+00:00"
+}

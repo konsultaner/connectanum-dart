@@ -1,0 +1,147 @@
+{
+  "baseline": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "candidate": "ea5751dd3cfeef346d57d0580147acf1116fdd87",
+  "tool_source": "e2becb6e70457c92cc5936463706c000e4c38fc8",
+  "diagnosticOnly": true,
+  "rows": 50,
+  "verified_deliveries": 8050000,
+  "complete_exact_source_archives_verified": true,
+  "shared_source_inputs_verified": 1432,
+  "all_three_retained_locks_verified": true,
+  "actual_native_broker_client_bytes_rehashed": true,
+  "original_stdout_all_rows_budget_order_delivery_and_cleanup_verified": true,
+  "summary_exactly_reproduced": true,
+  "native_sha256": "35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649",
+  "broker_sha256": {
+    "baseline": "32ade647daf17927488c78e3837c14129baea7872c22c7d30ba7f60f1a748a38",
+    "candidate": "47d7c8f8182193fe8909daffe32c3a5f033cac61bab5306a5f5ba8a765a5f16e"
+  },
+  "client_sha256": "a5a200162405d37a28bd61944f41fc2040bc5bc51e24826279389772d0f4f90e",
+  "platform": {
+    "os": "Darwin",
+    "kernel": "25.6.0",
+    "architecture": "arm64",
+    "logical_cpus": 32,
+    "cpu_model": "Apple M3 Ultra",
+    "runner_image": null,
+    "runner_image_version": null,
+    "native_runtime_threads": null,
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: aarch64-apple-darwin\nrelease: 1.95.0\nLLVM version: 22.1.2"
+  },
+  "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+  "load_average_before": [
+    16.01904296875,
+    12.7744140625,
+    13.94140625
+  ],
+  "load_average_after": [
+    22.88427734375,
+    16.23193359375,
+    15.19580078125
+  ],
+  "profiles": [
+    {
+      "profile": "ws_sustained",
+      "paired_throughput_ratios": [
+        1.073613651438104,
+        1.0660015432340262,
+        1.0170063843336183,
+        0.9825631227504873,
+        1.0262087019655621
+      ],
+      "median_paired_ratio": 1.0262087019655621,
+      "throughput_ratio_of_medians": 1.0646339978316413,
+      "median_rates": {
+        "baseline": 111053.30169794946,
+        "candidate": 118231.12055909132
+      },
+      "broker_cpu_medians": {
+        "baseline": 3.16,
+        "candidate": 2.99
+      }
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "paired_throughput_ratios": [
+        1.041226451908312,
+        0.9737899929707156,
+        1.0357417312042851,
+        0.904386185975416,
+        0.9326938750132333
+      ],
+      "median_paired_ratio": 0.9737899929707156,
+      "throughput_ratio_of_medians": 1.0058352995755815,
+      "median_rates": {
+        "baseline": 120112.76186083496,
+        "candidate": 120813.65580914341
+      },
+      "broker_cpu_medians": {
+        "baseline": 2.98,
+        "candidate": 2.98
+      }
+    },
+    {
+      "profile": "sustained",
+      "paired_throughput_ratios": [
+        1.0466057528640005,
+        0.9765657888582253,
+        1.0173047374085802,
+        0.9863370858238465,
+        0.9921599445709011
+      ],
+      "median_paired_ratio": 0.9921599445709011,
+      "throughput_ratio_of_medians": 0.9959424289573051,
+      "median_rates": {
+        "baseline": 471266.8595719012,
+        "candidate": 469354.6608091205
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.65,
+        "candidate": 0.65
+      }
+    },
+    {
+      "profile": "v311_sustained",
+      "paired_throughput_ratios": [
+        1.011157952952249,
+        1.0420799348477932,
+        1.0259359572527642,
+        1.00076845115458,
+        1.0202453529516111
+      ],
+      "median_paired_ratio": 1.0202453529516111,
+      "throughput_ratio_of_medians": 1.0045916740815464,
+      "median_rates": {
+        "baseline": 473646.3188208101,
+        "candidate": 475821.14834675944
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.64,
+        "candidate": 0.64
+      }
+    },
+    {
+      "profile": "64k_sustained",
+      "paired_throughput_ratios": [
+        1.0367710626465005,
+        0.9224545685966973,
+        1.008167545289835,
+        0.9636323017337489,
+        1.0037572383073496
+      ],
+      "median_paired_ratio": 1.0037572383073496,
+      "throughput_ratio_of_medians": 0.997022341289242,
+      "median_rates": {
+        "baseline": 11094.174005462772,
+        "candidate": 11061.139341596741
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.22,
+        "candidate": 0.22
+      }
+    }
+  ],
+  "predeclared_every_pair_slower_rejection_triggered": false,
+  "scope": "Uninstrumented localDarwin source control only. One exact identical-source baseline native is intentionally shared; this does not prove candidate-own canonical/native verification. High host load and mixed profiles are retained; no broad transport/RAM or Linux7763 repair claimed. Need independently controlled Linux and own complete final acceptance before adoption.",
+  "audited_utc": "2026-11-01T17:13:06.342303+00:00"
+}

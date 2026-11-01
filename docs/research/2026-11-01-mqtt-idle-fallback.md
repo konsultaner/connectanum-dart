@@ -48,3 +48,37 @@ frozen full canonical, hosted copy/lifetime, clean complete CI and complete fina
 strict 48-/50-case acceptance before adoption or PR readiness/merge/closure.
 
 [Predeclared complete matched method](2026-11-01-mqtt-idle-fallback-predeclaration.json).
+
+The complete uninstrumented local comparison on prototype `ea5751dd` independently
+reproduces all fifty rows / 8.05 million verified deliveries, complete exact source
+archives, 1,432 shared inputs, three canonical locks, actual binary bytes, original
+client stdout, AB/BA order and clean broker exits. This documentation update leaves
+all runtime/test code bytes identical to that measured prototype. The intentionally
+shared same-source baseline native is diagnostic control, not own-candidate
+canonical proof. High local load (about 16–23) is retained and limits inference.
+
+| Profile | Candidate/baseline median-rate ratio | Baseline/candidate CPU seconds |
+| --- | ---: | ---: |
+| WebSocket 5, 128 B | 1.06463400 | 3.16 / 2.99 |
+| WebSocket 3.1.1, 128 B | 1.00583530 | 2.98 / 2.98 |
+| TCP 5, 128 B | 0.99594243 | 0.65 / 0.65 |
+| TCP 3.1.1, 128 B | 1.00459167 | 0.64 / 0.64 |
+| TCP 5, 64 KiB | 0.99702234 | 0.22 / 0.22 |
+
+Pairs are mixed except TCP 3.1.1, whose five paired rates all improve. No profile
+triggers the predeclared every-pair-slower rejection, but these data do not establish
+broad benefit or a Linux/7763, RAM or acceptance pass. Independently controlled Linux
+measurement and own final verification remain necessary. The original zero-row
+setup attempt lacked the ignored benchmark lock; exact baseline lock bytes repaired
+input retention before any compilation or numeric execution. Both records remain.
+
+The separate observer retains forty runs / eight million verified deliveries.
+Observer source differs only in the imported exact public broker, with identical
+native/client bytes. Median one-millisecond timer creations fall 58,864→55,590
+(WebSocket 5), 56,731→52,299 (WebSocket 3.1.1), 10,577→8,591 (TCP 5) and
+10,691→8,015 (TCP 3.1.1). These are counts at public-main return, not timing or
+allocation-byte precision; observer overhead precludes using them as performance
+ratios. No body, sample/window, GC, allocator, SDK or ownership policy changes.
+
+[Every uninstrumented pair and complete audit](2026-11-01-mqtt-idle-local-control-audit.json).
+[Every observer repetition and audit](2026-11-01-mqtt-idle-timer-observer-audit.json).

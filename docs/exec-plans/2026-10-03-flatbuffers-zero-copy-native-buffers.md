@@ -20,8 +20,13 @@ fifteen pacing tests, the complete 620-case router file and all 115 MQTT cases
 and full fast regression also pass. Initial manual environment/cwd setup failures
 are retained; no runtime behavior was changed for them.
 
-The complete fifty-row matched diagnostic is predeclared but not yet measured.
-No transport/RAM improvement, own full canonical/CI or strict acceptance is claimed.
+The complete local uninstrumented fifty-row comparison on prototype `ea5751dd`
+independently retains all 8.05 million verified deliveries, exact inputs/binaries
+and every pair. WebSocket 5 median-rate ratio is 1.06463 (CPU 3.16→2.99); other
+profiles are mixed and near parity. No mode is slower in every pair. Independent
+observer counts decrease, but do not establish timing/CPU or allocation bytes.
+This docs-only update preserves the measured runtime/test bytes. No Linux/7763,
+RAM, own full canonical/CI or strict acceptance pass is claimed.
 Keep every prior campaign/result; the predecessor primary remains active. PR132
 stays at `40ddcb3f`, draft and stacked on #130. The separate allocation-precision
 question is not the sole blocker. Do not weaken any gate/window/sample/body/SDK/
