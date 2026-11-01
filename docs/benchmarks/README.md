@@ -38,17 +38,22 @@ earlier misses and hardware provenance remain in the package README tables.
 
 WAMP results include JSON, MessagePack, CBOR and FlatBuffers. The
 [WAMP profile contract](../wamp_profile_benchmarks.md) defines release acceptance.
-MQTT↔WAMP translation remains unimplemented and has no accepted benchmark;
-[issue #131](https://github.com/konsultaner/connectanum-dart/issues/131) tracks both
-directions, direct-path controls and memory/queue measurements.
+MQTT↔WAMP translation is implemented with explicit realm authorization;
+[issue #131](https://github.com/konsultaner/connectanum-dart/issues/131) tracks
+numeric acceptance for both directions, direct controls and memory/queue
+measurements. Complete baseline runs remain rejected until the fixed
+repeatability gates pass; see the [active plan](../exec-plans/2026-10-14-mqtt-broker-interoperability.md).
 
 ## Coverage
 
 | Scope | Covered / executable lines |
 | --- | ---: |
 | Native MQTT added production lines | 882 / 882 |
-| MQTT Dart sources | 651 / 651 |
+| MQTT Dart sources | 759 / 759 |
+| Gateway/shared Dart sources | 744 / 744 |
+| Gateway component | 270 / 270 |
 | MQTT benchmark gate Python, zero exclusions | 268 / 268 |
+| Gateway tooling Python, zero exclusions | 910 / 910 |
 
 The [native inventory](mqtt-native-added-line-coverage-ready-yield.json) records
 exact line numbers and source hashes for five current production files. The
@@ -57,6 +62,8 @@ exact line numbers and source hashes for five current production files. The
 allow independent recomputation of their union. Scope uses the Rust production
 filter and patience diff against `73d840c9`; tests, comments and non-executable
 lines are excluded. Collection platform is macOS arm64 with `ffi-test`.
+The proof matches current Rust source SHA-256 `1254e227…c93fc01`; a tooling
+regression verifies all five source hashes and the complete compressed union.
 These are scoped executable-line counts, rather than whole-repository coverage.
 
 Native regressions cover runtime transfer, bounded queues, shutdown and listener

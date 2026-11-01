@@ -5,111 +5,53 @@ Current priority: [MQTT broker interoperability, milestone 2](https://github.com
 Active plan: [MQTT execution plan](exec-plans/2026-10-14-mqtt-broker-interoperability.md).
 Branch: `codex/mqtt-wamp-gateway`, based on merged master `ef822e08`.
 
-[PR #128](https://github.com/konsultaner/connectanum-dart/pull/128) merged as `ef822e08`.
-It delivers direct QoS 0 MQTT 5/3.1.1 over TCP/TLS/WS/WSS with independent clients
-and numeric CI gates. The broader milestone remains open: authenticated gateway
-routing, translation benchmarks (#131), QoS 1/2, persistence, retain/wills and
-release conformance still need implementation. The current task implements the
-authorized gateway (#116/#117) and translation performance/memory gates (#131).
-See the [MQTT contract](mqtt.md) and active plan.
+[PR #128](https://github.com/konsultaner/connectanum-dart/pull/128) merged direct
+QoS 0 MQTT 5/3.1.1 over TCP/TLS/WS/WSS, independent clients and numeric gates.
+The current task adds the authorized gateway (#116/#117) and bidirectional
+performance/memory gates (#131). The broader milestone remains open for QoS 1/2,
+retained messages/wills, persistence, MQTT credential authentication and release
+conformance. See the [MQTT contract](mqtt.md).
 
-The opt-in authorized gateway and process-isolated AOT benchmarks are implemented.
-Coverage currently passes 744/744 gateway/shared Dart executable lines, 759/759
-MQTT lines, 270/270 gateway component lines and 890/890 Python gate lines with
-zero exclusions. Independent Paho/Connectanum MQTT checks pass all 104 tests;
-56 benchmark/worker cases pass. The first clean sequential `bin/verify`, strict
-publishing, 150 WAMP integration tests and 50 shutdown/restart cycles pass. A
-fresh full verify also passes after adding publisher-disconnect observation.
-An earlier overlapping verify failed; those WAMP cases pass in clean reruns.
+The opt-in gateway and separate-process AOT benchmark are implemented. Current
+coverage passes 744/744 gateway/shared Dart lines, 759/759 MQTT lines, 270/270
+gateway component lines, 882/882 native added production lines and 910/910
+Python tooling lines, with zero Python exclusions. The native proof matches
+current Rust source SHA-256 `1254e227…c93fc01`; a regression checks source hashes
+and recomputes its compressed Cargo + Dart FFI LCOV union. Independent Paho /
+Connectanum MQTT tests (104), benchmark/worker cases (56), and full `bin/verify`
+pass, including VM and Chrome/WebAssembly. The full verification was on
+`5b1e4a43`; subsequent changes are Python warm-up accounting and documentation.
 
-Existing hosted direct MQTT and WAMP profile gates pass on `08c654c0`. Its
-superseded baseline found a Paho trust-anchor error, now fixed to use the owned
-CA. The corrected 16-profile hosted smoke passes on `ceb57d89`, including TLS/WSS
-and both MQTT versions. The superseded release run
-[41307802399](https://github.com/konsultaner/connectanum-dart/actions/runs/41307802399)
-exposed Python byte-by-byte payload checking as a 64 KiB client bottleneck and
-exceeded the load deadline. The identical byte formula now uses C-backed byte
-construction/comparison; golden-byte and corruption regressions pass. Load
-phases allow 300 seconds; startup/control deadlines remain 60 seconds.
-The next hosted run (`9477e2ab`) passed all normal smoke rows but the stricter
-exit check caught a slow MQTT client retaining its write socket after peer FIN.
-Both version-specific regressions fail before the one-line socket release fix
-and pass afterward. A fresh local AOT run passes all four overload cases twice,
-including zero-exit teardown. The fixed source `54ca3c07` passes hosted smoke: 192 samples, 122,400 exact
-deliveries, zero duplicates and all four overload cases. The superseded [release run](https://github.com/konsultaner/connectanum-dart/actions/runs/41313231551)
-was canceled after its variation failure; all four artifacts were preserved.
-The current-source `bin/test-fast` and sequential full `bin/verify` pass, including
-Rust, Dart VM and Chrome/WebAssembly checks. Complete baseline validation and
-immutable numeric limits remain pending.
+The gateway baseline runs 32 profiles, all six translation/control paths and
+five cycles: 960 normal samples plus 12 overload/recovery cycles. Earlier runs
+exposed and reproduced Paho payload-oracle overhead, MQTT peer-FIN socket
+retention and Nagle stalls. The fixes retain exact payload/counter checks,
+zero-exit teardown, bounded queues and all existing numeric caps. The native
+TCP_NODELAY correction passes all 12 Linux sustained checks in
+[41322497967](https://github.com/konsultaner/connectanum-dart/actions/runs/41322497967):
+WS ratios 0.807–0.868 against the unchanged 0.700 floor; 64 KiB CPU ratios
+2.867–3.133 against 4.000.
 
-The `54ca3c07` baseline is not accepted for numeric limits: its Paho TCP
-control has 40 ms stalls and fails the fixed repeatability caps despite stable
-broker CPU. Paho left Nagle enabled while the Linux SDK clients disable it.
-The independent participant now enables TCP_NODELAY through its public socket
-callback, preserving the original descriptor. All four real links pass both
-translation directions locally; actual-socket and failure regressions pass,
-with 890/890 tooling lines and zero exclusions. Rerun the complete hosted
-baseline from this corrected source; preserve prior samples and unchanged caps.
-The corrected `545e53a1` run is [41317205905](https://github.com/konsultaner/connectanum-dart/actions/runs/41317205905),
-using `codex/mqtt-gateway-baseline-nodelay` so it could start without interrupting
-artifact preservation. Its native build and secure-peer smoke pass; three release shards are running
-and one is queued. The fresh `bin/verify` after the Paho correction also passes.
+The complete [5b1e4a43 run](https://github.com/konsultaner/connectanum-dart/actions/runs/41323493587)
+passes delivery and recovery but is rejected for the fastest MQTT control's
+p99 variation. Its 200-message warm-up lasted about 20 ms. The harness now
+requires both 200 messages and one second, records the actual count/duration,
+and checks cumulative publication counters against that count. All four real
+Paho links pass both directions. Rerun the complete hosted matrix before
+freezing numeric limits; do not accept samples from rejected runs.
 
-Locally prepared strict CI wiring makes smoke and all four numeric shards
-prerequisites of Full Verify; gate tests reject every missing/unsuccessful lane.
-The numeric budget file and compact README fixture still await the complete
-immutable Linux baseline. Keep this wiring uncommitted until those files exist.
-Remaining work: verify all 960 normal and 12 overload samples, freeze budgets,
-archive raw evidence, publish README tables, finish current-source local/hosted
-checks and open the ready gateway PR. Do not close the broader MQTT milestone.
+Remaining work: validate the new immutable Linux baseline, freeze budgets,
+publish compact README tables and externally archive raw evidence, enable the
+prepared required smoke/four-shard CI chain, run current-source checks and open
+a ready PR. Keep rate/p99/CPU variation caps at 0.20/0.75/0.35. No new merge is
+authorized. The previous [history archive](benchmarks/README.md#archive) remains
+available; new raw runs stay outside Git.
 
-Merged-master CI [41105562746](https://github.com/konsultaner/connectanum-dart/actions/runs/41105562746),
-publishing and the required WAMP profile benchmark pass. Local `bin/test-fast` passes. Focused gateway, worker and independent-peer checks are passing;
-full current-head verification and hosted gateway acceptance remain pending. Two pre-existing auxiliary workflows
-remain red and must stay visible: strict kTLS cannot set the Linux TLS ULP on its
-runner, and WAMP diagnostics miss existing 2,000 Mbit/s floors on buffered Dart
-file / heavy RawSocket paths. Neither budget is relaxed by gateway work.
+Merged-master required CI/publishing and the WAMP profile gate pass. Two
+pre-existing auxiliary failures remain visible: strict kTLS lacks Linux TLS ULP
+support, and WAMP diagnostics miss existing 2,000 Mbit/s floors on buffered Dart
+file/heavy RawSocket paths. Their budgets remain unchanged.
 
-The user requested slimming the PR: historical benchmark runs and working notes
-are preserved in a [verified immutable archive](benchmarks/README.md#archive).
-Current README tables, compact offline fixtures, implementation/tests, compressed
-coverage proof and existing CI performance budgets stay in the source tree.
-The preservation audit and README/gate tests passed for the merged cleanup.
-The gateway extends production code, source coverage and CI while preserving
-existing numeric budgets. Current-head acceptance is tracked in the active plan.
-
-Last accepted production source is `f7235055` (full hash in the plan).
-[CI 40968103538](https://github.com/konsultaner/connectanum-dart/actions/runs/40968103538)
-passed all 37 jobs on pre-cleanup head `538e029c`. Full local verification,
-strict package publishing and scoped native 882/882, Dart 651/651 and Python
-268/268 coverage passed. All 20 hosted MQTT profiles passed on EPYC 7763;
-matched Intel 8370C candidate runs also pass the unchanged WS/64 KiB limits.
-The [PR checks](https://github.com/konsultaner/connectanum-dart/pull/128/checks)
-are authoritative for the latest head; historical passes do not validate later edits.
-
-Other project work is preserved: the separate
-[`connectanum_objectbox_adapter` 3.0.0-beta.8](https://pub.dev/packages/connectanum_objectbox_adapter/versions/3.0.0-beta.8)
-was published via [PR #133](https://github.com/konsultaner/connectanum-dart/pull/133).
-The [FlatBuffers plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md)
-remains reference/deferred work during this MQTT priority. Its performance
-acceptance is distinct from the outer-envelope README measurements.
-
-The complete `545e53a1` run validates all 960 normal samples and 12 overload
-cycles, but its numeric freeze is rejected: SDK WS/3.1.1/1 KiB/window16
-WAMP→MQTT rate CV is 0.2138 against the fixed 0.20 cap, with 40 ms tails.
-The native cleartext MQTT WS upgrade explicitly re-enabled Nagle. A live Rust
-regression observes the accepted socket option through a duplicated descriptor;
-it fails before and passes after retaining TCP_NODELAY. Existing input
-coalescing and numeric budgets are unchanged. Fresh current-source native
-coverage and Linux sustained WS acceptance are pending; the old f7235055
-882-line proof applies to the earlier source only. Do not freeze this baseline.
-
-Native candidate `61bba1c4` now has fresh 882/882 added-production-line coverage
-(Cargo + instrumented Dart FFI, current Rust source SHA-256 `1254e227…c93fc01`).
-A required tooling regression rejects stale source hashes and recomputes the
-compressed LCOV union. All 12 Linux sustained comparison checks pass in
-[41322497967](https://github.com/konsultaner/connectanum-dart/actions/runs/41322497967),
-including both automatic/default-worker legs. WS ratios are 0.807–0.868 against
-the unchanged 0.700 floor; 64 KiB CPU ratios are 2.867–3.133 against 4.000.
-Rerun the complete gateway baseline from this accepted correction before
-freezing limits. The previous gateway samples remain rejected and archived.
+Other work is preserved: separate [ObjectBox adapter PR #133](https://github.com/konsultaner/connectanum-dart/pull/133)
+published 3.0.0-beta.8. The [FlatBuffers plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md)
+remains deferred/reference work during this MQTT priority.

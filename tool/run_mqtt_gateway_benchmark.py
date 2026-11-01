@@ -349,6 +349,7 @@ class Campaign:
     def __init__(self, worker, output, config, *, timeout=60, load_timeout=None):
         self.worker, self.output, self.config = worker, output, config
         self.timeout = timeout
+        self.warmup_phase=0x80000000
         self.load_timeout = timeout if load_timeout is None else load_timeout
         self.events = queue.Queue()
         self.children = {}
@@ -448,7 +449,19 @@ class Campaign:
             self.children.pop(label).stop()
         return closed
 
-    def run(self, profile, path, runs, count, warmup, drain_seconds):
+    def warm_up(self, phase, count, seconds, clients, server):
+        start=time.monotonic()
+        messages=0
+        while True:
+            self.phase(phase,count,clients,server)
+            messages+=count
+            elapsed=time.monotonic()-start
+            if elapsed>=seconds:
+                return messages,elapsed
+            self.warmup_phase+=1
+            phase=self.warmup_phase
+
+    def run(self, profile, path, runs, count, warmup, drain_seconds, warmup_seconds=1):
         self.config['path'] = 'mqtt_to_mqtt' if path == 'mosquitto' else path
         self.config['reference'] = path == 'mosquitto'
         raw_path = self.output / 'raw.jsonl'
@@ -459,12 +472,14 @@ class Campaign:
         self.reference_version = ready.get('version')
         self.config['port'] = ready['port']
         rows = []
+        publications=0
         for run in range(1, runs + 1):
             clients = ['publisher', *[f'subscriber-{i}' for i in range(profile['subscribers'])]]
             for label in clients:
                 self.spawn(label, 'publisher' if label == 'publisher' else 'subscriber')
             self.expect(clients, 'ready')
-            self.phase(run * 2, warmup, clients, server)
+            warmed,elapsed=self.warm_up(run*2,warmup,warmup_seconds,clients,server)
+            publications+=warmed+count
             reports, processes = self.phase(run * 2 + 1, count, clients, server)
             self.settle(drain_seconds)
             closed = self.close_clients(clients)
@@ -476,8 +491,9 @@ class Campaign:
             final = self.expect(['broker'], 'sampled')['broker']
             processes['broker'].update(final['memory'])
             if path in DIRECTIONS:
-                check_publications(final['queues'],path,run*(warmup+count))
-            row = delivery_row(profile, path, run, count, list(reports.values()), processes, final['queues'])
+                check_publications(final['queues'],path,publications)
+            row = dict(delivery_row(profile, path, run, count, list(reports.values()), processes, final['queues']),
+                       warmup_messages=warmed,warmup_seconds=elapsed)
             rows.append(row)
             with raw_path.open('a') as raw:
                 raw.write(json.dumps(row) + '\n')
@@ -588,6 +604,12 @@ class Campaign:
             raise failure
 
 
+def check_warmup(row, messages, seconds):
+    if (type(row['warmup_messages']) is not int or row['warmup_messages']<messages or
+            number(row['warmup_seconds'],'warm-up duration')<seconds):
+        raise ValueError('Benchmark warm-up is below its required count/duration')
+
+
 def compile_worker(directory):
     try:
         subprocess.run(['dart', 'build', 'cli', '--target', 'bin/mqtt_gateway_worker.dart', '--output', str(directory)],
@@ -610,7 +632,7 @@ def validate_budget(budget, args):
         raise ValueError('Invalid gateway baseline provenance')
     if sys.platform != budget['platform']:
         raise ValueError('Numeric gateway budgets require their recorded platform; use record-only for diagnostics')
-    for field in ('runs','messages','warmup','overload_runs','overload_messages','overload_stall_ms','drain_seconds'):
+    for field in ('runs','messages','warmup','warmup_seconds','overload_runs','overload_messages','overload_stall_ms','drain_seconds'):
         minimum = number(budget['workload'][field],field,positive=True)
         if getattr(args,field) < minimum:
             raise ValueError(f'Gate workload is below its accepted {field}')
@@ -650,6 +672,7 @@ def main(argv=None):
     parser.add_argument('--runs', type=int, default=5)
     parser.add_argument('--messages', type=int, default=5000)
     parser.add_argument('--warmup', type=int, default=200)
+    parser.add_argument('--warmup-seconds', type=float, default=1)
     parser.add_argument('--overload-runs', type=int, default=3)
     parser.add_argument('--overload-messages', type=int, default=2048)
     parser.add_argument('--overload-stall-ms', type=int, default=20000)
@@ -666,7 +689,7 @@ def main(argv=None):
         overload_selected = shard_profiles(overload_profiles(),args.shard)
     except ValueError as error:
         parser.error(str(error))
-    if not library.is_file() or not selected or args.runs < 1 or args.messages < 1 or args.warmup < 1 or args.drain_seconds < 0 or args.overload_runs < 1 or args.overload_messages < 1 or not 1 <= args.overload_stall_ms <= 60000:
+    if not library.is_file() or not selected or args.runs < 1 or args.messages < 1 or args.warmup < 1 or args.drain_seconds < 0 or not math.isfinite(args.warmup_seconds) or not 0 <= args.warmup_seconds <= 60 or args.overload_runs < 1 or args.overload_messages < 1 or not 1 <= args.overload_stall_ms <= 60000:
         parser.error('Invalid benchmark library/profile/count/drain configuration')
     if args.profile is not None and not args.record_only:
         parser.error('Partial profile runs are diagnostic only')
@@ -692,7 +715,7 @@ def main(argv=None):
                        'paho_payload_oracle':'periodic_bytes_c_comparison','paho_tcp_nodelay':True,
                        'profiles': selected,'overload_profiles':overload_selected, 'source_commit': source_commit, 'source_dirty': source_dirty,
                        'workload': dict(matrix=args.matrix,shard=args.shard, runs=args.runs, messages=args.messages,
-                                        warmup=args.warmup, drain_seconds=args.drain_seconds,load_timeout_seconds=300,
+                                        warmup=args.warmup,warmup_seconds=args.warmup_seconds, drain_seconds=args.drain_seconds,load_timeout_seconds=300,
                                         overload_runs=args.overload_runs,overload_messages=args.overload_messages,
                                         overload_stall_ms=args.overload_stall_ms),
                        'worker_build': 'unverified_override' if args.worker else 'dart_build_cli_current_source',
@@ -717,7 +740,9 @@ def main(argv=None):
                           'certificate': str(reference.TLS_CERT), 'ca_certificate':str(reference.TLS_CA), 'key': str(reference.TLS_KEY)}
                 campaign = Campaign(worker, output, config,load_timeout=300)
                 try:
-                    values = campaign.run(profile, path, args.runs, args.messages, args.warmup, args.drain_seconds)
+                    values = campaign.run(profile, path, args.runs, args.messages, args.warmup, args.drain_seconds,args.warmup_seconds)
+                    for value in values:
+                        check_warmup(value,args.warmup,args.warmup_seconds)
                     rows.extend(values)
                     print(f"{profile['id']} {path}: {len(values)} exact lifecycles completed",flush=True)
                     (output / 'raw.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in values))
