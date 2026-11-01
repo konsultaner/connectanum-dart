@@ -14,8 +14,8 @@ on:
         default: false
         type: boolean
       gateway_record_only:
-        description: Record gateway baseline before applying numeric limits
-        default: true
+        description: Record diagnostic gateway samples without enforcing numeric limits
+        default: false
         type: boolean
       gateway_matrix:
         description: Gateway profile inventory

@@ -2,6 +2,10 @@
 
 ## 3.0.0-beta.8
 
+- Add an opt-in MQTT ↔ WAMP QoS 0 gateway with realm permissions, trusted caller
+  identity, binary publications, bounded policy queues and origin metadata.
+- Preserve TCP_NODELAY after MQTT WebSocket negotiation to avoid sparse
+  publication stalls; disconnect slow native peers when their send queue fills.
 - Isolate cleartext MQTT socket I/O on one native worker while preserving the
   primary WAMP/HTTP runtime and explicit worker-count overrides.
 - Coalesce ready MQTT WebSocket input on Linux without adding a timer delay,

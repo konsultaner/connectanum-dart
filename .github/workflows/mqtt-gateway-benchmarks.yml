@@ -3,7 +3,7 @@ on:
   workflow_call:
     inputs:
       record_only:
-        default: true
+        default: false
         type: boolean
       matrix:
         default: release
@@ -11,8 +11,8 @@ on:
   workflow_dispatch:
     inputs:
       record_only:
-        description: Record a baseline before applying the committed numeric budgets
-        default: true
+        description: Record diagnostic samples without enforcing the committed numeric budgets
+        default: false
         type: boolean
       matrix:
         description: Smoke validation only, or smoke followed by the release matrix

@@ -72,7 +72,7 @@ client with the [authorized MQTT ↔ WAMP gateway](../../docs/mqtt.md#enable-the
 The [benchmark tables](../connectanum_bench/README.md) cover TCP/TLS/WS/WSS,
 independent Paho peers, Mosquitto controls and earlier hardware-specific misses.
 All 20 direct MQTT profiles pass in the displayed AMD EPYC 7763 snapshot;
-current gateway performance and memory measurements are in progress.
+the [gateway tables](../connectanum_bench/README.md#mqtt-and-wamp-gateway) show both directions, latency, CPU, per-process memory and slow-consumer recovery.
 
 ## Native Runtime Setup
 

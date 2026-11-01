@@ -159,5 +159,8 @@ historical archive. `tool/run_mqtt_gateway_benchmark.py` runs separate AOT broke
 publisher and subscriber processes for both translations, direct MQTT/WAMP
 controls and a Mosquitto MQTT-leg control. It validates every payload and records
 throughput, p50/p95/p99, CPU, each process's warm/peak/drained RSS and lifecycle
-queue recovery. Raw runs belong in CI artifacts; hosted numeric gateway
-acceptance remains pending until its immutable baseline is locked.
+queue recovery. The [gateway tables](../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway)
+contain all 64 measured translation cases, per-process memory, direct controls
+and four slow-consumer cases. Required CI smoke and four numeric shards enforce
+exact delivery, complete coverage, latency/rate/CPU/RSS budgets and recovery.
+Raw runs and rejected baselines are retained in the [verified history archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01).

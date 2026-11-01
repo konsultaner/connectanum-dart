@@ -3,7 +3,7 @@
 import json
 import os
 
-REQUIRED = frozenset(('fast', 'mqtt-qos0', 'verification', 'wamp-app', 'flatbuffers-binding',
+REQUIRED = frozenset(('fast', 'mqtt-qos0', 'mqtt-gateway-smoke', 'mqtt-gateway', 'verification', 'wamp-app', 'flatbuffers-binding',
                       'native-memory', 'mutation-gates', 'mcp-mutations', 'browser-coverage'))
 
 
@@ -15,7 +15,7 @@ def main():
               if job.get('result') != 'success'}
     if failed:
         raise ValueError(f'Full Verify prerequisites did not succeed: {failed}')
-    print('All required verification, coverage and mutation lanes succeeded.')
+    print('All required verification, interoperability, performance, coverage and mutation lanes succeeded.')
     return 0
 
 

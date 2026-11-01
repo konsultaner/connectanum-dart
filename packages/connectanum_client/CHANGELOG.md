@@ -1,5 +1,8 @@
 ## 3.0.0-beta.8
 
+- Release MQTT sockets after remote shutdown and bound native WAMP receive
+  batches with credit, including cancellation and shutdown recovery.
+- Preserve CBOR binary application arguments across native message decoding.
 - Support negotiated FlatBuffers profiles on native RawSocket and WebSocket
   transports, including retained payload passthrough and typed E2EE.
 - Expose native-owned builders, frozen buffer views and external producer leases

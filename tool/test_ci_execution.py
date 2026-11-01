@@ -64,6 +64,17 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertIn('--record-only --runs 2 --messages 300',action)
         self.assertIn('"$GATEWAY_RECORD_ONLY" == true',action)
         self.assertIn('"${arguments[@]}"',action)
+        main=(ROOT/'.github/workflows/dart.yml').read_text()
+        gateway=main.split('  mqtt-gateway:',1)[1].split('  wamp-app:',1)[0]
+        self.assertIn('needs: [native-build, mqtt-gateway-smoke]',gateway)
+        self.assertIn("record_only: 'false'",gateway)
+        self.assertIn('shard: [0, 1, 2, 3]',gateway)
+        release=(ROOT/'.github/workflows/mqtt-gateway-benchmarks.yml').read_text()
+        self.assertIn('record_only:\n        default: false\n        type: boolean',release)
+        dispatch=release.split('  workflow_dispatch:',1)[1].split('permissions:',1)[0]
+        self.assertIn('default: false',dispatch.split('record_only:',1)[1].split('      matrix:',1)[0])
+        wrapper=(ROOT/'.github/workflows/mqtt-profile.yml').read_text()
+        self.assertIn('default: false',wrapper.split('      gateway_record_only:',1)[1].split('      gateway_matrix:',1)[0])
 
     def test_nested_dart_setup_does_not_register_a_matcher_from_the_parent_path(self):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
@@ -167,7 +178,7 @@ class RequiredGateTests(unittest.TestCase):
             capture_output=True, text=True, timeout=10)
 
     def test_required_gate_accepts_only_complete_success(self):
-        names = ('fast', 'mqtt-qos0', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
+        names = ('fast', 'mqtt-qos0', 'mqtt-gateway-smoke', 'mqtt-gateway', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
                  'mutation-gates', 'mcp-mutations', 'browser-coverage')
         needs = {name: {'result': 'success'} for name in names}
         self.assertEqual(self.execute(needs).returncode, 0)
@@ -178,7 +189,9 @@ class RequiredGateTests(unittest.TestCase):
                 self.assertNotEqual(self.execute(broken).returncode, 0)
         for broken in ({},
                        {k: v for k, v in needs.items() if k != 'mcp-mutations'},
-                       {k: v for k, v in needs.items() if k != 'mqtt-qos0'}):
+                       {k: v for k, v in needs.items() if k != 'mqtt-qos0'},
+                       {k: v for k, v in needs.items() if k != 'mqtt-gateway'},
+                       {k: v for k, v in needs.items() if k != 'mqtt-gateway-smoke'}):
             self.assertNotEqual(self.execute(broken).returncode, 0)
 
 

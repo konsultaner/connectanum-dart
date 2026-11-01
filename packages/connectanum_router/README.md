@@ -127,7 +127,7 @@ realm permissions and exposes an explicit publication API; see the
 | Hosted profile results | 20 of 20 passed on AMD EPYC 7763 |
 | 64 KiB broker CPU | 2.952× Mosquitto against the unchanged 4.000× cap |
 | WebSocket delivery rate | MQTT 5 / 3.1.1 ratios 0.743× / 0.753× against the unchanged 0.700× floor |
-| Gateway performance and memory | Hosted translation and stalled-consumer measurements in progress |
+| Gateway performance and memory | 64 translation cases, per-process RSS and four slow-consumer cases; [measured tables](../connectanum_bench/README.md#mqtt-and-wamp-gateway) |
 
 The [benchmark tables](../connectanum_bench/README.md) show delivered rates,
 latency, CPU and memory, with runner details and earlier misses. The direct MQTT

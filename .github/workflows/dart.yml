@@ -362,11 +362,42 @@ jobs:
           path: out/mqtt-native-comparison
           if-no-files-found: error
 
-  mqtt-gateway-baseline:
-    name: MQTT WAMP gateway baseline ${{ matrix.shard }}
+  mqtt-gateway-smoke:
+    name: MQTT WAMP gateway smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: native-build
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-native-ffi-test
+          path: out/ci-native
+      - name: Prepare the verified native library and independent MQTT peers
+        run: |
+          set -euo pipefail
+          python3 tool/ci_native_artifact.py prepare --directory out/ci-native
+          echo "CONNECTANUM_NATIVE_LIB=$PWD/out/ci-native/libct_ffi.so" >> "$GITHUB_ENV"
+          bin/bootstrap
+      - uses: ./.github/actions/profile-mqtt-gateway
+        with:
+          matrix: smoke
+      - name: Upload complete gateway performance and per-process memory evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-wamp-gateway-smoke
+          path: out/mqtt-gateway
+          if-no-files-found: error
+
+  mqtt-gateway:
+    name: MQTT WAMP gateway regression gate ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    needs: native-build
+    needs: [native-build, mqtt-gateway-smoke]
     strategy:
       fail-fast: false
       matrix:
@@ -388,7 +419,7 @@ jobs:
           bin/bootstrap
       - uses: ./.github/actions/profile-mqtt-gateway
         with:
-          record_only: 'true'
+          record_only: 'false'
           shard: ${{ matrix.shard }}/4
       - name: Upload complete gateway performance and per-process memory evidence
         if: always()
@@ -465,7 +496,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
-    needs: [fast, mqtt-qos0, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, browser-coverage]
+    needs: [fast, mqtt-qos0, mqtt-gateway-smoke, mqtt-gateway, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, browser-coverage]
     steps:
       - uses: actions/checkout@v5
       - name: Require every validation lane to succeed

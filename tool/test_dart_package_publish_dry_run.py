@@ -54,6 +54,103 @@ PUBLISHABLE_PACKAGE_ORDER = (
 
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
+    def test_gateway_tables_preserve_every_measured_profile_and_numeric_limit(self):
+        import run_mqtt_gateway_benchmark as gateway
+        fixture=json.loads((REPO_ROOT/'tool/fixtures/mqtt_gateway_readme.json').read_text())
+        budgets=json.loads((REPO_ROOT/'tool/mqtt_gateway_benchmark_budgets.json').read_text())
+        self.assertEqual(fixture['source_commit'],budgets['baseline_source_commit'])
+        self.assertEqual(fixture['profiles'],gateway.profiles('release'))
+        self.assertEqual(fixture['overload_profiles'],gateway.overload_profiles())
+        self.assertEqual(len(fixture['results']),64)
+        self.assertEqual(len(fixture['overload']),4)
+        self.assertEqual(fixture['delivery']['samples'],960)
+        self.assertEqual(fixture['delivery']['overload_cycles'],12)
+        self.assertEqual(fixture['delivery']['duplicates'],0)
+        self.assertEqual(fixture['workload'],budgets['workload'])
+        self.assertEqual(budgets['policy'],dict(
+            absolute_rate_fraction=.65,relative_rate_fraction=.75,relative_rate_floor_cap=.75,
+            latency_multiplier=1.75,latency_slack_us=50,cpu_multiplier=1.5,cpu_slack_seconds_per_million=3,
+            memory_multiplier=1.25,memory_slack_bytes=8*1048576,lifecycle_growth_slack_bytes=8*1048576,
+            lifecycle_slope_slack_bytes=2*1048576,max_rate_cv=.20,max_p99_cv=.75,max_cpu_cv=.35))
+        self.assertEqual(fixture['workload']['warmup_seconds'],1)
+        import math
+        rss=lambda value: math.ceil(value/1048576)*1048576
+        cpu_limit=lambda value: math.ceil(value*1.5+3)
+        def process_limits(process,with_cpu=True):
+            values=dict(max_peak_rss_bytes=rss(process['peak_rss_bytes']*1.25+8*1048576),
+                        max_drained_rss_bytes=rss(process['drained_rss_bytes']*1.25+8*1048576),
+                        max_retained_bytes=rss(process['retained_bytes']+8*1048576))
+            if with_cpu:values['max_cpu_seconds_per_million_messages']=cpu_limit(process['cpu_seconds_per_million_messages'])
+            return values
+        publications=sum(p['subscribers'] for p in fixture['profiles'])*fixture['workload']['runs']*fixture['workload']['messages']
+        self.assertEqual(fixture['delivery']['normal'],publications*len(gateway.ALL_PATHS))
+        self.assertEqual(fixture['delivery']['translation'],publications*len(gateway.DIRECTIONS))
+        self.assertEqual(fixture['delivery']['overload_healthy'],12*fixture['workload']['overload_messages'])
+        self.assertEqual(fixture['delivery']['overload_recovery'],12*64)
+        self.assertEqual({(r['profile'],r['direction']) for r in fixture['overload']},
+                         {(p['id'],d) for p in fixture['overload_profiles'] for d in gateway.DIRECTIONS})
+        section=BENCH_README.read_text().split('## MQTT and WAMP gateway',1)[1].split('## WAMP throughput',1)[0]
+        profiles={p['id']:p for p in [*fixture['profiles'],*fixture['overload_profiles']]}
+        self.assertEqual({(r['profile'],r['direction']) for r in fixture['results']},
+                         {(p['id'],d) for p in fixture['profiles'] for d in gateway.DIRECTIONS})
+        def label(key):
+            p=profiles[key]
+            size={128:'128 B',1024:'1 KiB',65536:'64 KiB'}[p['payload_bytes']]
+            codec={'json':'JSON','msgpack':'MessagePack','cbor':'CBOR','flatbuffers':'FlatBuffers'}[p['serializer']]
+            hosts=[h['label'] for h in fixture['hosts'] if key in h['profile_ids']+h['overload_profile_ids']]
+            self.assertEqual(len(hosts),1)
+            return f"{p['transport'].upper()} {p['mqtt_version']} · {codec} · {size} · {p['subscribers']}/{p['window']} · {'Paho' if p['mqtt_client']=='paho' else 'SDK'} [{hosts[0]}]"
+        def direction(row):return 'MQTT → WAMP' if row['direction']=='mqtt_to_wamp' else 'WAMP → MQTT'
+        for row in fixture['results']:
+            with self.subTest(profile=row['profile'],direction=row['direction']):
+                limit=budgets['profiles'][row['profile']][row['direction']]
+                self.assertTrue(all(gateway.translation_checks(row,limit).values()))
+                self.assertEqual(limit,dict(
+                    min_delivered_per_sec=max(1,math.floor(row['delivered_per_sec']*.65)),
+                    max_p95_us=math.ceil(row['p95_us']*1.75+50),max_p99_us=math.ceil(row['p99_us']*1.75+50),
+                    max_broker_cpu_seconds_per_million=cpu_limit(row['broker_cpu_seconds_per_million']),
+                    min_throughput_ratio=math.floor(min(.75,row['throughput_ratio']*.75)*1000)/1000,
+                    max_p95_over_control_sum=math.ceil(max(1.5,row['p95_over_control_sum']*1.5+.1)*1000)/1000,
+                    max_p99_over_control_sum=math.ceil(max(1.5,row['p99_over_control_sum']*1.5+.1)*1000)/1000,
+                    max_cpu_over_control_sum=math.ceil(max(1.5,row['cpu_over_control_sum']*1.5+.1)*1000)/1000,
+                    max_peak_rss_bytes=rss(row['peak_rss_bytes']*1.25+8*1048576),
+                    max_drained_rss_bytes=rss(row['drained_rss_bytes']*1.25+8*1048576),
+                    max_retained_growth_bytes=rss(row['retained_growth_bytes']+8*1048576),
+                    max_rss_growth_bytes_per_cycle=rss(row['rss_growth_bytes_per_cycle']+2*1048576),
+                    max_rate_cv=.20,max_p99_cv=.75,max_cpu_cv=.35,
+                    processes={key:process_limits(row['processes'][name]) for key,name in
+                               [('broker','broker'),('publisher','publisher'),('subscriber','subscriber-max')]}))
+                controls=next(r['rates'] for r in fixture['controls'] if r['profile']==row['profile'])
+                wamp_control='wamp_to_wamp_ack' if row['direction']=='wamp_to_mqtt' else 'wamp_to_wamp'
+                self.assertEqual(row['throughput_ratio'],row['delivered_per_sec']/min(controls['mqtt_to_mqtt'],controls[wamp_control]))
+                p=row['processes'];roles=['broker','publisher','subscriber-max']
+                cpu_cell=' / '.join(f"{p[k]['cpu_seconds_per_million_messages']:.1f}" for k in roles)
+                self.assertIn(f"| {label(row['profile'])} | {direction(row)} | {row['delivered_per_sec']:,.0f} | {row['payload_mib_per_sec']:.2f} | {row['p50_us']:,.0f} / {row['p95_us']:,.0f} / {row['p99_us']:,.0f} | {cpu_cell} | {row['throughput_ratio']:.3f} |",section)
+                memory=[' / '.join(f'{p[k][f]/1048576:.1f}' for f in ['warm_rss_bytes','peak_rss_bytes','drained_rss_bytes']) for k in roles]
+                self.assertIn(f"| {label(row['profile'])} | {direction(row)} | {' | '.join(memory)} | {row['retained_growth_bytes']/1048576:.1f} / {row['rss_growth_bytes_per_cycle']/1048576:.1f} |",section)
+        for row in fixture['overload']:
+            limit=budgets['overload'][row['profile']][row['direction']]
+            self.assertTrue(all(gateway.overload_checks(row,limit).values()))
+            self.assertEqual(limit,dict(min_delivered_per_sec=max(1,math.floor(row['delivered_per_sec']*.65)),
+                max_p99_us=math.ceil(row['p99_us']*1.75+50),
+                max_retained_growth_bytes=rss(row['retained_growth_bytes']+8*1048576),
+                processes={role:process_limits(process,False) for role,process in row['processes'].items()}))
+            roles=['broker','publisher','subscriber-0','subscriber-1'];p=row['processes']
+            peak=' / '.join(f"{p[k]['peak_rss_bytes']/1048576:.1f}" for k in roles)
+            drained=' / '.join(f"{p[k]['drained_rss_bytes']/1048576:.1f}" for k in roles)
+            self.assertIn(f"| {label(row['profile'])} | {direction(row)} | {row['delivered_per_sec']:,.0f} | {row['slow_received_max']} | {peak} | {drained} | {row['recovery_received']}/64 |",section)
+        self.assertEqual({r['profile'] for r in fixture['controls']},{p['id'] for p in fixture['profiles']})
+        self.assertEqual(len(fixture['controls']),32)
+        paths=['mqtt_to_mqtt','wamp_to_wamp','wamp_to_wamp_ack','mosquitto']
+        for row in fixture['controls']:
+            self.assertEqual(set(row['rates']),set(paths))
+            values=' | '.join(f"{row['rates'][path]:,.0f}" for path in paths)
+            self.assertIn(f"| {label(row['profile'])} | {values} |",section)
+        lines=[line for line in section.splitlines() if line.startswith('|')]
+        self.assertEqual(len(lines),64+64+32+4+8)
+        self.assertIn(f"{fixture['delivery']['translation']:,} exact translation deliveries",section)
+        for host in fixture['hosts']:self.assertIn(host['cpu_model'],section)
+
     def test_native_mqtt_coverage_proof_matches_current_sources_and_full_union(self):
         import gzip
         import hashlib
@@ -323,7 +420,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             f'{mqtt_report["totalExactDeliveries"]:,} expected and received',
             mqtt_table,
         )
-        self.assertIn("No benchmark yet; the live gateway is pending", mqtt_table)
+        self.assertIn("Both directions measured;", mqtt_table)
         self.assertIn("sustained / full-lifecycle throughput", readme)
         wamp_tables = readme.split("## WAMP throughput", 1)[1].split(
             "## Run and reproduce", 1
