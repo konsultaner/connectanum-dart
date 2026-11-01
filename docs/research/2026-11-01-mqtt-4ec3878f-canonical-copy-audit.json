@@ -1,0 +1,107 @@
+{
+  "source": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+  "canonical": {
+    "source": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+    "canonical_exit": 0,
+    "clean_source_HEAD_unchanged": true,
+    "actual_own_native_sha256": "590d4b668c304ba36f280e61b30646490d6ff7149f86519d5b7603113a15cbe5",
+    "actual_broker_source_sha256": "c2438be487144b2539a19f45edf98e6c6e4feb69af0377f2005bedc1867da66f",
+    "actual_Rust_encoder_sha256": "c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2",
+    "log_sha256": "4b1265a90ea2e99e7c806b68f4692fc6ec2bcb243ede0705a9f13ea2f5d8e252",
+    "Wasm_log_observations": 8308,
+    "local_JS_log_observations": 0,
+    "browser_scope": "Actual local Chrome/Wasm only. Hosted JS must be independently verified; not localJS.",
+    "native_core_cases": 469,
+    "scope": "Full exact-source canonical passes with own frozen native. MQTT numerical CI stillfails; no performance/RAM/48/50 acceptance granted."
+  },
+  "owned_copy": {
+    "head": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+    "verified_source_inputs": 3302,
+    "retained_generated_inputs": [
+      "pubspec.lock",
+      "native/bench/Cargo.lock",
+      "native/transport/Cargo.lock",
+      ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
+    ],
+    "live": {
+      "rows": 120,
+      "encoded_volume": 120,
+      "e2ee": 96,
+      "transcode": 120,
+      "native_crypto": 48
+    },
+    "inventory": {
+      "rows": 300,
+      "encoded_volume": 300,
+      "zero_avoidable_payload_copy": 32,
+      "e2ee": 96,
+      "native_crypto": 72,
+      "transcode": 60
+    },
+    "source_inputs_unchanged": true,
+    "binaries_unchanged": true,
+    "complete_source_derived_case_inventory_verified": true,
+    "binary_scope": "Hosted stable digest receipts here; independently rehash retained production binaries when available and compare exact hashes, without substituting another build."
+  },
+  "native_lifetime": {
+    "head": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+    "phases": [
+      {
+        "name": "existing-api-baseline",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5542,
+        "failures": 0
+      },
+      {
+        "name": "direct-native",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5701,
+        "failures": 0
+      },
+      {
+        "name": "public-native-lease",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5858,
+        "failures": 0
+      }
+    ],
+    "negative_control": {
+      "rows": 0,
+      "expected_failures": 1
+    },
+    "cleanup_verified": true
+  },
+  "native_view_source": {
+    "source": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+    "native_view_source_inputs_verified": 3299,
+    "source_archive_reconstructed_exactly": true,
+    "archive_sha256": "a6b8df4e13b77f7e48c30df37f64c6f136e5b3ce479e0717f8e5f49c75d2fe7d",
+    "fixture_verified": true,
+    "native_unchanged_hosted_receipt": true,
+    "actual_retained_native_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+    "retained_own_MQTT_profile_artifact": 13087189047,
+    "matches_own_native_view_and_all20_MQTT": true,
+    "limitations": [],
+    "scope": "Own current-source native-view library exact bytes rehashed from own profile artifact; not sharedCI/production substitution. Standard source/lock/archive/fixture checks."
+  },
+  "hosted_JS": {
+    "source": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+    "job": 124876773808,
+    "success": true,
+    "log_sha256": "9d7289e167e1c0ee1b066396ff45df715694ca6211aab7dd3e28ac99b554fedb",
+    "log_counts": {
+      "[Chrome, Dart2Js]": 8192,
+      "\u2705 [Chrome, Dart2Js]": 8172,
+      "[Chrome, Dart2Wasm]": 0
+    },
+    "scope": "Own current-source hosted ChromeJS coverage, not localJS. Localcanonical separatelyactualWasm."
+  },
+  "copy_run": 41316307118,
+  "copy_artifact": 13087922091,
+  "adopted": false,
+  "CI_performance": "Fails4MQTTmetrics across3profiles onEPYC7763; seventeenprofilespass. No numericalretry.",
+  "strict48_50": "Required on finalruntime, notdispatchedforfailed4ecruntime; parent7476campaignsremainactive."
+}

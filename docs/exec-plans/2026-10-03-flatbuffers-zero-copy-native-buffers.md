@@ -39,14 +39,25 @@ acceptance executable. Kernel pipe-wake costs are descriptive, not causal proof.
 A controlled same-runner source comparison is needed before the next CI repair;
 the existing native-library-only comparator cannot isolate this Dart change.
 
-Full canonical verification is active on clean frozen HEAD/source and its own
-native SHA `590d4b668c304ba36f280e61b30646490d6ff7149f86519d5b7603113a15cbe5`.
-Do not mutate this worktree during verification. Its own
-[CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41316236357)
-and [copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41316307118)
-are active. Final-source strict 48-/50-case acceptance remains required; defer
-its dispatch until these CI checks clarify the remaining MQTT blocker. No RAM,
-WebSocket or final acceptance pass is claimed, and no candidate is adopted.
+Full frozen canonical verification passes with clean unchanged HEAD/source and
+its own unchanged native SHA
+`590d4b668c304ba36f280e61b30646490d6ff7149f86519d5b7603113a15cbe5`.
+The log SHA is `4b1265a90ea2e99e7c806b68f4692fc6ec2bcb243ede0705a9f13ea2f5d8e252`.
+Actual local Chrome/Wasm produces 8,308 observations; local JS is not part of
+that run. Separate same-source hosted Chrome/JS coverage passes with 8,172
+successful observations / twenty skips. Both scopes are independently audited.
+
+Own [copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41316307118)
+independently passes 3,302 source inputs, all 120 live / 300 inventory rows,
+32 zero-avoidable-payload-copy checks, all three lifetime phases, the expected
+negative control and cleanup. The 3,299-input native-view archive reconstructs
+exactly. Its exact native bytes rehash from the own MQTT CPU artifact and match
+all twenty recorded MQTT summaries; shared-CI/production builds are not
+substituted. Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41316236357)
+remains in progress with the measured MQTT failure above. Keep this candidate
+frozen and isolate further debugging tooling. Final-runtime strict 48-/50-case
+acceptance remains required; do not launch unchanged numerical retries or claim
+RAM/WebSocket/final acceptance. No candidate is adopted.
 
 A separate synchronous-maintenance experiment was rejected. It reduced actual
 loop microtasks from three to one and improved that component, but its thirty
