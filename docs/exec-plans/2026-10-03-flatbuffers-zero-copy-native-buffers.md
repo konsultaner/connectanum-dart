@@ -2,13 +2,48 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: independently audit the still-running primary 48-case campaign.
-The complete supplemental 50-case campaign retains all 1,500 rows and fails:
-173 measured misses across 38 eligible cases / four aggregate evidence findings,
-plus 14 measured misses and two unmeasured allocations / 30 evidence findings in
-the separately retained payload shard. CI recovery awaits the existing explicit
-retry exception. No runtime edit, numerical rerun, policy waiver or repeated
-question. Canonical/copy/MQTT/browser evidence passes within its recorded scope.
+Current step: await the existing unanswered CI retry decision. Both complete
+290480a3 acceptance campaigns have been independently audited and fail: primary
+48 cases / 1,440 rows / 114 measured misses / zero integrity; supplemental retains
+all 50 cases / 1,500 rows, with 173 eligible measured misses / four evidence
+findings plus separate payload 14 measured misses / two unmeasured allocations.
+No numerical campaign is active. The temporary follow-up was removed; do not
+repeat pending questions or infer authorization. CI recovery precedes further
+runtime/benchmark work; preserve passing numerical executions and all evidence.
+
+## Current acceptance campaigns complete and failed (2026-11-01)
+
+The frozen `290480a3` primary campaign has completed. Independent recomputation
+matches the hosted comparison across all 48 cases / 1,440 raw rows, with zero
+integrity findings and no unmeasured metrics. Policy, scenarios, lock/config
+inputs and actual retained native/driver binaries verify; the complete original
+driver stream matches every per-pass report. Strict acceptance fails 114 measured
+metrics across 45 cases: 22 throughput, 11 p95, 17 p99, 21 CPU, three GC and 40 RSS.
+The standard Dart 3.13.5 / Rust 1.99.0 run used an AMD EPYC 7763 host.
+[Primary reproduction summary](../research/2026-11-01-flatbuffers-290480a3-primary-audit.json)
+records the exact comparison digest and retained binary hashes.
+
+The complete supplemental campaign remains failed and independently reproduced:
+all 50 cases / 1,500 rows are retained, with 173 measured misses across 38 eligible
+cases and four aggregate evidence findings. The separate payload shard adds
+14 measured misses and two unmeasured allocation metrics / 30 evidence findings.
+No candidate is adopted; neither reduced component allocations nor passing
+canonical/copy/MQTT/browser checks establish RAM or transport parity.
+
+No numerical campaign remains running. CI still lacks the interrupted MCP
+mutation partition; its cause is unmeasured and its aggregate correctly fails.
+The already-requested exception to the setup-only retry rule remains unanswered.
+Do not repeat that question or infer approval. Recover only the interrupted
+partition and necessary nonnumerical dependents if explicitly approved, preserving
+all passing numerical executions/artifacts. CI recovery precedes further runtime
+or benchmark work under the repository's priority rule.
+
+The temporary follow-up was removed after completing these authorized audits:
+further progress now requires the existing CI retry decision. This chat remains
+open. The separate allocation-precision decision is still unanswered and is not
+the sole performance blocker. PR #132 stays `40ddcb3f` / draft on #130; issue #103
+and the milestone remain open. Runtime source stays frozen and no gate, window,
+sample, body verification, SDK, GC or allocator policy has been weakened.
 
 ## Complete supplemental campaign independently reproduced (2026-11-01)
 
@@ -36,10 +71,10 @@ compared. These are measured failures, not proof of a cause or a RAM fix.
 [Reproduction summary](../research/2026-11-01-flatbuffers-290480a3-supplemental-audit.json)
 retains the exact aggregate comparison digest and per-shard counts.
 
-Primary 48-case acceptance is still running. CI remains blocked by the missing
-MCP mutation partition and the already-pending retry exception; no retry or
-runtime edit has been made. Canonical, copy/lifetime and MQTT proofs remain
-valid within their documented scopes. PR #132 stays `40ddcb3f` / draft, and
+Primary 48-case acceptance is now complete and failed, as recorded above. CI
+remains blocked by the missing MCP mutation partition and the already-pending
+retry exception; no retry or runtime edit has been made. Canonical, copy/lifetime
+and MQTT proofs remain valid within their documented scopes. PR #132 stays `40ddcb3f` / draft, and
 issue #103 and the milestone remain open. No gate, workload, window, sample,
 body verification, SDK, GC or allocator policy is weakened.
 

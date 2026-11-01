@@ -1,0 +1,39 @@
+{
+  "all_raw_rows_verified": true,
+  "artifact_id": 13065342302,
+  "artifact_name": "wamp-flatbuffers-primary-290480a3227dd6617379c6453d863b7d2ff7825d-1",
+  "audited_utc": "2026-11-01T01:42:25.874413+00:00",
+  "by_metric": {
+    "cpu_us_per_operation": 21,
+    "gc_pause_us_per_operation": 3,
+    "latency_p95_ms": 11,
+    "latency_p99_ms": 17,
+    "summed_sampled_peak_rss_bytes": 40,
+    "throughput_mbps": 22
+  },
+  "cases": 48,
+  "comparison_sha256": "2cf64ec09348fc27b2dcc37ba7ab4f564e630999570604e7ee38dc4a783cf3f1",
+  "failed_cases": 45,
+  "independent_audit_sha256": "4a1b8651856153c2abe31e95b7cfa7f3c792d7eb85416548fd8bfef3158101fd",
+  "inputs_and_actual_retained_binaries_verified": true,
+  "integrity_findings": 0,
+  "matches_hosted": true,
+  "measured_numerical_misses": 114,
+  "platform": {
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "dart_version": "Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_x64\"",
+    "kernel": "7.0.0-1017-azure",
+    "logical_cpu_count": 4,
+    "runner_image": "github-hosted/ubuntu24/20261026.354.1",
+    "rustc_version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "raw_rows": 1440,
+  "retained_binary_hashes": {
+    "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940",
+    "native_library": "d12cf24641f3dd29221a252cfb77076f7a2152c88e15d6d5aac6de58447953fa"
+  },
+  "run": 41242456878,
+  "source": "290480a3227dd6617379c6453d863b7d2ff7825d",
+  "strict_acceptance": false,
+  "unmeasured_metrics": 0
+}
