@@ -2,8 +2,8 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish native-view tooling canonical verification after its hosted
-copy/lifetime proof passes; isolate the existing native TCP_NODELAY correction
+Current step: isolate the existing native TCP_NODELAY correction after native-
+view tooling canonical and hosted copy/lifetime proofs independently pass
 as a CI throughput hypothesis. Its prior same-library external checks do not
 validate this branch or demonstrate a controlled source benefit. Keep all
 candidates frozen during canonical/active pre-change regression. Finish original
@@ -96,7 +96,13 @@ fixture validates the collision class, not the original hosted cause. There is
 no phase/workload retry. Future matched diagnostics retain both actual native
 libraries, source archives and the shared lock.
 
-Own full canonical verification remains active on frozen source/HEAD/own native.
+Own full canonical verification independently passes on clean unchanged source,
+HEAD, complete tracked tree, all three locks and own native
+`191dd955eb37fa916babe756a6184ddfd1c0f84ed844e37f41bba0dd76594b52`.
+Log SHA: `8ba81a39a34e2e83b84ba6bd6eae795881092c32fb4558db610f838cf65a9508`.
+There are 8,308 actual local Chrome/Wasm observations and no local JS; parent
+BD59 hosted JS is separate, not a hosted-JS run on this tooling head.
+[Own canonical audit](../research/2026-11-01-native-view-startup-canonical-audit.json).
 The [new-source copy/lifetime campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41345644478)
 now independently passes: 3,303 source inputs, 120 live / 300 inventory rows,
 32 zero-avoidable-copy checks and all positive/negative lifetime controls and
@@ -107,7 +113,7 @@ native-view `671707cd…` bytes match the retained parent profile and unchanged
 native sources. Production native/driver hashes are stable receipts; those
 production bytes are not retained in this artifact and the ffi-test library is
 not substituted. [Complete proof and binary scope](../research/2026-11-01-native-view-startup-copy-audit.json).
-Rust/Dart runtime bytes are unchanged from `bd59c076`: this tools-only child
+Rust/Dart runtime source files are unchanged from `bd59c076`: this tools-only child
 cannot establish transport or RAM repair and does not rerun unchanged numerical
 gates. No source/HEAD/native changes are permitted during canonical verification.
 [Repair, deterministic repros and validation](../research/2026-11-01-native-view-startup-reliability.md).
@@ -117,9 +123,9 @@ explicitly disabled TCP_NODELAY. Existing native-only correction `61bba1c4`
 provides an actual socket-option regression; other gateway code is excluded.
 Its external twelve-summary run uses the same reported library in every leg,
 so it is not a different-source A/B proof and does not establish repair of our
-7763 failures. A fresh clean `7476ff6e` pre-change bootstrap/fast run is queued in
-`codex/mqtt-websocket-nodelay-control`, honoring the active canonical resource
-lease. No source edits before passing baseline; adoption requires an isolated
+7763 failures. A fresh clean `7476ff6e` pre-change bootstrap/fast run is active in
+`codex/mqtt-websocket-nodelay-control` after acquiring the official resource
+lease. No source/HEAD edits during this run or before passing baseline; adoption requires an isolated
 controlled source comparison and own verification/acceptance. All workloads,
 windows, samples, body verification and SDK/GC/allocator policy stay intact.
 

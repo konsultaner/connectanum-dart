@@ -145,5 +145,5 @@
     "scope": "Complete new-source nonnumerical harness/copy/lifetime proof; no RAM/throughput acceptance. Original native I/O cause remains unmeasured; success of new ports is not causal proof. No phase retry or gate weakening.",
     "audited_utc": "2026-11-01T20:25:28.488453+00:00"
   },
-  "canonical_scope": "Own full canonical remains active on frozen source/HEAD/native. No performance or final-runtime acceptance claim."
+  "canonical_scope": "Own full frozen bin/verify now independently PASS:8308 actual localChromeWasm observations/no localJS,191DDnative andcomplete source/HEAD/tree/locks unchanged. Rust/Dart runtime sources matchBD59; no RAM/throughput acceptance claim."
 }

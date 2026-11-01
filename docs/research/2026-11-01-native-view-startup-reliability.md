@@ -41,7 +41,14 @@ fixture tests three future listeners alongside twenty automatic listeners using
 the host's actual range; all native-style binds/listens succeed. All23 existing
 CI execution contracts pass, and Ruby parses the complete workflow / Bash parses
 the changed step. Fresh parent full fast regression passes. Own full canonical
-verification remains required before handoff.
+verification now independently passes on frozen `290eae37`, with 8,308 actual
+local Chrome/Wasm observations and no local JS. Source/HEAD/tree, all three locks
+and own native `191dd955…` stay unchanged; the log hash is
+`8ba81a39a34e2e83b84ba6bd6eae795881092c32fb4558db610f838cf65a9508`.
+The [canonical audit](2026-11-01-native-view-startup-canonical-audit.json) and
+[hosted copy/lifetime audit](2026-11-01-native-view-startup-copy-audit.json) retain
+exact source, phases, port ranges and binary proof/retention limits. Neither
+establishes RAM/transport acceptance or the original failure's cause.
 
 The CI matched-native comparison also retains both actual libraries, both source
 archives and the exact shared Cargo.lock with hashes before data collection.

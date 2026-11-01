@@ -1,0 +1,13 @@
+{
+  "source": "290eae37e47425b5be71a4b78dd68ed6136d2585",
+  "full_canonical_pass": true,
+  "actual_source_HEAD_tree_clean": true,
+  "actual_tracked_tree_sha256": "9a0d90d2780b3beafc7660d39a8d912d5605a6bcb227c8eb9c5d9bb1144942b8",
+  "own_native_sha256": "191dd955eb37fa916babe756a6184ddfd1c0f84ed844e37f41bba0dd76594b52",
+  "all_guarded_sources_and_three_locks_unchanged": true,
+  "log_sha256": "8ba81a39a34e2e83b84ba6bd6eae795881092c32fb4558db610f838cf65a9508",
+  "actual_local_Chrome_Wasm_observations": 8308,
+  "actual_local_JavaScript_observations": 0,
+  "scope": "Own tools-only exact-source full bin/verify with own source/HEAD/tree/native/locks unchanged. Rust/Dart runtime source files match BD59; own native191DD build is separately guarded. Actual localDarwinWasm only, not local or hostedJS. No RAM/transport/strictacceptance claim.",
+  "audited_utc": "2026-11-01T20:37:38.856683+00:00"
+}
