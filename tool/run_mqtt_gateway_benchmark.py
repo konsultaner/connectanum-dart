@@ -43,7 +43,7 @@ def profiles(matrix='smoke'):
     paho = [dict(p, id=p['id'] + '-paho', mqtt_client='paho') for p in result
             if matrix == 'release' and p['payload_bytes'] == (128, 1024, 65536)[
                 (('tcp', 'tls', 'ws', 'wss').index(p['transport']) + (p['mqtt_version'] == '3.1.1')) % 3]
-            or matrix == 'smoke' and p['transport'] == 'tcp']
+            or matrix == 'smoke']
     result.extend(paho)
     return result
 
@@ -115,6 +115,7 @@ def delivery_row(profile, path, run, count, reports, processes, queues):
     deliveries = count * profile['subscribers']
     return dict(profile=profile['id'], path=path, run=run, sent=count,
                 subscribers=profile['subscribers'], received=deliveries, duplicates=0,
+                drops=0,load_disconnects=0,errors=0,
                 duration_seconds=duration, delivered_per_sec=deliveries / duration,
                 payload_mib_per_sec=deliveries * profile['payload_bytes'] / duration / 1048576,
                 p50_us=percentile(histogram, .50), p95_us=percentile(histogram, .95),
@@ -130,9 +131,16 @@ def check_drained_queues(queues, path):
         if any(type(queues[key]) is not int or queues[key] != owned for key in ('state_sessions','state_registrations')):
             raise ValueError('Router retained client sessions or registrations')
     if path in ('mqtt_to_wamp', 'wamp_to_mqtt'):
-        for key in ('pending_bytes', 'pending_operations', 'pending_policy_futures', 'broker_pending_bytes', 'broker_pending_tasks', 'broker_outbound_bytes', 'broker_connected_peers', 'cancellation_listeners'):
+        for key in ('pending_bytes', 'pending_operations', 'pending_policy_futures', 'broker_pending_bytes', 'broker_pending_tasks', 'broker_outbound_bytes', 'broker_connected_peers', 'cancellation_listeners', 'errors', 'denied'):
             if type(queues[key]) is not int or queues[key] != 0:
                 raise ValueError(f'Gateway did not drain {key}')
+
+
+def check_publications(queues,path,count):
+    own = 'mqtt_publications' if path == 'mqtt_to_wamp' else 'wamp_publications'
+    other = 'wamp_publications' if path == 'mqtt_to_wamp' else 'mqtt_publications'
+    if any(type(queues[key]) is not int or queues[key] != expected for key,expected in [(own,count),(other,0)]):
+        raise ValueError('Gateway publication counters indicate loss or a translation loop')
 
 
 def process_summary(samples):
@@ -192,6 +200,10 @@ def summarize(rows, expected_profiles, runs, budgets=None):
             if budgets is not None:
                 budget = budgets['profiles'][profile['id']][direction]
                 checks = dict(
+                    absolute_throughput=result['delivered_per_sec'] >= budget['min_delivered_per_sec'],
+                    absolute_p95=result['p95_us'] <= budget['max_p95_us'],
+                    absolute_p99=result['p99_us'] <= budget['max_p99_us'],
+                    absolute_cpu=result['broker_cpu_seconds_per_million'] <= budget['max_broker_cpu_seconds_per_million'],
                     throughput=result['throughput_ratio'] >= budget['min_throughput_ratio'],
                     p95=result['p95_over_control_sum'] <= budget['max_p95_over_control_sum'],
                     p99=result['p99_over_control_sum'] <= budget['max_p99_over_control_sum'],
@@ -252,8 +264,8 @@ def summarize_overload(rows, expected_profiles, runs, budgets=None):
 class Child:
     def __init__(self, label, command, events, output, env):
         self.label, self.closing = label, False
-        self.log = (output / f'{label}.stderr.log').open('w')
-        self.stdout_log = (output / f'{label}.stdout.jsonl').open('w')
+        self.log = (output / f'{label}.stderr.log').open('a')
+        self.stdout_log = (output / f'{label}.stdout.jsonl').open('a')
         try:
             self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                             stderr=self.log, text=True, bufsize=1, env=env,
@@ -426,6 +438,8 @@ class Campaign:
             server.send(dict(op='sample'))
             final = self.expect(['broker'], 'sampled')['broker']
             processes['broker'].update(final['memory'])
+            if path in DIRECTIONS:
+                check_publications(final['queues'],path,run*(warmup+count))
             row = delivery_row(profile, path, run, count, list(reports.values()), processes, final['queues'])
             rows.append(row)
             with raw_path.open('a') as raw:
@@ -497,6 +511,7 @@ class Campaign:
             server.send(dict(op='sample'))
             drained = self.expect(['broker'], 'sampled')['broker']
             check_drained_queues(drained['queues'],path)
+            check_publications(drained['queues'],path,run*(count+128)-64)
             processes['broker'].update(drained['memory'])
             # Reuse exact delivery validation for the healthy recipient.
             healthy = delivery_row(dict(profile,subscribers=1),path,run,count,[fast],
@@ -510,9 +525,11 @@ class Campaign:
             server.send(dict(op='sample'))
             final = self.expect(['broker'],'sampled')['broker']
             check_drained_queues(final['queues'],path)
+            check_publications(final['queues'],path,run*(count+128))
             if reports['subscriber-0']['received'] != 64:
                 raise ValueError('Overload recovery delivery mismatch')
             row = dict(healthy,processes=processes,slow_received=slow['received'],
+                       load_disconnects=1,slow_disconnected=True,
                        stalled_peak_rss_bytes=max(stalled_rss),recovery_received=64,
                        recovery_queues=final['queues'])
             rows.append(row)
@@ -625,6 +642,8 @@ def main(argv=None):
         environment = {'schema_version': 2, 'diagnostic_only': args.record_only,
                        'peak_rss_scope':'process_lifetime_high_water',
                        'native_outbound_queue_frames':64,
+                       'allocation_bytes_per_delivery':None,
+                       'allocation_measurement':'not_exposed_by_release_runtime',
                        'profiles': selected,'overload_profiles':overload_selected, 'source_commit': source_commit, 'source_dirty': source_dirty,
                        'workload': dict(matrix=args.matrix,shard=args.shard, runs=args.runs, messages=args.messages,
                                         warmup=args.warmup, drain_seconds=args.drain_seconds,
@@ -645,7 +664,7 @@ def main(argv=None):
                 config = {**profile, 'path': path, 'port': 0, 'native_library': str(library),
                           'paho_python': args.paho_python,
                           'mosquitto': args.mosquitto, 'diagnostic_only': args.record_only,
-                          'certificate': str(reference.TLS_CERT), 'key': str(reference.TLS_KEY)}
+                          'certificate': str(reference.TLS_CERT), 'ca_certificate':str(reference.TLS_CA), 'key': str(reference.TLS_KEY)}
                 campaign = Campaign(worker, output, config)
                 try:
                     values = campaign.run(profile, path, args.runs, args.messages, args.warmup, args.drain_seconds)
@@ -660,7 +679,7 @@ def main(argv=None):
                 output = args.output / profile['id'] / direction
                 output.mkdir(parents=True,exist_ok=True)
                 config = dict(profile,path=direction,port=0,native_library=str(library),
-                              paho_python=args.paho_python,certificate=str(reference.TLS_CERT),key=str(reference.TLS_KEY))
+                              paho_python=args.paho_python,certificate=str(reference.TLS_CERT),ca_certificate=str(reference.TLS_CA),key=str(reference.TLS_KEY))
                 campaign = Campaign(worker,output,config,timeout=90)
                 try:
                     overload_rows.extend(campaign.run_overload(profile,direction,args.overload_runs,
@@ -671,8 +690,10 @@ def main(argv=None):
         overload = summarize_overload(overload_rows,overload_selected,args.overload_runs,budget)
         result = dict(environment, results=summary,overload=overload)
         (args.output / 'summary.json').write_text(json.dumps(result, indent=2) + '\n')
-        for row in summary:
-            print(f"{row['profile']} {row['direction']}: {row['delivered_per_sec']:.0f}/s, p95 {row['p95_us']:.0f} us, peak {row['peak_rss_bytes']/1048576:.1f} MiB", flush=True)
+        for row in [*summary,*overload]:
+            verdict = 'MEASURED' if budget is None else 'PASS' if row['passed'] else 'FAIL: '+', '.join(k for k,v in row['checks'].items() if not v)
+            peak = row['processes']['broker']['peak_rss_bytes']
+            print(f"{row['profile']} {row['direction']}: {row['delivered_per_sec']:.0f}/s, p95 {row['p95_us']:.0f} us, broker peak {peak/1048576:.1f} MiB; {verdict}", flush=True)
         return int(budget is not None and not all(row['passed'] for row in [*summary,*overload]))
 
 

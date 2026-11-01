@@ -386,31 +386,10 @@ jobs:
           python3 tool/ci_native_artifact.py prepare --directory out/ci-native
           echo "CONNECTANUM_NATIVE_LIB=$PWD/out/ci-native/libct_ffi.so" >> "$GITHUB_ENV"
           bin/bootstrap
-          sudo apt-get update
-          sudo apt-get install -y mosquitto
-          mosquitto_version="$(mosquitto -h 2>&1 || true)"
-          [[ "$mosquitto_version" == *'mosquitto version 2.0.18'* ]]
-          python3 -m venv "$RUNNER_TEMP/gateway-python"
-          "$RUNNER_TEMP/gateway-python/bin/pip" install paho-mqtt==2.1.0 coverage==7.16.2
-      - name: Require complete gateway benchmark tooling coverage
-        env:
-          PYTHONPATH: tool
-        run: |
-          set -euo pipefail
-          mkdir -p out/mqtt-gateway
-          python="$RUNNER_TEMP/gateway-python/bin/python"
-          "$python" -m coverage run --data-file=out/mqtt-gateway/python.coverage \
-            --source=run_mqtt_gateway_benchmark,mqtt_gateway_paho_peer,mqtt_gateway_reference_server,check_mqtt_gateway_coverage \
-            -m unittest tool/test_run_mqtt_gateway_benchmark.py tool/test_mqtt_gateway_peers.py tool/test_check_mqtt_gateway_coverage.py
-          "$python" -m coverage json --data-file=out/mqtt-gateway/python.coverage -o out/mqtt-gateway/python-coverage.json
-          "$python" -c "from check_mqtt_gateway_coverage import require_python_coverage; require_python_coverage('out/mqtt-gateway/python-coverage.json')"
-      - name: Record the first immutable live translation baseline before setting budgets
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/gateway-python/bin/python" tool/run_mqtt_gateway_benchmark.py \
-            --output out/mqtt-gateway/baseline --matrix release --record-only \
-            --runs 5 --messages 5000 --warmup 200 --shard "${{ matrix.shard }}/4" \
-            --paho-python "$RUNNER_TEMP/gateway-python/bin/python" --mosquitto "$(command -v mosquitto)"
+      - uses: ./.github/actions/profile-mqtt-gateway
+        with:
+          record_only: 'true'
+          shard: ${{ matrix.shard }}/4
       - name: Upload complete gateway performance and per-process memory evidence
         if: always()
         uses: actions/upload-artifact@v7

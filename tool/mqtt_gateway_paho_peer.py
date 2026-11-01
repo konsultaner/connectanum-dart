@@ -144,7 +144,7 @@ def run(role, config, lines, output, mqtt, *, memory_factory=Memory):
         if websocket:
             client.ws_set_options(path='/mqtt')
         if config['transport'] in ('tls', 'wss'):
-            client.tls_set(ca_certs=config['certificate'], cert_reqs=ssl.CERT_REQUIRED,
+            client.tls_set(ca_certs=config['ca_certificate'], cert_reqs=ssl.CERT_REQUIRED,
                            tls_version=ssl.PROTOCOL_TLS_CLIENT)
         client.connect('127.0.0.1', config['port'], 60)
         client.loop_start()

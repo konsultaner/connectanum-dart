@@ -51,7 +51,7 @@ gateway acceptance evidence.
 The gateway implementation has focused live, policy, cancellation, interoperability
 and ownership tests. Initial scoped receipts passed 679/679 gateway/shared lines,
 758/758 MQTT lines and 270/270 gateway lines. The expanded Python gate and peers
-now pass 823/823 executable lines with zero exclusions. Current Dart collection passes 743/743 gateway/shared lines. The independent
+now pass 834/834 executable lines with zero exclusions. Current Dart collection passes 743/743 gateway/shared lines. The independent
 Paho/Connectanum MQTT suite passes 102 tests; full `bin/verify` is running; earlier line-number receipts cannot validate
 subsequent edits. The mutation inventory includes the caller-state regression.
 
@@ -66,14 +66,22 @@ clients on the same router. The receive-side RSS plateau is measured separately
 from its OS high-water RSS. TCP/CBOR and WSS/FlatBuffers stress cases pass in both directions locally.
 Repeated hosted cycles and numeric per-process limits remain required acceptance.
 
-The first local diagnostic matrix completed 120 exact samples. An immutable
-Linux recorder on `86ccdf33` is running; direct MQTT CI on that head passes.
-A four-shard recorder will collect the corrected high-water-memory contract and
-complete 32-profile normal matrix plus repeated overload recovery. Numeric budgets,
-README tables and strict required CI follow those measurements. No existing
-performance limit is relaxed. Full final-source coverage and hosted receipts
-supersede incremental counts. Existing auxiliary kTLS/WAMP diagnostic misses
-remain visible and distinct from gateway acceptance.
+The first local diagnostic matrix completed 120 exact samples. The superseded `86ccdf33` recorder preserved 352 partial Linux samples. The
+four-shard `08c654c0` recorder found Paho TLS trusting the server leaf instead of
+the owned CA. The corrected peer passes live TLS in both directions locally,
+with all four overload cases. A 16-profile fast smoke now checks independent
+MQTT clients on every link/version before the complete 32-profile release run.
+A reusable benchmark workflow builds its own same-commit native artifact and
+retains the strict artifact identity check. The next immutable baseline supplies
+numeric limits and README tables. Existing performance limits stay unchanged.
+
+`bin/test-fast`, strict publishing and all 150 WAMP integration tests pass. A
+50-cycle shutdown/restart probe also passes. An earlier overlapping full verify
+failed in WAMP scenarios; a fresh sequential full verify is running and has passed
+those scenarios so far. The existing hosted WAMP profile gate passes on
+`08c654c0` ([41305461031](https://github.com/konsultaner/connectanum-dart/actions/runs/41305461031)).
+The broader controlled release/milestone acceptance and pre-existing auxiliary
+kTLS/WAMP diagnostic misses remain separate from gateway acceptance.
 
 ## Goal and contract
 
@@ -82,7 +90,7 @@ explicitly authorized publications between MQTT and WAMP. Release requires
 independent interoperability, 100% scoped executable-line coverage, complete
 regression rows and numeric live-path performance gates.
 The [MQTT contract](../mqtt.md) defines supported transports, ownership, topic
-mapping and the still-pending gateway boundary. WAMP `ppt_scheme: mqtt` remains opaque.
+mapping and explicit gateway boundary. WAMP `ppt_scheme: mqtt` remains opaque.
 
 ## Milestone steps
 

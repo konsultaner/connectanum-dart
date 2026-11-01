@@ -66,14 +66,13 @@ For the native client path on Linux and macOS, use
 the Rust `ct_ffi` runtime through FFI and are intended for higher-throughput
 or lower-allocation deployments.
 
-The opt-in MQTT QoS 0 client API is exported from
-`package:connectanum_client/mqtt.dart`. The
-[MQTT benchmark table](../connectanum_bench/README.md#mqtt-publish-and-subscribe)
-summarizes all 20 MQTT 5/3.1.1 profiles over TCP/TLS/WS/WSS. The
-[raw hosted evidence](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
-records each Connectanum and Mosquitto run.
-The checked-in Intel run misses one 64 KiB broker CPU limit. WAMP↔MQTT
-translation has no benchmark result yet.
+The opt-in MQTT QoS 0 API is exported from
+`package:connectanum_client/mqtt.dart`. Use a standard MQTT client or a Connectanum
+client with the [authorized MQTT ↔ WAMP gateway](../../docs/mqtt.md#enable-the-gateway).
+The [benchmark tables](../connectanum_bench/README.md) cover TCP/TLS/WS/WSS,
+independent Paho peers, Mosquitto controls and earlier hardware-specific misses.
+All 20 direct MQTT profiles pass in the displayed AMD EPYC 7763 snapshot;
+current gateway performance and memory measurements are in progress.
 
 ## Native Runtime Setup
 

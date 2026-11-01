@@ -21,7 +21,7 @@ PROFILE = gate.profiles()[0]
 MEMORY = dict(warm_rss_bytes=100, peak_rss_bytes=200, drained_rss_bytes=120)
 QUEUES = dict.fromkeys(('pending_bytes', 'pending_operations', 'pending_policy_futures',
                        'broker_pending_bytes', 'broker_pending_tasks', 'broker_outbound_bytes',
-                       'broker_connected_peers', 'cancellation_listeners',
+                       'broker_connected_peers', 'cancellation_listeners', 'errors', 'denied',
                        'state_subscriptions', 'state_pending_invocations', 'active_connections'), 0)
 QUEUES.update(state_sessions=1,state_registrations=1)
 
@@ -39,7 +39,8 @@ def sample(profile=PROFILE, path='mqtt_to_wamp', run=1):
 
 
 def budget_limits(**changes):
-    return dict(min_throughput_ratio=.9,max_p95_over_control_sum=.6,max_p99_over_control_sum=.6,
+    return dict(min_delivered_per_sec=1,max_p95_us=20,max_p99_us=20,max_broker_cpu_seconds_per_million=5000,
+                min_throughput_ratio=.9,max_p95_over_control_sum=.6,max_p99_over_control_sum=.6,
                 max_cpu_over_control_sum=.6,max_peak_rss_bytes=200,max_drained_rss_bytes=120,
                 max_retained_growth_bytes=0,max_rss_growth_bytes_per_cycle=0,
                 processes={role:dict(max_peak_rss_bytes=200,max_drained_rss_bytes=120,max_retained_bytes=20)
@@ -60,7 +61,7 @@ def overload_limits():
 
 class GatewayAccountingTest(unittest.TestCase):
     def test_matrix_covers_real_directions_controls_and_independent_peers(self):
-        for matrix, count in [('smoke', 10), ('release', 32)]:
+        for matrix, count in [('smoke', 16), ('release', 32)]:
             profiles = gate.profiles(matrix)
             self.assertEqual(len(profiles), count)
             self.assertEqual(len({p['id'] for p in profiles}), count)
@@ -138,6 +139,16 @@ class GatewayAccountingTest(unittest.TestCase):
         report['ordered'], report['order_errors'] = False, 2
         gate.delivery_row(burst, 'wamp_to_mqtt', 1, 2, [report], row['processes'], QUEUES)
 
+    def test_publication_counters_reject_missing_loss_rebroadcast_and_invalid_types(self):
+        for direction in gate.DIRECTIONS:
+            own='mqtt_publications' if direction=='mqtt_to_wamp' else 'wamp_publications'
+            other='wamp_publications' if direction=='mqtt_to_wamp' else 'mqtt_publications'
+            good={own:10,other:0}
+            gate.check_publications(good,direction,10)
+            for key,value in [(own,9),(own,True),(other,1),(other,False)]:
+                with self.assertRaises(ValueError):gate.check_publications(dict(good,**{key:value}),direction,10)
+            with self.assertRaises(KeyError):gate.check_publications({},direction,10)
+
     def test_complete_matched_matrix_and_every_numeric_regression_budget(self):
         rows = [sample(path=path, run=run) for path in gate.ALL_PATHS for run in (1, 2)]
         summary = gate.summarize(rows, [PROFILE], 2)
@@ -153,7 +164,7 @@ class GatewayAccountingTest(unittest.TestCase):
         for key in limits:
             if key=='processes':continue
             broken = copy.deepcopy(budget)
-            broken['profiles'][PROFILE['id']]['mqtt_to_wamp'][key] = 2 if key.startswith('min_') else -1
+            broken['profiles'][PROFILE['id']]['mqtt_to_wamp'][key] = 1e9 if key.startswith('min_') else -1
             self.assertFalse(gate.summarize(rows, [PROFILE], 2, broken)[0]['passed'])
         for role in limits['processes']:
             for field in limits['processes'][role]:
@@ -285,6 +296,11 @@ class GatewayControlTest(unittest.TestCase):
             self.assertEqual(json.loads((Path(temporary)/'raw.jsonl').read_text())['path'],'mosquitto')
             self.assertEqual(campaign.config['path'],'mqtt_to_mqtt')
             self.assertTrue(campaign.config['reference'])
+            campaign.expect.side_effect=[{'broker':dict(pid=1,port=1234)}, {},
+                {'broker':dict(memory=MEMORY,queues=dict(QUEUES,mqtt_publications=3,wamp_publications=0))}]
+            campaign.phase.side_effect=[({}, {}), ({'subscriber-0':report},row['processes'])]
+            with mock.patch.object(gate.time,'sleep'):
+                self.assertEqual(len(campaign.run(PROFILE,'mqtt_to_wamp',1,2,1,0)),1)
         campaign = self.campaign()
         campaign.children = {'publisher':mock.Mock()}
         campaign.expect = mock.Mock(return_value={'publisher':{'kind':'closed'}})
@@ -300,8 +316,8 @@ class GatewayControlTest(unittest.TestCase):
                 campaign.children={name:mock.Mock(label=name,measurement_pid=1) for name in labels}
                 campaign.spawn=mock.Mock(side_effect=lambda label,_:campaign.children[label])
                 campaign.expect=mock.Mock(side_effect=[{'broker':dict(pid=1,port=1234)}, {},{}, {},
-                    {label:dict(memory=MEMORY) for label in labels}, {'broker':dict(memory=MEMORY,queues=QUEUES)},
-                    {},{'broker':dict(memory=MEMORY,queues=QUEUES)}])
+                    {label:dict(memory=MEMORY) for label in labels}, {'broker':dict(memory=MEMORY,queues=dict(QUEUES,mqtt_publications=66,wamp_publications=0))},
+                    {},{'broker':dict(memory=MEMORY,queues=dict(QUEUES,mqtt_publications=130,wamp_publications=0))}])
                 report=dict(kind='received',phase=4,received=2,duplicates=0,payload_bytes=128,
                             ordered=True,order_errors=0,latency_histogram_us=[[10,2]],first_sent_us=100,last_received_us=200)
                 events=[('subscriber-0',dict(kind='progress',phase=4,received=2)),
@@ -329,7 +345,7 @@ class GatewayControlTest(unittest.TestCase):
     def test_real_child_protocol_captures_logs_observes_eof_and_closes_pipes(self):
         with tempfile.TemporaryDirectory() as temporary:
             events=queue.Queue()
-            program="import sys,json; print(json.dumps({'kind':'ready'}),flush=True); line=sys.stdin.readline(); print(json.dumps({'kind':'progress'}),flush=True); print('malformed',flush=True); print('[]',flush=True)"
+            program="import sys,json; print('first-cycle',file=sys.stderr); print(json.dumps({'kind':'ready'}),flush=True); line=sys.stdin.readline(); print(json.dumps({'kind':'progress'}),flush=True); print('malformed',flush=True); print('[]',flush=True)"
             child=gate.Child('peer',[sys.executable,'-c',program],events,Path(temporary),os.environ)
             self.assertEqual(events.get(timeout=5),('peer',{'kind':'ready'}))
             child.send({'op':'sample'})
@@ -339,6 +355,14 @@ class GatewayControlTest(unittest.TestCase):
             child.stop()
             self.assertNotIn('progress',(Path(temporary)/'peer.stdout.jsonl').read_text())
             self.assertTrue(child.process.stdout.closed)
+            next_program="import sys,json; print('second-cycle',file=sys.stderr); print(json.dumps({'kind':'next-cycle'}),flush=True)"
+            next_child=gate.Child('peer',[sys.executable,'-c',next_program],events,Path(temporary),os.environ)
+            self.assertEqual(events.get(timeout=5),('peer',{'kind':'next-cycle'}))
+            self.assertEqual(events.get(timeout=5),('peer',{'kind':'eof'}))
+            next_child.stop()
+            self.assertIn('malformed',(Path(temporary)/'peer.stdout.jsonl').read_text())
+            self.assertIn('next-cycle',(Path(temporary)/'peer.stdout.jsonl').read_text())
+            self.assertEqual((Path(temporary)/'peer.stderr.log').read_text(),'first-cycle\nsecond-cycle\n')
         for platform in ['posix','nt']:
             with tempfile.TemporaryDirectory() as temporary:
                 process=mock.Mock(stdout=io.StringIO(''),pid=123456)
@@ -397,7 +421,7 @@ class GatewayControlTest(unittest.TestCase):
                   mock.patch.object(gate.subprocess,'check_output',side_effect=metadata),
                   mock.patch.object(gate.reference,'mosquitto_version',return_value='mosquitto version 2.0.18'),
                   mock.patch.object(gate.reference,'cpu_model',return_value='test CPU'),
-                  contextlib.redirect_stdout(io.StringIO())):
+                  contextlib.redirect_stdout(io.StringIO()) as output):
                 campaign.return_value.run.side_effect=lambda p,path,*_: [sample(p,path)]
                 campaign.return_value.run_overload.side_effect=lambda p,path,runs,*_: [overload_sample(p,path,r) for r in range(1,runs+1)]
                 args=['--output',str(directory/'output'),'--matrix','release','--runs','1','--messages','2','--warmup','1','--budget',str(budget)]
@@ -410,6 +434,7 @@ class GatewayControlTest(unittest.TestCase):
                     budgets['profiles'][PROFILE['id']][direction]['max_peak_rss_bytes']=1
                 budget.write_text(json.dumps(budgets))
                 self.assertEqual(gate.main(args+['--output',str(directory/'failed')]),1)
+                self.assertIn('FAIL: peak_rss',output.getvalue())
                 self.assertEqual(gate.main(args+['--output',str(directory/'diagnostic'),'--record-only','--profile',PROFILE['id'],'--worker',str(worker)]),0)
                 campaign.return_value.run.side_effect=RuntimeError('delivery failed')
                 with self.assertRaisesRegex(RuntimeError,'delivery failed'):

@@ -25,13 +25,22 @@ TCP/CBOR and WSS/FlatBuffers stalled-client runs each delivered all 2,048
 messages to healthy peers in both directions, disconnected the stalled peer and
 recovered on the same router. Current source coverage passes 743/743 executable
 lines; the independent Paho/Connectanum MQTT suite passes 102 tests. Gateway tooling
-passes 823/823 lines with zero exclusions. Earlier scoped Dart receipts passed
+passes 834/834 lines with zero exclusions. Earlier scoped Dart receipts passed
 679/679 gateway/shared lines and 758/758 MQTT lines; current receipts must include
 the receiver-credit changes. Required direct MQTT CI passed on `86ccdf33`;
-its full baseline recorder is still running. The next recorder uses four isolated
-GitHub runners for the complete inventory. Numeric budgets and README tables
-will be locked from immutable Linux results, before strict acceptance. Full local
-`bin/verify` is running with Dart sources frozen.
+its superseded recorder was canceled after preserving 352 partial samples.
+The four-shard recorder on `08c654c0` found a real Paho TLS setup error: the
+server leaf certificate was used as a trust anchor. It is corrected to use the
+owned CA, with verified TLS delivery in both directions and all four stress
+cases passing locally. Smoke now covers all four independent-client links and
+both MQTT versions before a release matrix runs. The standalone workflow builds
+and verifies its own same-commit native artifact; the existing artifact identity
+check remains unchanged. Numeric budgets and README tables await the corrected
+immutable Linux baseline. `bin/test-fast`, strict publishing, the 150-test WAMP
+integration suite and 50 shutdown/restart cycles pass. An earlier overlapping
+full verification failed; fresh sequential `bin/verify` is running without those
+failures so far. The hosted WAMP profile gate on `08c654c0` passes
+([41305461031](https://github.com/konsultaner/connectanum-dart/actions/runs/41305461031)).
 
 Merged-master CI [41105562746](https://github.com/konsultaner/connectanum-dart/actions/runs/41105562746),
 publishing and the required WAMP profile benchmark pass. Local `bin/test-fast` passes. Focused gateway, worker and independent-peer checks are passing;

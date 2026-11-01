@@ -45,6 +45,26 @@ class CompositeSetupTests(unittest.TestCase):
                 self.assertIn("rust: 'true'", job)
                 self.assertNotIn('dtolnay/rust-toolchain', job)
 
+    def test_gateway_recorder_uses_same_commit_native_artifacts_and_smokes_secure_peers_first(self):
+        workflow=(ROOT/'.github/workflows/mqtt-gateway-benchmarks.yml').read_text()
+        action=(ROOT/'.github/actions/profile-mqtt-gateway/action.yml').read_text()
+        wrapper=(ROOT/'.github/workflows/mqtt-profile.yml').read_text()
+        self.assertIn('workflow_call:',workflow)
+        self.assertIn('needs: native-build',workflow)
+        self.assertIn('needs: smoke',workflow)
+        self.assertIn('shard: [0, 1, 2, 3]',workflow)
+        self.assertIn('ci_native_artifact.py record',workflow)
+        self.assertEqual(workflow.count('ci_native_artifact.py prepare'),2)
+        self.assertNotIn('run-id:',workflow)
+        self.assertIn('gateway_benchmarks == true',wrapper)
+        self.assertEqual(wrapper.count('gateway_benchmarks != true'),2)
+        self.assertIn('require_python_coverage',action)
+        self.assertIn('paho-mqtt==2.1.0',action)
+        self.assertIn('mosquitto version 2.0.18',action)
+        self.assertIn('--record-only --runs 2 --messages 300',action)
+        self.assertIn('"$GATEWAY_RECORD_ONLY" == true',action)
+        self.assertIn('"${arguments[@]}"',action)
+
     def test_nested_dart_setup_does_not_register_a_matcher_from_the_parent_path(self):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
         dart_step = action.split('uses: dart-lang/setup-dart@v1', 1)[1].split(

@@ -116,21 +116,22 @@ OpenMetrics also exposes drain counters such as
 
 ## MQTT performance
 
-The current MQTT broker path supports anonymous loopback QoS 0 pub/sub for
-MQTT 5 and 3.1.1 over TCP, TLS, WebSocket, and secure WebSocket. One hosted
-run against Mosquitto 2.0.18 measured:
+The broker supports anonymous loopback QoS 0 pub/sub for MQTT 5 and 3.1.1 over
+TCP, TLS, WebSocket and secure WebSocket. The opt-in MQTT ↔ WAMP gateway applies
+realm permissions and exposes an explicit publication API; see the
+[configuration and client guide](../../docs/mqtt.md#enable-the-gateway).
 
 | Check | Result |
 | --- | --- |
 | Direct MQTT delivery | 29,114,000 expected and received across 192 benchmark samples; zero duplicates |
-| Profile results | 19 of 20 passed: 15 of 16 performance profiles and all 4 delivery-only smoke profiles |
-| Open performance limit | The 64 KiB TCP broker CPU ratio was 4.294× against a 4.0× cap |
-| MQTT ↔ WAMP translation | No result yet; the live gateway is pending |
+| Hosted profile results | 20 of 20 passed on AMD EPYC 7763 |
+| 64 KiB broker CPU | 2.952× Mosquitto against the unchanged 4.000× cap |
+| WebSocket delivery rate | MQTT 5 / 3.1.1 ratios 0.743× / 0.753× against the unchanged 0.700× floor |
+| Gateway performance and memory | Hosted translation and stalled-consumer measurements in progress |
 
-The [complete 20-profile table](../connectanum_bench/README.md#mqtt-publish-and-subscribe)
-shows delivered rates, latency, CPU, memory, and results for each workload.
-The [raw evidence](https://github.com/konsultaner/connectanum-dart/blob/benchmark-history-pr128-2026-10-30/docs/benchmarks/mqtt-hosted-intel-58016dc8-2026-10-16.json)
-records the measured runner and workload details.
+The [benchmark tables](../connectanum_bench/README.md) show delivered rates,
+latency, CPU and memory, with runner details and earlier misses. The direct MQTT
+snapshot comes from [candidate `b1c611ba`](https://github.com/konsultaner/connectanum-dart/actions/runs/40964731528/job/123766445118).
 
 ## Lazy Payload And Forwarding Boundaries
 

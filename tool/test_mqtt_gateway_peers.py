@@ -16,7 +16,7 @@ import mqtt_gateway_reference_server as reference
 
 
 CONFIG = dict(path='mqtt_to_mqtt', payload_bytes=32, window=2, mqtt_version='5',
-              transport='tcp', port=1883, certificate='cert', diagnostic_only=False,
+              transport='tcp', port=1883, certificate='cert',ca_certificate='root-ca', diagnostic_only=False,
               mosquitto='mosquitto')
 MEMORY = dict(warm_rss_bytes=100, peak_rss_bytes=200, drained_rss_bytes=120)
 
@@ -132,7 +132,7 @@ class PahoParticipantTest(unittest.TestCase):
             client, _ = self.run_peer('publisher', [json.dumps(dict(op='publish',phase=1,count=1,flow_control=False))],
                                       config=dict(CONFIG,transport=transport,mqtt_version='3.1.1'))
             if transport in ('ws','wss'): self.assertEqual(client.websocket, {'path':'/mqtt'})
-            if transport in ('tls','wss'): self.assertEqual(client.tls['ca_certs'],'cert')
+            if transport in ('tls','wss'): self.assertEqual(client.tls['ca_certs'],'root-ca')
 
     def test_subscriber_reports_errors_and_exact_fanout_progress(self):
         client = FakeClient()
