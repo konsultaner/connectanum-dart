@@ -342,31 +342,82 @@ void main() {
     },
   );
 
-  test(
-    'a subscriber disconnect is reported before the benchmark can time out',
-    () async {
+  for (final role in ['subscriber', 'publisher']) {
+    test(
+      '$role disconnect is reported before the benchmark can time out',
+      () async {
+        final peer = Peer();
+        final commands = StreamController<String>();
+        final events = <Map<String, Object?>>[];
+        final fallback = Timer(
+          const Duration(seconds: 2),
+          () => commands.add(jsonEncode({'op': 'close'})),
+        );
+        await runGatewayBenchmarkWorker(
+          [role, jsonEncode(profile())],
+          input: commands.stream,
+          readRss: () => 100,
+          peerFactory: (_, __) async => peer,
+          emit: (event) {
+            events.add(event);
+            if (event['kind'] == 'ready') {
+              peer.controller.close().ignore();
+            } else if (event['kind'] == 'disconnected') {
+              commands.add(jsonEncode({'op': 'close'}));
+            }
+          },
+        );
+        fallback.cancel();
+        await commands.close();
+        expect(events.map((e) => e['kind']), [
+          'ready',
+          'disconnected',
+          'closed',
+        ]);
+        expect(peer.closed, 1);
+      },
+    );
+  }
+
+  for (final error in [false, true]) {
+    test('publisher unsolicited data/error is reported: $error', () async {
       final peer = Peer();
       final commands = StreamController<String>();
       final events = <Map<String, Object?>>[];
+      final fallback = Timer(
+        const Duration(seconds: 2),
+        () => commands.add(jsonEncode({'op': 'close'})),
+      );
       await runGatewayBenchmarkWorker(
-        ['subscriber', jsonEncode(profile())],
+        ['publisher', jsonEncode(profile())],
         input: commands.stream,
         readRss: () => 100,
         peerFactory: (_, __) async => peer,
         emit: (event) {
           events.add(event);
           if (event['kind'] == 'ready') {
-            peer.controller.close().ignore();
-          } else if (event['kind'] == 'disconnected') {
+            if (error) {
+              peer.controller.addError(StateError('publisher reset'));
+            } else {
+              peer.controller.add(Uint8List(24));
+            }
+          } else if (event['kind'] == 'error') {
             commands.add(jsonEncode({'op': 'close'}));
           }
         },
       );
+      fallback.cancel();
       await commands.close();
-      expect(events.map((e) => e['kind']), ['ready', 'disconnected', 'closed']);
+      expect(events.map((e) => e['kind']), ['ready', 'error', 'closed']);
+      expect(
+        events[1]['message'].toString(),
+        contains(
+          error ? 'publisher reset' : 'publisher received unsolicited data',
+        ),
+      );
       expect(peer.closed, 1);
-    },
-  );
+    });
+  }
 
   test(
     'EOF drains a peer and uncredited diagnostic load can be run explicitly',

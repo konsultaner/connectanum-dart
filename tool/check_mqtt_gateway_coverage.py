@@ -25,7 +25,7 @@ SHARED = (
     'packages/connectanum_router/lib/src/router/state/commands.dart',
     'packages/connectanum_router/lib/src/router/state/store.dart',
 )
-PYTHON_SOURCES = {'tool/run_mqtt_gateway_benchmark.py', 'tool/mqtt_gateway_paho_peer.py',
+PYTHON_SOURCES = {'tool/check_ci_needs.py', 'tool/run_mqtt_gateway_benchmark.py', 'tool/mqtt_gateway_paho_peer.py',
                   'tool/mqtt_gateway_reference_server.py', 'tool/check_mqtt_gateway_coverage.py'}
 
 

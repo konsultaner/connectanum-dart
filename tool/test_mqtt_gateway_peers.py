@@ -81,6 +81,18 @@ class MeasurementTest(unittest.TestCase):
         for phase, count in [(-1, 1), (True, 1), (1, True), (1, 0), (1, 1000001)]:
             with self.assertRaises(ValueError): measurement.begin(phase, count)
 
+    def test_payload_rotation_matches_the_independent_byte_formula_at_wrap_boundaries(self):
+        import struct
+        for size in [24,25,31,255,256,257,1024,65536]:
+            for phase,sequence in [(0,0),(1,1),(255,255),(256,256),(0xffffffff,0xffffffffffffffff)]:
+                expected=struct.pack('>IIQQ',0x43544757,phase,sequence,123)+bytes(
+                    (i*31+phase+sequence)&255 for i in range(24,size))
+                self.assertEqual(paho.payload(size,phase,sequence,123),expected)
+        for offset in [24,25,31,255,256,257,65535]:
+            measurement=paho.Measurement(65536);measurement.begin(1,1)
+            bad=bytearray(paho.payload(65536,1,0,123));bad[offset]^=1
+            with self.assertRaisesRegex(ValueError,'Payload byte mismatch'):measurement.accept(bad,124)
+
     def test_rss_samples_active_peak_and_post_drain_and_stops_its_thread(self):
         sampled = threading.Event()
         values = [100, 250, 120]

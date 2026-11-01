@@ -492,41 +492,42 @@ Future<void> runGatewayBenchmarkWorker(
       server = await serverFactory(config);
     } else {
       peer = await peerFactory(config, role);
-      if (role == 'subscriber') {
-        subscription = peer!.messages.listen(
-          (bytes) {
-            try {
-              measurement.accept(bytes, now());
-              if (measurement.received % config.window == 0 ||
-                  measurement.complete) {
-                output({
-                  'kind': 'progress',
-                  'phase': phase,
-                  'received': measurement.received,
-                });
-              }
-              if (measurement.complete) {
-                output({
-                  'kind': 'received',
-                  'phase': phase,
-                  ...measurement.summary(),
-                  ...snapshot(),
-                });
-              }
-            } catch (error) {
-              output({'kind': 'error', 'message': error.toString()});
+      subscription = peer!.messages.listen(
+        (bytes) {
+          try {
+            if (role == 'publisher') {
+              throw StateError('publisher received unsolicited data');
             }
-          },
-          onError: (Object error) =>
-              output({'kind': 'error', 'message': error.toString()}),
-          onDone: () => output({
-            'kind': 'disconnected',
-            'phase': phase,
-            'received': measurement.received,
-            'memory': meter.snapshot(),
-          }),
-        );
-      }
+            measurement.accept(bytes, now());
+            if (measurement.received % config.window == 0 ||
+                measurement.complete) {
+              output({
+                'kind': 'progress',
+                'phase': phase,
+                'received': measurement.received,
+              });
+            }
+            if (measurement.complete) {
+              output({
+                'kind': 'received',
+                'phase': phase,
+                ...measurement.summary(),
+                ...snapshot(),
+              });
+            }
+          } catch (error) {
+            output({'kind': 'error', 'message': error.toString()});
+          }
+        },
+        onError: (Object error) =>
+            output({'kind': 'error', 'message': error.toString()}),
+        onDone: () => output({
+          'kind': 'disconnected',
+          'phase': phase,
+          'received': measurement.received,
+          'memory': meter.snapshot(),
+        }),
+      );
     }
     output({
       'kind': 'ready',

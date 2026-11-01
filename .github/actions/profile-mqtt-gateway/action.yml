@@ -32,7 +32,7 @@ runs:
         set -euo pipefail
         python="$RUNNER_TEMP/gateway-python/bin/python"
         "$python" -m coverage run --data-file=out/mqtt-gateway/python.coverage \
-          --source=run_mqtt_gateway_benchmark,mqtt_gateway_paho_peer,mqtt_gateway_reference_server,check_mqtt_gateway_coverage \
+          --source=check_ci_needs,run_mqtt_gateway_benchmark,mqtt_gateway_paho_peer,mqtt_gateway_reference_server,check_mqtt_gateway_coverage \
           -m unittest tool/test_run_mqtt_gateway_benchmark.py tool/test_mqtt_gateway_peers.py tool/test_check_mqtt_gateway_coverage.py
         "$python" -m coverage json --data-file=out/mqtt-gateway/python.coverage -o out/mqtt-gateway/python-coverage.json
         "$python" -c "from check_mqtt_gateway_coverage import require_python_coverage; require_python_coverage('out/mqtt-gateway/python-coverage.json')"

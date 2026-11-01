@@ -7,10 +7,12 @@ import hashlib
 import json
 import math
 import os
+import platform
 from pathlib import Path
 import queue
 import signal
 import statistics
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -147,15 +149,56 @@ def process_summary(samples):
     result = {}
     for role in samples[0]['processes']:
         readings = [row['processes'][role] for row in samples]
+        population = sum(row['received'] if role == 'broker' else row['slow_received']
+                         if role == 'subscriber-1' and 'slow_received' in row else row['sent'] for row in samples)
         result[role] = dict(
-            cpu_seconds_per_million_messages=sum(p['cpu_seconds'] for p in readings) * 1_000_000 /
-                sum(row['received'] if role == 'broker' else row['sent'] for row in samples),
+            cpu_seconds_per_million_messages=sum(p['cpu_seconds'] for p in readings) * 1_000_000 / population if population else None,
             warm_rss_bytes=statistics.median(p['warm_rss_bytes'] for p in readings),
             peak_rss_bytes=max(p['peak_rss_bytes'] for p in readings),
             drained_rss_bytes=max(p['drained_rss_bytes'] for p in readings),
             retained_bytes=max(0, max(p['drained_rss_bytes']-p['warm_rss_bytes'] for p in readings)),
         )
     return result
+
+
+def coefficient_of_variation(values):
+    mean = statistics.mean(values)
+    return statistics.pstdev(values)/mean if mean else 0
+
+
+def translation_checks(result, budget):
+    checks = dict(
+        rate_repeatability=result['max_rate_cv'] <= budget['max_rate_cv'],
+        p99_repeatability=result['max_p99_cv'] <= budget['max_p99_cv'],
+        cpu_repeatability=result['max_cpu_cv'] <= budget['max_cpu_cv'],
+        absolute_throughput=result['delivered_per_sec'] >= budget['min_delivered_per_sec'],
+        absolute_p95=result['p95_us'] <= budget['max_p95_us'],
+        absolute_p99=result['p99_us'] <= budget['max_p99_us'],
+        absolute_cpu=result['broker_cpu_seconds_per_million'] <= budget['max_broker_cpu_seconds_per_million'],
+        throughput=result['throughput_ratio'] >= budget['min_throughput_ratio'],
+        p95=result['p95_over_control_sum'] <= budget['max_p95_over_control_sum'],
+        p99=result['p99_over_control_sum'] <= budget['max_p99_over_control_sum'],
+        cpu=result['cpu_over_control_sum'] <= budget['max_cpu_over_control_sum'],
+        peak_rss=result['peak_rss_bytes'] <= budget['max_peak_rss_bytes'],
+        drained_rss=result['drained_rss_bytes'] <= budget['max_drained_rss_bytes'],
+        retained_growth=result['retained_growth_bytes'] <= budget['max_retained_growth_bytes'],
+        lifecycle_slope=result['rss_growth_bytes_per_cycle'] <= budget['max_rss_growth_bytes_per_cycle'],
+    )
+    for role, process in result['processes'].items():
+        limits = budget['processes']['subscriber' if role.startswith('subscriber-') else role]
+        for field in ('peak_rss_bytes','drained_rss_bytes','retained_bytes','cpu_seconds_per_million_messages'):
+            checks[f'{role}_{field}'] = process[field] <= limits['max_'+field]
+    return checks
+
+
+def overload_checks(result, limits):
+    checks = dict(throughput=result['delivered_per_sec'] >= limits['min_delivered_per_sec'],
+                  p99=result['p99_us'] <= limits['max_p99_us'],
+                  retained_growth=result['retained_growth_bytes'] <= limits['max_retained_growth_bytes'])
+    for role, process in result['processes'].items():
+        for field in ('peak_rss_bytes','drained_rss_bytes','retained_bytes'):
+            checks[f'{role}_{field}'] = process[field] <= limits['processes'][role]['max_'+field]
+    return checks
 
 
 def summarize(rows, expected_profiles, runs, budgets=None):
@@ -197,27 +240,13 @@ def summarize(rows, expected_profiles, runs, budgets=None):
                           p95_over_control_sum=med(direction, 'p95_us') / control_latency,
                           p99_over_control_sum=med(direction, 'p99_us') / control_p99,
                           cpu_over_control_sum=cpu(direction) / control_cpu)
+            matched = ('mqtt_to_mqtt',wamp_control,direction)
+            result['max_rate_cv'] = max(coefficient_of_variation([r['delivered_per_sec'] for r in samples[path]]) for path in matched)
+            result['max_p99_cv'] = max(coefficient_of_variation([r['p99_us'] for r in samples[path]]) for path in matched)
+            result['max_cpu_cv'] = max(coefficient_of_variation([r['processes']['broker']['cpu_seconds']/r['received'] for r in samples[path]]) for path in matched)
             if budgets is not None:
-                budget = budgets['profiles'][profile['id']][direction]
-                checks = dict(
-                    absolute_throughput=result['delivered_per_sec'] >= budget['min_delivered_per_sec'],
-                    absolute_p95=result['p95_us'] <= budget['max_p95_us'],
-                    absolute_p99=result['p99_us'] <= budget['max_p99_us'],
-                    absolute_cpu=result['broker_cpu_seconds_per_million'] <= budget['max_broker_cpu_seconds_per_million'],
-                    throughput=result['throughput_ratio'] >= budget['min_throughput_ratio'],
-                    p95=result['p95_over_control_sum'] <= budget['max_p95_over_control_sum'],
-                    p99=result['p99_over_control_sum'] <= budget['max_p99_over_control_sum'],
-                    cpu=result['cpu_over_control_sum'] <= budget['max_cpu_over_control_sum'],
-                    peak_rss=peak <= budget['max_peak_rss_bytes'],
-                    drained_rss=max(drains) <= budget['max_drained_rss_bytes'],
-                    retained_growth=result['retained_growth_bytes'] <= budget['max_retained_growth_bytes'],
-                    lifecycle_slope=result['rss_growth_bytes_per_cycle'] <= budget['max_rss_growth_bytes_per_cycle'],
-                )
-                for role, process in result['processes'].items():
-                    limits = budget['processes']['subscriber' if role.startswith('subscriber-') else role]
-                    for field in ('peak_rss_bytes','drained_rss_bytes','retained_bytes'):
-                        checks[f'{role}_{field}'] = process[field] <= limits['max_'+field]
-                result['checks'], result['passed'] = checks, all(checks.values())
+                checks = translation_checks(result,budgets['profiles'][profile['id']][direction])
+                result['checks'],result['passed'] = checks,all(checks.values())
             output.append(result)
     return output
 
@@ -249,13 +278,7 @@ def summarize_overload(rows, expected_profiles, runs, budgets=None):
                           slow_received_max=max(r['slow_received'] for r in samples),
                           recovery_received=64)
             if budgets is not None:
-                limits = budgets['overload'][profile['id']][direction]
-                checks = dict(throughput=result['delivered_per_sec'] >= limits['min_delivered_per_sec'],
-                              p99=result['p99_us'] <= limits['max_p99_us'],
-                              retained_growth=result['retained_growth_bytes'] <= limits['max_retained_growth_bytes'])
-                for role, process in result['processes'].items():
-                    for field in ('peak_rss_bytes','drained_rss_bytes','retained_bytes'):
-                        checks[f'{role}_{field}'] = process[field] <= limits['processes'][role]['max_'+field]
+                checks = overload_checks(result,budgets['overload'][profile['id']][direction])
                 result['checks'],result['passed'] = checks,all(checks.values())
             output.append(result)
     return output
@@ -318,12 +341,15 @@ class Child:
         self.process.stdout.close()
         self.log.close()
         self.stdout_log.close()
+        if self.process.returncode != 0:
+            raise RuntimeError(f'{self.label} exited with code {self.process.returncode} during cleanup')
 
 
 class Campaign:
-    def __init__(self, worker, output, config, *, timeout=60):
+    def __init__(self, worker, output, config, *, timeout=60, load_timeout=None):
         self.worker, self.output, self.config = worker, output, config
         self.timeout = timeout
+        self.load_timeout = timeout if load_timeout is None else load_timeout
         self.events = queue.Queue()
         self.children = {}
         self.env = {**os.environ, 'CONNECTANUM_NATIVE_LIB': config['native_library']}
@@ -376,7 +402,7 @@ class Campaign:
         self.children['publisher'].send(dict(op='publish', phase=phase, count=count))
         progress = {label: 0 for label in clients if label.startswith('subscriber')}
         received, sent, credited = {}, False, 0
-        deadline = time.monotonic() + self.timeout
+        deadline = time.monotonic() + self.load_timeout
         while not sent or len(received) != len(progress):
             label, message = self.event(deadline)
             if message['phase'] != phase:
@@ -402,6 +428,16 @@ class Campaign:
             self.children[label].send(dict(op='sample'))
         samples = self.expect(labels, 'sampled')
         return received, {label: {**sample['memory'], 'cpu_seconds': cpu[label]} for label, sample in samples.items()}
+
+    def settle(self, seconds):
+        """Keep listeners alive long enough to reject late duplicates/errors."""
+        if seconds <= 0:
+            return
+        try:
+            label,message = self.event(time.monotonic()+seconds)
+        except (queue.Empty,TimeoutError):
+            return
+        raise ValueError(f'Unexpected event after complete delivery {label}: {message}')
 
     def close_clients(self, labels):
         for label in labels:
@@ -430,6 +466,7 @@ class Campaign:
             self.expect(clients, 'ready')
             self.phase(run * 2, warmup, clients, server)
             reports, processes = self.phase(run * 2 + 1, count, clients, server)
+            self.settle(drain_seconds)
             closed = self.close_clients(clients)
             for label, message in closed.items():
                 processes[label]['drained_rss_bytes'] = message['memory']['drained_rss_bytes']
@@ -504,6 +541,7 @@ class Campaign:
                 self.children[label].send(dict(op='sample'))
             samples = self.expect(labels, 'sampled')
             processes = {label:dict(sample['memory'], cpu_seconds=cpu[label]) for label,sample in samples.items()}
+            self.settle(drain_seconds)
             closed = self.close_clients(clients)
             for label, sample in closed.items():
                 processes[label].update(sample['memory'])
@@ -520,6 +558,7 @@ class Campaign:
                 self.spawn(label,'publisher' if label == 'publisher' else 'subscriber')
             self.expect(['publisher','subscriber-0'],'ready')
             reports, _ = self.phase(run*3+2,64,['publisher','subscriber-0'],server)
+            self.settle(drain_seconds)
             self.close_clients(['publisher','subscriber-0'])
             time.sleep(drain_seconds)
             server.send(dict(op='sample'))
@@ -569,6 +608,8 @@ def shard_profiles(items, shard):
 def validate_budget(budget, args):
     if budget['schema_version'] != 1 or len(budget['baseline_source_commit']) != 40:
         raise ValueError('Invalid gateway baseline provenance')
+    if sys.platform != budget['platform']:
+        raise ValueError('Numeric gateway budgets require their recorded platform; use record-only for diagnostics')
     for field in ('runs','messages','warmup','overload_runs','overload_messages','overload_stall_ms','drain_seconds'):
         minimum = number(budget['workload'][field],field,positive=True)
         if getattr(args,field) < minimum:
@@ -588,7 +629,10 @@ def validate_budget(budget, args):
                         if set(value) != required:
                             raise ValueError('Budget process inventory mismatch')
                         for fields in value.values():
-                            for metric in ('max_peak_rss_bytes','max_drained_rss_bytes','max_retained_bytes'):
+                            metrics = ('max_peak_rss_bytes','max_drained_rss_bytes','max_retained_bytes')
+                            if group == 'profiles':
+                                metrics += ('max_cpu_seconds_per_million_messages',)
+                            for metric in metrics:
                                 number(fields[metric],metric)
                     else:
                         number(value,key)
@@ -642,17 +686,23 @@ def main(argv=None):
         environment = {'schema_version': 2, 'diagnostic_only': args.record_only,
                        'peak_rss_scope':'process_lifetime_high_water',
                        'native_outbound_queue_frames':64,
+                       'observe_publisher_disconnects':True,'quiescence_before_disconnect':True,
                        'allocation_bytes_per_delivery':None,
                        'allocation_measurement':'not_exposed_by_release_runtime',
+                       'paho_payload_oracle':'periodic_bytes_c_comparison',
                        'profiles': selected,'overload_profiles':overload_selected, 'source_commit': source_commit, 'source_dirty': source_dirty,
                        'workload': dict(matrix=args.matrix,shard=args.shard, runs=args.runs, messages=args.messages,
-                                        warmup=args.warmup, drain_seconds=args.drain_seconds,
+                                        warmup=args.warmup, drain_seconds=args.drain_seconds,load_timeout_seconds=300,
                                         overload_runs=args.overload_runs,overload_messages=args.overload_messages,
                                         overload_stall_ms=args.overload_stall_ms),
                        'worker_build': 'unverified_override' if args.worker else 'dart_build_cli_current_source',
                        'python_version': sys.version,
                        'dart_version': subprocess.check_output(['dart', '--version'], text=True).strip(),
-                       'platform': sys.platform, 'mosquitto_version': reference.mosquitto_version(args.mosquitto),
+                       'platform': sys.platform,'system':platform.platform(),'architecture':platform.machine(),
+                       'logical_cpus':os.cpu_count(),'openssl_version':ssl.OPENSSL_VERSION,
+                       'runner_image':os.environ.get('ImageOS'),'runner_image_version':os.environ.get('ImageVersion'),
+                       'tls_ca_sha256':hashlib.sha256(reference.TLS_CA.read_bytes()).hexdigest(),
+                       'mosquitto_version': reference.mosquitto_version(args.mosquitto),
                        'cpu_model': reference.cpu_model(),
                        'native_library_sha256': hashlib.sha256(library.read_bytes()).hexdigest(),
                        'worker_sha256': hashlib.sha256(worker.read_bytes()).hexdigest()}
@@ -665,7 +715,7 @@ def main(argv=None):
                           'paho_python': args.paho_python,
                           'mosquitto': args.mosquitto, 'diagnostic_only': args.record_only,
                           'certificate': str(reference.TLS_CERT), 'ca_certificate':str(reference.TLS_CA), 'key': str(reference.TLS_KEY)}
-                campaign = Campaign(worker, output, config)
+                campaign = Campaign(worker, output, config,load_timeout=300)
                 try:
                     values = campaign.run(profile, path, args.runs, args.messages, args.warmup, args.drain_seconds)
                     rows.extend(values)

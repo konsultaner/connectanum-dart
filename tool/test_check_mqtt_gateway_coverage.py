@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 import runpy
 import sys
@@ -25,6 +26,22 @@ class GatewayCoverageTest(unittest.TestCase):
                 bad=json.loads(json.dumps(files));bad[next(iter(bad))]['summary'][key]=value
                 path.write_text(json.dumps({'files':bad}))
                 with self.assertRaises(ValueError):gate.require_python_coverage(path)
+
+    def test_terminal_ci_gate_rejects_every_missing_or_unsuccessful_required_lane(self):
+        import check_ci_needs as terminal
+        complete={name:{'result':'success'} for name in terminal.REQUIRED}
+        with contextlib.redirect_stdout(io.StringIO()):
+            with mock.patch.dict(os.environ,CONNECTANUM_CI_NEEDS=json.dumps(complete)):
+                self.assertEqual(terminal.main(),0)
+                with self.assertRaises(SystemExit) as stopped:
+                    runpy.run_path(terminal.__file__,run_name='__main__')
+                self.assertEqual(stopped.exception.code,0)
+            for invalid in [[],{}]+[{k:v for k,v in complete.items() if k != name} for name in complete]:
+                with mock.patch.dict(os.environ,CONNECTANUM_CI_NEEDS=json.dumps(invalid)),self.assertRaises(ValueError):terminal.main()
+            for name in complete:
+                for status in ['failure','skipped','cancelled','pending',None]:
+                    invalid={**complete,name:{'result':status}}
+                    with mock.patch.dict(os.environ,CONNECTANUM_CI_NEEDS=json.dumps(invalid)),self.assertRaises(ValueError):terminal.main()
 
     def test_diff_tracks_new_executable_positions_without_counting_deleted_or_comment_lines(self):
         name = gate.SHARED[0]

@@ -39,11 +39,11 @@ def sample(profile=PROFILE, path='mqtt_to_wamp', run=1):
 
 
 def budget_limits(**changes):
-    return dict(min_delivered_per_sec=1,max_p95_us=20,max_p99_us=20,max_broker_cpu_seconds_per_million=5000,
+    return dict(max_rate_cv=0,max_p99_cv=0,max_cpu_cv=0,min_delivered_per_sec=1,max_p95_us=20,max_p99_us=20,max_broker_cpu_seconds_per_million=5000,
                 min_throughput_ratio=.9,max_p95_over_control_sum=.6,max_p99_over_control_sum=.6,
                 max_cpu_over_control_sum=.6,max_peak_rss_bytes=200,max_drained_rss_bytes=120,
                 max_retained_growth_bytes=0,max_rss_growth_bytes_per_cycle=0,
-                processes={role:dict(max_peak_rss_bytes=200,max_drained_rss_bytes=120,max_retained_bytes=20)
+                processes={role:dict(max_peak_rss_bytes=200,max_drained_rss_bytes=120,max_retained_bytes=20,max_cpu_seconds_per_million_messages=5000)
                            for role in ['broker','publisher','subscriber']},**changes)
 
 
@@ -54,7 +54,7 @@ def overload_sample(profile=PROFILE,path='mqtt_to_wamp',run=1):
 
 
 def overload_limits():
-    return dict(min_delivered_per_sec=1,max_p99_us=20,max_retained_growth_bytes=0,
+    return dict(max_rate_cv=0,max_p99_cv=0,max_cpu_cv=0,min_delivered_per_sec=1,max_p99_us=20,max_retained_growth_bytes=0,
                 processes={role:dict(max_peak_rss_bytes=200,max_drained_rss_bytes=120,max_retained_bytes=20)
                            for role in ['broker','publisher','subscriber-0','subscriber-1']})
 
@@ -81,15 +81,16 @@ class GatewayAccountingTest(unittest.TestCase):
                          [p for i in range(4) for p in profiles[i::4]])
         self.assertEqual(len({p['id'] for i in range(4) for p in gate.shard_profiles(profiles,f'{i}/4')}),32)
         workload=dict(runs=5,messages=5000,warmup=200,overload_runs=3,overload_messages=2048,overload_stall_ms=20000,drain_seconds=.5)
-        budget=dict(schema_version=1,baseline_source_commit='a'*40,workload=workload,
+        budget=dict(schema_version=1,baseline_source_commit='a'*40,platform=sys.platform,workload=workload,
                     profiles={p['id']:{d:budget_limits() for d in gate.DIRECTIONS} for p in profiles},
                     overload={p['id']:{d:overload_limits() for d in gate.DIRECTIONS} for p in gate.overload_profiles()})
         args=SimpleNamespace(matrix='release',**workload)
         gate.validate_budget(budget,args)
-        for invalid in ['schema','commit','workload','matrix','profiles','directions','processes','scalar','memory']:
+        for invalid in ['schema','commit','platform','workload','matrix','profiles','directions','processes','scalar','memory']:
             bad=copy.deepcopy(budget);arguments=copy.deepcopy(args)
             if invalid=='schema':bad['schema_version']=2
             if invalid=='commit':bad['baseline_source_commit']='short'
+            if invalid=='platform':bad['platform']='not-this-platform'
             if invalid=='workload':arguments.messages=4999
             if invalid=='matrix':arguments.matrix='smoke'
             if invalid=='profiles':bad['profiles'].pop(PROFILE['id'])
@@ -178,6 +179,14 @@ class GatewayAccountingTest(unittest.TestCase):
         self.assertEqual(measured['retained_growth_bytes'],30)
         self.assertEqual(measured['processes']['broker']['retained_bytes'],50)
         self.assertEqual(measured['processes']['publisher']['cpu_seconds_per_million_messages'],5000)
+        self.assertEqual(gate.coefficient_of_variation([0,0]),0)
+        for metric,field in [('delivered_per_sec','max_rate_cv'),('p99_us','max_p99_cv'),('cpu','max_cpu_cv')]:
+            noisy=copy.deepcopy(rows)
+            row=next(r for r in noisy if r['path']=='wamp_to_wamp' and r['run']==2)
+            if metric=='cpu':row['processes']['broker']['cpu_seconds']*=2
+            else:row[metric]*=2
+            self.assertAlmostEqual(gate.summarize(noisy,[PROFILE],2)[0][field],1/3)
+            self.assertFalse(gate.summarize(noisy,[PROFILE],2,budget)[0]['passed'])
         bad = copy.deepcopy(rows)
         for row in bad:
             row['processes']['broker']['cpu_seconds'] = 0
@@ -188,6 +197,13 @@ class GatewayAccountingTest(unittest.TestCase):
             row['p95_us'] = 0
         with self.assertRaisesRegex(ValueError, 'control latency'):
             gate.summarize(bad, [PROFILE], 2)
+
+    def test_stalled_receiver_cpu_uses_received_messages_and_zero_delivery_is_unavailable(self):
+        row=overload_sample()
+        result=gate.process_summary([row])
+        self.assertEqual(result['subscriber-1']['cpu_seconds_per_million_messages'],10000)
+        row['slow_received']=0
+        self.assertIsNone(gate.process_summary([row])['subscriber-1']['cpu_seconds_per_million_messages'])
 
     def test_overload_matrix_and_every_memory_performance_budget(self):
         rows=[overload_sample(path=d,run=r) for d in gate.DIRECTIONS for r in (1,2)]
@@ -215,6 +231,9 @@ class GatewayControlTest(unittest.TestCase):
 
     def test_eof_errors_duplicates_and_expired_deadlines_fail_closed(self):
         campaign = self.campaign()
+        self.assertEqual(campaign.load_timeout,.01)
+        explicit=gate.Campaign(Path('worker'),Path('.'),dict(PROFILE,native_library='native'),load_timeout=300)
+        self.assertEqual(explicit.load_timeout,300)
         campaign.events.put(('old', {'kind': 'eof'}))
         campaign.events.put(('broker', {'kind': 'ready'}))
         self.assertEqual(campaign.expect(['broker'], 'ready'), {'broker': {'kind': 'ready'}})
@@ -233,6 +252,16 @@ class GatewayControlTest(unittest.TestCase):
             campaign.expect(['broker'], 'ready')
         with self.assertRaises(queue.Empty):
             campaign.event()
+
+    def test_quiescence_rejects_late_duplicates_and_unexpected_disconnects(self):
+        campaign=self.campaign()
+        campaign.settle(0)
+        campaign.settle(.001)
+        for kind in ['progress','received','disconnected']:
+            campaign.events.put(('subscriber-0',dict(kind=kind)))
+            with self.assertRaisesRegex(ValueError,'after complete delivery'):campaign.settle(.01)
+        campaign.event=mock.Mock(side_effect=TimeoutError())
+        campaign.settle(.01)
 
     def test_client_dispatch_selects_paho_only_for_the_mqtt_leg(self):
         with mock.patch.object(gate, 'Child') as child:
@@ -365,7 +394,7 @@ class GatewayControlTest(unittest.TestCase):
             self.assertEqual((Path(temporary)/'peer.stderr.log').read_text(),'first-cycle\nsecond-cycle\n')
         for platform in ['posix','nt']:
             with tempfile.TemporaryDirectory() as temporary:
-                process=mock.Mock(stdout=io.StringIO(''),pid=123456)
+                process=mock.Mock(stdout=io.StringIO(''),pid=123456,returncode=-9)
                 process.stdin.close.side_effect=BrokenPipeError()
                 process.poll.return_value=None
                 process.wait.side_effect=[subprocess.TimeoutExpired('worker',5),0]
@@ -373,7 +402,7 @@ class GatewayControlTest(unittest.TestCase):
                 with (mock.patch.object(gate.subprocess,'Popen',return_value=process),
                       mock.patch.object(gate,'os',platform_os)):
                     child=gate.Child('hung',['worker'],queue.Queue(),Path(temporary),{})
-                    child.stop()
+                    with self.assertRaisesRegex(RuntimeError,'exited with code -9'):child.stop()
                 if platform=='posix': platform_os.killpg.assert_called_once_with(process.pid,gate.signal.SIGKILL)
                 else: process.kill.assert_called_once()
         with tempfile.TemporaryDirectory() as temporary:
@@ -391,6 +420,14 @@ class GatewayControlTest(unittest.TestCase):
         second.stop.assert_called_once()
         self.assertFalse(campaign.children)
 
+    def test_nonzero_child_teardown_fails_after_all_logs_and_pipes_are_closed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            child=gate.Child('broken-close',[sys.executable,'-c','import sys; sys.stdin.read(); sys.exit(7)'],queue.Queue(),Path(temporary),os.environ)
+            with self.assertRaisesRegex(RuntimeError,'exited with code 7'):child.stop()
+            self.assertTrue(child.process.stdout.closed)
+            self.assertTrue(child.log.closed)
+            self.assertTrue(child.stdout_log.closed)
+
     def test_compile_uses_the_current_package_build_hooks(self):
         with mock.patch.object(gate.subprocess,'run') as run:
             self.assertEqual(gate.compile_worker(Path('/tmp/bundle')),Path('/tmp/bundle/bundle/bin/mqtt_gateway_worker'))
@@ -406,7 +443,7 @@ class GatewayControlTest(unittest.TestCase):
             library=directory/'native'; library.write_bytes(b'native')
             worker=directory/'worker'; worker.write_bytes(b'worker')
             limits=budget_limits()
-            budgets={'schema_version':1,'baseline_source_commit':'b'*40,
+            budgets={'schema_version':1,'baseline_source_commit':'b'*40,'platform':sys.platform,
                      'workload':dict(runs=1,messages=2,warmup=1,overload_runs=1,overload_messages=2,overload_stall_ms=1,drain_seconds=.5),
                      'profiles':{PROFILE['id']:{d:dict(limits) for d in gate.DIRECTIONS}},
                      'overload':{PROFILE['id']:{d:overload_limits() for d in gate.DIRECTIONS}}}
@@ -421,6 +458,8 @@ class GatewayControlTest(unittest.TestCase):
                   mock.patch.object(gate.subprocess,'check_output',side_effect=metadata),
                   mock.patch.object(gate.reference,'mosquitto_version',return_value='mosquitto version 2.0.18'),
                   mock.patch.object(gate.reference,'cpu_model',return_value='test CPU'),
+                  mock.patch.object(gate.platform,'platform',return_value='test OS'),
+                  mock.patch.object(gate.platform,'machine',return_value='test architecture'),
                   contextlib.redirect_stdout(io.StringIO()) as output):
                 campaign.return_value.run.side_effect=lambda p,path,*_: [sample(p,path)]
                 campaign.return_value.run_overload.side_effect=lambda p,path,runs,*_: [overload_sample(p,path,r) for r in range(1,runs+1)]
@@ -429,6 +468,8 @@ class GatewayControlTest(unittest.TestCase):
                 result=json.loads((directory/'output/summary.json').read_text())
                 self.assertEqual(result['source_commit'],'a'*40)
                 self.assertFalse(result['source_dirty'])
+                self.assertIn('openssl_version',result)
+                self.assertIn('tls_ca_sha256',result)
                 self.assertEqual(len(result['results']),2)
                 for direction in gate.DIRECTIONS:
                     budgets['profiles'][PROFILE['id']][direction]['max_peak_rss_bytes']=1

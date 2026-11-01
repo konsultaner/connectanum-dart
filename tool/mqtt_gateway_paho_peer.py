@@ -16,11 +16,17 @@ import time
 from run_mqtt_benchmark_gate import process_metrics
 
 
+_BYTE_PATTERN = bytes((i * 31) & 255 for i in range(256))
+
+
 def payload(size, phase, sequence, sent_us):
     if size < 24:
         raise ValueError('Payload must fit the benchmark header')
-    return struct.pack('>IIQQ', 0x43544757, phase, sequence, sent_us) + bytes(
-        (i * 31 + phase + sequence) & 255 for i in range(24, size))
+    # 31 * 223 == 1 (mod 256): rotate the same pattern without per-byte Python.
+    offset = (24 + (phase + sequence) * 223) & 255
+    end = offset + size - 24
+    body = (_BYTE_PATTERN * ((end + 255) // 256))[offset:end]
+    return struct.pack('>IIQQ', 0x43544757, phase, sequence, sent_us) + body
 
 
 class Measurement:
@@ -50,7 +56,7 @@ class Measurement:
             self.order_errors += 1
             if self.ordered:
                 raise ValueError('Out-of-order delivery')
-        if any(data[i] != (i * 31 + phase + sequence) & 255 for i in range(24, len(data))):
+        if data != payload(len(data), phase, sequence, sent):
             raise ValueError('Payload byte mismatch')
         if received_us < sent:
             raise ValueError('Measurement clock regressed')

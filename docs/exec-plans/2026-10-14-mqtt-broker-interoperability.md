@@ -51,7 +51,7 @@ gateway acceptance evidence.
 The gateway implementation has focused live, policy, cancellation, interoperability
 and ownership tests. Initial scoped receipts passed 679/679 gateway/shared lines,
 758/758 MQTT lines and 270/270 gateway lines. The expanded Python gate and peers
-now pass 834/834 executable lines with zero exclusions. Current Dart collection passes 743/743 gateway/shared lines. The independent
+now pass 885/885 executable lines with zero exclusions. Current Dart collection passes 744/744 gateway/shared lines. The independent
 Paho/Connectanum MQTT suite passes 102 tests; full `bin/verify` is running; earlier line-number receipts cannot validate
 subsequent edits. The mutation inventory includes the caller-state regression.
 
@@ -72,14 +72,29 @@ the owned CA. The corrected peer passes live TLS in both directions locally,
 with all four overload cases. A 16-profile fast smoke now checks independent
 MQTT clients on every link/version before the complete 32-profile release run.
 A reusable benchmark workflow builds its own same-commit native artifact and
-retains the strict artifact identity check. The next immutable baseline supplies
-numeric limits and README tables. Existing performance limits stay unchanged.
+retains the strict artifact identity check. The corrected hosted smoke on `ceb57d89` passes all 16 profiles, including
+independent TLS/WSS clients in both MQTT versions. The superseded release run
+[41307802399](https://github.com/konsultaner/connectanum-dart/actions/runs/41307802399)
+exposed per-byte Python payload work as a 64 KiB client bottleneck and exceeded
+the load deadline. The byte-identical oracle now uses C-backed construction and
+comparison, with independent golden-byte/corruption tests. Load phases allow
+300 seconds while startup/control deadlines remain 60 seconds. Rerun the complete
+release baseline from this corrected harness.
+Validate every one of the 960 normal samples and 12 overload cycles before
+freezing numeric budgets or publishing tables. Raw archives, minimal fixtures
+and all required strict CI remain completion requirements.
 
-`bin/test-fast`, strict publishing and all 150 WAMP integration tests pass. A
-50-cycle shutdown/restart probe also passes. An earlier overlapping full verify
-failed in WAMP scenarios; a fresh sequential full verify is running and has passed
-those scenarios so far. The existing hosted WAMP profile gate passes on
-`08c654c0` ([41305461031](https://github.com/konsultaner/connectanum-dart/actions/runs/41305461031)).
+`bin/test-fast`, strict publishing, one full sequential `bin/verify` and all 150
+WAMP integration tests pass. A 50-cycle shutdown/restart probe also passes. The
+final observer additionally rejects publisher disconnects, unsolicited data,
+late duplicates and nonzero child teardown; their fail-first regressions pass.
+All 56 focused benchmark cases and the fresh full verify pass. Strict
+Full Verify wiring is prepared locally, with both smoke and four-shard numeric
+lanes required and every omission/failure rejected. Do not commit it until the
+numeric budget and README fixture exist. Current coverage is 744/744 scoped
+Dart lines and 885/885 Python lines, zero exclusions. Existing MQTT/WAMP limits
+are unchanged. The hosted WAMP profile gate on `08c654c0` passes
+([41305461031](https://github.com/konsultaner/connectanum-dart/actions/runs/41305461031)).
 The broader controlled release/milestone acceptance and pre-existing auxiliary
 kTLS/WAMP diagnostic misses remain separate from gateway acceptance.
 

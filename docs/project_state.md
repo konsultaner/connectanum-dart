@@ -13,34 +13,33 @@ release conformance still need implementation. The current task implements the
 authorized gateway (#116/#117) and translation performance/memory gates (#131).
 See the [MQTT contract](mqtt.md) and active plan.
 
-The opt-in gateway, trusted original-caller lookup and independent AOT benchmark
-participants are implemented. New regressions reproduce/fix concurrent MQTT
-writes during flush, native CBOR byte-string typing, internal WAMP calls blocking
-CANCEL/GOODBYE, and uncredited native WAMP receive batches accumulating while an
-application isolate stalls. Receive handoff now allows one outstanding batch;
-full native send queues disconnect only the slow peer. The benchmark explicitly
-uses the existing 64-frame outbound setting, measures OS lifetime high-water RSS,
-and checks fresh-client recovery plus zero client state/queues after disconnect.
-TCP/CBOR and WSS/FlatBuffers stalled-client runs each delivered all 2,048
-messages to healthy peers in both directions, disconnected the stalled peer and
-recovered on the same router. Current source coverage passes 743/743 executable
-lines; the independent Paho/Connectanum MQTT suite passes 102 tests. Gateway tooling
-passes 834/834 lines with zero exclusions. Earlier scoped Dart receipts passed
-679/679 gateway/shared lines and 758/758 MQTT lines; current receipts must include
-the receiver-credit changes. Required direct MQTT CI passed on `86ccdf33`;
-its superseded recorder was canceled after preserving 352 partial samples.
-The four-shard recorder on `08c654c0` found a real Paho TLS setup error: the
-server leaf certificate was used as a trust anchor. It is corrected to use the
-owned CA, with verified TLS delivery in both directions and all four stress
-cases passing locally. Smoke now covers all four independent-client links and
-both MQTT versions before a release matrix runs. The standalone workflow builds
-and verifies its own same-commit native artifact; the existing artifact identity
-check remains unchanged. Numeric budgets and README tables await the corrected
-immutable Linux baseline. `bin/test-fast`, strict publishing, the 150-test WAMP
-integration suite and 50 shutdown/restart cycles pass. An earlier overlapping
-full verification failed; fresh sequential `bin/verify` is running without those
-failures so far. The hosted WAMP profile gate on `08c654c0` passes
-([41305461031](https://github.com/konsultaner/connectanum-dart/actions/runs/41305461031)).
+The opt-in authorized gateway and process-isolated AOT benchmarks are implemented.
+Coverage currently passes 744/744 gateway/shared Dart executable lines, 758/758
+MQTT lines, 270/270 gateway component lines and 885/885 Python gate lines with
+zero exclusions. Independent Paho/Connectanum MQTT checks pass all 102 tests;
+56 benchmark/worker cases pass. The first clean sequential `bin/verify`, strict
+publishing, 150 WAMP integration tests and 50 shutdown/restart cycles pass. A
+fresh full verify also passes after adding publisher-disconnect observation.
+An earlier overlapping verify failed; those WAMP cases pass in clean reruns.
+
+Existing hosted direct MQTT and WAMP profile gates pass on `08c654c0`. Its
+superseded baseline found a Paho trust-anchor error, now fixed to use the owned
+CA. The corrected 16-profile hosted smoke passes on `ceb57d89`, including TLS/WSS
+and both MQTT versions. The superseded release run
+[41307802399](https://github.com/konsultaner/connectanum-dart/actions/runs/41307802399)
+exposed Python byte-by-byte payload checking as a 64 KiB client bottleneck and
+exceeded the load deadline. The identical byte formula now uses C-backed byte
+construction/comparison; golden-byte and corruption regressions pass. Load
+phases allow 300 seconds; startup/control deadlines remain 60 seconds. A fresh
+immutable release baseline is required before freezing numeric limits.
+
+Locally prepared strict CI wiring makes smoke and all four numeric shards
+prerequisites of Full Verify; gate tests reject every missing/unsuccessful lane.
+The numeric budget file and compact README fixture still await the complete
+immutable Linux baseline. Keep this wiring uncommitted until those files exist.
+Remaining work: verify all 960 normal and 12 overload samples, freeze budgets,
+archive raw evidence, publish README tables, finish current-source local/hosted
+checks and open the ready gateway PR. Do not close the broader MQTT milestone.
 
 Merged-master CI [41105562746](https://github.com/konsultaner/connectanum-dart/actions/runs/41105562746),
 publishing and the required WAMP profile benchmark pass. Local `bin/test-fast` passes. Focused gateway, worker and independent-peer checks are passing;
