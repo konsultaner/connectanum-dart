@@ -2,12 +2,82 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: repair the measured MQTT CI blocker with controlled evidence.
-The isolated header component improvement does not translate to a demonstrated
-network improvement; do not adopt `4ec3878f`. Finish tool-only canonical
-verification and investigate actual I/O/scheduling while preserving the active
-predecessor primary and every completed failed supplemental row. Final-runtime
-strict 48-/50-case acceptance remains required after a genuine repair.
+Current step: finish the frozen `75295eb0` scheduler candidate's own canonical,
+copy/lifetime and complete CI; audit and run the predeclared Linux source control.
+Local focused/diagnostic evidence is scoped below, not final acceptance. All
+predecessor primary/supplemental campaigns have finished failed and are retained.
+Require complete final-runtime strict 48-/50-case acceptance and clean CI before
+adoption; change no source/HEAD/native during canonical verification.
+
+## Idle fallback candidate frozen for own verification (2026-11-01)
+
+Published `75295eb05b08d4bb9ef5b034be0182250bab9fc9` on
+`codex/mqtt-idle-fallback-arm` processes queued wake events for one event turn
+before allocating an idle fallback timer. It retains the original VM's whole-
+millisecond elapsed poll budget, genuinely armed timer cancellation, event
+fairness and close/reuse. Body generation/verification, protocol, ownership,
+SDK/GC/allocator policy and benchmark windows/sample counts stay intact.
+
+Fresh pre-change bootstrap/full fast regression passes on clean `7476ff6e`.
+Two queued-wake regressions fail before with one timer and pass after with zero;
+all fifteen pacing cases, the complete 620-case router file and 115 MQTT cases
+(including seven Paho cases) pass. Manual missing native-env / wrong package-cwd
+setup failures are retained and repaired; no source/test behavior was changed for
+those failures. Advisory model findings were independently checked; no model
+output establishes a performance approval.
+
+The predeclared local uninstrumented control on prototype `ea5751dd` independently
+verifies fifty rows / 8.05 million fresh verified deliveries, exact complete source
+archives, 1,432 shared inputs, locks, actual binary bytes, all client stdout/order
+and broker exits. The published candidate changes only documentation afterward;
+all runtime/test code bytes match that measured prototype. WebSocket 5 median-rate
+ratio is 1.06463 (CPU 3.16→2.99); other profiles are mixed and near parity. No mode
+is slower in every pair. High local load (about 16–23) is retained. The separate
+forty-row observer checks eight million deliveries and lower timer-creation counts;
+its overhead precludes using counts as performance timings. No broad benefit,
+Linux/7763 repair, RSS or strict acceptance pass is claimed.
+
+Own full frozen canonical verification is active with its own native SHA
+`f0b8d01e7dc8b2ee2ae24c3900824b5d572df9b83f7789e5d47f826ed2b6905b`,
+pacer source SHA `34496ff18a765d5f636ce82e0dfdb32104031f2e84c1358cb1dfd420f0cb7237`
+and complete tracked-tree SHA
+`a0f0607b9ccfe71dbeb7d071c5be7d490a0d3ab4a8000ea1dfde8bae7304f0df`.
+Do not mutate that source/HEAD/native library while verification runs. Own
+[CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41331014557) and
+[copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41331016627)
+run on this exact source. CI predeclares separate post-gate CPU profiling so the
+actual measured MQTT native bytes are retained even if the gate passes; numerical
+execution itself is unchanged. After copy completes and its exact source/locks
+are audited, run the predeclared same-host Linux source comparison against
+`7476ff6e` using the frozen tool branch, preserving every one of fifty rows.
+
+The new candidate is not adopted. Own complete strict 48-/50-case acceptance and
+clean final CI remain required; do not merge, retarget, mark ready or close #103/
+the milestone. The separate one-percent allocation-precision question is still
+unanswered and is not the sole blocker.
+
+[Prototype design and complete method](https://github.com/konsultaner/connectanum-dart/blob/75295eb05b08d4bb9ef5b034be0182250bab9fc9/docs/research/2026-11-01-mqtt-idle-fallback.md).
+[Complete local control](../research/2026-11-01-mqtt-idle-local-control-audit.json).
+[Complete observer audit](../research/2026-11-01-mqtt-idle-timer-observer-audit.json).
+
+## Predecessor primary campaign complete failed (2026-11-01)
+
+The `7476ff6e` [primary run](https://github.com/konsultaner/connectanum-dart/actions/runs/41306087007)
+is complete and independently reproduces all 48 cases / 1,440 original rows.
+It fails 123 measured metrics: nineteen throughput, fourteen p95, twenty-one p99,
+nineteen CPU, one allocation, six GC and forty-three RSS. There are zero integrity
+findings and no unmeasured metrics. Exact source-derived inventory/schedule,
+canonical scenario bytes, complete driver/per-pass streams, policy, locks and
+actual retained production native/driver binaries verify on EPYC 7763 with
+standard Dart 3.13.5 / Rust 1.99.0. The hosted comparison matches exactly.
+
+All predecessor primary/supplemental campaigns are now finished, retained and
+independently audited; do not poll/download them again. This primary failure and
+the complete 195-miss supplemental failure below remain historical evidence,
+not proof of a cause or of the new scheduler candidate's acceptance. No numerical
+campaign was cancelled or retried unchanged.
+
+[Complete primary reproduction](../research/2026-11-01-flatbuffers-7476ff6e-primary-audit.json).
 
 ## MQTT forwarding candidate in frozen verification (2026-11-01)
 
