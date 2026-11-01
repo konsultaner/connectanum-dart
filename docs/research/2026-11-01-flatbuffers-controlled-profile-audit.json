@@ -1,4 +1,16 @@
 {
+  "canonical": {
+    "JS_log_observations": 0,
+    "actual_native_bytes_rehashed": true,
+    "local_browser_scope": "Actual Chrome Dart2Wasm only, not local JS",
+    "log_sha256": "f99f9b524b165e2d32bf4b719530cd9abe21e056fe737767c2a7abfe9e0576e7",
+    "native_sha256": "7eff72911a728303fc22af65b440f4be08af3985233309bbad20f872afa19624",
+    "performance_acceptance": false,
+    "source": "7b56e81c81ffa8301c9c0857a703935aa1a3bf14",
+    "source_and_native_frozen": true,
+    "verify_exit": 0,
+    "wasm_log_observations": 8308
+  },
   "captures": [
     {
       "actual_retained_native_sha256": "43de8abc344d0b35cd256a568203d547c1796ff65d974e272a8678a5d5627e03",
@@ -109,6 +121,25 @@
       "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41302476491"
     }
   ],
+  "invocation_experiment": {
+    "branch": "codex/flatbuffers-invocation-header",
+    "existing_public_encoder_avoidable_growth_repro_bytes": 256,
+    "prototype_schema_metadata_message_alias_cases": 27810,
+    "prototype_source_sha256": "d51f0a7af61a8b1d28d387fd2bbf300ece9c55cdda3d5aa27b338bb52afb1959",
+    "scope": "Isolated prototype only, not adopted or acceptance. Baseline fast tests pass; implementing regression-driven native INVOCATION header change in separate branch.",
+    "typical_encoder_allocations_before_after": [
+      19,
+      6
+    ],
+    "typical_envelope_bytes_before_after": [
+      160,
+      160
+    ],
+    "typical_requested_bytes_before_after": [
+      2217,
+      360
+    ]
+  },
   "original_failed_capture": {
     "run": 41298322137,
     "scope": "Perf exited255 before capture readiness; no usable timed profile data. Original retained. Precise origin of missing TID5764 remains unproven.",
@@ -116,11 +147,88 @@
   },
   "performance_acceptance": false,
   "rss_attribution": {
+    "actual_retained_artifact_hashes": {
+      "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940",
+      "native_library": "d12cf24641f3dd29221a252cfb77076f7a2152c88e15d6d5aac6de58447953fa",
+      "router_config": "ec18afa8941003c92faac9f7775379d78fd301c609e827d652138974b2c9f1b2"
+    },
     "allocator_attribution": false,
+    "artifact_id": 13083080238,
     "case": "rpc_rawsocket_clear_native_native_buffer",
+    "distinct_process_identities": 12,
+    "exact_summary": true,
+    "fresh_pairs": 6,
     "memory_attribution": true,
+    "policy_config_locks_raw_rows_process_identity_and_cleanup_verified": true,
+    "raw_rows": 60,
+    "resolved_inputs_verified": 4,
+    "role_snapshots": 24,
     "run": 41302937122,
-    "status": "running"
+    "scope": "Fresh-process diagnostic only. No forced GC/allocator/SDK policy change, no acceptance substitution. Paired within-process primary evidence remains failed.",
+    "source": "7b56e81c81ffa8301c9c0857a703935aa1a3bf14",
+    "source_inputs_verified": 3294,
+    "summary": {
+      "cbor": [
+        {
+          "median_peak_bytes": 355749888,
+          "median_peak_minus_before_bytes": 4239360,
+          "pair_index": 1,
+          "pids": {
+            "client_process_metrics": 9397,
+            "server_process_metrics": 9347
+          }
+        },
+        {
+          "median_peak_bytes": 371064832,
+          "median_peak_minus_before_bytes": 1990656,
+          "pair_index": 4,
+          "pids": {
+            "client_process_metrics": 10282,
+            "server_process_metrics": 10232
+          }
+        }
+      ],
+      "flatbuffers": [
+        {
+          "median_peak_bytes": 380928000,
+          "median_peak_minus_before_bytes": 2650112,
+          "pair_index": 0,
+          "pids": {
+            "client_process_metrics": 9079,
+            "server_process_metrics": 8987
+          }
+        },
+        {
+          "median_peak_bytes": 376430592,
+          "median_peak_minus_before_bytes": 6258688,
+          "pair_index": 5,
+          "pids": {
+            "client_process_metrics": 10567,
+            "server_process_metrics": 10516
+          }
+        }
+      ],
+      "msgpack": [
+        {
+          "median_peak_bytes": 514752512,
+          "median_peak_minus_before_bytes": 5976064,
+          "pair_index": 2,
+          "pids": {
+            "client_process_metrics": 9685,
+            "server_process_metrics": 9635
+          }
+        },
+        {
+          "median_peak_bytes": 399564800,
+          "median_peak_minus_before_bytes": 29081600,
+          "pair_index": 3,
+          "pids": {
+            "client_process_metrics": 9995,
+            "server_process_metrics": 9945
+          }
+        }
+      ]
+    }
   },
   "runtime_base": "290480a3227dd6617379c6453d863b7d2ff7825d",
   "scope": "Diagnostic control repair and attribution only; no runtime optimization or strict acceptance pass.",

@@ -43,12 +43,27 @@ The repaired Linux diagnostics `41301631436` (Dart 10 KiB values) and
 windows, per-PID native samples, six JIT maps, eighteen memory snapshots and
 cleanup/source guards. Stack attribution is being checked against source;
 these captures do not establish a RAM cause. Fresh-process RSS attribution
-`41302937122` is running with standard SDK/allocator policy. Profiles use symbols/
-frame pointers and explicitly diagnostic post-workload GC snapshots; their
-binaries and observations cannot replace production acceptance evidence.
-Full local canonical verification of `7b56e81c` remains running with its own
-frozen native library. No strict numerical acceptance rerun or runtime edit
-has been performed.
+`41302937122` independently verifies six fresh process pairs, sixty complete
+workload rows, twenty-four process-memory observations, source/policy/config
+inputs and actual retained production native/driver binaries. Standard SDK and
+allocator policy remain unchanged; no forced GC is used in this RSS diagnostic.
+Variation across VM and anonymous mappings does not establish a single RAM
+cause. Profiles use symbols/frame pointers and diagnostic post-workload GC
+snapshots; they cannot replace production acceptance evidence.
+
+Full local canonical verification of tool-only `7b56e81c` passes with actual
+Chrome/Wasm (8,308 observations), clean unchanged HEAD/source and its own native
+library independently rehashed. Local JS is not part of that Darwin run.
+
+The isolated INVOCATION prototype preserves 27,810 pinned-schema, raw-metadata,
+full-message and body-alias cases. A typical public-encoder component drops
+from nineteen allocations / 2,217 requested bytes to six / 360, with unchanged
+160-byte envelopes. An actual unchanged public-encoder reproducer also observes
+256 bytes of avoidable builder growth at the metadata boundary. Implementing
+this narrow header change in `codex/flatbuffers-invocation-header` follows passing
+baseline fast tests and precedes its own full verification/acceptance. These
+component observations establish neither RSS nor transport parity; no strict
+numerical acceptance rerun has been performed.
 [Independent profile summary](research/2026-11-01-flatbuffers-controlled-profile-audit.json) records the exact capture scope.
 
 Both full primary and supplemental acceptance comparisons still fail. Require
