@@ -328,26 +328,18 @@
       "status": "completed",
       "successful_jobs": 36
     },
-    "CI_failed_jobs_last": [
-      124658928256,
-      124670994373,
-      124677524919
-    ],
-    "CI_passed_jobs_last": 36,
+    "CI_failed_jobs_last": 0,
+    "CI_passed_jobs_last": 39,
     "CI_recovery": {
+      "MQTT_artifact_id": 13057819369,
+      "all36_passing_executions_preserved": true,
+      "all37_prior_passing_artifacts_preserved": true,
+      "all39_jobs_success": true,
       "attempt": 2,
+      "audit": "docs/research/2026-11-01-flatbuffers-290480a3-ci-recovery-audit.json",
       "explicitly_approved": true,
-      "initial_preservation_check": {
-        "MQTT_artifact_id": 13057819369,
-        "all36_passing_execution_timestamps_unchanged": true,
-        "prior_artifact_ids_retained": true
-      },
-      "original_job": 124658928256,
-      "performance_rerun_requested": false,
-      "recovery_job": 124815460391,
       "run": 41242443320,
-      "scope": "Interrupted MCP shard and necessary nonnumerical gates only; preserve performance executions/artifacts.",
-      "status": "in_progress"
+      "scope": "Only interrupted MCP shard and two nonnumerical dependent gates reexecuted."
     },
     "CI_run": 41242443320,
     "CI_runner_interruption": {
@@ -360,8 +352,9 @@
       "job_log_retrieval": "Azure BlobNotFound/HTTP404; original response retained",
       "local_debug": "Qwen advisory triage completed; official annotation proves communication loss, detailed console log unavailable.",
       "missing_artifact": "mutations-mcp-shard-1",
-      "no_retry_executed": true,
+      "no_retry_executed": false,
       "official_annotation": "The hosted runner lost communication with the server.",
+      "original_snapshot_no_retry_executed": true,
       "partial_reports": [
         {
           "assigned": 184,
@@ -419,12 +412,15 @@
           "shard_complete": true
         }
       ],
-      "policy_constraint": "Current heartbeat explicitly permits retries only for proven setup-failed nonnumerical jobs. This mid-execution interruption needs an explicit exception; do not misclassify it as setup failure.",
+      "policy_constraint": "The original setup-only rule required an explicit exception for this mid-execution interruption. The user explicitly approved it, and the scoped recovery passed; no general numerical-rerun exception was granted.",
+      "policy_exception_explicitly_approved": true,
       "proposed_recovery": "After workflow completion, rerun only interrupted shard1 and necessary nonnumerical aggregate dependents; preserve all passing numerical execution/artifacts.",
+      "recovery_completed_attempt": 2,
+      "scope": "Original interrupted execution and evidence retained. User-approved recovery now independently passes; refer to CI_recovery.",
       "source": "290480a3227dd6617379c6453d863b7d2ff7825d",
       "underlying_cause": "CPU/memory/network/provider cause unmeasured; no shard result or surviving test failure can be inferred."
     },
-    "CI_status": "completed_failure",
+    "CI_status": "completed_success_attempt2",
     "MQTT_main20": {
       "all_budgets_unchanged": true,
       "all_summaries_exact": true,
@@ -592,6 +588,15 @@
       ],
       "summaries": 20
     },
+    "active_diagnostics": [
+      {
+        "campaign": "flatbuffers_profile",
+        "case": "ext_08_payload_sizes",
+        "run": 41298322137,
+        "scope": "CPU/diagnostic memory; never production acceptance.",
+        "source": "290480a3227dd6617379c6453d863b7d2ff7825d"
+      }
+    ],
     "branch": "codex/flatbuffers-ppt-header-storage",
     "canonical": "complete_pass",
     "canonical_attempt1": {
@@ -1325,7 +1330,7 @@
       "unmeasured_metrics": 0
     },
     "runtime_base": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
-    "scope": "Both 48-case and 50-case campaigns complete and independently audited; both fail strict acceptance. CI recovery awaits the existing unanswered retry exception. Temporary followup removed; no runtime edit, retry or adoption into PR132.",
+    "scope": "Complete canonical/copy/MQTT/CI pass within their exact scopes. Both strict48/50 performance comparisons remain failed. Controlled profiling has resumed; no runtime fix or new numerical acceptance rerun yet.",
     "supplemental50_run": 41242463543,
     "supplemental_audit": {
       "all50_measured_numerical_misses": 187,
@@ -1674,8 +1679,8 @@
     "bounded_runs": 32,
     "cadence_minutes": 15,
     "id": "finish-pr-132-acceptance",
-    "reason": "All authorized campaign audits complete; CI recovery requires existing unanswered retry decision.",
+    "reason": "Removed after completed acceptance audits; user subsequently resumed work and approved scoped CI recovery.",
     "status": "DELETED"
   },
-  "updated_utc": "2026-11-01T10:03:10.508850+00:00"
+  "updated_utc": "2026-11-01T10:39:40.743642+00:00"
 }

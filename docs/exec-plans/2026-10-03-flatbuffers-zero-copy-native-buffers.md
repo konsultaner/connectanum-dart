@@ -2,13 +2,43 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish the explicitly approved scoped MCP recovery in CI
-41242443320 attempt 2 on unchanged 290480a3. Only the interrupted partition and
-necessary nonnumerical dependents may execute again. Preserve and recheck all
-passing numerical execution timestamps/artifact IDs. Then diagnose the measured
-performance failures with controlled profiling; no gate, SDK/GC/allocator policy,
-window/sample count or body verification may change. Both complete acceptance
-campaigns remain failed and retained. The CI retry question is resolved.
+Current step: diagnose the retained measured performance failures with controlled
+profiles after independently clean CI recovery (all 39 jobs pass, 36 original
+passing executions/artifacts preserved). First profile 41298322137 targets the
+Dart 10 KiB values case on frozen 290480a3. No runtime edit or strict acceptance
+rerun yet. Use the predeclared diagnostic sequence; adopt only measured fixes in
+isolated worktrees, then verify their own canonical/CI/copy/full strict 48-/50-case
+acceptance. All original failures and policies remain unchanged and retained.
+
+## Scoped CI recovery independently verified (2026-11-01)
+
+CI `41242443320` attempt 2 now passes all 39 jobs on unchanged `290480a3`.
+Only the interrupted MCP partition and its two dependent gates executed again.
+Independent comparison verifies the original timestamps of all 36 previously
+passing executions and preserves all 37 prior passing artifact IDs/digests,
+including MQTT `13057819369`. All completed numerical campaigns remain retained.
+
+The complete six-partition mutation report independently matches the hosted
+aggregate: 1,101 selected outcomes, twelve clean/restored baseline phases,
+current-source inventory and all raw log classifications/hashes. Its unchanged
+95% gate passes at 97.37783075089392%. The independent inventory also rehashes
+all thirteen MCP source files and 24 resolved tests. The original interruption
+and failed aggregate remain retained; its underlying cause remains unmeasured.
+[Recovery audit](../research/2026-11-01-flatbuffers-290480a3-ci-recovery-audit.json)
+records the exact preservation and merge evidence.
+
+Runtime/performance work has resumed. The first predeclared CPU diagnostic,
+`41298322137`, profiles the failing Dart 10 KiB payload case `ext_08_payload_sizes`
+on the same frozen source, using all three serializers. Profiles use symbols/
+frame pointers and explicitly diagnostic memory snapshots; their binaries and
+GC observations cannot replace production acceptance evidence. No strict
+numerical acceptance rerun or runtime edit has been performed.
+
+Both full primary and supplemental acceptance comparisons still fail. Require
+controlled evidence before choosing an isolated runtime fix, then its own final
+canonical/CI/copy and complete strict 48-/50-case acceptance. PR #132 stays draft,
+and issue #103 and the milestone stay open. No workload, window/sample, body
+verification, SDK, GC, allocator or acceptance gate is weakened.
 
 ## Scoped CI recovery approved and running (2026-11-01)
 
