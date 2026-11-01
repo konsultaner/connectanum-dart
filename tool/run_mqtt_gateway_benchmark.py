@@ -48,6 +48,13 @@ def profiles(matrix='smoke'):
     return result
 
 
+def overload_profiles():
+    return [dict(id='overload-'+link, transport=link, mqtt_version=mqtt,
+                 serializer=serializer, payload_bytes=65536, subscribers=2,
+                 window=16, mqtt_client='connectanum')
+            for link,mqtt,serializer in [('tcp','5','cbor'),('wss','3.1.1','flatbuffers')]]
+
+
 def number(value, name, *, positive=False):
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0 or positive and value == 0:
         raise ValueError(f'Invalid {name}: {value!r}')
@@ -104,6 +111,17 @@ def delivery_row(profile, path, run, count, reports, processes, queues):
     for process in processes.values():
         check_memory(process)
         number(process['cpu_seconds'], 'process CPU')
+    check_drained_queues(queues, path)
+    deliveries = count * profile['subscribers']
+    return dict(profile=profile['id'], path=path, run=run, sent=count,
+                subscribers=profile['subscribers'], received=deliveries, duplicates=0,
+                duration_seconds=duration, delivered_per_sec=deliveries / duration,
+                payload_mib_per_sec=deliveries * profile['payload_bytes'] / duration / 1048576,
+                p50_us=percentile(histogram, .50), p95_us=percentile(histogram, .95),
+                p99_us=percentile(histogram, .99), processes=processes, queues=queues)
+
+
+def check_drained_queues(queues, path):
     if path in PATHS:
         for key in ('state_subscriptions', 'state_pending_invocations', 'active_connections'):
             if type(queues[key]) is not int or queues[key] != 0:
@@ -115,13 +133,21 @@ def delivery_row(profile, path, run, count, reports, processes, queues):
         for key in ('pending_bytes', 'pending_operations', 'pending_policy_futures', 'broker_pending_bytes', 'broker_pending_tasks', 'broker_outbound_bytes', 'broker_connected_peers', 'cancellation_listeners'):
             if type(queues[key]) is not int or queues[key] != 0:
                 raise ValueError(f'Gateway did not drain {key}')
-    deliveries = count * profile['subscribers']
-    return dict(profile=profile['id'], path=path, run=run, sent=count,
-                subscribers=profile['subscribers'], received=deliveries, duplicates=0,
-                duration_seconds=duration, delivered_per_sec=deliveries / duration,
-                payload_mib_per_sec=deliveries * profile['payload_bytes'] / duration / 1048576,
-                p50_us=percentile(histogram, .50), p95_us=percentile(histogram, .95),
-                p99_us=percentile(histogram, .99), processes=processes, queues=queues)
+
+
+def process_summary(samples):
+    result = {}
+    for role in samples[0]['processes']:
+        readings = [row['processes'][role] for row in samples]
+        result[role] = dict(
+            cpu_seconds_per_million_messages=sum(p['cpu_seconds'] for p in readings) * 1_000_000 /
+                sum(row['received'] if role == 'broker' else row['sent'] for row in samples),
+            warm_rss_bytes=statistics.median(p['warm_rss_bytes'] for p in readings),
+            peak_rss_bytes=max(p['peak_rss_bytes'] for p in readings),
+            drained_rss_bytes=max(p['drained_rss_bytes'] for p in readings),
+            retained_bytes=max(0, max(p['drained_rss_bytes']-p['warm_rss_bytes'] for p in readings)),
+        )
+    return result
 
 
 def summarize(rows, expected_profiles, runs, budgets=None):
@@ -146,6 +172,8 @@ def summarize(rows, expected_profiles, runs, budgets=None):
             number(control_cpu, 'control CPU', positive=True)
             control_latency = med(PATHS[0], 'p95_us') + med(wamp_control, 'p95_us')
             number(control_latency, 'control latency', positive=True)
+            control_p99 = med(PATHS[0], 'p99_us') + med(wamp_control, 'p99_us')
+            number(control_p99, 'control p99 latency', positive=True)
             peak = max(row['processes']['broker']['peak_rss_bytes'] for row in samples[direction])
             drains = [row['processes']['broker']['drained_rss_bytes'] for row in samples[direction]]
             result = dict(profile=profile['id'], direction=direction,
@@ -155,18 +183,68 @@ def summarize(rows, expected_profiles, runs, budgets=None):
                           broker_cpu_seconds_per_million=cpu(direction),
                           peak_rss_bytes=peak, drained_rss_bytes=max(drains),
                           retained_growth_bytes=max(0, max(drains) - drains[0]),
+                          rss_growth_bytes_per_cycle=max(0, statistics.linear_regression(range(len(drains)),drains).slope) if len(drains)>1 else 0,
+                          processes=process_summary(samples[direction]),
                           throughput_ratio=med(direction, 'delivered_per_sec') / control_rate,
                           p95_over_control_sum=med(direction, 'p95_us') / control_latency,
+                          p99_over_control_sum=med(direction, 'p99_us') / control_p99,
                           cpu_over_control_sum=cpu(direction) / control_cpu)
             if budgets is not None:
                 budget = budgets['profiles'][profile['id']][direction]
-                result['passed'] = (
-                    result['throughput_ratio'] >= budget['min_throughput_ratio'] and
-                    result['p95_over_control_sum'] <= budget['max_p95_over_control_sum'] and
-                    result['cpu_over_control_sum'] <= budget['max_cpu_over_control_sum'] and
-                    peak <= budget['max_peak_rss_bytes'] and
-                    max(drains) <= budget['max_drained_rss_bytes'] and
-                    result['retained_growth_bytes'] <= budget['max_retained_growth_bytes'])
+                checks = dict(
+                    throughput=result['throughput_ratio'] >= budget['min_throughput_ratio'],
+                    p95=result['p95_over_control_sum'] <= budget['max_p95_over_control_sum'],
+                    p99=result['p99_over_control_sum'] <= budget['max_p99_over_control_sum'],
+                    cpu=result['cpu_over_control_sum'] <= budget['max_cpu_over_control_sum'],
+                    peak_rss=peak <= budget['max_peak_rss_bytes'],
+                    drained_rss=max(drains) <= budget['max_drained_rss_bytes'],
+                    retained_growth=result['retained_growth_bytes'] <= budget['max_retained_growth_bytes'],
+                    lifecycle_slope=result['rss_growth_bytes_per_cycle'] <= budget['max_rss_growth_bytes_per_cycle'],
+                )
+                for role, process in result['processes'].items():
+                    limits = budget['processes']['subscriber' if role.startswith('subscriber-') else role]
+                    for field in ('peak_rss_bytes','drained_rss_bytes','retained_bytes'):
+                        checks[f'{role}_{field}'] = process[field] <= limits['max_'+field]
+                result['checks'], result['passed'] = checks, all(checks.values())
+            output.append(result)
+    return output
+
+
+def summarize_overload(rows, expected_profiles, runs, budgets=None):
+    expected = {(p['id'], d, run) for p in expected_profiles for d in DIRECTIONS for run in range(1,runs+1)}
+    indexed = {(r['profile'],r['path'],r['run']):r for r in rows}
+    if len(indexed) != len(rows) or set(indexed) != expected:
+        raise ValueError('Incomplete or duplicate overload lifecycle matrix')
+    output = []
+    for profile in expected_profiles:
+        for direction in DIRECTIONS:
+            samples = [indexed[profile['id'],direction,run] for run in range(1,runs+1)]
+            for row in samples:
+                if row['slow_received'] >= row['sent'] or row['recovery_received'] != 64:
+                    raise ValueError('Overload did not disconnect and recover')
+                for process in row['processes'].values():
+                    check_memory(process)
+                check_drained_queues(row['queues'],direction)
+                check_drained_queues(row['recovery_queues'],direction)
+            drains = [r['processes']['broker']['drained_rss_bytes'] for r in samples]
+            result = dict(profile=profile['id'],direction=direction,
+                          delivered_per_sec=statistics.median(r['delivered_per_sec'] for r in samples),
+                          p95_us=statistics.median(r['p95_us'] for r in samples),
+                          p99_us=statistics.median(r['p99_us'] for r in samples),
+                          stalled_peak_rss_bytes=max(r['stalled_peak_rss_bytes'] for r in samples),
+                          processes=process_summary(samples),
+                          retained_growth_bytes=max(0,max(drains)-drains[0]),
+                          slow_received_max=max(r['slow_received'] for r in samples),
+                          recovery_received=64)
+            if budgets is not None:
+                limits = budgets['overload'][profile['id']][direction]
+                checks = dict(throughput=result['delivered_per_sec'] >= limits['min_delivered_per_sec'],
+                              p99=result['p99_us'] <= limits['max_p99_us'],
+                              retained_growth=result['retained_growth_bytes'] <= limits['max_retained_growth_bytes'])
+                for role, process in result['processes'].items():
+                    for field in ('peak_rss_bytes','drained_rss_bytes','retained_bytes'):
+                        checks[f'{role}_{field}'] = process[field] <= limits['processes'][role]['max_'+field]
+                result['checks'],result['passed'] = checks,all(checks.values())
             output.append(result)
     return output
 
@@ -250,7 +328,7 @@ class Campaign:
         self.children[label] = child
         return child
 
-    def event(self, deadline=None):
+    def event(self, deadline=None, *, expected_disconnect=None):
         deadline = time.monotonic() + self.timeout if deadline is None else deadline
         while True:
             remaining = deadline - time.monotonic()
@@ -259,6 +337,9 @@ class Campaign:
             label, message = self.events.get(timeout=remaining)
             kind = message['kind']
             if kind == 'eof' and (label not in self.children or self.children[label].closing):
+                continue
+            if (kind == 'error' and label == expected_disconnect and
+                    message.get('message') == 'MqttProtocolException: MQTT connection closed'):
                 continue
             if kind in ('error', 'eof'):
                 raise RuntimeError(f'{label}: {message}')
@@ -351,6 +432,94 @@ class Campaign:
                 raw.write(json.dumps(row) + '\n')
         return rows
 
+    def run_overload(self, profile, path, runs, count, stall_ms, drain_seconds):
+        """Stall one application isolate; the healthy recipient remains exact."""
+        self.config.update(path=path, reference=False)
+        server = self.spawn('broker', 'server')
+        ready = self.expect(['broker'], 'ready')['broker']
+        server.measurement_pid = ready['pid']
+        self.config['port'] = ready['port']
+        rows = []
+        for run in range(1, runs+1):
+            clients = ['publisher', 'subscriber-0', 'subscriber-1']
+            labels = ['broker', *clients]
+            for label in clients:
+                self.spawn(label, 'publisher' if label == 'publisher' else 'subscriber')
+            self.expect(clients, 'ready')
+            self.phase(run*3, 64, clients, server)
+            phase = run*3+1
+            for label in labels:
+                self.children[label].send(dict(op='begin', phase=phase, count=count))
+            self.expect(labels, 'armed')
+            self.children['subscriber-1'].send(dict(op='stall', milliseconds=stall_ms))
+            self.expect(['subscriber-1'], 'stalled')
+            before = {label: reference.process_metrics(self.children[label].measurement_pid)[0] for label in labels}
+            self.children['publisher'].send(dict(op='publish', phase=phase, count=count))
+            fast, slow, sent, resumed = None, None, False, False
+            progress = dict.fromkeys(('subscriber-0','subscriber-1'), 0)
+            stalled_rss = []
+            deadline = time.monotonic()+self.timeout
+            while fast is None or slow is None or not sent or not resumed:
+                label, message = self.event(deadline, expected_disconnect='subscriber-1')
+                kind = message['kind']
+                if message.get('phase') != phase:
+                    raise ValueError('Overload worker phase mismatch')
+                if kind == 'progress' and label in progress:
+                    value = message['received']
+                    if type(value) is not int or not progress[label] < value <= count:
+                        raise ValueError('Invalid overload delivery progress')
+                    progress[label] = value
+                    if label == 'subscriber-0':
+                        self.children['publisher'].send(dict(op='credit', phase=phase, received=value))
+                        if not resumed:
+                            stalled_rss.append(reference.process_metrics(self.children['subscriber-1'].measurement_pid)[1])
+                elif kind == 'sent' and label == 'publisher' and message['sent'] == count and not sent:
+                    sent = True
+                elif kind == 'received' and label == 'subscriber-0' and fast is None:
+                    fast = message
+                elif kind == 'disconnected' and label == 'subscriber-1' and slow is None:
+                    slow = message
+                elif kind == 'resumed' and label == 'subscriber-1' and not resumed:
+                    resumed = True
+                else:
+                    raise ValueError(f'Unexpected overload event {label}: {message}')
+            if not stalled_rss or not 0 <= slow['received'] < count:
+                raise ValueError('Stalled consumer did not hit bounded disconnect')
+            cpu = {label: reference.process_metrics(self.children[label].measurement_pid)[0]-before[label] for label in labels}
+            for label in labels:
+                self.children[label].send(dict(op='sample'))
+            samples = self.expect(labels, 'sampled')
+            processes = {label:dict(sample['memory'], cpu_seconds=cpu[label]) for label,sample in samples.items()}
+            closed = self.close_clients(clients)
+            for label, sample in closed.items():
+                processes[label].update(sample['memory'])
+            time.sleep(drain_seconds)
+            server.send(dict(op='sample'))
+            drained = self.expect(['broker'], 'sampled')['broker']
+            check_drained_queues(drained['queues'],path)
+            processes['broker'].update(drained['memory'])
+            # Reuse exact delivery validation for the healthy recipient.
+            healthy = delivery_row(dict(profile,subscribers=1),path,run,count,[fast],
+                                   {k:v for k,v in processes.items() if k != 'subscriber-1'},drained['queues'])
+            for label in ['publisher','subscriber-0']:
+                self.spawn(label,'publisher' if label == 'publisher' else 'subscriber')
+            self.expect(['publisher','subscriber-0'],'ready')
+            reports, _ = self.phase(run*3+2,64,['publisher','subscriber-0'],server)
+            self.close_clients(['publisher','subscriber-0'])
+            time.sleep(drain_seconds)
+            server.send(dict(op='sample'))
+            final = self.expect(['broker'],'sampled')['broker']
+            check_drained_queues(final['queues'],path)
+            if reports['subscriber-0']['received'] != 64:
+                raise ValueError('Overload recovery delivery mismatch')
+            row = dict(healthy,processes=processes,slow_received=slow['received'],
+                       stalled_peak_rss_bytes=max(stalled_rss),recovery_received=64,
+                       recovery_queues=final['queues'])
+            rows.append(row)
+            with (self.output/'raw.jsonl').open('a') as raw:
+                raw.write(json.dumps(row)+'\n')
+        return rows
+
     def close(self):
         failure = None
         for child in self.children.values():
@@ -373,6 +542,41 @@ def compile_worker(directory):
     return directory / 'bundle/bin/mqtt_gateway_worker'
 
 
+def shard_profiles(items, shard):
+    index,total = (int(value) for value in shard.split('/'))
+    if not 1 <= total <= 32 or not 0 <= index < total:
+        raise ValueError('Invalid benchmark shard')
+    return items[index::total]
+
+
+def validate_budget(budget, args):
+    if budget['schema_version'] != 1 or len(budget['baseline_source_commit']) != 40:
+        raise ValueError('Invalid gateway baseline provenance')
+    for field in ('runs','messages','warmup','overload_runs','overload_messages','overload_stall_ms','drain_seconds'):
+        minimum = number(budget['workload'][field],field,positive=True)
+        if getattr(args,field) < minimum:
+            raise ValueError(f'Gate workload is below its accepted {field}')
+    if args.matrix != 'release':
+        raise ValueError('Strict gates require the complete release profile inventory')
+    for group,inventory in [('profiles',profiles('release')),('overload',overload_profiles())]:
+        if set(budget[group]) != {p['id'] for p in inventory}:
+            raise ValueError('Budget/profile inventory mismatch')
+        for directions in budget[group].values():
+            if set(directions) != set(DIRECTIONS):
+                raise ValueError('Budget direction inventory mismatch')
+            for limits in directions.values():
+                for key,value in limits.items():
+                    if key == 'processes':
+                        required = {'broker','publisher','subscriber'} if group == 'profiles' else {'broker','publisher','subscriber-0','subscriber-1'}
+                        if set(value) != required:
+                            raise ValueError('Budget process inventory mismatch')
+                        for fields in value.values():
+                            for metric in ('max_peak_rss_bytes','max_drained_rss_bytes','max_retained_bytes'):
+                                number(fields[metric],metric)
+                    else:
+                        number(value,key)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
@@ -381,9 +585,13 @@ def main(argv=None):
     parser.add_argument('--mosquitto', default='mosquitto')
     parser.add_argument('--matrix', choices=('smoke', 'release'), default='smoke')
     parser.add_argument('--profile')
+    parser.add_argument('--shard',default='0/1',help='Zero-based index/count; CI runs every shard on separate runners')
     parser.add_argument('--runs', type=int, default=5)
     parser.add_argument('--messages', type=int, default=5000)
     parser.add_argument('--warmup', type=int, default=200)
+    parser.add_argument('--overload-runs', type=int, default=3)
+    parser.add_argument('--overload-messages', type=int, default=2048)
+    parser.add_argument('--overload-stall-ms', type=int, default=20000)
     parser.add_argument('--drain-seconds', type=float, default=.5)
     parser.add_argument('--record-only', action='store_true')
     parser.add_argument('--budget', type=Path, default=ROOT / 'tool/mqtt_gateway_benchmark_budgets.json')
@@ -392,8 +600,12 @@ def main(argv=None):
     if not configured_library:
         parser.error('Set CONNECTANUM_NATIVE_LIB to the native router library')
     library = Path(configured_library).resolve()
-    selected = [p for p in profiles(args.matrix) if args.profile is None or p['id'] == args.profile]
-    if not library.is_file() or not selected or args.runs < 1 or args.messages < 1 or args.warmup < 1 or args.drain_seconds < 0:
+    try:
+        selected = shard_profiles([p for p in profiles(args.matrix) if args.profile is None or p['id'] == args.profile],args.shard)
+        overload_selected = shard_profiles(overload_profiles(),args.shard)
+    except ValueError as error:
+        parser.error(str(error))
+    if not library.is_file() or not selected or args.runs < 1 or args.messages < 1 or args.warmup < 1 or args.drain_seconds < 0 or args.overload_runs < 1 or args.overload_messages < 1 or not 1 <= args.overload_stall_ms <= 60000:
         parser.error('Invalid benchmark library/profile/count/drain configuration')
     if args.profile is not None and not args.record_only:
         parser.error('Partial profile runs are diagnostic only')
@@ -404,14 +616,20 @@ def main(argv=None):
     if args.output.exists() and any(args.output.iterdir()):
         parser.error('Benchmark output must be empty; preserve earlier evidence')
     budget = None if args.record_only else json.loads(args.budget.read_text())
+    if budget is not None:
+        validate_budget(budget,args)
     args.output.mkdir(parents=True, exist_ok=True)
-    rows = []
+    rows, overload_rows = [], []
     with tempfile.TemporaryDirectory() as temporary:
         worker = args.worker.resolve() if args.worker else compile_worker(Path(temporary))
-        environment = {'schema_version': 1, 'diagnostic_only': args.record_only,
-                       'profiles': selected, 'source_commit': source_commit, 'source_dirty': source_dirty,
-                       'workload': dict(matrix=args.matrix, runs=args.runs, messages=args.messages,
-                                        warmup=args.warmup, drain_seconds=args.drain_seconds),
+        environment = {'schema_version': 2, 'diagnostic_only': args.record_only,
+                       'peak_rss_scope':'process_lifetime_high_water',
+                       'native_outbound_queue_frames':64,
+                       'profiles': selected,'overload_profiles':overload_selected, 'source_commit': source_commit, 'source_dirty': source_dirty,
+                       'workload': dict(matrix=args.matrix,shard=args.shard, runs=args.runs, messages=args.messages,
+                                        warmup=args.warmup, drain_seconds=args.drain_seconds,
+                                        overload_runs=args.overload_runs,overload_messages=args.overload_messages,
+                                        overload_stall_ms=args.overload_stall_ms),
                        'worker_build': 'unverified_override' if args.worker else 'dart_build_cli_current_source',
                        'python_version': sys.version,
                        'dart_version': subprocess.check_output(['dart', '--version'], text=True).strip(),
@@ -432,15 +650,30 @@ def main(argv=None):
                 try:
                     values = campaign.run(profile, path, args.runs, args.messages, args.warmup, args.drain_seconds)
                     rows.extend(values)
+                    print(f"{profile['id']} {path}: {len(values)} exact lifecycles completed",flush=True)
                     (output / 'raw.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in values))
                 finally:
                     campaign.close()
         summary = summarize(rows, selected, args.runs, budget)
-        result = dict(environment, results=summary)
+        for profile in overload_selected:
+            for direction in DIRECTIONS:
+                output = args.output / profile['id'] / direction
+                output.mkdir(parents=True,exist_ok=True)
+                config = dict(profile,path=direction,port=0,native_library=str(library),
+                              paho_python=args.paho_python,certificate=str(reference.TLS_CERT),key=str(reference.TLS_KEY))
+                campaign = Campaign(worker,output,config,timeout=90)
+                try:
+                    overload_rows.extend(campaign.run_overload(profile,direction,args.overload_runs,
+                                         args.overload_messages,args.overload_stall_ms,args.drain_seconds))
+                    print(f"{profile['id']} {direction}: slow-peer isolation and recovery completed",flush=True)
+                finally:
+                    campaign.close()
+        overload = summarize_overload(overload_rows,overload_selected,args.overload_runs,budget)
+        result = dict(environment, results=summary,overload=overload)
         (args.output / 'summary.json').write_text(json.dumps(result, indent=2) + '\n')
         for row in summary:
             print(f"{row['profile']} {row['direction']}: {row['delivered_per_sec']:.0f}/s, p95 {row['p95_us']:.0f} us, peak {row['peak_rss_bytes']/1048576:.1f} MiB", flush=True)
-        return int(budget is not None and not all(row['passed'] for row in summary))
+        return int(budget is not None and not all(row['passed'] for row in [*summary,*overload]))
 
 
 if __name__ == '__main__':

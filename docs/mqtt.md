@@ -55,6 +55,13 @@ Valid SUBSCRIBE requests at QoS 0/1/2 may receive a QoS 0 grant; QoS 1/2 PUBLISH
 remains unsupported. MQTT 3.1.1 lacks these capability properties and its current
 profile is explicitly limited. See [MQTT 5 §§3.2.2.3, 3.8.4](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html).
 
+For gateways with large WAMP messages, set the endpoint's
+`outboundSendQueueCapacity: 64` to bound each native outbound queue to 64 frames.
+The gateway benchmark uses that setting for translations and matched controls.
+A full queue closes the slow connection; healthy recipients continue. Native
+WAMP clients credit one receive batch at a time across isolates. Queue capacity
+is a frame count, so size it together with the maximum permitted message size.
+
 ## Reversible topic names
 
 `MqttTopicUriMapper` maps each slash-delimited MQTT level to a WAMP URI component

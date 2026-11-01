@@ -14,17 +14,24 @@ authorized gateway (#116/#117) and translation performance/memory gates (#131).
 See the [MQTT contract](mqtt.md) and active plan.
 
 The opt-in gateway, trusted original-caller lookup and independent AOT benchmark
-participants are implemented. The 10-profile local diagnostic matrix completed
-120 exact samples across both translations and four controls (including pinned
-Mosquitto on CI). Full Linux baseline measurement precedes numeric budget locking.
-New regressions reproduce/fix concurrent MQTT writes during flush, native CBOR
-byte-string typing, and internal WAMP calls blocking CANCEL/GOODBYE. Scoped coverage passes 679/679 new gateway/shared executable lines, 758/758 MQTT
-lines and 270/270 gateway lines. The worker includes post-disconnect router-state
-checks, with refreshed source and CLI coverage passing. Slow-recipient regressions
-pass for both origins. README results, numeric lifecycle budgets and strict hosted
-gates remain required before completion. `bin/verify` found a stale state mutation
-test inventory; the inventory is fixed and its 93-test regression passes. Full
-verification is being rerun.
+participants are implemented. New regressions reproduce/fix concurrent MQTT
+writes during flush, native CBOR byte-string typing, internal WAMP calls blocking
+CANCEL/GOODBYE, and uncredited native WAMP receive batches accumulating while an
+application isolate stalls. Receive handoff now allows one outstanding batch;
+full native send queues disconnect only the slow peer. The benchmark explicitly
+uses the existing 64-frame outbound setting, measures OS lifetime high-water RSS,
+and checks fresh-client recovery plus zero client state/queues after disconnect.
+TCP/CBOR and WSS/FlatBuffers stalled-client runs each delivered all 2,048
+messages to healthy peers in both directions, disconnected the stalled peer and
+recovered on the same router. Current source coverage passes 743/743 executable
+lines; the independent Paho/Connectanum MQTT suite passes 102 tests. Gateway tooling
+passes 823/823 lines with zero exclusions. Earlier scoped Dart receipts passed
+679/679 gateway/shared lines and 758/758 MQTT lines; current receipts must include
+the receiver-credit changes. Required direct MQTT CI passed on `86ccdf33`;
+its full baseline recorder is still running. The next recorder uses four isolated
+GitHub runners for the complete inventory. Numeric budgets and README tables
+will be locked from immutable Linux results, before strict acceptance. Full local
+`bin/verify` is running with Dart sources frozen.
 
 Merged-master CI [41105562746](https://github.com/konsultaner/connectanum-dart/actions/runs/41105562746),
 publishing and the required WAMP profile benchmark pass. Local `bin/test-fast` passes. Focused gateway, worker and independent-peer checks are passing;

@@ -247,7 +247,9 @@ class RouterSession {
         pptCipher: details.pptCipher,
         pptKeyId: details.pptKeyId,
       );
-      binding.forwardMessageToConnection(connectionId, event);
+      // A recipient may close after the routing snapshot was taken. Its event
+      // is no longer deliverable; other recipients must continue normally.
+      binding._boss?.tryForwardMessageToConnection(connectionId, event);
     } else if (type == _internalMsgForwardInvocation) {
       final connectionId = message['connectionId'] as int?;
       final forward = message['message'];

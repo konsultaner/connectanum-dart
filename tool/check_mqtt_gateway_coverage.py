@@ -17,8 +17,10 @@ WHOLE = (
 )
 SHARED = (
     'packages/connectanum_client/lib/src/transport/native/message_binding.dart',
+    'packages/connectanum_client/lib/src/transport/native/native_transports_io.dart',
     'packages/connectanum_router/lib/src/router/router_instance/router_binding.dart',
     'packages/connectanum_router/lib/src/router/router_instance/router_boss.dart',
+    'packages/connectanum_router/lib/src/router/router_instance/router_internal_session.dart',
     'packages/connectanum_router/lib/src/router/router_instance/router_worker_session.dart',
     'packages/connectanum_router/lib/src/router/state/commands.dart',
     'packages/connectanum_router/lib/src/router/state/store.dart',

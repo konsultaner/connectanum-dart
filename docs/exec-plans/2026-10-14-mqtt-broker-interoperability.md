@@ -48,27 +48,32 @@ gateway acceptance evidence.
 
 ## Current verification
 
-`bin/test-fast` passed on the merged baseline. The focused router suite passed
-184 tests; the expanded gateway suite passes 21 tests and the worker suite
-passes 32 live transport/serializer/direction cases plus lifecycle/control tests.
-The new gateway adapter, cancellation, broker, MQTT client and measurement
-sources reach exact 100% line coverage. The current source receipt passes 679/679
-gateway/shared executable lines, 758/758 MQTT lines and 270/270 gateway lines.
-New Python benchmark, peer and coverage controls measure 642/642 executable lines
-with zero exclusions. Worker state telemetry and the CLI have refreshed passing coverage.
-Full final-source collection and hosted receipts supersede these incremental counts.
+The gateway implementation has focused live, policy, cancellation, interoperability
+and ownership tests. Initial scoped receipts passed 679/679 gateway/shared lines,
+758/758 MQTT lines and 270/270 gateway lines. The expanded Python gate and peers
+now pass 823/823 executable lines with zero exclusions. Current Dart collection passes 743/743 gateway/shared lines. The independent
+Paho/Connectanum MQTT suite passes 102 tests; full `bin/verify` is running; earlier line-number receipts cannot validate
+subsequent edits. The mutation inventory includes the caller-state regression.
 
-The first diagnostic campaign completed 120 samples: 10 profiles × six paths ×
-two lifecycles, with exact delivery, per-process CPU/RSS and drained queues.
-It is dirty-tree macOS evidence, not a release baseline. The initial CI lane
-is explicitly a baseline recorder; after its immutable Linux artifacts exist,
-lock budgets, make the lane required/strict, and publish current README tables.
-No existing performance budget is relaxed. Remaining acceptance includes
-a deliberately slow-consumer benchmark, numeric lifecycle memory gates, full verification and current hosted CI. Opaque-PPT regressions
-and bounded slow-recipient regressions for both origins pass. The first full
-verification stopped at the mutation inventory: adding the caller-state test
-requires extending the complete state target inventory. This is fixed and all
-93 inventory/runner tests pass; full verification is being rerun.
+An intentionally stalled WAMP consumer exposed uncredited receive-isolate handle
+batches: its RSS grew to about 194 MiB while a healthy consumer remained exact.
+The receiver now admits one outstanding batch, releases partial poll failures and
+rejects stale/duplicate credits. Native WAMP queue-full handling disconnects the
+slow peer and tolerates late publication routing snapshots. With the explicit
+64-frame benchmark outbound setting, both directions delivered all 2,048 healthy
+messages, disconnected the stalled peer, drained state/queues and served fresh
+clients on the same router. The receive-side RSS plateau is measured separately
+from its OS high-water RSS. TCP/CBOR and WSS/FlatBuffers stress cases pass in both directions locally.
+Repeated hosted cycles and numeric per-process limits remain required acceptance.
+
+The first local diagnostic matrix completed 120 exact samples. An immutable
+Linux recorder on `86ccdf33` is running; direct MQTT CI on that head passes.
+A four-shard recorder will collect the corrected high-water-memory contract and
+complete 32-profile normal matrix plus repeated overload recovery. Numeric budgets,
+README tables and strict required CI follow those measurements. No existing
+performance limit is relaxed. Full final-source coverage and hosted receipts
+supersede incremental counts. Existing auxiliary kTLS/WAMP diagnostic misses
+remain visible and distinct from gateway acceptance.
 
 ## Goal and contract
 

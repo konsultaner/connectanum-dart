@@ -18,6 +18,7 @@ import 'package:connectanum_core/connectanum_core.dart'
         CallOptions,
         Details,
         Event,
+        EventDetails,
         Extra,
         LazyMessagePayload,
         LazyPayloadEncoding,

@@ -363,10 +363,14 @@ jobs:
           if-no-files-found: error
 
   mqtt-gateway-baseline:
-    name: MQTT WAMP gateway baseline
+    name: MQTT WAMP gateway baseline ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     needs: native-build
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci
@@ -405,13 +409,13 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/gateway-python/bin/python" tool/run_mqtt_gateway_benchmark.py \
             --output out/mqtt-gateway/baseline --matrix release --record-only \
-            --runs 5 --messages 5000 --warmup 200 \
+            --runs 5 --messages 5000 --warmup 200 --shard "${{ matrix.shard }}/4" \
             --paho-python "$RUNNER_TEMP/gateway-python/bin/python" --mosquitto "$(command -v mosquitto)"
       - name: Upload complete gateway performance and per-process memory evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mqtt-wamp-gateway
+          name: mqtt-wamp-gateway-${{ matrix.shard }}
           path: out/mqtt-gateway
           if-no-files-found: error
 

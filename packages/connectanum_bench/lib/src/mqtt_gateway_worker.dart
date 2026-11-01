@@ -183,6 +183,7 @@ Future<GatewayBenchmarkPeer> connectGatewayBenchmarkPeer(
   ).connect().first.timeout(const Duration(seconds: 10));
   final peer = _WampBenchmarkPeer(
     session,
+    transport,
     config.path == 'wamp_to_mqtt',
     config.path == 'wamp_to_wamp_ack',
   );
@@ -232,8 +233,17 @@ final class _MqttBenchmarkPeer implements GatewayBenchmarkPeer {
 }
 
 final class _WampBenchmarkPeer implements GatewayBenchmarkPeer {
-  _WampBenchmarkPeer(this.session, this.gatewayCall, this.acknowledge);
+  _WampBenchmarkPeer(
+    this.session,
+    this.transport,
+    this.gatewayCall,
+    this.acknowledge,
+  ) {
+    session.onDisconnect.whenComplete(_messages.close).ignore();
+    transport.onConnectionLost?.future.whenComplete(_messages.close).ignore();
+  }
   final wamp.Session session;
+  final wamp.AbstractTransport transport;
   final bool gatewayCall;
   final bool acknowledge;
   final _messages = StreamController<Uint8List>.broadcast(sync: true);
@@ -260,7 +270,11 @@ final class _WampBenchmarkPeer implements GatewayBenchmarkPeer {
   @override
   Future<void> close() async {
     try {
-      await session.close(timeout: Duration.zero);
+      if (transport.isOpen) {
+        await session.close(timeout: Duration.zero);
+      } else {
+        await transport.close();
+      }
     } finally {
       await _messages.close();
     }
@@ -344,6 +358,7 @@ final class NativeGatewayBenchmarkServer implements GatewayBenchmarkServer {
                   ? router.TlsMode.native
                   : router.TlsMode.disabled,
               maxRawSocketSizeExponent: 24,
+              outboundSendQueueCapacity: 64,
               sniCertificates: config.secure
                   ? [
                       router.SniCertificate(
@@ -504,6 +519,12 @@ Future<void> runGatewayBenchmarkWorker(
           },
           onError: (Object error) =>
               output({'kind': 'error', 'message': error.toString()}),
+          onDone: () => output({
+            'kind': 'disconnected',
+            'phase': phase,
+            'received': measurement.received,
+            'memory': meter.snapshot(),
+          }),
         );
       }
     }
@@ -528,6 +549,15 @@ Future<void> runGatewayBenchmarkWorker(
             ...snapshot(),
             if (queues != null) 'queues': queues,
           });
+        case 'stall':
+          if (role != 'subscriber')
+            throw StateError('Only a subscriber may stall');
+          final milliseconds = command['milliseconds'] as int;
+          if (milliseconds < 1 || milliseconds > 60000)
+            throw ArgumentError('Invalid stall duration');
+          output({'kind': 'stalled', 'phase': phase});
+          sleep(Duration(milliseconds: milliseconds));
+          output({'kind': 'resumed', 'phase': phase});
         case 'publish':
           if (role != 'publisher') {
             throw StateError('Only a publisher may send load');

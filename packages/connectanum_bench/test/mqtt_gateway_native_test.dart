@@ -208,6 +208,23 @@ void main() {
   );
 
   test(
+    'a disconnected native WAMP participant closes its owned stream',
+    () async {
+      final server = await NativeGatewayBenchmarkServer.start(
+        GatewayBenchmarkConfig(base),
+      );
+      final subscriber = await connectGatewayBenchmarkPeer(
+        GatewayBenchmarkConfig({...base, 'port': server.port}),
+        'subscriber',
+      );
+      final finished = subscriber.messages.drain<void>();
+      await server.close();
+      await finished.timeout(const Duration(seconds: 3));
+      await subscriber.close();
+    },
+  );
+
+  test(
     'a rejected MQTT subscription closes the connected participant',
     () async {
       final server = await ServerSocket.bind('127.0.0.1', 0);

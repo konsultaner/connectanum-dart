@@ -236,6 +236,9 @@ void main() {
     () async {
       for (final commands in <List<Map<String, Object?>>>[
         [
+          {'op': 'stall', 'milliseconds': 1},
+        ],
+        [
           {'op': 'unknown'},
         ],
         [
@@ -291,6 +294,77 @@ void main() {
       ]) {
         await expectLater(runGatewayBenchmarkWorker(args), throwsArgumentError);
       }
+    },
+  );
+
+  test(
+    'a deliberately stalled subscriber reports pause and resume boundaries',
+    () async {
+      final peer = Peer();
+      final events = <Map<String, Object?>>[];
+      await runGatewayBenchmarkWorker(
+        ['subscriber', jsonEncode(profile())],
+        input: Stream.fromIterable(
+          [
+            {'op': 'begin', 'phase': 4, 'count': 1},
+            {'op': 'stall', 'milliseconds': 1},
+            {'op': 'close'},
+          ].map(jsonEncode),
+        ),
+        emit: events.add,
+        readRss: () => 100,
+        peerFactory: (_, __) async => peer,
+      );
+      expect(events.map((e) => e['kind']), [
+        'ready',
+        'armed',
+        'stalled',
+        'resumed',
+        'closed',
+      ]);
+      expect(events[2]['phase'], 4);
+      for (final milliseconds in [0, 60001]) {
+        final invalid = Peer();
+        await expectLater(
+          runGatewayBenchmarkWorker(
+            ['subscriber', jsonEncode(profile())],
+            input: Stream.value(
+              jsonEncode({'op': 'stall', 'milliseconds': milliseconds}),
+            ),
+            emit: (_) {},
+            readRss: () => 100,
+            peerFactory: (_, __) async => invalid,
+          ),
+          throwsArgumentError,
+        );
+        expect(invalid.closed, 1);
+      }
+    },
+  );
+
+  test(
+    'a subscriber disconnect is reported before the benchmark can time out',
+    () async {
+      final peer = Peer();
+      final commands = StreamController<String>();
+      final events = <Map<String, Object?>>[];
+      await runGatewayBenchmarkWorker(
+        ['subscriber', jsonEncode(profile())],
+        input: commands.stream,
+        readRss: () => 100,
+        peerFactory: (_, __) async => peer,
+        emit: (event) {
+          events.add(event);
+          if (event['kind'] == 'ready') {
+            peer.controller.close().ignore();
+          } else if (event['kind'] == 'disconnected') {
+            commands.add(jsonEncode({'op': 'close'}));
+          }
+        },
+      );
+      await commands.close();
+      expect(events.map((e) => e['kind']), ['ready', 'disconnected', 'closed']);
+      expect(peer.closed, 1);
     },
   );
 

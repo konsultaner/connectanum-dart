@@ -6,6 +6,7 @@ from collections import Counter
 import importlib.metadata
 import json
 import os
+import resource
 import ssl
 import struct
 import sys
@@ -69,8 +70,10 @@ class Measurement:
 
 
 class Memory:
-    def __init__(self, read_rss=None):
+    def __init__(self, read_rss=None, read_peak_rss=None):
         self.read_rss = read_rss or (lambda: process_metrics(os.getpid())[1])
+        self.read_peak_rss = read_peak_rss or read_rss or (
+            lambda: resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * (1 if sys.platform == 'darwin' else 1024))
         self.lock = threading.Lock()
         self.stopped = threading.Event()
         self.begin()
@@ -88,7 +91,7 @@ class Memory:
     def snapshot(self):
         with self.lock:
             current = self.read_rss()
-            self.peak = max(self.peak, current)
+            self.peak = max(self.peak, current, self.read_peak_rss())
             return dict(warm_rss_bytes=self.warm, peak_rss_bytes=self.peak,
                         drained_rss_bytes=current)
 

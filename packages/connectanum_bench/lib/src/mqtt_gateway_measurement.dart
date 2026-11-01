@@ -6,13 +6,17 @@ import 'dart:typed_data';
 final class GatewayMemoryMeter {
   GatewayMemoryMeter({
     int Function()? readRss,
+    int Function()? readPeakRss,
     Duration interval = const Duration(milliseconds: 20),
-  }) : _readRss = readRss ?? _currentRss {
+  }) : _readRss = readRss ?? _currentRss,
+       _readPeakRss = readPeakRss ?? (readRss ?? _maxRss) {
     _timer = Timer.periodic(interval, (_) => sample());
   }
 
   static int _currentRss() => ProcessInfo.currentRss;
+  static int _maxRss() => ProcessInfo.maxRss;
   final int Function() _readRss;
+  final int Function() _readPeakRss;
   late final Timer _timer;
   int _warm = 0;
   int _peak = 0;
@@ -25,6 +29,8 @@ final class GatewayMemoryMeter {
   int sample() {
     final rss = _readRss();
     if (rss > _peak) _peak = rss;
+    final highWater = _readPeakRss();
+    if (highWater > _peak) _peak = highWater;
     return rss;
   }
 

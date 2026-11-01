@@ -64,6 +64,20 @@ void main() {
     expect(meter.snapshot()['warm_rss_bytes'], greaterThan(0));
     meter.close();
   });
+  test('OS high-water RSS captures a peak between timer ticks', () {
+    var current = 100;
+    final meter = GatewayMemoryMeter(
+      readRss: () => current,
+      readPeakRss: () => 900,
+    )..begin();
+    current = 120;
+    expect(meter.snapshot(), {
+      'warm_rss_bytes': 100,
+      'peak_rss_bytes': 900,
+      'drained_rss_bytes': 120,
+    });
+    meter.close();
+  });
   test('malformed and incomplete benchmark inputs fail closed', () {
     expect(() => gatewayBenchmarkPayload(23, 1, 0, 100), throwsArgumentError);
     final m = GatewayDeliveryMeasurement(payloadBytes: 128, requireOrder: true);

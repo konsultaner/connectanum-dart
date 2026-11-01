@@ -99,6 +99,13 @@ class MeasurementTest(unittest.TestCase):
         real = paho.Memory()
         try: self.assertGreater(real.snapshot()['warm_rss_bytes'], 0)
         finally: real.close()
+        for platform,multiplier in [('darwin',1),('linux',1024)]:
+            with (mock.patch.object(paho.sys,'platform',platform),
+                  mock.patch.object(paho,'process_metrics',return_value=(0,100,100)),
+                  mock.patch.object(paho.resource,'getrusage',return_value=types.SimpleNamespace(ru_maxrss=900))):
+                memory=paho.Memory()
+                try:self.assertEqual(memory.snapshot()['peak_rss_bytes'],900*multiplier)
+                finally:memory.close()
 
 
 class PahoParticipantTest(unittest.TestCase):
@@ -195,7 +202,7 @@ class ReferenceParticipantTest(unittest.TestCase):
                       mock.patch.object(reference.reference,'stop_broker') as stop,
                       mock.patch.object(reference.reference,'process_metrics',return_value=(1,100,200)),
                       mock.patch.object(reference.subprocess,'Popen',return_value=broker),
-                      mock.patch.object(reference,'Memory',side_effect=lambda read_rss:(self.assertEqual(read_rss(),100),memory)[1])):
+                      mock.patch.object(reference,'Memory',side_effect=lambda read_rss,read_peak_rss:(self.assertEqual(read_rss(),100),self.assertEqual(read_peak_rss(),200),memory)[2])):
                     if commands and commands[0]['op']=='unknown':
                         with self.assertRaises(ValueError): reference.run(CONFIG,map(json.dumps,commands),output.append)
                     else: reference.run(CONFIG,map(json.dumps,commands),output.append)

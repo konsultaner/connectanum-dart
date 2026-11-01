@@ -1919,6 +1919,16 @@ class _RouterBoss {
           ..['type'] = 'worker_send_error'
           ..['connectionId'] = connectionId
           ..['error'] = error.toString();
+        if (error.code == NativeTransportErrorCode.sendQueueFull) {
+          // A rejected WAMP frame must not silently leave a live, incomplete
+          // stream. Isolate the slow peer and release its queued state.
+          try {
+            runtime.closeConnection(connectionId);
+          } on NativeTransportException catch (closeError) {
+            _handlePollError(connectionId, closeError);
+          }
+          _detachConnection(connectionId, notifyWorker: true);
+        }
       } on UnsupportedError catch (error) {
         payload
           ..['type'] = 'worker_send_unsupported'
@@ -2452,15 +2462,25 @@ class _RouterBoss {
   }
 
   void forwardMessageToConnection(int connectionId, AbstractMessage message) {
+    if (!tryForwardMessageToConnection(connectionId, message)) {
+      throw StateError('Connection $connectionId not registered on router');
+    }
+  }
+
+  bool tryForwardMessageToConnection(
+    int connectionId,
+    AbstractMessage message,
+  ) {
     final worker = _connectionOwners[connectionId];
     if (worker == null) {
-      throw StateError('Connection $connectionId not registered on router');
+      return false;
     }
     worker.commandPort.send(<Object?>[
       _workerCmdSendMessage,
       connectionId,
       message,
     ]);
+    return true;
   }
 
   void _handleWorkerRegister(Map<dynamic, dynamic> message) {

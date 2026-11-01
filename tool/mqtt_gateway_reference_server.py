@@ -23,7 +23,8 @@ def run(config, lines, emit):
         meter = None
         try:
             reference.wait_for_listener(port, broker)
-            meter = Memory(read_rss=lambda: reference.process_metrics(broker.pid)[1])
+            meter = Memory(read_rss=lambda: reference.process_metrics(broker.pid)[1],
+                           read_peak_rss=lambda: reference.process_metrics(broker.pid)[2])
             emit(dict(kind='ready', pid=broker.pid, port=port, version=version))
             for line in lines:
                 command = json.loads(line)
