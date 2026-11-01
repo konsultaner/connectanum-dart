@@ -1,0 +1,1377 @@
+{
+  "tool_source": "7fc4c5d87874691a1d29ace7f40ceca2bcffcab3",
+  "runtime_source": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "run": 41357801496,
+  "artifact_id": 13103629011,
+  "rows": 25,
+  "fresh_verified_deliveries": 4025000,
+  "all_original_stdout_body_order_and_cleanup_verified": true,
+  "all_counter_scalars_histograms_and_byte_conservation_verified": true,
+  "actual_native_AOT_client_bytes_verified": {
+    "native_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+    "broker_sha256": "5885049df64447d268736fd7396cda102f72efdca644752fe56dd95ac1fe538e",
+    "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db"
+  },
+  "actual_shim_sha256": "9946998cec3b8ece81d8f4c213b5b014ff26c472d95e032d9ea2d8005b8c9f9f",
+  "ELF_x86_64_and_exact_native_dependency_verified": true,
+  "original_exact_source_archive_and_lock_verified": true,
+  "native_Dart_bin_runtime_sources_unchanged": true,
+  "CPU": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+  "all_counts": [
+    {
+      "profile": "ws_sustained",
+      "run": 1,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 491200,
+        "poll_empty": 401144,
+        "poll_errors": 2,
+        "poll_positive": 90054,
+        "poll_bytes": 28614369,
+        "send_calls": 79302,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 200607,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          33751,
+          47224,
+          8327,
+          720,
+          15,
+          13,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          27581,
+          36759,
+          14187,
+          743,
+          16,
+          13,
+          0
+        ]
+      },
+      "raw_counts_sha256": "f2a2e6bca846bb667b13fb4eef808e208dfb80c601579da0605ea7e0f03ef7c3"
+    },
+    {
+      "profile": "ws_sustained",
+      "run": 2,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 495205,
+        "poll_empty": 404386,
+        "poll_errors": 2,
+        "poll_positive": 90817,
+        "poll_bytes": 28614369,
+        "send_calls": 80511,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 202227,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          36725,
+          44541,
+          8659,
+          866,
+          12,
+          10,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          30271,
+          35064,
+          14255,
+          896,
+          11,
+          11,
+          0
+        ]
+      },
+      "raw_counts_sha256": "571f0c579704b57d6a098dc81795b165cb3420ab217ed3ef5e9650b5ab8b4ddb"
+    },
+    {
+      "profile": "ws_sustained",
+      "run": 3,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 513206,
+        "poll_empty": 418628,
+        "poll_errors": 2,
+        "poll_positive": 94576,
+        "poll_bytes": 28614367,
+        "send_calls": 85850,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 209348,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          3,
+          0,
+          44391,
+          41686,
+          7736,
+          723,
+          23,
+          14,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          37524,
+          35018,
+          12530,
+          738,
+          21,
+          15,
+          1
+        ]
+      },
+      "raw_counts_sha256": "97f7a3f93d3c03af84e44620e3fe8a01686fd123560d233d4095dabd75e911f8"
+    },
+    {
+      "profile": "ws_sustained",
+      "run": 4,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 514704,
+        "poll_empty": 420876,
+        "poll_errors": 2,
+        "poll_positive": 93826,
+        "poll_bytes": 28614369,
+        "send_calls": 85044,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 210472,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          41034,
+          44071,
+          7988,
+          701,
+          19,
+          9,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          35114,
+          36580,
+          12591,
+          727,
+          19,
+          10,
+          0
+        ]
+      },
+      "raw_counts_sha256": "a3039b600c40846f7ea984a2f9ddcaba2a1776cdf418738b529999eca7405f5c"
+    },
+    {
+      "profile": "ws_sustained",
+      "run": 5,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 483443,
+        "poll_empty": 394196,
+        "poll_errors": 2,
+        "poll_positive": 89245,
+        "poll_bytes": 28614369,
+        "send_calls": 78291,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 197132,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          33108,
+          47140,
+          8245,
+          730,
+          7,
+          11,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          26526,
+          36691,
+          14284,
+          768,
+          8,
+          10,
+          1
+        ]
+      },
+      "raw_counts_sha256": "9e92cb6cb0b7ed9617b82114f32e352eb23dae4a641fb428bc33450be26bf0a1"
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "run": 1,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 516615,
+        "poll_empty": 422346,
+        "poll_errors": 2,
+        "poll_positive": 94267,
+        "poll_bytes": 28414266,
+        "send_calls": 84360,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 211207,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          39787,
+          45520,
+          8270,
+          660,
+          19,
+          7,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          33563,
+          36464,
+          13611,
+          693,
+          19,
+          6,
+          1
+        ]
+      },
+      "raw_counts_sha256": "5fa50d2f9b1f61ea893dcca3f1965c142b524d134d2f9ccb809eb0da76e9315c"
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "run": 2,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 516051,
+        "poll_empty": 420424,
+        "poll_errors": 2,
+        "poll_positive": 95625,
+        "poll_bytes": 28414266,
+        "send_calls": 84040,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 210246,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          38254,
+          50699,
+          6031,
+          619,
+          12,
+          6,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          31296,
+          39706,
+          12376,
+          641,
+          12,
+          6,
+          0
+        ]
+      },
+      "raw_counts_sha256": "4cecf3d16d41692aa620eee2fd56055baa3bc86ba1c1939e368f34d7ea45d475"
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "run": 3,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 497950,
+        "poll_empty": 405602,
+        "poll_errors": 2,
+        "poll_positive": 92346,
+        "poll_bytes": 28414266,
+        "send_calls": 82001,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 202835,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          36670,
+          44265,
+          10394,
+          1001,
+          10,
+          2,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          29519,
+          36156,
+          15243,
+          1067,
+          11,
+          2,
+          0
+        ]
+      },
+      "raw_counts_sha256": "e98bb564157fa81433cab953832f591fbf2a4b4ecc2a3c24f9539da75abd7579"
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "run": 4,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 526992,
+        "poll_empty": 429236,
+        "poll_errors": 2,
+        "poll_positive": 97754,
+        "poll_bytes": 28414268,
+        "send_calls": 85605,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 214653,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          5,
+          0,
+          41997,
+          46171,
+          8929,
+          643,
+          5,
+          4,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          33422,
+          35107,
+          16393,
+          670,
+          6,
+          4,
+          0
+        ]
+      },
+      "raw_counts_sha256": "4da05c50e3d7b3dda5647d04ba69d50602797903ebc79f514479e740f0c9320a"
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "run": 5,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 502768,
+        "poll_empty": 410580,
+        "poll_errors": 2,
+        "poll_positive": 92186,
+        "poll_bytes": 28414266,
+        "send_calls": 81968,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 205406,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          38076,
+          45125,
+          8105,
+          846,
+          22,
+          8,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          31804,
+          35570,
+          13663,
+          896,
+          24,
+          7,
+          1
+        ]
+      },
+      "raw_counts_sha256": "01488017c5f49290d7e4216370665d85da056c37a028457fbc9a52e0204a92c9"
+    },
+    {
+      "profile": "sustained",
+      "run": 1,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 293673,
+        "poll_empty": 226711,
+        "poll_errors": 2,
+        "poll_positive": 66960,
+        "poll_bytes": 28614367,
+        "send_calls": 52684,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 113389,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          3,
+          0,
+          24105,
+          27725,
+          9707,
+          5354,
+          62,
+          4,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          15536,
+          20127,
+          9140,
+          7717,
+          156,
+          5,
+          0
+        ]
+      },
+      "raw_counts_sha256": "5d62ba9749a0c45b7710382eff11b30e2e82e690afc6142f915bd14c3080b903"
+    },
+    {
+      "profile": "sustained",
+      "run": 2,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 218846,
+        "poll_empty": 165207,
+        "poll_errors": 2,
+        "poll_positive": 53637,
+        "poll_bytes": 28614367,
+        "send_calls": 36928,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 82637,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          3,
+          0,
+          20641,
+          15975,
+          7661,
+          9309,
+          46,
+          2,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          11541,
+          7972,
+          4791,
+          12473,
+          146,
+          2,
+          0
+        ]
+      },
+      "raw_counts_sha256": "12605d1a8cf74e3de6a48acaa1d63583591db34703471664a7e687281200e310"
+    },
+    {
+      "profile": "sustained",
+      "run": 3,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 259238,
+        "poll_empty": 197487,
+        "poll_errors": 2,
+        "poll_positive": 61749,
+        "poll_bytes": 28614367,
+        "send_calls": 50575,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 98777,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          3,
+          0,
+          16521,
+          29696,
+          9330,
+          6161,
+          33,
+          5,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          11560,
+          22760,
+          8298,
+          7878,
+          70,
+          6,
+          0
+        ]
+      },
+      "raw_counts_sha256": "b52595cbace7a03fdcf49813ffba3a6b343508934ff718c3a3dfa98c5bce7ed8"
+    },
+    {
+      "profile": "sustained",
+      "run": 4,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 234957,
+        "poll_empty": 180148,
+        "poll_errors": 2,
+        "poll_positive": 54807,
+        "poll_bytes": 28614367,
+        "send_calls": 42395,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 90108,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          3,
+          0,
+          15735,
+          22313,
+          8659,
+          8035,
+          59,
+          3,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          10090,
+          15058,
+          7120,
+          9986,
+          134,
+          4,
+          0
+        ]
+      },
+      "raw_counts_sha256": "52c60f636c22b9ec1c15ba60e50e40179e8ed59f8422bedda4c5596813dce5d0"
+    },
+    {
+      "profile": "sustained",
+      "run": 5,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 299359,
+        "poll_empty": 232035,
+        "poll_errors": 2,
+        "poll_positive": 67322,
+        "poll_bytes": 28614369,
+        "send_calls": 51992,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 116052,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          25099,
+          27106,
+          9775,
+          5264,
+          71,
+          3,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          15934,
+          18791,
+          9193,
+          7875,
+          192,
+          4,
+          0
+        ]
+      },
+      "raw_counts_sha256": "b1c9e665131c9d31be8920844c7f5c11449c3564a1dc636911498937bb9e3413"
+    },
+    {
+      "profile": "v311_sustained",
+      "run": 1,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 293474,
+        "poll_empty": 231415,
+        "poll_errors": 2,
+        "poll_positive": 62057,
+        "poll_bytes": 28414264,
+        "send_calls": 51126,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 115741,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          3,
+          0,
+          20397,
+          24942,
+          11125,
+          5514,
+          73,
+          3,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          14434,
+          18993,
+          10495,
+          7005,
+          192,
+          3,
+          1
+        ]
+      },
+      "raw_counts_sha256": "208df25ea6a780b413cc87a343b50543a166950ee8cc7e60a1efbf31e65ba19a"
+    },
+    {
+      "profile": "v311_sustained",
+      "run": 2,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 255740,
+        "poll_empty": 198074,
+        "poll_errors": 2,
+        "poll_positive": 57664,
+        "poll_bytes": 28414264,
+        "send_calls": 45789,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 99071,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          3,
+          0,
+          16630,
+          24846,
+          9154,
+          6950,
+          77,
+          4,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          11073,
+          17631,
+          7923,
+          8978,
+          177,
+          4,
+          0
+        ]
+      },
+      "raw_counts_sha256": "e964774e4f92bb316ac21fb39e7c8ceb42873f5ef4cab973e3c057617c1161fa"
+    },
+    {
+      "profile": "v311_sustained",
+      "run": 3,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 271518,
+        "poll_empty": 212993,
+        "poll_errors": 2,
+        "poll_positive": 58523,
+        "poll_bytes": 28414266,
+        "send_calls": 47030,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 106531,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          17079,
+          25083,
+          9754,
+          6520,
+          77,
+          6,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          11261,
+          18180,
+          9032,
+          8338,
+          209,
+          6,
+          1
+        ]
+      },
+      "raw_counts_sha256": "cdd4e3f8cbd87d04f57d185faeeb60db041550797a466272391a436e811be0a8"
+    },
+    {
+      "profile": "v311_sustained",
+      "run": 4,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 241520,
+        "poll_empty": 183291,
+        "poll_errors": 2,
+        "poll_positive": 58227,
+        "poll_bytes": 28414266,
+        "send_calls": 45849,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 91680,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          4,
+          0,
+          16573,
+          26375,
+          7952,
+          7236,
+          83,
+          4,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          11011,
+          18761,
+          6776,
+          9149,
+          144,
+          4,
+          1
+        ]
+      },
+      "raw_counts_sha256": "b69814e14c45876ef7c0426924135beeb3702046d7861ce1d0bc5bbfd0bb0875"
+    },
+    {
+      "profile": "v311_sustained",
+      "run": 5,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 260774,
+        "poll_empty": 201392,
+        "poll_errors": 2,
+        "poll_positive": 59380,
+        "poll_bytes": 28414264,
+        "send_calls": 48048,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 100730,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          3,
+          0,
+          17143,
+          26556,
+          9050,
+          6547,
+          70,
+          11,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          11697,
+          19795,
+          8272,
+          8124,
+          146,
+          10,
+          1
+        ]
+      },
+      "raw_counts_sha256": "ab4756514e7925238798f25ab1b95bd0a71597c52f65c3865e57ebbbd85db5e5"
+    },
+    {
+      "profile": "64k_sustained",
+      "run": 1,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 7844,
+        "poll_empty": 2343,
+        "poll_errors": 2,
+        "poll_positive": 5499,
+        "poll_bytes": 334315267,
+        "send_calls": 5103,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 334315242,
+        "arm_calls": 1206,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          204,
+          27,
+          19,
+          140,
+          8,
+          0,
+          0,
+          5101,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5100
+        ]
+      },
+      "raw_counts_sha256": "2315bffee01cb9c4792e9becdff6a6758895cfbe74a552118c67ed6deb817b40"
+    },
+    {
+      "profile": "64k_sustained",
+      "run": 2,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 7469,
+        "poll_empty": 1991,
+        "poll_errors": 2,
+        "poll_positive": 5476,
+        "poll_bytes": 334315267,
+        "send_calls": 5103,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 334315242,
+        "arm_calls": 1031,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          159,
+          30,
+          41,
+          140,
+          6,
+          0,
+          0,
+          5100,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5100
+        ]
+      },
+      "raw_counts_sha256": "2ffeabb137e0f801fe376fe79c4e8df731dc614433e53238f991770bc39d9d78"
+    },
+    {
+      "profile": "64k_sustained",
+      "run": 3,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 7351,
+        "poll_empty": 1979,
+        "poll_errors": 2,
+        "poll_positive": 5370,
+        "poll_bytes": 334315269,
+        "send_calls": 5103,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 334315242,
+        "arm_calls": 1025,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          71,
+          27,
+          19,
+          149,
+          4,
+          0,
+          0,
+          5100,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5100
+        ]
+      },
+      "raw_counts_sha256": "256c4697fb6ea8972d6934951fc336c05f1d42d107727c18eb98c6d51cd1e599"
+    },
+    {
+      "profile": "64k_sustained",
+      "run": 4,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 7454,
+        "poll_empty": 2021,
+        "poll_errors": 2,
+        "poll_positive": 5431,
+        "poll_bytes": 334315269,
+        "send_calls": 5103,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 334315242,
+        "arm_calls": 1045,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          128,
+          25,
+          27,
+          146,
+          5,
+          0,
+          0,
+          5100,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5100
+        ]
+      },
+      "raw_counts_sha256": "0551934c43cb3d33f44138bcec92ff36089cd6f1d6184f2113568e514a467fba"
+    },
+    {
+      "profile": "64k_sustained",
+      "run": 5,
+      "counts": {
+        "diagnostic_only": true,
+        "poll_calls": 7702,
+        "poll_empty": 2159,
+        "poll_errors": 2,
+        "poll_positive": 5541,
+        "poll_bytes": 334315269,
+        "send_calls": 5103,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 334315242,
+        "arm_calls": 1115,
+        "size_upper_bounds": [
+          64,
+          128,
+          256,
+          512,
+          1024,
+          4096,
+          16384,
+          65536,
+          2147483647
+        ],
+        "poll_sizes": [
+          215,
+          32,
+          54,
+          133,
+          6,
+          0,
+          0,
+          5101,
+          0
+        ],
+        "send_sizes": [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          5100
+        ]
+      },
+      "raw_counts_sha256": "ed29607e733418d17df896558ef45b063d179b902e39c813a07f98ba06ccc400"
+    }
+  ],
+  "profiles": [
+    {
+      "profile": "ws_sustained",
+      "rows": 5,
+      "messages_per_row": 200000,
+      "medians": {
+        "poll_calls": 495205,
+        "poll_empty": 404386,
+        "poll_positive": 90817,
+        "poll_errors": 2,
+        "poll_bytes": 28614369,
+        "send_calls": 80511,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 202227
+      },
+      "median_empty_poll_fraction": 0.8166032249270504,
+      "median_bytes_per_positive_poll": 315.0772322362553,
+      "median_polls_per_measured_delivery": 2.476025,
+      "median_arm_calls_per_measured_delivery": 1.011135
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "rows": 5,
+      "messages_per_row": 200000,
+      "medians": {
+        "poll_calls": 516051,
+        "poll_empty": 420424,
+        "poll_positive": 94267,
+        "poll_errors": 2,
+        "poll_bytes": 28414266,
+        "send_calls": 84040,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 210246
+      },
+      "median_empty_poll_fraction": 0.8146946716506702,
+      "median_bytes_per_positive_poll": 301.4232552218698,
+      "median_polls_per_measured_delivery": 2.580255,
+      "median_arm_calls_per_measured_delivery": 1.05123
+    },
+    {
+      "profile": "sustained",
+      "rows": 5,
+      "messages_per_row": 200000,
+      "medians": {
+        "poll_calls": 259238,
+        "poll_empty": 197487,
+        "poll_positive": 61749,
+        "poll_errors": 2,
+        "poll_bytes": 28614367,
+        "send_calls": 50575,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28614342,
+        "arm_calls": 98777
+      },
+      "median_empty_poll_fraction": 0.7667275288669841,
+      "median_bytes_per_positive_poll": 463.39806312652837,
+      "median_polls_per_measured_delivery": 1.29619,
+      "median_arm_calls_per_measured_delivery": 0.493885
+    },
+    {
+      "profile": "v311_sustained",
+      "rows": 5,
+      "messages_per_row": 200000,
+      "medians": {
+        "poll_calls": 260774,
+        "poll_empty": 201392,
+        "poll_positive": 58523,
+        "poll_errors": 2,
+        "poll_bytes": 28414264,
+        "send_calls": 47030,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 28414213,
+        "arm_calls": 100730
+      },
+      "median_empty_poll_fraction": 0.7745131774458435,
+      "median_bytes_per_positive_poll": 485.52305931001484,
+      "median_polls_per_measured_delivery": 1.30387,
+      "median_arm_calls_per_measured_delivery": 0.50365
+    },
+    {
+      "profile": "64k_sustained",
+      "rows": 5,
+      "messages_per_row": 5000,
+      "medians": {
+        "poll_calls": 7469,
+        "poll_empty": 2021,
+        "poll_positive": 5476,
+        "poll_errors": 2,
+        "poll_bytes": 334315269,
+        "send_calls": 5103,
+        "send_errors": 0,
+        "send_requested_positive_bytes": 334315242,
+        "arm_calls": 1045
+      },
+      "median_empty_poll_fraction": 0.27112959484840354,
+      "median_bytes_per_positive_poll": 61050.99835646457,
+      "median_polls_per_measured_delivery": 1.4938,
+      "median_arm_calls_per_measured_delivery": 0.209
+    }
+  ],
+  "scope": "Complete count-only instrumented diagnostic on Xeon8573C, never a timed acceptance/gate retry or causal7763repair. All original25rows/fresh4025000deliverychecks preserved; everynative byte/broker/client and originalsource/lock verified. Counters span entirebrokerlife inclhandshake/warmup/cleanup; counteroverheaduncalibrated. Empty polling volume is measured but not a proven performance root cause. No runtime adoption, gate/workload/GC/allocator/SDK/worker/body-policy change.",
+  "audited_utc": "2026-11-01T22:41:07.792370+00:00"
+}

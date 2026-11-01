@@ -25,16 +25,33 @@ The child has no own full canonical claim; parent `11521160` canonical is separa
 
 One [predeclared census](https://github.com/konsultaner/connectanum-dart/actions/runs/41357801496)
 reuses exact original retained native `10c9aaa7…`, AOT `5885049d…` and client
-`3020a016…`, exact archive/lock and standard SDK 3.13.1. Linux controls and input,
-SDK and dependency verification pass; all five original profiles/five repetitions
-are capturing 25 rows / 4.025 million fresh fully verified deliveries. Three FFI
+`3020a016…`, exact archive/lock and standard SDK 3.13.1. All 25 rows / 4.025 million fresh fully verified deliveries are now complete and
+independently audited, including Linux controls, exact input/SDK/dependency,
+full stdout/body/order, counter histogram/byte conservation and cleanup. Three FFI
 wrappers add fixed counters without accessing payloads or changing submitted
 calls/results. This is not a gate retry or a new runtime candidate. Counter
 overhead is uncalibrated; whole-lifetime counts include handshake/warmup/cleanup
-and cannot establish timing, RAM or allocation acceptance. Keep every original
-or partial result; no final count conclusion yet. Both ingress layers already
-coalesce queued input, so actual counts must precede another optimization.
+and cannot establish timing, RAM or allocation acceptance. Every original row and counter is retained. On Xeon Platinum 8573C, median
+WS 5 / 3.1.1 empty-poll fractions are 81.66% / 81.47%, with about 495,205 /
+516,051 polls and 202,227 / 210,246 loop-arm calls per 200,000 measured
+deliveries. Both ingress layers coalesce input, and observed positive chunks
+contain multiple messages. These counts identify a cost to investigate, not
+a causal explanation or repair of the prior 7763 gate.
 [Scope and original byte bindings](../research/2026-11-01-mqtt-ffi-census-checkpoint.json).
+[All counters and byte audit](../research/2026-11-01-mqtt-ffi-census-audit.json).
+
+An isolated uncommitted proposal on `codex/router-busy-wake-consumption` starts
+at frozen `11521160`. The pacer's `didWork || _consumeWakeRequest()` skips
+consuming a previously queued wake during a busy pass. A deterministic timer-
+creation regression will test whether this causes a redundant next idle turn,
+while preserving notifications arriving during the busy await. This is a
+hypothesis, not a performance fix. Fresh bootstrap passes and full pre-change
+`bin/test-fast` is active before any source edit; the guarded pipeline owns
+subsequent test-only reproduction and minimal correction. It must stop on an
+unexpected result, preserve the native/lock/source guards, and end for review.
+No predecessor idle-fallback/progressive/frame patch, gate or window changes
+are imported. Own canonical, controlled transport and complete final-runtime
+acceptance remain required for any actual runtime candidate.
 
 The predecessor `75295eb0` primary campaign is now **complete failed** and
 independently reproduced: all 48 cases / 1,440 raw rows, exact inventory,
@@ -78,7 +95,13 @@ is separate. The setup/disk failures remain retained. No unchanged verification
 is rerun. [Own canonical audit](../research/2026-11-01-mqtt-nodelay-canonical-audit.json).
 
 Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41351945654)
-remains active with 29 successful jobs and its original MQTT numerical job failed.
+is complete on attempt one: 37 jobs pass; the original measured MQTT job and
+dependent Full Verify fail. The latter reports only `mqtt-qos0` as unsuccessful.
+All 35 previously completed executions and 31 prior artifact IDs/digests,
+including performance, remain unchanged; 41 artifacts are retained in total.
+No numerical job reran. Own hosted Chrome/JS independently verifies all 8,192
+observations, 8,172 successes and twenty skips, separately from local Wasm.
+[Complete CI and browser audit](../research/2026-11-01-mqtt-nodelay-ci-completion-audit.json).
 All twenty summaries independently reproduce unchanged budgets on EPYC 7763:
 seventeen pass; native TCP 3.1.1 misses throughput 0.718141 < 0.75 and CPU
 2.642534 > 2.5, while native WS 5 / 3.1.1 throughput 0.686869 / 0.657893 misses

@@ -1,0 +1,449 @@
+{
+  "source": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "run": 41351945654,
+  "attempt": 1,
+  "complete": true,
+  "CI_passed": false,
+  "successful_jobs": 37,
+  "failed_jobs": {
+    "MQTT QoS 0 interoperability and benchmark gate": 124983849207,
+    "Full Verify": 125003610114
+  },
+  "dependent_fullverify_reports_only_original_MQTT_failure": true,
+  "all_prior_completed_executions_unchanged": true,
+  "prior_completed_executions_verified": 35,
+  "prior_completed_execution_records": [
+    {
+      "id": 124983848970,
+      "name": "Native Ownership GuardMalloc",
+      "started_at": "2026-11-01T21:26:09Z",
+      "completed_at": "2026-11-01T21:27:05Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849202,
+      "name": "Shared ffi-test Build",
+      "started_at": "2026-11-01T21:25:40Z",
+      "completed_at": "2026-11-01T21:26:54Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849207,
+      "name": "MQTT QoS 0 interoperability and benchmark gate",
+      "started_at": "2026-11-01T21:25:41Z",
+      "completed_at": "2026-11-01T21:56:19Z",
+      "conclusion": "failure"
+    },
+    {
+      "id": 124983849217,
+      "name": "Fast Checks",
+      "started_at": "2026-11-01T21:25:40Z",
+      "completed_at": "2026-11-01T21:32:04Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849228,
+      "name": "Router Message Binding Mutation Shard 0",
+      "started_at": "2026-11-01T21:25:40Z",
+      "completed_at": "2026-11-01T21:49:53Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849235,
+      "name": "FlatBuffers Binding",
+      "started_at": "2026-11-01T21:25:40Z",
+      "completed_at": "2026-11-01T21:27:12Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849243,
+      "name": "Router Message Binding Mutation Shard 1",
+      "started_at": "2026-11-01T21:25:40Z",
+      "completed_at": "2026-11-01T22:04:26Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849290,
+      "name": "MCP Mutation Shard 0",
+      "started_at": "2026-11-01T21:25:40Z",
+      "completed_at": "2026-11-01T22:00:24Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849298,
+      "name": "WampApp Consumer",
+      "started_at": "2026-11-01T21:26:56Z",
+      "completed_at": "2026-11-01T21:54:14Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849307,
+      "name": "Core Browser Coverage",
+      "started_at": "2026-11-01T21:28:02Z",
+      "completed_at": "2026-11-01T21:47:48Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849321,
+      "name": "MCP Mutation Shard 1",
+      "started_at": "2026-11-01T21:27:11Z",
+      "completed_at": "2026-11-01T22:00:10Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849325,
+      "name": "MCP Mutation Shard 4",
+      "started_at": "2026-11-01T21:25:41Z",
+      "completed_at": "2026-11-01T22:01:20Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849377,
+      "name": "MCP Mutation Shard 2",
+      "started_at": "2026-11-01T21:25:41Z",
+      "completed_at": "2026-11-01T22:03:54Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849395,
+      "name": "MCP Mutation Shard 3",
+      "started_at": "2026-11-01T21:27:33Z",
+      "completed_at": "2026-11-01T21:55:58Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124983849400,
+      "name": "MCP Mutation Shard 5",
+      "started_at": "2026-11-01T21:27:13Z",
+      "completed_at": "2026-11-01T21:54:10Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178741,
+      "name": "installers Mutation Gate",
+      "started_at": "2026-11-01T21:45:00Z",
+      "completed_at": "2026-11-01T21:59:30Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178745,
+      "name": "core-base64-web Mutation Gate",
+      "started_at": "2026-11-01T21:33:07Z",
+      "completed_at": "2026-11-01T21:54:45Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178747,
+      "name": "router-authorization Mutation Gate",
+      "started_at": "2026-11-01T21:35:48Z",
+      "completed_at": "2026-11-01T21:39:04Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178748,
+      "name": "auth-server Mutation Gate",
+      "started_at": "2026-11-01T21:42:34Z",
+      "completed_at": "2026-11-01T21:57:21Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178759,
+      "name": "router-remote-wamp-vm Mutation Gate",
+      "started_at": "2026-11-01T21:33:13Z",
+      "completed_at": "2026-11-01T21:59:43Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178780,
+      "name": "core-e2ee-vm Mutation Gate",
+      "started_at": "2026-11-01T21:39:06Z",
+      "completed_at": "2026-11-01T21:52:48Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178781,
+      "name": "client-meta-cache-web Mutation Gate",
+      "started_at": "2026-11-01T21:47:40Z",
+      "completed_at": "2026-11-01T22:01:32Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178782,
+      "name": "core-contracts-vm Mutation Gate",
+      "started_at": "2026-11-01T21:52:12Z",
+      "completed_at": "2026-11-01T21:57:51Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178815,
+      "name": "core-metadata-web Mutation Gate",
+      "started_at": "2026-11-01T21:49:56Z",
+      "completed_at": "2026-11-01T22:27:06Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178824,
+      "name": "bench-config-http Mutation Gate",
+      "started_at": "2026-11-01T21:49:55Z",
+      "completed_at": "2026-11-01T21:58:11Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178833,
+      "name": "bench-remote-auth-native Mutation Gate",
+      "started_at": "2026-11-01T21:47:50Z",
+      "completed_at": "2026-11-01T21:49:54Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178839,
+      "name": "core-contracts-web Mutation Gate",
+      "started_at": "2026-11-01T21:58:12Z",
+      "completed_at": "2026-11-01T22:16:27Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178866,
+      "name": "client-utils-vm Mutation Gate",
+      "started_at": "2026-11-01T21:56:20Z",
+      "completed_at": "2026-11-01T22:11:05Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178886,
+      "name": "router-config-loader-vm Mutation Gate",
+      "started_at": "2026-11-01T21:57:23Z",
+      "completed_at": "2026-11-01T22:24:35Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178890,
+      "name": "core-pem-pkcs8-web Mutation Gate",
+      "started_at": "2026-11-01T21:56:00Z",
+      "completed_at": "2026-11-01T22:15:26Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178894,
+      "name": "router-remote-authenticator-vm Mutation Gate",
+      "started_at": "2026-11-01T21:54:12Z",
+      "completed_at": "2026-11-01T22:05:26Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984178897,
+      "name": "core-utils-vm Mutation Gate",
+      "started_at": "2026-11-01T21:54:16Z",
+      "completed_at": "2026-11-01T22:10:48Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124984179283,
+      "name": "router-http-auth-vm Mutation Gate",
+      "started_at": "2026-11-01T21:59:45Z",
+      "completed_at": "2026-11-01T22:17:51Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124993616119,
+      "name": "mcp-library Mutation Gate",
+      "started_at": "2026-11-01T22:03:57Z",
+      "completed_at": "2026-11-01T22:05:30Z",
+      "conclusion": "success"
+    },
+    {
+      "id": 124993753406,
+      "name": "router-message-binding-vm Mutation Gate",
+      "started_at": "2026-11-01T22:04:29Z",
+      "completed_at": "2026-11-01T22:06:25Z",
+      "conclusion": "success"
+    }
+  ],
+  "all_prior_artifacts_preserved": true,
+  "prior_artifacts_verified": 31,
+  "total_artifacts": 41,
+  "artifact_id_digest_inventory": {
+    "13104650569": {
+      "name": "mutations-core-lazy-web",
+      "digest": "sha256:045860879c7cdeda645ccf26b36db7a23ea8c81fabf4dc817e46fe850eef927f"
+    },
+    "13104113134": {
+      "name": "mutations-client-message-binding-vm",
+      "digest": "sha256:9dfef2fc4154b3c1876ed7eff857ebdaec1d62aef699c8a616b000b4180332a3"
+    },
+    "13103793733": {
+      "name": "dart-vm-coverage",
+      "digest": "sha256:ec3508f1357a603342decbc7c6fb5710ca859d924bdd117ed9be1c74197bc9b1"
+    },
+    "13103625764": {
+      "name": "mutations-core-pem-pkcs8-web",
+      "digest": "sha256:f417ee6395290867bcef4b2055ec9a97fd150fbad89990352699686048d4dcf5"
+    },
+    "13103473008": {
+      "name": "mutations-router-config-loader-vm",
+      "digest": "sha256:bf79781bd68dbf703735aa7983aed6e29a741c76b0cfdab899e0450202db1dc0"
+    },
+    "13103363750": {
+      "name": "mutations-core-metadata-web",
+      "digest": "sha256:b895c5c819756732ed80dba7968e4b28e4fe9a0b683185d6a5ff64c50225c7aa"
+    },
+    "13103301428": {
+      "name": "mutations-core-utils-vm",
+      "digest": "sha256:aefd0e7248bb00f058c69a2c85782b8405d4d9a4ddbdbdd13fcf6c8727649c52"
+    },
+    "13103270927": {
+      "name": "mutations-router-binding-aggregate",
+      "digest": "sha256:f4e1637515ce039b5d3271bc5d4cf291966e0fc27bdb8fc5d55b6dd6f8af6c1c"
+    },
+    "13103115661": {
+      "name": "mutations-client-meta-cache-web",
+      "digest": "sha256:38ec0af90b532803581873bf0fa828a8baa70ecee6d66e99788d8cddfa41acd2"
+    },
+    "13103072155": {
+      "name": "mutations-core-contracts-web",
+      "digest": "sha256:8392f1fb1c8cab0cc1f0f7fa43f4baa7218b0a26369bfce6cf12028e5b37ae52"
+    },
+    "13103045681": {
+      "name": "mutations-router-remote-wamp-vm",
+      "digest": "sha256:d6e550be31c1d06cdb2fa2def7d2b92907be64944943778fbf77cf89ecf6359d"
+    },
+    "13103008815": {
+      "name": "mutations-router-http-auth-vm",
+      "digest": "sha256:75cba81b128f4b35803961ab4075f4074e43599d7abcc9757988945cab2c964c"
+    },
+    "13102956718": {
+      "name": "mutations-router-binding-shard-1",
+      "digest": "sha256:b3e6eb943d50f0c5f6842ac0e640488dde1786b519a2b4cb6d4752e9d0cd662b"
+    },
+    "13102881316": {
+      "name": "mutations-bench-remote-auth-native",
+      "digest": "sha256:ba27b046b4a5ba13fbe0bd8cc03f1b616c79e95291264584d96fee70eb0218f3"
+    },
+    "13102838735": {
+      "name": "mutations-router-remote-authenticator-vm",
+      "digest": "sha256:2487acaa2f859daf5727444932d73d62f7397387e3be0675942bd7b5cc889bab"
+    },
+    "13102835259": {
+      "name": "mqtt-qos0-benchmark",
+      "digest": "sha256:1bfc014496a6afde101e0aedf3da1e9b3b882fda7ecbe9df65ba785dfa27b153"
+    },
+    "13102809699": {
+      "name": "mutations-client-utils-vm",
+      "digest": "sha256:b5fbc9c2253260eecedb7578e58517432dbd40c8cea38e8ee90265590ccf64f3"
+    },
+    "13102738455": {
+      "name": "mutations-mcp-shard-1",
+      "digest": "sha256:d320f08b6297004e43b5d1944c8d2cf9433d0a69c8481a933c10c81464c07508"
+    },
+    "13102713596": {
+      "name": "mutations-installers",
+      "digest": "sha256:19d2657f0789c8f55b6e2910ad9c8a4962730806bb8e734e88b1af36ab6e8039"
+    },
+    "13102708692": {
+      "name": "mutations-mcp-shard-4",
+      "digest": "sha256:d2560173740ec0d2317115efb51d2bbee4aca9063f48d9e24fb63849d9c1e4ff"
+    },
+    "13102686647": {
+      "name": "mutations-mcp-shard-5",
+      "digest": "sha256:aed66f4df9eddfc413fd7c311e30497170fef41a2529811277a74aa16ff73979"
+    },
+    "13102667699": {
+      "name": "app-shared-chrome-coverage",
+      "digest": "sha256:43221ad33dc2ab4b6ca4132b76cbb30afa580c016fe77696ff83b704890acda0"
+    },
+    "13102648277": {
+      "name": "mutations-auth-server",
+      "digest": "sha256:5db15c596bf2590a731d33ff7bf6cec80dabaaa93a7a316ef7e87744344c48a1"
+    },
+    "13102530765": {
+      "name": "mutations-router-authorization",
+      "digest": "sha256:fc0f09c7d7cb6b6287aa291f19af510db572ea449a4cddef5c08d862292958ac"
+    },
+    "13102523711": {
+      "name": "mutations-core-contracts-vm",
+      "digest": "sha256:9d689e99d607e28b6a39b1af8ef8fa11ca1292fc089050848e6a8c4990488d1a"
+    },
+    "13102503114": {
+      "name": "mutations-mcp-shard-2",
+      "digest": "sha256:85d56e83c82fe7a6caa13fd66ef541623f568752606d945624ba33ac99ca026d"
+    },
+    "13102467463": {
+      "name": "mutations-bench-config-http",
+      "digest": "sha256:a9ebdbc5e8a32c1fe5eb94a29f586ff292aacfe40a6b190778d6bb7024fb789c"
+    },
+    "13102428212": {
+      "name": "mutations-core-e2ee-vm",
+      "digest": "sha256:7e373fa856700e361455c703389f62129c56c4b002ad8e05411abe5bb4e9f3d4"
+    },
+    "13102422033": {
+      "name": "app-shared-vm-coverage",
+      "digest": "sha256:f7e8ef9e18b27be158e31e354912651e4295a9acacecb431030ca221ae1a517e"
+    },
+    "13102328550": {
+      "name": "mutations-mcp-aggregate",
+      "digest": "sha256:5ec2af0d16dca2e1b46530ee99e433ff38c3b23368c6ec184222f4e832b08240"
+    },
+    "13102312661": {
+      "name": "core-browser-coverage",
+      "digest": "sha256:6af468dd4c0a46c12fb06c34fd20afaa7e56f4c382b4468439dbc2837e4017e0"
+    },
+    "13102297003": {
+      "name": "mqtt-native-profile",
+      "digest": "sha256:5ac00b0e218bf6e67d56f11e37295d66df86b5f83f2b2b64f29312d21671aa9e"
+    },
+    "13102179790": {
+      "name": "mutations-mcp-shard-0",
+      "digest": "sha256:fe92d37cb49f37cd4dd043429f283296b9bfaabc2a74188f706c3f258be4281d"
+    },
+    "13102143332": {
+      "name": "mutations-router-binding-shard-0",
+      "digest": "sha256:cdc115364627c161080a41bff6e99ce126bf8ff4fc45cedf803a2f28a3aaf155"
+    },
+    "13102034560": {
+      "name": "mqtt-native-comparison",
+      "digest": "sha256:a1cf08e52d889a6d788cd466f397bc8b14040c1fe2c653aba7d2845ed9c5e216"
+    },
+    "13102027985": {
+      "name": "mutations-mcp-shard-3",
+      "digest": "sha256:03fec36c5c5eb530d307599a6892671bbe08083c47a71c55ea552611caaf07ca"
+    },
+    "13101994347": {
+      "name": "mutations-core-base64-web",
+      "digest": "sha256:b7cd1e7a1526d81f761564d470dec3ebce9cd7daa5de6e37593e3429bd13e889"
+    },
+    "13101920322": {
+      "name": "ci-native-ffi-test",
+      "digest": "sha256:e1f7ee2d7643826da30e47831112839763f1f9700c29b46a008e9e2e0da31574"
+    },
+    "13101845480": {
+      "name": "sdk-socket-pointer",
+      "digest": "sha256:8f3356971b422f862d2e150e27b668afb503ed3e23eb123a1d2ff653a7501cd4"
+    },
+    "13101722512": {
+      "name": "flatbuffers-live-peer",
+      "digest": "sha256:3fa7f556cbb9bb4b262c40af14d2985e873ab46d10475e5d1523f191df49dfb6"
+    },
+    "13101638014": {
+      "name": "native-ownership-guardmalloc",
+      "digest": "sha256:3cb559a4c4c5c9e4768a70ceec6a51b45af2a38cd88836e673cff9b766b00322"
+    }
+  },
+  "original_MQTT_job_unchanged": true,
+  "fullverify_log_sha256": "520b495f8f4555afbc3304d0de904bef2447e4822f473a7f5f2591696a727471",
+  "numerical_job_or_campaign_retried": false,
+  "own_hosted_JS_audit": {
+    "source": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "job": 124983849307,
+    "success": true,
+    "log_sha256": "daad9657c28e02fd7613af3abe5a8b27595736192383749fabf42ec35203c669",
+    "log_counts": {
+      "[Chrome, Dart2Js]": 8192,
+      "\u2705 [Chrome, Dart2Js]": 8172,
+      "[Chrome, Dart2Wasm]": 0
+    },
+    "scope": "Own exact1152hostedChromeJS coverage; no localJS. LocalcanonicalWasm is separate. Original all8192observations/8172success20skip, no rerun.",
+    "audited_utc": "2026-11-01T22:46:36.541570+00:00"
+  },
+  "scope": "One original exactsource attempt:37correctness/mutation/browser jobs pass, originalmeasuredMQTTanddependentFullVerifyfail. Allpriorcompleted timestamps andartifactIDs/digests inclperformanceretainedunchanged. No numericalrerun, adoption, RAM/WAMPacceptance or gateweakening.",
+  "audited_utc": "2026-11-01T22:46:36.542535+00:00"
+}

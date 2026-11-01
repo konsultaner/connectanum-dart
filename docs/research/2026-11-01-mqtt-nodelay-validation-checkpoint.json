@@ -62,5 +62,5 @@
   "performance_or_RSS_acceptance": false,
   "final_strict48_50_on_this_runtime_dispatched": false,
   "copy_complete_pass": true,
-  "CI_status": "In progress; MQTT numerical job failed, 29 jobs successful at last snapshot. No nonnumerical failure observed."
+  "CI_status": "COMPLETEFAILEDattempt1:37success, originalmeasuredMQTT+dependentFullVerifyfail; onlymqtt-qos0prerequisite.35priorcompletedtimestamps/31priorartifactIDs-digests unchanged,41total. No numericalretry."
 }

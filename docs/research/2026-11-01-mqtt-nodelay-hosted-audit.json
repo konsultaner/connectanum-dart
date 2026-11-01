@@ -1,7 +1,7 @@
 {
   "source": "1152116064651ee01bd6fd52a798fee975d954bf",
   "CI_run": 41351945654,
-  "CI_status": "In progress; MQTT numerical job failed, 29 jobs successful at last snapshot. No nonnumerical failure observed.",
+  "CI_status": "COMPLETEFAILEDattempt1,37successfuljobs; originalMQTTanddependentFullVerifyfail, no numericalretry.",
   "main20": {
     "failed_profiles": [
       {
