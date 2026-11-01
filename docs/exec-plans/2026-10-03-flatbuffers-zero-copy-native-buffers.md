@@ -2,8 +2,8 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish the frozen `75295eb0` scheduler candidate's own canonical,
-copy/lifetime and complete CI; audit and run the predeclared Linux source control.
+Current step: retain the negative `75295eb0` Linux source control and finish its
+complete CI / strict campaigns. Canonical/copy/MQTT pass; transport repair is not established.
 Local focused/diagnostic evidence is scoped below, not final acceptance. All
 predecessor primary/supplemental campaigns have finished failed and are retained.
 Require complete final-runtime strict 48-/50-case acceptance and clean CI before
@@ -37,19 +37,40 @@ forty-row observer checks eight million deliveries and lower timer-creation coun
 its overhead precludes using counts as performance timings. No broad benefit,
 Linux/7763 repair, RSS or strict acceptance pass is claimed.
 
-Own full frozen canonical verification is active with its own native SHA
-`f0b8d01e7dc8b2ee2ae24c3900824b5d572df9b83f7789e5d47f826ed2b6905b`,
-pacer source SHA `34496ff18a765d5f636ce82e0dfdb32104031f2e84c1358cb1dfd420f0cb7237`
-and complete tracked-tree SHA
-`a0f0607b9ccfe71dbeb7d071c5be7d490a0d3ab4a8000ea1dfde8bae7304f0df`.
-Do not mutate that source/HEAD/native library while verification runs. Own
-[CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41331014557) and
-[copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41331016627)
-run on this exact source. CI predeclares separate post-gate CPU profiling so the
-actual measured MQTT native bytes are retained even if the gate passes; numerical
-execution itself is unchanged. After copy completes and its exact source/locks
-are audited, run the predeclared same-host Linux source comparison against
-`7476ff6e` using the frozen tool branch, preserving every one of fifty rows.
+Own full frozen canonical verification passes with clean unchanged HEAD, tracked
+tree, all three locks and own native SHA
+`f0b8d01e7dc8b2ee2ae24c3900824b5d572df9b83f7789e5d47f826ed2b6905b`.
+The log SHA is `71755b58faed4c337ddd502af66c6208fb9d8aa1fd021f8899b2ea9f1cc04508`.
+Local Chrome/Wasm has 8,308 observations; separate same-source hosted Chrome/JS
+has 8,172 successful observations and twenty skips. Hosted JS is not local JS.
+Own copy/lifetime independently verifies 3,304 inputs, 120 live / 300 inventory
+rows, 32 zero-avoidable-payload-copy checks and three positive lifetime phases,
+expected negative control and cleanup. Its 3,301-input native-view archive and
+fixture reconstruct exactly. The actual measured MQTT native `f9a7a6e5…` is
+retained and rehashed; it matches native-view and fifteen native-router MQTT
+profiles. Five Dart-broker profiles have no native library. Separate shared CI
+native `0c84ed13…` verifies 965 inputs and is never substituted for MQTT bytes.
+
+All twenty own MQTT summaries pass unchanged budgets on EPYC 7763 / standard
+Dart 3.13.1. WebSocket median-rate gate ratios are 0.70827295 / 0.71587262.
+However, the predeclared same-host Linux source control against `7476ff6e`
+**does not support adopting the scheduler change as a transport repair**.
+All fifty rows / 8.05 million verified deliveries, exact source archives, 1,432
+shared inputs, canonical locks, native/AOT/client bytes and cleanup independently
+verify. WebSocket 5 / 3.1.1 median-rate ratios are 0.98215727 / 0.97581952;
+CPU rises 11.03→11.43 / 11.24→11.96. TCP 5 / 3.1.1 ratios are
+0.99984939 / 1.00590186 with mixed pairs. All five 64 KiB TCP pairs are slower,
+with median-rate ratio 0.99466160. Do not select an unchanged numerical rerun or
+infer causal repair from green MQTT CI. The completed control is retained.
+
+Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41331014557)
+still has no known failure; 35 jobs pass and three run at the latest snapshot.
+The predeclared complete [primary 48-case campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334137150)
+and [supplemental 50-case campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334139728)
+continue unchanged. Preserve all 1,440 + 1,500 raw rows and every shard to
+completion despite the negative source control. No strict acceptance or RSS
+repair is claimed. Any subsequent genuine fix must be isolated and validated
+with its own complete acceptance.
 
 The new candidate is not adopted. Own complete strict 48-/50-case acceptance and
 clean final CI remain required; do not merge, retarget, mark ready or close #103/
@@ -58,6 +79,7 @@ unanswered and is not the sole blocker.
 
 [Prototype design and complete method](https://github.com/konsultaner/connectanum-dart/blob/75295eb05b08d4bb9ef5b034be0182250bab9fc9/docs/research/2026-11-01-mqtt-idle-fallback.md).
 [Complete local control](../research/2026-11-01-mqtt-idle-local-control-audit.json).
+[Complete Linux source control](../research/2026-11-01-mqtt-idle-linux-control-audit.json).
 [Complete observer audit](../research/2026-11-01-mqtt-idle-timer-observer-audit.json).
 
 ## Predecessor primary campaign complete failed (2026-11-01)

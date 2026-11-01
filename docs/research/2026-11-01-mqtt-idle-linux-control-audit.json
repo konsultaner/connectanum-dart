@@ -1,0 +1,136 @@
+{
+  "diagnosticOnly": true,
+  "tool_source": "e2becb6e70457c92cc5936463706c000e4c38fc8",
+  "baseline_source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "candidate_source": "75295eb05b08d4bb9ef5b034be0182250bab9fc9",
+  "rows": 50,
+  "delivered": 8050000,
+  "whole_exact_source_archives_verified": true,
+  "shared_inputs_verified": 1432,
+  "canonical_candidate_locks_verified": true,
+  "actual_native_broker_client_bytes_rehashed": true,
+  "all_original_stdout_rows_order_body_delivery_and_cleanup_verified": true,
+  "summary_exactly_reproduced": true,
+  "native_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+  "broker_sha256": {
+    "baseline": "bc63dfd834c29b86f20b74c848a805263d83452de647807383a7cfdc813a5013",
+    "candidate": "e20b22234ea3e46dade741dfa8b8492052691806355b9b516b6837a54df853ef"
+  },
+  "client_sha256": "2bcf902119879d72ab65f329bee20dd2eb1bae599e3d0f04b36bf2304d10c511",
+  "platform": {
+    "os": "Linux",
+    "kernel": "7.0.0-1017-azure",
+    "architecture": "x86_64",
+    "logical_cpus": 4,
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "runner_image": "ubuntu24",
+    "runner_image_version": "20261026.354.1",
+    "native_runtime_threads": null,
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1"
+  },
+  "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+  "profiles": [
+    {
+      "profile": "ws_sustained",
+      "paired_throughput_ratios": [
+        1.0142580619815784,
+        0.9566050550623394,
+        0.9810639081892939,
+        0.9375616676151368,
+        1.0188549649580454
+      ],
+      "median_paired_ratio": 0.9810639081892939,
+      "throughput_ratio_of_medians": 0.9821572672440354,
+      "median_rates": {
+        "baseline": 32025.948704678478,
+        "candidate": 31454.51826068467
+      },
+      "broker_cpu_medians": {
+        "baseline": 11.03,
+        "candidate": 11.43
+      }
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "paired_throughput_ratios": [
+        1.0107963322747444,
+        1.0313859216282157,
+        0.9923532071378295,
+        0.9226619220438693,
+        0.9121325541584264
+      ],
+      "median_paired_ratio": 0.9923532071378295,
+      "throughput_ratio_of_medians": 0.9758195164631401,
+      "median_rates": {
+        "baseline": 31089.61644118404,
+        "candidate": 30337.854482660703
+      },
+      "broker_cpu_medians": {
+        "baseline": 11.24,
+        "candidate": 11.96
+      }
+    },
+    {
+      "profile": "sustained",
+      "paired_throughput_ratios": [
+        0.9768317344150607,
+        0.9646578298546908,
+        0.99722431299214,
+        1.0256210274431046,
+        1.0705448003593705
+      ],
+      "median_paired_ratio": 0.99722431299214,
+      "throughput_ratio_of_medians": 0.9998493928818639,
+      "median_rates": {
+        "baseline": 67245.44823966546,
+        "candidate": 67235.32059649832
+      },
+      "broker_cpu_medians": {
+        "baseline": 5.35,
+        "candidate": 5.41
+      }
+    },
+    {
+      "profile": "v311_sustained",
+      "paired_throughput_ratios": [
+        1.1066680360148422,
+        1.0251139055205205,
+        1.0003958971755305,
+        0.9426022565608753,
+        1.081392066511121
+      ],
+      "median_paired_ratio": 1.0251139055205205,
+      "throughput_ratio_of_medians": 1.0059018564521838,
+      "median_rates": {
+        "baseline": 66764.09773996852,
+        "candidate": 67158.12986098939
+      },
+      "broker_cpu_medians": {
+        "baseline": 5.4,
+        "candidate": 5.43
+      }
+    },
+    {
+      "profile": "64k_sustained",
+      "paired_throughput_ratios": [
+        0.994661604664103,
+        0.9906315385705662,
+        0.9927365893681386,
+        0.9936196785672899,
+        0.9973414889065032
+      ],
+      "median_paired_ratio": 0.9936196785672899,
+      "throughput_ratio_of_medians": 0.994661604664103,
+      "median_rates": {
+        "baseline": 5003.772844724923,
+        "candidate": 4977.060727108756
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.6,
+        "candidate": 0.63
+      }
+    }
+  ],
+  "scope": "Predeclared controlled source diagnostic only. New shared standard native bytes are used for both source legs; they never substitute for original MQTT acceptance binaries or a final strict48/50 pass. Every pair retained; no acceptance gate rerun or lucky selection.",
+  "audited_utc": "2026-11-01T18:11:23.212686+00:00"
+}

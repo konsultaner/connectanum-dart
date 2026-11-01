@@ -1,0 +1,12 @@
+{
+  "source": "75295eb05b08d4bb9ef5b034be0182250bab9fc9",
+  "job": 124920929029,
+  "success": true,
+  "log_sha256": "1c74b0e6b533ac08f262496ae053bd959c33e2642efa2fc6eb6da679d28da4b2",
+  "log_counts": {
+    "[Chrome, Dart2Js]": 8192,
+    "\u2705 [Chrome, Dart2Js]": 8172,
+    "[Chrome, Dart2Wasm]": 0
+  },
+  "scope": "Own current-source hosted ChromeJS coverage, not localJS. Local canonical separately actualWasm."
+}
