@@ -10,8 +10,8 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 ## Current work
 
 Native-view harness canonical and hosted copy/lifetime proofs now pass. Isolate
-the existing native TCP_NODELAY correction
-for this branch's CI throughput failure. No code edits during active canonical
+the existing native TCP_NODELAY correction for this branch's CI throughput
+failure. No code edits during active canonical
 or fresh pre-change regression. The framing prototype still misses both hosted
 WebSocket throughput gates; the scheduler's controlled Linux result is negative.
 Preserve every active primary/supplemental row to completion. No candidate is
@@ -64,7 +64,13 @@ pair is slower (median-rate ratio 0.98120). Do not adopt from component allocati
 savings or select an unchanged favorable rerun. [All pairs and inputs](research/2026-11-01-mqtt-ready-frame-network-audit.json).
 
 Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41339569720)
-continues to completion, preserving its failed numerical execution. All twenty
+is complete on attempt one: thirty-seven jobs pass; the original measured MQTT
+job and dependent Full Verify fail. The latter independently reports only
+`mqtt-qos0` as its unsuccessful prerequisite. All thirty-seven previously completed
+execution timestamps and forty artifact IDs/digests remain unchanged; forty-one
+artifacts are retained in total. No numerical job or campaign reran.
+[Complete CI receipt](research/2026-11-01-mqtt-ready-frame-ci-completion-audit.json).
+All twenty
 MQTT summaries independently reproduce unchanged budgets on EPYC 7763 / standard
 Dart 3.13.1: eighteen pass, while WebSocket 5 / 3.1.1 throughput ratios
 0.613391925 / 0.638007072 miss the 0.70 gate. The actual measured native

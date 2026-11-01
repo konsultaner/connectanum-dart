@@ -1,0 +1,29 @@
+{
+  "source": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "run": 41339569720,
+  "attempt": 1,
+  "conclusion": "failure",
+  "jobs": 39,
+  "successful_jobs": 37,
+  "failed_or_skipped": [
+    {
+      "name": "MQTT QoS 0 interoperability and benchmark gate",
+      "job": 124946511573,
+      "conclusion": "failure"
+    },
+    {
+      "name": "Full Verify",
+      "job": 124972003293,
+      "conclusion": "failure"
+    }
+  ],
+  "prior_completed_execution_timestamps_preserved": 37,
+  "prior_artifact_ids_and_digests_preserved": 40,
+  "total_artifacts": 41,
+  "numerical_jobs_rerun": false,
+  "all_original_MQTT_performance_evidence_retained": true,
+  "scope": "Complete original CI execution including its measured MQTT failures. No unchanged rerun or performance repair claim. Raw main20 and all120 matched rows and actual binary bytes independently audited separately.",
+  "completed_utc": "2026-11-01T20:41:18.484578+00:00",
+  "dependent_gate_only_failing_prerequisite": "mqtt-qos0",
+  "dependent_gate_log_sha256": "00a949085d4ad9e91482e5091eec0c4961f6fd56751affdf86c0df1dc208aa91"
+}

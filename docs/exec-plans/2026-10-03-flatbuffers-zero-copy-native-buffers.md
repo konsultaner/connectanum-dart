@@ -2,12 +2,13 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: isolate the existing native TCP_NODELAY correction after native-
-view tooling canonical and hosted copy/lifetime proofs independently pass
-as a CI throughput hypothesis. Its prior same-library external checks do not
+Current step: isolate the existing native TCP_NODELAY correction as a CI
+throughput hypothesis. Native-view tooling canonical and hosted copy/lifetime
+proofs independently pass. Its prior same-library external checks do not
 validate this branch or demonstrate a controlled source benefit. Keep all
-candidates frozen during canonical/active pre-change regression. Finish original
-BD59 CI and every75295 primary/supplemental row; RAM/protocol parity remain open.
+candidates frozen during canonical/active pre-change regression. Original
+BD59 CI is complete and failed; finish every75295 primary/supplemental row.
+RAM/protocol parity remain open.
 Local focused/diagnostic evidence is scoped below, not final acceptance. All
 predecessor primary/supplemental campaigns have finished failed and are retained.
 Require complete final-runtime strict 48-/50-case acceptance and clean CI before
@@ -60,7 +61,13 @@ pair is slower (median-rate ratio 0.98120). Do not adopt from component allocati
 savings or select an unchanged favorable rerun. [All pairs and inputs](../research/2026-11-01-mqtt-ready-frame-network-audit.json).
 
 Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41339569720)
-continues to completion, preserving its failed numerical execution. All twenty
+is complete on attempt one: thirty-seven jobs pass; the original measured MQTT
+job and dependent Full Verify fail. The latter independently reports only
+`mqtt-qos0` as its unsuccessful prerequisite. All thirty-seven previously completed
+execution timestamps and forty artifact IDs/digests remain unchanged; forty-one
+artifacts are retained in total. No numerical job or campaign reran.
+[Complete CI receipt](../research/2026-11-01-mqtt-ready-frame-ci-completion-audit.json).
+All twenty
 MQTT summaries independently reproduce unchanged budgets on EPYC 7763 / standard
 Dart 3.13.1: eighteen pass, while WebSocket 5 / 3.1.1 throughput ratios
 0.613391925 / 0.638007072 miss the 0.70 gate. The actual measured native
