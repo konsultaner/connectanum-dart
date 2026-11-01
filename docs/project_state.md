@@ -9,11 +9,54 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Retain the frozen `75295eb0` candidate's negative Linux source control and finish
-its complete CI / strict acceptance campaigns; do not adopt it as a transport repair.
+Finish frozen native MQTT frame prototype `bd59c076` canonical verification and
+its predeclared complete native-source control. Preserve the negative `75295eb0`
+Linux control and finish its complete CI / strict campaigns; do not adopt the
+scheduler as a transport repair.
 Every predecessor campaign is complete and failed; all original rows are retained.
 Keep this candidate unchanged and require its own final strict acceptance and
 clean CI before adoption. RAM and broad protocol parity remain unresolved.
+
+## Native MQTT ready-frame prototype under verification (2026-11-01)
+
+Frozen `bd59c076eefaa3534544c78c6a6d3f4c89184f0b` on
+`codex/mqtt-websocket-batch-envelope` starts at `7476ff6e`, excluding both
+unadopted scheduler and validated-forwarding changes. It joins only already-ready
+vectored MQTT batches totaling at most 64 KiB into one binary WebSocket frame.
+Original payload slices/owners are borrowed directly. Singletons, oversized
+batches and nonvectored writers retain the previous framing; queue/control
+priority, permits through flush, payload generation/verification and timing
+policy are intact. Both OASIS MQTT specifications section 6 explicitly permit
+multiple or partial MQTT packets in a WebSocket binary frame.
+
+The before-failing single-frame/borrowed-payload regression passes after the
+change. All 471 Rust core tests, three codec integrations and 115 live MQTT cases
+including seven Paho cases pass with own newly built native library. Boundary,
+partial-write, empty-chunk, large fallback and control/error cleanup tests pass.
+The exact clean parent had already passed full fast regression; this fresh
+worktree separately passes bootstrap and pre-change native egress checks.
+
+An independently checked compiled private-production-function component retains
+eight complete pairs with fresh fully verified 2,048-byte payloads and permit
+return. For sixteen ready 128-byte chunks, header allocation requests fall
+33 / 544 requested bytes → three / 34. Frames fall sixteen→one, wire bytes
+2,112→2,052 and IoSlices 32→17, with one write in each leg. This is a component
+allocation result, not public-ABI, network, RSS, GC or strict acceptance.
+
+Own full canonical verification is active on the clean frozen commit with own
+native `53bb612583da2ce0d03ebce97574242858ae4d4f002939bfdc021765026b4a58`.
+Do not change source/HEAD/native during verification. A complete predeclared
+50-row native-source comparison waits for canonical success and the existing
+machine resource reservation to permit an exclusive lease; every original
+profile/window/repetition/body check remains intact. It uses identical compiled
+Dart broker/client bytes and two independently verified native libraries.
+The broad GLM review timed out and the bounded follow-up was lease-blocked;
+neither establishes approval. Qwen's alleged overflow/race/boundary defects
+were disproved against the sixteen-chunk bound, mutex and actual passing tests.
+
+This prototype is not adopted and no hosted acceptance is claimed. Existing
+`75295eb0` strict 48-/50-case campaigns and full CI continue to completion.
+[Exact component audit](research/2026-11-01-mqtt-ready-frame-component-audit.json).
 
 ## Idle fallback candidate frozen for own verification (2026-11-01)
 
