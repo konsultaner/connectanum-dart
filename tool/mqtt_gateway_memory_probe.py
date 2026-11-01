@@ -5,7 +5,7 @@ import run_mqtt_gateway_benchmark as gate
 root=gate.ROOT/'out/mqtt-memory-probe';root.mkdir(parents=True,exist_ok=True)
 library=Path(os.environ['CONNECTANUM_NATIVE_LIB']).resolve()
 budgets=json.loads((gate.ROOT/'tool/mqtt_gateway_arm64_benchmark_budgets.json').read_text())
-metadata=dict(source_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),architecture=platform.machine(),
+metadata=dict(retention_vm_options='--new_gen_semi_max_size=1',source_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),architecture=platform.machine(),
     logical_cpus=os.cpu_count(),cpu_signature_sha256=gate.cpu_signature_sha256(),native_library_sha256=hashlib.sha256(library.read_bytes()).hexdigest())
 (root/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
 cases=[('tls-5-flatbuffers-65536-1-16','mqtt_to_wamp'),('tls-3.1.1-json-65536-4-16-paho','mqtt_to_wamp')]

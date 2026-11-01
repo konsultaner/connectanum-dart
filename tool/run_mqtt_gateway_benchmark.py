@@ -386,6 +386,8 @@ class Campaign:
         self.events = queue.Queue()
         self.children = {}
         self.env = {**os.environ, 'CONNECTANUM_NATIVE_LIB': config['native_library']}
+        if config.get('retention_protocol') == 'collected_rss_v1':
+            self.env['DART_VM_OPTIONS']='--new_gen_semi_max_size=1'
         self.reference_version = None
 
     def spawn(self, label, role):
@@ -670,7 +672,7 @@ def compile_worker(directory, target='bin/mqtt_gateway_worker.dart'):
 
 def compile_retention_worker(directory, output):
     worker = compile_worker(directory,'test/support/mqtt_gateway_retention_worker.dart')
-    completed = subprocess.run([str(worker),'--self-test'],check=True,capture_output=True,text=True,timeout=30)
+    completed = subprocess.run([str(worker),'--self-test'],check=True,capture_output=True,text=True,timeout=30,env={**os.environ,'DART_VM_OPTIONS':'--new_gen_semi_max_size=1'})
     report = json.loads(completed.stdout)
     if (report.get('kind') != 'retention-self-test' or report.get('protocol') != 'collected_rss_v1'
             or report.get('collections') != 8 or report.get('live_and_released_witnesses_verified') is not True):
