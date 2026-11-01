@@ -9,9 +9,42 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Validate the isolated typed/progressive RESULT header candidate below. The
-published0c4bb57c predecessor has clean canonical/copy/all39CI evidence; full
-RAM/protocol/progressive parity is still unresolved.
+Finish primary acceptance auditing for the frozen typed/progressive RESULT
+header candidate. Its complete supplemental campaign fails strict parity.
+CI recovery awaits the existing retry decision; RAM/performance remains unresolved.
+
+## Complete supplemental campaign independently reproduced (2026-11-01)
+
+The complete supplemental campaign on `290480a3` has finished and fails strict
+acceptance. Independent recomputation matches the hosted manifest and comparison
+exactly. All 50 cases / 1,500 raw rows are retained and verified, including the
+original driver stream, per-pass reports, policy, scenarios, lockfiles and actual
+retained native/driver binaries. No report from another runtime is substituted.
+
+The aggregate contains 38 eligible cases / 1,140 rows and 173 measured numerical
+misses: 129 from the protocol shard and 44 from the final encrypted/progressive
+shard. Both shards have zero integrity findings. The aggregate has four evidence
+findings because the payload shard fails the unchanged allocation requirements,
+leaving the eligible inventory incomplete and a failed reporting prerequisite.
+
+The separately retained payload shard contributes another 12 cases / 360 rows,
+14 measured numerical misses (including seven RSS failures), and two unmeasured
+native MessagePack 1 MiB allocation metrics / 30 evidence findings. Across all
+three shards there are 187 measured misses; the two null allocation ratios are
+not counted as measured failures. No allocation-scope exception is inferred.
+
+The final encrypted/progressive shard ran on Intel Xeon Platinum 8573C using the
+standard Dart 3.13.5 / Rust 1.99.0 toolchains. Cross-host absolute results are not
+compared. These are measured failures, not proof of a cause or a RAM fix.
+[Reproduction summary](research/2026-11-01-flatbuffers-290480a3-supplemental-audit.json)
+retains the exact aggregate comparison digest and per-shard counts.
+
+Primary 48-case acceptance is still running. CI remains blocked by the missing
+MCP mutation partition and the already-pending retry exception; no retry or
+runtime edit has been made. Canonical, copy/lifetime and MQTT proofs remain
+valid within their documented scopes. PR #132 stays `40ddcb3f` / draft, and
+issue #103 and the milestone remain open. No gate, workload, window, sample,
+body verification, SDK, GC or allocator policy is weakened.
 
 ## Protocol shard independently reproduced (2026-11-01)
 

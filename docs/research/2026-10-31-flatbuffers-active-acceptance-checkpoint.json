@@ -1270,8 +1270,58 @@
       "unmeasured_metrics": 0
     },
     "runtime_base": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
-    "scope": "Typed RESULT bounded metadata storage and pinned generated optional-progress projection; no changed policies/budgets/workload.",
-    "supplemental50_run": 41242463543
+    "scope": "Canonical/copy/MQTT/browser evidence verified. Complete supplemental strict acceptance fails; primary remains running. CI recovery awaits the existing unanswered retry exception. Candidate not adopted into PR132.",
+    "supplemental50_run": 41242463543,
+    "supplemental_audit": {
+      "all50_measured_numerical_misses": 187,
+      "all_raw_rows_verified": true,
+      "audited_utc": "2026-11-01T01:14:24.538546+00:00",
+      "case_batches": [
+        {
+          "artifact": "wamp-flatbuffers-primary-290480a3227dd6617379c6453d863b7d2ff7825d-1-encrypted_progressive_results",
+          "cases": 8,
+          "evidence_findings": 0,
+          "measured_numerical_misses": 44,
+          "rows": 240,
+          "shard": "encrypted_progressive_results",
+          "unmeasured_metrics": 0
+        },
+        {
+          "artifact": "wamp-flatbuffers-primary-290480a3227dd6617379c6453d863b7d2ff7825d-1-payload_sizes",
+          "cases": 12,
+          "evidence_findings": 30,
+          "measured_numerical_misses": 14,
+          "rows": 360,
+          "shard": "payload_sizes",
+          "unmeasured_metrics": 2
+        },
+        {
+          "artifact": "wamp-flatbuffers-primary-290480a3227dd6617379c6453d863b7d2ff7825d-1-protocol",
+          "cases": 30,
+          "evidence_findings": 0,
+          "measured_numerical_misses": 129,
+          "rows": 900,
+          "shard": "protocol",
+          "unmeasured_metrics": 0
+        }
+      ],
+      "comparison_sha256": "7874fd2fdf2195be07bb1c72d81c7c4288f47ae1e30c0c959ec180831a44384b",
+      "complete_acceptance": false,
+      "eligible_cases": 38,
+      "eligible_rows": 1140,
+      "evidence_findings": 4,
+      "excluded_payload_evidence_findings": 30,
+      "excluded_payload_measured_numerical_misses": 14,
+      "excluded_payload_unmeasured_metrics": 2,
+      "matches_hosted": true,
+      "measured_numerical_misses": 173,
+      "native_and_driver_binaries_independently_rehashed": true,
+      "policy_scenarios_locks_inputs_verified": true,
+      "raw_rows": 1500,
+      "run": 41242463543,
+      "source": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "summary": "docs/research/2026-11-01-flatbuffers-290480a3-supplemental-audit.json"
+    }
   },
   "pending_product_question": "Separate 1% allocation estimate precision for2 nativeMessagePack1MiB supplemental cases; label SDK-limited/unmeasured or instrument customSDK. No answer yet; prior standardSDK copy scope does not waive precision. Do not infer approval.",
   "published_control_candidate": {
@@ -1571,5 +1621,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-11-01T00:35:34.669374+00:00"
+  "updated_utc": "2026-11-01T01:15:06.233034+00:00"
 }
