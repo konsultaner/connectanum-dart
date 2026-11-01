@@ -2,11 +2,26 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: validate the isolated native MQTT TCP_NODELAY correction. Its
-real before-failing socket regression, full native suite and own rebuilt MQTT/
-Paho checks pass. Require own canonical, controlled transport evidence, copy/CI
-and complete final-runtime strict 48/50 before adoption. Keep every prior row and
-all active campaigns; no source/HEAD/native changes during canonical verification.
+Current step: verify the isolated busy-pass wake correction after real before-
+failing deterministic regression, full fast baseline and 615 router-runtime /
+115 MQTT focused cases pass. Own canonical, CI/copy and controlled Dart-source
+transport comparison are next. Preserve all original numerical observations;
+complete final-runtime strict 48/50 and clean CI remain required for adoption.
+Do not mutate source/HEAD/native during active canonical verification.
+
+## Busy-pass wake correction under verification (2026-11-02)
+
+The isolated `codex/router-busy-wake-consumption` candidate consumes a previously
+queued wake even when the router pass did work. A deterministic regression fails
+before the minimal correction and passes afterward; a wake arriving during the
+busy await remains pending. Fresh clean full fast baseline passes first, then
+all 615 router-runtime and 115 MQTT cases including seven Paho cases pass with
+own unchanged native `bf607a9b…` and three unchanged locks. Bounded advisory and
+independent source/log review find no confirmed defect. Own canonical, CI/copy
+and complete paired Dart-source transport evidence are next; no throughput/RAM
+repair or final acceptance is claimed. Source/HEAD/native will stay frozen
+through canonical verification. All original numerical results are preserved.
+[Exact change and validation scope](../research/2026-11-02-router-busy-wake-consumption.md).
 
 ## Native MQTT WebSocket socket option correction (2026-11-01)
 
@@ -19,10 +34,12 @@ and unchanged locks. Own newly rebuilt native `4b77cb82…` passes 36 core MQTT 
 115 router MQTT cases, including all seven Paho cases. Exact verified `290eae37`
 startup/input-retention tooling is ported; 21 probe / 23 CI contracts pass.
 
-This is provisional correctness evidence. Own frozen canonical, an actual
-50-row source comparison, hosted copy/CI and complete final-runtime
-strict 48/50 remain required before adoption. Prior external labelled legs use
-one identical reported native hash and do not establish a source benefit.
+This predecessor now has complete own canonical and copy/lifetime passes.
+Its original CI has 37 passing jobs and fails the measured MQTT job plus its
+Full Verify dependent. All observations are retained: seventeen MQTT profiles
+pass and three profiles fail four metrics on EPYC 7763. The complete local
+50-row source comparison shows no transport repair. It is not adopted.
+Native-only comparison labels cannot establish a later Dart-source effect.
 Body generation/verification, gates/windows/samples, SDK/GC/allocator policy and
 native ownership remain unchanged. Every prior failed or active campaign is
 retained; RAM/broad WAMP parity remain unresolved. PR #132 stays`40ddcb3f` OPEN DRAFT,
