@@ -10,7 +10,8 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 ## Current work
 
 Verify frozen busy-pass wake candidate `600e82f5` with its own canonical,
-exact-source CI/copy proof and full controlled Dart-source transport comparison.
+remaining exact-source CI after canonical/copy proof and the complete mixed
+Dart-source transport comparison.
 All original numerical observations are preserved. No candidate is adopted;
 RAM and broad WAMP parity remain incomplete.
 
@@ -68,11 +69,18 @@ and client, all five profiles/five AB/BA pairs/fifty rows/8.05 million fresh
 verified deliveries. All eighteen actual positive/adversarial source, canonical/log/native, body,
 order and output guards pass. Bounded companion and root review are complete;
 exact profile/pair/leg AB/BA order and immutable engine-shape checks were
-strengthened before any capture. The single complete comparison is now active
-under the official exclusive lease, retaining all observations. Native-only
-labels do not isolate this Dart change. No original numerical run is retried or selected. The candidate is not
-adopted; throughput/RAM impact, complete final strict 48/50 and clean final CI
-remain outstanding.
+strengthened before any capture. The single complete comparison is now **complete and independently audited**:
+all fifty rows / 8.05 million fresh verified deliveries, exact source archives,
+all six locks, both own canonical native witnesses, identical measured native
+and client bytes, actual separate Dart executables, full stdout/order/body
+checks and graceful cleanup verify. Paired median rate ratios are 0.984245 /
+1.010560 for WS 5 / 3.1.1 and 0.982255 / 0.995894 / 1.011203 for the three TCP
+profiles. Results are mixed and near unity; they do not demonstrate a transport
+speedup or RAM repair. No source is adopted and no unchanged numerical run
+is retried. The first read-only auditor's cross-host compiler assumption was
+corrected using actual stable Dart and unchanged native bytes; all original
+data stayed intact. Full final-runtime strict 48/50 and clean CI remain required.
+[All controlled rows and exact inputs](research/2026-11-02-router-busy-wake-Dart-control-audit.json),
 [Own canonical audit](research/2026-11-02-router-busy-wake-canonical-audit.json),
 [Change and focused proof](research/2026-11-02-router-busy-wake-consumption.md),
 [current frozen verification scope](research/2026-11-02-router-busy-wake-validation-checkpoint.json).

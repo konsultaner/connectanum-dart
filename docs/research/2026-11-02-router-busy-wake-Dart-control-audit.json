@@ -1,0 +1,144 @@
+{
+  "diagnosticOnly": true,
+  "tool_source": "e2becb6e70457c92cc5936463706c000e4c38fc8",
+  "baseline_source": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "candidate_source": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+  "rows": 50,
+  "delivered": 8050000,
+  "whole_exact_source_archives_verified": true,
+  "shared_inputs_verified": 1432,
+  "canonical_candidate_locks_verified": true,
+  "all_six_locks_and_both_own_canonical_natives_verified": true,
+  "both_own_canonical_receipts_and_logs_rehashed": true,
+  "wrapper_fullsource_guard_inputs_verified": 2565,
+  "driver_sha256": "b1cff42a609fc5cce64fcd20755621a831170ba7782ec4d83c16a0e23d0a98fe",
+  "baseline_archive_sha256": "05b1faf0b920cd3b046986f9e5bdcf408285d2586bddde2033039776bde2b6d0",
+  "candidate_archive_sha256": "e6ef7290ff1c5ef62d879bf55b4ebd5c305ea9c38be91d153d0fef5aa7997989",
+  "actual_native_broker_client_bytes_rehashed": true,
+  "all_original_stdout_rows_order_body_delivery_and_cleanup_verified": true,
+  "summary_exactly_reproduced": true,
+  "native_sha256": "bf607a9bd74823a8c8152b0f2dbfc8ca19444d68fd3b108c214392fb54b7a474",
+  "broker_sha256": {
+    "baseline": "0a3df4bc123f78174e3034f97bb91757f65454d62c9bf6212248d395c1e5e329",
+    "candidate": "3ebf17a84afcc920c7c6f4af7f7a6288cfbbf8227c01ea478cfb4c15968998be"
+  },
+  "client_sha256": "cb50c2c9e15abfeb13a7988b9f2bccb158d17b2fb9b96ddeed7b902bde7b2638",
+  "platform": {
+    "os": "Darwin",
+    "kernel": "25.6.0",
+    "architecture": "arm64",
+    "logical_cpus": 32,
+    "cpu_model": "Apple M3 Ultra",
+    "runner_image": null,
+    "runner_image_version": null,
+    "native_runtime_threads": null,
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: aarch64-apple-darwin\nrelease: 1.95.0\nLLVM version: 22.1.2"
+  },
+  "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+  "profiles": [
+    {
+      "profile": "ws_sustained",
+      "paired_throughput_ratios": [
+        0.9588647735892122,
+        1.0267857142857142,
+        0.9683956758968689,
+        0.9842451879108493,
+        0.9870517866690355
+      ],
+      "median_paired_ratio": 0.9842451879108493,
+      "throughput_ratio_of_medians": 0.9876770654446326,
+      "median_rates": {
+        "baseline": 111493.53393249959,
+        "candidate": 110119.60641050276
+      },
+      "broker_cpu_medians": {
+        "baseline": 3.18,
+        "candidate": 3.2
+      }
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "paired_throughput_ratios": [
+        1.031135331138971,
+        1.0183156647981801,
+        0.9836691058153514,
+        1.0063631071160113,
+        1.0105603925071902
+      ],
+      "median_paired_ratio": 1.0105603925071902,
+      "throughput_ratio_of_medians": 1.0018219547507765,
+      "median_rates": {
+        "baseline": 111813.17360448773,
+        "candidate": 112016.89214733582
+      },
+      "broker_cpu_medians": {
+        "baseline": 3.19,
+        "candidate": 3.15
+      }
+    },
+    {
+      "profile": "sustained",
+      "paired_throughput_ratios": [
+        0.9822554867258803,
+        0.978837430362536,
+        0.9822409874269932,
+        1.017236165709102,
+        1.022740395508443
+      ],
+      "median_paired_ratio": 0.9822554867258803,
+      "throughput_ratio_of_medians": 0.9858787856910805,
+      "median_rates": {
+        "baseline": 488189.4760994637,
+        "candidate": 481295.647884104
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.63,
+        "candidate": 0.65
+      }
+    },
+    {
+      "profile": "v311_sustained",
+      "paired_throughput_ratios": [
+        0.980979012831156,
+        0.9875619701369943,
+        1.0030943405493682,
+        0.9958936590800416,
+        1.0067434202307604
+      ],
+      "median_paired_ratio": 0.9958936590800416,
+      "throughput_ratio_of_medians": 0.9922715161040779,
+      "median_rates": {
+        "baseline": 494990.6941749495,
+        "candidate": 491165.1665663871
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.63,
+        "candidate": 0.63
+      }
+    },
+    {
+      "profile": "64k_sustained",
+      "paired_throughput_ratios": [
+        1.0167841036882599,
+        1.003936388688182,
+        1.0112027944048965,
+        1.0210963304827836,
+        0.9960232427528406
+      ],
+      "median_paired_ratio": 1.0112027944048965,
+      "throughput_ratio_of_medians": 1.017766164426949,
+      "median_rates": {
+        "baseline": 11114.247798823224,
+        "candidate": 11311.705352698973
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.23,
+        "candidate": 0.22
+      }
+    }
+  ],
+  "scope": "Predeclared controlled source diagnostic only. Candidate own canonical BF60 bytes intentionally held constant across separatelycompiledactualDartbrokers to isolate onlywakeconsumption, because allnativeRustinputs/locks identical. Baseline owncanonical4B77 retained separately as evidence, not measured. Sameactualclient. These data never substitute for original MQTT acceptance binaries or a final strict48/50 pass. Every pair retained; no acceptance gate rerun or lucky selection.",
+  "audited_utc": "2026-11-01T23:49:27.226108+00:00",
+  "assessment": "Complete mixed/nearlyunity controlled Dart-source comparison; does not demonstrate a transport repair and supplies no RAM/strictacceptance. Everypair preserved; no numericrerun or sourceadoption.",
+  "auditor_correction": "The first read-only auditor copied an unjustified remoteLinux rustc1.99 assertion; local diagnostic PATHrustc is1.95. No Rust compilation happens in this Dart-only control: both legs use actual held-constant owncanonicalBF60 bytes. Auditor now verifies actualstableDartSDK3.13.1 and retains observed compiler metadata; no measurement/source/native/SDK/GC/allocator/gate changes or numerical rerun."
+}
