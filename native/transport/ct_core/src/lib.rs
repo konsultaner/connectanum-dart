@@ -4276,7 +4276,7 @@ fn spawn_connection_heartbeat(
 
 // Drain only ready entries; stop at 16 chunks or after reaching the 64 KiB
 // target. The final chunk may cross that target; queue permits bound its size.
-// Reuse descriptors and preserve every payload owner and WebSocket frame.
+// Reuse descriptors and preserve every payload owner and MQTT byte order.
 fn mqtt_ready_batch(
     first: MqttOutboundChunk,
     receiver: &mut mpsc::Receiver<MqttOutboundChunk>,
@@ -4339,7 +4339,17 @@ async fn write_mqtt_ready_batch<W: AsyncWrite + Unpin>(
         }
         return Ok(());
     }
-    let headers = if websocket {
+    // MQTT 3.1.1/5 section 6 permits several packets in one binary frame.
+    // Join only this already-ready small batch; large chunks retain framing.
+    let joined_len: usize = if websocket {
+        batch.iter().map(|(bytes, _)| bytes.len()).sum()
+    } else {
+        0
+    };
+    let join_frame = websocket && joined_len <= 64 * 1024;
+    let headers = if join_frame {
+        vec![websocket_frame_header(0x2, true, joined_len, false).0]
+    } else if websocket {
         batch
             .iter()
             .map(|(bytes, _)| websocket_frame_header(0x2, true, bytes.len(), false).0)
@@ -4350,8 +4360,8 @@ async fn write_mqtt_ready_batch<W: AsyncWrite + Unpin>(
     let mut slices: [io::IoSlice<'_>; 32] = std::array::from_fn(|_| io::IoSlice::new(&[]));
     let mut count = 0;
     for (index, (bytes, _)) in batch.iter().enumerate() {
-        if websocket {
-            slices[count] = io::IoSlice::new(&headers[index]);
+        if websocket && (!join_frame || index == 0) {
+            slices[count] = io::IoSlice::new(&headers[if join_frame { 0 } else { index }]);
             count += 1;
         }
         if !bytes.is_empty() {
@@ -14345,6 +14355,7 @@ mod mqtt_egress_batch_tests {
         bytes: Vec<u8>,
         writes: usize,
         flushes: usize,
+        slices: Vec<(usize, usize)>,
     }
     struct CaptureWriter {
         state: Arc<Mutex<Capture>>,
@@ -14373,6 +14384,11 @@ mod mqtt_egress_batch_tests {
         ) -> Poll<io::Result<usize>> {
             let mut state = self.state.lock().unwrap();
             state.writes += 1;
+            if state.slices.is_empty() {
+                state
+                    .slices
+                    .extend(buffers.iter().map(|b| (b.as_ptr() as usize, b.len())));
+            }
             let mut n = 0;
             for buffer in buffers {
                 let take = buffer.len().min(self.max_write - n);
@@ -14392,6 +14408,98 @@ mod mqtt_egress_batch_tests {
             Poll::Ready(Ok(()))
         }
     }
+    #[tokio::test]
+    async fn mqtt_ready_small_batch_uses_one_frame_and_borrows_original_payloads() {
+        let state = Arc::new(Mutex::new(Capture::default()));
+        let mut writer = CaptureWriter {
+            state: Arc::clone(&state),
+            max_write: usize::MAX,
+            vectored: true,
+        };
+        let (outbound, mut receiver) = MqttOutboundQueue::new(16);
+        let permits = Arc::clone(&outbound.byte_budget);
+        let full = permits.available_permits();
+        let mut owners = Vec::new();
+        let mut expected = vec![0x82, 126, 1, 0];
+        for value in [1, 2] {
+            let bytes = Bytes::from(vec![value; 128]);
+            owners.push((bytes.as_ptr() as usize, bytes.len()));
+            expected.extend_from_slice(&bytes);
+            outbound.enqueue(ConnectionId(908), bytes).unwrap();
+        }
+        let first = receiver.recv().await.unwrap();
+        let mut batch = Vec::new();
+        mqtt_ready_batch(first, &mut receiver, &mut batch);
+        let mut scratch = Vec::new();
+        write_mqtt_ready_batch(&mut writer, &batch, true, &mut scratch)
+            .await
+            .unwrap();
+        assert_eq!(permits.available_permits(), full - 256);
+        {
+            let captured = state.lock().unwrap();
+            assert_eq!(captured.bytes, expected);
+            assert_eq!(captured.writes, 1);
+            assert_eq!(&captured.slices[1..], owners);
+        }
+        batch.clear();
+        assert_eq!(permits.available_permits(), full);
+    }
+
+    #[tokio::test]
+    async fn mqtt_batch_frame_boundaries_and_large_fallback_preserve_payloads() {
+        for lengths in [
+            [0, 0],
+            [1, 124],
+            [1, 125],
+            [1, 126],
+            [1, 65534],
+            [1, 65535],
+            [2, 65535],
+            [1, 1024 * 1024],
+        ] {
+            for vectored in [false, true] {
+                for max_write in [1, 3, usize::MAX] {
+                    let total: usize = lengths.iter().sum();
+                    if total > 1024 && max_write < usize::MAX {
+                        continue;
+                    }
+                    let state = Arc::new(Mutex::new(Capture::default()));
+                    let mut writer = CaptureWriter {
+                        state: Arc::clone(&state),
+                        max_write,
+                        vectored,
+                    };
+                    let (outbound, mut receiver) = MqttOutboundQueue::new(16);
+                    let mut expected = Vec::new();
+                    if vectored && total <= 65536 {
+                        expected.extend(websocket_frame_header(0x2, true, total, false).0);
+                    }
+                    for (index, len) in lengths.into_iter().enumerate() {
+                        let bytes = Bytes::from(vec![index as u8; len]);
+                        if !vectored || total > 65536 {
+                            expected.extend(websocket_frame_header(0x2, true, len, false).0);
+                        }
+                        expected.extend_from_slice(&bytes);
+                        outbound.enqueue(ConnectionId(909), bytes).unwrap();
+                    }
+                    let mut batch = Vec::new();
+                    // Deliberately cover an overshooting ready batch without changing collection.
+                    while let Ok(chunk) = receiver.try_recv() {
+                        batch.push(chunk);
+                    }
+                    write_mqtt_ready_batch(&mut writer, &batch, true, &mut Vec::new())
+                        .await
+                        .unwrap();
+                    assert_eq!(
+                        state.lock().unwrap().bytes,
+                        expected,
+                        "lengths={lengths:?} vectored={vectored} max_write={max_write}"
+                    );
+                }
+            }
+        }
+    }
+
     async fn capture_mode(
         websocket: bool,
         max_write: usize,
@@ -14407,8 +14515,12 @@ mod mqtt_egress_batch_tests {
         let mut expected = Vec::new();
         for index in 0..32 {
             let bytes = Bytes::from(vec![index; 128]);
-            if websocket {
-                expected.extend_from_slice(&[0x82, 126, 0, 128]);
+            if websocket && (!vectored || index % 16 == 0) {
+                expected.extend_from_slice(if vectored {
+                    &[0x82, 126, 8, 0]
+                } else {
+                    &[0x82, 126, 0, 128]
+                });
             }
             expected.extend_from_slice(&bytes);
             outbound.enqueue(ConnectionId(900), bytes).unwrap();
@@ -14485,9 +14597,15 @@ mod mqtt_egress_batch_tests {
                 batch.clear();
             }
             let state = state.lock().unwrap();
-            let mut expected = vec![0x82, 126, 0, 128];
+            let mut expected = if coalesce {
+                vec![0x82, 126, 1, 0]
+            } else {
+                vec![0x82, 126, 0, 128]
+            };
             expected.extend_from_slice(&[1; 128]);
-            expected.extend_from_slice(&[0x82, 126, 0, 128]);
+            if !coalesce {
+                expected.extend_from_slice(&[0x82, 126, 0, 128]);
+            }
             expected.extend_from_slice(&[2; 128]);
             assert_eq!(state.bytes, expected);
             assert_eq!(
@@ -14656,7 +14774,7 @@ mod mqtt_egress_batch_tests {
         );
     }
     #[tokio::test]
-    async fn queued_ws_egress_preserves_frames_with_bounded_write_calls() {
+    async fn queued_ws_egress_preserves_payloads_with_bounded_frames_and_writes() {
         let (state, expected) = capture_mode(true, usize::MAX, true).await;
         let state = state.lock().unwrap();
         assert_eq!(state.bytes, expected);

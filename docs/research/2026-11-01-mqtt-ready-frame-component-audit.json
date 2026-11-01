@@ -1,0 +1,48 @@
+{
+  "diagnostic_only": true,
+  "rows": 16,
+  "actual_production_function_source_exactly_extracted": true,
+  "source_hashes": {
+    "baseline": {
+      "whole_source_sha256": "4305e4369ed9d05fe758e90228ec86e886939a41723f243d8698ac978b937132",
+      "exact_function_sha256": "562487e12bab08a6633b74fa73dd6edb5dcc04968a6039ae43771a22f5ad4b7b",
+      "exact_header_sha256": "7b366a21e1728bb61d3af335d25f3627f2383b05580f658842ce9851b3568954"
+    },
+    "candidate": {
+      "whole_source_sha256": "a31b51c96d43f061d399163624ed6984877476ad4ed5f221c7ca931e461372d9",
+      "exact_function_sha256": "ce49a1512a4476b2f0ed0ed31e2558094803fc91dcd008474ed65bd4c5939533",
+      "exact_header_sha256": "7b366a21e1728bb61d3af335d25f3627f2383b05580f658842ce9851b3568954"
+    }
+  },
+  "fixture_sha256": "279e802e695f16ab9f65785a114d4b5e5b7467332c44dadd0ac81798a0610736",
+  "raw_sha256": "08f513c8a00c15635fa474571941b04029289936cb8ed07919136f2949a9dda3",
+  "executable_sha256": "4c3b8f8a4590f65de01aecab281050ef6890542095cbb53ab4a1a9e683a798ba",
+  "fully_checked_payload_bytes_per_row": 2048,
+  "fresh_payloads_per_leg": true,
+  "full_budget_return_verified": true,
+  "by_leg": {
+    "baseline": {
+      "leg": "baseline",
+      "repeat": 1,
+      "allocations": 33,
+      "requested_bytes": 544,
+      "frames": 16,
+      "wire_bytes": 2112,
+      "payload_bytes": 2048,
+      "writes": 1,
+      "slices": 32
+    },
+    "candidate": {
+      "leg": "candidate",
+      "repeat": 1,
+      "allocations": 3,
+      "requested_bytes": 34,
+      "frames": 1,
+      "wire_bytes": 2052,
+      "payload_bytes": 2048,
+      "writes": 1,
+      "slices": 17
+    }
+  },
+  "scope": "Exact compiled production function extraction with fresh payloads and immediate preallocated vectoredsink; privatecomponentonly, no publicABI/network/RSS/GCacceptance."
+}

@@ -1,5 +1,20 @@
 # FlatBuffers and zero-copy native buffers
 
+Current isolated work: MQTT already-ready small WebSocket batches share one
+binary frame; this branch starts at `7476ff6e`, excluding unadopted forwarding /
+idle-timer changes. All 471 Rust core tests, three codec integrations and all
+115 MQTT cases including seven Paho cases pass with its own newly built native
+library. The before-failing borrowed-payload regression now passes. Exact
+compiled production-function extraction measures sixteen 128-byte chunks:
+33 allocation requests / 544 requested bytes → three / 34, frames sixteen→one,
+identical 2,048 payload bytes/order, one write each. These are component results;
+controlled transport comparison and own frozen canonical/copy/CI/full strict
+acceptance remain required. No RAM repair or adoption is claimed. Existing
+frozen `75295eb0` full campaigns continue despite its negative Linux control.
+See [framing scope and source research](../research/2026-11-01-mqtt-ready-batch-framing.md).
+The documentation-only acceptance-status branch retains all predecessor failures.
+
+
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
 Current step: validate the isolated typed/progressive RESULT header candidate.
