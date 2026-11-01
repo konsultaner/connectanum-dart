@@ -192,6 +192,11 @@ Future<void> main(List<String> args) async {
       Future<void> stopPerf() => perfStopping ??= () async {
         final child = perf;
         if (child == null) return;
+        // An attached recording stops through its control channel, not EOF.
+        try {
+          child.stdin.writeln('stop');
+          await child.stdin.flush();
+        } catch (error) { perfLog.writeln(error); }
         try { await child.stdin.close(); } catch (error) { perfLog.writeln(error); }
         late int code;
         try {
@@ -217,19 +222,22 @@ Future<void> main(List<String> args) async {
       await captureWithPerfCleanup<void>(() async {
         if (args[4].isNotEmpty) {
           final ready = Completer<void>();
+          // Native control acknowledges enable before the data request starts.
           final child = await Process.start('sudo', ['-n', args[4], 'record', '-v',
+            '--delay=-1', '--control=fd:0,1',
             '--clockid', 'CLOCK_MONOTONIC', '-e', 'cpu-clock', '-F', '999', '--call-graph', '__NATIVE_CALL_GRAPH__',
-            '-p', pids.values.join(','), '-o', '${output.path}/$codec-native.perf', '--',
-            'python3', '-c', "import sys; print('PERF_READY', flush=True); sys.stdin.buffer.read(1)"]);
+            '-p', pids.values.join(','), '-o', '${output.path}/$codec-native.perf']);
           perf = child;
           perfOutput = child.stdout.transform(utf8.decoder).transform(const LineSplitter()).forEach((line) {
-            perfLog.writeln(line);
-            if (line.trim() == 'PERF_READY' && !ready.isCompleted) ready.complete();
+            perfLog.writeln(line.replaceAll('\u0000', r'\0'));
+            if (line.trim() == 'ack' && !ready.isCompleted) ready.complete();
           });
           perfErrors = child.stderr.transform(utf8.decoder).forEach(perfLog.write);
           unawaited(child.exitCode.then((code) {
             if (!ready.isCompleted) ready.completeError(StateError('perf exited before readiness: $code'));
           }));
+          child.stdin.writeln('enable');
+          unawaited(child.stdin.flush().catchError((Object error) { perfLog.writeln(error); }));
           await ready.future.timeout(const Duration(seconds: 15));
         }
         captureStartedAtUs = DateTime.now().microsecondsSinceEpoch;

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check CPU diagnostic attribution without running a performance workload."""
 import contextlib
+import http.server
 import io
 import json
 import os
@@ -9,11 +10,182 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from types import SimpleNamespace
 import unittest
 from unittest import mock
 
 import profile_wamp_serializers as profiler
+
+
+@unittest.skipUnless(shutil.which('dart') and os.name == 'posix',
+                     'Dart SDK and POSIX process pipes are required')
+class PerfControlProtocolTests(unittest.TestCase):
+    def run_probe(self, mode):
+        project = Path(profiler.__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory(prefix='perf control fixture ') as folder:
+            root = Path(folder)
+            output = root / 'output'
+            output.mkdir()
+            binaries = root / 'bin'
+            binaries.mkdir()
+            events = root / 'events.jsonl'
+            events.touch()
+            probe = root / 'probe.dart'
+            probe.write_text(profiler.CPU_PROBE.replace(
+                '__PROFILE_WINDOW_TOOL_URI__',
+                json.dumps((project / 'tool/wamp_profile_window.py').as_uri()))
+                .replace('__NATIVE_CALL_GRAPH__', 'fp'))
+            vm_source = root / 'vm.dart'
+            vm_source.write_text("import 'dart:async';\nimport 'dart:developer';\nimport 'dart:isolate';\n"
+                "import 'dart:io';\nFuture<void> main() async {\n"
+                "  stdout.writeln('FIXTURE_VM_SERVICE=${(await Service.getInfo()).serverUri}');\n"
+                "  final keepAlive = ReceivePort()..listen((_) {});\n"
+                "  await Completer<void>().future;\n  keepAlive.close();\n}\n")
+            sudo = binaries / 'sudo'
+            sudo.write_text('#!/usr/bin/env python3\nimport os,sys\n'
+                            'assert sys.argv[1] == "-n"\n'
+                            'os.execv(sys.argv[2], sys.argv[2:])\n')
+            sudo.chmod(0o755)
+            perf = binaries / 'perf'
+            perf.write_text(r'''#!/usr/bin/env python3
+import json,os,sys,time
+
+def event(name, **fields):
+    with open(os.environ['PERF_CONTROL_EVENTS'], 'a') as stream:
+        stream.write(json.dumps({'event':name, 'time_ns':time.monotonic_ns(), **fields})+'\n')
+
+args=sys.argv[1:]
+event('arguments', arguments=args)
+if '--control=fd:0,1' not in args or '--delay=-1' not in args or '--' in args:
+    sys.stderr.write('fixture: workload-based readiness cannot provide control acknowledgement\n')
+    sys.exit(255)
+assert args[0]=='record'
+assert all(int(pid)>0 for pid in args[args.index('-p')+1].split(','))
+if os.environ['PERF_CONTROL_MODE']=='early_exit':
+    sys.exit(255)
+for line in sys.stdin:
+    command=line.strip()
+    event(command)
+    if command=='enable':
+        if os.environ['PERF_CONTROL_MODE']=='no_ack':
+            continue
+        time.sleep(0.12)
+        event('ack')
+        # Linux perf's acknowledgement includes a newline and trailing NUL.
+        sys.stdout.write('ack\n\x00')
+        sys.stdout.flush()
+    elif command=='stop':
+        sys.stdout.write('ack\n\x00')
+        sys.stdout.flush()
+        sys.exit(0)
+    else:
+        sys.exit(8)
+event('eof_before_stop')
+sys.exit(9)
+''')
+            perf.chmod(0o755)
+
+            class Handler(http.server.BaseHTTPRequestHandler):
+                def do_POST(self):
+                    data = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+                    profiled = data['minimum_duration_ms'] == 30000
+                    if profiled:
+                        with events.open('a') as stream:
+                            stream.write(json.dumps({'event': 'profiled_request',
+                                'time_ns': time.monotonic_ns()}) + '\n')
+                    body = b'{"intentional_fixture_failure":true}' if profiled else b'{}'
+                    self.send_response(418 if profiled else 200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def log_message(self, *args):
+                    pass
+
+            server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            env = {**os.environ, 'PATH': str(binaries) + os.pathsep + os.environ['PATH'],
+                   'PERF_CONTROL_EVENTS': str(events), 'PERF_CONTROL_MODE': mode}
+            vms = []
+            try:
+                with contextlib.ExitStack() as stack:
+                    uris = []
+                    for index in range(2):
+                        log_path = root / f'vm-{index}.log'
+                        log = stack.enter_context(log_path.open('w'))
+                        vm = subprocess.Popen([shutil.which('dart'), '--enable-vm-service=0/127.0.0.1',
+                            f'--packages={project / ".dart_tool/package_config.json"}',
+                            str(vm_source)], cwd=project, stdout=log, stderr=subprocess.STDOUT,
+                            env=env)
+                        vms.append(vm)
+                        uri = None
+                        deadline = time.monotonic() + 20
+                        while time.monotonic() < deadline:
+                            text = log_path.read_text()
+                            found = [line.removeprefix('FIXTURE_VM_SERVICE=')
+                                     for line in text.splitlines() if line.startswith('FIXTURE_VM_SERVICE=')]
+                            if found:
+                                self.assertIsNone(vm.poll(), log_path.read_text())
+                                uri = found[-1]
+                                break
+                            if vm.poll() is not None:
+                                self.fail('VM fixture exited: ' + text)
+                            time.sleep(0.025)
+                        self.assertIsNotNone(uri, log_path.read_text())
+                        uris.append(uri)
+                    # Bound probe control/cleanup independently of VM fixture startup.
+                    started = time.monotonic()
+                    result = subprocess.run([shutil.which('dart'),
+                        f'--packages={project / ".dart_tool/package_config.json"}', str(probe),
+                        f'http://127.0.0.1:{server.server_port}/run', *uris, str(output),
+                        str(perf), '{}'], cwd=project, env=env, text=True,
+                        capture_output=True, timeout=45)
+                    recorded = [json.loads(line) for line in events.read_text().splitlines()]
+                    perf_log = output / 'msgpack-perf-record.log'
+                    return result, recorded, perf_log.read_text() if perf_log.exists() else '', time.monotonic() - started
+            finally:
+                for vm in vms:
+                    if vm.poll() is None:
+                        vm.terminate()
+                        try:
+                            vm.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            vm.kill()
+                            vm.wait(timeout=5)
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=5)
+
+    def test_actual_probe_waits_for_ack_and_stops_after_primary_capture_error(self):
+        result, events, log, elapsed = self.run_probe('delayed_ack')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('HTTP 418:', result.stderr)
+        self.assertNotIn('Secondary perf cleanup failure:', result.stderr)
+        names = [event['event'] for event in events]
+        self.assertEqual(names, ['arguments', 'enable', 'ack', 'profiled_request', 'stop'])
+        self.assertLess(events[2]['time_ns'], events[3]['time_ns'])
+        self.assertIn('ack', log)
+        self.assertNotIn('\x00', log)
+        self.assertLess(elapsed, 30)
+
+    def test_actual_probe_fails_early_exit_without_starting_workload(self):
+        result, events, log, elapsed = self.run_probe('early_exit')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('perf exited before readiness: 255', result.stderr)
+        self.assertNotIn('profiled_request', [event['event'] for event in events])
+        self.assertLess(elapsed, 30)
+
+    def test_actual_probe_missing_ack_times_out_and_reaps_perf(self):
+        result, events, log, elapsed = self.run_probe('no_ack')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('TimeoutException', result.stderr)
+        self.assertNotIn('Secondary perf cleanup failure:', result.stderr)
+        self.assertEqual([event['event'] for event in events], ['arguments', 'enable', 'stop'])
+        self.assertLess(elapsed, 35)
 
 
 class PerfCleanupFailureTests(unittest.TestCase):
