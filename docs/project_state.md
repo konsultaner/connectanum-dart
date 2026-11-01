@@ -9,10 +9,12 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Finish frozen `4ec3878f` canonical/CI/copy verification, then its required strict
-acceptance. The same-version MQTT header component has controlled evidence;
-WebSocket/RAM parity remains unproven. Preserve every historical result and let
-the predecessor's complete primary/supplemental campaigns finish unchanged.
+Repair the measured MQTT CI blocker using controlled evidence, then complete
+final-runtime FlatBuffers strict acceptance. Frozen `4ec3878f` passes canonical,
+copy and correctness checks but fails MQTT CI; its controlled source comparison
+does not support a network improvement. It is not adopted. Finish the tool-only
+canonical check, investigate the actual I/O/scheduling path and preserve the
+predecessor's active primary campaign and every historical row.
 
 ## MQTT forwarding candidate in frozen verification (2026-11-01)
 
@@ -44,15 +46,16 @@ counts, perf hashes, expected SIGINT completion and zero lost samples. The exact
 MQTT native SHA remains `f9a7a6e5…`; the broker snapshot is distinct from the
 acceptance executable. Kernel pipe-wake costs are descriptive, not causal proof.
 The predeclared [same-runner source comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/41324624381)
-now runs from tool-only `e2becb6e`, isolated from this frozen runtime. It retains
-all fifty rows (five pairs for each of five profiles), exact source archives,
-canonical candidate locks and actual binary bytes. One shared standard native
-library and one unchanged client isolate the Dart broker change. Original MQTT
-workloads, body verification, windows and repetitions stay intact. Normal CPU
-profile/Intel jobs are skipped and the acceptance gate is not rerun. Tool-only
-canonical verification runs concurrently on clean unchanged source; no result
-is claimed yet. The existing native-library-only comparator cannot isolate
-this Dart change.
+has completed and independently reproduces all fifty rows / 8.05 million verified
+deliveries, complete exact source archives, 1,432 shared inputs, canonical locks,
+actual binaries and cleanup. On EPYC 9V74, all five profile median-rate ratios
+are below one; MQTT 5 TCP is slower in every pair. WebSocket pairs are mixed.
+The original header component gain does not establish a network improvement;
+do not adopt `4ec3878f` as a CI repair. All original acceptance results remain
+retained, without an unchanged numerical retry. Tool-only canonical verification
+continues on clean frozen `e2becb6e`; no canonical pass is claimed yet.
+
+[Controlled comparison and all pairs](research/2026-11-01-mqtt-broker-source-comparison.md).
 
 Full frozen canonical verification passes with clean unchanged HEAD/source and
 its own unchanged native SHA
@@ -86,10 +89,28 @@ The predecessor `7476ff6e` CI has completed: 37 jobs pass; its real measured
 MQTT blocker and dependent Full Verify fail. All twenty raw summaries and native
 bytes are independently audited. Its same-source hosted Chrome/JS coverage also
 passes (8,172 successful observations / twenty skips), distinct from local
-canonical Wasm. Its full primary/supplemental campaigns remain active and must
-finish unchanged. No numerical retry or predecessor report substitution occurs.
+canonical Wasm. Its full primary campaign remains active and must finish unchanged; the
+complete supplemental campaign is now failed and independently audited below. No numerical retry or predecessor report substitution occurs.
 
 [Candidate design and complete paired evidence](https://github.com/konsultaner/connectanum-dart/blob/4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7/docs/research/2026-11-01-mqtt-validated-forwarding.md).
+
+## Predecessor complete supplemental campaign failed (2026-11-01)
+
+The `7476ff6e` complete supplemental run `41306091671` is finished and independently
+reproduced. All fifty cases / 1,500 original rows, complete driver streams,
+per-pass reports, canonical inputs and actual retained native/driver bytes verify.
+The hosted aggregate matches exactly: 38 eligible cases / 1,140 rows with 180
+measured misses (129 protocol plus 51 encrypted/progressive) and four evidence
+findings. The ineligible twelve-case payload shard retains all 360 rows separately:
+fifteen measured misses plus two unmeasured allocations / thirty evidence findings.
+Thus all fifty cases contain 195 measured misses; null ratios are not observations.
+
+The primary campaign remains active and must finish unchanged. No completed
+supplemental shard needs polling or another download. These numerical failures
+do not prove a root cause. Keep the separate allocation-precision product decision
+unanswered; it is not the sole blocker while measured failures remain.
+
+[Complete supplemental reproduction](research/2026-11-01-flatbuffers-7476ff6e-supplemental-audit.json).
 
 ## Predecessor INVOCATION protocol shard failed strict parity (2026-11-01)
 
