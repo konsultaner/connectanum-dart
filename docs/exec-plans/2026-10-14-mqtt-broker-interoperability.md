@@ -4,6 +4,17 @@ Status: active; direct QoS 0 merged, authorized gateway and hosted translation
 benchmarks implemented. Current PR review and controlled release acceptance
 remain separate from the broader protocol milestone.
 
+Current blocker: candidate `d1ab2132` fails retained-memory checks in six ARM64
+64 KiB rows across CBOR, FlatBuffers and JSON. Absolute RSS, CPU, rate, latency
+and overload pass. Preserve the complete candidate and frozen limits. A
+25-cycle trace eventually reclaims accumulated RSS; full workload warm-up alone
+does not fix the failing profiles. Validate a separate collection-normalized
+retention pass without changing default-runtime performance or numerical caps.
+The SDK-pinned Linux test adapter verifies live/released witnesses and a bounded nursery before sampling.
+Local AOT checks pass 32 complete SDK/Paho lifecycles over all links/codecs;
+Python is 1,084/1,084 and the changed worker 308/308. Hosted diagnostics, current
+whole-gateway coverage and final exact-commit CI remain acceptance blockers.
+
 Required CI now uses a separate hardware-qualified ARM64 reference with the
 same workload and frozen policy. Architecture, CPU count and CPU signature must
 match before sampling. Earlier x64 values and rejected cross-CPU candidates
@@ -24,7 +35,7 @@ Client IDs do not confer identity; ordinary `ppt_scheme: mqtt` remains opaque.
 - [x] Separate AOT processes for both translations, matched MQTT/WAMP/acknowledged-WAMP/Mosquitto controls, all four WAMP serializers, three payload sizes, fan-out and credit windows.
 - [x] Record throughput, latency, active CPU, per-process warm/high-water/drained RSS, lifecycle growth, queue drain and overload recovery. Allocation counters remain unavailable and explicitly null.
 - [x] Accept the complete hosted baseline at unchanged rate/p99/CPU variation caps 0.20/0.75/0.35; freeze numeric budgets and every-cell README regressions.
-- [x] Require secure-peer smoke and four numeric shards before Full Verify, rejecting omitted or unsuccessful lanes.
+- [x] Require secure-peer smoke and sixteen profile shards before Full Verify, rejecting omitted or unsuccessful lanes.
 
 ## Accepted evidence and verification
 
@@ -39,7 +50,7 @@ pass their separate [x64](../../tool/mqtt_gateway_benchmark_budgets.json) and
 include direct controls and every per-process memory result. All four ARM64
 shards and their secure smoke match the recorded CPU signature.
 
-Coverage passes 744/744 gateway/shared Dart, 759/759 MQTT, 270/270 gateway
+Last accepted reference coverage passes 744/744 gateway/shared Dart, 759/759 MQTT, 270/270 gateway
 component, 882/882 native added production and 947/947 Python lines (zero
 exclusions). Native source SHA-256 is
 `1254e2279369f2d3e5f5b78236d5beeda58295e201f9ba2b2f3edbd52c93fc01`;

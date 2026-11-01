@@ -411,7 +411,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci
@@ -430,7 +430,7 @@ jobs:
       - uses: ./.github/actions/profile-mqtt-gateway
         with:
           record_only: 'false'
-          shard: ${{ matrix.shard }}/4
+          shard: ${{ matrix.shard }}/16
       - name: Upload complete gateway performance and per-process memory evidence
         if: always()
         uses: actions/upload-artifact@v7

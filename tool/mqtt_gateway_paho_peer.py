@@ -180,9 +180,9 @@ def run(role, config, lines, output, mqtt, *, memory_factory=Memory):
                 emit(dict(kind='armed', phase=phase))
             elif op in ('sample','collect'):
                 if op == 'collect':
-                    if config.get('retention_protocol') != 'collected_rss_v1':
+                    if config.get('retention_protocol') != 'bounded_nursery_v1':
                         raise ValueError('Collection requires the retention protocol')
-                    gc.collect()
+                    collect_retention_memory()
                 emit(dict(kind='collected' if op == 'collect' else 'sampled', memory=meter.snapshot()))
             elif op == 'publish' and role == 'publisher':
                 phase, count = command['phase'], command['count']
@@ -205,9 +205,9 @@ def run(role, config, lines, output, mqtt, *, memory_factory=Memory):
                 client.disconnect()
                 client.loop_stop()
                 if command.get('collect') is True:
-                    if config.get('retention_protocol') != 'collected_rss_v1':
+                    if config.get('retention_protocol') != 'bounded_nursery_v1':
                         raise ValueError('Collection requires the retention protocol')
-                    gc.collect()
+                    collect_retention_memory()
                 emit(dict(kind='closed', memory=meter.snapshot()))
                 return
             else:
@@ -221,6 +221,18 @@ def run(role, config, lines, output, mqtt, *, memory_factory=Memory):
                 client.loop_stop()
             finally:
                 meter.close()
+
+
+def collect_retention_memory():
+    import ctypes
+    gc.collect()
+    library = ctypes.CDLL(None)
+    if sys.platform == 'linux':
+        trim = library.malloc_trim
+        trim.argtypes,trim.restype = [ctypes.c_size_t],ctypes.c_int
+        trim(0)
+    else:
+        raise ValueError('Retention stress requires native allocator support')
 
 
 def main(argv=None):

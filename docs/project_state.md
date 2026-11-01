@@ -1,9 +1,24 @@
 # Project State
 
-Last updated: 2026-11-01.
+Last updated: 2026-11-02.
 Current priority: [MQTT milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2), explicitly prioritized by the user.
 Active plan: [MQTT interoperability](exec-plans/2026-10-14-mqtt-broker-interoperability.md).
 Branch: `codex/mqtt-wamp-gateway`, based on merged master `ef822e08`.
+
+Current blocker: strict ARM64 candidate `d1ab2132` fails retained-memory checks
+in six 64 KiB translation rows across CBOR, FlatBuffers and JSON. All CPU,
+rate, latency, absolute RSS and overload checks pass. A 25-cycle Linux trace
+eventually falls from about 71 MiB to 41 MiB after collection. Workload-sized
+warm-up alone still fails retention checks; do not accept that as a fix.
+Keep both reference files, every limit and all failed samples unchanged.
+
+A separate collection-normalized retention pass is under validation. Default
+runtime performance and raw RSS remain separate; only the internal test worker
+can collect. SDK/version, nursery and weak-reference checks fail closed, with rooted
+32 MiB managed/native controls. Local AOT checks pass 32 exact lifecycles across every
+link/codec and SDK/Paho legs. Python coverage is 1,084/1,084; the changed gateway
+worker is 308/308. The two failing-profile Linux stress diagnostics now pass all unchanged
+limits. Full `bin/verify` passed at 23:02 UTC; final whole-matrix CI is pending. No numerical budget has changed.
 
 Required gateway CI uses a hardware-qualified ARM64 reference. Every candidate
 must match its four-vCPU Neoverse-N2 CPU signature before sampling. The earlier
@@ -27,7 +42,7 @@ eight overload rows pass their separate frozen budgets. README tables include
 every direction/profile result, per-process CPU and warm/peak/drained RSS,
 direct controls and memory growth.
 
-Coverage passes 744/744 gateway/shared Dart lines, 759/759 MQTT lines, 270/270
+The last accepted reference coverage passes 744/744 gateway/shared Dart lines, 759/759 MQTT lines, 270/270
 gateway component lines, 882/882 native added production lines and 947/947
 Python tooling lines, with zero Python exclusions. The source-hash regression
 recomputes the compressed native Cargo + Dart FFI union for current Rust source
@@ -35,7 +50,7 @@ SHA-256 `1254e227…c93fc01`. Fresh full `bin/verify` passes on the current
 production code, including VM, consumer smoke, Chrome and WebAssembly.
 Offline tests validate every new README cell and the exact budget policy.
 
-Required GitHub Actions smoke and four numeric shards are Full Verify
+Required GitHub Actions smoke and sixteen profile shards are Full Verify
 prerequisites. Missing, failed, skipped and cancelled lanes fail closed;
 diagnostic record-only runs remain explicit. The
 [current branch checks](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart.yml?query=branch%3Acodex%2Fmqtt-wamp-gateway)

@@ -128,11 +128,21 @@ class MeasurementTest(unittest.TestCase):
 
 
 class PahoParticipantTest(unittest.TestCase):
+    def test_retention_releases_only_unused_allocator_pages_on_supported_hosts(self):
+        for platform,method,arguments in [('linux','malloc_trim',(0,))]:
+            library=mock.Mock()
+            with mock.patch.object(paho.sys,'platform',platform),mock.patch('ctypes.CDLL',return_value=library),mock.patch.object(paho.gc,'collect') as collect:
+                paho.collect_retention_memory()
+                collect.assert_called_once_with()
+                getattr(library,method).assert_called_once_with(*arguments)
+        with mock.patch.object(paho.sys,'platform','unsupported'),mock.patch('ctypes.CDLL'),self.assertRaisesRegex(ValueError,'allocator support'):
+            paho.collect_retention_memory()
+
     def test_collected_samples_are_explicit_and_cannot_silently_use_raw_rss(self):
         for role in ['publisher','subscriber']:
-            with mock.patch.object(paho.gc,'collect') as collect:
+            with mock.patch.object(paho,'collect_retention_memory') as collect:
                 _,output=self.run_peer(role,map(json.dumps,[dict(op='collect'),dict(op='close',collect=True)]),
-                                      config=dict(CONFIG,retention_protocol='collected_rss_v1'))
+                                      config=dict(CONFIG,retention_protocol='bounded_nursery_v1'))
                 self.assertEqual([e['kind'] for e in output],['ready','collected','closed'])
                 self.assertEqual(collect.call_count,2)
             for command in [dict(op='collect'),dict(op='close',collect=True)]:

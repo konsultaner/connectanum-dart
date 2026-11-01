@@ -23,6 +23,52 @@ void main() {
     }
   });
 
+  test('retention stress cannot run with default or unverified VM options', () {
+    retention.RetentionCollector.validateHost('linux');
+    for (final host in ['macos', 'windows', '']) {
+      expect(
+        () => retention.RetentionCollector.validateHost(host),
+        throwsUnsupportedError,
+      );
+    }
+    retention.RetentionCollector.validateVmOptions('--new_gen_semi_max_size=1');
+    for (final value in [
+      null,
+      '',
+      '--new_gen_semi_max_size=2',
+      '--new_gen_semi_max_size=1 --verbose_gc',
+    ]) {
+      expect(
+        () => retention.RetentionCollector.validateVmOptions(value),
+        throwsUnsupportedError,
+      );
+    }
+  });
+
+  test('a missing nursery bound fails before a memory reading', () async {
+    for (final capacity in [-1, 2 * 1024 * 1024 + 1]) {
+      final collector = retention.RetentionCollector(
+        collect: () {},
+        clearCaches: () {},
+        witnessFactory: () =>
+            () => true,
+        readYoungCapacity: () => capacity,
+        settle: Duration.zero,
+      );
+      await expectLater(collector.collect(), throwsStateError);
+    }
+    final collector = retention.RetentionCollector(
+      collect: () {},
+      clearCaches: () {},
+      witnessFactory: () =>
+          () => true,
+      readYoungCapacity: () => 524288,
+      settle: Duration.zero,
+    );
+    await collector.collect();
+    expect(collector.maxYoungCapacityBytes, 524288);
+  });
+
   test('both fixed collection passes finish before cache release', () async {
     final events = <String>[];
     final collector = retention.RetentionCollector(
