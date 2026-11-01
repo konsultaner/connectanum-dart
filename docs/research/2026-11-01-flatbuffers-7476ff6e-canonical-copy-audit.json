@@ -80,13 +80,14 @@
     "archive_sha256": "6a6bfa0d6a837cdd9898be515ba8b96335addc85cf0544c4e131b64697176b64",
     "fixture_verified": true,
     "hosted_library_unchanged_receipt": true,
-    "limitations": [
-      "Native-view ffi-test library not retained for independent byte rehash; do not substitute shared CI or production build."
-    ],
+    "limitations": [],
     "native_view_source_inputs_verified": 3297,
     "recorded_native_library_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
     "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
-    "source_archive_reconstructed_exactly": true
+    "source_archive_reconstructed_exactly": true,
+    "actual_native_bytes_rehashed_from_profile_artifact": 13084058719,
+    "retained_library_matches_all20_MQTT": true
   },
-  "source": "7476ff6e5c89b583ae32d317439e3774fc379e45"
+  "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "MQTT_CI_status": "Real numerical failure: 3profiles/4metrics. See companion MQTT audit."
 }

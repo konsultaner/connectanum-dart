@@ -1,0 +1,99 @@
+{
+  "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "CI_run": 41306077363,
+  "job": 124846610584,
+  "main_artifact": 13083934144,
+  "profile_artifact": 13084058719,
+  "summaries": 20,
+  "raw_rows": 192,
+  "profiles_passed": 17,
+  "profiles_failed": 3,
+  "failed_metrics": [
+    {
+      "profile": "native-v311-sustained/summary.json",
+      "failures": [
+        {
+          "metric": "throughput_ratio",
+          "value": 0.7407708298562876,
+          "limit": 0.75
+        },
+        {
+          "metric": "broker_cpu_ratio",
+          "value": 2.609090909090909,
+          "limit": 2.5
+        }
+      ],
+      "paired_throughput_median_for_context": 0.7574478790384847
+    },
+    {
+      "profile": "native-ws-sustained/summary.json",
+      "failures": [
+        {
+          "metric": "throughput_ratio",
+          "value": 0.6448819879374683,
+          "limit": 0.7
+        }
+      ],
+      "paired_throughput_median_for_context": 0.66856484460895
+    },
+    {
+      "profile": "native-ws-v311-sustained/summary.json",
+      "failures": [
+        {
+          "metric": "throughput_ratio",
+          "value": 0.6738288656830509,
+          "limit": 0.7
+        }
+      ],
+      "paired_throughput_median_for_context": 0.6833818319007939
+    }
+  ],
+  "all_summaries_exact": true,
+  "all_budgets_unchanged": true,
+  "CPU": [
+    "AMD EPYC 7763 64-Core Processor"
+  ],
+  "SDK": "Dart 3.13.1 standard, unchanged MQTT policy",
+  "native_profile": {
+    "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+    "CPU": "AMD EPYC 7763 64-Core Processor",
+    "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+    "profiles": [
+      {
+        "profile": "ws_sustained",
+        "raw_rows": 5,
+        "delivered_total": 1000000,
+        "sha256_native": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "sha256_broker_snapshot": "5885049df64447d268736fd7396cda102f72efdca644752fe56dd95ac1fe538e",
+        "sha256_perf_data": "ed55628fff5e473070f4d48ac4759d4db02202fa68d6e3107d097665740c7082",
+        "SHA_and_delivery_verified": true,
+        "scope": "Diagnostic source attribution; full broker-lifetime capture after listener ready, not calibrated WAMP data window or numerical gate rerun."
+      },
+      {
+        "profile": "64k_sustained",
+        "raw_rows": 5,
+        "delivered_total": 25000,
+        "sha256_native": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "sha256_broker_snapshot": "5885049df64447d268736fd7396cda102f72efdca644752fe56dd95ac1fe538e",
+        "sha256_perf_data": "fcdac2e2f36008e31d1dbdc657694beacac419020c6239f2b402642070bc00bb",
+        "SHA_and_delivery_verified": true,
+        "scope": "Diagnostic source attribution; full broker-lifetime capture after listener ready, not calibrated WAMP data window or numerical gate rerun."
+      }
+    ],
+    "actual_MQTT_and_native_view_library_rehashed_from_profile_artifact": true,
+    "library_is_exact_acceptance_bytes_not_a_distinct_instrumented_build": true,
+    "scope": "CPU data remains diagnostic. Same native library bytes match all20MQTT summaries and native-view stable receipt; broker.aot diagnostic snapshot is distinct from embedded acceptance executable. No report substitution."
+  },
+  "shared_CI": {
+    "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+    "artifact_id": 13083977926,
+    "source_hashes_verified": 965,
+    "actual_native_sha256": "0c84ed13117c9f2e620b3d778a897290eb0b06ea00b0a6902447f35fcc78620d",
+    "actual_lock_sha256": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "release_ffi_test_standard_flags": true,
+    "scope": "Shared CI library independently rehashed; distinct from MQTT/native-view library, never substituted."
+  },
+  "adopted": false,
+  "performance_acceptance": false,
+  "scope": "Real numerical CI blocker, not setup failure. No unchanged numerical retry. Diagnostic profiles cannot replace acceptance; complete primary/supplemental campaigns preserved."
+}

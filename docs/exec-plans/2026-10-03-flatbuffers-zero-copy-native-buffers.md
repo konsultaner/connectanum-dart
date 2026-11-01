@@ -35,10 +35,29 @@ all 120 live / 300 inventory rows and 32 zero-avoidable-payload-copy checks,
 including E2EE/transcoding/native-crypto accounting. Three positive lifetime
 phases, the expected negative control and cleanup verify. The 3,297-input
 native-view source archive reconstructs exactly and its fixture hashes match.
-The native-view ffi-test library has a stable hosted digest but is not retained
-for local byte rehash; shared CI/production builds are not substituted for it.
-Full CI and numerical acceptance remain pending, and the runtime stays frozen
-for those campaigns. All complete campaigns were predeclared before results:
+The exact native-view/MQTT ffi-test library is now independently rehashed from
+retained MQTT profile artifact `13084058719`: SHA
+`f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1`
+matches all twenty MQTT summaries and the native-view stable receipt. The separate
+shared CI build also independently verifies 965 inputs, lockfile and actual
+library bytes; its different library is never substituted.
+
+CI has a real measured MQTT blocker on EPYC 7763. All twenty raw summaries
+independently reproduce the unchanged budgets: seventeen pass and three fail
+four metrics. MQTT 5 / 3.1.1 native WebSocket throughput ratios are
+0.64488199 / 0.67382887 against 0.70. Native TCP 3.1.1 throughput is 0.74077083
+against 0.75, and broker CPU ratio is 2.60909091 against 2.5. These are ratios
+of median rates, not paired medians. Setup and interoperability pass; the
+standard MQTT SDK remains 3.13.1. Do not retry this unchanged numerical failure.
+
+The retained same-source MQTT CPU captures verify actual native/AOT/client
+binaries, raw delivery counts, perf provenance and cleanup. The native library
+is the exact measured library above; the diagnostic broker AOT snapshot differs
+from the embedded acceptance executable. CPU attribution remains diagnostic,
+and neither kernel samples nor Dart allocations alone prove a root cause.
+Require a minimal controlled reproduction before an isolated CI repair. Keep
+every ongoing primary/supplemental row and shard; the runtime remains frozen.
+All complete campaigns were predeclared before results:
 
 - [Full CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41306077363).
 - [Copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41306082213).
