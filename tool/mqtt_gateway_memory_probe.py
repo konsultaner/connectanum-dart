@@ -8,19 +8,17 @@ budgets=json.loads((gate.ROOT/'tool/mqtt_gateway_arm64_benchmark_budgets.json').
 metadata=dict(source_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),architecture=platform.machine(),
     logical_cpus=os.cpu_count(),cpu_signature_sha256=gate.cpu_signature_sha256(),native_library_sha256=hashlib.sha256(library.read_bytes()).hexdigest())
 (root/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
-cases=[('tcp-5-cbor-65536-1-1','mqtt_to_wamp'),('tls-5-flatbuffers-65536-1-16','mqtt_to_wamp'),
-       ('tls-5-flatbuffers-65536-1-16','wamp_to_mqtt'),('tls-3.1.1-json-65536-4-16','mqtt_to_wamp'),
-       ('wss-3.1.1-cbor-65536-4-16','mqtt_to_wamp'),('tls-3.1.1-json-65536-4-16-paho','mqtt_to_wamp')]
+cases=[('tls-5-flatbuffers-65536-1-16','mqtt_to_wamp'),('tls-3.1.1-json-65536-4-16-paho','mqtt_to_wamp')]
 reports=[]
 with tempfile.TemporaryDirectory() as temporary:
-    worker=gate.compile_worker(Path(temporary))
+    worker=gate.compile_retention_worker(Path(temporary),root/'retention-self-test.json')
     for profile_id,path in cases:
         profile=next(p for p in gate.profiles('release') if p['id']==profile_id)
         directory=root/profile_id/path;directory.mkdir(parents=True,exist_ok=False)
         config=dict(profile,path=path,port=0,native_library=str(library),paho_python=sys.executable,mosquitto='not-used',
-            diagnostic_only=True,diagnostic_gc=True,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
+            diagnostic_only=True,retention_protocol='collected_rss_v1',certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
         campaign=gate.Campaign(worker,directory,config,load_timeout=300)
-        try:rows=campaign.run(profile,path,5,5000,5000,.5,1)
+        try:rows=campaign.run(profile,path,5,5000,5000,.5,1,retention=True)
         finally:campaign.close()
         limit=budgets['profiles'][profile_id][path];processes=gate.process_summary(rows)
         drains=[r['processes']['broker']['drained_rss_bytes'] for r in rows]

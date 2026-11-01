@@ -32,7 +32,9 @@ jobs:
           mkdir -p out/mqtt-memory-probe
           lscpu --json > out/mqtt-memory-probe/hardware.json
           cat /proc/cpuinfo > out/mqtt-memory-probe/cpuinfo.txt
-          python3 tool/mqtt_gateway_memory_probe.py | tee out/mqtt-memory-probe/results.log
+          python3 -m venv "$RUNNER_TEMP/memory-python"
+          "$RUNNER_TEMP/memory-python/bin/pip" install paho-mqtt==2.1.0
+          "$RUNNER_TEMP/memory-python/bin/python" tool/mqtt_gateway_memory_probe.py | tee out/mqtt-memory-probe/results.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:

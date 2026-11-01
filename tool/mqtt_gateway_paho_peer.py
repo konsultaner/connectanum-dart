@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 import importlib.metadata
+import gc
 import json
 import os
 import resource
@@ -177,8 +178,12 @@ def run(role, config, lines, output, mqtt, *, memory_factory=Memory):
                 measurement.begin(phase, command['count'])
                 meter.begin()
                 emit(dict(kind='armed', phase=phase))
-            elif op == 'sample':
-                emit(dict(kind='sampled', memory=meter.snapshot()))
+            elif op in ('sample','collect'):
+                if op == 'collect':
+                    if config.get('retention_protocol') != 'collected_rss_v1':
+                        raise ValueError('Collection requires the retention protocol')
+                    gc.collect()
+                emit(dict(kind='collected' if op == 'collect' else 'sampled', memory=meter.snapshot()))
             elif op == 'publish' and role == 'publisher':
                 phase, count = command['phase'], command['count']
                 measurement.begin(phase, count)
@@ -199,6 +204,10 @@ def run(role, config, lines, output, mqtt, *, memory_factory=Memory):
                 closing = True
                 client.disconnect()
                 client.loop_stop()
+                if command.get('collect') is True:
+                    if config.get('retention_protocol') != 'collected_rss_v1':
+                        raise ValueError('Collection requires the retention protocol')
+                    gc.collect()
                 emit(dict(kind='closed', memory=meter.snapshot()))
                 return
             else:

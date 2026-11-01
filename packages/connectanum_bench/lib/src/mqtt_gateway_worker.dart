@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi' as ffi;
-import 'package:ffi/ffi.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -444,6 +442,7 @@ Future<void> runGatewayBenchmarkWorker(
   GatewayServerFactory serverFactory = NativeGatewayBenchmarkServer.start,
   int Function()? readRss,
   int Function()? nowMicros,
+  Future<void> Function()? collectMemory,
 }) async {
   if (args.length != 2 ||
       !['server', 'publisher', 'subscriber'].contains(args[0])) {
@@ -453,37 +452,6 @@ Future<void> runGatewayBenchmarkWorker(
   final config = GatewayBenchmarkConfig(
     jsonDecode(args[1]) as Map<String, dynamic>,
   );
-  final diagnosticGc = (jsonDecode(args[1]) as Map)['diagnostic_gc'] == true;
-  Future<void> collectForDiagnostic() async {
-    if (!diagnosticGc) return;
-    final library = ffi.DynamicLibrary.process();
-    final collect = library
-        .lookupFunction<
-          ffi.Pointer<ffi.Void> Function(
-            ffi.Pointer<Utf8>,
-            ffi.Pointer<ffi.Void>,
-          ),
-          ffi.Pointer<ffi.Void> Function(
-            ffi.Pointer<Utf8>,
-            ffi.Pointer<ffi.Void>,
-          )
-        >('Dart_ExecuteInternalCommand');
-    final clearCaches = library
-        .lookupFunction<ffi.Void Function(), void Function()>(
-          'Dart_NotifyLowMemory',
-        );
-    final command = 'gc-now'.toNativeUtf8();
-    try {
-      for (var i = 0; i < 2; i++) {
-        collect(command, ffi.nullptr);
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        clearCaches();
-      }
-    } finally {
-      calloc.free(command);
-    }
-  }
-
   final output = emit ?? (message) => stdout.writeln(jsonEncode(message));
   final commands = StreamIterator(
     input ?? stdin.transform(utf8.decoder).transform(const LineSplitter()),
@@ -502,6 +470,14 @@ Future<void> runGatewayBenchmarkWorker(
   Map<String, Object?> snapshot() => {
     'memory': meter.snapshot(),
   };
+  Future<void> collect() async {
+    final callback = collectMemory;
+    if (callback == null) {
+      throw UnsupportedError('Collection requires the retention test worker');
+    }
+    await callback();
+  }
+
   Future<void> release() async {
     final ownedSubscription = subscription;
     final ownedPeer = peer;
@@ -571,17 +547,17 @@ Future<void> runGatewayBenchmarkWorker(
       final command = jsonDecode(commands.current) as Map<String, dynamic>;
       switch (command['op']) {
         case 'begin':
-          await collectForDiagnostic();
           phase = command['phase'] as int;
           count = command['count'] as int;
           if (role == 'subscriber') measurement.begin(phase, count);
           meter.begin();
           output({'kind': 'armed', 'phase': phase});
         case 'sample':
-          await collectForDiagnostic();
+        case 'collect':
+          if (command['op'] == 'collect') await collect();
           final queues = await server?.sampleQueues();
           output({
-            'kind': 'sampled',
+            'kind': command['op'] == 'collect' ? 'collected' : 'sampled',
             ...snapshot(),
             if (queues != null) 'queues': queues,
           });
@@ -635,7 +611,7 @@ Future<void> runGatewayBenchmarkWorker(
           });
         case 'close':
           await release();
-          await collectForDiagnostic();
+          if (command['collect'] == true) await collect();
           output({'kind': 'closed', ...snapshot()});
           return;
         default:

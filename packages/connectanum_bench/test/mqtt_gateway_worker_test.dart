@@ -52,6 +52,77 @@ final class Server implements GatewayBenchmarkServer {
 
 void main() {
   test(
+    'normal benchmark workers reject collection requests explicitly',
+    () async {
+      final server = Server();
+      await expectLater(
+        runGatewayBenchmarkWorker(
+          ['server', jsonEncode(profile())],
+          input: Stream.value(jsonEncode({'op': 'collect'})),
+          emit: (_) {},
+          readRss: () => 100,
+          serverFactory: (_) async => server,
+        ),
+        throwsUnsupportedError,
+      );
+      expect(server.closed, 1);
+    },
+  );
+
+  test(
+    'retention collection samples completion and runs after client release',
+    () async {
+      final server = Server();
+      final events = <Map<String, Object?>>[];
+      var rss = 200;
+      var calls = 0;
+      await runGatewayBenchmarkWorker(
+        ['server', jsonEncode(profile())],
+        input: Stream.fromIterable([
+          jsonEncode({'op': 'collect'}),
+          jsonEncode({'op': 'close', 'collect': true}),
+        ]),
+        emit: events.add,
+        readRss: () => rss,
+        serverFactory: (_) async => server,
+        collectMemory: () async {
+          await Future<void>.delayed(Duration.zero);
+          expect(server.closed, calls);
+          calls++;
+          rss -= 50;
+        },
+      );
+      expect(calls, 2);
+      expect(events.map((e) => e['kind']), ['ready', 'collected', 'closed']);
+      expect((events[1]['memory'] as Map)['drained_rss_bytes'], 150);
+      expect((events[2]['memory'] as Map)['drained_rss_bytes'], 100);
+      expect(events[1]['queues'], {'pending_bytes': 0});
+      expect(server.closed, 1);
+    },
+  );
+
+  test(
+    'collection errors fail the worker and release owned resources',
+    () async {
+      final server = Server();
+      final events = <Map<String, Object?>>[];
+      await expectLater(
+        runGatewayBenchmarkWorker(
+          ['server', jsonEncode(profile())],
+          input: Stream.value(jsonEncode({'op': 'collect'})),
+          emit: events.add,
+          readRss: () => 100,
+          serverFactory: (_) async => server,
+          collectMemory: () async => throw StateError('collection incomplete'),
+        ),
+        throwsStateError,
+      );
+      expect(events.map((e) => e['kind']), ['ready']);
+      expect(server.closed, 1);
+    },
+  );
+
+  test(
     'profiles cover both protocols, controls and all supported links/codecs',
     () {
       for (final path in [
