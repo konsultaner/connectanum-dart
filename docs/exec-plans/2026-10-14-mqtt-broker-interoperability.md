@@ -4,6 +4,13 @@ Status: active; direct QoS 0 merged, authorized gateway and hosted translation
 benchmarks implemented. Current PR review and controlled release acceptance
 remain separate from the broader protocol milestone.
 
+Current blocker: strict x64 shards 1/2 apply a mixed-CPU baseline to different
+hardware, causing CPU/rate/RSS failures on unchanged code. Keep every x64 value
+and frozen policy. Capture a separate baseline on GitHub's ARM64 runner class,
+record its CPU identity and reject mismatches before numeric sampling. Use that
+qualified class for required gateway CI. Per-publication reply-port experiments
+were inconclusive and are excluded from production code.
+
 ## Gateway contract and completed implementation
 
 The [MQTT contract](../mqtt.md) documents the opt-in realm-bound gateway,

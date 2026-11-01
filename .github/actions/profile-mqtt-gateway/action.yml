@@ -18,6 +18,8 @@ runs:
       run: |
         set -euo pipefail
         mkdir -p out/mqtt-gateway
+        lscpu --json > out/mqtt-gateway/hardware.json
+        cat /proc/cpuinfo > out/mqtt-gateway/cpuinfo.txt
         sudo apt-get update
         sudo apt-get install -y mosquitto
         version="$(mosquitto -h 2>&1 || true)"

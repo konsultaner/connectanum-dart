@@ -5,6 +5,14 @@ Current priority: [MQTT milestone 2](https://github.com/konsultaner/connectanum-
 Active plan: [MQTT interoperability](exec-plans/2026-10-14-mqtt-broker-interoperability.md).
 Branch: `codex/mqtt-wamp-gateway`, based on merged master `ef822e08`.
 
+Current blocker: PR #135 head `94d6c14d` compares unchanged gateway code across
+different CPU models. Strict x64 shards 1/2 fail CPU, rate and retained-memory
+limits despite low variation; the controls also change substantially. Preserve
+the x64 values and snapshots. Qualify a consistent GitHub-hosted ARM64 CPU class,
+collect its separate baseline with the same workload/derivation policy, and
+reject hardware mismatches before sampling. Local reply-port experiments were
+inconclusive and are not in production code. The receipts below describe x64.
+
 [PR #128](https://github.com/konsultaner/connectanum-dart/pull/128) merged direct
 QoS 0 MQTT 5/3.1.1 over TCP/TLS/WS/WSS. The current gateway implements #116/#117:
 opt-in realm authorization, trusted WAMP caller identity, binary application

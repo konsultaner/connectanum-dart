@@ -39,6 +39,14 @@ and RSS budgets. The [WebSocket rate budget](../../tool/mqtt_native_ws_sustained
 and [GitHub Actions lane](../../.github/workflows/dart.yml) remain authoritative.
 Archived measurements do not replace fresh CI gates.
 
+Hardware qualification is required for absolute budgets. GitHub documents
+[`ubuntu-24.04-arm` as a four-vCPU public runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners),
+and [Arm documents Cobalt 100 / Neoverse N2 hardware](https://learn.arm.com/learning-paths/cross-platform/github-arm-runners/public-repos/).
+The gateway workflow captures `lscpu` and `/proc/cpuinfo` before sampling. Numeric
+acceptance must match the recorded architecture, CPU count and CPU identity;
+the runner label alone is not a hardware guarantee. Keep the x64 snapshots and
+their limits when establishing a separate ARM64 reference with the same policy.
+
 The published direct MQTT baseline passes all 20 hosted profiles on EPYC 7763. A matched
 Intel 8370C comparison passes both WebSocket versions twice at unchanged limits,
 where the baseline fails; both 64 KiB CPU comparisons also pass. Full values,
