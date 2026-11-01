@@ -2,12 +2,52 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish exact-source CI on frozen `7476ff6e` and independently audit
-its strict 48-/50-case campaigns. Its full canonical and copy/lifetime reports
-pass; component allocations do not establish RAM or transport parity. Preserve
-every historical result and policy/window/sample/body/ownership boundary. Keep
-CI clean before further runtime work and adopt only after complete final-runtime
-strict acceptance and clean CI.
+Current step: finish frozen `4ec3878f` canonical/CI/copy verification before
+further runtime work. WebSocket/RAM parity remains unproven and final-source
+strict 48-/50-case acceptance is still required. Preserve the predecessor's
+active campaigns and every historical raw row, policy and ownership boundary.
+
+## MQTT forwarding candidate in frozen verification (2026-11-01)
+
+Published `4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7` on
+`codex/mqtt-validated-publish-forwarding` removes redundant same-version topic
+encoding after full incoming packet validation. It copies the complete validated
+body into a fresh owned packet with the same 1 MiB cap. Generic cross-version
+encoding, rejection, body/ownership boundaries and fanout queues stay intact.
+
+The actual public-broker component retains 32 rows / 3.2 million verified fresh
+publications. All eight pairs per version improve elapsed time by about 8%.
+The separate matched TCP/WS comparison retains thirty rows / six million fully
+verified deliveries under unchanged workloads. TCP 3.1.1 median throughput
+improves 1.05102x; WebSocket median-rate ratios 0.99902 / 0.98916 are mixed and
+do not establish a WebSocket fix. Fifteen additional ownership/limit/malformed
+cases pass, and all 130 MQTT tests pass, including seven Paho 2.1.0 cases across
+TCP/TLS/WS/WSS. The first stale local Paho dependency failure is retained; the
+repaired seven nonnumerical interoperability cases pass without source changes.
+
+Full canonical verification is active on clean frozen HEAD/source and its own
+native SHA `590d4b668c304ba36f280e61b30646490d6ff7149f86519d5b7603113a15cbe5`.
+Do not mutate this worktree during verification. Its own
+[CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41316236357)
+and [copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41316307118)
+are active. Final-source strict 48-/50-case acceptance remains required; defer
+its dispatch until these CI checks clarify the remaining MQTT blocker. No RAM,
+WebSocket or final acceptance pass is claimed, and no candidate is adopted.
+
+A separate synchronous-maintenance experiment was rejected. It reduced actual
+loop microtasks from three to one and improved that component, but its thirty
+matched MQTT rows showed every WebSocket 3.1.1 pair slower (median 0.96787x).
+That runtime patch was retained as rejected evidence and restored; it is absent
+from `4ec3878f`. Do not repeat or adopt it based solely on the component result.
+
+The predecessor `7476ff6e` CI has completed: 37 jobs pass; its real measured
+MQTT blocker and dependent Full Verify fail. All twenty raw summaries and native
+bytes are independently audited. Its same-source hosted Chrome/JS coverage also
+passes (8,172 successful observations / twenty skips), distinct from local
+canonical Wasm. Its full primary/supplemental campaigns remain active and must
+finish unchanged. No numerical retry or predecessor report substitution occurs.
+
+[Candidate design and complete paired evidence](https://github.com/konsultaner/connectanum-dart/blob/4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7/docs/research/2026-11-01-mqtt-validated-forwarding.md).
 
 ## INVOCATION candidate frozen for complete acceptance (2026-11-01)
 

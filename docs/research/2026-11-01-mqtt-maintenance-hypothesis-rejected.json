@@ -1,0 +1,107 @@
+{
+  "parent_source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "adopted": false,
+  "status": "rejected",
+  "reason": "No demonstrated MQTT improvement; all5WS311pairs slower andCPUhigher. No unchanged numerical rerun selected.",
+  "component": {
+    "candidate_boss_source_sha256": "a029cf1839974fcf753140c43d52dd4173226453ad5d7b6d809c2ef0b5d92032",
+    "fixture_sha256": "7468c4e27d38f30163eccdcdf35f4d5b501941892478c38bed5ee831e10d8e1a",
+    "microtasks_per_pass_before_after": [
+      3,
+      1
+    ],
+    "elapsed_ratios": [
+      0.759475884357326,
+      0.755548012050749,
+      0.73656684943062,
+      0.7419752561540751,
+      0.7349609542607054,
+      0.7393643643643644,
+      0.7328916435135713,
+      0.7004537936299249
+    ],
+    "median_elapsed_ratio": 0.7379656068974922,
+    "scope": "Actual public Router no-work maintenance component, not transport throughput/RSS acceptance. No additional hidden reruns."
+  },
+  "MQTT": {
+    "rows": 30,
+    "delivered": 6000000,
+    "cases": [
+      {
+        "case": "ws_sustained",
+        "paired_throughput_ratios": [
+          0.9977367470040381,
+          1.133113356466833,
+          1.045906914051096,
+          0.9058385760514504,
+          0.8367928607933326
+        ],
+        "median_paired_throughput_ratio": 0.9977367470040381,
+        "throughput_ratio_of_medians": 1.0121379455994435,
+        "median_throughput": {
+          "before": 122740.72678466552,
+          "after": 124230.54704921393
+        },
+        "median_broker_cpu_seconds": {
+          "before": 2.92,
+          "after": 2.89
+        }
+      },
+      {
+        "case": "ws_v311_sustained",
+        "paired_throughput_ratios": [
+          0.9787690586294074,
+          0.9549311494361566,
+          0.9678725353465075,
+          0.9579172707516108,
+          0.9823609784093836
+        ],
+        "median_paired_throughput_ratio": 0.9678725353465075,
+        "throughput_ratio_of_medians": 0.9678725353465075,
+        "median_throughput": {
+          "before": 130108.38028077388,
+          "after": 125928.32789218017
+        },
+        "median_broker_cpu_seconds": {
+          "before": 2.76,
+          "after": 2.83
+        }
+      },
+      {
+        "case": "v311_sustained",
+        "paired_throughput_ratios": [
+          1.065135445033682,
+          0.9332325967942534,
+          1.0184123818505513,
+          1.0022472789734356,
+          1.0187045400522938
+        ],
+        "median_paired_throughput_ratio": 1.0184123818505513,
+        "throughput_ratio_of_medians": 1.0184123818505513,
+        "median_throughput": {
+          "before": 461859.6316207578,
+          "after": 470363.5675195142
+        },
+        "median_broker_cpu_seconds": {
+          "before": 0.65,
+          "after": 0.65
+        }
+      }
+    ],
+    "provenance": {
+      "parent": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+      "candidate_source_sha256": "a029cf1839974fcf753140c43d52dd4173226453ad5d7b6d809c2ef0b5d92032",
+      "broker_sha256": {
+        "before": "b9f64e28ffadef5b0d4da8967a3afaa80df3cf5e6d3cf7b33f295fd695ccdaf3",
+        "after": "6903b7b38fcbd2a7a0e6d8906b42b9aa74585d6a3ceb12fcabe8a957d11af3c4"
+      },
+      "client_sha256": "5857b310b35a339d443b11f252abdc9598a04e15e282608ede8b75c29a7b3787",
+      "native_sha256": "590d4b668c304ba36f280e61b30646490d6ff7149f86519d5b7603113a15cbe5",
+      "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+      "platform": "darwin",
+      "scope": "Predeclared comparative diagnostics, not Linux gates or FlatBuffers/RSS acceptance. Fresh brokers, unchanged existing client body verification and budgets."
+    }
+  },
+  "raw_MQTT_sha256": "a963a21a15c4a53997e2f91c5c457247f74411e6bb43ce0b9e51d7e945ad4d9a",
+  "source_restored": true
+}
