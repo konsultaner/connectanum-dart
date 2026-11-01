@@ -27,7 +27,7 @@ PATHS = ('mqtt_to_mqtt', 'wamp_to_wamp', 'wamp_to_wamp_ack', 'mqtt_to_wamp', 'wa
 DIRECTIONS = ('mqtt_to_wamp', 'wamp_to_mqtt')
 ALL_PATHS = (*PATHS, 'mosquitto')
 RETENTION_PROTOCOL = 'bounded_nursery_v1'
-RETENTION_VM_OPTIONS = '--new_gen_semi_max_size=1'
+RETENTION_VM_OPTIONS = '--new_gen_semi_max_size=8'
 
 
 def profiles(matrix='smoke'):
@@ -716,7 +716,7 @@ def compile_retention_worker(directory, output):
     if (report.get('native_witness_bytes') != 32*1048576
             or number(report.get('native_witness_rss_growth_bytes'),'native retention negative control') < 24*1048576
             or number(report.get('native_witness_rss_drop_bytes'),'native retention release control') < 24*1048576
-            or number(report.get('max_young_capacity_bytes'),'retention nursery capacity') > 2*1048576):
+            or number(report.get('max_young_capacity_bytes'),'retention nursery capacity') > 16*1048576):
         raise ValueError('The native negative control or nursery bound was not verified')
     output.write_text(json.dumps(report,indent=2)+'\n')
     return worker

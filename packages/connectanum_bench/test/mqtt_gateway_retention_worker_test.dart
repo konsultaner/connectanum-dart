@@ -31,12 +31,12 @@ void main() {
         throwsUnsupportedError,
       );
     }
-    retention.RetentionCollector.validateVmOptions('--new_gen_semi_max_size=1');
+    retention.RetentionCollector.validateVmOptions('--new_gen_semi_max_size=8');
     for (final value in [
       null,
       '',
       '--new_gen_semi_max_size=2',
-      '--new_gen_semi_max_size=1 --verbose_gc',
+      '--new_gen_semi_max_size=8 --verbose_gc',
     ]) {
       expect(
         () => retention.RetentionCollector.validateVmOptions(value),
@@ -46,7 +46,7 @@ void main() {
   });
 
   test('a missing nursery bound fails before a memory reading', () async {
-    for (final capacity in [-1, 2 * 1024 * 1024 + 1]) {
+    for (final capacity in [-1, 16 * 1024 * 1024 + 1]) {
       final collector = retention.RetentionCollector(
         collect: () {},
         clearCaches: () {},

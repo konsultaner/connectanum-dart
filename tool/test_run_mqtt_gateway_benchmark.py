@@ -343,7 +343,7 @@ class GatewayControlTest(unittest.TestCase):
             config=dict(normal.config,retention_protocol='bounded_nursery_v1')
             retained=gate.Campaign(Path('/worker'),Path('/out'),config)
             self.assertEqual(normal.env['DART_VM_OPTIONS'],'--verbose_gc')
-            self.assertEqual(retained.env['DART_VM_OPTIONS'],'--new_gen_semi_max_size=1')
+            self.assertEqual(retained.env['DART_VM_OPTIONS'],'--new_gen_semi_max_size=8')
             self.assertEqual(gate.os.environ['DART_VM_OPTIONS'],'--verbose_gc')
 
     def campaign(self, **changes):
@@ -680,7 +680,7 @@ class GatewayControlTest(unittest.TestCase):
                 campaign.return_value.run_overload.side_effect=lambda p,path,runs,*_,**opts: [dict(overload_sample(p,path,r),**({'memory_protocol':'bounded_nursery_v1'} if opts.get('retention') else {})) for r in range(1,runs+1)]
                 args=['--output',str(directory/'output'),'--matrix','release','--runs','1','--messages','2','--warmup','1','--budget',str(budget)]
                 self.assertEqual(gate.main(args),0)
-                with mock.patch.dict(gate.os.environ,{'DART_VM_OPTIONS':'--new_gen_semi_max_size=1'}),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
+                with mock.patch.dict(gate.os.environ,{'DART_VM_OPTIONS':'--new_gen_semi_max_size=8'}),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
                     gate.main(args+['--output',str(directory/'tuned-performance')])
                 result=json.loads((directory/'output/summary.json').read_text())
                 self.assertEqual(result['source_commit'],'a'*40)

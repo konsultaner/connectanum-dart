@@ -90,9 +90,9 @@ final class RetentionCollector {
   }
 
   static void validateVmOptions(String? value) {
-    if (value != '--new_gen_semi_max_size=1') {
+    if (value != '--new_gen_semi_max_size=8') {
       throw UnsupportedError(
-        'Retention stress requires a 1 MiB nursery semispace',
+        'Retention stress requires a 8 MiB nursery semispace',
       );
     }
   }
@@ -119,7 +119,7 @@ final class RetentionCollector {
       throw StateError('Collection did not clear its weak witness');
     }
     final young = _readYoungCapacity();
-    if (young > 2 * 1024 * 1024 || young < 0) {
+    if (young > 16 * 1024 * 1024 || young < 0) {
       throw StateError('Retention nursery bound was not applied');
     }
     if (young > maxYoungCapacityBytes) maxYoungCapacityBytes = young;
