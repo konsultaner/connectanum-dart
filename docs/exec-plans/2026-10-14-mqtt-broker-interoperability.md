@@ -114,8 +114,21 @@ enabled in Paho while Linux SDK clients use TCP_NODELAY. The participant now
 sets the option through the public socket callback using a duplicate descriptor.
 Actual-socket tests prove the option is set and Paho retains ownership; errors
 fail the participant. All four real links pass both translations locally.
-35 tooling tests cover 890/890 lines, zero exclusions. Repeat the hosted baseline
-without widening caps or discarding slow samples; retain this run in the archive.
+35 tooling tests cover 890/890 lines, zero exclusions. The corrected baseline on
+`545e53a1` passes native build and smoke in [41317205905](https://github.com/konsultaner/connectanum-dart/actions/runs/41317205905).
+The fresh full `bin/verify` after this correction also passes. The superseded
+run was canceled and all four artifacts preserved. Repeat the
+baseline without widening caps or discarding slow samples; retain the history
+in the archive.
+
+Full `545e53a1` delivery/recovery validation passes, but numeric freezing rejects
+SDK cleartext WS/3.1.1/1 KiB/window16 WAMP→MQTT rate CV 0.2138 > 0.20. Its
+40 ms tails trace to explicitly re-enabling Nagle after MQTT WS upgrade.
+A real-socket regression fails before and passes after keeping TCP_NODELAY.
+Input coalescing and existing numeric limits remain intact. Fresh native
+coverage and sustained WS throughput acceptance are required before accepting
+this correction and rerunning the gateway baseline. The earlier f7235055 native
+coverage receipt does not validate this edited source.
 
 ## Goal and contract
 

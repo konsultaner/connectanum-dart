@@ -36,8 +36,8 @@ exit check caught a slow MQTT client retaining its write socket after peer FIN.
 Both version-specific regressions fail before the one-line socket release fix
 and pass afterward. A fresh local AOT run passes all four overload cases twice,
 including zero-exit teardown. The fixed source `54ca3c07` passes hosted smoke: 192 samples, 122,400 exact
-deliveries, zero duplicates and all four overload cases. All four release shards
-are running in [41313231551](https://github.com/konsultaner/connectanum-dart/actions/runs/41313231551).
+deliveries, zero duplicates and all four overload cases. The superseded [release run](https://github.com/konsultaner/connectanum-dart/actions/runs/41313231551)
+was canceled after its variation failure; all four artifacts were preserved.
 The current-source `bin/test-fast` and sequential full `bin/verify` pass, including
 Rust, Dart VM and Chrome/WebAssembly checks. Complete baseline validation and
 immutable numeric limits remain pending.
@@ -50,6 +50,10 @@ callback, preserving the original descriptor. All four real links pass both
 translation directions locally; actual-socket and failure regressions pass,
 with 890/890 tooling lines and zero exclusions. Rerun the complete hosted
 baseline from this corrected source; preserve prior samples and unchanged caps.
+The corrected `545e53a1` run is [41317205905](https://github.com/konsultaner/connectanum-dart/actions/runs/41317205905),
+using `codex/mqtt-gateway-baseline-nodelay` so it could start without interrupting
+artifact preservation. Its native build and secure-peer smoke pass; three release shards are running
+and one is queued. The fresh `bin/verify` after the Paho correction also passes.
 
 Locally prepared strict CI wiring makes smoke and all four numeric shards
 prerequisites of Full Verify; gate tests reject every missing/unsuccessful lane.
@@ -89,3 +93,13 @@ was published via [PR #133](https://github.com/konsultaner/connectanum-dart/pull
 The [FlatBuffers plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md)
 remains reference/deferred work during this MQTT priority. Its performance
 acceptance is distinct from the outer-envelope README measurements.
+
+The complete `545e53a1` run validates all 960 normal samples and 12 overload
+cycles, but its numeric freeze is rejected: SDK WS/3.1.1/1 KiB/window16
+WAMP→MQTT rate CV is 0.2138 against the fixed 0.20 cap, with 40 ms tails.
+The native cleartext MQTT WS upgrade explicitly re-enabled Nagle. A live Rust
+regression observes the accepted socket option through a duplicated descriptor;
+it fails before and passes after retaining TCP_NODELAY. Existing input
+coalescing and numeric budgets are unchanged. Fresh current-source native
+coverage and Linux sustained WS acceptance are pending; the old f7235055
+882-line proof applies to the earlier source only. Do not freeze this baseline.

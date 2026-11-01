@@ -2493,10 +2493,10 @@ impl ListenerRegistry {
         let accept_value = websocket_accept_value(&handshake.sec_websocket_key);
         let mut stream = handshake.into_stream();
         write_websocket_handshake_response(&mut stream, &accept_value, Some("mqtt")).await?;
-        // Coalesce small cleartext MQTT WebSocket publications. TLS sockets
-        // retain TCP_NODELAY to avoid delayed ACKs on sparse TLS records.
+        // Keep sparse publications independent of delayed TCP acknowledgments.
+        // Queued frame coalescing must not rely on the Nagle timer.
         if stream.is_plain_tcp() {
-            let _ = stream.set_nodelay(false);
+            let _ = stream.set_nodelay(true);
         }
         self.register_mqtt_stream_connection(
             handle,
@@ -11000,6 +11000,57 @@ mod tests {
             assert!(matches!(result, Err(Error::Io(_))));
             assert!(registry.connections.lock().unwrap().is_empty());
         });
+    }
+
+    #[tokio::test]
+    async fn mqtt_websocket_upgrade_preserves_tcp_nodelay_for_sparse_publications() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (server, peer_addr) = listener.accept().await.unwrap();
+        let server = server.into_std().unwrap();
+        // A duplicated descriptor observes the actual connection's options
+        // without taking ownership from the registered reader/writer tasks.
+        let observer = server.try_clone().unwrap();
+        let server = tokio::net::TcpStream::from_std(server).unwrap();
+        let mut endpoint = build_client_endpoint_config(
+            "127.0.0.1",
+            0,
+            false,
+            TransportProtocol::Mqtt,
+            config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+            None,
+            None,
+        );
+        endpoint.protocols.push(TransportProtocol::Websocket);
+        client.write_all(b"GET /mqtt HTTP/1.1\r\nHost: localhost\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: mqtt\r\n\r\n").await.unwrap();
+        let registry = Arc::new(ListenerRegistry::default());
+        let config_state = Arc::new(ListenerConfigState::new(Arc::new(endpoint), None));
+        let (sender, mut accepted) = mpsc::channel(1);
+        time::timeout(
+            Duration::from_secs(5),
+            negotiate_accepted_connection(
+                server,
+                peer_addr,
+                ListenerId(1),
+                config_state,
+                Arc::clone(&registry),
+                tokio::runtime::Handle::current(),
+                sender,
+            ),
+        )
+        .await
+        .unwrap();
+        let id = time::timeout(Duration::from_secs(5), accepted.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            observer.nodelay().unwrap(),
+            "MQTT WS must not re-enable Nagle after upgrade"
+        );
+        registry.close_connection(id).unwrap();
     }
 
     #[test]
