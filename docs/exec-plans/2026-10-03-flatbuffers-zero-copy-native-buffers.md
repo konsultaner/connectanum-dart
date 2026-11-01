@@ -2,13 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: complete frozen `7476ff6e` canonical verification and keep its
-exact-source CI clean, then independently audit its full copy/lifetime and
-strict 48-/50-case campaigns. Controlled public-encoder allocation savings
-justify this isolated native INVOCATION change; they do not establish RAM or
-transport parity. Preserve every historical result and every policy, window,
-sample/body verification and ownership boundary. No adoption before complete
-final-runtime strict acceptance and clean CI.
+Current step: finish exact-source CI on frozen `7476ff6e` and independently audit
+its strict 48-/50-case campaigns. Its full canonical and copy/lifetime reports
+pass; component allocations do not establish RAM or transport parity. Preserve
+every historical result and policy/window/sample/body/ownership boundary. Keep
+CI clean before further runtime work and adopt only after complete final-runtime
+strict acceptance and clean CI.
 
 ## INVOCATION candidate frozen for complete acceptance (2026-11-01)
 
@@ -23,15 +22,30 @@ INVOCATION falls from 19 allocations / 2,217 requested bytes to six / 360, while
 a receive-progress header falls from 23 / 2,581 to seven / 440. These are
 component results, not an RSS or transport pass.
 
-This exact source is frozen during its active full canonical verification,
-with its own native SHA `35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649`
-and encoder-source SHA `c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2`.
-Its complete campaigns were predeclared before results:
+This exact source passes full canonical verification with clean unchanged
+HEAD/source and its own unchanged native library, independently rehashed.
+Actual local Chrome/Wasm runs (8,308 log observations); local JS is not part
+of the Darwin run. Its own native SHA `35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649`
+and encoder-source SHA `c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2`
+remain unchanged. The full verify log SHA is
+`cdbe35580060dbc44b3d1c28c5eaca8d015abcf3edbe2d166dce4d73631ff886`.
+
+Hosted copy/lifetime run `41306082213` independently passes 3,300 source inputs,
+all 120 live / 300 inventory rows and 32 zero-avoidable-payload-copy checks,
+including E2EE/transcoding/native-crypto accounting. Three positive lifetime
+phases, the expected negative control and cleanup verify. The 3,297-input
+native-view source archive reconstructs exactly and its fixture hashes match.
+The native-view ffi-test library has a stable hosted digest but is not retained
+for local byte rehash; shared CI/production builds are not substituted for it.
+Full CI and numerical acceptance remain pending, and the runtime stays frozen
+for those campaigns. All complete campaigns were predeclared before results:
 
 - [Full CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41306077363).
 - [Copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41306082213).
 - [Strict primary 48](https://github.com/konsultaner/connectanum-dart/actions/runs/41306087007).
 - [Complete supplemental 50](https://github.com/konsultaner/connectanum-dart/actions/runs/41306091671).
+
+[Canonical/copy reproduction summary](../research/2026-11-01-flatbuffers-7476ff6e-canonical-copy-audit.json).
 
 Retain every row/shard and independently verify final-source policies, inputs,
 actual binaries and comparisons. Keep CI clean before further runtime changes.
@@ -100,14 +114,14 @@ canonical/CI/copy and complete strict 48-/50-case acceptance. PR #132 stays draf
 and issue #103 and the milestone stay open. No workload, window/sample, body
 verification, SDK, GC, allocator or acceptance gate is weakened.
 
-## Scoped CI recovery approved and running (2026-11-01)
+## Original approved CI recovery request (2026-11-01)
 
 The user explicitly approved rerunning the interrupted MCP mutation shard and
 its necessary dependent gates, preserving all performance results. The official
 job-rerun endpoint accepted the request for original job `124658928256` in
 workflow `41242443320`. Attempt 2 runs on unchanged `290480a3`; the recovery
-partition is job `124815460391`. Its MCP aggregate and Full Verify must pass
-before runtime/benchmark work resumes. No numerical rerun was requested.
+partition is job `124815460391`. Its MCP aggregate and Full Verify subsequently pass, as independently verified
+above. No numerical rerun was requested.
 
 The initial independent preservation check confirms that all 36 previously
 passing jobs retain their original status and execution timestamps, and every
@@ -116,7 +130,7 @@ Verify this again after the recovery gates finish. All completed primary and
 supplemental failures remain retained; this retry cannot establish performance
 parity or waive a gate. No runtime source change has been made.
 
-## Current acceptance campaigns complete and failed (2026-11-01)
+## Predecessor 290480a3 acceptance complete and failed (2026-11-01)
 
 The frozen `290480a3` primary campaign has completed. Independent recomputation
 matches the hosted comparison across all 48 cases / 1,440 raw rows, with zero
@@ -135,12 +149,11 @@ cases and four aggregate evidence findings. The separate payload shard adds
 No candidate is adopted; neither reduced component allocations nor passing
 canonical/copy/MQTT/browser checks establish RAM or transport parity.
 
-No numerical campaign remains running. CI still lacks the interrupted MCP
-mutation partition; its cause is unmeasured and its aggregate correctly fails.
-The user has now explicitly approved the exception to the setup-only retry rule.
-Only the interrupted partition and necessary nonnumerical dependents are being
-recovered, preserving passing numerical executions/artifacts. CI recovery still
-precedes further runtime or benchmark work under the repository's priority rule.
+Both numerical campaigns on this predecessor are complete. Its original CI
+attempt lacked the interrupted MCP partition and correctly failed. The user
+explicitly approved the scoped exception; the recovered partition and dependent
+gates now pass, with numerical executions/artifacts independently preserved.
+The original interruption cause remains unmeasured.
 
 The temporary follow-up was removed after completing these authorized audits.
 The user's explicit retry decision has now resumed work in this chat. The

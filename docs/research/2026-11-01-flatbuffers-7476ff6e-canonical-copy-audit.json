@@ -1,0 +1,92 @@
+{
+  "adopted": false,
+  "canonical": {
+    "JS_observations": 0,
+    "actual_own_native_rehashed": true,
+    "encoder_sha256": "c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2",
+    "local_browser_scope": "Actual Chrome Dart2Wasm only; no local JS",
+    "log_sha256": "cdbe35580060dbc44b3d1c28c5eaca8d015abcf3edbe2d166dce4d73631ff886",
+    "native_sha256": "35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649",
+    "performance_acceptance": false,
+    "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+    "source_and_native_frozen": true,
+    "verify_exit": 0,
+    "wasm_observations": 8308
+  },
+  "copy": {
+    "binaries_unchanged": true,
+    "binary_scope": "Hosted stable digest receipts here; independently rehash retained production binaries when available and compare exact hashes, without substituting another build.",
+    "complete_source_derived_case_inventory_verified": true,
+    "head": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+    "inventory": {
+      "e2ee": 96,
+      "encoded_volume": 300,
+      "native_crypto": 72,
+      "rows": 300,
+      "transcode": 60,
+      "zero_avoidable_payload_copy": 32
+    },
+    "live": {
+      "e2ee": 96,
+      "encoded_volume": 120,
+      "native_crypto": 48,
+      "rows": 120,
+      "transcode": 120
+    },
+    "retained_generated_inputs": [
+      "pubspec.lock",
+      "native/bench/Cargo.lock",
+      "native/transport/Cargo.lock",
+      ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
+    ],
+    "source_inputs_unchanged": true,
+    "verified_source_inputs": 3300
+  },
+  "copy_artifact": 13083682600,
+  "copy_run": 41306082213,
+  "full_CI_and_strict_acceptance_complete": false,
+  "native_lifetime": {
+    "cleanup_verified": true,
+    "head": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+    "negative_control": {
+      "expected_failures": 1,
+      "rows": 0
+    },
+    "phases": [
+      {
+        "failures": 0,
+        "name": "existing-api-baseline",
+        "observations": 12,
+        "pid": 5728,
+        "rows": 6
+      },
+      {
+        "failures": 0,
+        "name": "direct-native",
+        "observations": 12,
+        "pid": 5887,
+        "rows": 6
+      },
+      {
+        "failures": 0,
+        "name": "public-native-lease",
+        "observations": 12,
+        "pid": 6041,
+        "rows": 6
+      }
+    ]
+  },
+  "native_view_source": {
+    "archive_sha256": "6a6bfa0d6a837cdd9898be515ba8b96335addc85cf0544c4e131b64697176b64",
+    "fixture_verified": true,
+    "hosted_library_unchanged_receipt": true,
+    "limitations": [
+      "Native-view ffi-test library not retained for independent byte rehash; do not substitute shared CI or production build."
+    ],
+    "native_view_source_inputs_verified": 3297,
+    "recorded_native_library_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+    "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+    "source_archive_reconstructed_exactly": true
+  },
+  "source": "7476ff6e5c89b583ae32d317439e3774fc379e45"
+}
