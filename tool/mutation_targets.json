@@ -687,6 +687,7 @@
       "packages/connectanum_router/lib/src/router/state/store.dart"
     ],
     "tests": [
+      "packages/connectanum_router/test/state/invocation_caller_test.dart",
       "packages/connectanum_router/test/state/pattern_matching_test.dart",
       "packages/connectanum_router/test/state/retry_deduplication_test.dart",
       "packages/connectanum_router/test/state/store_command_recovery_test.dart",

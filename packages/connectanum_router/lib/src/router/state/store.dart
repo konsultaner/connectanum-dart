@@ -220,6 +220,33 @@ class RouterStateStore {
           replyPort: command.replyPort,
           action: () => _getInvocation(command.realmUri, command.invocationId),
         );
+      case InvocationCallerCommand():
+        _sendGuardedReply(
+          command: command,
+          replyPort: command.replyPort,
+          action: () {
+            final realm = _getOrCreateRealm(command.realmUri);
+            final invocation = realm.invocations[command.invocationId];
+            if (invocation == null ||
+                invocation.calleeSessionId != command.calleeSessionId) {
+              return null;
+            }
+            final caller = realm.sessions[invocation.callerSessionId];
+            if (caller == null) return null;
+            return SessionInfo(
+              id: caller.id,
+              authId: caller.authId,
+              authRole: caller.authRole,
+              authMethod: caller.authMethod,
+              authProvider: caller.authProvider,
+              roles: caller.roles,
+              workerId: caller.workerId,
+              connectionId: caller.connectionId,
+              lastActivity: caller.lastActivity,
+              protocol: caller.protocol,
+            );
+          },
+        );
       case InvocationCompleteCommand():
         final result = _guardedAction(
           command: command,

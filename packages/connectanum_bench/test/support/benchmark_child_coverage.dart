@@ -10,6 +10,8 @@ Future<void> collectBenchmarkChildCoverage(
   Directory root, {
   Future<Process> Function(String, List<String>)? startProcess,
   Duration timeout = const Duration(seconds: 15),
+  String expectedSource = 'package:connectanum_bench/src/benchmark_runner.dart',
+  bool includeEntryPoint = false,
 }) async {
   if (uri.scheme != 'http' || uri.host != '127.0.0.1' || uri.port <= 0) {
     throw ArgumentError.value(uri, 'uri', 'Expected loopback VM service');
@@ -23,6 +25,7 @@ Future<void> collectBenchmarkChildCoverage(
     '${root.path}/packages/connectanum_bench/test/support/collect_benchmark_child_coverage.dart',
     '$uri',
     output.path,
+    if (includeEntryPoint) 'all-sources',
   ];
   final process = await (startProcess ?? Process.start)(
     Platform.resolvedExecutable,
@@ -62,14 +65,19 @@ Future<void> collectBenchmarkChildCoverage(
         code,
       );
     }
-    validateBenchmarkChildCoverage(jsonDecode(await output.readAsString()));
+    validateBenchmarkChildCoverage(
+      jsonDecode(await output.readAsString()),
+      source: expectedSource,
+    );
   } finally {
     await close();
   }
 }
 
-void validateBenchmarkChildCoverage(Object? report) {
-  const source = 'package:connectanum_bench/src/benchmark_runner.dart';
+void validateBenchmarkChildCoverage(
+  Object? report, {
+  String source = 'package:connectanum_bench/src/benchmark_runner.dart',
+}) {
   if (report is! Map || report['coverage'] is! List) {
     throw const FormatException('Missing child coverage entries');
   }

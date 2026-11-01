@@ -1100,8 +1100,11 @@ void main() {
         .take(705)
         .toList()
         .timeout(const Duration(seconds: 5));
-    for (var id = 0; id < 700; id++) {
-      await publisher.publish('queued/publish', payload(id));
+    for (var first = 0; first < 700; first += 16) {
+      await Future.wait([
+        for (var id = first; id < first + 16 && id < 700; id++)
+          publisher.publish('queued/publish', payload(id)),
+      ]);
     }
     await publisher.publishBatch('queued/publish', [
       payload(700),

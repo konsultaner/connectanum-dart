@@ -225,8 +225,7 @@ jobs:
             --coverage-path=../../out/mqtt-qos0-gate/core-mqtt.lcov \
             --coverage-package=connectanum_core --reporter=expanded
           cd ../connectanum_router
-          dart test test/mqtt/mqtt_qos0_integration_test.dart \
-            test/mqtt/mqtt_native_router_integration_test.dart \
+          dart test test/mqtt \
             --coverage-path=../../out/mqtt-qos0-gate/router-mqtt.lcov \
             --coverage-package='connectanum_(router|core|client)' --reporter=expanded
           cd ../..
@@ -363,6 +362,59 @@ jobs:
           path: out/mqtt-native-comparison
           if-no-files-found: error
 
+  mqtt-gateway-baseline:
+    name: MQTT WAMP gateway baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    needs: native-build
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-native-ffi-test
+          path: out/ci-native
+      - name: Prepare the verified native library and independent MQTT peers
+        run: |
+          set -euo pipefail
+          python3 tool/ci_native_artifact.py prepare --directory out/ci-native
+          echo "CONNECTANUM_NATIVE_LIB=$PWD/out/ci-native/libct_ffi.so" >> "$GITHUB_ENV"
+          bin/bootstrap
+          sudo apt-get update
+          sudo apt-get install -y mosquitto
+          mosquitto_version="$(mosquitto -h 2>&1 || true)"
+          [[ "$mosquitto_version" == *'mosquitto version 2.0.18'* ]]
+          python3 -m venv "$RUNNER_TEMP/gateway-python"
+          "$RUNNER_TEMP/gateway-python/bin/pip" install paho-mqtt==2.1.0 coverage==7.16.2
+      - name: Require complete gateway benchmark tooling coverage
+        env:
+          PYTHONPATH: tool
+        run: |
+          set -euo pipefail
+          mkdir -p out/mqtt-gateway
+          python="$RUNNER_TEMP/gateway-python/bin/python"
+          "$python" -m coverage run --data-file=out/mqtt-gateway/python.coverage \
+            --source=run_mqtt_gateway_benchmark,mqtt_gateway_paho_peer,mqtt_gateway_reference_server,check_mqtt_gateway_coverage \
+            -m unittest tool/test_run_mqtt_gateway_benchmark.py tool/test_mqtt_gateway_peers.py tool/test_check_mqtt_gateway_coverage.py
+          "$python" -m coverage json --data-file=out/mqtt-gateway/python.coverage -o out/mqtt-gateway/python-coverage.json
+          "$python" -c "from check_mqtt_gateway_coverage import require_python_coverage; require_python_coverage('out/mqtt-gateway/python-coverage.json')"
+      - name: Record the first immutable live translation baseline before setting budgets
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/gateway-python/bin/python" tool/run_mqtt_gateway_benchmark.py \
+            --output out/mqtt-gateway/baseline --matrix release --record-only \
+            --runs 5 --messages 5000 --warmup 200 \
+            --paho-python "$RUNNER_TEMP/gateway-python/bin/python" --mosquitto "$(command -v mosquitto)"
+      - name: Upload complete gateway performance and per-process memory evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-wamp-gateway
+          path: out/mqtt-gateway
+          if-no-files-found: error
+
   wamp-app:
     name: WampApp Consumer
     runs-on: ubuntu-latest
@@ -448,6 +500,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup-ci
         with:
           rust: 'true'
@@ -477,6 +531,7 @@ jobs:
           CONNECTANUM_CI_VERIFY: '1'
           CONNECTANUM_CI_NATIVE_DIR: out/ci-native
           CONNECTANUM_COVERAGE_DIR: out/coverage
+          CONNECTANUM_COVERAGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
         run: bin/verify
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
@@ -498,6 +553,7 @@ jobs:
             out/coverage/summary.json
             out/coverage/packaging-lcov.info
             out/coverage/packaging-summary.json
+            out/coverage/mqtt-gateway-summary.json
           if-no-files-found: error
 
   mutation-gates:

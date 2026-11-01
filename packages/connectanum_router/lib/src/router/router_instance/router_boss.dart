@@ -428,6 +428,7 @@ class _RouterBoss {
           }
           _mqttBroker.attachNativeConnection(
             connectionId,
+            realm: _mqttRealmForListener(listener, settings),
             send: (bytes) => mqttRuntime.sendMqttChunk(connectionId, bytes),
             close: () {
               mqttRuntime.setMqttWake(connectionId, null);

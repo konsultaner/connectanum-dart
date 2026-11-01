@@ -234,6 +234,22 @@ class InvocationDispatchCommand extends RouterStateCommand {
   final SendPort replyPort;
 }
 
+/// Resolve a caller from an active invocation owned by the requesting callee.
+/// Caller-supplied message details never participate in this lookup.
+class InvocationCallerCommand extends RouterStateCommand {
+  InvocationCallerCommand({
+    required this.realmUri,
+    required this.invocationId,
+    required this.calleeSessionId,
+    required this.replyPort,
+  });
+
+  final String realmUri;
+  final int invocationId;
+  final int calleeSessionId;
+  final SendPort replyPort;
+}
+
 class InvocationGetCommand extends RouterStateCommand {
   InvocationGetCommand({
     required this.realmUri,

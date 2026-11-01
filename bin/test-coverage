@@ -189,3 +189,8 @@ python3 tool/check_coverage.py "$coverage_root/packaging-lcov.info" \
   --scope packaging \
   --output "$coverage_root/packaging-summary.json" \
   --policy tool/coverage_packaging_policy.json
+
+python3 tool/check_mqtt_gateway_coverage.py \
+  "$coverage_root/lcov.info" "$coverage_root/packaging-lcov.info" \
+  --base "${CONNECTANUM_COVERAGE_BASE:-HEAD}" \
+  --output "$coverage_root/mqtt-gateway-summary.json"

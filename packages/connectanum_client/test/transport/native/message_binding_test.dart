@@ -16,6 +16,47 @@ import 'package:test/test.dart';
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  test(
+    'CBOR byte strings stay binary in native frames and deferred fragments',
+    () {
+      final bytes = Uint8List.fromList([0, 255, 17]);
+      final arguments = [
+        bytes,
+        [1, 2],
+        {'nested': bytes},
+        null,
+        true,
+      ];
+      for (final deferred in [false, true]) {
+        final message =
+            bindMessage(
+                  NativeMessageSerializer.cbor,
+                  Uint8List.fromList(
+                    cbor.cborEncode(cbor.CborValue([36, 1, 2, {}, arguments])),
+                  ),
+                  metadata: deferred
+                      ? _metadata(
+                          messageCode: MessageTypes.codeEvent,
+                          primaryId: 1,
+                          secondaryId: 2,
+                          flags:
+                              NativeMessageMetadata.flagDirectBind |
+                              NativeMessageMetadata.flagMetadataBind,
+                        )
+                      : null,
+                  argsBytes: Uint8List.fromList(
+                    cbor.cborEncode(cbor.CborValue(arguments)),
+                  ),
+                )
+                as Event;
+        expect(message.arguments!.first, isA<Uint8List>());
+        expect(message.arguments!.first, bytes);
+        expect(message.arguments![1], isNot(isA<Uint8List>()));
+        expect((message.arguments![2] as Map)['nested'], isA<Uint8List>());
+        expect(message.arguments!.sublist(3), [null, true]);
+      }
+    },
+  );
   _deferredSessionStateCases();
   _deferredBindingContracts();
   test('malformed FlatBuffers frame fails as malformed input', () {

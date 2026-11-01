@@ -872,12 +872,15 @@ void main() {
         final invocationPort = ReceivePort();
         addTearDown(invocationPort.close);
         var returnExactPayload = true;
+        var malformedReply = false;
         Object? seenTransferredPayload;
         invocationPort.listen((dynamic rawMessage) {
           final message = (rawMessage as Map).cast<String, Object?>();
           seenTransferredPayload = message['lazyPayload'];
           final replyPort = message['replyPort'] as SendPort;
-          if (returnExactPayload) {
+          if (malformedReply) {
+            replyPort.send({'type': 'result', 'arguments': 'invalid'});
+          } else if (returnExactPayload) {
             replyPort.send({
               'type': 'result',
               'lazyPayload': message['lazyPayload'],
@@ -966,7 +969,13 @@ void main() {
           connectionId: 51,
           incomingMessage: incoming,
         );
-        await Future<void>.delayed(Duration.zero);
+        await (() async {
+          while (!bossMessages.any(
+            (e) => e['type'] == 'worker_forward_native_internal_result',
+          )) {
+            await Future<void>.delayed(Duration.zero);
+          }
+        })().timeout(const Duration(seconds: 2));
 
         final transferred = seenTransferredPayload as Map;
         expect(transferred.values.whereType<Uint8List>(), isEmpty);
@@ -1009,7 +1018,11 @@ void main() {
           connectionId: 51,
           incomingMessage: fallbackIncoming,
         );
-        await Future<void>.delayed(Duration.zero);
+        await (() async {
+          while (_extractForwardMessages(bossMessages).isEmpty) {
+            await Future<void>.delayed(Duration.zero);
+          }
+        })().timeout(const Duration(seconds: 2));
 
         expect(
           bossMessages.where(
@@ -1022,6 +1035,39 @@ void main() {
         final fallbackResult = fallback['message'] as result_msg.Result;
         expect(fallbackResult.arguments, const ['modified']);
         expect(releasedHandles, [414]);
+
+        malformedReply = true;
+        for (final serializer in [
+          NativeMessageSerializer.messagePack,
+          NativeMessageSerializer.ubjson,
+        ]) {
+          bossMessages.clear();
+          callerState.serializer = serializer;
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: callerState,
+            message: call_msg.Call(
+              9300 + serializer.index,
+              'com.example.native.internal.echo',
+            ),
+            connectionId: 51,
+          );
+          await (() async {
+            while (!bossMessages.any(
+              (e) => e['type'] == 'worker_send' || e.containsKey('error'),
+            )) {
+              await Future<void>.delayed(Duration.zero);
+            }
+          })().timeout(const Duration(seconds: 2));
+          expect(
+            bossMessages.any(
+              (e) => e['type'] == 'worker_send' || e.containsKey('error'),
+            ),
+            isTrue,
+          );
+        }
       },
     );
 

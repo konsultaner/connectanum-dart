@@ -794,7 +794,7 @@ Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
-      return cbor.cborDecode(bytes).toObject();
+      return _normalizeCborPayload(cbor.cborDecode(bytes));
     case NativeMessageSerializer.ubjson:
     case NativeMessageSerializer.flatbuffers:
       throw UnsupportedError(
@@ -1282,7 +1282,7 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
-      return cbor.cborDecode(bytes).toObject();
+      return _normalizeCborPayload(cbor.cborDecode(bytes));
     case NativeMessageSerializer.flatbuffers:
       return flatbuffers.Serializer().deserializeApplication(bytes);
     case NativeMessageSerializer.ubjson:
@@ -1290,6 +1290,24 @@ Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
         'Serializer ${serializer.name} is not supported for payload decoding',
       );
   }
+}
+
+// Keep CBOR's byte-string wire kind distinct from an ordinary numeric array,
+// matching the Dart serializer and the other native WAMP serializers.
+Object? _normalizeCborPayload(cbor.CborValue value) {
+  if (value is cbor.CborBytes) return Uint8List.fromList(value.bytes);
+  if (value is cbor.CborList) {
+    return value.map(_normalizeCborPayload).toList(growable: false);
+  }
+  if (value is cbor.CborMap) {
+    return value.map(
+      (key, nested) => MapEntry(
+        _normalizeCborPayload(key),
+        _normalizeCborPayload(nested),
+      ),
+    );
+  }
+  return value.toObject();
 }
 
 Object? _normalizeJsonBinaryPayload(Object? value) {

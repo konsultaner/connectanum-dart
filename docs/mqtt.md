@@ -3,14 +3,16 @@
 Connectanum provides an opt-in QoS 0 MQTT broker and client for MQTT 5.0 and
 3.1.1 over TCP, TLS, WebSocket and secure WebSocket. Native listeners negotiate
 MQTT alongside HTTP and WAMP. Anonymous MQTT listening is restricted to numeric
-loopback addresses until principal authentication and authorization are implemented.
+loopback addresses. The gateway assigns a configured MQTT principal and applies
+realm authorization; MQTT credential authentication remains pending.
 
 | Capability | Current status |
 | --- | --- |
 | QoS 0 pub/sub, filters, bounded framing and queues | Implemented and independently tested |
 | TCP/TLS/WS/WSS; Paho and Connectanum clients; Mosquitto control | Implemented and benchmarked |
 | Reversible MQTT-topic/WAMP-URI names | Implemented |
-| Authorized MQTT↔WAMP gateway and translation benchmarks | Pending: #116–#117, #131 |
+| Explicit authorized MQTT↔WAMP gateway | Implemented; configure a realm, MQTT principal and service role |
+| Translation performance/memory acceptance | Live runner implemented; hosted baseline and numeric budgets in progress (#131) |
 | QoS 1/2, persistence, retained publications, wills, full MQTT 5 properties | Pending: #118–#123 |
 
 The [active plan](exec-plans/2026-10-14-mqtt-broker-interoperability.md) tracks the
@@ -71,25 +73,84 @@ slashes within components and names beyond MQTT's 65,535-byte UTF-8 limit.
 See [MQTT 5 §4.7](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html)
 and the [WAMP strict URI recommendation](https://wamp-proto.org/wamp_latest_ietf.pdf).
 
-## Gateway boundary to implement
+## Enable the gateway
 
-Mapping names does not grant access. A gateway must authorize the MQTT principal
-and realm, then apply the WAMP ACL to the canonical URI. WAMP-originated gateway
-publishes must preserve caller identity and pass the same topic policy.
-Direct WAMP PUBLISH into this namespace does not trigger MQTT delivery.
-`ppt_scheme: mqtt` stays opaque; an explicit authorized API will enable bridging.
+Import `package:connectanum_router/mqtt.dart` and enable a gateway on a native
+router binding. Configure both roles in the realm before calling this API:
 
-MQTT wildcard semantics, including `$` and parent matching by `a/#`, must remain
-intact. MQTT owns packet IDs, QoS, retain, wills and session state; WAMP owns its
-sessions/subscriptions. Application publications carry raw bytes, topic,
-principal/realm, properties and origin metadata. The gateway prevents loops and
-avoids topic mapping work when no bridge recipient exists.
+```dart
+final gateway = await binding.enableMqttGateway(
+  realmUri: 'example',
+  mqttAuthRole: 'mqtt',
+  mqttAuthId: 'mqtt:anonymous',
+  serviceAuthRole: 'mqtt-gateway',
+);
+```
+
+| Role | Required permissions |
+| --- | --- |
+| MQTT principal (`mqtt`) | `publish`/`subscribe` on allowed mapped topic URIs |
+| WAMP caller | `call` on `connectanum.mqtt.v1.publish` and `publish` on the requested mapped URI |
+| Gateway service (`mqtt-gateway`) | `register`/`unregister` on `connectanum.mqtt.v1.publish`; `publish` on allowed mapped URIs |
+
+Use exact, prefix or wildcard realm permissions, or a configured authorization
+provider. An implicit allow-all realm is rejected. For multiple realms, assign
+each MQTT listener explicitly with `options: {'realm': 'example'}`. Connections
+and subscriptions remain isolated by that assignment. MQTT client IDs are
+untrusted connection hints; they never select a role or authenticate a principal.
+
+An authorized MQTT publication becomes a WAMP event on
+`MqttTopicUriMapper.toWampUri(topic)`, with one binary argument. Event details
+include `mqtt_topic`, `mqtt_origin`, `mqtt_gateway`, and the originating client
+ID or verified WAMP caller ID. MQTT authorization completes before either MQTT
+or WAMP delivery. Wildcard MQTT subscriptions also require permission on each
+concrete delivered topic.
+
+WAMP clients publish explicitly through the gateway:
+
+```dart
+await session.call(
+  'connectanum.mqtt.v1.publish',
+  arguments: ['sensors/temperature', Uint8List.fromList([0, 255, 17])],
+).first;
+```
+
+The router resolves the original caller from trusted invocation/session state,
+checks that caller's publication permission, and rejects malformed topics,
+nonbinary payloads, keyword arguments and PPT on this API. Ordinary WAMP
+publications in the mapped namespace cause no MQTT delivery. `ppt_scheme: mqtt`
+remains opaque. The gateway never subscribes to its output, so forwarding does
+not create a feedback loop.
+
+The RPC result contains the WAMP publication ID. QoS 0 does not acknowledge
+subscriber delivery, provide atomic delivery across protocols, or persist data
+for offline subscribers. MQTT packet IDs/session state and WAMP sessions remain
+owned by their respective protocols.
+
+| Gateway bound | Default |
+| --- | ---: |
+| Pending API payload bytes / operations per realm | 8 MiB / 256 |
+| Queued policy work per MQTT peer | 4 MiB / 256 tasks |
+| Queued MQTT policy bytes across the broker | 16 MiB |
+| Policy/state operation deadline | 5 s |
+| MQTT publication packet size | 1 MiB |
+| Cached topic mappings | 256 entries / 1 MiB |
+
+Overflow closes the affected MQTT peer or rejects the API call. A policy timeout
+closes gateway admission. Unresolved custom provider futures retain capacity
+until they settle, including across gateway replacement. `gateway.metrics`
+reports queue bytes/depth, policy futures, cache size, deliveries and errors.
+`await gateway.close()` cancels pending work and disconnects its MQTT realm;
+the realm stays deny-only until a replacement gateway is explicitly installed.
 
 ## Verification and performance
 
 [README tables](../packages/connectanum_bench/README.md) show direct MQTT and
 four-serializer WAMP results. [Benchmark evidence](benchmarks/README.md) links the
 100% scoped coverage proof, unchanged CI budgets, compact fixtures and complete
-historical archive. Gateway benchmarks must cover both translation directions,
-matched direct controls, exact delivery, latency, CPU, RSS and queue/drain behavior
-before release acceptance.
+historical archive. `tool/run_mqtt_gateway_benchmark.py` runs separate AOT broker,
+publisher and subscriber processes for both translations, direct MQTT/WAMP
+controls and a Mosquitto MQTT-leg control. It validates every payload and records
+throughput, p50/p95/p99, CPU, each process's warm/peak/drained RSS and lifecycle
+queue recovery. Raw runs belong in CI artifacts; hosted numeric gateway
+acceptance remains pending until its immutable baseline is locked.

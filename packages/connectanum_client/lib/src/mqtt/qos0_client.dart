@@ -70,7 +70,7 @@ final class MqttQos0Client {
       }
       final client = MqttQos0Client._(null, webSocket, version);
       try {
-        client._send(connectPacket);
+        await client._send(connectPacket);
         final reason = await client._connack.future.timeout(
           const Duration(seconds: 10),
         );
@@ -97,7 +97,7 @@ final class MqttQos0Client {
       socket.setOption(SocketOption.tcpNoDelay, true);
     }
     final client = MqttQos0Client._(socket, null, version);
-    client._send(connectPacket);
+    await client._send(connectPacket);
     final reason = await client._connack.future.timeout(
       const Duration(seconds: 10),
     );
@@ -123,26 +123,56 @@ final class MqttQos0Client {
   Completer<void>? _ping;
   int _nextId = 1;
   int _unflushedSocketBytes = 0;
+  Future<void>? _pendingSocketWrite;
   bool _closed = false;
 
   Stream<MqttPublish> get messages => _messages.stream;
 
-  void _send(Uint8List bytes) {
+  Future<void> _send(
+    Uint8List bytes, {
+    bool backpressure = false,
+    bool flush = false,
+  }) {
     if (_webSocket case final webSocket?) {
       webSocket.add(bytes);
-    } else {
-      _socket!.add(bytes);
+      return _queuedPublish;
     }
+    return _socketOperation((socket) {
+      socket.add(bytes);
+      if (backpressure) _unflushedSocketBytes += bytes.length;
+      if (flush || _unflushedSocketBytes >= _maxUnflushedSocketBytes) {
+        _unflushedSocketBytes = 0;
+        return socket.flush();
+      }
+      return null;
+    });
   }
 
-  Future<void> _flush() => _socket?.flush() ?? Future<void>.value();
+  // IOSink.flush binds the sink until its Future completes. Serialize only
+  // while a flush/write is pending; the usual enqueue path stays synchronous.
+  Future<void> _socketOperation(Future<void>? Function(Socket) operation) {
+    final pending = _pendingSocketWrite;
+    final Future<void>? work = pending == null
+        ? operation(_socket!)
+        : pending.then((_) => operation(_socket!));
+    if (work == null) return _queuedPublish;
+    late final Future<void> tracked;
+    tracked = work.whenComplete(() {
+      if (identical(_pendingSocketWrite, tracked)) _pendingSocketWrite = null;
+    });
+    return _pendingSocketWrite = tracked;
+  }
+
+  Future<void> _flush() => _socket == null
+      ? _queuedPublish
+      : _socketOperation((socket) => socket.flush());
 
   Future<void> subscribe(String filter) async {
     final id = _nextId;
     _nextId = id == 65535 ? 1 : id + 1;
     final complete = Completer<List<int>>();
     _subacks[id] = complete;
-    _send(
+    await _send(
       MqttPacketCodec.encodeSubscribe(version, packetId: id, filter: filter),
     );
     late final List<int> granted;
@@ -168,15 +198,7 @@ final class MqttQos0Client {
         topic: topic,
         payload: payload,
       );
-      _send(wire);
-      if (_socket case final socket?) {
-        _unflushedSocketBytes += wire.length;
-        if (_unflushedSocketBytes >= _maxUnflushedSocketBytes) {
-          _unflushedSocketBytes = 0;
-          return socket.flush();
-        }
-      }
-      return _queuedPublish;
+      return _send(wire, backpressure: true);
     } catch (error, stackTrace) {
       return Future<void>.error(error, stackTrace);
     }
@@ -204,17 +226,13 @@ final class MqttQos0Client {
       count++;
     }
     if (count == 0) return;
-    _send(wire.takeBytes());
-    if (_socket != null) {
-      _unflushedSocketBytes = 0;
-      await _flush();
-    }
+    await _send(wire.takeBytes(), flush: true);
   }
 
   Future<void> ping() async {
     if (_ping != null) throw StateError('PINGREQ is already outstanding');
     final response = _ping = Completer<void>();
-    _send(
+    await _send(
       MqttFrame(MqttPacketType.pingreq, flags: 0, body: Uint8List(0)).encode(),
     );
     await response.future.timeout(const Duration(seconds: 10));
@@ -285,7 +303,7 @@ final class MqttQos0Client {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    _send(
+    await _send(
       MqttFrame(
         MqttPacketType.disconnect,
         flags: 0,

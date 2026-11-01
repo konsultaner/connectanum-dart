@@ -6,14 +6,18 @@
     "packages/connectanum_core/lib/src/mqtt/packet_codec.dart",
     "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart",
     "packages/connectanum_client/lib/src/mqtt/qos0_client.dart",
-    "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart"
+    "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart",
+    "packages/connectanum_router/lib/src/mqtt/gateway_policy.dart",
+    "packages/connectanum_router/lib/src/router/router_instance/router_mqtt.dart"
   ],
   "files": {
     "packages/connectanum_core/lib/src/mqtt/frame_codec.dart": 100,
     "packages/connectanum_core/lib/src/mqtt/packet_codec.dart": 100,
     "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart": 100,
     "packages/connectanum_client/lib/src/mqtt/qos0_client.dart": 100,
-    "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart": 100
+    "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart": 100,
+    "packages/connectanum_router/lib/src/mqtt/gateway_policy.dart": 100,
+    "packages/connectanum_router/lib/src/router/router_instance/router_mqtt.dart": 100
   },
   "components": {
     "MQTT QoS 0 Dart sources": {
@@ -24,6 +28,13 @@
         "packages/connectanum_core/lib/src/mqtt/topic_uri_mapper.dart",
         "packages/connectanum_client/lib/src/mqtt/qos0_client.dart",
         "packages/connectanum_router/lib/src/mqtt/qos0_broker.dart"
+      ]
+    },
+    "MQTT WAMP gateway": {
+      "floor": 100,
+      "sources": [
+        "packages/connectanum_router/lib/src/mqtt/gateway_policy.dart",
+        "packages/connectanum_router/lib/src/router/router_instance/router_mqtt.dart"
       ]
     }
   }
