@@ -36,8 +36,16 @@ Both own CPU captures independently verify native/AOT/client bytes, raw delivery
 counts, perf hashes, expected SIGINT completion and zero lost samples. The exact
 MQTT native SHA remains `f9a7a6e5…`; the broker snapshot is distinct from the
 acceptance executable. Kernel pipe-wake costs are descriptive, not causal proof.
-A controlled same-runner source comparison is needed before the next CI repair;
-the existing native-library-only comparator cannot isolate this Dart change.
+The predeclared [same-runner source comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/41324624381)
+now runs from tool-only `e2becb6e`, isolated from this frozen runtime. It retains
+all fifty rows (five pairs for each of five profiles), exact source archives,
+canonical candidate locks and actual binary bytes. One shared standard native
+library and one unchanged client isolate the Dart broker change. Original MQTT
+workloads, body verification, windows and repetitions stay intact. Normal CPU
+profile/Intel jobs are skipped and the acceptance gate is not rerun. Tool-only
+canonical verification runs concurrently on clean unchanged source; no result
+is claimed yet. The existing native-library-only comparator cannot isolate
+this Dart change.
 
 Full frozen canonical verification passes with clean unchanged HEAD/source and
 its own unchanged native SHA
@@ -54,7 +62,9 @@ negative control and cleanup. The 3,299-input native-view archive reconstructs
 exactly. Its exact native bytes rehash from the own MQTT CPU artifact and match
 all twenty recorded MQTT summaries; shared-CI/production builds are not
 substituted. Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41316236357)
-remains in progress with the measured MQTT failure above. Keep this candidate
+has completed: 37 jobs pass; the real measured MQTT failure and dependent
+Full Verify gate fail. All forty original artifacts remain retained; no
+unchanged numerical retry was dispatched. Keep this candidate
 frozen and isolate further debugging tooling. Final-runtime strict 48-/50-case
 acceptance remains required; do not launch unchanged numerical retries or claim
 RAM/WebSocket/final acceptance. No candidate is adopted.

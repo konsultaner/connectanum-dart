@@ -90,5 +90,14 @@
   },
   "adopted": false,
   "numerical_rerun": false,
-  "scope": "Real measured gate failure, not setup failure. Do not infer causal repair of earlier host results or replace acceptance with components/CPU diagnostics. Source remainsfrozen during canonical; completeCI stillpending."
+  "scope": "Real measured gate failure, not setup failure. Do not infer causal repair of earlier host results or replace acceptance with components/CPU diagnostics. Source remainsfrozen during canonical; completeCI stillpending.",
+  "workflow_complete": true,
+  "successful_jobs": 37,
+  "failed_jobs": [
+    "MQTT QoS 0 interoperability and benchmark gate",
+    "Full Verify (dependent gate)"
+  ],
+  "run_attempt": 1,
+  "retained_artifact_count": 40,
+  "unchanged_numerical_retry": false
 }
