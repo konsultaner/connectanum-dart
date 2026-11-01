@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory() as temporary:
         profile=next(p for p in gate.profiles('release') if p['id']==profile_id)
         directory=root/profile_id/path;directory.mkdir(parents=True,exist_ok=False)
         config=dict(profile,path=path,port=0,native_library=str(library),paho_python=sys.executable,mosquitto='not-used',
-            diagnostic_only=True,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
+            diagnostic_only=True,diagnostic_gc=True,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
         campaign=gate.Campaign(worker,directory,config,load_timeout=300)
         try:rows=campaign.run(profile,path,5,5000,5000,.5,1)
         finally:campaign.close()
@@ -34,16 +34,5 @@ with tempfile.TemporaryDirectory() as temporary:
                 checks[name+'_'+field]=process[field]<=limit['processes'][role]['max_'+field]
         report=dict(profile=profile_id,path=path,checks=checks,processes=processes,drains_mib=[v/1048576 for v in drains])
         reports.append(report);print(json.dumps(report),flush=True)
-    profile=next(p for p in gate.profiles('release') if p['id']=='tcp-5-cbor-65536-1-1')
-    directory=root/'extended';directory.mkdir(exist_ok=False)
-    config=dict(profile,path='mqtt_to_wamp',port=0,native_library=str(library),paho_python=sys.executable,mosquitto='not-used',
-        diagnostic_only=True,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
-    campaign=gate.Campaign(worker,directory,config,load_timeout=300)
-    try:rows=campaign.run(profile,'mqtt_to_wamp',25,5000,5000,.5,1)
-    finally:campaign.close()
-    for row in rows:
-        p=row['processes']['broker']
-        print('EXTENDED',json.dumps(dict(run=row['run'],warm_messages=row['warmup_messages'],warm_mib=p['warm_rss_bytes']/1048576,
-            peak_mib=p['peak_rss_bytes']/1048576,drained_mib=p['drained_rss_bytes']/1048576,received=row['received'],duplicates=row['duplicates'])),flush=True)
 (root/'checks.json').write_text(json.dumps(reports,indent=2)+'\n')
 raise SystemExit(int(not all(all(r['checks'].values()) for r in reports)))

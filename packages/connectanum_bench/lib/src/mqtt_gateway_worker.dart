@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
+import 'package:ffi/ffi.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -451,6 +453,37 @@ Future<void> runGatewayBenchmarkWorker(
   final config = GatewayBenchmarkConfig(
     jsonDecode(args[1]) as Map<String, dynamic>,
   );
+  final diagnosticGc = (jsonDecode(args[1]) as Map)['diagnostic_gc'] == true;
+  Future<void> collectForDiagnostic() async {
+    if (!diagnosticGc) return;
+    final library = ffi.DynamicLibrary.process();
+    final collect = library
+        .lookupFunction<
+          ffi.Pointer<ffi.Void> Function(
+            ffi.Pointer<Utf8>,
+            ffi.Pointer<ffi.Void>,
+          ),
+          ffi.Pointer<ffi.Void> Function(
+            ffi.Pointer<Utf8>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >('Dart_ExecuteInternalCommand');
+    final clearCaches = library
+        .lookupFunction<ffi.Void Function(), void Function()>(
+          'Dart_NotifyLowMemory',
+        );
+    final command = 'gc-now'.toNativeUtf8();
+    try {
+      for (var i = 0; i < 2; i++) {
+        collect(command, ffi.nullptr);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        clearCaches();
+      }
+    } finally {
+      calloc.free(command);
+    }
+  }
+
   final output = emit ?? (message) => stdout.writeln(jsonEncode(message));
   final commands = StreamIterator(
     input ?? stdin.transform(utf8.decoder).transform(const LineSplitter()),
@@ -538,12 +571,14 @@ Future<void> runGatewayBenchmarkWorker(
       final command = jsonDecode(commands.current) as Map<String, dynamic>;
       switch (command['op']) {
         case 'begin':
+          await collectForDiagnostic();
           phase = command['phase'] as int;
           count = command['count'] as int;
           if (role == 'subscriber') measurement.begin(phase, count);
           meter.begin();
           output({'kind': 'armed', 'phase': phase});
         case 'sample':
+          await collectForDiagnostic();
           final queues = await server?.sampleQueues();
           output({
             'kind': 'sampled',
@@ -600,6 +635,7 @@ Future<void> runGatewayBenchmarkWorker(
           });
         case 'close':
           await release();
+          await collectForDiagnostic();
           output({'kind': 'closed', ...snapshot()});
           return;
         default:
