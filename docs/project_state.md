@@ -65,11 +65,12 @@ repair of the previous 7763 failures or a Dart-source performance benefit.
 The new complete Dart-source control is predeclared for `11521160` versus
 `600e82f5`: separately compiled actual Dart brokers, same actual verified native
 and client, all five profiles/five AB/BA pairs/fifty rows/8.05 million fresh
-verified deliveries. Its external guarded wrapper is a draft with readiness
-false; own canonical now passes and all sixteen source/provenance/body/output
-guard tests pass. Bounded companion and root review are still required before
-capture; readiness remains false. A native-only comparison does not isolate this Dart
-change. No original numerical run is retried or selected. The candidate is not
+verified deliveries. All eighteen actual positive/adversarial source, canonical/log/native, body,
+order and output guards pass. Bounded companion and root review are complete;
+exact profile/pair/leg AB/BA order and immutable engine-shape checks were
+strengthened before any capture. The single complete comparison is now active
+under the official exclusive lease, retaining all observations. Native-only
+labels do not isolate this Dart change. No original numerical run is retried or selected. The candidate is not
 adopted; throughput/RAM impact, complete final strict 48/50 and clean final CI
 remain outstanding.
 [Own canonical audit](research/2026-11-02-router-busy-wake-canonical-audit.json),

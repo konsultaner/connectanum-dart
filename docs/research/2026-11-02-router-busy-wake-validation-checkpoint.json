@@ -15,7 +15,7 @@
   "CI_run": 41361205057,
   "copy_run": 41361207942,
   "CI_and_copy_source_heads_verified": true,
-  "controlled_Dart_source_comparison": "Predeclared600E/1152; owncanonicalsPASS,16actualpositive/negativeguardsPASS. Externalwrapper readinessfalse untilboundedcompanion/rootreview complete; no captureyet. All5profiles5ABBA50rows8050000freshbodies/sameactualnativeclient/separatelycompiledDartbrokers.",
+  "controlled_Dart_source_comparison": "ONE full predeclared600Evs1152 capture ACTIVE afterbothowncanonicals/18actualadversarialguards/boundedcompanion+rootreviewPASS. Actual separatelycompiledDartbrokers/sameclient/candidateowncanonicalBF60native heldconstant. All5profiles5ABBA50rows8050000freshfullbodychecks, exactsource/native/6locks/archives/receipt+log/budget/order/bodyguards. No results/adoption/RAMclaim yet.",
   "final_strict48_50_dispatched": false,
   "adopted": false,
   "scope": "Own frozen fullcanonical/copy/lifetime/MQTT20/hostedJS pass exactsource audits. FullCI/control/finalstrictacceptance pending. Xeon pass does not prove causal7763repair or RAMparity; source stays frozen.",
@@ -26,5 +26,6 @@
   "MQTT_audit": "docs/research/2026-11-02-router-busy-wake-mqtt-audit.json",
   "full_CI_complete": false,
   "canonical_audit": "docs/research/2026-11-02-router-busy-wake-canonical-audit.json",
-  "control_guard_tests_passed": 16
+  "control_guard_tests_passed": 18,
+  "control_driver_sha256": "b1cff42a609fc5cce64fcd20755621a831170ba7782ec4d83c16a0e23d0a98fe"
 }
