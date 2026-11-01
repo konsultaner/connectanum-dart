@@ -479,7 +479,9 @@ class Campaign:
             for label in clients:
                 self.spawn(label, 'publisher' if label == 'publisher' else 'subscriber')
             self.expect(clients, 'ready')
-            warmed,elapsed=self.warm_up(run*2,warmup,warmup_seconds,clients,server)
+            # Warm every process with at least one complete measured workload.
+            # Time alone can end before large-payload heap growth has occurred.
+            warmed,elapsed=self.warm_up(run*2,max(warmup,count),warmup_seconds,clients,server)
             publications+=warmed+count
             reports, processes = self.phase(run * 2 + 1, count, clients, server)
             self.settle(drain_seconds)
@@ -751,6 +753,7 @@ def main(argv=None):
         environment = {'schema_version': 2, 'diagnostic_only': args.record_only,
                        'peak_rss_scope':'process_lifetime_high_water',
                        'native_outbound_queue_frames':64,
+                       'normal_warmup_messages_min':max(args.warmup,args.messages),
                        'observe_publisher_disconnects':True,'quiescence_before_disconnect':True,
                        'allocation_bytes_per_delivery':None,
                        'allocation_measurement':'not_exposed_by_release_runtime',
@@ -786,7 +789,7 @@ def main(argv=None):
                 try:
                     values = campaign.run(profile, path, args.runs, args.messages, args.warmup, args.drain_seconds,args.warmup_seconds)
                     for value in values:
-                        check_warmup(value,args.warmup,args.warmup_seconds)
+                        check_warmup(value,environment['normal_warmup_messages_min'],args.warmup_seconds)
                     rows.extend(values)
                     print(f"{profile['id']} {path}: {len(values)} exact lifecycles completed",flush=True)
                     (output / 'raw.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in values))

@@ -387,11 +387,12 @@ class GatewayControlTest(unittest.TestCase):
             with mock.patch.object(gate.time,'sleep'):
                 rows = campaign.run(PROFILE,'mosquitto',1,2,1,0,0)
             self.assertEqual(len(rows),1)
+            self.assertEqual(campaign.phase.call_args_list[0].args[1],2)
             self.assertEqual(json.loads((Path(temporary)/'raw.jsonl').read_text())['path'],'mosquitto')
             self.assertEqual(campaign.config['path'],'mqtt_to_mqtt')
             self.assertTrue(campaign.config['reference'])
             campaign.expect.side_effect=[{'broker':dict(pid=1,port=1234)}, {},
-                {'broker':dict(memory=MEMORY,queues=dict(QUEUES,mqtt_publications=3,wamp_publications=0))}]
+                {'broker':dict(memory=MEMORY,queues=dict(QUEUES,mqtt_publications=4,wamp_publications=0))}]
             campaign.phase.side_effect=[({}, {}), ({'subscriber-0':report},row['processes'])]
             with mock.patch.object(gate.time,'sleep'):
                 self.assertEqual(len(campaign.run(PROFILE,'mqtt_to_wamp',1,2,1,0,0)),1)
@@ -400,7 +401,8 @@ class GatewayControlTest(unittest.TestCase):
             campaign.warm_up=mock.Mock(return_value=(4,1.1))
             campaign.phase.side_effect=[({'subscriber-0':report},row['processes'])]
             with mock.patch.object(gate.time,'sleep'):
-                measured=campaign.run(PROFILE,'mqtt_to_wamp',1,2,1,0)
+                measured=campaign.run(PROFILE,'mqtt_to_wamp',1,2,4,0)
+            campaign.warm_up.assert_called_once_with(2,4,1,['publisher','subscriber-0'],server)
             self.assertEqual(measured[0]['warmup_messages'],4)
             self.assertEqual(measured[0]['warmup_seconds'],1.1)
         campaign = self.campaign()
@@ -536,7 +538,7 @@ class GatewayControlTest(unittest.TestCase):
                   mock.patch.object(gate.platform,'machine',return_value='x86_64'),
                   mock.patch.object(gate.os,'cpu_count',return_value=4),
                   contextlib.redirect_stdout(io.StringIO()) as output):
-                campaign.return_value.run.side_effect=lambda p,path,*_: [sample(p,path)]
+                campaign.return_value.run.side_effect=lambda p,path,*_: [dict(sample(p,path),warmup_messages=2)]
                 campaign.return_value.run_overload.side_effect=lambda p,path,runs,*_: [overload_sample(p,path,r) for r in range(1,runs+1)]
                 args=['--output',str(directory/'output'),'--matrix','release','--runs','1','--messages','2','--warmup','1','--budget',str(budget)]
                 self.assertEqual(gate.main(args),0)
@@ -546,6 +548,9 @@ class GatewayControlTest(unittest.TestCase):
                 self.assertIn('openssl_version',result)
                 self.assertIn('tls_ca_sha256',result)
                 self.assertEqual(len(result['results']),2)
+                self.assertEqual(result['normal_warmup_messages_min'],2)
+                with mock.patch.object(campaign.return_value,'run',side_effect=lambda p,path,*_: [dict(sample(p,path),warmup_messages=1)]),self.assertRaisesRegex(ValueError,'warm-up'):
+                    gate.main(args+['--output',str(directory/'underwarmed')])
                 calls=campaign.call_count
                 with mock.patch.object(gate.platform,'machine',return_value='aarch64'),self.assertRaisesRegex(ValueError,'architecture/CPU count'):
                     gate.main(args+['--output',str(directory/'wrong-hardware')])
