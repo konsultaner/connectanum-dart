@@ -44,8 +44,12 @@ Own full frozen canonical verification now passes with unchanged source/HEAD,
 complete tracked tree, all three locks and own native
 `53bb612583da2ce0d03ebce97574242858ae4d4f002939bfdc021765026b4a58`.
 Verify log SHA: `321a5a8c118e523cf2caf8b31d6ec54d74ba1b42e131f6e9bf75af4d7f352f28`.
-Actual local Chrome/Wasm has 8,308 observations; hosted JS remains separate and
-pending. [Canonical audit](../research/2026-11-01-mqtt-ready-frame-canonical-audit.json).
+Actual local Chrome/Wasm has 8,308 observations. Separate exact-source hosted
+Chrome/JS passes with 8,172 successful observations and twenty skips; it is not
+local JS. [Hosted JS audit](../research/2026-11-01-mqtt-ready-frame-hosted-js-audit.json).
+The separate shared CI library `515cafb4…` rehashes with all 965 source inputs and
+its exact Cargo.lock; it is never substituted for measured MQTT `671707cd…`.
+[Shared CI byte/input audit](../research/2026-11-01-mqtt-ready-frame-shared-ci-audit.json). [Canonical audit](../research/2026-11-01-mqtt-ready-frame-canonical-audit.json).
 
 The complete local native-source control independently reproduces fifty rows /
 8.05 million verified deliveries, both exact source archives, 2,566 shared inputs,

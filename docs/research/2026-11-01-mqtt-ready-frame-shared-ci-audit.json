@@ -1,0 +1,10 @@
+{
+  "source": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "artifact_id": 13096507227,
+  "source_hashes_verified": 965,
+  "actual_native_sha256": "515cafb411600e40a8c665cc02de2c5f114cda1ad6c0b739a3f589350db992e4",
+  "actual_lock_sha256": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+  "release_ffi_test_standard_flags": true,
+  "scope": "Own shared CI source/lock/native bytes; separate actual build from MQTT671707, never substituted for measured MQTT or canonical binary.",
+  "audited_utc": "2026-11-01T20:20:30.770259+00:00"
+}

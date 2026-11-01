@@ -1,0 +1,13 @@
+{
+  "source": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "job": 124946511620,
+  "success": true,
+  "log_sha256": "7aa507627adb0b3b4f75f81f944c37ecd2fa533713ef10c58b3f6927b5201416",
+  "log_counts": {
+    "[Chrome, Dart2Js]": 8192,
+    "\u2705 [Chrome, Dart2Js]": 8172,
+    "[Chrome, Dart2Wasm]": 0
+  },
+  "scope": "Own current-source hosted Chrome JS coverage, not local JS; actual Darwin canonical Wasm is separately audited.",
+  "audited_utc": "2026-11-01T20:20:30.774383+00:00"
+}
