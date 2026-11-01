@@ -2,13 +2,44 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: implement the controlled native INVOCATION header improvement in
-an isolated branch after clean 39-job CI recovery, passing frozen tool-only
-canonical verification and independently audited CPU/RSS diagnostics. Preserve
-all generic fallback, metadata, conservative size budgets and body ownership.
-Validate the actual compiled change, then its own canonical/CI/copy and complete
-strict 48-/50-case acceptance before adoption. Original performance failures
-remain retained; no gate or measurement policy is weakened.
+Current step: complete frozen `7476ff6e` canonical verification and keep its
+exact-source CI clean, then independently audit its full copy/lifetime and
+strict 48-/50-case campaigns. Controlled public-encoder allocation savings
+justify this isolated native INVOCATION change; they do not establish RAM or
+transport parity. Preserve every historical result and every policy, window,
+sample/body verification and ownership boundary. No adoption before complete
+final-runtime strict acceptance and clean CI.
+
+## INVOCATION candidate frozen for complete acceptance (2026-11-01)
+
+Published runtime `7476ff6e5c89b583ae32d317439e3774fc379e45` on
+`codex/flatbuffers-invocation-header` shares bounded generated RESULT/INVOCATION
+header construction, preserving generic fallback, exact CBOR dictionaries,
+conservative limits and original body owners. The public-encoder regression
+fails before the fix with 256 copied growth bytes and passes afterward.
+All 469 Rust core tests / three codec integrations pass. Actual compiled public
+encoders independently reproduce 117 cases per source; a typical ordinary
+INVOCATION falls from 19 allocations / 2,217 requested bytes to six / 360, while
+a receive-progress header falls from 23 / 2,581 to seven / 440. These are
+component results, not an RSS or transport pass.
+
+This exact source is frozen during its active full canonical verification,
+with its own native SHA `35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649`
+and encoder-source SHA `c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2`.
+Its complete campaigns were predeclared before results:
+
+- [Full CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41306077363).
+- [Copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41306082213).
+- [Strict primary 48](https://github.com/konsultaner/connectanum-dart/actions/runs/41306087007).
+- [Complete supplemental 50](https://github.com/konsultaner/connectanum-dart/actions/runs/41306091671).
+
+Retain every row/shard and independently verify final-source policies, inputs,
+actual binaries and comparisons. Keep CI clean before further runtime changes.
+No prior report substitutes for this source. Do not adopt/mark ready/merge or
+close issue #103/the milestone until complete final-runtime strict acceptance
+and clean CI. PR #132 remains `40ddcb3f`, draft, on its existing #130 base.
+The separate MessagePack allocation-precision decision remains unanswered and
+is not waived. All predecessor failures remain retained.
 
 ## Scoped CI recovery independently verified (2026-11-01)
 
