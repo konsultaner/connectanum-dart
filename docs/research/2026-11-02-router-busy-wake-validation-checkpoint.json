@@ -1,0 +1,22 @@
+{
+  "source": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+  "runtime_code_commit": "d198a65d5b02aab116d1cb30f071054a3cf350d9",
+  "base": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "branch": "codex/router-busy-wake-consumption",
+  "focused_correctness_audit": "docs/research/2026-11-02-router-busy-wake-correctness-audit.json",
+  "canonical_status": "ACTIVE own bin/verify, not yet complete/pass; source/HEAD/tree/native/locks remain frozen",
+  "own_native_sha256": "bf607a9bd74823a8c8152b0f2dbfc8ca19444d68fd3b108c214392fb54b7a474",
+  "tracked_tree_sha256": "2fad870a53c8e01c3db91c75da48947b04e61adb61f0df26c97f1047d765d496",
+  "three_locks_sha256": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "CI_run": 41361205057,
+  "copy_run": 41361207942,
+  "CI_and_copy_source_heads_verified": true,
+  "controlled_Dart_source_comparison": "Predeclared exact600E/1152; external wrapper draft, readinessfalse, owncandidatecanonical/guardtests/review stillrequired. All5profiles5ABBA50rows8050000freshbodies; sameactualnative/client, separatelycompiledactualDartbrokers. No capture yet.",
+  "final_strict48_50_dispatched": false,
+  "adopted": false,
+  "scope": "Actual before-failing component and fullfocusedcorrectness with615router/115MQTT incl7Paho. Owncanonical/hostedCI-copy/controlledtransport/finalacceptance pending; no throughput/RAMrepairclaim. Native-only labels do not establish Dartsource effect. Preserve all historical failures; never retry unchanged numerical gate."
+}

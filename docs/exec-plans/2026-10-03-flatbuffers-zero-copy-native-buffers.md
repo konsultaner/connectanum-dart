@@ -2,15 +2,52 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: investigate retained MQTT failures after frozen TCP_NODELAY runtime
-`11521160` passes full canonical/copy and native/MQTT/Paho correctness, but fails
-hosted gates and shows no transport improvement in the complete controlled run. Preserve all active prior
-campaigns; RAM and broad WAMP parity remain unresolved. No source/HEAD/native
-changes during canonical or adoption before complete final-runtime acceptance.
+Current step: verify frozen busy-pass wake runtime `600e82f5` after the actual
+before-failing deterministic regression, fresh full fast baseline and all615
+router-runtime/115MQTT cases pass. Own canonical and exact-source CI/copy are
+active; the predeclared full Dart-source comparison awaits canonical/guard/review
+readiness. Preserve every original numerical result. No source/HEAD/native
+changes during canonical, or adoption before complete final-runtime acceptance.
 Local focused/diagnostic evidence is scoped below, not final acceptance. All
 predecessor primary/supplemental campaigns have finished failed and are retained.
 Require complete final-runtime strict 48-/50-case acceptance and clean CI before
 adoption; change no source/HEAD/native during canonical verification.
+
+## Busy-pass wake candidate frozen for verification (2026-11-02)
+
+Published `600e82f56d3da6ac998eeb5a60fec175354215ca` on
+`codex/router-busy-wake-consumption` contains the reviewed two-line wake fix
+and deterministic regressions; its runtime code commit is `d198a65d`.
+Fresh clean full fast baseline passes before source edits. The test-only
+regression then fails with expected one idle timer / actual zero, while the
+late-wake control passes; both pass after correction. All 615 router-runtime
+and 115 MQTT cases, including seven actual Paho cases, pass. Logs, exact code,
+three locks and own native `bf607a9b…` independently rehash unchanged.
+Bounded GLM advisory and root review find no confirmed defect, with loop
+ordering qualified against the actual awaits before queue drain. The close/
+reuse fixture removes its obsolete extra consumption turn; new deterministic
+checks cover the replacement idle-wait behavior. No fallback delay, fairness,
+body/copy, native, SDK, GC, allocator or acceptance policy changes.
+
+Own frozen full canonical is **active**, with actual local Chrome/Wasm enabled,
+clean source/HEAD/tree `2fad870a…`, explicit pacer/native/test guards and three
+locks. Do not edit this source/HEAD/native during verification. No canonical
+pass or local JS proof is claimed yet. Exact-source
+[CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41361205057) and
+[copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41361207942)
+were predeclared once and their source heads independently checked.
+
+The new complete Dart-source control is predeclared for `11521160` versus
+`600e82f5`: separately compiled actual Dart brokers, same actual verified native
+and client, all five profiles/five AB/BA pairs/fifty rows/8.05 million fresh
+verified deliveries. Its external guarded wrapper is a draft with readiness
+false; own canonical pass, source/provenance guard checks and review are still
+required before capture. A native-only comparison does not isolate this Dart
+change. No original numerical run is retried or selected. The candidate is not
+adopted; throughput/RAM impact, complete final strict 48/50 and clean final CI
+remain outstanding.
+[Change and focused proof](../research/2026-11-02-router-busy-wake-consumption.md),
+[current frozen verification scope](../research/2026-11-02-router-busy-wake-validation-checkpoint.json).
 
 ## Current failed-path census (2026-11-01)
 
@@ -40,18 +77,10 @@ a causal explanation or repair of the prior 7763 gate.
 [Scope and original byte bindings](../research/2026-11-01-mqtt-ffi-census-checkpoint.json).
 [All counters and byte audit](../research/2026-11-01-mqtt-ffi-census-audit.json).
 
-An isolated uncommitted proposal on `codex/router-busy-wake-consumption` starts
-at frozen `11521160`. The pacer's `didWork || _consumeWakeRequest()` skips
-consuming a previously queued wake during a busy pass. A deterministic timer-
-creation regression will test whether this causes a redundant next idle turn,
-while preserving notifications arriving during the busy await. This is a
-hypothesis, not a performance fix. Fresh bootstrap passes and full pre-change
-`bin/test-fast` is active before any source edit; the guarded pipeline owns
-subsequent test-only reproduction and minimal correction. It must stop on an
-unexpected result, preserve the native/lock/source guards, and end for review.
-No predecessor idle-fallback/progressive/frame patch, gate or window changes
-are imported. Own canonical, controlled transport and complete final-runtime
-acceptance remain required for any actual runtime candidate.
+The subsequent busy-wake component has now reproduced the redundant idle turn;
+its reviewed published candidate and pending own verification are described
+above. Count-only observations remain diagnostic, without a performance or
+RAM acceptance claim.
 
 The predecessor `75295eb0` primary campaign is now **complete failed** and
 independently reproduced: all 48 cases / 1,440 raw rows, exact inventory,

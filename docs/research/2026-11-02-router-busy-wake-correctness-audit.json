@@ -1,0 +1,36 @@
+{
+  "base": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "before_full_test_fast_complete_pass": true,
+  "baseline_fullfast_log_sha256": "2c2c17410e215ed46a16fa5e2d61419ab8ce9cd28770770985c34cf216482215",
+  "actual_before_regression_exit": 1,
+  "before_regression_log_sha256": "cca2658ec2621ece94aa6fe8fcea4f3153aca026f7826b321c1888efae6be412",
+  "after_regression_exit": 0,
+  "after_regression_log_sha256": "0603ba5898d1f138e3c7ad17ed1b0fe81e241206b7ebf7fb9384f3323668eceb",
+  "router_runtime_cases_passed": 615,
+  "router_MQTT_cases_passed": 115,
+  "actual_Paho_cases_passed": 7,
+  "Paho_cases": [
+    "Paho MQTT 5 and 3.1.1 exchange binary payloads with a Connectanum client",
+    "native MQTT listener exchanges exact binary bytes with Paho 5 and 3.1.1",
+    "native TLS MQTT exchanges exact binary bytes with Paho 5 and 3.1.1",
+    "native WS MQTT 3.1.1 exchanges exact binary bytes with Paho",
+    "native WS MQTT 5 exchanges exact binary bytes with Paho",
+    "native WSS MQTT 3.1.1 exchanges exact binary bytes with Paho",
+    "native WSS MQTT 5 exchanges exact binary bytes with Paho"
+  ],
+  "own_native_sha256": "bf607a9bd74823a8c8152b0f2dbfc8ca19444d68fd3b108c214392fb54b7a474",
+  "own_native_and_three_locks_unchanged": true,
+  "minimal_runtime_delta_independently_verified": true,
+  "all_phase_logs_rehashed": true,
+  "guarded_source_sha256": {
+    "packages/connectanum_router/lib/src/router/router_instance/router_boss.dart": "a0d546a15c588ea8d3059682cba48c105017c24ec7c0831c0fbebcfd76ef7923",
+    "packages/connectanum_router/test/router_runtime_test.dart": "8db222674a9c8034a6f6adf6a2f5aeea11265249885ad6a052beaebfcc5ae5e6",
+    "packages/connectanum_router/test/router_boss_busy_wake_test.dart": "a6b1d252be4af0cfed2e048397a7ae4cca0fa5db7dd6c49519a778cda79742fd",
+    "native/transport/ct_core/src/lib.rs": "0e88607d1bfeacd115097d14e3edc9077404590c1d392ec380c6dc1e55bc4265",
+    "native/transport/ct_core/src/wamp/flatbuffers_encoder.rs": "c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2"
+  },
+  "scope": "Actual before-failing stale-wake component and fullfocusedcorrectness, not throughput/RSS/finalCI/strictacceptance. Freshfullfastbasepass before anysourceedit. Latewake/fairness/close behavior covered; ownnative/locks unchanged. All original observations preserved.",
+  "audited_utc": "2026-11-01T23:09:43.489966+00:00",
+  "source_HEAD_unchanged_during_focused_verification": true,
+  "verification_state": "Focused checks ran with HEAD frozen at base1152 and only the declared uncommitted runtime/test patch. File hashes bind the final code; documentation is added afterward. Own canonical and numerical acceptance are pending."
+}
