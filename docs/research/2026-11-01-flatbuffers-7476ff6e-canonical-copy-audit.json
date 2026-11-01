@@ -15,7 +15,7 @@
   },
   "copy": {
     "binaries_unchanged": true,
-    "binary_scope": "Hosted stable digest receipts here; independently rehash retained production binaries when available and compare exact hashes, without substituting another build.",
+    "binary_scope": "Exact production native and driver bytes now rehashed from own7476payload artifact13086383498 and match the original production-copy receipt. Native-view/MQTT exactffi-test bytes independently rehashed from profile artifact13084058719. No substitution of sharedCI or a different build.",
     "complete_source_derived_case_inventory_verified": true,
     "head": "7476ff6e5c89b583ae32d317439e3774fc379e45",
     "inventory": {
@@ -40,7 +40,9 @@
       ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
     ],
     "source_inputs_unchanged": true,
-    "verified_source_inputs": 3300
+    "verified_source_inputs": 3300,
+    "actual_production_library_sha256": "b682e6132642f070dc5971053198da164e61a528f17885577df58742d0d026bd",
+    "actual_driver_sha256": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940"
   },
   "copy_artifact": 13083682600,
   "copy_run": 41306082213,

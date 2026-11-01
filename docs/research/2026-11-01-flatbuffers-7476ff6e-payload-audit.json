@@ -1,0 +1,68 @@
+{
+  "source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "run": 41306091671,
+  "artifact_id": 13086383498,
+  "cases": 12,
+  "raw_rows": 360,
+  "complete_original_driver_stream_verified": true,
+  "comparison_matches_hosted": true,
+  "measured_numerical_misses": 15,
+  "unmeasured_metrics": 2,
+  "evidence_findings": 30,
+  "by_metric": {
+    "throughput_mbps": 3,
+    "latency_p95_ms": 1,
+    "cpu_us_per_operation": 2,
+    "summed_sampled_peak_rss_bytes": 8,
+    "latency_p99_ms": 1
+  },
+  "unmeasured": [
+    {
+      "case": "ext_17_payload_sizes",
+      "ci_95_high": null,
+      "ci_95_low": null,
+      "median_ratio": null,
+      "metric": "allocated_bytes_per_operation",
+      "passed": false
+    },
+    {
+      "case": "ext_19_payload_sizes",
+      "ci_95_high": null,
+      "ci_95_low": null,
+      "median_ratio": null,
+      "metric": "allocated_bytes_per_operation",
+      "passed": false
+    }
+  ],
+  "retained_binary_hashes": {
+    "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940",
+    "native_library": "b682e6132642f070dc5971053198da164e61a528f17885577df58742d0d026bd"
+  },
+  "platform": {
+    "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+    "dart_version": "Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_x64\"",
+    "kernel": "7.0.0-1017-azure",
+    "logical_cpu_count": 4,
+    "os": "Linux",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "runner_image": "github-hosted/ubuntu24/20261026.354.1",
+    "rustc_version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "comparison_sha256": "2175cfb99aaae1cd3ab64b46bf69e4c38fad90ed5cce76a5e9ffc70322405f81",
+  "scope": "One failed 7476ff6e payload shard, not complete50acceptance or4ec acceptance. All360originalrows and exact source-derived inventory/schedule/scenarios/policy/locks/retained native/driver verified. Full source archive not included in this artifact; original copy input audit retains source evidence. Production-copy binary digests match these rehashed exact bytes, no other build substitution.",
+  "strict_acceptance": false,
+  "audited_utc": "2026-11-01T14:34:49.174206+00:00",
+  "exact_source_canonical_inventory_and_schedule_verified": true,
+  "exact_canonical_scenario_bytes_verified": true,
+  "parameters": {
+    "warmups": 3,
+    "repetitions": 7,
+    "duration_ms": 10000,
+    "samples": 1000,
+    "concurrency": 1,
+    "in_flight": 1
+  },
+  "production_copy_actual_binary_bytes_rehashed_and_matched": true,
+  "production_copy_native_sha256": "b682e6132642f070dc5971053198da164e61a528f17885577df58742d0d026bd",
+  "production_copy_driver_sha256": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940"
+}

@@ -56,6 +56,25 @@ finish unchanged. No numerical retry or predecessor report substitution occurs.
 
 [Candidate design and complete paired evidence](https://github.com/konsultaner/connectanum-dart/blob/4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7/docs/research/2026-11-01-mqtt-validated-forwarding.md).
 
+## Predecessor INVOCATION payload shard failed (2026-11-01)
+
+The `7476ff6e` payload shard in supplemental run `41306091671` has completed.
+Independent reproduction retains all twelve cases / 360 original rows and
+matches every comparison entry: fifteen measured misses (eight RSS, three
+throughput, two CPU, one p95 and one p99), plus two unmeasured MessagePack
+allocation metrics and thirty evidence findings. Never count null ratios as
+numerical measurements. This EPYC 9V74 shard is not complete fifty-case
+acceptance; the primary and other supplemental shards remain active.
+
+The exact source-derived inventory, seed/order schedule and every scenario byte
+reproduce the unchanged three warmups / seven repetitions / 10 s / 1,000-sample
+windows. Canonical policy, locks and actual production native/driver bytes
+verify. Those retained bytes also match the original production-copy receipt
+exactly, resolving its previous hosted-digest-only scope without substituting a
+different library. No numerical retry, new gate or RAM repair is implied.
+
+[Payload reproduction summary](research/2026-11-01-flatbuffers-7476ff6e-payload-audit.json).
+
 ## INVOCATION candidate frozen for complete acceptance (2026-11-01)
 
 Published runtime `7476ff6e5c89b583ae32d317439e3774fc379e45` on
