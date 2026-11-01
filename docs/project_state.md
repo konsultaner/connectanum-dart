@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-10-31.
+Last updated: 2026-11-01.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
@@ -9,9 +9,32 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Validate the isolated typed/progressive RESULT header candidate below. The
-published0c4bb57c predecessor has clean canonical/copy/all39CI evidence; full
-RAM/protocol/progressive parity is still unresolved.
+Validate the isolated idle fallback prototype with controlled, complete matched
+transport evidence before claiming a CI repair. Predecessor supplemental strict
+acceptance fails all fifty retained cases; full primary remains active. RAM and
+broad protocol parity are unresolved.
+
+## Isolated idle fallback prototype (2026-11-01)
+
+The active `codex/mqtt-idle-fallback-arm` prototype starts from frozen `7476ff6e`.
+It lets queued native wake events run for one event turn before allocating an
+idle fallback timer, retaining the elapsed whole-millisecond polling budget,
+genuine early cancellation, fairness, close/reuse and all body/ownership bounds.
+Two queued-wake cost regressions fail before and pass after the change. All
+fifteen pacing tests, the complete 620-case router file and all 115 MQTT cases
+(including seven Paho interoperability cases) pass. Fresh pre-change bootstrap
+and full fast regression also pass. Initial manual environment/cwd setup failures
+are retained; no runtime behavior was changed for them.
+
+The complete fifty-row matched diagnostic is predeclared but not yet measured.
+No transport/RAM improvement, own full canonical/CI or strict acceptance is claimed.
+Keep every prior campaign/result; the predecessor primary remains active. PR132
+stays at `40ddcb3f`, draft and stacked on #130. The separate allocation-precision
+question is not the sole blocker. Do not weaken any gate/window/sample/body/SDK/
+GC/allocator policy, adopt, mark ready, merge or close the issue/milestone before
+complete final-runtime acceptance and clean CI.
+
+[Design, test evidence and complete predeclared method](research/2026-11-01-mqtt-idle-fallback.md).
 
 ## Typed and progressive RESULT header candidate (2026-10-31)
 

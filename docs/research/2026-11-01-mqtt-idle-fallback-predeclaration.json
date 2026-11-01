@@ -1,0 +1,21 @@
+{
+  "baseline": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "candidate_pacer_sha256": "34496ff18a765d5f636ce82e0dfdb32104031f2e84c1358cb1dfd420f0cb7237",
+  "candidate_commit": "The frozen commit containing this declaration and exact candidate_pacer_sha256; bind the resolved commit in the capture receipt before measurement.",
+  "tool_source": "e2becb6e70457c92cc5936463706c000e4c38fc8",
+  "scope": "Predeclared localDarwin matched uninstrumented public broker diagnostic only; not Linux acceptance or unchanged numerical gate rerun. Timer observer counts captured separately and not used as performance timings.",
+  "profiles": [
+    "ws_sustained",
+    "ws_v311_sustained",
+    "sustained",
+    "v311_sustained",
+    "64k_sustained"
+  ],
+  "pairs_per_profile": 5,
+  "rows": 50,
+  "expected_fully_verified_deliveries": 8050000,
+  "order": "AB odd/BA even, all rows retained",
+  "policy": "Original both-source budgets/client bodies/warmup100/count/window/single-publish/subscribers intact, standard SDK/GC/allocator unchanged, one unchanged compiled client and one standard identical-source native for both source legs. Fresh broker per leg, no native body/pattern reuse.",
+  "decision": "Timer-count/component success alone never permits adoption. Require actual uninstrumented matched evidence across all profiles with all pairs retained. If any mode has every throughput pair slower, investigate/reject rather than choosing a favorable rerun. Then own frozen fullcanonical/copy/cleanCI and actual matched Linux plus complete final strict48/50 before adoption.",
+  "declared_utc": "2026-11-01T16:53:15.370584+00:00"
+}

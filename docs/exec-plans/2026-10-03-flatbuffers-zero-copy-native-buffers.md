@@ -2,12 +2,33 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: validate the isolated typed/progressive RESULT header candidate.
-Its466native tests/three codec integrations pass after two reproduced failures.
-Require its own frozen canonical, hosted copy/lifetime and clean CI, then complete
-strict48/50 acceptance on one final runtime. The predecessor0c4bb57c CI is clean.
-Prior full48/50 reports remain failed evidence. PR132 stays draft; waive no gate,
-SDK/allocator/GC policy, sample/window or body verification.
+Current step: validate the isolated idle fallback scheduler hypothesis against
+complete matched transport evidence. Focused correctness passes, but no component
+or transport/RAM improvement is claimed yet. Preserve the active predecessor
+primary and every completed failed supplemental row; require own final canonical,
+copy/lifetime, clean CI and strict 48-/50-case acceptance before adoption.
+
+## Isolated idle fallback prototype (2026-11-01)
+
+The active `codex/mqtt-idle-fallback-arm` prototype starts from frozen `7476ff6e`.
+It lets queued native wake events run for one event turn before allocating an
+idle fallback timer, retaining the elapsed whole-millisecond polling budget,
+genuine early cancellation, fairness, close/reuse and all body/ownership bounds.
+Two queued-wake cost regressions fail before and pass after the change. All
+fifteen pacing tests, the complete 620-case router file and all 115 MQTT cases
+(including seven Paho interoperability cases) pass. Fresh pre-change bootstrap
+and full fast regression also pass. Initial manual environment/cwd setup failures
+are retained; no runtime behavior was changed for them.
+
+The complete fifty-row matched diagnostic is predeclared but not yet measured.
+No transport/RAM improvement, own full canonical/CI or strict acceptance is claimed.
+Keep every prior campaign/result; the predecessor primary remains active. PR132
+stays at `40ddcb3f`, draft and stacked on #130. The separate allocation-precision
+question is not the sole blocker. Do not weaken any gate/window/sample/body/SDK/
+GC/allocator policy, adopt, mark ready, merge or close the issue/milestone before
+complete final-runtime acceptance and clean CI.
+
+[Design, test evidence and complete predeclared method](../research/2026-11-01-mqtt-idle-fallback.md).
 
 ## Typed and progressive RESULT header candidate (2026-10-31)
 

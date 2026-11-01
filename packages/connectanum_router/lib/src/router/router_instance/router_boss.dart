@@ -6,6 +6,17 @@ Duration routerBossLoopDelay({
   required Duration pollInterval,
 }) => didWork ? Duration.zero : pollInterval;
 
+@visibleForTesting
+Duration routerBossIdleTimerDelay({
+  required Duration pollInterval,
+  required Duration elapsed,
+}) {
+  // VM timers use whole milliseconds. Subtract whole elapsed milliseconds so
+  // a positive one-millisecond fallback does not become a zero-delay timer.
+  final remaining = pollInterval.inMilliseconds - elapsed.inMilliseconds;
+  return remaining <= 0 ? Duration.zero : Duration(milliseconds: remaining);
+}
+
 const int _http3RequestDrainBudgetPerConnection = 1;
 
 @visibleForTesting
@@ -36,6 +47,18 @@ final class RouterBossLoopPacer {
       return;
     }
 
+    // Let queued native wake events arrive before allocating an idle timer.
+    // Account for this turn in the original fallback's millisecond budget.
+    final idleElapsed = Stopwatch()..start();
+    await _nextEventTurn();
+    idleElapsed.stop();
+    if (_consumeWakeRequest()) return;
+    final timerDelay = routerBossIdleTimerDelay(
+      pollInterval: delay,
+      elapsed: idleElapsed.elapsed,
+    );
+    if (timerDelay == Duration.zero) return;
+
     final wakeCompleter = Completer<void>();
     _wakeCompleter = wakeCompleter;
     if (_consumeWakeRequest()) {
@@ -46,7 +69,7 @@ final class RouterBossLoopPacer {
       return;
     }
 
-    final timer = Timer(delay, () {
+    final timer = Timer(timerDelay, () {
       if (!wakeCompleter.isCompleted) wakeCompleter.complete();
     });
     try {

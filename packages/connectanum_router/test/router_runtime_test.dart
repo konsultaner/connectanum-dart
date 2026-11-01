@@ -5498,8 +5498,146 @@ void main() {
       await exit.timeout(const Duration(seconds: 5));
     });
 
+    test('idle fallback preserves the VM millisecond budget', () {
+      Duration remaining(Duration interval, Duration elapsed) =>
+          routerBossIdleTimerDelay(pollInterval: interval, elapsed: elapsed);
+      expect(
+        remaining(
+          const Duration(milliseconds: 1),
+          const Duration(microseconds: 500),
+        ),
+        const Duration(milliseconds: 1),
+      );
+      expect(
+        remaining(
+          const Duration(milliseconds: 10),
+          const Duration(microseconds: 1500),
+        ),
+        const Duration(milliseconds: 9),
+      );
+      expect(
+        remaining(const Duration(microseconds: 1500), Duration.zero),
+        const Duration(milliseconds: 1),
+      );
+      expect(
+        remaining(const Duration(microseconds: 500), Duration.zero),
+        Duration.zero,
+      );
+      for (final elapsed in [
+        const Duration(milliseconds: 1),
+        const Duration(seconds: 1),
+      ]) {
+        expect(
+          remaining(const Duration(milliseconds: 1), elapsed),
+          Duration.zero,
+        );
+      }
+    });
+
+    for (final eventWake in [false, true]) {
+      test(
+        'queued ${eventWake ? 'event' : 'microtask'} wake avoids an idle fallback timer',
+        () async {
+          final pacer = RouterBossLoopPacer();
+          RawReceivePort? incoming;
+          var timers = 0;
+          try {
+            await runZoned(
+              () async {
+                if (eventWake) {
+                  final port = RawReceivePort((_) => pacer.requestWake());
+                  incoming = port;
+                  port.sendPort.send(null);
+                }
+                final wait = pacer.waitForNextTick(
+                  didWork: false,
+                  pollInterval: const Duration(seconds: 1),
+                );
+                if (!eventWake) scheduleMicrotask(pacer.requestWake);
+                await wait;
+              },
+              zoneSpecification: ZoneSpecification(
+                createTimer: (self, parent, zone, duration, callback) {
+                  timers++;
+                  return parent.createTimer(zone, duration, callback);
+                },
+              ),
+            );
+            expect(timers, 0);
+          } finally {
+            incoming?.close();
+            pacer.close();
+          }
+        },
+      );
+    }
+
+    test('an exhausted idle deadline does not arm another timer', () async {
+      final pacer = RouterBossLoopPacer();
+      var timers = 0;
+      try {
+        await runZoned(
+          () async {
+            final wait = pacer.waitForNextTick(
+              didWork: false,
+              pollInterval: const Duration(milliseconds: 1),
+            );
+            // Hold the isolate before the queued event turn, as a long-running
+            // synchronous callback would. The original deadline must expire.
+            final blocked = Stopwatch()..start();
+            while (blocked.elapsedMilliseconds < 20) {}
+            blocked.stop();
+            await wait;
+          },
+          zoneSpecification: ZoneSpecification(
+            createTimer: (self, parent, zone, duration, callback) {
+              timers++;
+              return parent.createTimer(zone, duration, callback);
+            },
+          ),
+        );
+        expect(timers, 0);
+      } finally {
+        pacer.close();
+      }
+    });
+
+    test(
+      'close during the idle event turn completes and permits reuse',
+      () async {
+        final pacer = RouterBossLoopPacer();
+        var timers = 0;
+        try {
+          await runZoned(
+            () async {
+              final wait = pacer.waitForNextTick(
+                didWork: false,
+                pollInterval: const Duration(seconds: 1),
+              );
+              pacer.close();
+              await wait;
+              await pacer.waitForNextTick(
+                didWork: true,
+                pollInterval: const Duration(seconds: 1),
+              );
+            },
+            zoneSpecification: ZoneSpecification(
+              createTimer: (self, parent, zone, duration, callback) {
+                timers++;
+                return parent.createTimer(zone, duration, callback);
+              },
+            ),
+          );
+          expect(timers, 0);
+        } finally {
+          pacer.close();
+        }
+      },
+    );
+
     test('early wake cancels the idle fallback timer', () async {
       final timers = <Timer>[];
+      final armed = Completer<void>();
       try {
         await runZoned(
           () async {
@@ -5509,6 +5647,9 @@ void main() {
               didWork: false,
               pollInterval: const Duration(seconds: 30),
             );
+            await armed.future;
+            expect(timers, hasLength(1));
+            expect(timers.single.isActive, isTrue);
             pacer.requestWake();
             await wait;
             expect(timers, hasLength(1));
@@ -5518,6 +5659,7 @@ void main() {
             createTimer: (self, parent, zone, duration, callback) {
               final timer = parent.createTimer(zone, duration, callback);
               timers.add(timer);
+              if (!armed.isCompleted) armed.complete();
               return timer;
             },
           ),
