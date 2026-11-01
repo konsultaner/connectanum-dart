@@ -4,12 +4,11 @@ Status: active; direct QoS 0 merged, authorized gateway and hosted translation
 benchmarks implemented. Current PR review and controlled release acceptance
 remain separate from the broader protocol milestone.
 
-Current blocker: strict x64 shards 1/2 apply a mixed-CPU baseline to different
-hardware, causing CPU/rate/RSS failures on unchanged code. Keep every x64 value
-and frozen policy. Capture a separate baseline on GitHub's ARM64 runner class,
-record its CPU identity and reject mismatches before numeric sampling. Use that
-qualified class for required gateway CI. Per-publication reply-port experiments
-were inconclusive and are excluded from production code.
+Required CI now uses a separate hardware-qualified ARM64 reference with the
+same workload and frozen policy. Architecture, CPU count and CPU signature must
+match before sampling. Earlier x64 values and rejected cross-CPU candidates
+remain intact. Per-publication reply-port experiments were inconclusive and
+are excluded from production code.
 
 ## Gateway contract and completed implementation
 
@@ -29,16 +28,19 @@ Client IDs do not confer identity; ordinary `ppt_scheme: mqtt` remains opaque.
 
 ## Accepted evidence and verification
 
-[63a897a5 hosted measurement](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801) passes 960 normal samples and 12 overload
-cycles: 11.55 million exact deliveries, including 3.85 million translations,
-zero duplicates, 24,576 healthy overload deliveries and 768 recovery deliveries.
-All 64 direction/profile results and four overload cases pass the
-[budgets](../../tool/mqtt_gateway_benchmark_budgets.json). The
+The [x64 reference](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801)
+and [ARM64 reference](https://github.com/konsultaner/connectanum-dart/actions/runs/41341341988) each contain 960 normal samples and 12 overload
+cycles. Combined: 23.1 million exact deliveries, including 7.7 million
+translations, zero duplicates, 49,152 healthy overload deliveries and 1,536
+recovery deliveries. All 128 direction/profile results and eight overload cases
+pass their separate [x64](../../tool/mqtt_gateway_benchmark_budgets.json) and
+[ARM64](../../tool/mqtt_gateway_arm64_benchmark_budgets.json) budgets. The
 [README tables](../../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway)
-include direct controls and every per-process memory result.
+include direct controls and every per-process memory result. All four ARM64
+shards and their secure smoke match the recorded CPU signature.
 
 Coverage passes 744/744 gateway/shared Dart, 759/759 MQTT, 270/270 gateway
-component, 882/882 native added production and 910/910 Python lines (zero
+component, 882/882 native added production and 947/947 Python lines (zero
 exclusions). Native source SHA-256 is
 `1254e2279369f2d3e5f5b78236d5beeda58295e201f9ba2b2f3edbd52c93fc01`;
 source hashes and the retained compressed Cargo/Dart FFI union are test-checked.
@@ -55,6 +57,7 @@ records actual counts and durations; all measured cycles remain in acceptance.
 The [gateway archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01) retains accepted and rejected raw runs,
 provenance, coverage traces, regression logs and reproduction helpers outside
 Git. Compact offline fixtures validate every table cell and frozen policy.
+The [ARM64 supplement](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-arm64-2026-11-01) also retains the rejected cross-CPU PR #135 candidates.
 The earlier [PR #128 archive](../benchmarks/README.md#archive) remains available.
 
 ## Remaining milestone and release work

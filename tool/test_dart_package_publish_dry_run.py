@@ -55,9 +55,18 @@ PUBLISHABLE_PACKAGE_ORDER = (
 
 class DartPackagePublishDryRunTest(unittest.TestCase):
     def test_gateway_tables_preserve_every_measured_profile_and_numeric_limit(self):
+        for architecture,fixture_name,budget_name in [
+                ('x86_64','mqtt_gateway_readme.json','mqtt_gateway_benchmark_budgets.json'),
+                ('aarch64','mqtt_gateway_arm64_readme.json','mqtt_gateway_arm64_benchmark_budgets.json')]:
+            with self.subTest(architecture=architecture):
+                fixture=json.loads((REPO_ROOT/'tool/fixtures'/fixture_name).read_text())
+                budgets=json.loads((REPO_ROOT/'tool'/budget_name).read_text())
+                self._assert_gateway_reference_tables(fixture,budgets,architecture)
+        section=BENCH_README.read_text().split('## MQTT and WAMP gateway',1)[1].split('## WAMP throughput',1)[0]
+        self.assertEqual(len([line for line in section.splitlines() if line.startswith('|')]),128+128+64+8+8)
+
+    def _assert_gateway_reference_tables(self, fixture, budgets, architecture):
         import run_mqtt_gateway_benchmark as gateway
-        fixture=json.loads((REPO_ROOT/'tool/fixtures/mqtt_gateway_readme.json').read_text())
-        budgets=json.loads((REPO_ROOT/'tool/mqtt_gateway_benchmark_budgets.json').read_text())
         self.assertEqual(fixture['source_commit'],budgets['baseline_source_commit'])
         self.assertEqual(fixture['profiles'],gateway.profiles('release'))
         self.assertEqual(fixture['overload_profiles'],gateway.overload_profiles())
@@ -67,12 +76,24 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertEqual(fixture['delivery']['overload_cycles'],12)
         self.assertEqual(fixture['delivery']['duplicates'],0)
         self.assertEqual(fixture['workload'],budgets['workload'])
+        self.assertEqual(budgets['hardware']['architecture'],architecture)
+        self.assertEqual(budgets['hardware']['logical_cpus'],4)
+        self.assertEqual(budgets['hardware']['profile_cpu_models'],
+                         {profile:host.get('reported_cpu_model',host['cpu_model']) for host in fixture['hosts'] for profile in host['profile_ids']})
         self.assertEqual(budgets['policy'],dict(
             absolute_rate_fraction=.65,relative_rate_fraction=.75,relative_rate_floor_cap=.75,
             latency_multiplier=1.75,latency_slack_us=50,cpu_multiplier=1.5,cpu_slack_seconds_per_million=3,
             memory_multiplier=1.25,memory_slack_bytes=8*1048576,lifecycle_growth_slack_bytes=8*1048576,
             lifecycle_slope_slack_bytes=2*1048576,max_rate_cv=.20,max_p99_cv=.75,max_cpu_cv=.35))
         self.assertEqual(fixture['workload']['warmup_seconds'],1)
+        from types import SimpleNamespace
+        from unittest import mock
+        with mock.patch.object(gateway.sys,'platform',budgets['platform']):
+            gateway.validate_budget(budgets,SimpleNamespace(matrix='release',**fixture['workload']))
+        for host in fixture['hosts']:
+            environment=dict(architecture=architecture,logical_cpus=4,cpu_model=host.get('reported_cpu_model',host['cpu_model']),
+                             cpu_signature_sha256=fixture.get('hardware',{}).get('cpu_signature_sha256'))
+            gateway.check_hardware(budgets,environment,[p for p in fixture['profiles'] if p['id'] in host['profile_ids']])
         import math
         rss=lambda value: math.ceil(value/1048576)*1048576
         cpu_limit=lambda value: math.ceil(value*1.5+3)
@@ -90,6 +111,8 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertEqual({(r['profile'],r['direction']) for r in fixture['overload']},
                          {(p['id'],d) for p in fixture['overload_profiles'] for d in gateway.DIRECTIONS})
         section=BENCH_README.read_text().split('## MQTT and WAMP gateway',1)[1].split('## WAMP throughput',1)[0]
+        self.assertIn(fixture['run_url'],section)
+        self.assertIn(fixture['archive_url'],section)
         profiles={p['id']:p for p in [*fixture['profiles'],*fixture['overload_profiles']]}
         self.assertEqual({(r['profile'],r['direction']) for r in fixture['results']},
                          {(p['id'],d) for p in fixture['profiles'] for d in gateway.DIRECTIONS})
@@ -147,9 +170,9 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             values=' | '.join(f"{row['rates'][path]:,.0f}" for path in paths)
             self.assertIn(f"| {label(row['profile'])} | {values} |",section)
         lines=[line for line in section.splitlines() if line.startswith('|')]
-        self.assertEqual(len(lines),64+64+32+4+8)
         self.assertIn(f"{fixture['delivery']['translation']:,} exact translation deliveries",section)
         for host in fixture['hosts']:self.assertIn(host['cpu_model'],section)
+
 
     def test_native_mqtt_coverage_proof_matches_current_sources_and_full_union(self):
         import gzip

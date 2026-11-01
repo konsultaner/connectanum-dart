@@ -5,13 +5,11 @@ Current priority: [MQTT milestone 2](https://github.com/konsultaner/connectanum-
 Active plan: [MQTT interoperability](exec-plans/2026-10-14-mqtt-broker-interoperability.md).
 Branch: `codex/mqtt-wamp-gateway`, based on merged master `ef822e08`.
 
-Current blocker: PR #135 head `94d6c14d` compares unchanged gateway code across
-different CPU models. Strict x64 shards 1/2 fail CPU, rate and retained-memory
-limits despite low variation; the controls also change substantially. Preserve
-the x64 values and snapshots. Qualify a consistent GitHub-hosted ARM64 CPU class,
-collect its separate baseline with the same workload/derivation policy, and
-reject hardware mismatches before sampling. Local reply-port experiments were
-inconclusive and are not in production code. The receipts below describe x64.
+Required gateway CI uses a hardware-qualified ARM64 reference. Every candidate
+must match its four-vCPU Neoverse-N2 CPU signature before sampling. The earlier
+x64 reference, all its numeric limits and rejected cross-CPU runs are retained;
+no performance or coverage thresholds were relaxed. Exact-head GitHub checks
+remain the final acceptance step before merge.
 
 [PR #128](https://github.com/konsultaner/connectanum-dart/pull/128) merged direct
 QoS 0 MQTT 5/3.1.1 over TCP/TLS/WS/WSS. The current gateway implements #116/#117:
@@ -19,16 +17,18 @@ opt-in realm authorization, trusted WAMP caller identity, binary application
 publications, bounded queues and cancellation. Ordinary MQTT PPT stays opaque.
 The [contract](mqtt.md) has configuration and client examples.
 
-The complete [63a897a5 hosted baseline](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801) passes 32 profiles, six paths,
-five cycles, 960 normal samples and 12 overload/recovery cycles: 11.55 million
-exact deliveries including 3.85 million translations, zero duplicates, 24,576
-healthy overload deliveries and 768 recovery deliveries. Fixed rate/p99/CPU
-variation caps remain 0.20/0.75/0.35. All 64 translation and four overload rows
-pass the frozen budgets. README tables include every direction/profile result,
-per-process CPU and warm/peak/drained RSS, direct controls and memory growth.
+The [x64 reference](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801)
+and [ARM64 reference](https://github.com/konsultaner/connectanum-dart/actions/runs/41341341988) each pass 32 profiles, six paths,
+five cycles, 960 normal samples and 12 overload/recovery cycles. Together they
+contain 23.1 million exact deliveries, including 7.7 million translations,
+zero duplicates, 49,152 healthy overload deliveries and 1,536 recovery deliveries.
+Fixed rate/p99/CPU variation caps remain 0.20/0.75/0.35. All 128 translation and
+eight overload rows pass their separate frozen budgets. README tables include
+every direction/profile result, per-process CPU and warm/peak/drained RSS,
+direct controls and memory growth.
 
 Coverage passes 744/744 gateway/shared Dart lines, 759/759 MQTT lines, 270/270
-gateway component lines, 882/882 native added production lines and 910/910
+gateway component lines, 882/882 native added production lines and 947/947
 Python tooling lines, with zero Python exclusions. The source-hash regression
 recomputes the compressed native Cargo + Dart FFI union for current Rust source
 SHA-256 `1254e227…c93fc01`. Fresh full `bin/verify` passes on the current
@@ -43,8 +43,9 @@ are authoritative for exact-head CI acceptance before merge. Historical passes
 do not validate later edits. A new merge requires user authorization.
 
 Raw accepted/rejected runs, toolchain/host identities, coverage traces and
-regression logs live in the [gateway history archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01), with archive
-checksums and a per-file manifest. Source retains compact fixtures, README
+regression logs live in the [gateway history archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01)
+and [ARM64 supplement](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-arm64-2026-11-01), with archive
+checksums and per-file manifests. Source retains compact fixtures, README
 tables, numeric budgets and current compressed coverage proof. The
 [PR #128 archive](benchmarks/README.md#archive) remains available.
 

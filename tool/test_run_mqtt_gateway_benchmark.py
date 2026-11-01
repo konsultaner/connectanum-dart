@@ -60,6 +60,47 @@ def overload_limits():
 
 
 class GatewayAccountingTest(unittest.TestCase):
+    def test_cpu_signature_is_stable_across_core_order_and_clock_changes(self):
+        first='processor: 0\nCPU implementer: 0x41\nCPU part: 0xd49\nFeatures: asimd aes fp\nBogoMIPS: 100\n'
+        second='processor: 3\nFeatures: fp asimd aes\nCPU part:  0xd49\nCPU implementer:\t0x41\nBogoMIPS: 200\n'
+        self.assertEqual(gate.cpu_signature_sha256(first),gate.cpu_signature_sha256(second+first))
+        self.assertNotEqual(gate.cpu_signature_sha256(first),gate.cpu_signature_sha256(first.replace('0xd49','0xd40')))
+        self.assertIsNone(gate.cpu_signature_sha256('processor: 0\nBogoMIPS: 100'))
+        with mock.patch.object(gate.Path,'read_text',return_value=first):
+            self.assertEqual(gate.cpu_signature_sha256(),gate.cpu_signature_sha256(first))
+        with mock.patch.object(gate.Path,'read_text',side_effect=OSError('unavailable')):
+            self.assertIsNone(gate.cpu_signature_sha256())
+
+    def test_numeric_hardware_qualification_rejects_missing_or_different_hosts(self):
+        selected=gate.profiles('release')
+        models={p['id']:'test CPU' for p in selected}
+        wanted=dict(architecture='x86_64',logical_cpus=4,profile_cpu_models=models)
+        host=dict(architecture='x86_64',logical_cpus=4,cpu_model='test CPU',cpu_signature_sha256='a'*64)
+        gate.check_hardware(dict(hardware=wanted),host,selected)
+        for field,value in [('architecture','arm64'),('logical_cpus',True),('logical_cpus',0),
+                            ('profile_cpu_models',None),('profile_cpu_models',{}),
+                            ('profile_cpu_models',dict(models,extra='test CPU')),
+                            ('profile_cpu_models',dict(models,**{selected[0]['id']:''})),
+                            ('cpu_signature_sha256',123),('cpu_signature_sha256','z'*64)]:
+            with self.subTest(field=field,value=value),self.assertRaises(ValueError):
+                gate.check_hardware(dict(hardware=dict(wanted,**{field:value})),host,selected)
+        for missing in [{},dict(hardware=None)]:
+            with self.assertRaises(ValueError):gate.check_hardware(missing,host,selected)
+        for field,value in [('architecture','aarch64'),('logical_cpus',2),('cpu_model','other CPU')]:
+            with self.subTest(field=field),self.assertRaises(ValueError):
+                gate.check_hardware(dict(hardware=wanted),dict(host,**{field:value}),selected)
+        models=dict(models,**{selected[1]['id']:'second CPU'})
+        gate.check_hardware(dict(hardware=dict(wanted,profile_cpu_models=models)),host,selected[:1])
+        with self.assertRaises(ValueError):
+            gate.check_hardware(dict(hardware=dict(wanted,profile_cpu_models=models)),host,selected[1:2])
+        wanted=dict(wanted,architecture='aarch64',cpu_signature_sha256='a'*64)
+        host=dict(host,architecture='aarch64')
+        gate.check_hardware(dict(hardware=wanted),host,selected)
+        with self.assertRaises(ValueError):
+            gate.check_hardware(dict(hardware=dict(wanted,cpu_signature_sha256=None)),host,selected)
+        with self.assertRaises(ValueError):
+            gate.check_hardware(dict(hardware=wanted),dict(host,cpu_signature_sha256='b'*64),selected)
+
     def test_matrix_covers_real_directions_controls_and_independent_peers(self):
         for matrix, count in [('smoke', 16), ('release', 32)]:
             profiles = gate.profiles(matrix)
@@ -476,6 +517,7 @@ class GatewayControlTest(unittest.TestCase):
             worker=directory/'worker'; worker.write_bytes(b'worker')
             limits=budget_limits()
             budgets={'schema_version':1,'baseline_source_commit':'b'*40,'platform':sys.platform,
+                     'hardware':dict(architecture='x86_64',logical_cpus=4,profile_cpu_models={PROFILE['id']:'test CPU'}),
                      'workload':dict(runs=1,messages=2,warmup=1,warmup_seconds=1,overload_runs=1,overload_messages=2,overload_stall_ms=1,drain_seconds=.5),
                      'profiles':{PROFILE['id']:{d:dict(limits) for d in gate.DIRECTIONS}},
                      'overload':{PROFILE['id']:{d:overload_limits() for d in gate.DIRECTIONS}}}
@@ -491,7 +533,8 @@ class GatewayControlTest(unittest.TestCase):
                   mock.patch.object(gate.reference,'mosquitto_version',return_value='mosquitto version 2.0.18'),
                   mock.patch.object(gate.reference,'cpu_model',return_value='test CPU'),
                   mock.patch.object(gate.platform,'platform',return_value='test OS'),
-                  mock.patch.object(gate.platform,'machine',return_value='test architecture'),
+                  mock.patch.object(gate.platform,'machine',return_value='x86_64'),
+                  mock.patch.object(gate.os,'cpu_count',return_value=4),
                   contextlib.redirect_stdout(io.StringIO()) as output):
                 campaign.return_value.run.side_effect=lambda p,path,*_: [sample(p,path)]
                 campaign.return_value.run_overload.side_effect=lambda p,path,runs,*_: [overload_sample(p,path,r) for r in range(1,runs+1)]
@@ -503,6 +546,10 @@ class GatewayControlTest(unittest.TestCase):
                 self.assertIn('openssl_version',result)
                 self.assertIn('tls_ca_sha256',result)
                 self.assertEqual(len(result['results']),2)
+                calls=campaign.call_count
+                with mock.patch.object(gate.platform,'machine',return_value='aarch64'),self.assertRaisesRegex(ValueError,'architecture/CPU count'):
+                    gate.main(args+['--output',str(directory/'wrong-hardware')])
+                self.assertEqual(campaign.call_count,calls)
                 for direction in gate.DIRECTIONS:
                     budgets['profiles'][PROFILE['id']][direction]['max_peak_rss_bytes']=1
                 budget.write_text(json.dumps(budgets))

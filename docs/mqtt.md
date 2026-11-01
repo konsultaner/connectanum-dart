@@ -160,7 +160,9 @@ publisher and subscriber processes for both translations, direct MQTT/WAMP
 controls and a Mosquitto MQTT-leg control. It validates every payload and records
 throughput, p50/p95/p99, CPU, each process's warm/peak/drained RSS and lifecycle
 queue recovery. The [gateway tables](../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway)
-contain all 64 measured translation cases, per-process memory, direct controls
-and four slow-consumer cases. Required CI smoke and four numeric shards enforce
+contain all 128 measured translation cases across x64 and ARM64, per-process
+memory, direct controls and eight slow-consumer cases. Numeric gateway checks
+require the recorded ARM64 architecture, CPU count and CPU signature before load.
+Required CI smoke and four numeric shards enforce
 exact delivery, complete coverage, latency/rate/CPU/RSS budgets and recovery.
 Raw runs and rejected baselines are retained in the [verified history archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01).

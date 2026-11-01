@@ -28,7 +28,8 @@ each extracted file against the manifest and original Git source.
 runs, source/toolchain/host identities, exact payload/counter receipts,
 coverage traces, regression logs and the native WS comparison. Its archive,
 per-file SHA-256 manifest and checksum file are independently downloaded and
-verified before publication. Raw history stays outside Git.
+verified before publication. The [ARM64 supplement](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-arm64-2026-11-01) retains the second hardware-qualified reference and the rejected
+x64 PR #135 candidates. Raw history stays outside Git.
 
 ## Performance gates
 
@@ -47,6 +48,11 @@ acceptance must match the recorded architecture, CPU count and CPU identity;
 the runner label alone is not a hardware guarantee. Keep the x64 snapshots and
 their limits when establishing a separate ARM64 reference with the same policy.
 
+If a runner identity changes, preserve the failed artifact and run the complete
+[gateway release workflow](../../.github/workflows/mqtt-gateway-benchmarks.yml)
+with `record_only: true` at the frozen workload. A different CPU class needs a
+separate reviewed reference and README rows; retain prior limits and samples.
+
 The published direct MQTT baseline passes all 20 hosted profiles on EPYC 7763. A matched
 Intel 8370C comparison passes both WebSocket versions twice at unchanged limits,
 where the baseline fails; both 64 KiB CPU comparisons also pass. Full values,
@@ -59,13 +65,16 @@ WAMP results include JSON, MessagePack, CBOR and FlatBuffers. The
 [WAMP profile contract](../wamp_profile_benchmarks.md) defines release acceptance.
 MQTT↔WAMP translation uses explicit realm authorization. The
 [gateway tables](../../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway)
-report 64 measured direction/profile cases, direct controls, per-process memory
-and four overload cases from [source `63a897a5`](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801). Required smoke and four
+report 128 measured direction/profile cases, direct controls, per-process memory
+and eight overload cases from the [x64](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801)
+and [ARM64](https://github.com/konsultaner/connectanum-dart/actions/runs/41341341988) references. Required smoke and four
 numeric release shards preserve the fixed rate/p99/CPU variation caps
-0.20/0.75/0.35 and enforce absolute and matched-control budgets. The compact
-[budget file](../../tool/mqtt_gateway_benchmark_budgets.json) records each limit
-and its derivation policy. CI measures live paths; archived results do not
-replace a fresh pass.
+0.20/0.75/0.35 and enforce absolute and matched-control budgets. Separate compact
+[x64](../../tool/mqtt_gateway_benchmark_budgets.json) and
+[ARM64](../../tool/mqtt_gateway_arm64_benchmark_budgets.json) budgets record each
+limit and the same derivation policy. Required CI uses the ARM64 reference and
+rejects a CPU signature mismatch before load. CI measures live paths; archived
+results do not replace a fresh pass.
 
 ## Coverage
 
@@ -76,7 +85,7 @@ replace a fresh pass.
 | Gateway/shared Dart sources | 744 / 744 |
 | Gateway component | 270 / 270 |
 | MQTT benchmark gate Python, zero exclusions | 268 / 268 |
-| Gateway tooling Python, zero exclusions | 910 / 910 |
+| Gateway tooling Python, zero exclusions | 947 / 947 |
 
 The [native inventory](mqtt-native-added-line-coverage-ready-yield.json) records
 exact line numbers and source hashes for five current production files. The
@@ -103,8 +112,9 @@ It records each archived source SHA-256 and retains every asserted field,
 exact-delivery sample and measured WAMP run needed to recompute the table medians.
 Unused logs and per-run metadata live in the archive. Tests run without downloads;
 production gate code, numeric budgets and coverage scope are unchanged.
-The [gateway fixture](../../tool/fixtures/mqtt_gateway_readme.json) retains the
-64 current translation summaries, 32 matched control rates and four overload
+The [x64 gateway fixture](../../tool/fixtures/mqtt_gateway_readme.json) and
+[ARM64 gateway fixture](../../tool/fixtures/mqtt_gateway_arm64_readme.json) each
+retain 64 translation summaries, 32 matched control rates and four overload
 summaries, with source/host hashes. Regression tests recompute every formatted
 README cell and rescore every numeric limit. New raw runs stay in CI artifacts
 or the archive; update the table fixtures only

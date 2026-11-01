@@ -10,6 +10,7 @@ import os
 import platform
 from pathlib import Path
 import queue
+import re
 import signal
 import statistics
 import ssl
@@ -627,6 +628,47 @@ def shard_profiles(items, shard):
     return items[index::total]
 
 
+def cpu_signature_sha256(text=None):
+    if text is None:
+        try:
+            text=Path('/proc/cpuinfo').read_text()
+        except OSError:
+            return None
+    keys={'model name','vendor_id','cpu family','model','stepping','flags','CPU implementer',
+          'CPU architecture','CPU variant','CPU part','CPU revision','Features','Hardware'}
+    fields=set()
+    for line in text.splitlines():
+        key,separator,value=line.partition(':')
+        key=key.strip()
+        if separator and key in keys:
+            words=value.split()
+            fields.add(key+':'+ ' '.join(sorted(words) if key in ('flags','Features') else words))
+    return hashlib.sha256('\n'.join(sorted(fields)).encode()).hexdigest() if fields else None
+
+
+def check_hardware(budget, environment, selected):
+    wanted=budget.get('hardware')
+    if not isinstance(wanted,dict):
+        raise ValueError('Numeric gateway gates require a hardware-qualified baseline')
+    arch=wanted.get('architecture');cpus=wanted.get('logical_cpus')
+    if arch not in ('x86_64','aarch64') or type(cpus) is not int or cpus<1:
+        raise ValueError('Invalid baseline architecture/CPU count')
+    models=wanted.get('profile_cpu_models')
+    if (not isinstance(models,dict) or set(models)!={p['id'] for p in profiles('release')} or
+            any(not isinstance(v,str) or not v for v in models.values())):
+        raise ValueError('Missing per-profile CPU identities')
+    if environment['architecture']!=arch or environment['logical_cpus']!=cpus:
+        raise ValueError('Runner architecture/CPU count differs from the baseline')
+    if any(environment['cpu_model']!=models[p['id']] for p in selected):
+        raise ValueError('Runner CPU model differs from the selected profile baseline; use record-only for diagnostics')
+    signature=wanted.get('cpu_signature_sha256')
+    if ((arch=='aarch64' and signature is None) or
+            (signature is not None and (not isinstance(signature,str) or re.fullmatch('[0-9a-f]{64}',signature) is None))):
+        raise ValueError('Invalid or missing baseline CPU signature')
+    if signature is not None and environment.get('cpu_signature_sha256')!=signature:
+        raise ValueError('Runner CPU signature differs from the baseline')
+
+
 def validate_budget(budget, args):
     if budget['schema_version'] != 1 or len(budget['baseline_source_commit']) != 40:
         raise ValueError('Invalid gateway baseline provenance')
@@ -726,10 +768,12 @@ def main(argv=None):
                        'runner_image':os.environ.get('ImageOS'),'runner_image_version':os.environ.get('ImageVersion'),
                        'tls_ca_sha256':hashlib.sha256(reference.TLS_CA.read_bytes()).hexdigest(),
                        'mosquitto_version': reference.mosquitto_version(args.mosquitto),
-                       'cpu_model': reference.cpu_model(),
+                       'cpu_model': reference.cpu_model(),'cpu_signature_sha256':cpu_signature_sha256(),
                        'native_library_sha256': hashlib.sha256(library.read_bytes()).hexdigest(),
                        'worker_sha256': hashlib.sha256(worker.read_bytes()).hexdigest()}
         (args.output / 'environment.json').write_text(json.dumps(environment, indent=2) + '\n')
+        if budget is not None:
+            check_hardware(budget,environment,selected)
         for profile in selected:
             for path in ALL_PATHS:
                 output = args.output / profile['id'] / path
