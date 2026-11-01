@@ -1,0 +1,45 @@
+{
+  "source": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "run": 41339572670,
+  "job": 124946514517,
+  "artifact": 13096592426,
+  "status": "completed_failure",
+  "expected_negative_control": {
+    "kind": "isolated_native_ppt_view_lifetime_diagnostic_never_acceptance",
+    "rows": 0,
+    "failures": 1,
+    "process_exit": 0,
+    "process_group_stopped": true,
+    "reader_stopped": true,
+    "reader_errors": [],
+    "inputs_unchanged": true,
+    "negative_control_observed": true
+  },
+  "positive_baseline": {
+    "kind": "isolated_native_ppt_view_lifetime_diagnostic_never_acceptance",
+    "rows": 0,
+    "failures": 0,
+    "process_exit": 1,
+    "process_group_stopped": true,
+    "reader_stopped": true,
+    "reader_errors": [],
+    "inputs_unchanged": true
+  },
+  "actual_error": "NativeTransportException(code:-7): Failed to create router listener: native I/O failure; underlyingerrno/causeunmeasured.",
+  "baseline_listener_ports": [
+    55769,
+    38333,
+    47475
+  ],
+  "baseline_VM_service_port": 45883,
+  "no_direct_recorded_VM_port_match": true,
+  "positive_rows": 0,
+  "production_copy_step_reached": false,
+  "unchanged_job_retry": false,
+  "phase_log_sha256": {
+    "negative-control": "47a42fdc792bd458cd0edb5ff17b1bccfd5743bc8352548f15d05534ead5c4c4",
+    "existing-api-baseline": "8d746309ba76a9612b98ec287cd2b0b6d6ee17dd0d363ff92e086f243b8e83a6"
+  },
+  "scope": "Negativecontrolpassed, thenpositivephase exitedbeforeREADY. Not an SDKsetupfailure orproof ofprovider/source/portcause. Actualfulljob/phase/artifactevidence retained. Separatecontrolledcollisionclassrepro andstartup-exit regressionguide isolatedharnessrepair; source/runtime/performancegatesnotweakened.",
+  "audited_utc": "2026-11-01T19:31:45.526082+00:00"
+}

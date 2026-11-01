@@ -1,0 +1,338 @@
+{
+  "source": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "rows": 30,
+  "full_message_roundtrip_and_original_payload_alias_pass": true,
+  "native_sha256": "53bb612583da2ce0d03ebce97574242858ae4d4f002939bfdc021765026b4a58",
+  "rlib_hashes": {
+    "ct_core": "debc3ce2a344be05ce4e53a98a1756a12f37a2fd7fd8e9d9d02a011d6b213513",
+    "bytes": "9d505048efac9105554c2ad457bee345862bd3a4b4fcfabf3370b109755a506e",
+    "serde_value": "d1594443cb6325f160fc21d0f4b5791714c042b19ae70c59e38b57f9a83e3849"
+  },
+  "fixture_sha256": "260df2482a2c70dc23c16010e744d7cb126ab96867cb5b951a23912d61063c02",
+  "executable_sha256": "12cd2a0807145e7bab61a4ba37faefa725a777eae7ec9aab3ea9a8f2ae861766",
+  "raw_sha256": "d112c27613a1e3538e641c55778999d677cecae4257a2fe593ba6e5599e7db08",
+  "by_kind": {
+    "Call": [
+      {
+        "kind": "Call",
+        "payload_bytes": 17,
+        "flag": null,
+        "allocations": 21,
+        "requested_bytes": 2236,
+        "control_len": 160,
+        "wire_len": 177,
+        "parts": 2
+      },
+      {
+        "kind": "Call",
+        "payload_bytes": 17,
+        "flag": false,
+        "allocations": 22,
+        "requested_bytes": 2356,
+        "control_len": 176,
+        "wire_len": 193,
+        "parts": 2
+      },
+      {
+        "kind": "Call",
+        "payload_bytes": 17,
+        "flag": true,
+        "allocations": 22,
+        "requested_bytes": 2356,
+        "control_len": 184,
+        "wire_len": 201,
+        "parts": 2
+      },
+      {
+        "kind": "Call",
+        "payload_bytes": 65536,
+        "flag": null,
+        "allocations": 21,
+        "requested_bytes": 2236,
+        "control_len": 160,
+        "wire_len": 65696,
+        "parts": 2
+      },
+      {
+        "kind": "Call",
+        "payload_bytes": 65536,
+        "flag": false,
+        "allocations": 22,
+        "requested_bytes": 2356,
+        "control_len": 176,
+        "wire_len": 65712,
+        "parts": 2
+      },
+      {
+        "kind": "Call",
+        "payload_bytes": 65536,
+        "flag": true,
+        "allocations": 22,
+        "requested_bytes": 2356,
+        "control_len": 184,
+        "wire_len": 65720,
+        "parts": 2
+      }
+    ],
+    "Invocation": [
+      {
+        "kind": "Invocation",
+        "payload_bytes": 17,
+        "flag": null,
+        "allocations": 7,
+        "requested_bytes": 400,
+        "control_len": 136,
+        "wire_len": 153,
+        "parts": 2
+      },
+      {
+        "kind": "Invocation",
+        "payload_bytes": 17,
+        "flag": false,
+        "allocations": 7,
+        "requested_bytes": 416,
+        "control_len": 152,
+        "wire_len": 169,
+        "parts": 2
+      },
+      {
+        "kind": "Invocation",
+        "payload_bytes": 17,
+        "flag": true,
+        "allocations": 7,
+        "requested_bytes": 416,
+        "control_len": 168,
+        "wire_len": 185,
+        "parts": 2
+      },
+      {
+        "kind": "Invocation",
+        "payload_bytes": 65536,
+        "flag": null,
+        "allocations": 7,
+        "requested_bytes": 400,
+        "control_len": 136,
+        "wire_len": 65672,
+        "parts": 2
+      },
+      {
+        "kind": "Invocation",
+        "payload_bytes": 65536,
+        "flag": false,
+        "allocations": 7,
+        "requested_bytes": 416,
+        "control_len": 152,
+        "wire_len": 65688,
+        "parts": 2
+      },
+      {
+        "kind": "Invocation",
+        "payload_bytes": 65536,
+        "flag": true,
+        "allocations": 7,
+        "requested_bytes": 416,
+        "control_len": 168,
+        "wire_len": 65704,
+        "parts": 2
+      }
+    ],
+    "Result": [
+      {
+        "kind": "Result",
+        "payload_bytes": 17,
+        "flag": null,
+        "allocations": 6,
+        "requested_bytes": 304,
+        "control_len": 128,
+        "wire_len": 145,
+        "parts": 2
+      },
+      {
+        "kind": "Result",
+        "payload_bytes": 17,
+        "flag": false,
+        "allocations": 6,
+        "requested_bytes": 312,
+        "control_len": 136,
+        "wire_len": 153,
+        "parts": 2
+      },
+      {
+        "kind": "Result",
+        "payload_bytes": 17,
+        "flag": true,
+        "allocations": 7,
+        "requested_bytes": 376,
+        "control_len": 144,
+        "wire_len": 161,
+        "parts": 2
+      },
+      {
+        "kind": "Result",
+        "payload_bytes": 65536,
+        "flag": null,
+        "allocations": 6,
+        "requested_bytes": 304,
+        "control_len": 128,
+        "wire_len": 65664,
+        "parts": 2
+      },
+      {
+        "kind": "Result",
+        "payload_bytes": 65536,
+        "flag": false,
+        "allocations": 6,
+        "requested_bytes": 312,
+        "control_len": 136,
+        "wire_len": 65672,
+        "parts": 2
+      },
+      {
+        "kind": "Result",
+        "payload_bytes": 65536,
+        "flag": true,
+        "allocations": 7,
+        "requested_bytes": 376,
+        "control_len": 144,
+        "wire_len": 65680,
+        "parts": 2
+      }
+    ],
+    "Publish": [
+      {
+        "kind": "Publish",
+        "payload_bytes": 17,
+        "flag": null,
+        "allocations": 21,
+        "requested_bytes": 2460,
+        "control_len": 160,
+        "wire_len": 177,
+        "parts": 2
+      },
+      {
+        "kind": "Publish",
+        "payload_bytes": 17,
+        "flag": false,
+        "allocations": 22,
+        "requested_bytes": 2580,
+        "control_len": 176,
+        "wire_len": 193,
+        "parts": 2
+      },
+      {
+        "kind": "Publish",
+        "payload_bytes": 17,
+        "flag": true,
+        "allocations": 22,
+        "requested_bytes": 2580,
+        "control_len": 176,
+        "wire_len": 193,
+        "parts": 2
+      },
+      {
+        "kind": "Publish",
+        "payload_bytes": 65536,
+        "flag": null,
+        "allocations": 21,
+        "requested_bytes": 2460,
+        "control_len": 160,
+        "wire_len": 65696,
+        "parts": 2
+      },
+      {
+        "kind": "Publish",
+        "payload_bytes": 65536,
+        "flag": false,
+        "allocations": 22,
+        "requested_bytes": 2580,
+        "control_len": 176,
+        "wire_len": 65712,
+        "parts": 2
+      },
+      {
+        "kind": "Publish",
+        "payload_bytes": 65536,
+        "flag": true,
+        "allocations": 22,
+        "requested_bytes": 2580,
+        "control_len": 176,
+        "wire_len": 65712,
+        "parts": 2
+      }
+    ],
+    "Event": [
+      {
+        "kind": "Event",
+        "payload_bytes": 17,
+        "flag": null,
+        "allocations": 20,
+        "requested_bytes": 2260,
+        "control_len": 144,
+        "wire_len": 161,
+        "parts": 2
+      },
+      {
+        "kind": "Event",
+        "payload_bytes": 17,
+        "flag": false,
+        "allocations": 21,
+        "requested_bytes": 2380,
+        "control_len": 160,
+        "wire_len": 177,
+        "parts": 2
+      },
+      {
+        "kind": "Event",
+        "payload_bytes": 17,
+        "flag": true,
+        "allocations": 21,
+        "requested_bytes": 2380,
+        "control_len": 160,
+        "wire_len": 177,
+        "parts": 2
+      },
+      {
+        "kind": "Event",
+        "payload_bytes": 65536,
+        "flag": null,
+        "allocations": 20,
+        "requested_bytes": 2260,
+        "control_len": 144,
+        "wire_len": 65680,
+        "parts": 2
+      },
+      {
+        "kind": "Event",
+        "payload_bytes": 65536,
+        "flag": false,
+        "allocations": 21,
+        "requested_bytes": 2380,
+        "control_len": 160,
+        "wire_len": 65696,
+        "parts": 2
+      },
+      {
+        "kind": "Event",
+        "payload_bytes": 65536,
+        "flag": true,
+        "allocations": 21,
+        "requested_bytes": 2380,
+        "control_len": 160,
+        "wire_len": 65696,
+        "parts": 2
+      }
+    ]
+  },
+  "scope": "Read-only actual compiled public encoders, allocation requests only with freshpayloadgenerationoutsidecounter. No network/RSS/GCacceptance or SDKprecision waiver. No runtimeimplementation edit.",
+  "finished_utc": "2026-11-01T19:08:36.196363+00:00",
+  "input_context": {
+    "scheme": "opaque",
+    "serializer": "flatbuffers",
+    "procedure": "com.test.echo",
+    "topic": "com.test.topic",
+    "request": 73,
+    "registration_or_subscription": 91,
+    "publication": 101,
+    "flag_key": "progress forRESULT; receive_progress otherwise; fullmetadataretained"
+  }
+}

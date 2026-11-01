@@ -1,0 +1,142 @@
+{
+  "diagnosticOnly": true,
+  "baseline_source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "candidate_source": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "rows": 50,
+  "delivered": 8050000,
+  "whole_exact_source_archives_verified": true,
+  "shared_inputs_verified": 2566,
+  "all_six_retained_locks_rehashed": true,
+  "legacy_baseline_lock_proof_scope": "Historical baseline canonical has no ignored-lock fields; actual baseline locks retained/audited with same35C3 bytes, match current baseline and own candidate canonical before/after. New comparison guards all3 throughout; no invented historical lock guard.",
+  "actual_both_native_and_same_broker_client_bytes_rehashed": true,
+  "all_original_stdout_rows_order_body_delivery_and_cleanup_verified": true,
+  "summary_exactly_reproduced": true,
+  "native_sha256_by_leg": {
+    "baseline": "35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649",
+    "candidate": "53bb612583da2ce0d03ebce97574242858ae4d4f002939bfdc021765026b4a58"
+  },
+  "broker_sha256": {
+    "baseline": "747d582cf9446076be08b7654abc8bfecb3f403a1667a16a01873091b43129d3",
+    "candidate": "747d582cf9446076be08b7654abc8bfecb3f403a1667a16a01873091b43129d3"
+  },
+  "client_sha256": "e29f91d88f929e1f9714ca8b92df5a54ca0158a37b3b4be9dc341ca2a81faab2",
+  "platform": {
+    "os": "Darwin",
+    "kernel": "25.6.0",
+    "architecture": "arm64",
+    "logical_cpus": 32,
+    "cpu_model": "Apple M3 Ultra",
+    "runner_image": null,
+    "runner_image_version": null,
+    "native_runtime_threads": null,
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: aarch64-apple-darwin\nrelease: 1.95.0\nLLVM version: 22.1.2"
+  },
+  "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+  "profiles": [
+    {
+      "profile": "ws_sustained",
+      "paired_throughput_ratios": [
+        0.8490329013331123,
+        1.0981188911242799,
+        1.0519251279422586,
+        0.9709395966107744,
+        0.881589217449806
+      ],
+      "median_paired_ratio": 0.9709395966107744,
+      "throughput_ratio_of_medians": 1.0462191438391835,
+      "median_rates": {
+        "baseline": 130992.75479073252,
+        "candidate": 137047.12776629627
+      },
+      "broker_cpu_medians": {
+        "baseline": 2.83,
+        "candidate": 2.74
+      }
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "paired_throughput_ratios": [
+        1.1762968109310417,
+        0.9762118643005037,
+        0.9328296558685649,
+        0.8714842607870598,
+        0.8951816384698218
+      ],
+      "median_paired_ratio": 0.9328296558685649,
+      "throughput_ratio_of_medians": 0.946279831120398,
+      "median_rates": {
+        "baseline": 135222.66440033482,
+        "candidate": 127958.4800323991
+      },
+      "broker_cpu_medians": {
+        "baseline": 2.76,
+        "candidate": 2.9
+      }
+    },
+    {
+      "profile": "sustained",
+      "paired_throughput_ratios": [
+        1.0894468409097213,
+        0.973743190892494,
+        1.0663754567774708,
+        0.9704461796010344,
+        1.0619085488100846
+      ],
+      "median_paired_ratio": 1.0619085488100846,
+      "throughput_ratio_of_medians": 1.0263954567277196,
+      "median_rates": {
+        "baseline": 484716.8768722189,
+        "candidate": 497511.200220895
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.64,
+        "candidate": 0.64
+      }
+    },
+    {
+      "profile": "v311_sustained",
+      "paired_throughput_ratios": [
+        0.9943998654132425,
+        0.9941225967667907,
+        0.9362295800009734,
+        0.9811970531758683,
+        0.9413740654562099
+      ],
+      "median_paired_ratio": 0.9811970531758683,
+      "throughput_ratio_of_medians": 0.9811970531758683,
+      "median_rates": {
+        "baseline": 511634.5701246342,
+        "candidate": 502014.33250919316
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.62,
+        "candidate": 0.63
+      }
+    },
+    {
+      "profile": "64k_sustained",
+      "paired_throughput_ratios": [
+        0.9638061177515654,
+        1.103140060366535,
+        0.9534494550117546,
+        0.9889133862097196,
+        1.0772625252025716
+      ],
+      "median_paired_ratio": 0.9889133862097196,
+      "throughput_ratio_of_medians": 1.0362178576303651,
+      "median_rates": {
+        "baseline": 10797.643522277698,
+        "candidate": 11188.711038110987
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.24,
+        "candidate": 0.22
+      }
+    }
+  ],
+  "every_pair_slower_profiles": [
+    "v311_sustained"
+  ],
+  "scope": "One predeclaredcomplete localnative-sourcecontrol, no transport/RSS/GCacceptance. MixedWS5, WS311slower and TCP311everypairslower: no adoption from componentallocations. Bothzero-datareceipt-schema setup failures retained; strictfile/lockverification corrected before any observations, not numericalreruns. No source/benchmark/SDK/GC/allocator policy weakening.",
+  "audited_utc": "2026-11-01T19:12:29.866717+00:00"
+}

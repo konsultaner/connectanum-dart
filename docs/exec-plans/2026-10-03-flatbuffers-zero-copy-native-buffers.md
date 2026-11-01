@@ -2,9 +2,10 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish frozen native MQTT frame prototype `bd59c076` canonical and
-complete native-source control; preserve all existing `75295eb0` CI/strict campaigns
-to completion. Scheduler transport repair is not established by its green MQTT gate.
+Current step: repair native-view proof startup/evidence in an isolated worktree.
+Frozen `bd59c076` canonical passes; its copy failure and mixed/negative local
+network control remain retained. Finish its CI and all `75295eb0` strict campaigns.
+RAM/protocol parity and final-runtime acceptance remain unresolved.
 Local focused/diagnostic evidence is scoped below, not final acceptance. All
 predecessor primary/supplemental campaigns have finished failed and are retained.
 Require complete final-runtime strict 48-/50-case acceptance and clean CI before
@@ -36,20 +37,63 @@ return. For sixteen ready 128-byte chunks, header allocation requests fall
 2,112→2,052 and IoSlices 32→17, with one write in each leg. This is a component
 allocation result, not public-ABI, network, RSS, GC or strict acceptance.
 
-Own full canonical verification is active on the clean frozen commit with own
-native `53bb612583da2ce0d03ebce97574242858ae4d4f002939bfdc021765026b4a58`.
-Do not change source/HEAD/native during verification. A complete predeclared
-50-row native-source comparison waits for canonical success and the existing
-machine resource reservation to permit an exclusive lease; every original
-profile/window/repetition/body check remains intact. It uses identical compiled
-Dart broker/client bytes and two independently verified native libraries.
-The broad GLM review timed out and the bounded follow-up was lease-blocked;
-neither establishes approval. Qwen's alleged overflow/race/boundary defects
-were disproved against the sixteen-chunk bound, mutex and actual passing tests.
+Own full frozen canonical verification now passes with unchanged source/HEAD,
+complete tracked tree, all three locks and own native
+`53bb612583da2ce0d03ebce97574242858ae4d4f002939bfdc021765026b4a58`.
+Verify log SHA: `321a5a8c118e523cf2caf8b31d6ec54d74ba1b42e131f6e9bf75af4d7f352f28`.
+Actual local Chrome/Wasm has 8,308 observations; hosted JS remains separate and
+pending. [Canonical audit](../research/2026-11-01-mqtt-ready-frame-canonical-audit.json).
 
-This prototype is not adopted and no hosted acceptance is claimed. Existing
-`75295eb0` strict 48-/50-case campaigns and full CI continue to completion.
-[Exact component audit](../research/2026-11-01-mqtt-ready-frame-component-audit.json).
+The complete local native-source control independently reproduces fifty rows /
+8.05 million verified deliveries, both exact source archives, 2,566 shared inputs,
+all six retained locks, both measured native copies and identical broker/client
+bytes, full stdout/body/order and cleanup. Two zero-data receipt-schema setup
+failures are retained: baseline's native-source guard names the encoder file,
+and its legacy canonical receipt lacks ignored-lock fields. Explicit file
+bindings and the exact retained independently audited baseline locks resolve
+these guards without inventing historical proof or changing any workload.
+WebSocket 5 median-rate ratio is 1.04622 but paired median is 0.97094;
+WebSocket 3.1.1 median-rate ratio is 0.94628 with CPU 2.76→2.90. Every TCP 3.1.1
+pair is slower (median-rate ratio 0.98120). Do not adopt from component allocation
+savings or select an unchanged favorable rerun. [All pairs and inputs](../research/2026-11-01-mqtt-ready-frame-network-audit.json).
+
+Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41339569720)
+and its predeclared sixty-row native comparison continue unchanged. The legacy
+comparison may not retain its Linux baseline library; require an exact retained
+byte match or report the gap, never substitute another binary. Own
+[copy/lifetime attempt](https://github.com/konsultaner/connectanum-dart/actions/runs/41339572670)
+has failed: the expected negative control passed, then the positive baseline
+exited before READY with native listener I/O error -7 and zero positive rows.
+No production copy checks ran. Underlying errno/cause is unmeasured, and its
+recorded VM-service port does not equal the three chosen listener ports. This
+is not classified as an SDK setup failure and is not retried unchanged.
+[Retained failure](../research/2026-11-01-mqtt-ready-frame-copy-failure.json).
+
+CI health now takes priority in isolated `codex/native-view-startup-diagnostics`
+from this source. Fresh pre-change full fast regression is active; no edits
+while it runs. A deterministic exited-process regression fails before repair:
+the probe hides exit status 17 behind a readiness timeout. A controlled real
+socket fixture reproduces a competing-listener collision with native socket
+options; it does not prove the original failure's cause. Test a non-ephemeral
+listener pool and fail-fast exit/log reporting without changing the sixty-second
+living-process deadline, running phases again, or altering measurements. Retain
+both actual native libraries/source archives for future matched CI comparisons.
+A tools-only child must not re-execute unchanged numerical gates to seek a pass.
+
+A separate read-only public-encoder census validates thirty fresh inputs, full
+metadata/message roundtrip and original opaque body aliases. With `opaque`
+scheme, generic CALL takes 21–22 allocation requests / 2,236–2,356 requested
+bytes versus RESULT's 6–7 / 304–376 and INVOCATION's seven / 400–416. PUBLISH and
+EVENT remain generic too. Body length 17 versus 65,536 does not change these
+header counts. This establishes an allocation-cost lead, not a RAM cause or
+transport improvement; implement no speculative GC accounting change. Future
+WAMP optimization follows CI recovery and controlled validation.
+[Census](../research/2026-11-01-wamp-encoder-allocation-census.json).
+
+Existing `75295eb0` strict 48-/50-case campaigns continue to completion; its full
+CI now independently passes all 39 jobs. All predecessor failures remain retained.
+No prototype is adopted; RAM/broad protocol parity and final strict acceptance
+remain unresolved. [Exact framing component](../research/2026-11-01-mqtt-ready-frame-component-audit.json).
 
 ## Idle fallback candidate frozen for own verification (2026-11-01)
 

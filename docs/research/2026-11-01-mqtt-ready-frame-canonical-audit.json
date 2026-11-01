@@ -1,0 +1,14 @@
+{
+  "source": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "full_canonical_pass": true,
+  "own_native_sha256": "53bb612583da2ce0d03ebce97574242858ae4d4f002939bfdc021765026b4a58",
+  "actual_source_HEAD_clean": true,
+  "actual_tracked_tree_sha256": "259ab284c0d02ac98f7c245915ec51d442a3699a0587a747adda0c6167429cce",
+  "native_runtime_source_sha256": "a31b51c96d43f061d399163624ed6984877476ad4ed5f221c7ca931e461372d9",
+  "all_three_locks_unchanged": true,
+  "log_sha256": "321a5a8c118e523cf2caf8b31d6ec54d74ba1b42e131f6e9bf75af4d7f352f28",
+  "actual_local_Chrome_Wasm_observations": 8308,
+  "actual_local_JavaScript_observations": 0,
+  "scope": "Own exactfrozen nativeMQTTframingprototype completebin/verify, unchangedownnative/source/HEAD/tree/locks. DarwinactualWasm only; hostedJSseparatepending. No transport/RSS/fullstrictacceptance claim.",
+  "audited_utc": "2026-11-01T19:04:02.538800+00:00"
+}
