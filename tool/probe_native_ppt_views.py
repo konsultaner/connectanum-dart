@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Isolated ffi-test producer-view lifetime diagnostic; never parity acceptance."""
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 import argparse
 import difflib
+import errno
 try:
     import fcntl
 except ImportError:
@@ -11,12 +12,15 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import secrets
 import socket
 import ssl
 import stat
 import subprocess
+import sys
 import tarfile
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -36,6 +40,63 @@ WORKER = "packages/connectanum_bench/tool/wamp_client_main.dart"
 RUNNER = "packages/connectanum_bench/lib/src/wamp_workload_runner.dart"
 FORCED = "PROTOTYPE_FORCED_PRODUCER_VIEW"
 PUBLIC_FORCED = "PUBLIC_LEASE_FORCED_BYTE_VIEW"
+STARTUP_TIMEOUT_SECONDS = 60
+
+
+def listener_port_bounds():
+    """Read Linux automatic allocation bounds without changing kernel policy."""
+    if not sys.platform.startswith("linux"):
+        return None
+    first, last = map(int, Path("/proc/sys/net/ipv4/ip_local_port_range").read_text().split())
+    floor = int(Path("/proc/sys/net/ipv4/ip_unprivileged_port_start").read_text())
+    if not 1 <= first <= last <= 65535 or not 0 <= floor <= 65535:
+        raise ValueError("invalid kernel listener port bounds")
+    return first, last, max(1024, floor)
+
+
+def reserve_listener_port(reservations, bounds):
+    if bounds is None:
+        sock = reservations.enter_context(socket.socket())
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+    first, last, floor = bounds
+    below = max(0, first - floor)
+    above_start = max(last + 1, floor)
+    choices = below + max(0, 65536 - above_start)
+    if not choices:
+        raise RuntimeError("no unprivileged listener ports outside automatic allocation range")
+    # A VM service using bind(0) must not claim a future listener after these
+    # reservations close. Explicit competing listeners can still race a bind.
+    for _ in range(64):
+        index = secrets.randbelow(choices)
+        port = floor + index if index < below else above_start + index - below
+        sock = socket.socket()
+        try:
+            sock.bind(("127.0.0.1", port))
+        except OSError as error:
+            sock.close()
+            if error.errno != errno.EADDRINUSE:
+                raise
+        else:
+            reservations.enter_context(sock)
+            return sock.getsockname()[1]
+    raise RuntimeError("no free diagnostic listener port after 64 reservation attempts")
+
+
+def wait_for_server_ready(process, ready, reader, log):
+    deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+    while True:
+        status = process.poll()
+        if status is not None:
+            reader.join(timeout=1)
+            tail = log.read_text(errors="replace")[-16384:] if log.exists() else ""
+            raise RuntimeError(f"diagnostic server exited before READY (exit {status}); {log}\n{tail}")
+        if ready.is_set():
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError("diagnostic server did not become ready")
+        ready.wait(min(0.1, remaining))
 LEGACY_PREPARATION = "tool/fixtures/native_ppt_legacy_preparation_100c.dart.txt"
 LEGACY_PREPARATION_SHA256 = "93cbb02d913d868c580149ef6c461a09d5f34a035722d31a1d6e1f62fcd57d29"
 COUNTERS = ("owned_allocations", "owned_handles", "external_byte_owners", "write_receipts")
@@ -309,13 +370,12 @@ def run_phase(root, shadow, out, library, dart, marker, control, *, baseline=Fal
     worker.write_text(instrument_worker((shadow / WORKER).read_text()))
     config = json.loads((shadow / "native/bench/bench_router.json").read_text())
     ports = []
+    port_bounds = listener_port_bounds()
     # Keep every reservation live until the whole listener set is selected:
     # the OS can immediately reuse a released ephemeral port for the next bind.
     with ExitStack() as reservations:
         for listener in config["router"]["listeners"]:
-            sock = reservations.enter_context(socket.socket())
-            sock.bind(("127.0.0.1", 0))
-            port = sock.getsockname()[1]
+            port = reserve_listener_port(reservations, port_bounds)
             if port in ports:
                 raise ValueError("ephemeral listener port collision")
             ports.append(port)
@@ -332,6 +392,8 @@ def run_phase(root, shadow, out, library, dart, marker, control, *, baseline=Fal
              shadow / ".dart_tool/package_config.json", worker, library, configuration]
     inputs = {str(path): digest(path) for path in files}
     (out / "inputs.json").write_text(json.dumps({"kind": KIND, "command": command,
+                                                "listener_port_bounds": port_bounds,
+                                                "listener_ports": ports,
                                                 "inputs": inputs}, indent=2) + "\n")
     env = {**os.environ, "CONNECTANUM_SKIP_NATIVE_BUILD": "1",
            "CONNECTANUM_BENCH_WAMP_REUSE_WORKER": "1", "CONNECTANUM_BENCH_WAMP_VM_METRICS": "1",
@@ -356,8 +418,7 @@ def run_phase(root, shadow, out, library, dart, marker, control, *, baseline=Fal
     stopped = False
     try:
         reader.start()
-        if not ready.wait(60):
-            raise RuntimeError("diagnostic server did not become ready")
+        wait_for_server_ready(process, ready, reader, out / "server.log")
         cases = [("native_buffer", 65536)] if control else [
             (construction, size) for construction in ("native_buffer", "pre_encoded_span")
             for size in (0, 65536, 1048576)]
@@ -398,6 +459,10 @@ def run_phase(root, shadow, out, library, dart, marker, control, *, baseline=Fal
             stopped = not group_alive(process.pid)
             if reader.ident is not None:
                 reader.join(timeout=5)
+            with suppress(OSError):
+                process.stdin.close()
+            if not reader.is_alive():
+                process.stdout.close()
             unchanged = all(digest(Path(path)) == value for path, value in inputs.items())
             result = {"kind": KIND, "rows": len(reports), "failures": len(failures),
                       "process_exit": process.returncode, "process_group_stopped": stopped,

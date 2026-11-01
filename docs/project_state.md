@@ -1,5 +1,37 @@
 # Project State
 
+Current isolated work: `codex/native-view-startup-diagnostics` repairs proof setup
+and evidence retention only. Runtime Rust/Dart bytes remain identical to parent
+`bd59c076`; this branch does not repair its measured MQTT/RAM failures and must
+not re-execute unchanged numerical gates to seek a pass.
+
+The parent passes full frozen canonical verification with actual local Chrome/
+Wasm, but its Linux MQTT gate independently fails two WebSocket throughput
+metrics (0.61339193 / 0.63800707 against 0.70); all twenty summaries and all sixty
+native / sixty Mosquitto matched rows are retained. Its copy run passed the
+expected negative control, then exited with native listener I/O error -7 before
+positive rows. Original errno/cause is unmeasured; no unchanged copy retry is
+approved or requested. Parent CI continues to completion. Existing `75295eb0`
+full 48-/50-case campaigns continue unchanged; its full CI is complete all39PASS.
+
+Fresh pre-change `bin/bootstrap` and full `bin/test-fast` pass on clean parent
+source. Two controlled regressions fail before this harness patch and pass after:
+exited-child status/log reporting and excluding Linux automatic-allocation ports.
+All 21 probe tests / 23 CI contracts pass; full own `bin/verify` is still pending.
+The original sixty-second living-process deadline, phase inventory, body checks,
+counts, SDK, GC/allocator policy and all acceptance gates remain intact. No phase
+or workload is automatically retried. Matched-native CI now retains both exact
+libraries, source archives and shared lock before collecting data. Read
+[scope, repros and primary source](research/2026-11-01-native-view-startup-reliability.md).
+
+The inherited parent planning snapshots below predate these results. Current
+complete campaign records are retained in the documentation-only
+[acceptance status](https://github.com/konsultaner/connectanum-dart/blob/b2bafd58/docs/project_state.md). PR132 stays40ddcb3f OPEN DRAFT on#130; no adoption,
+ready/merge/retarget or issue/milestone closure before complete final-runtime
+strict acceptance and clean CI. The separate1% SDK-allocation question remains
+unanswered and is not the sole blocker.
+
+
 Current isolated work: MQTT already-ready small WebSocket batches share one
 binary frame; this branch starts at `7476ff6e`, excluding unadopted forwarding /
 idle-timer changes. All 471 Rust core tests, three codec integrations and all
