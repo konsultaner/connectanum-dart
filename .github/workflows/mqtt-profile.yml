@@ -24,6 +24,7 @@ jobs:
           set -euo pipefail
           source bin/common.sh
           build_native_ffi_test_release
+          echo "CONNECTANUM_NATIVE_LIB=$CONNECTANUM_NATIVE_LIB" >> "$GITHUB_ENV"
           bin/bootstrap
       - name: Compare complete memory lifecycles at both warm-up workloads
         run: |
