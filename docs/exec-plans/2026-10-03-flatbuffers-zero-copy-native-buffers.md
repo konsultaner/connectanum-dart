@@ -45,8 +45,12 @@ actual binaries and cleanup. On EPYC 9V74, all five profile median-rate ratios
 are below one; MQTT 5 TCP is slower in every pair. WebSocket pairs are mixed.
 The original header component gain does not establish a network improvement;
 do not adopt `4ec3878f` as a CI repair. All original acceptance results remain
-retained, without an unchanged numerical retry. Tool-only canonical verification
-continues on clean frozen `e2becb6e`; no canonical pass is claimed yet.
+retained, without an unchanged numerical retry. Tool-only full canonical verification
+now passes on clean unchanged `e2becb6e`, including its complete tracked-tree
+hash and own native `753ef438…`. The independently rehashed verify log is
+`4dd26901d3a22244f3e2faeb7cffa8c56eb6f93a89f32d6f43c984ed1bde17b3`.
+Actual local Chrome/Wasm produces 8,308 observations; no local JavaScript or
+final-runtime acceptance is claimed. [Canonical audit](../research/2026-11-01-mqtt-source-tool-canonical-audit.json).
 
 [Controlled comparison and all pairs](../research/2026-11-01-mqtt-broker-source-comparison.md).
 
@@ -86,6 +90,32 @@ canonical Wasm. Its full primary campaign remains active and must finish unchang
 complete supplemental campaign is now failed and independently audited below. No numerical retry or predecessor report substitution occurs.
 
 [Candidate design and complete paired evidence](https://github.com/konsultaner/connectanum-dart/blob/4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7/docs/research/2026-11-01-mqtt-validated-forwarding.md).
+
+## Isolated idle-timer hypothesis, before implementation (2026-11-01)
+
+A root-zone observer around the unchanged public `7476ff6e` broker retains twenty
+original MQTT runs / four million fully verified fresh deliveries. On local
+Darwin, median one-millisecond timers created per 200,000-message row are 58,864
+for WebSocket 5, 56,731 for WebSocket 3.1.1, 10,577 for TCP 5 and 10,691 for TCP
+3.1.1. Nearly all are cancelled before firing. The observer itself changes
+callback dispatch and adds counters; these counts do not establish performance,
+Linux causality or a RAM fix. An actual same-source 7763 trace separately shows
+timer scheduling/cancellation in pipe-wake stacks; that is a lead, not proof of
+kernel contention or cause.
+
+An isolated worktree based on `7476ff6e` runs baseline bootstrap/fast regression
+before any source edit. The hypothesis is to let queued wake events run for one
+event turn before creating the idle fallback timer. A minimal queued-wake cost
+reproduction currently creates one avoidable timer and fails the desired-zero
+assertion. Busy event-turn yielding already exists; the rejected FutureOr
+maintenance experiment is not repeated. Any prototype must preserve genuinely
+armed timer cancellation, close/reuse and event fairness, retain the monotonic
+elapsed poll budget at the VM's millisecond resolution, and avoid turning a
+positive sub-millisecond remainder into a zero-delay idle loop. No runtime patch
+or transport/RAM improvement is claimed. Require controlled component and actual
+matched transport evidence before adoption, plus own complete final acceptance.
+
+[Observer counts and complete five repetitions](../research/2026-11-01-mqtt-timer-lifecycle-observer.json).
 
 ## Predecessor complete supplemental campaign failed (2026-11-01)
 

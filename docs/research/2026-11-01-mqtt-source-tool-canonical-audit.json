@@ -1,0 +1,14 @@
+{
+  "source": "e2becb6e70457c92cc5936463706c000e4c38fc8",
+  "runtime_identical_to": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+  "canonical_pass": true,
+  "canonical_exit": 0,
+  "actual_current_HEAD_clean": true,
+  "actual_tracked_tree_sha256": "9905552c2f9bd3a8c0967ef2c61343242a69e60ba2d4e250efd87ef734dc6bf2",
+  "actual_own_native_sha256": "753ef4384ed96e9987f237901598fdf58c0cd68d1fc94cf228db7acc91f9f5cc",
+  "log_sha256": "4dd26901d3a22244f3e2faeb7cffa8c56eb6f93a89f32d6f43c984ed1bde17b3",
+  "actual_local_chrome_wasm_observations": 8308,
+  "actual_local_JS_observations": 0,
+  "scope": "Tool-only branch full canonical verification, actual local Darwin Chrome/Wasm only; no hosted JS claimed for this tool commit, no final MQTT/FlatBuffers acceptance. Original runtime4ec has its own separately audited hostedJS.",
+  "audited_utc": "2026-11-01T16:30:33.902938+00:00"
+}
