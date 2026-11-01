@@ -140,6 +140,138 @@ void main() {
     }
   });
 
+  for (final version in MqttVersion.values) {
+    test(
+      'native forwarding owns canonical whole packets ${version.name}',
+      () async {
+        final broker = MqttQos0Broker.native();
+        addTearDown(broker.close);
+        final sent = <Uint8List>[];
+        broker.attachNativeConnection(81, send: (_) {}, close: () {});
+        broker.attachNativeConnection(82, send: sent.add, close: () {});
+        for (final id in [81, 82]) {
+          broker.receiveNativeChunk(
+            id,
+            MqttPacketCodec.encodeConnect(
+              MqttConnect(version: version, clientId: 'owned-$id'),
+            ),
+          );
+        }
+        broker.receiveNativeChunk(
+          82,
+          MqttPacketCodec.encodeSubscribe(
+            version,
+            packetId: 1,
+            filter: '#',
+          ),
+        );
+        sent.clear();
+        for (final topic in ['bench/one', 'café/水/😀']) {
+          final maxPayload =
+              1024 * 1024 -
+              4 -
+              2 -
+              utf8.encode(topic).length -
+              (version == MqttVersion.v5 ? 1 : 0);
+          for (final size in [0, 128, 65536, maxPayload]) {
+            final payload = Uint8List(size);
+            for (var i = 0; i < size; i++) {
+              payload[i] = (i * 29 + size) & 255;
+            }
+            final expected = MqttPacketCodec.encodePublish(
+              version,
+              topic: topic,
+              payload: payload,
+            );
+            final wire = Uint8List.fromList(expected);
+            // Split inside the header, then mutate both caller buffers before
+            // the queued send: framing and forwarding must each retain owners.
+            final first = Uint8List.fromList(wire.sublist(0, 2));
+            final rest = Uint8List.fromList(wire.sublist(2));
+            broker.receiveNativeChunk(81, first);
+            first.fillRange(0, first.length, 0);
+            broker.receiveNativeChunk(81, rest);
+            rest.fillRange(0, rest.length, 0);
+            await Future<void>.delayed(Duration.zero);
+            expect(sent, [expected]);
+            if (size == maxPayload) {
+              expect(sent.single.length, 1024 * 1024);
+            }
+            sent.clear();
+          }
+        }
+      },
+    );
+
+    for (final bad in [
+      'retain',
+      'dup',
+      'overlong_utf8',
+      'surrogate_utf8',
+      'nul',
+      'wildcard',
+      if (version == MqttVersion.v5) 'properties',
+    ]) {
+      test(
+        'native forwarding rejects $bad before delivery ${version.name}',
+        () async {
+          final closed = <int>[];
+          final broker = MqttQos0Broker.native(
+            onNativeClose: (id, reason) => closed.add(id),
+          );
+          addTearDown(broker.close);
+          final sent = <Uint8List>[];
+          broker.attachNativeConnection(91, send: (_) {}, close: () {});
+          broker.attachNativeConnection(92, send: sent.add, close: () {});
+          for (final id in [91, 92]) {
+            broker.receiveNativeChunk(
+              id,
+              MqttPacketCodec.encodeConnect(
+                MqttConnect(version: version, clientId: 'reject-$id'),
+              ),
+            );
+          }
+          broker.receiveNativeChunk(
+            92,
+            MqttPacketCodec.encodeSubscribe(
+              version,
+              packetId: 1,
+              filter: '#',
+            ),
+          );
+          sent.clear();
+          final topic = switch (bad) {
+            'overlong_utf8' => <int>[0xc0, 0xaf],
+            'surrogate_utf8' => <int>[0xed, 0xa0, 0x80],
+            'nul' => <int>[0],
+            'wildcard' => <int>[43],
+            _ => <int>[97],
+          };
+          final body = Uint8List.fromList([
+            0,
+            topic.length,
+            ...topic,
+            if (version == MqttVersion.v5) (bad == 'properties' ? 1 : 0),
+            7,
+            8,
+            9,
+          ]);
+          final wire = MqttFrame(
+            MqttPacketType.publish,
+            flags: 0,
+            body: body,
+          ).encode();
+          if (bad == 'retain') wire[0] |= 1;
+          if (bad == 'dup') wire[0] |= 8;
+          broker.receiveNativeChunk(91, wire);
+          await Future<void>.delayed(Duration.zero);
+          expect(closed, [91]);
+          expect(sent, isEmpty);
+        },
+      );
+    }
+  }
+
   test('native MQTT peer IDs cannot be attached twice', () async {
     final broker = MqttQos0Broker.native();
     broker.attachNativeConnection(42, send: (_) {}, close: () {});

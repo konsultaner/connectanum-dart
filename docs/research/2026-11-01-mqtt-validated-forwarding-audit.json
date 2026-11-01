@@ -1,0 +1,124 @@
+{
+  "parent_source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "broker_source_sha256": "c2438be487144b2539a19f45edf98e6c6e4feb69af0377f2005bedc1867da66f",
+  "public_codec_cases": 110,
+  "public_broker_component": {
+    "source_sha256": "c2438be487144b2539a19f45edf98e6c6e4feb69af0377f2005bedc1867da66f",
+    "rows": 32,
+    "delivered": 3200000,
+    "full_body_verification": true,
+    "scope": "Predeclared actual public broker component only; not transport/RSS acceptance. All rows retained.",
+    "versions": [
+      {
+        "version": "5",
+        "elapsed_ratios": [
+          0.9259536580717184,
+          0.960220522472735,
+          0.9177009456264775,
+          0.9292515904210057,
+          0.9189917052676936,
+          0.8902919265083731,
+          0.9317075581251699,
+          0.9168783221177764
+        ],
+        "median_elapsed_ratio": 0.922472681669706
+      },
+      {
+        "version": "3.1.1",
+        "elapsed_ratios": [
+          0.9130608175473579,
+          0.9280985857701671,
+          0.9401614668856049,
+          0.913749271754674,
+          0.894489911569736,
+          0.8989606785695586,
+          0.9218257571710913,
+          0.930661968560932
+        ],
+        "median_elapsed_ratio": 0.9177875144628826
+      }
+    ]
+  },
+  "matched_MQTT": {
+    "rows": 30,
+    "delivered": 6000000,
+    "cases": [
+      {
+        "case": "ws_sustained",
+        "paired_throughput_ratios": [
+          0.9909128128448859,
+          1.0498091320219345,
+          1.0777233725968314,
+          1.0294994005068918,
+          0.8954714959587177
+        ],
+        "median_paired_throughput_ratio": 1.0294994005068918,
+        "throughput_ratio_of_medians": 0.9990216536996415,
+        "median_throughput": {
+          "before": 137061.49743797796,
+          "after": 136927.4038290379
+        },
+        "median_broker_cpu_seconds": {
+          "before": 2.71,
+          "after": 2.69
+        }
+      },
+      {
+        "case": "ws_v311_sustained",
+        "paired_throughput_ratios": [
+          1.1612572361213467,
+          0.994853098003085,
+          0.9558809445462181,
+          1.0010074941654985,
+          0.9346660051166363
+        ],
+        "median_paired_throughput_ratio": 0.994853098003085,
+        "throughput_ratio_of_medians": 0.9891632006230937,
+        "median_throughput": {
+          "before": 128450.25410671519,
+          "after": 127058.26447304808
+        },
+        "median_broker_cpu_seconds": {
+          "before": 2.86,
+          "after": 2.87
+        }
+      },
+      {
+        "case": "v311_sustained",
+        "paired_throughput_ratios": [
+          0.9953066061685312,
+          1.0870570538522912,
+          0.9901041172420002,
+          1.0407129474029861,
+          1.0545045660682115
+        ],
+        "median_paired_throughput_ratio": 1.0407129474029861,
+        "throughput_ratio_of_medians": 1.0510205345267845,
+        "median_throughput": {
+          "before": 471299.0651783042,
+          "after": 495344.99540567514
+        },
+        "median_broker_cpu_seconds": {
+          "before": 0.65,
+          "after": 0.63
+        }
+      }
+    ],
+    "provenance": {
+      "parent": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+      "candidate_broker_source_sha256": "c2438be487144b2539a19f45edf98e6c6e4feb69af0377f2005bedc1867da66f",
+      "broker_sha256": {
+        "before": "b9f64e28ffadef5b0d4da8967a3afaa80df3cf5e6d3cf7b33f295fd695ccdaf3",
+        "after": "13110a029e1fefdffd6c82612c62704d645b0655b063d9a9eab1c810c54fa65c"
+      },
+      "client_sha256": "5857b310b35a339d443b11f252abdc9598a04e15e282608ede8b75c29a7b3787",
+      "native_sha256": "590d4b668c304ba36f280e61b30646490d6ff7149f86519d5b7603113a15cbe5",
+      "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+      "scope": "Predeclared comparative diagnostics, not Linux gates or FlatBuffers/RSS acceptance. Fresh brokers, unchanged existing client body verification and budgets."
+    }
+  },
+  "raw_component_sha256": "c122fd8b589b6066c8139be85efde3c3b2547bf15d49651a0438fbcaeb9737e6",
+  "raw_MQTT_sha256": "2760a1d1ed58e8da1aace2050200375a517f9e73c60fea38f5d93f5b58efa035",
+  "adopted": false,
+  "scope": "Controlled local Darwin comparison only, not Linux CI gate or strict FlatBuffers/RSS acceptance. WS improvement not established. Same native/client bytes and whole body verification retained."
+}

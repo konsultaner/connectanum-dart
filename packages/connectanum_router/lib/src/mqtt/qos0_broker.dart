@@ -77,7 +77,7 @@ final class MqttQos0Broker {
     );
   }
 
-  void _publish(_Peer sender, MqttPublish message) {
+  void _publish(_Peer sender, MqttPublish message, MqttFrame frame) {
     Uint8List? encoded5;
     Uint8List? encoded311;
     for (final peer in _peers) {
@@ -86,18 +86,38 @@ final class MqttQos0Broker {
         continue;
       }
       final encoded = peer.version == MqttVersion.v5
-          ? (encoded5 ??= MqttPacketCodec.encodePublish(
+          ? (encoded5 ??= _encodePublication(
+              sender.version!,
               MqttVersion.v5,
-              topic: message.topic,
-              payload: message.payload,
+              message,
+              frame,
             ))
-          : (encoded311 ??= MqttPacketCodec.encodePublish(
+          : (encoded311 ??= _encodePublication(
+              sender.version!,
               MqttVersion.v311,
-              topic: message.topic,
-              payload: message.payload,
+              message,
+              frame,
             ));
       peer._queuePublish(encoded);
     }
+  }
+
+  static Uint8List _encodePublication(
+    MqttVersion source,
+    MqttVersion target,
+    MqttPublish message,
+    MqttFrame frame,
+  ) {
+    // Only _Peer._handle calls _publish, after decoding every field and
+    // rejecting retained messages. For this property-free QoS 0 profile a
+    // same-version body is already canonical. Encode into a fresh owned packet
+    // with the same size cap, without re-encoding the validated UTF-8 topic.
+    if (source == target && frame.flags == 0) return frame.encode();
+    return MqttPacketCodec.encodePublish(
+      target,
+      topic: message.topic,
+      payload: message.payload,
+    );
   }
 
   static bool _matches(String filter, String topic) {
@@ -306,7 +326,7 @@ final class _Peer {
             'retained PUBLISH is not supported yet',
           );
         }
-        broker._publish(this, message);
+        broker._publish(this, message, frame);
       case MqttPacketType.subscribe:
         final subscribe = MqttPacketCodec.decodeSubscribe(frame, version!);
         final reasons = <int>[];
