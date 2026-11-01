@@ -1,0 +1,109 @@
+{
+  "source": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+  "run": 41361207942,
+  "artifact_id": 13106056495,
+  "production_source_inputs_verified": 3305,
+  "live_rows": 120,
+  "inventory_rows": 300,
+  "zero_avoidable_payload_copy_checks": 32,
+  "E2EE_transcode_native_crypto_accounting_verified": true,
+  "native_view_inputs_archive_fixture_binary_and_ports": {
+    "source": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+    "run": 41361207942,
+    "artifact_id": 13106056495,
+    "native_view_source_inputs_verified": 3302,
+    "source_archive_reconstructed_exactly": true,
+    "source_archive_sha256": "e6ef7290ff1c5ef62d879bf55b4ebd5c305ea9c38be91d153d0fef5aa7997989",
+    "fixture_verified": true,
+    "reported_native_view_binary_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+    "actual_same_source_native_view_binary_rehashed": true,
+    "native_view_byte_witness": {
+      "run": 41361205057,
+      "artifact_id": 13105379422,
+      "profile": "ws_sustained",
+      "source": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+      "actual_native_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8"
+    },
+    "ports": [
+      {
+        "phase": "negative-control",
+        "listener_ports": [
+          8751,
+          11805,
+          3215
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "existing-api-baseline",
+        "listener_ports": [
+          7669,
+          30841,
+          5038
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "direct-native",
+        "listener_ports": [
+          12882,
+          6705,
+          1157
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "public-native-lease",
+        "listener_ports": [
+          18387,
+          1304,
+          7748
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      }
+    ],
+    "production_binary_hash_receipts": {
+      "/home/runner/work/_temp/native-owned-copy-production/release/libct_ffi.so": "d8ff87e6d368ebf4e0e82d7161c54b3a23da398e69cac638df26eaeab6bbc3e9",
+      "/home/runner/work/_temp/native-owned-copy-driver/release/http_stream": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940"
+    },
+    "production_binaries_unchanged_receipt": true,
+    "production_binary_retention_limit": "Copy artifact has stable productionnative/driver digest receipts but does not retain thosebytes; do not substitute ffi-test or another sharedCI build.",
+    "scope": "Own600E copy/lifetime reports/source inputs pass; actualnative-view bytes independently rehashed from its own current600E retained CI profile artifact. Not RAM/throughput/finalacceptance. No phase retry or gate weakening.",
+    "audited_utc": "2026-11-01T23:37:09.042235+00:00"
+  },
+  "lifetime_controls": {
+    "head": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+    "phases": [
+      {
+        "name": "existing-api-baseline",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5242,
+        "failures": 0
+      },
+      {
+        "name": "direct-native",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5398,
+        "failures": 0
+      },
+      {
+        "name": "public-native-lease",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5554,
+        "failures": 0
+      }
+    ],
+    "negative_control": {
+      "rows": 0,
+      "expected_failures": 1
+    },
+    "cleanup_verified": true
+  }
+}

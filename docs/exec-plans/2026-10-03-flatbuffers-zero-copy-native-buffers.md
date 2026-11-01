@@ -37,6 +37,25 @@ pass or local JS proof is claimed yet. Exact-source
 [copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41361207942)
 were predeclared once and their source heads independently checked.
 
+Copy/lifetime is now **complete pass and independently audited**: 3,305 source
+inputs, 120 live / 300 inventory rows and all 32 zero-avoidable-copy checks,
+including E2EE/transcode/native-crypto accounting. All 3,302 native-view inputs,
+exact archive/fixture, three positive lifetime phases, expected negative control
+and cleanup verify. Actual native-view `10c9aaa7…` bytes rehash from this exact
+source's retained CI profile artifact. Production copy native/driver digests
+are stable receipts; their bytes are not retained, with no ffi-test substitution.
+
+The current-source MQTT job passes **all 20 unchanged-budget profiles** on
+Xeon Platinum 8573C / Dart 3.13.1. All raw summaries reproduce exactly; WS 5 /
+3.1.1 throughput ratios are 0.761272 / 0.775491. Both diagnostic profiles
+retain and verify all ten raw rows, actual native/AOT/client bytes and sampler
+provenance. Separately, 965 shared-CI native source inputs, lock and actual
+`ab99dad7…` library verify. The shared-CI build is distinct from measured
+`10c9aaa7…`. Full CI remains active. This host-specific pass does not prove
+repair of the previous 7763 failures or a Dart-source performance benefit.
+[Copy/lifetime and binary scope](../research/2026-11-02-router-busy-wake-copy-audit.json),
+[MQTT/raw inputs and binary audit](../research/2026-11-02-router-busy-wake-mqtt-audit.json).
+
 The new complete Dart-source control is predeclared for `11521160` versus
 `600e82f5`: separately compiled actual Dart brokers, same actual verified native
 and client, all five profiles/five AB/BA pairs/fifty rows/8.05 million fresh

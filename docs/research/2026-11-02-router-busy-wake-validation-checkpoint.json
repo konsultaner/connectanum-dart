@@ -18,5 +18,11 @@
   "controlled_Dart_source_comparison": "Predeclared exact600E/1152; external wrapper draft, readinessfalse, owncandidatecanonical/guardtests/review stillrequired. All5profiles5ABBA50rows8050000freshbodies; sameactualnative/client, separatelycompiledactualDartbrokers. No capture yet.",
   "final_strict48_50_dispatched": false,
   "adopted": false,
-  "scope": "Actual before-failing component and fullfocusedcorrectness with615router/115MQTT incl7Paho. Owncanonical/hostedCI-copy/controlledtransport/finalacceptance pending; no throughput/RAMrepairclaim. Native-only labels do not establish Dartsource effect. Preserve all historical failures; never retry unchanged numerical gate."
+  "scope": "Actualbefore-failing component and focused615router/115MQTT incl7Paho pass. Owncopy/lifetime and MQTT20 pass exact current-source audits; fullcanonical/fullCI/control/finalstrictacceptance pending. Host-specific pass does not prove causal7763repair or RAMparity.",
+  "copy_complete_pass": true,
+  "copy_audit": "docs/research/2026-11-02-router-busy-wake-copy-audit.json",
+  "MQTT20_complete_pass": true,
+  "MQTT_host": "Xeon Platinum 8573C",
+  "MQTT_audit": "docs/research/2026-11-02-router-busy-wake-mqtt-audit.json",
+  "full_CI_complete": false
 }
