@@ -1,0 +1,142 @@
+{
+  "diagnostic_only": true,
+  "baseline_runtime": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "candidate_runtime": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "reported_harness_revision_all_rows": "bd59c076eefaa3534544c78c6a6d3f4c89184f0b",
+  "native_rows": 60,
+  "mosquitto_rows": 60,
+  "all12summaries_exact": true,
+  "allbudgets_unchanged": true,
+  "native_hash_by_leg": {
+    "baseline": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+    "candidate": "671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a"
+  },
+  "per_leg": [
+    {
+      "leg": "baseline-1",
+      "profile": "ws_sustained",
+      "passed": false,
+      "throughput_ratio_vs_mosquitto": 0.6430910287778441,
+      "native_median_rate": 31458.931544578485,
+      "broker_CPU_median": 11.14,
+      "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+      "raw_sha256": "71536e00ab8caa51ec5eb4e0045c4a1099e3cfa3b0fc5da9acae606c9861c644"
+    },
+    {
+      "leg": "baseline-1",
+      "profile": "ws_v311_sustained",
+      "passed": false,
+      "throughput_ratio_vs_mosquitto": 0.6523907648706392,
+      "native_median_rate": 31486.329501604465,
+      "broker_CPU_median": 11.1,
+      "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+      "raw_sha256": "12b685dc91a09523784b8071d99c0782eee34742dab2de9dcfdc2941374cb375"
+    },
+    {
+      "leg": "baseline-1",
+      "profile": "64k_sustained",
+      "passed": true,
+      "throughput_ratio_vs_mosquitto": 0.9282096651818836,
+      "native_median_rate": 4666.194447788551,
+      "broker_CPU_median": 0.62,
+      "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+      "raw_sha256": "99d834f67a2b33851bc475402ffb8bf86699214d5db482bef6c531b7ab734208"
+    },
+    {
+      "leg": "candidate-1",
+      "profile": "ws_sustained",
+      "passed": false,
+      "throughput_ratio_vs_mosquitto": 0.639751195358182,
+      "native_median_rate": 31275.72428322295,
+      "broker_CPU_median": 11.2,
+      "native_lib_sha256": "671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a",
+      "raw_sha256": "45d4e8a36b3bcb1f1cd514091bc2c5f791db824eb8b321564d5c753ed39cc287"
+    },
+    {
+      "leg": "candidate-1",
+      "profile": "ws_v311_sustained",
+      "passed": false,
+      "throughput_ratio_vs_mosquitto": 0.6330644949623299,
+      "native_median_rate": 30878.483594724843,
+      "broker_CPU_median": 11.36,
+      "native_lib_sha256": "671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a",
+      "raw_sha256": "fe696e2ebd69954596594d6de6dd2e37fac9aee51ad3606cdab9fb9949b50b60"
+    },
+    {
+      "leg": "candidate-1",
+      "profile": "64k_sustained",
+      "passed": true,
+      "throughput_ratio_vs_mosquitto": 0.931213113889428,
+      "native_median_rate": 4709.366175825128,
+      "broker_CPU_median": 0.63,
+      "native_lib_sha256": "671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a",
+      "raw_sha256": "6a05f8e7ca1c949d847b9574bdd9fc5f8aae6bd9665beddbba5adf50a5a296e6"
+    },
+    {
+      "leg": "baseline-2",
+      "profile": "ws_sustained",
+      "passed": false,
+      "throughput_ratio_vs_mosquitto": 0.6540680146126298,
+      "native_median_rate": 32107.202094930723,
+      "broker_CPU_median": 10.96,
+      "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+      "raw_sha256": "830abda5b292dd3e0778903a7c1aaff03b7cf8b7d39c3ad79f27e2fe5d068049"
+    },
+    {
+      "leg": "baseline-2",
+      "profile": "ws_v311_sustained",
+      "passed": false,
+      "throughput_ratio_vs_mosquitto": 0.6463880015953105,
+      "native_median_rate": 31615.349947937422,
+      "broker_CPU_median": 11.15,
+      "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+      "raw_sha256": "b217f5358d8ab165cf8fa43eee5dc0e37b000e02fdbbe4663e0ca5ef03cdfa61"
+    },
+    {
+      "leg": "baseline-2",
+      "profile": "64k_sustained",
+      "passed": true,
+      "throughput_ratio_vs_mosquitto": 0.9327555626682625,
+      "native_median_rate": 4734.790196711593,
+      "broker_CPU_median": 0.64,
+      "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+      "raw_sha256": "97fad787b3190b335693dae871a4a6bed3882209819416db9bdf5d902015d2db"
+    },
+    {
+      "leg": "candidate-2",
+      "profile": "ws_sustained",
+      "passed": false,
+      "throughput_ratio_vs_mosquitto": 0.6328832532199771,
+      "native_median_rate": 31171.501392508897,
+      "broker_CPU_median": 11.25,
+      "native_lib_sha256": "671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a",
+      "raw_sha256": "5bdf54c8d4920c21e9fa2b5d3336b9e0c1fd0614f8411d071f925def92496b11"
+    },
+    {
+      "leg": "candidate-2",
+      "profile": "ws_v311_sustained",
+      "passed": false,
+      "throughput_ratio_vs_mosquitto": 0.6697759664860434,
+      "native_median_rate": 32525.190760243808,
+      "broker_CPU_median": 10.67,
+      "native_lib_sha256": "671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a",
+      "raw_sha256": "7258fb5757674bd65db8a9a9819a56a8c5ddf7d471bcb218b30987518c2def7a"
+    },
+    {
+      "leg": "candidate-2",
+      "profile": "64k_sustained",
+      "passed": true,
+      "throughput_ratio_vs_mosquitto": 0.922632675756245,
+      "native_median_rate": 4672.504181891243,
+      "broker_CPU_median": 0.64,
+      "native_lib_sha256": "671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a",
+      "raw_sha256": "63c0fcc80ed975da1fd70a5af98f4d915089da8950ad6e40397cb7d966fe5ff6"
+    }
+  ],
+  "baseline_actual_binary_retained": true,
+  "baseline_binary_verification_scope": "Exact F9A reported baseline hash rehashed from previously retained artifact13093579060. Its owner75295 native inputs byte-identical to7476 (entire native/transport diffempty). This is an exact-byte baseline witness, not a different-runtime report substitution. Candidate671707 bytes independently rehashed from own artifact13096914841.",
+  "scope": "All predeclared four legs retained including every failed WS gate; no unchanged numerical retry or passing selection. Not final strict48/50 or RSS acceptance.",
+  "both_actual_native_bytes_rehashed": true,
+  "baseline_retained_artifact": 13093579060,
+  "candidate_retained_artifact": 13096914841
+}

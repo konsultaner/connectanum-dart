@@ -58,10 +58,23 @@ pair is slower (median-rate ratio 0.98120). Do not adopt from component allocati
 savings or select an unchanged favorable rerun. [All pairs and inputs](../research/2026-11-01-mqtt-ready-frame-network-audit.json).
 
 Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41339569720)
-and its predeclared sixty-row native comparison continue unchanged. The legacy
-comparison may not retain its Linux baseline library; require an exact retained
-byte match or report the gap, never substitute another binary. Own
-[copy/lifetime attempt](https://github.com/konsultaner/connectanum-dart/actions/runs/41339572670)
+continues to completion, preserving its failed numerical execution. All twenty
+MQTT summaries independently reproduce unchanged budgets on EPYC 7763 / standard
+Dart 3.13.1: eighteen pass, while WebSocket 5 / 3.1.1 throughput ratios
+0.613391925 / 0.638007072 miss the 0.70 gate. The actual measured native
+`671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a`
+is retained and rehashed. [All summaries/rows](../research/2026-11-01-mqtt-ready-frame-hosted-mqtt-audit.json).
+
+The predeclared four-leg matched comparison retains all sixty native plus sixty
+Mosquitto rows and reproduces all twelve summaries: all eight WebSocket legs
+fail, while four large-TCP legs pass. Both measured native hashes are physically
+verified. The legacy comparison did not retain its baseline library; its exact
+F9A byte hash is independently witnessed by retained artifact 13093579060,
+whose complete native inputs match the baseline revision. No different-runtime
+report is substituted. [Every leg and exact-byte scope](../research/2026-11-01-mqtt-ready-frame-hosted-matched-audit.json).
+This framing prototype is not adopted and no unchanged numerical rerun is chosen.
+
+Own [copy/lifetime attempt](https://github.com/konsultaner/connectanum-dart/actions/runs/41339572670)
 has failed: the expected negative control passed, then the positive baseline
 exited before READY with native listener I/O error -7 and zero positive rows.
 No production copy checks ran. Underlying errno/cause is unmeasured, and its
@@ -69,16 +82,25 @@ recorded VM-service port does not equal the three chosen listener ports. This
 is not classified as an SDK setup failure and is not retried unchanged.
 [Retained failure](../research/2026-11-01-mqtt-ready-frame-copy-failure.json).
 
-CI health now takes priority in isolated `codex/native-view-startup-diagnostics`
-from this source. Fresh pre-change full fast regression is active; no edits
-while it runs. A deterministic exited-process regression fails before repair:
-the probe hides exit status 17 behind a readiness timeout. A controlled real
-socket fixture reproduces a competing-listener collision with native socket
-options; it does not prove the original failure's cause. Test a non-ephemeral
-listener pool and fail-fast exit/log reporting without changing the sixty-second
-living-process deadline, running phases again, or altering measurements. Retain
-both actual native libraries/source archives for future matched CI comparisons.
-A tools-only child must not re-execute unchanged numerical gates to seek a pass.
+CI health takes priority in isolated published tooling child
+`290eae37e47425b5be71a4b78dd68ed6136d2585` on
+`codex/native-view-startup-diagnostics`. Fresh pre-change bootstrap/full fast
+regression passes. Both startup regressions fail before repair; all twenty-one
+probe tests and twenty-three CI contract tests pass afterward. The repair
+reports actual child exits with status/log, keeps the sixty-second deadline for
+living servers and reserves Linux listener ports outside the kernel's automatic
+allocation range. Kernel settings are read only. A controlled competing-listener
+fixture validates the collision class, not the original hosted cause. There is
+no phase/workload retry. Future matched diagnostics retain both actual native
+libraries, source archives and the shared lock.
+
+Own full canonical verification is active on frozen source/HEAD/own native;
+[one new-source copy/lifetime campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41345644478)
+validates the repaired harness with all original gates. Rust/Dart runtime bytes
+are unchanged from `bd59c076`: this tools-only child cannot establish transport
+or RAM repair and does not rerun unchanged numerical gates. No source/HEAD/native
+changes are permitted during canonical verification.
+[Repair, deterministic repros and validation](../research/2026-11-01-native-view-startup-reliability.md).
 
 A separate read-only public-encoder census validates thirty fresh inputs, full
 metadata/message roundtrip and original opaque body aliases. With `opaque`
