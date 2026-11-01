@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-10-31.
+Last updated: 2026-11-01.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
@@ -12,6 +12,32 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 Validate the isolated typed/progressive RESULT header candidate below. The
 published0c4bb57c predecessor has clean canonical/copy/all39CI evidence; full
 RAM/protocol/progressive parity is still unresolved.
+
+## Protocol shard independently reproduced (2026-11-01)
+
+The290480a3 protocol shard of supplemental41242463543 is complete. Independent
+recomputation matches the hosted comparison exactly across all30cases/900raw
+rows, with unchanged policy/config/locks, retained native/driver binaries and
+zero integrity findings. The strict comparison FAILS129measured metrics:
+20throughput/operation-rate,22p95,22p99,20CPU,12allocation,13GC and20RSS.
+All metrics have measured ratios; this is separate from the payload shard's two
+SDK-limited allocation comparisons. A completed green reporting job does not
+make this a passing strict performance comparison.
+
+Failure counts by mode are51RPC,25progressive-RPC,14publish-ack,13subscribe-cycle,
+12register-cycle,13cancel-cycle and one pub/sub. These are descriptive categories,
+not proven causes. Require profiling and controlled evidence before choosing
+further optimizations; do not infer repair from reduced component allocations.
+The host is EPYC9V74 with standard Dart3.13.5/Rust1.99.0. Actual retained native
+and driver hashes match the already-rehashed290480a3 production binaries.
+
+The12case/360row payload shard remains failed with14measured misses plus two
+unmeasured allocation metrics/30evidence findings. Preserve these reports as
+separate shards; no complete50case aggregate is claimed. Primary48 and the final
+eight-case encrypted/progressive shard continue. CI recovery still awaits the
+existing unanswered retry exception. Runtime source stays unchanged and PR132
+stays40ddcb3f/draft; no gate, workload/window/sample, SDK/GC/allocator policy or
+body verification changes.
 
 ## Complete CI and payload-size shard findings (2026-10-31)
 

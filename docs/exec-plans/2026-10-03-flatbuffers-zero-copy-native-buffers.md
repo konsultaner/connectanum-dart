@@ -2,14 +2,40 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: recover complete CI41242443320 after the pending one-time
-mid-execution retry exception is explicitly approved.36jobs pass; MCP shard1
-runner loss and its two aggregate dependents fail. No retry/source edit yet.
-Continue auditing complete primary48 and remaining supplemental reports. The
-payload shard independently fails14measured numerical metrics plus two unmeasured
-allocation metrics/30evidence findings across all12cases/360retained rows.
-Canonical/copy/MQTT/browser proofs pass; full RAM/transport acceptance does not.
-Do not repeat the pending questions or waive any gate/policy/sample/body check.
+Current step: await the already-requested explicit CI retry exception, then
+recover only the interrupted MCP shard/dependents. No retry or runtime edit yet.
+Independently audited protocol30/900 fails129measured metrics with zero integrity
+findings; payload12/360 fails14measured metrics plus two unmeasured allocations/
+30evidence findings. Primary48 and encrypted/progressive8/240 still run. Preserve
+all reports and independently audit their completion. Canonical/copy/MQTT/browser
+proofs pass, but full RAM/transport parity does not. Repeat no pending question
+and waive no gate/policy/window/sample/body verification.
+
+## Protocol shard independently reproduced (2026-11-01)
+
+The290480a3 protocol shard of supplemental41242463543 is complete. Independent
+recomputation matches the hosted comparison exactly across all30cases/900raw
+rows, with unchanged policy/config/locks, retained native/driver binaries and
+zero integrity findings. The strict comparison FAILS129measured metrics:
+20throughput/operation-rate,22p95,22p99,20CPU,12allocation,13GC and20RSS.
+All metrics have measured ratios; this is separate from the payload shard's two
+SDK-limited allocation comparisons. A completed green reporting job does not
+make this a passing strict performance comparison.
+
+Failure counts by mode are51RPC,25progressive-RPC,14publish-ack,13subscribe-cycle,
+12register-cycle,13cancel-cycle and one pub/sub. These are descriptive categories,
+not proven causes. Require profiling and controlled evidence before choosing
+further optimizations; do not infer repair from reduced component allocations.
+The host is EPYC9V74 with standard Dart3.13.5/Rust1.99.0. Actual retained native
+and driver hashes match the already-rehashed290480a3 production binaries.
+
+The12case/360row payload shard remains failed with14measured misses plus two
+unmeasured allocation metrics/30evidence findings. Preserve these reports as
+separate shards; no complete50case aggregate is claimed. Primary48 and the final
+eight-case encrypted/progressive shard continue. CI recovery still awaits the
+existing unanswered retry exception. Runtime source stays unchanged and PR132
+stays40ddcb3f/draft; no gate, workload/window/sample, SDK/GC/allocator policy or
+body verification changes.
 
 ## Complete CI and payload-size shard findings (2026-10-31)
 

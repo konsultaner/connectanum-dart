@@ -858,6 +858,417 @@
       ]
     },
     "primary48_run": 41242456878,
+    "protocol_shard_audit": {
+      "by_metric": {
+        "allocated_bytes_per_operation": 12,
+        "cpu_us_per_operation": 20,
+        "gc_pause_us_per_operation": 13,
+        "latency_p95_ms": 22,
+        "latency_p99_ms": 22,
+        "operations_per_second": 8,
+        "summed_sampled_peak_rss_bytes": 20,
+        "throughput_mbps": 12
+      },
+      "by_mode": {
+        "cancel_cycle": 13,
+        "progressive_rpc": 25,
+        "publish_ack": 14,
+        "pubsub": 1,
+        "register_cycle": 12,
+        "rpc": 51,
+        "subscribe_cycle": 13
+      },
+      "case_count": 30,
+      "cases": [
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "operations_per_second",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_00_small_control",
+          "mode": "publish_ack"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "operations_per_second",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_01_small_control",
+          "mode": "publish_ack"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "operations_per_second",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation"
+          ],
+          "id": "ext_02_small_control",
+          "mode": "subscribe_cycle"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "operations_per_second",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_03_small_control",
+          "mode": "subscribe_cycle"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "operations_per_second",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation"
+          ],
+          "id": "ext_04_small_control",
+          "mode": "register_cycle"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "operations_per_second",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation"
+          ],
+          "id": "ext_05_small_control",
+          "mode": "register_cycle"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "operations_per_second",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_06_small_control",
+          "mode": "cancel_cycle"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "operations_per_second",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation"
+          ],
+          "id": "ext_07_small_control",
+          "mode": "cancel_cycle"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [],
+          "id": "ext_20_fanout8",
+          "mode": "pubsub"
+        },
+        {
+          "client_impl": "dart",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_21_progressive",
+          "mode": "progressive_rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_22_progressive",
+          "mode": "progressive_rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "gc_pause_us_per_operation"
+          ],
+          "id": "ext_23_mixed_serializers",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_24_mixed_serializers",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [
+            "latency_p99_ms"
+          ],
+          "id": "ext_25_mixed_serializers",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_26_encrypted_ppt",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_27_encrypted_ppt",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "gc_pause_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_28_encrypted_ppt",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_29_encrypted_ppt",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_30_fanout8",
+          "mode": "pubsub"
+        },
+        {
+          "client_impl": "dart",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation",
+            "gc_pause_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_31_progressive",
+          "mode": "progressive_rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "allocated_bytes_per_operation"
+          ],
+          "id": "ext_32_progressive",
+          "mode": "progressive_rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [
+            "latency_p95_ms",
+            "gc_pause_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_33_mixed_serializers",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_34_mixed_serializers",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_35_mixed_serializers",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation"
+          ],
+          "id": "ext_36_encrypted_ppt",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_37_encrypted_ppt",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_38_encrypted_ppt",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "values",
+          "failed_metrics": [
+            "throughput_mbps",
+            "latency_p95_ms",
+            "latency_p99_ms",
+            "cpu_us_per_operation",
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_39_encrypted_ppt",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [
+            "summed_sampled_peak_rss_bytes"
+          ],
+          "id": "ext_40_fragmented_masked_websocket",
+          "mode": "rpc"
+        },
+        {
+          "client_impl": "native",
+          "construction": "native_buffer",
+          "failed_metrics": [],
+          "id": "ext_41_fragmented_masked_websocket",
+          "mode": "rpc"
+        }
+      ],
+      "complete_supplemental_acceptance": false,
+      "evidence_findings": 0,
+      "inputs_and_binaries_verified": true,
+      "matches_hosted": true,
+      "measured_numerical_misses": 129,
+      "platform": {
+        "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+        "dart_version": "Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_x64\"",
+        "kernel": "7.0.0-1017-azure",
+        "logical_cpu_count": 4,
+        "runner_image": "github-hosted/ubuntu24/20261026.354.1",
+        "rustc_version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+      },
+      "retained_binary_hashes": {
+        "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940",
+        "native_library": "d12cf24641f3dd29221a252cfb77076f7a2152c88e15d6d5aac6de58447953fa"
+      },
+      "rows": 900,
+      "source": "290480a3227dd6617379c6453d863b7d2ff7825d",
+      "unmeasured_metrics": 0
+    },
     "runtime_base": "0c4bb57c831fc6b9571c4d324203de6b5a591d68",
     "scope": "Typed RESULT bounded metadata storage and pinned generated optional-progress projection; no changed policies/budgets/workload.",
     "supplemental50_run": 41242463543
@@ -1160,5 +1571,5 @@
     "id": "finish-pr-132-acceptance",
     "status": "ACTIVE"
   },
-  "updated_utc": "2026-10-31T22:54:41.872164+00:00"
+  "updated_utc": "2026-11-01T00:35:34.669374+00:00"
 }
