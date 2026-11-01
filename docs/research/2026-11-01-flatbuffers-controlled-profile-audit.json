@@ -1,0 +1,128 @@
+{
+  "captures": [
+    {
+      "actual_retained_native_sha256": "43de8abc344d0b35cd256a568203d547c1796ff65d974e272a8678a5d5627e03",
+      "artifact_id": 13081148008,
+      "case": "ext_08_payload_sizes",
+      "cases": [
+        {
+          "Dart_CPU_samples": {
+            "client": 1223,
+            "router": 3064
+          },
+          "codec": "cbor",
+          "native_samples": {
+            "client": 1651,
+            "router": 4155
+          },
+          "operation_rows": 45878
+        },
+        {
+          "Dart_CPU_samples": {
+            "client": 833,
+            "router": 3708
+          },
+          "codec": "msgpack",
+          "native_samples": {
+            "client": 1042,
+            "router": 4033
+          },
+          "operation_rows": 56148
+        },
+        {
+          "Dart_CPU_samples": {
+            "client": 844,
+            "router": 3818
+          },
+          "codec": "flatbuffers",
+          "native_samples": {
+            "client": 1069,
+            "router": 4067
+          },
+          "operation_rows": 54508
+        }
+      ],
+      "complete_capture": true,
+      "diagnostic_only_never_acceptance": true,
+      "memory_audit_matches_hosted": true,
+      "memory_snapshots": 18,
+      "probe_exit": 0,
+      "run": 41301631436,
+      "source": "7b56e81c81ffa8301c9c0857a703935aa1a3bf14",
+      "source_inputs_verified": 3297,
+      "source_native_cleanup_guards": true,
+      "symbol_audits_match_hosted": true,
+      "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41301631436"
+    },
+    {
+      "actual_retained_native_sha256": "43de8abc344d0b35cd256a568203d547c1796ff65d974e272a8678a5d5627e03",
+      "artifact_id": 13081694268,
+      "case": "ext_07_small_control",
+      "cases": [
+        {
+          "Dart_CPU_samples": {
+            "client": 548,
+            "router": 3318
+          },
+          "codec": "cbor",
+          "native_samples": {
+            "client": 1490,
+            "router": 4080
+          },
+          "operation_rows": 25243
+        },
+        {
+          "Dart_CPU_samples": {
+            "client": 486,
+            "router": 3379
+          },
+          "codec": "msgpack",
+          "native_samples": {
+            "client": 1250,
+            "router": 3512
+          },
+          "operation_rows": 18612
+        },
+        {
+          "Dart_CPU_samples": {
+            "client": 569,
+            "router": 3205
+          },
+          "codec": "flatbuffers",
+          "native_samples": {
+            "client": 1440,
+            "router": 3993
+          },
+          "operation_rows": 18202
+        }
+      ],
+      "complete_capture": true,
+      "diagnostic_only_never_acceptance": true,
+      "memory_audit_matches_hosted": true,
+      "memory_snapshots": 18,
+      "probe_exit": 0,
+      "run": 41302476491,
+      "source": "7b56e81c81ffa8301c9c0857a703935aa1a3bf14",
+      "source_inputs_verified": 3297,
+      "source_native_cleanup_guards": true,
+      "symbol_audits_match_hosted": true,
+      "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41302476491"
+    }
+  ],
+  "original_failed_capture": {
+    "run": 41298322137,
+    "scope": "Perf exited255 before capture readiness; no usable timed profile data. Original retained. Precise origin of missing TID5764 remains unproven.",
+    "source": "290480a3227dd6617379c6453d863b7d2ff7825d"
+  },
+  "performance_acceptance": false,
+  "rss_attribution": {
+    "allocator_attribution": false,
+    "case": "rpc_rawsocket_clear_native_native_buffer",
+    "memory_attribution": true,
+    "run": 41302937122,
+    "status": "running"
+  },
+  "runtime_base": "290480a3227dd6617379c6453d863b7d2ff7825d",
+  "scope": "Diagnostic control repair and attribution only; no runtime optimization or strict acceptance pass.",
+  "source": "7b56e81c81ffa8301c9c0857a703935aa1a3bf14"
+}

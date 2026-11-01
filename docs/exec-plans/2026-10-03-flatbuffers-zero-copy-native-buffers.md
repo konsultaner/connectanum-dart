@@ -2,13 +2,13 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: diagnose the retained measured performance failures with controlled
-profiles after independently clean CI recovery (all 39 jobs pass, 36 original
-passing executions/artifacts preserved). First profile 41298322137 targets the
-Dart 10 KiB values case on frozen 290480a3. No runtime edit or strict acceptance
-rerun yet. Use the predeclared diagnostic sequence; adopt only measured fixes in
-isolated worktrees, then verify their own canonical/CI/copy/full strict 48-/50-case
-acceptance. All original failures and policies remain unchanged and retained.
+Current step: attribute the retained measured performance failures after clean
+39-job CI recovery. Two repaired controlled CPU captures on tool-only `7b56e81c`
+are independently verified; fresh-process RSS attribution is running. Complete
+its frozen local canonical verification and use controlled evidence to choose
+an isolated runtime fix, followed by its own canonical/CI/copy and complete
+strict 48-/50-case acceptance. The product runtime remains `290480a3`; all
+original failures and policies are retained.
 
 ## Scoped CI recovery independently verified (2026-11-01)
 
@@ -27,12 +27,26 @@ and failed aggregate remain retained; its underlying cause remains unmeasured.
 [Recovery audit](../research/2026-11-01-flatbuffers-290480a3-ci-recovery-audit.json)
 records the exact preservation and merge evidence.
 
-Runtime/performance work has resumed. The first predeclared CPU diagnostic,
-`41298322137`, profiles the failing Dart 10 KiB payload case `ext_08_payload_sizes`
-on the same frozen source, using all three serializers. Profiles use symbols/
-frame pointers and explicitly diagnostic memory snapshots; their binaries and
-GC observations cannot replace production acceptance evidence. No strict
-numerical acceptance rerun or runtime edit has been performed.
+Runtime/performance work has resumed. The first CPU attempt, `41298322137`,
+failed before perf readiness and supplies no usable timed capture. The precise
+origin of its missing TID remains unproven. Isolated tool-only commit `7b56e81c`
+uses perf's documented enable/ack control protocol, with actual subprocess
+regressions for delayed acknowledgement, early exit and timeout cleanup.
+The Rust/Dart product runtime remains unchanged from `290480a3`.
+
+The repaired Linux diagnostics `41301631436` (Dart 10 KiB values) and
+`41302476491` (native control cycle) both complete. Each independently verifies
+3,297 inputs, the actual retained native library, calibrated interior CPU
+windows, per-PID native samples, six JIT maps, eighteen memory snapshots and
+cleanup/source guards. Stack attribution is being checked against source;
+these captures do not establish a RAM cause. Fresh-process RSS attribution
+`41302937122` is running with standard SDK/allocator policy. Profiles use symbols/
+frame pointers and explicitly diagnostic post-workload GC snapshots; their
+binaries and observations cannot replace production acceptance evidence.
+Full local canonical verification of `7b56e81c` remains running with its own
+frozen native library. No strict numerical acceptance rerun or runtime edit
+has been performed.
+[Independent profile summary](../research/2026-11-01-flatbuffers-controlled-profile-audit.json) records the exact capture scope.
 
 Both full primary and supplemental acceptance comparisons still fail. Require
 controlled evidence before choosing an isolated runtime fix, then its own final
