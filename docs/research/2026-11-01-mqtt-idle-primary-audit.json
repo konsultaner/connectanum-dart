@@ -1,0 +1,54 @@
+{
+  "source": "75295eb05b08d4bb9ef5b034be0182250bab9fc9",
+  "run": 41334137150,
+  "artifact_id": 13103153288,
+  "cases": 48,
+  "raw_rows": 1440,
+  "complete_original_driver_stream_verified": true,
+  "comparison_matches_hosted": true,
+  "exact_source_case_inventory_and_schedule_verified": true,
+  "exact_canonical_scenario_bytes_verified": true,
+  "policy_locks_router_config_and_actual_binaries_verified": true,
+  "retained_binary_hashes": {
+    "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940",
+    "native_library": "b682e6132642f070dc5971053198da164e61a528f17885577df58742d0d026bd"
+  },
+  "measured_numerical_misses": 119,
+  "unmeasured_metrics": 0,
+  "evidence_findings": 0,
+  "by_metric": {
+    "throughput_mbps": 22,
+    "latency_p99_ms": 19,
+    "cpu_us_per_operation": 21,
+    "gc_pause_us_per_operation": 5,
+    "summed_sampled_peak_rss_bytes": 36,
+    "latency_p95_ms": 16
+  },
+  "by_mode": {
+    "rpc": 56,
+    "pubsub": 63
+  },
+  "platform": {
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "dart_version": "Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_x64\"",
+    "kernel": "7.0.0-1017-azure",
+    "logical_cpu_count": 4,
+    "os": "Linux",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "runner_image": "github-hosted/ubuntu24/20261026.354.1",
+    "rustc_version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "comparison_sha256": "786e2223a93a6fa22882801dd889874125d6ee9f19f86ba3cfee9a42cc18cdad",
+  "parameters": {
+    "warmups": 3,
+    "repetitions": 7,
+    "duration_ms": 10000,
+    "samples": 1000,
+    "concurrency": 1,
+    "in_flight": 1
+  },
+  "scope": "Complete primary48 strict campaign, all1440 original raw rows retained. No numerical retry or source substitution. Source revision/clean receipt and exact source-derived inventory verified; full source archive is not included in this numerical artifact; exact own copy archive is retained separately. Descriptive classifications do not prove root cause.",
+  "strict_parity_pass": false,
+  "audited_utc": "2026-11-01T22:31:29.697833+00:00",
+  "failed_cases": 39
+}

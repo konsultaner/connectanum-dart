@@ -1,0 +1,19 @@
+{
+  "tool_source": "7fc4c5d87874691a1d29ace7f40ceca2bcffcab3",
+  "runtime_source": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "run": 41357801496,
+  "status": "Linux compiled controls and retained input/SDK/dependency verification passed; original-workload count capture active. No completed count result yet.",
+  "runtime_native_Dart_bin_source_changes": false,
+  "own_tooling_child_canonical_claim": false,
+  "parent_runtime_canonical_complete_pass": true,
+  "compiled_forwarding_failure_controls": 7,
+  "existing_profile_and_gate_Python_regressions_passed": true,
+  "rows_required": 25,
+  "fresh_fully_verified_deliveries_required": 4025000,
+  "profile_repetitions": 5,
+  "exact_retained_native_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+  "exact_retained_AOT_broker_sha256": "5885049df64447d268736fd7396cda102f72efdca644752fe56dd95ac1fe538e",
+  "exact_retained_client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+  "SDK": "Original standard3.13.1, exact retained AOT runtime-version check",
+  "scope": "Count-only isolated instrumentation, never a performance gate retry, runtime candidate or acceptance claim. Fixed atomic counters around three existing FFI APIs forward original pointers/arguments/results/errno. All other native symbols resolve exact retained dependency. No native/Dart/benchmark-body/gate/window/sample/worker/GC/allocator changes. Timings uncalibrated; full broker lifetime includes handshake/warmup/cleanup. All original25rows/partialfailures/counters/actualbytes retained."
+}

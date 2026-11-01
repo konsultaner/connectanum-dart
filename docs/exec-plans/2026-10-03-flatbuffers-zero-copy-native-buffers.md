@@ -12,6 +12,41 @@ predecessor primary/supplemental campaigns have finished failed and are retained
 Require complete final-runtime strict 48-/50-case acceptance and clean CI before
 adoption; change no source/HEAD/native during canonical verification.
 
+## Current failed-path census (2026-11-01)
+
+An isolated tools-only child `7fc4c5d8` on `codex/mqtt-native-ffi-census`
+adds a count-only FFI diagnostic; native/Dart/bin runtime sources remain exactly
+`11521160`. Seven compiled pointer/argument/return/errno, dependency, counter,
+provenance, failure and graceful-shutdown controls pass locally and on Linux.
+Existing profile/gate Python regressions pass. A broad companion review timed
+out and is not approval; a bounded review completed, and its overwrite/cleanup
+claims were checked against the actual controls/source with no confirmed defect.
+The child has no own full canonical claim; parent `11521160` canonical is separate.
+
+One [predeclared census](https://github.com/konsultaner/connectanum-dart/actions/runs/41357801496)
+reuses exact original retained native `10c9aaa7…`, AOT `5885049d…` and client
+`3020a016…`, exact archive/lock and standard SDK 3.13.1. Linux controls and input,
+SDK and dependency verification pass; all five original profiles/five repetitions
+are capturing 25 rows / 4.025 million fresh fully verified deliveries. Three FFI
+wrappers add fixed counters without accessing payloads or changing submitted
+calls/results. This is not a gate retry or a new runtime candidate. Counter
+overhead is uncalibrated; whole-lifetime counts include handshake/warmup/cleanup
+and cannot establish timing, RAM or allocation acceptance. Keep every original
+or partial result; no final count conclusion yet. Both ingress layers already
+coalesce queued input, so actual counts must precede another optimization.
+[Scope and original byte bindings](../research/2026-11-01-mqtt-ffi-census-checkpoint.json).
+
+The predecessor `75295eb0` primary campaign is now **complete failed** and
+independently reproduced: all 48 cases / 1,440 raw rows, exact inventory,
+seeded schedule, scenario bytes, policy/config/locks and actual native/driver
+binaries verify. There are **119 measured misses, including 36 RSS**, across
+39 cases, with zero unmeasured metrics or integrity findings. Its already
+complete supplemental preserves all 50 cases / 1,500 rows and 192 measured
+misses plus two unmeasured allocation metrics. All of its original 48-/50-case
+observations are retained; do not rerun or poll these finished campaigns.
+[Complete primary audit](../research/2026-11-01-mqtt-idle-primary-audit.json),
+[complete supplemental audit](../research/2026-11-01-mqtt-idle-supplemental-audit.json).
+
 ## TCP_NODELAY runtime frozen for own verification (2026-11-01)
 
 Published `1152116064651ee01bd6fd52a798fee975d954bf` on
@@ -78,8 +113,8 @@ failures before another isolated optimization. No gate, window, sample, body,
 SDK, allocator or GC policy changes are authorized by this result.
 [All pairs and exact inputs](../research/2026-11-01-mqtt-nodelay-network-audit.json).
 
-No transport/RSS improvement or final 48-/50-case acceptance is claimed. The `75295eb0` primary campaign continues untouched; its complete supplemental
-campaign is now independently audited failed below. RAM and
+No transport/RSS improvement or final 48-/50-case acceptance is claimed. The `75295eb0` primary and supplemental campaigns are now complete failed and
+independently audited above; all original observations remain untouched. RAM and
 broad WAMP parity remain unresolved; PR #132 stays draft at `40ddcb3f`, base #130.
 [Source and repro](../research/2026-11-01-mqtt-websocket-nodelay-control.md),
 [correctness audit](../research/2026-11-01-mqtt-websocket-nodelay-correctness-audit.json),
