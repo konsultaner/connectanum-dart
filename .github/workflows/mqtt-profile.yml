@@ -25,17 +25,146 @@ on:
         default: ''
         type: string
 
+      source_baseline_ref:
+        description: Full baseline commit for a controlled Dart broker comparison
+        required: false
+        default: ''
+        type: string
+      source_candidate_ref:
+        description: Full candidate commit for the same-runner broker comparison
+        required: false
+        default: ''
+        type: string
+      source_locks_run:
+        description: Completed candidate copy/lifetime run retaining canonical lockfiles
+        required: false
+        default: ''
+        type: string
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ (inputs.source_baseline_ref != '' || inputs.source_candidate_ref != '' || inputs.source_locks_run != '') && github.run_id || github.ref }}
+  cancel-in-progress: ${{ inputs.source_baseline_ref == '' && inputs.source_candidate_ref == '' && inputs.source_locks_run == '' }}
 
 permissions:
   contents: read
   actions: read
 
 jobs:
+  source-comparison:
+    if: ${{ inputs.source_baseline_ref != '' || inputs.source_candidate_ref != '' || inputs.source_locks_run != '' }}
+    name: Controlled MQTT broker source comparison (diagnostic only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SOURCE_BASELINE_REF: ${{ inputs.source_baseline_ref }}
+      SOURCE_CANDIDATE_REF: ${{ inputs.source_candidate_ref }}
+      SOURCE_LOCKS_RUN: ${{ inputs.source_locks_run }}
+      SOURCE_OUTPUT: out/mqtt-source-comparison
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Validate mutually exclusive diagnostic inputs
+        env:
+          RECOVER_RUN: ${{ inputs.recover_run }}
+          COMPARE_WORKERS: ${{ inputs.compare_workers }}
+          PROBE_INTEL: ${{ inputs.probe_intel }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$SOURCE_BASELINE_REF" =~ ^[0-9a-f]{40}$ &&
+                  "$SOURCE_CANDIDATE_REF" =~ ^[0-9a-f]{40}$ &&
+                  "$SOURCE_BASELINE_REF" != "$SOURCE_CANDIDATE_REF" &&
+                  "$SOURCE_LOCKS_RUN" =~ ^[0-9]+$ &&
+                  -z "$RECOVER_RUN" && -z "$COMPARE_WORKERS" && "$PROBE_INTEL" != true ]]; then
+            echo 'Require two distinct full source revisions and one candidate lock-evidence run; diagnostic modes cannot be combined.' >&2
+            exit 2
+          fi
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - name: Verify comparison contracts
+        run: |
+          set -euo pipefail
+          python3 tool/test_compare_mqtt_brokers.py
+          python3 tool/test_prepare_mqtt_comparison_locks.py
+      - name: Retain exact sources and canonical candidate locks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$SOURCE_OUTPUT/sources" "$SOURCE_OUTPUT/locks"
+          git worktree add --detach "$RUNNER_TEMP/mqtt-source-baseline" "$SOURCE_BASELINE_REF"
+          git worktree add --detach "$RUNNER_TEMP/mqtt-source-candidate" "$SOURCE_CANDIDATE_REF"
+          git archive --format=tar "$SOURCE_BASELINE_REF" | gzip -n > "$SOURCE_OUTPUT/sources/baseline.tar.gz"
+          git archive --format=tar "$SOURCE_CANDIDATE_REF" | gzip -n > "$SOURCE_OUTPUT/sources/candidate.tar.gz"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_LOCKS_RUN" > "$SOURCE_OUTPUT/lock-source-run.json"
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          run = json.loads((Path(os.environ['SOURCE_OUTPUT']) / 'lock-source-run.json').read_text())
+          assert run['head_sha'] == os.environ['SOURCE_CANDIDATE_REF']
+          assert run['status'] == 'completed' and run['conclusion'] == 'success'
+          assert run['path'] == '.github/workflows/wamp-profile-benchmarks.yml'
+          assert isinstance(run['run_attempt'], int) and run['run_attempt'] > 0
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write(f"SOURCE_LOCKS_ATTEMPT={run['run_attempt']}\n")
+          PYTHON
+          SOURCE_LOCKS_ATTEMPT="$(python3 -c 'import json,os;from pathlib import Path;print(json.loads((Path(os.environ["SOURCE_OUTPUT"])/"lock-source-run.json").read_text())["run_attempt"])')"
+          gh run download "$SOURCE_LOCKS_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name "wamp-native-ppt-view-diagnostic-$SOURCE_CANDIDATE_REF-$SOURCE_LOCKS_ATTEMPT" \
+            --dir "$RUNNER_TEMP/mqtt-source-lock-evidence"
+          python3 tool/prepare_mqtt_comparison_locks.py \
+            --evidence "$RUNNER_TEMP/mqtt-source-lock-evidence" \
+            --candidate-ref "$SOURCE_CANDIDATE_REF" \
+            --baseline "$RUNNER_TEMP/mqtt-source-baseline" \
+            --candidate "$RUNNER_TEMP/mqtt-source-candidate" \
+            --receipt "$SOURCE_OUTPUT/lock-receipt.json"
+          cp "$RUNNER_TEMP/mqtt-source-candidate/pubspec.lock" "$SOURCE_OUTPUT/locks/pubspec.lock"
+          cp "$RUNNER_TEMP/mqtt-source-candidate/native/transport/Cargo.lock" "$SOURCE_OUTPUT/locks/transport-Cargo.lock"
+          cp "$RUNNER_TEMP/mqtt-source-candidate/native/bench/Cargo.lock" "$SOURCE_OUTPUT/locks/bench-Cargo.lock"
+      - name: Bootstrap exact source worktrees without changing locks
+        run: |
+          set -euo pipefail
+          (cd "$RUNNER_TEMP/mqtt-source-baseline" && bin/bootstrap) > "$SOURCE_OUTPUT/baseline-bootstrap.log" 2>&1
+          (cd "$RUNNER_TEMP/mqtt-source-candidate" && bin/bootstrap) > "$SOURCE_OUTPUT/candidate-bootstrap.log" 2>&1
+          python3 tool/prepare_mqtt_comparison_locks.py --verify \
+            --evidence "$RUNNER_TEMP/mqtt-source-lock-evidence" \
+            --candidate-ref "$SOURCE_CANDIDATE_REF" \
+            --baseline "$RUNNER_TEMP/mqtt-source-baseline" \
+            --candidate "$RUNNER_TEMP/mqtt-source-candidate" \
+            --receipt "$SOURCE_OUTPUT/lock-receipt.json"
+      - name: Build one standard native library for both broker sources
+        run: |
+          set -euo pipefail
+          [[ -z "${RUSTFLAGS:-}" && -z "${CARGO_ENCODED_RUSTFLAGS:-}" ]]
+          python3 - <<'PYTHON'
+          import os
+          assert not any(value for key, value in os.environ.items() if key.startswith('CARGO_PROFILE_'))
+          PYTHON
+          mkdir -p "$SOURCE_OUTPUT/native"
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-source-native" \
+            cargo build --manifest-path "$RUNNER_TEMP/mqtt-source-candidate/native/transport/Cargo.toml" \
+            -p ct_ffi --release --features ffi-test --locked \
+            > "$SOURCE_OUTPUT/native-build.log" 2>&1
+          cp "$RUNNER_TEMP/mqtt-source-native/release/libct_ffi.so" "$SOURCE_OUTPUT/native/libct_ffi.so"
+      - name: Capture all predeclared matched source pairs
+        run: |
+          set -euo pipefail
+          python3 tool/compare_mqtt_brokers.py \
+            --baseline "$RUNNER_TEMP/mqtt-source-baseline" --baseline-ref "$SOURCE_BASELINE_REF" \
+            --candidate "$RUNNER_TEMP/mqtt-source-candidate" --candidate-ref "$SOURCE_CANDIDATE_REF" \
+            --native-lib "$SOURCE_OUTPUT/native/libct_ffi.so" \
+            --output "$SOURCE_OUTPUT/capture"
+      - name: Upload complete diagnostic source comparison
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-source-comparison
+          path: out/mqtt-source-comparison
+          if-no-files-found: error
+
   profile:
-    if: ${{ inputs.probe_intel != true }}
+    if: ${{ inputs.probe_intel != true && inputs.source_baseline_ref == '' && inputs.source_candidate_ref == '' && inputs.source_locks_run == '' }}
     name: MQTT native CPU diagnostic
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -103,7 +232,7 @@ jobs:
           if-no-files-found: error
 
   intel:
-    if: ${{ inputs.probe_intel == true }}
+    if: ${{ inputs.probe_intel == true && inputs.source_baseline_ref == '' && inputs.source_candidate_ref == '' && inputs.source_locks_run == '' }}
     name: Intel 8370C MQTT availability and comparison
     runs-on: ubuntu-22.04
     timeout-minutes: 45

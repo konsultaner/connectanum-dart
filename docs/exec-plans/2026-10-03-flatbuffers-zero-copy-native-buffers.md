@@ -1,5 +1,33 @@
 # FlatBuffers and zero-copy native buffers
 
+## Isolated controlled MQTT source comparison (2026-11-01)
+
+This branch adds diagnostic tooling only; Dart/Rust runtime source stays at
+`4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7`. That runtime's canonical/copy checks
+pass, but CI `41316236357` has a real measured MQTT failure: seventeen profiles
+pass and three fail four metrics on EPYC 7763. No unchanged numerical retry or
+component-for-acceptance substitution is permitted. RAM/strict acceptance is
+not complete, and PR #132 remains draft on its existing base/head.
+
+The registered MQTT diagnostic workflow gains an isolated source-comparison
+mode. Both exact broker revisions run on one host with the same native/client
+bytes, standard SDK and candidate-evidence lockfiles, unchanged five profile
+budgets/five pairs and original full body checks. All fifty rows, inputs,
+binaries and source archives are retained as diagnostic evidence. It does not
+run or replace the main MQTT gate. Comparison dispatches cannot cancel one
+another. Partial/mixed inputs fail closed.
+
+Fresh baseline bootstrap/`bin/test-fast`, twelve focused integrity/cleanup/lock
+checks, 23 existing CI contracts and twelve legacy native-comparison checks
+pass. Full frozen canonical verification is the next step before the one
+predeclared Linux experiment. Preserve the predecessor `7476ff6e` primary and
+remaining supplemental campaigns through completion; its completed payload
+failure remains independently retained. No gate, body generation/verification,
+SDK, allocator, GC, workload window or sample count is weakened.
+
+[Design and source references](../research/2026-11-01-mqtt-source-comparison.md).
+
+
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
 Current step: validate the isolated typed/progressive RESULT header candidate.
