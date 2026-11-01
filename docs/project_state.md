@@ -9,13 +9,54 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Native-view harness canonical and hosted copy/lifetime proofs now pass. Isolate
-the existing native TCP_NODELAY correction for this branch's CI throughput
-failure. No code edits during active canonical
-or fresh pre-change regression. The framing prototype still misses both hosted
-WebSocket throughput gates; the scheduler's controlled Linux result is negative.
-Preserve every active primary/supplemental row to completion. No candidate is
-adopted; RAM, broad protocol parity and final-runtime acceptance remain unresolved.
+Verify frozen TCP_NODELAY candidate `11521160` with own recovered canonical,
+exact-source CI/copy and controlled transport evidence. Keep source/HEAD/native
+unchanged during canonical. All original numerical observations are preserved;
+no candidate is adopted and RAM/broad protocol acceptance remain incomplete.
+
+## TCP_NODELAY runtime frozen for own verification (2026-11-01)
+
+Published `1152116064651ee01bd6fd52a798fee975d954bf` on
+`codex/mqtt-websocket-nodelay-control` starts at `7476ff6e`, excluding the
+unadopted scheduler, forwarding and frame prototypes. It retains TCP_NODELAY
+after cleartext native MQTT WebSocket upgrade. A real socket-option observation
+fails before the change; all 470 Rust core tests and three codec integrations
+pass afterward. Fresh pre-change bootstrap/full fast regression passes with clean
+HEAD/source and unchanged locks. Own newly rebuilt native `4b77cb82…` passes
+36 core MQTT and 115 router MQTT cases, including all seven actual Paho cases.
+Exact verified startup/input-retention tooling is ported; 21 probe and 23 CI
+contracts pass. These are correctness results, not throughput or RAM acceptance.
+
+The first supplementary guard-path mistake stopped before `bin/verify`; it is
+retained and corrected outside the worktree. The actual full verification then
+failed during Cargo debug build with ENOSPC. The wrapper could not finalize its
+receipt; no complete pass or exact underlying verifier exit is invented. The
+source, HEAD, full tracked tree, all six source/three lock guards and actual own
+native binary independently rehash unchanged against the initial receipt.
+Under the official exclusive lease, only inactive own Rust compiler objects and
+metadata were removed, restoring about 20 GiB available. Every source, raw row,
+report, archive, RLIB/static/shared library and executable is preserved, with
+protected actual binary hashes unchanged. Full canonical verification now runs
+again on identical frozen source; source/HEAD/native must not change while active.
+
+One exact-source [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41351945654)
+and [copy/lifetime proof](https://github.com/konsultaner/connectanum-dart/actions/runs/41351947805)
+were predeclared and dispatched. The CI retains all twenty MQTT profiles and all
+four matched-native legs against `7476ff6e`, including both actual libraries,
+both source archives and the shared lock. No failed unchanged numerical gate is
+rerun. The separately predeclared local control must retain every fifty rows /
+8.05 million fresh verified deliveries across five profiles/five AB/BA pairs,
+with identical broker/client bytes and both own canonical libraries. Its new
+driver is drafted but not yet guard-tested/reviewed or launched; it waits for
+canonical pass and the official resource lease. External same-library checks
+from another branch do not supply this candidate's source-comparison evidence.
+
+No transport/RSS improvement or final 48-/50-case acceptance is claimed. All
+`75295eb0` primary and remaining supplemental rows continue untouched. RAM and
+broad WAMP parity remain unresolved; PR #132 stays draft at `40ddcb3f`, base #130.
+[Source and repro](research/2026-11-01-mqtt-websocket-nodelay-control.md),
+[correctness audit](research/2026-11-01-mqtt-websocket-nodelay-correctness-audit.json),
+[current verification and recovery](research/2026-11-01-mqtt-nodelay-validation-checkpoint.json).
 
 ## Native MQTT ready-frame prototype under verification (2026-11-01)
 
