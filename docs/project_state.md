@@ -32,6 +32,20 @@ cases pass, and all 130 MQTT tests pass, including seven Paho 2.1.0 cases across
 TCP/TLS/WS/WSS. The first stale local Paho dependency failure is retained; the
 repaired seven nonnumerical interoperability cases pass without source changes.
 
+The new MQTT CI gate independently fails on EPYC 7763: seventeen profiles pass
+and three fail four unchanged metrics. WebSocket 5 / 3.1.1 throughput ratios are
+0.63834670 / 0.63218382 against 0.70. MQTT 5 TCP throughput is 0.69851771 against
+0.75 and CPU ratio is 2.74358974 against 2.5. These are median-rate ratios,
+not paired medians. All twenty raw summaries reproduce exactly; the standard
+MQTT SDK stays 3.13.1. No unchanged numerical retry is permitted.
+
+Both own CPU captures independently verify native/AOT/client bytes, raw delivery
+counts, perf hashes, expected SIGINT completion and zero lost samples. The exact
+MQTT native SHA remains `f9a7a6e5…`; the broker snapshot is distinct from the
+acceptance executable. Kernel pipe-wake costs are descriptive, not causal proof.
+A controlled same-runner source comparison is needed before the next CI repair;
+the existing native-library-only comparator cannot isolate this Dart change.
+
 Full canonical verification is active on clean frozen HEAD/source and its own
 native SHA `590d4b668c304ba36f280e61b30646490d6ff7149f86519d5b7603113a15cbe5`.
 Do not mutate this worktree during verification. Its own

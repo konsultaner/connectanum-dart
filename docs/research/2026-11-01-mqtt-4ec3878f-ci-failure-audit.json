@@ -1,0 +1,94 @@
+{
+  "source": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+  "CI_run": 41316236357,
+  "MQTT_job": 124876773704,
+  "main_artifact": 13087872649,
+  "profile_artifact": 13087189047,
+  "profiles_passed": 17,
+  "profiles_failed": 3,
+  "failed_profiles": [
+    {
+      "profile": "native-sustained/summary.json",
+      "failures": [
+        {
+          "metric": "throughput_ratio",
+          "value": 0.6985177098948935,
+          "limit": 0.75
+        },
+        {
+          "metric": "broker_cpu_ratio",
+          "value": 2.7435897435897436,
+          "limit": 2.5
+        }
+      ],
+      "paired_throughput_median_for_context": 0.7004324741731001
+    },
+    {
+      "profile": "native-ws-sustained/summary.json",
+      "failures": [
+        {
+          "metric": "throughput_ratio",
+          "value": 0.6383467008318393,
+          "limit": 0.7
+        }
+      ],
+      "paired_throughput_median_for_context": 0.6412307143694663
+    },
+    {
+      "profile": "native-ws-v311-sustained/summary.json",
+      "failures": [
+        {
+          "metric": "throughput_ratio",
+          "value": 0.6321838234015315,
+          "limit": 0.7
+        }
+      ],
+      "paired_throughput_median_for_context": 0.626020099515178
+    }
+  ],
+  "all20_summaries_exact": true,
+  "all_budgets_unchanged": true,
+  "CPU": [
+    "AMD EPYC 7763 64-Core Processor"
+  ],
+  "library_sha256": [
+    "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1"
+  ],
+  "diagnostic_profile": {
+    "source": "4ec3878f6ee01bb73c4ff262b20d21c6d0bc73b7",
+    "profiles": [
+      {
+        "profile": "ws_sustained",
+        "raw_rows": 5,
+        "delivered_total": 1000000,
+        "actual_native_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "broker_snapshot_sha256": "f66480e5d143508f6f94620e56c05a06ed8d8f828c21992df4c345aa27dfda40",
+        "client_sha256": "34a5d685767e8949543db3964a76ea077e9ec3fbbd91aa380fa1a558dbf73380",
+        "perf_data_sha256": "83a9ccd996dec757e3b671f19dd52ebec1d09b2c194dfdabdaab2c6eac16a17c",
+        "raw_sha256": "184f80010d2f1d3030730764060da9bc03e3e8839ee8d784a4550bf5fdccc57d",
+        "CPU": "AMD EPYC 7763 64-Core Processor",
+        "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+        "lost_samples": 0,
+        "source_binary_delivery_and_sampler_provenance_verified": true
+      },
+      {
+        "profile": "64k_sustained",
+        "raw_rows": 5,
+        "delivered_total": 25000,
+        "actual_native_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "broker_snapshot_sha256": "f66480e5d143508f6f94620e56c05a06ed8d8f828c21992df4c345aa27dfda40",
+        "client_sha256": "34a5d685767e8949543db3964a76ea077e9ec3fbbd91aa380fa1a558dbf73380",
+        "perf_data_sha256": "7fadde780e7befd893648e902da77ccda0b6d0e249bff24f749427926aa95a42",
+        "raw_sha256": "7ab1c33df94d3995ea40fc95b0164dedc8b7102478d270b766055e5b0ebe5135",
+        "CPU": "AMD EPYC 7763 64-Core Processor",
+        "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+        "lost_samples": 0,
+        "source_binary_delivery_and_sampler_provenance_verified": true
+      }
+    ],
+    "scope": "Same-source diagnostic broker AOTsnapshot and retained native/client bytes. All5rawrows perprofile/bodydelivery verified. Wholebroker lifetime capture, not calibratedWAMPinterior window or numerical gate rerun. Diagnostic broker snapshot is distinct from gate embeddedexe; never substitute CPU data for acceptance."
+  },
+  "adopted": false,
+  "numerical_rerun": false,
+  "scope": "Real measured gate failure, not setup failure. Do not infer causal repair of earlier host results or replace acceptance with components/CPU diagnostics. Source remainsfrozen during canonical; completeCI stillpending."
+}
