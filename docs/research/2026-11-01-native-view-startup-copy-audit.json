@@ -1,0 +1,149 @@
+{
+  "source": "290eae37e47425b5be71a4b78dd68ed6136d2585",
+  "run": 41345644478,
+  "artifact_id": 13099820874,
+  "copy": {
+    "head": "290eae37e47425b5be71a4b78dd68ed6136d2585",
+    "verified_source_inputs": 3303,
+    "retained_generated_inputs": [
+      "pubspec.lock",
+      "native/bench/Cargo.lock",
+      "native/transport/Cargo.lock",
+      ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
+    ],
+    "live": {
+      "rows": 120,
+      "encoded_volume": 120,
+      "e2ee": 96,
+      "transcode": 120,
+      "native_crypto": 48
+    },
+    "inventory": {
+      "rows": 300,
+      "encoded_volume": 300,
+      "zero_avoidable_payload_copy": 32,
+      "e2ee": 96,
+      "native_crypto": 72,
+      "transcode": 60
+    },
+    "source_inputs_unchanged": true,
+    "binaries_unchanged": true,
+    "complete_source_derived_case_inventory_verified": true,
+    "binary_scope": "Hosted stable digest receipts here; independently rehash retained production binaries when available and compare exact hashes, without substituting another build."
+  },
+  "lifetime": {
+    "head": "290eae37e47425b5be71a4b78dd68ed6136d2585",
+    "phases": [
+      {
+        "name": "existing-api-baseline",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5247,
+        "failures": 0
+      },
+      {
+        "name": "direct-native",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5400,
+        "failures": 0
+      },
+      {
+        "name": "public-native-lease",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5545,
+        "failures": 0
+      }
+    ],
+    "negative_control": {
+      "rows": 0,
+      "expected_failures": 1
+    },
+    "cleanup_verified": true
+  },
+  "inputs_and_exact_binary_scope": {
+    "source": "290eae37e47425b5be71a4b78dd68ed6136d2585",
+    "run": 41345644478,
+    "artifact_id": 13099820874,
+    "native_view_source_inputs_verified": 3300,
+    "source_archive_reconstructed_exactly": true,
+    "source_archive_sha256": "8ec5876c4d0eda39dbab7ba6348c88a254b4ef85ef13c8e251b5b5d350117878",
+    "fixture_verified": true,
+    "actual_native_view_binary_sha256": "671707cda93e30b1ee534835cb19bf17f055095b20cbea99cc68c4fcd1cd7f3a",
+    "actual_native_view_binary_rehashed": true,
+    "exact_byte_witness_artifact": 13096914841,
+    "binary_witness_scope": "Exact same671707bytes retained from parent BD59 profile; complete native sources identical. No different measured runtime report substitution.",
+    "ports": [
+      {
+        "phase": "negative-control",
+        "automatic_range": [
+          32768,
+          60999
+        ],
+        "unprivileged_floor": 1024,
+        "listener_ports": [
+          7134,
+          10867,
+          23279
+        ],
+        "all_selected_outside_automatic_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "existing-api-baseline",
+        "automatic_range": [
+          32768,
+          60999
+        ],
+        "unprivileged_floor": 1024,
+        "listener_ports": [
+          4001,
+          1869,
+          7557
+        ],
+        "all_selected_outside_automatic_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "direct-native",
+        "automatic_range": [
+          32768,
+          60999
+        ],
+        "unprivileged_floor": 1024,
+        "listener_ports": [
+          28705,
+          30907,
+          9507
+        ],
+        "all_selected_outside_automatic_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "public-native-lease",
+        "automatic_range": [
+          32768,
+          60999
+        ],
+        "unprivileged_floor": 1024,
+        "listener_ports": [
+          25086,
+          17333,
+          4679
+        ],
+        "all_selected_outside_automatic_range": true,
+        "cleanup_verified": true
+      }
+    ],
+    "production_binary_hash_receipts": {
+      "libct_ffi.so": "79f266f0d2df9e1047c2b70633d6e08eb33c5877c99c277e105879250c71484a",
+      "http_stream": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940"
+    },
+    "production_binaries_unchanged": true,
+    "production_binary_retention_limit": "Copy artifact records stable production native/driver hashes but does not retain those bytes. Do not substitute ffi-test671707 or sharedCI515CAF for production79F266. Actual native-view671707 is independently rehashed.",
+    "scope": "Complete new-source nonnumerical harness/copy/lifetime proof; no RAM/throughput acceptance. Original native I/O cause remains unmeasured; success of new ports is not causal proof. No phase retry or gate weakening.",
+    "audited_utc": "2026-11-01T20:25:28.488453+00:00"
+  },
+  "canonical_scope": "Own full canonical remains active on frozen source/HEAD/native. No performance or final-runtime acceptance claim."
+}

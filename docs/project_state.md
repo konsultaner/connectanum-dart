@@ -9,14 +9,13 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Recover native-view proof startup in isolated `codex/native-view-startup-diagnostics`.
-Frozen `bd59c076` canonical passes, but its copy attempt failed before positive
-rows and its complete local network control does not establish a transport repair. Preserve the negative `75295eb0`
-Linux control and finish its complete CI / strict campaigns; do not adopt the
-scheduler as a transport repair.
-Every predecessor campaign is complete and failed; all original rows are retained.
-Keep this candidate unchanged and require its own final strict acceptance and
-clean CI before adoption. RAM and broad protocol parity remain unresolved.
+Finish frozen native-view harness canonical verification after its hosted copy/
+lifetime proof passes, then isolate the existing native TCP_NODELAY correction
+for this branch's CI throughput failure. No code edits during active canonical
+or fresh pre-change regression. The framing prototype still misses both hosted
+WebSocket throughput gates; the scheduler's controlled Linux result is negative.
+Preserve every active primary/supplemental row to completion. No candidate is
+adopted; RAM, broad protocol parity and final-runtime acceptance remain unresolved.
 
 ## Native MQTT ready-frame prototype under verification (2026-11-01)
 
@@ -101,13 +100,32 @@ fixture validates the collision class, not the original hosted cause. There is
 no phase/workload retry. Future matched diagnostics retain both actual native
 libraries, source archives and the shared lock.
 
-Own full canonical verification is active on frozen source/HEAD/own native;
-[one new-source copy/lifetime campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41345644478)
-validates the repaired harness with all original gates. Rust/Dart runtime bytes
-are unchanged from `bd59c076`: this tools-only child cannot establish transport
-or RAM repair and does not rerun unchanged numerical gates. No source/HEAD/native
-changes are permitted during canonical verification.
+Own full canonical verification remains active on frozen source/HEAD/own native.
+The [new-source copy/lifetime campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41345644478)
+now independently passes: 3,303 source inputs, 120 live / 300 inventory rows,
+32 zero-avoidable-copy checks and all positive/negative lifetime controls and
+cleanup. All four Linux phases choose listener ports outside the recorded
+32,768–60,999 automatic range, with unprivileged floor 1,024. The complete
+3,300-input native-view archive and legacy fixture reconstruct exactly; actual
+native-view `671707cd…` bytes match the retained parent profile and unchanged
+native sources. Production native/driver hashes are stable receipts; those
+production bytes are not retained in this artifact and the ffi-test library is
+not substituted. [Complete proof and binary scope](research/2026-11-01-native-view-startup-copy-audit.json).
+Rust/Dart runtime bytes are unchanged from `bd59c076`: this tools-only child
+cannot establish transport or RAM repair and does not rerun unchanged numerical
+gates. No source/HEAD/native changes are permitted during canonical verification.
 [Repair, deterministic repros and validation](research/2026-11-01-native-view-startup-reliability.md).
+
+The next isolated CI repair hypothesis is the cleartext MQTT WebSocket upgrade's
+explicitly disabled TCP_NODELAY. Existing native-only correction `61bba1c4`
+provides an actual socket-option regression; other gateway code is excluded.
+Its external twelve-summary run uses the same reported library in every leg,
+so it is not a different-source A/B proof and does not establish repair of our
+7763 failures. A fresh clean `7476ff6e` pre-change bootstrap/fast run is queued in
+`codex/mqtt-websocket-nodelay-control`, honoring the active canonical resource
+lease. No source edits before passing baseline; adoption requires an isolated
+controlled source comparison and own verification/acceptance. All workloads,
+windows, samples, body verification and SDK/GC/allocator policy stay intact.
 
 A separate read-only public-encoder census validates thirty fresh inputs, full
 metadata/message roundtrip and original opaque body aliases. With `opaque`
@@ -119,8 +137,15 @@ transport improvement; implement no speculative GC accounting change. Future
 WAMP optimization follows CI recovery and controlled validation.
 [Census](research/2026-11-01-wamp-encoder-allocation-census.json).
 
-Existing `75295eb0` strict 48-/50-case campaigns continue to completion; its full
-CI now independently passes all 39 jobs. All predecessor failures remain retained.
+Existing `75295eb0` strict campaigns continue to completion. Its payload shard
+is complete and independently reproduces all twelve cases / 360 raw rows:
+nineteen measured misses (including seven RSS), plus two unmeasured allocation
+metrics / thirty evidence findings. These null ratios are excluded from numerical
+counts. Canonical case order/scenario bytes, original streams, policy/locks and
+actual retained native/driver binaries verify. Protocol, encrypted/progressive
+and primary remain active; no shard is cancelled or rerun.
+[Payload audit](research/2026-11-01-mqtt-idle-payload-audit.json).
+Its full CI independently passes all 39 jobs. All predecessor failures remain retained.
 No prototype is adopted; RAM/broad protocol parity and final strict acceptance
 remain unresolved. [Exact framing component](research/2026-11-01-mqtt-ready-frame-component-audit.json).
 
