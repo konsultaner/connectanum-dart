@@ -1,0 +1,400 @@
+{
+  "source": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "CI_run": 41351945654,
+  "CI_status": "In progress; MQTT numerical job failed, 29 jobs successful at last snapshot. No nonnumerical failure observed.",
+  "main20": {
+    "failed_profiles": [
+      {
+        "profile": "native-v311-sustained/summary.json",
+        "failures": [
+          {
+            "metric": "throughput_ratio",
+            "value": 0.7181413182637242,
+            "limit": 0.75
+          },
+          {
+            "metric": "broker_cpu_ratio",
+            "value": 2.6425339366515836,
+            "limit": 2.5
+          }
+        ],
+        "paired_throughput_median_for_context": 0.72024483024103
+      },
+      {
+        "profile": "native-ws-sustained/summary.json",
+        "failures": [
+          {
+            "metric": "throughput_ratio",
+            "value": 0.6868686527144023,
+            "limit": 0.7
+          }
+        ],
+        "paired_throughput_median_for_context": 0.6860389628064979
+      },
+      {
+        "profile": "native-ws-v311-sustained/summary.json",
+        "failures": [
+          {
+            "metric": "throughput_ratio",
+            "value": 0.6578931525788327,
+            "limit": 0.7
+          }
+        ],
+        "paired_throughput_median_for_context": 0.6518476124256292
+      }
+    ],
+    "head": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "summaries": 20,
+    "all_summaries_exact": true,
+    "all_budgets_unchanged": true,
+    "candidate_passes": false,
+    "cpu_models": [
+      "AMD EPYC 7763 64-Core Processor"
+    ],
+    "library_hashes": [
+      "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8"
+    ],
+    "selected": [
+      {
+        "profile": "native-ws-sustained/summary.json",
+        "throughput_ratio": 0.6860389628064979,
+        "passed": false
+      },
+      {
+        "profile": "native-ws-v311-sustained/summary.json",
+        "throughput_ratio": 0.6518476124256292,
+        "passed": false
+      }
+    ],
+    "audit": [
+      {
+        "path": "batched/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "12e2203d59b09d088eada846d37c322bd71610b1561697f057d4f4c34723994e",
+        "summary_sha256": "d5c03fa98327d72804a26b898afa6a72763bf36fdca3e0439cac285c4204228d"
+      },
+      {
+        "path": "burst/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "6f790bbfd671dccbb1c42f563360b3522da81a145e2d45586750fd1528b9abde",
+        "summary_sha256": "757322323a316cbfc483ab93cdefa51cb0a1cfb2111bd7310f0b38a84dc8e446"
+      },
+      {
+        "path": "fanout/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "38849056da7d735b977a2a1c1a77c0bc3828ceb92aa20ebd125b6f7bdd5ce19f",
+        "summary_sha256": "21a75efe1399f2442df46ce498dd66639dfc91c0d7fd7eaf3fa5be8f1fb70fef"
+      },
+      {
+        "path": "native-1k-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "3c9a9279b7173d4511f01f1e8db1f6be6eb971aaec56e872e6962c68f5146d3e",
+        "summary_sha256": "9527b59ddc03d308dd6bdb4bd3cadc5100cbc62ff31a8f9df2c81e3a802120f5"
+      },
+      {
+        "path": "native-64k-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "d8607e520c8c01fa1336a5ef70e16aff0e88cf8287d234bd565a57113f21e2fb",
+        "summary_sha256": "4a0300e2fc19948c13b939b18d6276cf7b01b165098c3ed2d64eeedad22cb8a4"
+      },
+      {
+        "path": "native-batched/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "911f179ed06ede66c3bff2ca585d6ce579f34c7302b91c483d1c507c2883b86b",
+        "summary_sha256": "4fe2633c55ae166dd4b714fe169bccc953d168b8275edd1fa1f6f78e038a25bb"
+      },
+      {
+        "path": "native-burst/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "4d2493d5421381cf182ecb78afb26e0dc035c0d2fa7b99218fde1000e504212b",
+        "summary_sha256": "5428ffe60db048d84ed6d89f87fe11b7a160cd8db296fbc61178643ce87edab5"
+      },
+      {
+        "path": "native-fanout/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "ea17d40a02ee60e4fa71dac2525c17aa9f4d3a1ba8cfa96c63df0ed4148a7c8c",
+        "summary_sha256": "582167c26c2373663edc9383b081064c1bbedf1d5e79fa3a88e10fa38a70cf32"
+      },
+      {
+        "path": "native-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "0bc9927f2d133f6a2be9091ec1274ce06d9987c9356dc5399dccec2fc75c5623",
+        "summary_sha256": "8b79f0ab8c1f666b0d69e526f260e2563cb805ec2a4f15a5c3fe17922adb1853"
+      },
+      {
+        "path": "native-tls-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "77843c3f91a0d5640921ebb599373883f3c8a4f0ce480c6a9c82b5f495764fb8",
+        "summary_sha256": "4a68ad1af46e6c3042f120a8acf41f72c1ed85f8d9550f15583d748764a2f50d"
+      },
+      {
+        "path": "native-tls-v311-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "982b44df4fdf974aa931c86361a7c1c85b8413884965d5bb2017accef21507f7",
+        "summary_sha256": "38cb9950c8aaae1a9b268b20dd88f0cf141cf4b5241b19792be7a0bc5bc6c860"
+      },
+      {
+        "path": "native-v311-sustained/summary.json",
+        "rows": 10,
+        "passed": false,
+        "raw_sha256": "a0b8e0fbe0b97f0bc94bae810d6bf9222d6ba60e4646bd3f0522885218ca4972",
+        "summary_sha256": "010e1ab4cab184688bc838f57c882010d3aae01a9cbb4021219e2e6efe83dbd5"
+      },
+      {
+        "path": "native-ws-sustained/summary.json",
+        "rows": 10,
+        "passed": false,
+        "raw_sha256": "fed2b1b4d17837535905552794cfea9d99576b7917eb0eeef645f9367747c9c7",
+        "summary_sha256": "82f6975c7cdfc788259a5cb2e5d38287b217995b6764bc10ddc3befc1089f139"
+      },
+      {
+        "path": "native-ws-v311-sustained/summary.json",
+        "rows": 10,
+        "passed": false,
+        "raw_sha256": "258454696a6933aace827e4ddc0504fad0d0c7a00ab0132a87fcefafa756dfef",
+        "summary_sha256": "e00a07da775dab820da6896a6aae8a522d86b268a62a02dee50014e264aac06d"
+      },
+      {
+        "path": "native-wss-single-smoke/summary.json",
+        "rows": 6,
+        "passed": true,
+        "raw_sha256": "22d945c7b9db94da8c86c6424a293dab8efe7d8c8ee39c39a4a73c852fb1488c",
+        "summary_sha256": "3d235a54640f21e4f98a306c5b6ca3008071b7e44341273b552c7f6a70f51adc"
+      },
+      {
+        "path": "native-wss-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "c0828cc199dd3d2a0581ade0db8b24ed111d950e77b82b006b412ab83ffe73c8",
+        "summary_sha256": "e647b77b5bb2cbb1bbc5a88308950d2bb35545e79e23d7411c48a33091b09a96"
+      },
+      {
+        "path": "native-wss-v311-single-smoke/summary.json",
+        "rows": 6,
+        "passed": true,
+        "raw_sha256": "b98c43787867ec948f745aa7db030d8496afc34ac6ef0b2ec27c28db2b6d1039",
+        "summary_sha256": "1ea6e0acefdf0f57bbe0d59ae7eecaf6f3416579f94a697b41238d1cd52ba33c"
+      },
+      {
+        "path": "native-wss-v311-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "4ef45a9b266524a3fc98a1777dd9c552fa3495a926a37f2cf7534fab30d904d7",
+        "summary_sha256": "a70f2ad6bd940b85dee40ad859e5a8a5d75ddadb070c59d179112a4f720035fb"
+      },
+      {
+        "path": "sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "f9fc5f8e4669861d642f87f6fc639a6c9b41d3a2fb88589a4680385e98919040",
+        "summary_sha256": "e6f6a586580935518518c970786255610c97a0f37706c01ef6bda508faa77bf7"
+      },
+      {
+        "path": "v311-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "aa523c5353f518cdce383827f90668be41a6ccd1852cd735a48ae683c8c7ee01",
+        "summary_sha256": "61dbfcc25a817df3fd639e8e7a0b1db5c43975f6d9c9922b8b17a3fd7df65b83"
+      }
+    ]
+  },
+  "all_four_matched_legs": {
+    "diagnostic_only": true,
+    "baseline_runtime": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+    "candidate_runtime": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "reported_harness_revision_all_rows": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "native_rows": 60,
+    "mosquitto_rows": 60,
+    "all12summaries_exact": true,
+    "allbudgets_unchanged": true,
+    "native_hash_by_leg": {
+      "baseline": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+      "candidate": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8"
+    },
+    "per_leg": [
+      {
+        "leg": "baseline-1",
+        "profile": "ws_sustained",
+        "passed": false,
+        "throughput_ratio_vs_mosquitto": 0.6432799245754506,
+        "native_median_rate": 31808.59875488421,
+        "broker_CPU_median": 11.09,
+        "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "raw_sha256": "7e265d7fc06b9f953d4b1f078351d9b32b132e969ad5172c7672ac935018af64"
+      },
+      {
+        "leg": "baseline-1",
+        "profile": "ws_v311_sustained",
+        "passed": false,
+        "throughput_ratio_vs_mosquitto": 0.6496084601873536,
+        "native_median_rate": 32098.689346316613,
+        "broker_CPU_median": 10.93,
+        "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "raw_sha256": "23b0560abdd18c9e4e30f38231a12f6af13d90344a873884c2357fd78b98adf1"
+      },
+      {
+        "leg": "baseline-1",
+        "profile": "64k_sustained",
+        "passed": true,
+        "throughput_ratio_vs_mosquitto": 0.9001746295414329,
+        "native_median_rate": 4840.06489559012,
+        "broker_CPU_median": 0.61,
+        "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "raw_sha256": "ecd3869605142d8e327d9183bd953d195cecc2ddb0403ecfac5306af4eee49a3"
+      },
+      {
+        "leg": "candidate-1",
+        "profile": "ws_sustained",
+        "passed": false,
+        "throughput_ratio_vs_mosquitto": 0.6443672367989147,
+        "native_median_rate": 31426.385498985794,
+        "broker_CPU_median": 10.95,
+        "native_lib_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+        "raw_sha256": "c7ff781e7d401d4304375a73b9d5c6c4563a7e491e689e605a2fd8a9c17ec2fb"
+      },
+      {
+        "leg": "candidate-1",
+        "profile": "ws_v311_sustained",
+        "passed": false,
+        "throughput_ratio_vs_mosquitto": 0.6675074660312275,
+        "native_median_rate": 32978.99056916296,
+        "broker_CPU_median": 10.44,
+        "native_lib_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+        "raw_sha256": "80ac233df276a2b57d60fbbe1b749b7feb9dc9007e38050b38babcae941e7df5"
+      },
+      {
+        "leg": "candidate-1",
+        "profile": "64k_sustained",
+        "passed": true,
+        "throughput_ratio_vs_mosquitto": 0.9325985692236272,
+        "native_median_rate": 4959.707337589423,
+        "broker_CPU_median": 0.6,
+        "native_lib_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+        "raw_sha256": "d04e804d585de74290d4a51ff2e79437abcf37e99abc4a17ceb6cb3d19390612"
+      },
+      {
+        "leg": "baseline-2",
+        "profile": "ws_sustained",
+        "passed": false,
+        "throughput_ratio_vs_mosquitto": 0.6366602501448072,
+        "native_median_rate": 31107.89524602923,
+        "broker_CPU_median": 11.38,
+        "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "raw_sha256": "400a5a4ab3f85c19d81357c1d4d04f98ff2d41d8a7f67c667520d0f64910f0c4"
+      },
+      {
+        "leg": "baseline-2",
+        "profile": "ws_v311_sustained",
+        "passed": false,
+        "throughput_ratio_vs_mosquitto": 0.6507543291426605,
+        "native_median_rate": 32155.555716333332,
+        "broker_CPU_median": 11.03,
+        "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "raw_sha256": "a9b3a4e176b55a4ea669ccd82b93ab20018a113675c0c5fba6e53afaca32aa29"
+      },
+      {
+        "leg": "baseline-2",
+        "profile": "64k_sustained",
+        "passed": true,
+        "throughput_ratio_vs_mosquitto": 0.9405094667484393,
+        "native_median_rate": 4914.217420704188,
+        "broker_CPU_median": 0.61,
+        "native_lib_sha256": "f9a7a6e5cfc0a03b02fb503596a2cc06b04fb2271cdd337797a2b953eb8548d1",
+        "raw_sha256": "c4846675933f871c83028c754ba9b73842c85066a8a8692d34def91bc631eb64"
+      },
+      {
+        "leg": "candidate-2",
+        "profile": "ws_sustained",
+        "passed": false,
+        "throughput_ratio_vs_mosquitto": 0.6583400052513583,
+        "native_median_rate": 32316.05097857042,
+        "broker_CPU_median": 10.61,
+        "native_lib_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+        "raw_sha256": "aa56361f5fe30313d1400ee371f9d524d55a6303fe3bf6a509ea83757222f07e"
+      },
+      {
+        "leg": "candidate-2",
+        "profile": "ws_v311_sustained",
+        "passed": false,
+        "throughput_ratio_vs_mosquitto": 0.6245720415059957,
+        "native_median_rate": 30756.57325639064,
+        "broker_CPU_median": 11.23,
+        "native_lib_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+        "raw_sha256": "229d33ac69000e9f0f8fbc4620ea9a9c909aee34978c3b9d8f0885fa01784038"
+      },
+      {
+        "leg": "candidate-2",
+        "profile": "64k_sustained",
+        "passed": true,
+        "throughput_ratio_vs_mosquitto": 0.9346874636133341,
+        "native_median_rate": 4892.324822971226,
+        "broker_CPU_median": 0.62,
+        "native_lib_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+        "raw_sha256": "3c5c7aa27e4529e750ecbb470540e0bfced27806dbe014f2612504cffe3fa0ff"
+      }
+    ],
+    "baseline_actual_binary_retained": true,
+    "baseline_binary_verification_scope": "Both actual libraries and source archives are retained before capture in this source tooling; exact bytes/archives/lock independently rehashed below. No alternate-runtime byte witness needed.",
+    "scope": "All predeclared four legs retained including every failed WS gate; no unchanged numerical retry or passing selection. Not final strict48/50 or RSS acceptance.",
+    "both_actual_native_bytes_rehashed": true,
+    "both_source_archives_reconstructed_exactly": true,
+    "shared_Cargo_lock_rehashed": true,
+    "input_hash_receipt_exact": true
+  },
+  "shared_CI": {
+    "source": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "artifact_id": 13101920322,
+    "source_hashes_verified": 965,
+    "actual_native_sha256": "ab99dad76aa86508f517258cf13e18ae5828c4cf95b182f4356af97c9cabe0a1",
+    "actual_lock_sha256": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "release_ffi_test_standard_flags": true,
+    "scope": "Actual own sharedCI native bytes, distinct from measuredMQTT/native-view10C9. Never substitute thisAB99 library for measured binaries.",
+    "audited_utc": "2026-11-01T22:11:17.337509+00:00"
+  },
+  "CPU_profiles": {
+    "source": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "profiles": [
+      {
+        "profile": "ws_sustained",
+        "raw_rows": 5,
+        "delivered_total": 1000000,
+        "actual_native_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+        "broker_snapshot_sha256": "5885049df64447d268736fd7396cda102f72efdca644752fe56dd95ac1fe538e",
+        "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+        "perf_data_sha256": "bf2ce6f596a94a1f60e33958fb7551fbb6c435a72d29f81e26a1f4469135ae21",
+        "raw_sha256": "2fd36f51b0efb5fdd918413c0cb8711ea9491e3239fdf2e59eeb7fda137f68ac",
+        "CPU": "AMD EPYC 7763 64-Core Processor",
+        "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+        "lost_samples": 0,
+        "source_binary_delivery_and_sampler_provenance_verified": true
+      },
+      {
+        "profile": "64k_sustained",
+        "raw_rows": 5,
+        "delivered_total": 25000,
+        "actual_native_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+        "broker_snapshot_sha256": "5885049df64447d268736fd7396cda102f72efdca644752fe56dd95ac1fe538e",
+        "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+        "perf_data_sha256": "47301353b557e875aea78a3e5b25b0450bd7940607b3446806b29cb2cdd6c6bb",
+        "raw_sha256": "a47279e89f60407692d40d8277285a6e3883c23c2107b8be34cfb8e5da5dcb16",
+        "CPU": "AMD EPYC 7763 64-Core Processor",
+        "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+        "lost_samples": 0,
+        "source_binary_delivery_and_sampler_provenance_verified": true
+      }
+    ],
+    "scope": "Same-source diagnostic broker AOTsnapshot and retained native/client bytes. All5rawrows perprofile/bodydelivery verified. Wholebroker lifetime capture, not calibratedWAMPinterior window or numerical gate rerun. Diagnostic broker snapshot is distinct from gate embeddedexe; never substitute CPU data for acceptance."
+  },
+  "claim_scope": "All original observations retained. Three failed main profiles/four failed metrics: TCP311 throughput/CPU and two WebSocket throughput. All eight matched WebSocket legs fail; all four large-TCP legs pass. Both actual matched libraries/source archives/sharedCargo.lock rehashed. This is a failed numerical candidate, not an SDK setup failure, and is not retried unchanged. Native10C9 bytes differ from sharedCIAB99; no substitution. CPU profiles include whole broker lifetime, distinct AOT snapshot from gate executable; not an interior-window acceptance measurement."
+}

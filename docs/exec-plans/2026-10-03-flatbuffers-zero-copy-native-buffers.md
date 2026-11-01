@@ -2,10 +2,9 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: verify frozen TCP_NODELAY runtime `11521160` after real socket
-regression and full native/MQTT/Paho correctness pass. Own full canonical has
-restarted after disk-only recovery on unchanged source/native; own CI/copy and
-complete controlled transport evidence are pending. Preserve all active prior
+Current step: investigate retained MQTT failures after frozen TCP_NODELAY runtime
+`11521160` passes full canonical/copy and native/MQTT/Paho correctness, but fails
+hosted gates and shows no transport improvement in the complete controlled run. Preserve all active prior
 campaigns; RAM and broad WAMP parity remain unresolved. No source/HEAD/native
 changes during canonical or adoption before complete final-runtime acceptance.
 Local focused/diagnostic evidence is scoped below, not final acceptance. All
@@ -35,20 +34,49 @@ native binary independently rehash unchanged against the initial receipt.
 Under the official exclusive lease, only inactive own Rust compiler objects and
 metadata were removed, restoring about 20 GiB available. Every source, raw row,
 report, archive, RLIB/static/shared library and executable is preserved, with
-protected actual binary hashes unchanged. Full canonical verification now runs
-again on identical frozen source; source/HEAD/native must not change while active.
+protected actual binary hashes unchanged. The recovered full canonical now
+independently passes on identical frozen
+source, clean HEAD/tree, all three locks and own native `4b77cb82…`. Its log
+SHA is `b357cb9bfbf11fe967caba2ea8e40663383f9c5c2f7cb0fb1c2a0bcd32f0f472`.
+There are 8,308 actual local Chrome/Wasm observations and no local JS; hosted JS
+is separate. The setup/disk failures remain retained. No unchanged verification
+is rerun. [Own canonical audit](../research/2026-11-01-mqtt-nodelay-canonical-audit.json).
 
-One exact-source [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41351945654)
-and [copy/lifetime proof](https://github.com/konsultaner/connectanum-dart/actions/runs/41351947805)
-were predeclared and dispatched. The CI retains all twenty MQTT profiles and all
-four matched-native legs against `7476ff6e`, including both actual libraries,
-both source archives and the shared lock. No failed unchanged numerical gate is
-rerun. The separately predeclared local control must retain every fifty rows /
-8.05 million fresh verified deliveries across five profiles/five AB/BA pairs,
-with identical broker/client bytes and both own canonical libraries. Its new
-driver is drafted but not yet guard-tested/reviewed or launched; it waits for
-canonical pass and the official resource lease. External same-library checks
-from another branch do not supply this candidate's source-comparison evidence.
+Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41351945654)
+remains active with 29 successful jobs and its original MQTT numerical job failed.
+All twenty summaries independently reproduce unchanged budgets on EPYC 7763:
+seventeen pass; native TCP 3.1.1 misses throughput 0.718141 < 0.75 and CPU
+2.642534 > 2.5, while native WS 5 / 3.1.1 throughput 0.686869 / 0.657893 misses
+0.70. Every original measured result is retained, with no unchanged numerical retry.
+The four matched legs retain all sixty native plus sixty Mosquitto rows and all
+twelve summaries: all eight WS legs fail, all four large-TCP legs pass. Both
+actual measured libraries, exact source archives and shared lock rehash. Shared
+CI native `ab99dad7…` is a separate build from measured `10c9aaa7…`; neither
+replaces the other. Two captured CPU profiles independently verify their actual
+AOT/native/client bytes and all ten rows; their whole-broker scope is diagnostic.
+[Hosted observations and byte scope](../research/2026-11-01-mqtt-nodelay-hosted-audit.json).
+
+Own [copy/lifetime proof](https://github.com/konsultaner/connectanum-dart/actions/runs/41351947805)
+is complete pass and independently reproduced: 3,302 production source inputs,
+120 live / 300 inventory rows, 32 zero-avoidable-payload-copy checks, E2EE,
+transcode and native crypto accounting. All three positive lifetime phases,
+expected negative control and cleanup pass. Its 3,299 native-view inputs, exact
+source archive and fixture verify. Actual native-view `10c9aaa7…` rehashes from
+this source's retained comparison library. Production copy binary digests are
+stable, but those production bytes are not retained; no ffi-test substitution.
+[Complete copy/lifetime audit](../research/2026-11-01-mqtt-nodelay-copy-audit.json).
+
+The separately predeclared controlled source comparison is complete and independently
+reproduces all fifty rows / 8.05 million fresh verified deliveries across five
+profiles/five AB/BA pairs. Both exact archives, 2,563 shared inputs, all six locks,
+both own canonical libraries, identical broker/client bytes, every full stdout
+row and cleanup verify. The official exclusive resource lease was honored.
+WS 5 / 3.1.1 median-rate ratios are 0.992709 / 0.995364; TCP ratios are
+0.999432 / 1.000407 / 0.997375. This change does not establish a transport repair
+and is not adopted. Controlled profiling must explain the retained CPU/throughput
+failures before another isolated optimization. No gate, window, sample, body,
+SDK, allocator or GC policy changes are authorized by this result.
+[All pairs and exact inputs](../research/2026-11-01-mqtt-nodelay-network-audit.json).
 
 No transport/RSS improvement or final 48-/50-case acceptance is claimed. The `75295eb0` primary campaign continues untouched; its complete supplemental
 campaign is now independently audited failed below. RAM and

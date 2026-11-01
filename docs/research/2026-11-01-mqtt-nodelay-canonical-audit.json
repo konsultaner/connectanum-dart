@@ -1,0 +1,13 @@
+{
+  "source": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "full_canonical_pass": true,
+  "actual_source_HEAD_tree_clean": true,
+  "actual_tracked_tree_sha256": "587198851db014c19e23df44ce9e521cb2f6d86f82c22caec193d3dc2b2efe11",
+  "own_native_sha256": "4b77cb823852e2dce3e04b35541c828bf686b0a1c9b82d9beb2a2c92a317ba14",
+  "all_guarded_sources_and_three_locks_unchanged": true,
+  "log_sha256": "b357cb9bfbf11fe967caba2ea8e40663383f9c5c2f7cb0fb1c2a0bcd32f0f472",
+  "actual_local_Chrome_Wasm_observations": 8308,
+  "actual_local_JavaScript_observations": 0,
+  "scope": "Own exact frozen native MQTT TCP_NODELAY runtime full bin/verify with actual own native/source/HEAD/tree/locks unchanged. Actual localDarwinWasm, no localJS; hostedJS separate. Guard-path anddisk-exhaustion failures retained; same-source infrastructure recovery only. Not a RAM/throughput/strictacceptance pass.",
+  "audited_utc": "2026-11-01T22:04:02.649517+00:00"
+}

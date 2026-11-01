@@ -1,0 +1,148 @@
+{
+  "source": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "run": 41351947805,
+  "artifact_id": 13101818216,
+  "production_copy": {
+    "head": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "verified_source_inputs": 3302,
+    "retained_generated_inputs": [
+      "pubspec.lock",
+      "native/bench/Cargo.lock",
+      "native/transport/Cargo.lock",
+      ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
+    ],
+    "live": {
+      "rows": 120,
+      "encoded_volume": 120,
+      "e2ee": 96,
+      "transcode": 120,
+      "native_crypto": 48
+    },
+    "inventory": {
+      "rows": 300,
+      "encoded_volume": 300,
+      "zero_avoidable_payload_copy": 32,
+      "e2ee": 96,
+      "native_crypto": 72,
+      "transcode": 60
+    },
+    "source_inputs_unchanged": true,
+    "binaries_unchanged": true,
+    "complete_source_derived_case_inventory_verified": true,
+    "binary_scope": "Hosted stable digest receipts here; independently rehash retained production binaries when available and compare exact hashes, without substituting another build."
+  },
+  "native_lifetime": {
+    "head": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "phases": [
+      {
+        "name": "existing-api-baseline",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5402,
+        "failures": 0
+      },
+      {
+        "name": "direct-native",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5568,
+        "failures": 0
+      },
+      {
+        "name": "public-native-lease",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5750,
+        "failures": 0
+      }
+    ],
+    "negative_control": {
+      "rows": 0,
+      "expected_failures": 1
+    },
+    "cleanup_verified": true
+  },
+  "extra_input_and_actual_native_byte_audit": {
+    "source": "1152116064651ee01bd6fd52a798fee975d954bf",
+    "run": 41351947805,
+    "artifact_id": 13101818216,
+    "native_view_source_inputs_verified": 3299,
+    "source_archive_reconstructed_exactly": true,
+    "source_archive_sha256": "05b1faf0b920cd3b046986f9e5bdcf408285d2586bddde2033039776bde2b6d0",
+    "fixture_verified": true,
+    "actual_native_view_binary_sha256": "10c9aaa77b47ba4aa5d293ecd7d7517c1b7df25f2eab9494062ccbcb9fbc53f8",
+    "actual_native_view_binary_rehashed": true,
+    "exact_byte_witness_artifact": 13102034560,
+    "binary_witness_scope": "Actual own current1152 native-view10C9 bytes exactly retained in same-source matched-native artifact13102034560; candidate source archive reconstructed exactly and all inputs verified. No parent runtime substitution.",
+    "ports": [
+      {
+        "phase": "negative-control",
+        "automatic_range": [
+          32768,
+          60999
+        ],
+        "unprivileged_floor": 1024,
+        "listener_ports": [
+          8692,
+          29692,
+          5960
+        ],
+        "all_selected_outside_automatic_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "existing-api-baseline",
+        "automatic_range": [
+          32768,
+          60999
+        ],
+        "unprivileged_floor": 1024,
+        "listener_ports": [
+          9160,
+          25646,
+          29375
+        ],
+        "all_selected_outside_automatic_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "direct-native",
+        "automatic_range": [
+          32768,
+          60999
+        ],
+        "unprivileged_floor": 1024,
+        "listener_ports": [
+          23107,
+          30417,
+          1315
+        ],
+        "all_selected_outside_automatic_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "public-native-lease",
+        "automatic_range": [
+          32768,
+          60999
+        ],
+        "unprivileged_floor": 1024,
+        "listener_ports": [
+          15465,
+          13322,
+          7678
+        ],
+        "all_selected_outside_automatic_range": true,
+        "cleanup_verified": true
+      }
+    ],
+    "production_binary_hash_receipts": {
+      "libct_ffi.so": "d8ff87e6d368ebf4e0e82d7161c54b3a23da398e69cac638df26eaeab6bbc3e9",
+      "http_stream": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940"
+    },
+    "production_binaries_unchanged": true,
+    "production_binary_retention_limit": "Copy artifact records stable production native/driver hashes but does not retain those bytes. Do not substitute measured ffi-test10C9 or distinct sharedCI library for productionD8FF87. Actual native-view10C9 is independently rehashed.",
+    "scope": "Complete new-source nonnumerical harness/copy/lifetime proof; no RAM/throughput acceptance. Original native I/O cause remains unmeasured; success of new ports is not causal proof. No phase retry or gate weakening.",
+    "audited_utc": "2026-11-01T22:10:28.199033+00:00"
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "diagnosticOnly": true,
+  "baseline_source": "7476ff6e5c89b583ae32d317439e3774fc379e45",
+  "candidate_source": "1152116064651ee01bd6fd52a798fee975d954bf",
+  "rows": 50,
+  "delivered": 8050000,
+  "whole_exact_source_archives_verified": true,
+  "shared_inputs_verified": 2563,
+  "all_six_retained_locks_rehashed": true,
+  "legacy_baseline_lock_proof_scope": "Historical baseline canonical has no ignored-lock/full-tree fields. Exact original retained locks and same35C3actualnative independently audited; new capture guards all locks/source identities throughout. No fabricated old guard.",
+  "actual_both_native_and_same_broker_client_bytes_rehashed": true,
+  "all_original_stdout_rows_order_body_delivery_and_cleanup_verified": true,
+  "summary_exactly_reproduced": true,
+  "native_sha256_by_leg": {
+    "baseline": "35c3be72e77ee767429b03f9407c64303b104c1b2a2628f42d9d3f896f962649",
+    "candidate": "4b77cb823852e2dce3e04b35541c828bf686b0a1c9b82d9beb2a2c92a317ba14"
+  },
+  "broker_sha256": {
+    "baseline": "d8e5b5299c97460fee9386939be9f0c8bc47906ad6ac99e402b6c5cf91e0a473",
+    "candidate": "d8e5b5299c97460fee9386939be9f0c8bc47906ad6ac99e402b6c5cf91e0a473"
+  },
+  "client_sha256": "25b32637505c9480dd5834775c23e1fd481189f1853fd1f015d7586bf3b346d9",
+  "platform": {
+    "os": "Darwin",
+    "kernel": "25.6.0",
+    "architecture": "arm64",
+    "logical_cpus": 32,
+    "cpu_model": "Apple M3 Ultra",
+    "runner_image": null,
+    "runner_image_version": null,
+    "native_runtime_threads": null,
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: aarch64-apple-darwin\nrelease: 1.95.0\nLLVM version: 22.1.2"
+  },
+  "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"macos_arm64\"",
+  "profiles": [
+    {
+      "profile": "ws_sustained",
+      "paired_throughput_ratios": [
+        0.9889974498198759,
+        1.0039009636056764,
+        1.023764741484232,
+        0.9850403825023542,
+        0.9402169954812839
+      ],
+      "median_paired_ratio": 0.9889974498198759,
+      "throughput_ratio_of_medians": 0.9927085923523289,
+      "median_rates": {
+        "baseline": 110833.90320431898,
+        "candidate": 110025.76803487376
+      },
+      "broker_cpu_medians": {
+        "baseline": 3.22,
+        "candidate": 3.21
+      }
+    },
+    {
+      "profile": "ws_v311_sustained",
+      "paired_throughput_ratios": [
+        0.9824671681546079,
+        0.993407965681693,
+        1.0134502743253342,
+        0.9841491424570465,
+        1.0038753364279942
+      ],
+      "median_paired_ratio": 0.993407965681693,
+      "throughput_ratio_of_medians": 0.9953644481872234,
+      "median_rates": {
+        "baseline": 110884.29113335942,
+        "candidate": 110370.28125658772
+      },
+      "broker_cpu_medians": {
+        "baseline": 3.21,
+        "candidate": 3.19
+      }
+    },
+    {
+      "profile": "sustained",
+      "paired_throughput_ratios": [
+        1.0055437985753184,
+        0.9916925805498078,
+        0.9972185937838306,
+        0.9939130740146789,
+        1.0165041982043086
+      ],
+      "median_paired_ratio": 0.9972185937838306,
+      "throughput_ratio_of_medians": 0.9994324563996453,
+      "median_rates": {
+        "baseline": 473221.57417156646,
+        "candidate": 472953.0002955956
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.64,
+        "candidate": 0.64
+      }
+    },
+    {
+      "profile": "v311_sustained",
+      "paired_throughput_ratios": [
+        1.0226979227176058,
+        0.9821583679601851,
+        0.9479869633666921,
+        1.0004070013700803,
+        1.0280879848378208
+      ],
+      "median_paired_ratio": 1.0004070013700803,
+      "throughput_ratio_of_medians": 1.0004070013700803,
+      "median_rates": {
+        "baseline": 473064.86902016436,
+        "candidate": 473257.4070699924
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.64,
+        "candidate": 0.64
+      }
+    },
+    {
+      "profile": "64k_sustained",
+      "paired_throughput_ratios": [
+        0.9853679513822189,
+        0.996637039002388,
+        0.9868707042116911,
+        1.0036523203171088,
+        1.0061053161466789
+      ],
+      "median_paired_ratio": 0.996637039002388,
+      "throughput_ratio_of_medians": 0.9973751019136569,
+      "median_rates": {
+        "baseline": 11076.625882530167,
+        "candidate": 11047.550868447974
+      },
+      "broker_cpu_medians": {
+        "baseline": 0.22,
+        "candidate": 0.23
+      }
+    }
+  ],
+  "every_pair_slower_profiles": [],
+  "scope": "One predeclaredcomplete localnative-sourcecontrol, no transport/RSS/GCacceptance. Socket-option change only plus three exact verified nonruntime tooling files; every original pair retained without selection. Separate controls do not substitute for hosted failing original MQTT gates or final strict48/50. No source/benchmark/SDK/GC/allocator policy weakening.",
+  "audited_utc": "2026-11-01T22:10:28.393025+00:00"
+}
