@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import runpy
+import socket
 import struct
 import sys
 import threading
@@ -28,7 +29,13 @@ class FakeClient:
         self.subscription_failed = False
         self.published = True
         self.closed = self.stopped = 0
-    def connect(self, *args): self.address = args
+    def connect(self, *args):
+        self.address = args
+        with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as tcp:
+            callback=getattr(self,'on_socket_open',None)
+            if callback:callback(self,None,types.SimpleNamespace(fileno=tcp.fileno))
+            # The callback must leave the original descriptor owned by Paho.
+            self.nodelay=tcp.getsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY)
     def loop_start(self): self.on_connect(self, None, {}, self.reason, None)
     def subscribe(self, *args, **kwargs):
         self.on_subscribe(self, None, 1, [types.SimpleNamespace(is_failure=self.subscription_failed)], None)
@@ -130,6 +137,22 @@ class PahoParticipantTest(unittest.TestCase):
         self.assertTrue(client.stopped)
         memory.close.assert_called_once()
         return client, output
+
+    def test_every_paho_link_and_role_disables_nagle_without_closing_its_socket(self):
+        for role in ['publisher','subscriber']:
+            for transport in ['tcp','tls','ws','wss']:
+                with self.subTest(role=role,transport=transport):
+                    client,_=self.run_peer(role,[],config=dict(CONFIG,transport=transport))
+                    self.assertNotEqual(client.nodelay,0)
+
+    def test_socket_option_failure_fails_the_participant_and_releases_resources(self):
+        client=FakeClient();memory=meter()
+        with mock.patch.object(paho.socket,'fromfd',side_effect=OSError('socket option failed')):
+            with self.assertRaisesRegex(OSError,'socket option failed'):
+                paho.run('publisher',CONFIG,[],lambda _:None,mqtt(client),memory_factory=lambda:memory)
+        self.assertTrue(client.closed)
+        self.assertTrue(client.stopped)
+        memory.close.assert_called_once()
 
     def test_burst_publication_requires_matching_delivery_credits(self):
         client, output = self.run_peer('publisher', map(json.dumps, [

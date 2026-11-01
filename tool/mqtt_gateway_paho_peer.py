@@ -7,6 +7,7 @@ import importlib.metadata
 import json
 import os
 import resource
+import socket
 import ssl
 import struct
 import sys
@@ -126,6 +127,11 @@ def run(role, config, lines, output, mqtt, *, memory_factory=Memory):
         if reason != 0:
             emit(dict(kind='error', message='CONNECT rejected'))
         connected.set()
+    def on_socket_open(_client, _userdata, transport):
+        # Paho WebSocket wrappers expose fileno(), not setsockopt(). Duplicate
+        # the descriptor so setting TCP options never takes Paho's ownership.
+        with socket.fromfd(transport.fileno(), socket.AF_INET, socket.SOCK_STREAM) as tcp:
+            tcp.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     def on_subscribe(_client, _userdata, _mid, reasons, _properties):
         if not reasons or any(reason.is_failure for reason in reasons):
             emit(dict(kind='error', message='SUBSCRIBE rejected'))
@@ -145,6 +151,7 @@ def run(role, config, lines, output, mqtt, *, memory_factory=Memory):
         except (ValueError, TypeError) as error:
             emit(dict(kind='error', message=str(error)))
     client.on_connect, client.on_subscribe = on_connect, on_subscribe
+    client.on_socket_open = on_socket_open
     client.on_disconnect, client.on_message = on_disconnect, on_message
     try:
         if websocket:

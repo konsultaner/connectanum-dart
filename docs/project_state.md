@@ -15,7 +15,7 @@ See the [MQTT contract](mqtt.md) and active plan.
 
 The opt-in authorized gateway and process-isolated AOT benchmarks are implemented.
 Coverage currently passes 744/744 gateway/shared Dart executable lines, 759/759
-MQTT lines, 270/270 gateway component lines and 885/885 Python gate lines with
+MQTT lines, 270/270 gateway component lines and 890/890 Python gate lines with
 zero exclusions. Independent Paho/Connectanum MQTT checks pass all 104 tests;
 56 benchmark/worker cases pass. The first clean sequential `bin/verify`, strict
 publishing, 150 WAMP integration tests and 50 shutdown/restart cycles pass. A
@@ -35,8 +35,21 @@ The next hosted run (`9477e2ab`) passed all normal smoke rows but the stricter
 exit check caught a slow MQTT client retaining its write socket after peer FIN.
 Both version-specific regressions fail before the one-line socket release fix
 and pass afterward. A fresh local AOT run passes all four overload cases twice,
-including zero-exit teardown. Restart the hosted baseline from this fixed source;
-full current-source verification and immutable numeric limits remain pending.
+including zero-exit teardown. The fixed source `54ca3c07` passes hosted smoke: 192 samples, 122,400 exact
+deliveries, zero duplicates and all four overload cases. All four release shards
+are running in [41313231551](https://github.com/konsultaner/connectanum-dart/actions/runs/41313231551).
+The current-source `bin/test-fast` and sequential full `bin/verify` pass, including
+Rust, Dart VM and Chrome/WebAssembly checks. Complete baseline validation and
+immutable numeric limits remain pending.
+
+The `54ca3c07` baseline is not accepted for numeric limits: its Paho TCP
+control has 40 ms stalls and fails the fixed repeatability caps despite stable
+broker CPU. Paho left Nagle enabled while the Linux SDK clients disable it.
+The independent participant now enables TCP_NODELAY through its public socket
+callback, preserving the original descriptor. All four real links pass both
+translation directions locally; actual-socket and failure regressions pass,
+with 890/890 tooling lines and zero exclusions. Rerun the complete hosted
+baseline from this corrected source; preserve prior samples and unchanged caps.
 
 Locally prepared strict CI wiring makes smoke and all four numeric shards
 prerequisites of Full Verify; gate tests reject every missing/unsuccessful lane.

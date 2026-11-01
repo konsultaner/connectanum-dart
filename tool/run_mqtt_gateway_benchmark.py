@@ -689,7 +689,7 @@ def main(argv=None):
                        'observe_publisher_disconnects':True,'quiescence_before_disconnect':True,
                        'allocation_bytes_per_delivery':None,
                        'allocation_measurement':'not_exposed_by_release_runtime',
-                       'paho_payload_oracle':'periodic_bytes_c_comparison',
+                       'paho_payload_oracle':'periodic_bytes_c_comparison','paho_tcp_nodelay':True,
                        'profiles': selected,'overload_profiles':overload_selected, 'source_commit': source_commit, 'source_dirty': source_dirty,
                        'workload': dict(matrix=args.matrix,shard=args.shard, runs=args.runs, messages=args.messages,
                                         warmup=args.warmup, drain_seconds=args.drain_seconds,load_timeout_seconds=300,

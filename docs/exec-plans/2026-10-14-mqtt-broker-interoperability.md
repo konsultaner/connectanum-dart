@@ -51,7 +51,7 @@ gateway acceptance evidence.
 The gateway implementation has focused live, policy, cancellation, interoperability
 and ownership tests. Initial scoped receipts passed 679/679 gateway/shared lines,
 759/759 MQTT lines and 270/270 gateway lines. The expanded Python gate and peers
-now pass 885/885 executable lines with zero exclusions. Current Dart collection passes 744/744 gateway/shared lines. The independent
+now pass 890/890 executable lines with zero exclusions. Current Dart collection passes 744/744 gateway/shared lines. The independent
 Paho/Connectanum MQTT suite passes 104 tests; full verification of the socket release fix is pending; earlier line-number receipts cannot validate
 subsequent edits. The mutation inventory includes the caller-state regression.
 
@@ -84,7 +84,12 @@ normal rows but rejected a stalled MQTT client's nonzero exit: peer FIN marked
 it closed without releasing the writing half. Both MQTT versions have fail-first
 socket-release regressions. The one-line production fix passes 104 MQTT tests,
 759/759 MQTT lines and two local AOT cycles of all four overload cases, including
-clean process exits. Restart hosted measurements from this fixed revision.
+clean process exits. Hosted smoke on `54ca3c07` passes 192 exact samples
+(122,400 deliveries, zero duplicates) and all four overload cases. Four release
+shards are running in [41313231551](https://github.com/konsultaner/connectanum-dart/actions/runs/41313231551).
+Current-source `bin/test-fast` and sequential full `bin/verify` pass, including
+Rust, Dart VM and Chrome/WebAssembly. Numeric limits and tables await complete
+release evidence.
 Validate every one of the 960 normal samples and 12 overload cycles before
 freezing numeric budgets or publishing tables. Raw archives, minimal fixtures
 and all required strict CI remain completion requirements.
@@ -97,11 +102,20 @@ All 56 focused benchmark cases and the fresh full verify pass. Strict
 Full Verify wiring is prepared locally, with both smoke and four-shard numeric
 lanes required and every omission/failure rejected. Do not commit it until the
 numeric budget and README fixture exist. Current coverage is 744/744 scoped
-Dart lines and 885/885 Python lines, zero exclusions. Existing MQTT/WAMP limits
+Dart lines and 890/890 Python lines, zero exclusions. Existing MQTT/WAMP limits
 are unchanged. The hosted WAMP profile gate on `08c654c0` passes
 ([41305461031](https://github.com/konsultaner/connectanum-dart/actions/runs/41305461031)).
 The broader controlled release/milestone acceptance and pre-existing auxiliary
 kTLS/WAMP diagnostic misses remain separate from gateway acceptance.
+
+The `54ca3c07` baseline fails the fixed variation caps in its Paho TCP
+control: p99 jumps from about 0.5 ms to 40 ms with stable broker CPU. Nagle was
+enabled in Paho while Linux SDK clients use TCP_NODELAY. The participant now
+sets the option through the public socket callback using a duplicate descriptor.
+Actual-socket tests prove the option is set and Paho retains ownership; errors
+fail the participant. All four real links pass both translations locally.
+35 tooling tests cover 890/890 lines, zero exclusions. Repeat the hosted baseline
+without widening caps or discarding slow samples; retain this run in the archive.
 
 ## Goal and contract
 
