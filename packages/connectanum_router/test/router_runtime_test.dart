@@ -5466,11 +5466,7 @@ void main() {
         didWork: true,
         pollInterval: const Duration(seconds: 30),
       );
-      // Consume the wake queued by close before testing a pending idle wait.
-      await pacer.waitForNextTick(
-        didWork: false,
-        pollInterval: const Duration(seconds: 30),
-      );
+      // The reused busy pass consumed the wake queued by close.
       final idle = pacer.waitForNextTick(
         didWork: false,
         pollInterval: const Duration(seconds: 30),

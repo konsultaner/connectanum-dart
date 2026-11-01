@@ -27,8 +27,9 @@ final class RouterBossLoopPacer {
     required bool didWork,
     required Duration pollInterval,
   }) async {
+    final wakeRequested = _consumeWakeRequest();
     final delay = routerBossLoopDelay(
-      didWork: didWork || _consumeWakeRequest(),
+      didWork: didWork || wakeRequested,
       pollInterval: pollInterval,
     );
     if (delay == Duration.zero) {
