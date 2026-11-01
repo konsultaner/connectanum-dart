@@ -113,7 +113,11 @@ with median-rate ratio 0.99466160. Do not select an unchanged numerical rerun or
 infer causal repair from green MQTT CI. The completed control is retained.
 
 Own [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41331014557)
-still has no known failure; 35 jobs pass and three run at the latest snapshot.
+is now complete: all 39 jobs pass on attempt one. The independent completion
+audit preserves all 37 previously passing execution timestamps and original
+measured MQTT/main-profile/shared-native artifact IDs. All forty artifacts
+remain retained; no job or numerical campaign was retried. This clean CI does
+not overturn the negative controlled scheduler result.
 The predeclared complete [primary 48-case campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334137150)
 and [supplemental 50-case campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41334139728)
 continue unchanged. Preserve all 1,440 + 1,500 raw rows and every shard to
