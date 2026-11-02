@@ -38,7 +38,10 @@ Native code owns sockets, TLS, WebSocket framing, connection IDs, deadlines and
 bounded byte queues. Dart owns MQTT decoding, CONNECT acceptance, keep-alive,
 subscriptions and broker state. Incoming queues hold at most 64 chunks; outbound
 queues cap at 512 chunks and 8 MiB per peer. Byte credit is released after write
-or failure. Coalesced notifications wake Dart, with a 1 ms polling fallback.
+or failure. On Linux, plain MQTT TCP/WS sockets request a 128 KiB
+unsent-data watermark so stalled peers encounter backpressure earlier while TCP
+send-buffer autotuning remains enabled. TLS socket buffering keeps its platform defaults.
+See the [Linux socket guidance](https://kernel.org/doc/html/latest/networking/ip-sysctl.html#tcp-notsent-lowat). Coalesced notifications wake Dart, with a 1 ms polling fallback.
 Dart retries full-queue writes in FIFO order with a 4 MiB bound, closes persistently
 slow peers, and releases peer/queue state on close and listener drain.
 
@@ -163,6 +166,33 @@ queue recovery. The [gateway tables](../packages/connectanum_bench/README.md#mqt
 contain all 128 measured translation cases across x64 and ARM64, per-process
 memory, direct controls and eight slow-consumer cases. Numeric gateway checks
 require the recorded ARM64 architecture, CPU count and CPU signature before load.
-Required CI smoke and four numeric shards enforce
+Required CI smoke and sixteen profile shards enforce
 exact delivery, complete coverage, latency/rate/CPU/RSS budgets and recovery.
 Raw runs and rejected baselines are retained in the [verified history archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01).
+
+`--retention` adds a separate Linux AOT retention stress matrix for diagnostic
+runs. Strict budgets declare `retention_protocol: bounded_nursery_v1`. Default
+runtime throughput, CPU and raw peak/drained RSS keep the accepted warm-up and
+all frozen limits. The separate stress processes use an 8 MiB nursery semispace,
+old-generation collection and unused allocator-cache release before/after load.
+They cover normal traffic and stalled-consumer recovery. Raw RSS drift remains
+available separately; stress timings are not performance results.
+
+The internal test executable requires Dart 3.13.1 stable and qualified glibc
+Linux. Dart's [verification API](https://github.com/dart-lang/sdk/blob/3.13.1/runtime/include/dart_native_api.h)
+restricts `gc-now` to tests. Its [implementation](https://github.com/dart-lang/sdk/blob/3.13.1/runtime/vm/native_api_impl.cc)
+collects the old generation; the SDK's [nursery metric](https://github.com/dart-lang/sdk/blob/3.13.1/runtime/vm/metrics.cc)
+reports capacity rather than live bytes, so the separate test bounds that
+capacity instead of treating it as a leak. [GNU malloc trimming](https://sourceware.org/git/?p=glibc.git;a=blob;f=malloc/malloc.c)
+releases unused native allocator pages without changing live allocations.
+Startup verifies rooted and released 32 MiB managed/native controls. Every
+collection checks a weak witness and the nursery bound. Missing samples,
+unsupported hosts, failed controls or collection errors stop the run. SDK
+collection hooks and nursery flags are restricted to the retention test worker.
+
+The normal glibc Linux runtime checks for an empty connection registry 100 ms
+after close and releases unused native allocator pages. Requests coalesce and
+release runs at most once every two seconds, with no registry/limiter lock held.
+Live buffers retain their owners; Dart VM settings stay at their defaults.
+
+Manual gateway campaigns use unique [concurrency groups](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), so a newer dispatch cannot replace queued or running benchmark evidence.

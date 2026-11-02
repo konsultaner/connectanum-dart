@@ -122,6 +122,19 @@ final class MqttQos0Broker {
     _peers.add(peer);
   }
 
+  /// Consume one native chunk, retaining owned MQTT frame bodies only.
+  bool pollNativeConnection(int connectionId, NativeRuntimeWithMqtt runtime) {
+    final peer = _nativePeers[connectionId];
+    if (peer == null) return false;
+    if (runtime is NativeRuntimeWithMqttFrames) {
+      return peer._pollNativeFrames(runtime);
+    }
+    final bytes = runtime.pollMqttChunk(connectionId);
+    if (bytes == null) return false;
+    peer._onData(bytes);
+    return true;
+  }
+
   void receiveNativeChunk(int connectionId, Uint8List bytes) {
     _nativePeers[connectionId]?._onData(bytes);
   }
@@ -451,20 +464,36 @@ final class _Peer {
 
   void _onData(Uint8List data) {
     try {
-      for (final frame in decoder.add(data)) {
-        if (closed) break;
-        final policy = connected ? broker._gateways[realm] : null;
-        if (policy == null) {
-          _handle(frame);
-        } else {
-          _queueGatewayTask(
-            frame.body.length + 5,
-            () => _handleGatewayFrame(frame, policy),
-          );
-        }
-      }
+      _handleFrames(decoder.add(data));
     } on MqttProtocolException catch (error) {
       _close('protocol_error:${error.message}');
+    }
+  }
+
+  bool _pollNativeFrames(NativeRuntimeWithMqttFrames runtime) {
+    try {
+      final frames = runtime.pollMqttFrames(nativeConnectionId!, decoder);
+      if (frames == null) return false;
+      _handleFrames(frames);
+      return true;
+    } on MqttProtocolException catch (error) {
+      _close('protocol_error:${error.message}');
+      return false;
+    }
+  }
+
+  void _handleFrames(List<MqttFrame> frames) {
+    for (final frame in frames) {
+      if (closed) break;
+      final policy = connected ? broker._gateways[realm] : null;
+      if (policy == null) {
+        _handle(frame);
+      } else {
+        _queueGatewayTask(
+          frame.body.length + 5,
+          () => _handleGatewayFrame(frame, policy),
+        );
+      }
     }
   }
 

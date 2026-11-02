@@ -20,6 +20,163 @@ import '../support/native_lib.dart';
 
 void main() {
   test(
+    'native MQTT frames own interleaved and fragmented input after shutdown',
+    () async {
+      final runtime = NativeTransportRuntime(
+        libraryPath: resolveOrBuildNativeLib(),
+      );
+      runtime.start();
+      addTearDown(() {
+        runtime.shutdown();
+        runtime.dispose();
+      });
+      final listener = runtime.listenRouterEndpoint(
+        Uint8List.fromList(
+          utf8.encode(
+            jsonEncode({
+              'schema': 'connectanum.router',
+              'version': 1,
+              'endpoints': [
+                {
+                  'host': '127.0.0.1',
+                  'port': 0,
+                  'tls_mode': 'disabled',
+                  'protocols': ['mqtt'],
+                },
+              ],
+            }),
+          ),
+        ),
+        0,
+      );
+      final peers = <(Socket, int, MqttFrameDecoder)>[];
+      for (var i = 0; i < 2; i++) {
+        final socket = await Socket.connect(
+          '127.0.0.1',
+          runtime.getLocalPort(listener),
+        );
+        addTearDown(socket.destroy);
+        socket.add(
+          MqttPacketCodec.encodeConnect(
+            MqttConnect(version: MqttVersion.v5, clientId: 'owned-$i'),
+          ),
+        );
+        await socket.flush();
+        final id = await _pollUntil(() {
+          final id = runtime.pollConnection(listener);
+          return id == 0 ? null : id;
+        });
+        final decoder = MqttFrameDecoder();
+        final connect = await _pollUntil(
+          () => runtime.pollMqttFrames(id, decoder),
+        );
+        expect(connect.single.type, MqttPacketType.connect);
+        expect(runtime.pollMqttFrames(id, decoder), isNull);
+        peers.add((socket, id, decoder));
+      }
+      final (first, firstId, firstDecoder) = peers[0];
+      final (second, secondId, secondDecoder) = peers[1];
+      final payload = Uint8List.fromList(List.generate(100000, (i) => i % 251));
+      final packet = MqttPacketCodec.encodePublish(
+        MqttVersion.v5,
+        topic: 'fragment',
+        payload: payload,
+      );
+      first.add(packet.sublist(0, 8));
+      await first.flush();
+      expect(
+        await _pollUntil(() => runtime.pollMqttFrames(firstId, firstDecoder)),
+        isEmpty,
+      );
+      second.add(
+        MqttPacketCodec.encodePublish(
+          MqttVersion.v5,
+          topic: 'interleaved',
+          payload: Uint8List.fromList([255, 0, 17]),
+        ),
+      );
+      await second.flush();
+      final other = (await _pollUntil(
+        () => runtime.pollMqttFrames(secondId, secondDecoder),
+      )).single;
+      first.add(packet.sublist(8));
+      await first.flush();
+      final frames = <MqttFrame>[];
+      await _pollUntil(() {
+        final read = runtime.pollMqttFrames(firstId, firstDecoder);
+        if (read != null) frames.addAll(read);
+        return frames.isEmpty ? null : true;
+      });
+      runtime.closeConnection(firstId);
+      runtime.closeConnection(secondId);
+      runtime.shutdown();
+      expect(
+        MqttPacketCodec.decodePublish(frames.single, MqttVersion.v5).payload,
+        payload,
+      );
+      expect(MqttPacketCodec.decodePublish(other, MqttVersion.v5).payload, [
+        255,
+        0,
+        17,
+      ]);
+    },
+  );
+
+  test(
+    'legacy native MQTT chunks remain owned across reusable-buffer reads',
+    () async {
+      final runtime = NativeTransportRuntime(
+        libraryPath: resolveOrBuildNativeLib(),
+      );
+      runtime.start();
+      addTearDown(() {
+        runtime.shutdown();
+        runtime.dispose();
+      });
+      final listener = runtime.listenRouterEndpoint(
+        Uint8List.fromList(
+          utf8.encode(
+            jsonEncode({
+              'schema': 'connectanum.router',
+              'version': 1,
+              'endpoints': [
+                {
+                  'host': '127.0.0.1',
+                  'port': 0,
+                  'tls_mode': 'disabled',
+                  'protocols': ['mqtt'],
+                },
+              ],
+            }),
+          ),
+        ),
+        0,
+      );
+      final socket = await Socket.connect(
+        '127.0.0.1',
+        runtime.getLocalPort(listener),
+      );
+      addTearDown(socket.destroy);
+      final packet = MqttPacketCodec.encodeConnect(
+        MqttConnect(version: MqttVersion.v5, clientId: 'legacy-owned'),
+      );
+      socket.add(packet);
+      await socket.flush();
+      final id = await _pollUntil(() {
+        final id = runtime.pollConnection(listener);
+        return id == 0 ? null : id;
+      });
+      final retained = await _pollUntil(() => runtime.pollMqttChunk(id));
+      socket.add([0xc0, 0]);
+      await socket.flush();
+      expect(await _pollUntil(() => runtime.pollMqttChunk(id)), [0xc0, 0]);
+      expect(runtime.pollMqttChunk(id), isNull);
+      runtime.shutdown();
+      expect(retained, packet);
+    },
+  );
+
+  test(
     'MQTT client rejects oversized CONNECT before opening any transport',
     () async {
       final oversizedId = List<String>.filled(65536, 'a').join();
@@ -596,6 +753,16 @@ void main() {
       await response.drain<void>();
     },
   );
+}
+
+Future<T> _pollUntil<T>(T? Function() poll) async {
+  final elapsed = Stopwatch()..start();
+  while (elapsed.elapsed < const Duration(seconds: 5)) {
+    final value = poll();
+    if (value != null) return value;
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+  }
+  throw TimeoutException('Native MQTT input did not arrive');
 }
 
 Future<int> _startRouter({

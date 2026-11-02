@@ -708,6 +708,43 @@ void main() {
   );
 
   test(
+    'gateway close replies to an admitted RPC before closing its service',
+    () async {
+      final entered = Completer<void>();
+      final decision = Completer<AuthorizationDecision?>();
+      AuthorizationProviderRegistry.registerProvider(
+        _Policy((request) {
+          if (request.options['mqtt_direction'] != 'wamp_to_mqtt') return null;
+          entered.complete();
+          return decision.future;
+        }),
+      );
+      addTearDown(() {
+        if (!decision.isCompleted) decision.complete(null);
+      });
+      final h = await start(operationTimeout: const Duration(seconds: 10));
+      final response = h.session
+          .call(
+            MqttWampGateway.publishProcedure,
+            arguments: ['blocked-close', Uint8List(1)],
+          )
+          .first;
+      await entered.future.timeout(const Duration(seconds: 2));
+      final closing = h.gateway.close();
+      await expectLater(
+        response.timeout(const Duration(seconds: 2)),
+        throwsA(isA<wamp.Error>()),
+      );
+      await closing.timeout(const Duration(seconds: 2));
+      expect(h.gateway.metrics['pending_operations'], 0);
+      expect(h.gateway.metrics['pending_bytes'], 0);
+      expect(h.gateway.metrics['pending_policy_futures'], 1);
+      expect(h.gateway.metrics['wamp_publications'], 0);
+      decision.complete(const AuthorizationDecision.allow());
+    },
+  );
+
+  test(
     'a timed-out policy closes admission and retains only bounded provider work',
     () async {
       final entered = Completer<void>();
@@ -733,7 +770,13 @@ void main() {
               arguments: ['blocked', Uint8List(1)],
             )
             .first,
-        throwsA(isA<wamp.Error>()),
+        throwsA(
+          isA<wamp.Error>().having(
+            (error) => error.error,
+            'error URI',
+            wamp.Error.timeout,
+          ),
+        ),
       );
       await entered.future.timeout(const Duration(seconds: 2));
       expect(h.gateway.metrics['pending_policy_futures'], 1);

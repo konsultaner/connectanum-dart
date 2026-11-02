@@ -4,6 +4,50 @@ Status: active; direct QoS 0 merged, authorized gateway and hosted translation
 benchmarks implemented. Current PR review and controlled release acceptance
 remain separate from the broader protocol milestone.
 
+Current blocker: complete campaign `a8c3ecb9` is rejected. All 1,304 samples
+are digest-verified and independently recomputed: 66/68 rows pass. Default-VM
+MQTT-to-WAMP broker drained RSS exceeds the unchanged cap in TLS/JSON fan-out
+and WSS overload. Every collected-retention check passes. No failed sample or
+numeric limit has been removed.
+
+Native production cleanup coalesces delayed empty-registry checks off I/O
+threads with a shared two-second limit. A 128 KiB unsent watermark bounds plain
+MQTT TCP/WS buffering while preserving send-buffer autotuning. Coverage is
+971/971 current added executable native lines, with source hashes and complete
+Cargo/Dart-FFI evidence. Later default-VM heap diagnostics show the remaining
+WSS spike contains uncollected Dart buffers, despite successful native trimming.
+
+The current Dart candidate removes a redundant MQTT input copy by decoding into
+owned frame bodies before the reusable FFI buffer is touched again. Regression
+coverage includes split packets, interleaved clients, ownership after shutdown,
+legacy runtime fallback and malformed input. Gateway shutdown now drains
+admitted operation wrappers before closing service reply ports. Fresh scoped coverage passes 770/770 gateway/shared, 772/772 MQTT, 280/280
+gateway-component and 1,084/1,084 Python lines with zero exclusions. Linux
+default RSS diagnostics and full verification are in progress.
+Earlier rejected/superseded candidates and the complete sample sets remain
+archived evidence; they do not qualify current source.
+
+Retention uses separate stress-only collection with an 8 MiB nursery and
+SDK-pinned controls verifying live/released managed/native 32 MiB witnesses.
+The 1 MiB nursery was rejected for severe stress-only publication stalls;
+8 MiB passes 15 Linux full workloads and 225,000 exact translations. Local
+AOT checks pass 32 complete SDK/Paho lifecycles over all links/codecs. Python
+coverage is 1,084/1,084 and the worker 308/308. Full verification predates the
+new native cleanup source and must be rerun. Current state and rejected runs
+are recorded in [project state](../project_state.md).
+
+The [Linux kernel socket guidance](https://kernel.org/doc/html/latest/networking/ip-sysctl.html#tcp-notsent-lowat)
+distinguishes unsent-data limits from a total send-buffer cap. `SO_SNDBUF`
+disables send-buffer autotuning; `TCP_NOTSENT_LOWAT` limits unsent bytes and
+controls write readiness. The selected watermark preserves TCP send-buffer autotuning while bringing
+backpressure forward; full performance and memory gates must still pass.
+
+
+- [ ] Qualify current production cleanup and slow-peer memory at every unchanged limit.
+- [ ] Refresh source-pinned 100% native/Dart/Python coverage and complete `bin/verify`.
+- [ ] Publish verified README memory tables and archive all raw evidence outside Git.
+- [ ] Pass the complete exact-head GitHub Actions chain before handoff.
+
 Required CI now uses a separate hardware-qualified ARM64 reference with the
 same workload and frozen policy. Architecture, CPU count and CPU signature must
 match before sampling. Earlier x64 values and rejected cross-CPU candidates
@@ -24,7 +68,7 @@ Client IDs do not confer identity; ordinary `ppt_scheme: mqtt` remains opaque.
 - [x] Separate AOT processes for both translations, matched MQTT/WAMP/acknowledged-WAMP/Mosquitto controls, all four WAMP serializers, three payload sizes, fan-out and credit windows.
 - [x] Record throughput, latency, active CPU, per-process warm/high-water/drained RSS, lifecycle growth, queue drain and overload recovery. Allocation counters remain unavailable and explicitly null.
 - [x] Accept the complete hosted baseline at unchanged rate/p99/CPU variation caps 0.20/0.75/0.35; freeze numeric budgets and every-cell README regressions.
-- [x] Require secure-peer smoke and four numeric shards before Full Verify, rejecting omitted or unsuccessful lanes.
+- [x] Require secure-peer smoke and sixteen profile shards before Full Verify, rejecting omitted or unsuccessful lanes.
 
 ## Accepted evidence and verification
 
@@ -39,12 +83,13 @@ pass their separate [x64](../../tool/mqtt_gateway_benchmark_budgets.json) and
 include direct controls and every per-process memory result. All four ARM64
 shards and their secure smoke match the recorded CPU signature.
 
-Coverage passes 744/744 gateway/shared Dart, 759/759 MQTT, 270/270 gateway
+Last accepted reference coverage passes 744/744 gateway/shared Dart, 759/759 MQTT, 270/270 gateway
 component, 882/882 native added production and 947/947 Python lines (zero
 exclusions). Native source SHA-256 is
 `1254e2279369f2d3e5f5b78236d5beeda58295e201f9ba2b2f3edbd52c93fc01`;
 source hashes and the retained compressed Cargo/Dart FFI union are test-checked.
-Fresh full `bin/verify` passes, including Rust, Dart VM, consumers and Chrome/Wasm.
+The previous full `bin/verify` passed Rust, Dart VM, consumers and Chrome/Wasm;
+that result predates the native cleanup source.
 Independent MQTT checks pass 104 tests; benchmark/worker checks pass 56.
 
 Fail-first fixes cover payload-oracle overhead, MQTT peer-FIN socket retention,

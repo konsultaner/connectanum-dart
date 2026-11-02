@@ -635,9 +635,10 @@ class _RouterBoss {
     var remaining = 256;
     for (final connectionId in _mqttBroker.nativeConnectionIds.toList()) {
       while (remaining > 0) {
-        Uint8List? bytes;
         try {
-          bytes = mqttRuntime.pollMqttChunk(connectionId);
+          if (!_mqttBroker.pollNativeConnection(connectionId, mqttRuntime)) {
+            break;
+          }
         } on NativeTransportException {
           _mqttBroker.closeNativeConnection(
             connectionId,
@@ -645,8 +646,6 @@ class _RouterBoss {
           );
           break;
         }
-        if (bytes == null) break;
-        _mqttBroker.receiveNativeChunk(connectionId, bytes);
         didWork = true;
         remaining--;
       }

@@ -10,6 +10,48 @@ import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final ownedFrames in [false, true]) {
+    test(
+      'native MQTT polling preserves legacy and owned-frame semantics: $ownedFrames',
+      () async {
+        final broker = MqttQos0Broker.native();
+        addTearDown(broker.close);
+        final runtime = ownedFrames ? _FrameRuntime() : _ChunkRuntime();
+        final sent = <Uint8List>[];
+        final reasons = <String>[];
+        expect(broker.pollNativeConnection(91, runtime), isFalse);
+        expect(runtime.polls, 0);
+        broker.attachNativeConnection(
+          91,
+          send: sent.add,
+          close: () => reasons.add('closed'),
+        );
+        expect(broker.pollNativeConnection(91, runtime), isFalse);
+        final connect = MqttPacketCodec.encodeConnect(
+          MqttConnect(version: MqttVersion.v5, clientId: 'poll-owned'),
+        );
+        runtime.chunks.addAll([
+          Uint8List.sublistView(connect, 0, 3),
+          Uint8List.sublistView(connect, 3),
+        ]);
+        expect(broker.pollNativeConnection(91, runtime), isTrue);
+        expect(sent, isEmpty);
+        expect(broker.pollNativeConnection(91, runtime), isTrue);
+        expect(
+          MqttFrameDecoder().add(sent.single).single.type,
+          MqttPacketType.connack,
+        );
+        runtime.chunks.add(Uint8List.fromList([0x00, 0]));
+        expect(
+          broker.pollNativeConnection(91, runtime),
+          ownedFrames ? isFalse : isTrue,
+        );
+        expect(reasons, ['closed']);
+        expect(broker.nativeConnectionIds, isEmpty);
+      },
+    );
+  }
+
   test('native MQTT forwards validated QoS 0 frames across versions', () async {
     final broker = MqttQos0Broker.native();
     addTearDown(broker.close);
@@ -1328,4 +1370,29 @@ Stream<MqttFrame> _decodedFrames(Socket socket) {
     onDone: controller.close,
   );
   return controller.stream;
+}
+
+class _ChunkRuntime implements NativeRuntimeWithMqtt {
+  final chunks = <Uint8List>[];
+  var polls = 0;
+  @override
+  Uint8List? pollMqttChunk(int id) {
+    polls++;
+    return chunks.isEmpty ? null : chunks.removeAt(0);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _FrameRuntime extends _ChunkRuntime
+    implements NativeRuntimeWithMqttFrames {
+  @override
+  Uint8List? pollMqttChunk(int id) =>
+      throw StateError('Owned-frame runtime must not copy a chunk');
+  @override
+  List<MqttFrame>? pollMqttFrames(int id, MqttFrameDecoder decoder) {
+    polls++;
+    return chunks.isEmpty ? null : decoder.add(chunks.removeAt(0));
+  }
 }

@@ -442,6 +442,7 @@ Future<void> runGatewayBenchmarkWorker(
   GatewayServerFactory serverFactory = NativeGatewayBenchmarkServer.start,
   int Function()? readRss,
   int Function()? nowMicros,
+  Future<void> Function()? collectMemory,
 }) async {
   if (args.length != 2 ||
       !['server', 'publisher', 'subscriber'].contains(args[0])) {
@@ -469,6 +470,14 @@ Future<void> runGatewayBenchmarkWorker(
   Map<String, Object?> snapshot() => {
     'memory': meter.snapshot(),
   };
+  Future<void> collect() async {
+    final callback = collectMemory;
+    if (callback == null) {
+      throw UnsupportedError('Collection requires the retention test worker');
+    }
+    await callback();
+  }
+
   Future<void> release() async {
     final ownedSubscription = subscription;
     final ownedPeer = peer;
@@ -544,9 +553,11 @@ Future<void> runGatewayBenchmarkWorker(
           meter.begin();
           output({'kind': 'armed', 'phase': phase});
         case 'sample':
+        case 'collect':
+          if (command['op'] == 'collect') await collect();
           final queues = await server?.sampleQueues();
           output({
-            'kind': 'sampled',
+            'kind': command['op'] == 'collect' ? 'collected' : 'sampled',
             ...snapshot(),
             if (queues != null) 'queues': queues,
           });
@@ -600,6 +611,7 @@ Future<void> runGatewayBenchmarkWorker(
           });
         case 'close':
           await release();
+          if (command['collect'] == true) await collect();
           output({'kind': 'closed', ...snapshot()});
           return;
         default:

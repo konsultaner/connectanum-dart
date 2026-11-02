@@ -1794,9 +1794,10 @@ class RouterBinding {
     var remaining = 256;
     for (final connectionId in _mqttBroker.nativeConnectionIds.toList()) {
       while (remaining > 0) {
-        Uint8List? bytes;
         try {
-          bytes = mqttRuntime.pollMqttChunk(connectionId);
+          if (!_mqttBroker.pollNativeConnection(connectionId, mqttRuntime)) {
+            break;
+          }
         } on NativeTransportException {
           _mqttBroker.closeNativeConnection(
             connectionId,
@@ -1804,8 +1805,6 @@ class RouterBinding {
           );
           break;
         }
-        if (bytes == null) break;
-        _mqttBroker.receiveNativeChunk(connectionId, bytes);
         remaining--;
       }
       if (remaining == 0) break;

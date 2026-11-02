@@ -1,9 +1,44 @@
 # Project State
 
-Last updated: 2026-11-01.
+Last updated: 2026-11-02.
 Current priority: [MQTT milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2), explicitly prioritized by the user.
 Active plan: [MQTT interoperability](exec-plans/2026-10-14-mqtt-broker-interoperability.md).
 Branch: `codex/mqtt-wamp-gateway`, based on merged master `ef822e08`.
+
+Current blocker: the complete `a8c3ecb9` campaign is rejected. All 1,304
+samples are preserved, digest-verified and independently recomputed: 66/68
+result rows pass. MQTT-to-WAMP broker drained RSS exceeds its unchanged caps
+in the 64 KiB TLS/JSON fan-out profile and WSS overload. All collected-retention
+checks pass; no numerical limit or reference has changed. Earlier rejected
+`d79311f3` and superseded diagnostics remain evidence, not published results.
+
+Default-VM heap diagnostics show native trimming releases unused pages, while
+uncollected Dart buffers explain the remaining first-cycle WSS spike. A current
+candidate decodes directly from the reusable FFI input buffer into owned MQTT
+frames, removing an intermediate chunk copy. Its regressions cover fragmented
+and interleaved clients, ownership after shutdown, and legacy runtime fallback.
+A separate lifecycle fix lets admitted gateway RPCs post cancellation replies
+before closing the service. Fresh Linux measurements and whole-source coverage
+are required before accepting this candidate.
+
+Native cleanup runs off I/O threads after a delayed empty-registry check, with
+coalescing and a shared two-second rate limit. Plain MQTT TCP/WS also uses a
+128 KiB unsent watermark while preserving send-buffer autotuning. Regression
+tests verify its native setting, unchanged send buffer and exact bytes. Current
+native added-line coverage is 971/971 from matching Cargo/complete Dart FFI
+traces and current source hashes. The preceding full `bin/verify` passed Rust,
+Dart VM, consumers, Chrome and Wasm; fresh verification is running for the
+owned-frame and gateway shutdown changes. A bounded MCP unsubscribe assertion
+preserves the exact expected final state and passes full Linux FFI collection.
+
+Retention uses a separate collection-normalized stress campaign. Normal
+performance/RSS uses default VM settings; the internal retention worker alone
+uses an 8 MiB nursery and checked SDK GC hooks. Rooted/unrooted 32 MiB managed
+and native controls verify physical release and ownership. A 1 MiB nursery was
+rejected for a 35.5-second WAMP-to-MQTT slowdown; an 8 MiB Linux probe passes
+15 full workloads and 225,000 exact translations. Python coverage is
+1,084/1,084 and the changed gateway worker is 308/308. Full `bin/verify` passed
+before the native cleanup change; current full verification remains required after the frame and shutdown changes.
 
 Required gateway CI uses a hardware-qualified ARM64 reference. Every candidate
 must match its four-vCPU Neoverse-N2 CPU signature before sampling. The earlier
@@ -27,15 +62,17 @@ eight overload rows pass their separate frozen budgets. README tables include
 every direction/profile result, per-process CPU and warm/peak/drained RSS,
 direct controls and memory growth.
 
-Coverage passes 744/744 gateway/shared Dart lines, 759/759 MQTT lines, 270/270
-gateway component lines, 882/882 native added production lines and 947/947
-Python tooling lines, with zero Python exclusions. The source-hash regression
-recomputes the compressed native Cargo + Dart FFI union for current Rust source
-SHA-256 `1254e227…c93fc01`. Fresh full `bin/verify` passes on the current
-production code, including VM, consumer smoke, Chrome and WebAssembly.
-Offline tests validate every new README cell and the exact budget policy.
+Current native proof covers 971/971 added production lines, with matching
+Cargo and complete Dart FFI traces. The source-hash regression independently
+recomputes their compressed union. Python tooling covers 1,084/1,084 lines with
+zero exclusions; the changed gateway worker covers 308/308. Fresh whole-gateway
+Dart coverage passes 770/770, MQTT sources 772/772 and the gateway component
+280/280. Exact-head CI remains required. The preceding full verification
+passed VM, consumer smoke, Chrome and WebAssembly; current `bin/verify` is running for the new Dart changes.
+Frozen x64/ARM64 fixtures and every numeric limit remain unchanged. Current
+ARM64 README values will be published only from complete verified samples.
 
-Required GitHub Actions smoke and four numeric shards are Full Verify
+Required GitHub Actions smoke and sixteen profile shards are Full Verify
 prerequisites. Missing, failed, skipped and cancelled lanes fail closed;
 diagnostic record-only runs remain explicit. The
 [current branch checks](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart.yml?query=branch%3Acodex%2Fmqtt-wamp-gateway)
