@@ -1,0 +1,510 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "cases": 48,
+  "paired_observations": 336,
+  "failed_RSS_cases": 43,
+  "failed_RSS_pairs": 301,
+  "passing_control_cases": 5,
+  "passing_control_pairs": 35,
+  "all_codec_role_sums_and_original_paired_ratios_match_exactly": true,
+  "all_signed_role_differences_conserve_paired_sum_gap": true,
+  "original_input_sha256": {
+    "manifest.json": "8e23c1f4a16511b4c38e1a7cd09554a956f6d73bf5a7d42e0d6da45f3d1142f3",
+    "comparison.json": "cfab5491029345ebc1c986813e638a73e8d7cc691e3439a934350c4cf6d63b8e",
+    "runs/0003_measured.jsonl": "125f2eecd2b3deed461fb568a24a3380fe2ba09965bbd7d48f80e3a12e6a24a2",
+    "runs/0004_measured.jsonl": "6f2821d28f7162b8fe9fba0c56effd92c67a2b38428d9ae6e3d6c241b64e9134",
+    "runs/0005_measured.jsonl": "84841bf9d63c61db14585f655e8a5b0439b06f377826db9b6027f49e3ba20a98",
+    "runs/0006_measured.jsonl": "70e3784b55a2f2f001ffe8de3ed5dad47c02605596014ef2dc4ad9edd5b84c7f",
+    "runs/0007_measured.jsonl": "c04d2107ba365032c34bbb1d8498f0fe607e70da38bf7e5503647c31cbd78892",
+    "runs/0008_measured.jsonl": "4eff56391bd7e0a34e50c1db85f1bc9be29640c927a078287e39c8451e4441f8",
+    "runs/0009_measured.jsonl": "6e8b5f62cee31d472de51b8363869bc98479bd1c300b6d85b3ba84c7049f1372"
+  },
+  "primary_audit_sha256": "8c17372e172919f1822aed657569651f4f15cd123225ba8db820f85cfd6aac76",
+  "gate_source_sha256": "bb9a3648f7698fdd8b0a9be1b4c2d019ebf5cb636103a6831eb9ea0d4620334e",
+  "script_sha256": "3c423a486d192eefb7e6ab95d8161a9d47735a27e873bd057ab7b629d43aaecc",
+  "rows_sha256": "a20f9f16fdb40050e6ed76f2f2b7249d3ec0b4326a5b26142bd1791f28c4363c",
+  "case_summaries": [
+    {
+      "case": "rpc_rawsocket_clear_dart_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.004384178878729,
+      "median_paired_sum_difference_bytes": 3395584,
+      "separate_role_delta_medians_bytes": {
+        "client": 2330624,
+        "server": 487424
+      }
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0324864225694044,
+      "median_paired_sum_difference_bytes": 25432064,
+      "separate_role_delta_medians_bytes": {
+        "client": 24928256,
+        "server": -405504
+      }
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0142722753814382,
+      "median_paired_sum_difference_bytes": 10502144,
+      "separate_role_delta_medians_bytes": {
+        "client": 8937472,
+        "server": -700416
+      }
+    },
+    {
+      "case": "rpc_rawsocket_clear_native_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0009019082153954,
+      "median_paired_sum_difference_bytes": 598016,
+      "separate_role_delta_medians_bytes": {
+        "client": -90112,
+        "server": 8192
+      }
+    },
+    {
+      "case": "rpc_rawsocket_clear_native_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0092317818089442,
+      "median_paired_sum_difference_bytes": 6549504,
+      "separate_role_delta_medians_bytes": {
+        "client": 5001216,
+        "server": 1351680
+      }
+    },
+    {
+      "case": "rpc_rawsocket_clear_native_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0010922839938383,
+      "median_paired_sum_difference_bytes": 798720,
+      "separate_role_delta_medians_bytes": {
+        "client": 610304,
+        "server": -188416
+      }
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0011492365785586,
+      "median_paired_sum_difference_bytes": 831488,
+      "separate_role_delta_medians_bytes": {
+        "client": -598016,
+        "server": -217088
+      }
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0046947819871337,
+      "median_paired_sum_difference_bytes": 3362816,
+      "separate_role_delta_medians_bytes": {
+        "client": 3584000,
+        "server": 278528
+      }
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0058701440281768,
+      "median_paired_sum_difference_bytes": 4587520,
+      "separate_role_delta_medians_bytes": {
+        "client": 4616192,
+        "server": 434176
+      }
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0060729905699228,
+      "median_paired_sum_difference_bytes": 4771840,
+      "separate_role_delta_medians_bytes": {
+        "client": 2920448,
+        "server": 1687552
+      }
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0002869650059218,
+      "median_paired_sum_difference_bytes": 225280,
+      "separate_role_delta_medians_bytes": {
+        "client": 0,
+        "server": 225280
+      }
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0023019172302539,
+      "median_paired_sum_difference_bytes": 1519616,
+      "separate_role_delta_medians_bytes": {
+        "client": -249856,
+        "server": 872448
+      }
+    },
+    {
+      "case": "rpc_websocket_clear_dart_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0005485778438339,
+      "median_paired_sum_difference_bytes": 352256,
+      "separate_role_delta_medians_bytes": {
+        "client": 0,
+        "server": 352256
+      }
+    },
+    {
+      "case": "rpc_websocket_clear_dart_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0086505854501249,
+      "median_paired_sum_difference_bytes": 5537792,
+      "separate_role_delta_medians_bytes": {
+        "client": 4227072,
+        "server": 1052672
+      }
+    },
+    {
+      "case": "rpc_websocket_clear_dart_pre_encoded_span",
+      "original_RSS_gate_passed": true,
+      "original_paired_RSS_median_ratio": 0.998427034416487,
+      "median_paired_sum_difference_bytes": -1126400,
+      "separate_role_delta_medians_bytes": {
+        "client": -1654784,
+        "server": 1114112
+      }
+    },
+    {
+      "case": "rpc_websocket_clear_native_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0040393082092225,
+      "median_paired_sum_difference_bytes": 3141632,
+      "separate_role_delta_medians_bytes": {
+        "client": 2080768,
+        "server": 1060864
+      }
+    },
+    {
+      "case": "rpc_websocket_clear_native_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0009991507218865,
+      "median_paired_sum_difference_bytes": 655360,
+      "separate_role_delta_medians_bytes": {
+        "client": 1572864,
+        "server": 1716224
+      }
+    },
+    {
+      "case": "rpc_websocket_clear_native_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0035347171941187,
+      "median_paired_sum_difference_bytes": 2433024,
+      "separate_role_delta_medians_bytes": {
+        "client": -811008,
+        "server": 1474560
+      }
+    },
+    {
+      "case": "rpc_websocket_tls_dart_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0058915079075645,
+      "median_paired_sum_difference_bytes": 4698112,
+      "separate_role_delta_medians_bytes": {
+        "client": 2957312,
+        "server": 348160
+      }
+    },
+    {
+      "case": "rpc_websocket_tls_dart_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0038167938931297,
+      "median_paired_sum_difference_bytes": 2600960,
+      "separate_role_delta_medians_bytes": {
+        "client": 2236416,
+        "server": -303104
+      }
+    },
+    {
+      "case": "rpc_websocket_tls_dart_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0012382353757738,
+      "median_paired_sum_difference_bytes": 913408,
+      "separate_role_delta_medians_bytes": {
+        "client": 147456,
+        "server": -319488
+      }
+    },
+    {
+      "case": "rpc_websocket_tls_native_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0040839265642563,
+      "median_paired_sum_difference_bytes": 2678784,
+      "separate_role_delta_medians_bytes": {
+        "client": 2973696,
+        "server": -557056
+      }
+    },
+    {
+      "case": "rpc_websocket_tls_native_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.000083749935577,
+      "median_paired_sum_difference_bytes": 53248,
+      "separate_role_delta_medians_bytes": {
+        "client": -3321856,
+        "server": 847872
+      }
+    },
+    {
+      "case": "rpc_websocket_tls_native_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0035351784918551,
+      "median_paired_sum_difference_bytes": 2678784,
+      "separate_role_delta_medians_bytes": {
+        "client": 2428928,
+        "server": -454656
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0031208534578844,
+      "median_paired_sum_difference_bytes": 2408448,
+      "separate_role_delta_medians_bytes": {
+        "client": 1974272,
+        "server": 434176
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0066881596665418,
+      "median_paired_sum_difference_bytes": 4902912,
+      "separate_role_delta_medians_bytes": {
+        "client": 7344128,
+        "server": 1773568
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.009834548850066,
+      "median_paired_sum_difference_bytes": 7053312,
+      "separate_role_delta_medians_bytes": {
+        "client": 5406720,
+        "server": 1552384
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_clear_native_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0025268938036433,
+      "median_paired_sum_difference_bytes": 1703936,
+      "separate_role_delta_medians_bytes": {
+        "client": 614400,
+        "server": -143360
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_clear_native_native_buffer",
+      "original_RSS_gate_passed": true,
+      "original_paired_RSS_median_ratio": 0.9933421353974382,
+      "median_paired_sum_difference_bytes": -4472832,
+      "separate_role_delta_medians_bytes": {
+        "client": -2924544,
+        "server": 692224
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_clear_native_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0014171833480956,
+      "median_paired_sum_difference_bytes": 1114112,
+      "separate_role_delta_medians_bytes": {
+        "client": -229376,
+        "server": 978944
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0038649639144954,
+      "median_paired_sum_difference_bytes": 2625536,
+      "separate_role_delta_medians_bytes": {
+        "client": 3284992,
+        "server": -532480
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_native_buffer",
+      "original_RSS_gate_passed": true,
+      "original_paired_RSS_median_ratio": 0.9996522797409484,
+      "median_paired_sum_difference_bytes": -229376,
+      "separate_role_delta_medians_bytes": {
+        "client": 565248,
+        "server": 724992
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0044845905223885,
+      "median_paired_sum_difference_bytes": 3461120,
+      "separate_role_delta_medians_bytes": {
+        "client": 4145152,
+        "server": 393216
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_tls_native_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.007161444670626,
+      "median_paired_sum_difference_bytes": 5296128,
+      "separate_role_delta_medians_bytes": {
+        "client": 307200,
+        "server": 1724416
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_tls_native_native_buffer",
+      "original_RSS_gate_passed": true,
+      "original_paired_RSS_median_ratio": 0.9925504240888736,
+      "median_paired_sum_difference_bytes": -5853184,
+      "separate_role_delta_medians_bytes": {
+        "client": -4587520,
+        "server": -4096
+      }
+    },
+    {
+      "case": "pubsub_rawsocket_tls_native_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.006593601957688,
+      "median_paired_sum_difference_bytes": 5165056,
+      "separate_role_delta_medians_bytes": {
+        "client": 5652480,
+        "server": -12288
+      }
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0044006455664014,
+      "median_paired_sum_difference_bytes": 2985984,
+      "separate_role_delta_medians_bytes": {
+        "client": 0,
+        "server": -671744
+      }
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0049974262182566,
+      "median_paired_sum_difference_bytes": 3817472,
+      "separate_role_delta_medians_bytes": {
+        "client": 3317760,
+        "server": 1101824
+      }
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.000396604264249,
+      "median_paired_sum_difference_bytes": 323584,
+      "separate_role_delta_medians_bytes": {
+        "client": -901120,
+        "server": 2174976
+      }
+    },
+    {
+      "case": "pubsub_websocket_clear_native_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0090849812532132,
+      "median_paired_sum_difference_bytes": 5935104,
+      "separate_role_delta_medians_bytes": {
+        "client": -8192,
+        "server": 2326528
+      }
+    },
+    {
+      "case": "pubsub_websocket_clear_native_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0139810520699108,
+      "median_paired_sum_difference_bytes": 10088448,
+      "separate_role_delta_medians_bytes": {
+        "client": 5529600,
+        "server": 1048576
+      }
+    },
+    {
+      "case": "pubsub_websocket_clear_native_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0029729405601246,
+      "median_paired_sum_difference_bytes": 1929216,
+      "separate_role_delta_medians_bytes": {
+        "client": 237568,
+        "server": 385024
+      }
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0052922541772782,
+      "median_paired_sum_difference_bytes": 3489792,
+      "separate_role_delta_medians_bytes": {
+        "client": -1048576,
+        "server": 659456
+      }
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0029925083743638,
+      "median_paired_sum_difference_bytes": 2273280,
+      "separate_role_delta_medians_bytes": {
+        "client": 1736704,
+        "server": 675840
+      }
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_pre_encoded_span",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.007033978698633,
+      "median_paired_sum_difference_bytes": 5345280,
+      "separate_role_delta_medians_bytes": {
+        "client": 3731456,
+        "server": 819200
+      }
+    },
+    {
+      "case": "pubsub_websocket_tls_native_values",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0092825731292714,
+      "median_paired_sum_difference_bytes": 6447104,
+      "separate_role_delta_medians_bytes": {
+        "client": -12288,
+        "server": -1040384
+      }
+    },
+    {
+      "case": "pubsub_websocket_tls_native_native_buffer",
+      "original_RSS_gate_passed": false,
+      "original_paired_RSS_median_ratio": 1.0041584851857874,
+      "median_paired_sum_difference_bytes": 2723840,
+      "separate_role_delta_medians_bytes": {
+        "client": 2375680,
+        "server": -1626112
+      }
+    },
+    {
+      "case": "pubsub_websocket_tls_native_pre_encoded_span",
+      "original_RSS_gate_passed": true,
+      "original_paired_RSS_median_ratio": 0.9953253990280748,
+      "median_paired_sum_difference_bytes": -3518464,
+      "separate_role_delta_medians_bytes": {
+        "client": -1253376,
+        "server": 602112
+      }
+    }
+  ],
+  "scope": "READONLY descriptive original-primary role attribution; no workload, gate or source run/change. Peaks may occur at different times. Signed role medians are separate statistics and do not add to the original median ratio. No physical simultaneous-total, retained-leak, root-cause, transport/RAM repair or acceptance claim. Both baseline codec roles and all48cases/336pairs including passing controls retained.",
+  "created_utc": "2026-11-02T19:33:01.439751+00:00"
+}

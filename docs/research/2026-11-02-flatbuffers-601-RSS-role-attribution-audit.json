@@ -1,0 +1,33 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "audit": "PASS",
+  "cases": 48,
+  "paired_observations": 336,
+  "failed_RSS_cases": 43,
+  "failed_RSS_pairs": 301,
+  "passing_RSS_control_cases": 5,
+  "passing_RSS_control_pairs": 35,
+  "actual_role_records_verified": 2016,
+  "actual_input_files_rehashed": 9,
+  "source_script_declaration_guard_hashes_verified": true,
+  "all_original_codec_RSS_and_baseline_choices_and_ratios_reproduce_exactly": true,
+  "all_signed_role_delta_residuals_zero": true,
+  "all_original_case_medians_reproduce_exactly": true,
+  "role_PID_overlap_records": 0,
+  "failed_pair_role_sign_counts": {
+    "failed_pairs": 301,
+    "client_positive": 192,
+    "server_positive": 175,
+    "both_positive": 109,
+    "client_positive_server_nonpositive": 83,
+    "server_positive_client_nonpositive": 66,
+    "both_nonpositive": 43,
+    "total_positive": 216,
+    "total_negative": 84,
+    "total_zero": 1
+  },
+  "summary_sha256": "4ec0277bb3d777a698142cf6fd9c0c60a5d8d36c49a735798696a079b4e7fdc7",
+  "rows_sha256": "a20f9f16fdb40050e6ed76f2f2b7249d3ec0b4326a5b26142bd1791f28c4363c",
+  "scope": "Independent READBACK of descriptive original-primary role attribution against all original comparator evidence and unchanged raw input hashes. No new workload/measurement/gate/source/data change. All failed and passing pairs retained; sign counts are observations, not root-cause/leak/transport/RAM acceptance. Role peaks need not coincide, and role medians do not add to median gate ratio.",
+  "audited_utc": "2026-11-02T19:34:41.143218+00:00"
+}

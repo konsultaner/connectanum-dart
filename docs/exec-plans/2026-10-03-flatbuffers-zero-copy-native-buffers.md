@@ -7,8 +7,10 @@ independently audited. Preserve all48/1440 and50/1500rows, original executions,
 artifacts and exact reports. Primary150measured incl43RSS,0unmeasured/0integrity;
 supplemental192measured incl36RSS plus2unmeasured allocations. No active numerical
 campaign, source/native/HEAD edit or adoption. Do not repoll/redownload/rerun.
-Next perform bounded read-only attribution on retained current601 evidence to
-identify a testable production defect; no new patch/control/capture is ready.
+Read-only attribution is now complete/audited for all48/336original pairs.
+Next inspect actual Dart native-buffer client construction/lifetime source for
+the largest observed gap, retaining both roles/allcontrols; no production defect
+is confirmed and no patch/control/capture is ready.
 Owncanonical/copy/MQTT20/hostedJS/fullCI39 and proper fresh50row native control
 are complete/audited within their distinct scopes; they do not accept RAM or
 broadWAMP parity. Keep localcc1.10 and hostedcc1.11 build cohorts distinct.
@@ -24,6 +26,25 @@ this later same-binary witness closes that byte-rehash limitation without an
 ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
 results changed. [Cross-artifact byte audit](../research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
 
+
+## Read-only original RSS role attribution complete (2026-11-02)
+
+All48primary cases /336original pairs, including43failed RSS cases /301pairs
+and5passing RSS controls /35pairs, independently verify all2,016role records,
+codec sums, actual per-repetition baseline choices, ratios and case medians.
+Nine original input hashes remain unchanged. No workload/measurement/gate ran.
+Sixteen synthetic guards and qualified source review preceded original-data
+output. All data, including negative paired gaps and passing controls, remain.
+
+Among301pairs from failed cases, role contributions vary:109both-positive,
+83client-only-positive,66server-only-positive,43neither-positive. Their sum is
+positive216times, negative84 and zero1. This is descriptive, not a retained
+leak, simultaneous physical total, single-process cause or repair. Medians and
+ratios do not distribute. [Complete method, all rows and independent audit](../research/2026-11-02-flatbuffers-601-RSS-role-attribution.md).
+Next inspect the actual Dart native-buffer client path of the largest original
+RSS gap (`rpc_rawsocket_clear_dart_native_buffer`,1.032486median ratio), retaining
+both roles/allcontrols. No production defect is confirmed; no patch or capture
+is ready. Both strict campaigns stay failed, source601 frozen/unadopted.
 
 ## Both exact601 strict campaigns complete failed; no adoption (2026-11-02)
 
