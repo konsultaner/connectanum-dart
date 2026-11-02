@@ -9,18 +9,22 @@
     "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
     "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
   },
-  "canonical": "ACTIVE, own clean frozen source/HEAD/tree/native/ten source guards/three locks; no pass claim yet. Actual localChromeWasm enabled, no localJS claim.",
+  "canonical": "COMPLETE PASS and independently audited; clean unchanged HEAD/tree/native/ten source guards/three locks/exact reconstructed source archive. LocalChromeWasm8308 observations; no localJS.",
   "CI": {
     "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41378268724",
     "attempt": 1,
     "source_head_verified": true,
-    "status": "in_progress"
+    "status": "not_complete",
+    "completed_MQTT_job": 125063218930,
+    "MQTT20": "COMPLETEPASS/independentlyreproduced originalbudgets; no unchangedrerun"
   },
   "copy_lifetime": {
     "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41378271401",
     "attempt": 1,
     "source_head_verified": true,
-    "status": "in_progress"
+    "status": "completed_success_independently_audited"
   },
-  "acceptance": "Component correctness/copy/lifetime audited; controlled measures and fullstrict48/50 pending; no adoption or RSS/transport parity."
+  "acceptance": "Own canonical/copy/browser/MQTT completepass; fullCI notcomplete. Relevant controlled measurements and strict48/50 pending; no source adoption or RSS/transport parity.",
+  "canonical_log_sha256": "fd5abbe031061a0462245d1702f407d2cee23b7c1f137508e6b450e465eff6aa",
+  "hosted_JS": "Own separate hostedJS8192 observations/8172success20native-onlyskip PASS, independently audited."
 }

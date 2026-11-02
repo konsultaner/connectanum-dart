@@ -29,7 +29,7 @@
       "native/transport/ct_core/src/wamp/flatbuffers_wire.rs"
     ],
     "behavior": "Preserve RawFrame segments through same complete generic validation; logical-only bounds before bytevector slice_or_copy; contained fields borrow, only crossing fields copy. Contiguous fast path borrowed. Sparse index per64segments.",
-    "verification": "COMPLETE474core+2alias+3codec/319FFI/615router-runtime/22nativeWebSocket/115MQTTincluding7actualPaho pass with own3170native. Sourcepublishedclean/frozen; canonicalactive, copy/CIactive.",
+    "verification": "PublishedD9CB own canonical/copy/lifetime/hostedJS/MQTT20 COMPLETEPASS and independently audited, focused474core+2alias+3codec/319FFI/615router/22nativeWS/115MQTTincl7Paho retained. FullCI notcomplete; controlled measurements andfinalstrict48/50 pending. No adoption.",
     "test_setup_findings": "Retainedcounterrace/compileassertion/zero-testfilter/wrong-CWD MQTT failures. All actual boundary tests execute in474core; correctrouterpackagecwd MQTT115pass with sameactual3170native; no productionchange or numericalrerun.",
     "accepted_as_RSS_or_transport_repair": false
   },

@@ -2,15 +2,13 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish the frozen `d9cb93c2` segmented FlatBuffers receive
-candidate's own full canonical verification, CI and copy/lifetime campaigns.
-Focused core/FFI/native WebSocket/router/MQTT/Paho checks pass; no focused
-pipeline is active. Preserve source/HEAD/native/locks while canonical runs.
-After clean canonical and CI, audit controlled before/after evidence and complete
-own strict48/50 before adoption. Parent `600e82f5` canonical/copy/all39CI pass;
-its source comparison is mixed. All historical numerical campaigns remain
-retained, with no unchanged numerical retry or report substitution. Preserve
-all validation, ownership, body verification, window/sample and gate policies.
+Current step: finish only the remaining `d9cb93c2` CI jobs and audit preservation
+of completed numerical execution/artifacts. Own frozen canonical, copy/lifetime,
+hosted JS and MQTT20 pass independent audits; do not rerun or redownload them.
+A single read-only final-CI watcher is active. After clean full CI, validate
+relevant controlled before/after evidence and complete own strict48/50 before
+adoption. Preserve all validation, lifetime/body, windows/samples, SDK/GC/
+allocator/worker and gate policies. The published candidate stays frozen.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
@@ -90,15 +88,38 @@ data stayed intact. Full final-runtime strict 48/50 and clean CI remain required
 
 Published `d9cb93c2ddc007d1d904a6b4245d7f3778a1131f` on
 `codex/flatbuffers-segmented-decode-views` is clean and frozen. Own full canonical
-is active with native `3170141d…`, tracked tree `6cf31f1b…`, ten source guards
-and three unchanged locks. Actual local Chrome/Wasm is enabled; no pass or
-local JS claim exists yet. The predeclared exact-source
-[CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41378268724) and
-[copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41378271401)
-runs are active on attempt one; both source heads verify. No source/HEAD/native
-edits are allowed during canonical. Every numerical observation is retained;
-strict final-runtime48/50 has not started. No source is adopted.
-[Frozen verification scope](../research/2026-11-02-flatbuffers-segmented-receive-validation-checkpoint.json).
+**passes independent audit** with unchanged native `3170141d…`, tracked tree
+`6cf31f1b…`, ten source guards, three locks and exact reconstructed archive.
+Canonical log SHA is `fd5abbe031061a0462245d1702f407d2cee23b7c1f137508e6b450e465eff6aa`.
+Actual local Chrome/Wasm has 8,308 observations and no local JS. Own separate
+hosted Chrome/JS passes 8,192 observations / 8,172 successes / 20 native-only
+skips. The first read-only JS auditor's reporter-format assumption is retained
+and corrected against actual emoji success/skip rows; no observations reran.
+
+Own [copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41378271401)
+is complete pass: 3,308 source inputs, 120 live / 300 inventory rows and all 32
+zero-avoidable-copy checks including E2EE/transcode/native-crypto accounting.
+All 3,305 native-view source inputs, exact archive/fixture/ports, three positive
+lifetime phases, expected negative control and cleanup verify. Actual native
+`36162748…` rehashes from this exact source's retained profile artifact.
+Production native/driver have stable digest receipts but their bytes are not
+retained; no ffi-test substitution.
+
+The original current-source MQTT job independently passes all 20 unchanged-budget
+profiles on Xeon Platinum 8573C / Dart 3.13.1. WS 5 / 3.1.1 rate ratios are
+0.775391 / 0.792471. Both diagnostic profiles retain all ten rows and actual
+native/AOT/client/perf/sampler bytes. Separately, all 966 shared-CI native inputs,
+lock and actual `eb4d9f21…` library verify; it is distinct from measured
+`36162748…`. These passes do not establish causal repair of earlier 7763 failures,
+full WAMP/RAM parity or source adoption. Full [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41378268724)
+is not complete. A single read-only final watcher will check 11 previously
+completed execution timestamps and 12 artifact IDs/digests, including performance.
+No numerical gate reran. Relevant controlled before/after and complete strict
+final-runtime48/50 remain pending.
+[Own canonical and separate hosted browser audit](../research/2026-11-02-flatbuffers-segmented-receive-canonical-audit.json),
+[copy/lifetime and binary scope](../research/2026-11-02-flatbuffers-segmented-receive-copy-audit.json),
+[all MQTT summaries and distinct builds](../research/2026-11-02-flatbuffers-segmented-receive-mqtt-audit.json),
+[frozen verification scope](../research/2026-11-02-flatbuffers-segmented-receive-validation-checkpoint.json).
 
 The separate decoder probe stops on a real application-alias assertion before
 collecting any decoder census rows. Source tracing confirms native WebSocket
@@ -116,7 +137,8 @@ and a fresh 1 MiB exported-view lifetime check pass. The rebuilt own native is
 `3170141d…`; all three locks remain unchanged. Original test/setup failures and
 the zero-test filter are retained; both actual boundary controls now execute in
 the full core pass. Root review finds no confirmed remaining source defect.
-Own frozen canonical/copy/CI/controlled measurements/final48+50 are pending;
+Own canonical and copy/lifetime now pass; full CI, controlled measurements
+and final48/50 are pending;
 no adoption or RAM/transport acceptance is claimed.
 [Reviewed change and exact verification](../research/2026-11-02-flatbuffers-segmented-receive-correctness.md).
 [Source route, hashes and test-first scope](../research/2026-11-02-flatbuffers-segmented-receive-investigation.json).
@@ -142,8 +164,8 @@ are preserved. These expose generic-header costs without proving a RAM cause.
 Source tracing also shows canonical native-client PPT uses Dart prefix projection
 and `sendSegments` before the native compose fallback. Therefore the Rust CALL
 encoder count alone does **not** establish the primary client hot path or justify
-a CALL optimization as benchmark repair. A separate fresh-input actual decoder
-census is being prepared before choosing any runtime change.
+a CALL optimization as benchmark repair. The separate decoder preflight then failed a real alias assertion before any
+census rows; the receive-copy repair and its current proof are recorded above.
 [Complete census/input hashes](../research/2026-11-02-flatbuffers-fresh-encoder-census-audit.json),
 [all 370 rows](../research/2026-11-02-flatbuffers-fresh-encoder-census.jsonl),
 [compiled counter source](../research/2026-11-02-flatbuffers-fresh-encoder-census.rs).

@@ -1,0 +1,47 @@
+{
+  "source_archive_sha256": "85b953dd4a1045683105550c85383744161c6be0b21054b277653a57eef88279",
+  "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "full_canonical_pass": true,
+  "actual_source_HEAD_tree_clean": true,
+  "actual_tracked_tree_sha256": "6cf31f1b2bd1dd0f120b956dbd02333203054bc1e432382da5157c895bb277ed",
+  "own_native_sha256": "3170141d72a87864f874fbbbc1b7e10c61075befe63ce9d61f28bedecebb6aa2",
+  "all_guarded_sources_and_three_locks_unchanged": true,
+  "guarded_sources": {
+    "native/transport/ct_core/src/wamp/flatbuffers_wire.rs": "5f0e020cc55d936962d6c3f213d6c1b30948d69d7faa2e465b6f7b5994866b19",
+    "native/transport/ct_core/src/wamp/flatbuffers_codec.rs": "1977b563ddf11f74353ecdf66b61cf2fd9da62123c8d3ee3546c5e9dd25dd8aa",
+    "native/transport/ct_core/tests/flatbuffers_segmented_receive_alias.rs": "0914e421134b8a261be607de4c9f8e35f23416f9841d537d241b6b12b0779c7e",
+    "native/transport/ct_ffi/src/runtime/flatbuffers_opaque_tests.rs": "2b186d83b9b43b6a3a1dda6d61886be8f98a6771b9940a6e0bb42349fc5224ec",
+    "native/transport/ct_core/src/lib.rs": "0e88607d1bfeacd115097d14e3edc9077404590c1d392ec380c6dc1e55bc4265",
+    "native/transport/ct_core/src/wamp/flatbuffers_encoder.rs": "c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2",
+    "native/transport/ct_core/src/wamp.rs": "0317af674358e970bfffd716b2a4e504cc852a01bf43478dffaa84f6cf596c6d",
+    "native/transport/ct_ffi/src/runtime/ffi.rs": "69b59a4453b86c34405fe4d3b57fdb5a50eaa68b921e6efcea46fa47ce1d4d9c",
+    "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart": "07b6d986a1a4d1b0e9864e6ca0ff80cb2395bf0245eed43c6a9db11410b843bf",
+    "packages/connectanum_router/lib/src/native/runtime.dart": "473d213d7e69aaba0ed86ca7692f569db3e0395c1ec8adadca9921a8284e1939"
+  },
+  "three_locks": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "log_sha256": "fd5abbe031061a0462245d1702f407d2cee23b7c1f137508e6b450e465eff6aa",
+  "receipt_sha256": "a2c2263427232f966bbc941324ff207edaf603199b2ce5ce16efdb21bccd5994",
+  "actual_local_Chrome_Wasm_observations": 8308,
+  "actual_local_JavaScript_observations": 0,
+  "scope": "Own frozenD9CB full bin/verify; exact clean source/HEAD/tree/ownnative/three locks independently rehashed. Actual local ChromeWasm only; hostedJS separate. No transport/RAM or strict48/50 acceptance claim.",
+  "audited_utc": "2026-11-02T02:59:04.691651+00:00",
+  "hosted_JavaScript_separate_audit": {
+    "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+    "run": 41378268724,
+    "job": 125063218885,
+    "job_success": true,
+    "actual_hosted_Chrome_JavaScript_observations": 8192,
+    "actual_success_observations": 8172,
+    "actual_native_only_skips": 20,
+    "hosted_Chrome_Wasm_observations": 0,
+    "log_sha256": "712617cea68f57e7fa891d2e8a1ffc80c1f9bc17632de768993f4ee61ede567f",
+    "job_metadata_sha256": "6e32c9a3f87b91344f2871329026463ae4c95edcba580d859822c8334db6c0a8",
+    "reporter_assumption_correction": "Retained first read-only auditor failure requiring expanded summary; actual emoji-reporter success/skip rows independently reproduced. Original log/data/source unchanged, no test or numerical rerun.",
+    "scope": "Own exact-D9CB hosted Chrome/JS proof, separate from own localChrome/Wasm8308. Not localJS, fullCI completion, RAM/throughput or finalstrict48/50 acceptance.",
+    "audited_utc": "2026-11-02T03:02:49.242228+00:00"
+  }
+}

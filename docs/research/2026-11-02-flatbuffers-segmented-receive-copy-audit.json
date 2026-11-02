@@ -1,0 +1,131 @@
+{
+  "owned_copy": {
+    "head": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+    "verified_source_inputs": 3308,
+    "retained_generated_inputs": [
+      "pubspec.lock",
+      "native/bench/Cargo.lock",
+      "native/transport/Cargo.lock",
+      ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
+    ],
+    "live": {
+      "rows": 120,
+      "encoded_volume": 120,
+      "e2ee": 96,
+      "transcode": 120,
+      "native_crypto": 48
+    },
+    "inventory": {
+      "rows": 300,
+      "encoded_volume": 300,
+      "zero_avoidable_payload_copy": 32,
+      "e2ee": 96,
+      "native_crypto": 72,
+      "transcode": 60
+    },
+    "source_inputs_unchanged": true,
+    "binaries_unchanged": true,
+    "complete_source_derived_case_inventory_verified": true,
+    "binary_scope": "Hosted stable digest receipts here; independently rehash retained production binaries when available and compare exact hashes, without substituting another build."
+  },
+  "native_view_lifetime": {
+    "head": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+    "phases": [
+      {
+        "name": "existing-api-baseline",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5474,
+        "failures": 0
+      },
+      {
+        "name": "direct-native",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5631,
+        "failures": 0
+      },
+      {
+        "name": "public-native-lease",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5814,
+        "failures": 0
+      }
+    ],
+    "negative_control": {
+      "rows": 0,
+      "expected_failures": 1
+    },
+    "cleanup_verified": true
+  },
+  "source_archive_fixture_ports_and_actual_binary": {
+    "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+    "run": 41378271401,
+    "artifact_id": 13112572270,
+    "native_view_source_inputs_verified": 3305,
+    "source_archive_reconstructed_exactly": true,
+    "source_archive_sha256": "85b953dd4a1045683105550c85383744161c6be0b21054b277653a57eef88279",
+    "fixture_verified": true,
+    "reported_native_view_binary_sha256": "361627482ffd36f132630ddf7b2cb7a4330e17095e5ae53b15b4bb940fe8e7aa",
+    "actual_same_source_native_view_binary_rehashed": true,
+    "native_view_byte_witness": {
+      "run": 41378268724,
+      "artifact_id": 13113300406,
+      "profile": "ws_sustained",
+      "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+      "actual_native_sha256": "361627482ffd36f132630ddf7b2cb7a4330e17095e5ae53b15b4bb940fe8e7aa"
+    },
+    "ports": [
+      {
+        "phase": "negative-control",
+        "listener_ports": [
+          25114,
+          27338,
+          28093
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "existing-api-baseline",
+        "listener_ports": [
+          14031,
+          21245,
+          20764
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "direct-native",
+        "listener_ports": [
+          17350,
+          62968,
+          8172
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "public-native-lease",
+        "listener_ports": [
+          11219,
+          20509,
+          19814
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      }
+    ],
+    "production_binaries_unchanged_receipt": true,
+    "production_binary_retention_limit": "Copy artifact has stable productionnative/driver digest receipts but does not retain thosebytes; do not substitute ffi-test or another sharedCI build.",
+    "scope": "OwnD9CB copy/lifetime reports/source inputs pass; actualnative-view bytes independently rehashed from its own currentD9CB retained CI profile artifact. Not RAM/throughput/finalacceptance. No phase retry or gate weakening.",
+    "audited_utc": "2026-11-02T02:57:07.341394+00:00",
+    "production_binary_hash_receipts": {
+      "production_native_library": "fc9ccb77e78cf1e6316eba72390d257d38c2decd9cba056cdaa6b33853fde656",
+      "production_driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940"
+    }
+  },
+  "scope": "Exact-D9CB copy/lifetime pass. Production native/driver only stable digest receipts; bytes not retained. Actual ffi-test native-view3616 rehashed from its OWN same-source profile. No build substitution or RAM/transport acceptance."
+}

@@ -1,0 +1,223 @@
+{
+  "MQTT20": {
+    "head": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+    "summaries": 20,
+    "all_summaries_exact": true,
+    "all_budgets_unchanged": true,
+    "candidate_passes": true,
+    "cpu_models": [
+      "INTEL(R) XEON(R) PLATINUM 8573C"
+    ],
+    "library_hashes": [
+      "361627482ffd36f132630ddf7b2cb7a4330e17095e5ae53b15b4bb940fe8e7aa"
+    ],
+    "selected": [
+      {
+        "profile": "native-ws-sustained/summary.json",
+        "throughput_ratio": 0.7753912139281843,
+        "passed": true
+      },
+      {
+        "profile": "native-ws-v311-sustained/summary.json",
+        "throughput_ratio": 0.7924710859573496,
+        "passed": true
+      }
+    ],
+    "audit": [
+      {
+        "path": "batched/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "3627cdbd8d5213a3541028cb338cb9b1b9aca54d028450f6db6e68b5b8beaa74",
+        "summary_sha256": "7a815c086e2b8a80e6cdd96c33be415b6d042f41b0cd2173495ff3a5a5e992a2"
+      },
+      {
+        "path": "burst/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "52722ea9651bc90c934e4ca5da289fed6cb732eb35463042eca0bbef91869226",
+        "summary_sha256": "97a1430d3ddced642cf8ccdd7598b128c407cd6c63972fcce72263a356efb3ce"
+      },
+      {
+        "path": "fanout/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "21608551ad1ce9c413f457bc26be9ff5e2b228ade9fadd5df6816ea496c7db34",
+        "summary_sha256": "17bca33fc379a59feea8e8d7ffb109c804ee8c0f4640bb55b281a7ea789ea564"
+      },
+      {
+        "path": "native-1k-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "b0445955c691e86faf91c470e5dec2ebd2d49cf5ec252f54c04971c6134a78f0",
+        "summary_sha256": "482f9709e3eb669d3b59304fed668ec9b8102e90cf275c12afc4209b2ee5d31e"
+      },
+      {
+        "path": "native-64k-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "b0acec780c1333ec49c410b9e20dadea44d4c92387e10c20bc07cf881b544965",
+        "summary_sha256": "269ce0410e3f8c39bec4b9b321a2680f7b38339167cd186c2693cfeaf4060b53"
+      },
+      {
+        "path": "native-batched/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "e53cc07431add8b075742374ec8eafe3d4eea856e7c196e9c657ab5c3e744e09",
+        "summary_sha256": "befe7226d4778d6c1479372b9a04da8278f23821f3dcf206243d968ce86037cf"
+      },
+      {
+        "path": "native-burst/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "edc29554283a4a2eb50dacc56fe907a4374a1057161fc9314dcf8a793c59db52",
+        "summary_sha256": "a3b8318c36b149a718ef6079652293fc29f171d20c47b5465713f038727211af"
+      },
+      {
+        "path": "native-fanout/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "c05faf505d3247467351ddc131c461c9d49db49d1d0f2a6821e26f896d10cb9a",
+        "summary_sha256": "b1b8d97b222ef12d4c0a7f39996bf290c5558e2073607a4c3c164239c2b03671"
+      },
+      {
+        "path": "native-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "baddb5df65df70dfd7571e710445914cc1843ad220eb86518b8906b67eed404f",
+        "summary_sha256": "7add4f614e583ed64c1d1290e339bd37d34a6371dc07fa20843df75cbf9a8529"
+      },
+      {
+        "path": "native-tls-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "1a22749cf22a400a07ccfe156784c557c8381b041f4e4af3b82ac8d63100af6b",
+        "summary_sha256": "28e6b0f513cf96083a2ab3e498f4d70dd1de1cec115f1514c0e6f68baa9791da"
+      },
+      {
+        "path": "native-tls-v311-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "f7a0d1dd711dda95203f6b4122cc191f84da230f95fc33f0c6903a7fc429dbfc",
+        "summary_sha256": "8338daeafa9c69913be26c2a1e9ef2c08bf9ae0f9355926cadb87d97f9b08d3d"
+      },
+      {
+        "path": "native-v311-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "7b74d6fa36f43e1628c9bcf8df5e86fee67aaa9dea5b980520acf0ce5cd1066c",
+        "summary_sha256": "99255f145f53650776b3b33ca321a250a5e1e36400dc01e96bb523c12e2f52c6"
+      },
+      {
+        "path": "native-ws-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "631b1265e6deeed6b0f5344f452055afae3a4fc08ea53de41812fbcde4afe0f1",
+        "summary_sha256": "a8f14fb8c2cfb1a48163c54c0ce5584cf0c937cd97023856c00a4efe41c922ba"
+      },
+      {
+        "path": "native-ws-v311-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "14ffd91cbc1fd61ba53ba25f86413a75198ad23dd87a53bfe959d63460fdf53e",
+        "summary_sha256": "2ff964d91f869afe903b1c6bc678b1d101031537fd72a342e94989cb55c86199"
+      },
+      {
+        "path": "native-wss-single-smoke/summary.json",
+        "rows": 6,
+        "passed": true,
+        "raw_sha256": "22caecf42cc7018aa8cf86ffa8fd466e72f29cd2b4a5d0f61601918ddff41c4b",
+        "summary_sha256": "3913522d1af3583e9fbdba4caf91d21ff126fd4f03e53c1a5ec278067a7d47df"
+      },
+      {
+        "path": "native-wss-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "c03709f7f968da9e7948753841e1bf3b2d2874d5551178f8781a120338b4d1e6",
+        "summary_sha256": "9a6fd454b39987c113fc8e05d8c6366831dc32516223f9ca0ca2d338a0ae1544"
+      },
+      {
+        "path": "native-wss-v311-single-smoke/summary.json",
+        "rows": 6,
+        "passed": true,
+        "raw_sha256": "a1195020d78273f89e106f61ba592e2561c91720da056cf075a96f300dd4f2b2",
+        "summary_sha256": "14102b3d97c6ffd1e66c19600e9fc42ebc698933807d7cc650562fd7fc32e1eb"
+      },
+      {
+        "path": "native-wss-v311-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "7945184686a3bf120727f5a41f1871879b270adbc6c49bbcbaba1724f974894c",
+        "summary_sha256": "e25cf8dc154b51fda71182e6f0f215f85da26e6daee1123b881c30e4508e3b70"
+      },
+      {
+        "path": "sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "b6b031fa4b4916664b36454acf70b65437f76ff5164d8a9161be4c28307234bb",
+        "summary_sha256": "b4cc7374ceaf2604d1599c2872b331dc9afeddf458560586f3d128cba3d442b2"
+      },
+      {
+        "path": "v311-sustained/summary.json",
+        "rows": 10,
+        "passed": true,
+        "raw_sha256": "09417ee7484d8523d132d3de536a406f4b1ac11d9c29bceb999f6cfabe866cb2",
+        "summary_sha256": "14beea614149fa312b06ddafc4f0297041fb501054ca946f365af28905997ef4"
+      }
+    ]
+  },
+  "diagnostic_profiles": {
+    "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+    "profiles": [
+      {
+        "profile": "ws_sustained",
+        "raw_rows": 5,
+        "delivered_total": 1000000,
+        "actual_native_sha256": "361627482ffd36f132630ddf7b2cb7a4330e17095e5ae53b15b4bb940fe8e7aa",
+        "broker_snapshot_sha256": "296aa4f897e38bcd8b58095565b84f7a0f7acffc6acf42b0ed4cd14299a9fa87",
+        "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+        "perf_data_sha256": "3153da65456e31d1b06f0724c6443fa5e5bd7eba20a74c793f9ed14ea6c1bfb9",
+        "raw_sha256": "225e0904c45cef5fa3f88c417a08899ebcac16c4e935050c4a65a161059db1e8",
+        "CPU": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+        "lost_samples": 0,
+        "source_binary_delivery_and_sampler_provenance_verified": true
+      },
+      {
+        "profile": "64k_sustained",
+        "raw_rows": 5,
+        "delivered_total": 25000,
+        "actual_native_sha256": "361627482ffd36f132630ddf7b2cb7a4330e17095e5ae53b15b4bb940fe8e7aa",
+        "broker_snapshot_sha256": "296aa4f897e38bcd8b58095565b84f7a0f7acffc6acf42b0ed4cd14299a9fa87",
+        "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+        "perf_data_sha256": "d74391d9448f80097ff08e5d7b91a7774bcf821e4aa89f0da5a385b132f610d8",
+        "raw_sha256": "5e26fc4f159f46ee243fefcb1d25f0c954f9f9be1dd68002df494119cfba3ab2",
+        "CPU": "INTEL(R) XEON(R) PLATINUM 8573C",
+        "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+        "lost_samples": 0,
+        "source_binary_delivery_and_sampler_provenance_verified": true
+      }
+    ],
+    "scope": "Same-source diagnostic broker AOTsnapshot and retained native/client bytes. All5rawrows perprofile/bodydelivery verified. Wholebroker lifetime capture, not calibratedWAMPinterior window or numerical gate rerun. Diagnostic broker snapshot is distinct from gate embeddedexe; never substitute CPU data for acceptance."
+  },
+  "distinct_shared_CI": {
+    "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+    "run": 41378268724,
+    "artifact_id": 13112361648,
+    "source_inputs_verified": 966,
+    "actual_native_sha256": "eb4d9f2155539c6a2be762d3b92bd8b7379b82c271727b0456a18faf8d9694b6",
+    "cargo_lock_sha256": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "features": [
+      "ffi-test"
+    ],
+    "profile": "release",
+    "build_toolchain_record": {
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+      "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)"
+    },
+    "scope": "Actual retained shared-CI native bytes and source/lock verified. Distinct from MQTT/native-view36162748; do not substitute shared binary for measured one.",
+    "audited_utc": "2026-11-02T02:57:47.786342+00:00",
+    "complete_source_inventory_verified": true
+  },
+  "scope": "Original20 MQTT profiles pass unchanged budgets onXeon8573C. Native3616 actual retained; sharedEB4D separately966sourceinputs/lock/actualbytes verified. No causal7763repair, measuredWAMP/RAM parity, fullCI completion or finalstrict48/50 acceptance."
+}
