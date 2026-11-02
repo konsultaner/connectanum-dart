@@ -8,6 +8,19 @@ import 'package:connectanum_core/src/serializer/flatbuffers/wire_writer.dart';
 
 void main() {
   final codec = flatbuffers.Serializer();
+  test('default fragments preserve detached binary argument storage', () {
+    final bytes = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+    final message = Publish(1, 'com.test', arguments: [bytes]);
+    final parts = codec.serializeFragments(message)!;
+    expect(parts.any((part) => identical(part, bytes)), isFalse);
+    final output = BytesBuilder(copy: false);
+    for (final part in parts) {
+      output.add(part);
+    }
+    bytes.fillRange(0, bytes.length, 0);
+    final decoded = codec.deserialize(output.takeBytes()) as Publish;
+    expect(decoded.arguments!.single, List.generate(65536, (i) => i % 251));
+  });
   test(
     'binary CBOR fragments reject unsupported shapes and enforce exact encoded size',
     () {
@@ -77,7 +90,10 @@ void main() {
           arguments: ['topic${'x' * padding}', bytes],
           argumentsKeywords: {'extra': 17},
         );
-        final fragments = codec.serializeFragments(message)!;
+        final fragments = codec.serializeFragments(
+          message,
+          borrowBinaryArguments: true,
+        )!;
         expect(fragments.any((part) => identical(part, bytes)), isTrue);
         final output = BytesBuilder(copy: false);
         for (final part in fragments) {
@@ -105,7 +121,10 @@ void main() {
             Publish(1, 'com.test', arguments: arguments),
             Event(1, 2, EventDetails(), arguments: arguments),
           ]) {
-            final fragments = codec.serializeFragments(message)!;
+            final fragments = codec.serializeFragments(
+              message,
+              borrowBinaryArguments: true,
+            )!;
             expect(fragments.any((part) => identical(part, bytes)), isTrue);
             final output = BytesBuilder(copy: false);
             for (final part in fragments) {
