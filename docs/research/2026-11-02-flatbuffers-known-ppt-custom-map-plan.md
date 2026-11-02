@@ -19,17 +19,29 @@ This is a plan, not a patch or verified allocation/RSS reduction. A meaningful
 before-failing witness must establish the unnecessary pending decoder work;
 an assertion of an exact implementation class alone is insufficient. Full
 mutation/identity/validation and lazy fallback controls remain necessary.
-No reproduction, test, build, capture or numerical campaign has run for this
-hypothesis. Local model advice was qualified against the actual source: the
+No candidate-source reproduction, capture or numerical campaign has run for
+this hypothesis. Local model advice was qualified against the actual source: the
 no-bytes/null case is already a passing control, and key order alone does not
 make an otherwise valid dictionary malformed.
 
 The new isolated `codex/flatbuffers-ppt-custom-detail-map` worktree starts at
-unchanged601. Its source is clean and unedited. Preparation is pending: fresh
-bootstrap, full baseline verification and `bin/test-fast` must precede source
-edits. At preparation time, free space was8.38GB, below the chosen12GiB build
-preparation floor. No cleanup was performed. Official resource leases and all
-retained evidence/native binaries remain protected.
+unchanged601. Its source is clean and unedited. Fresh baseline preparation is
+active under the official exclusive lease: bootstrap passes, followed by
+`bin/test-fast` and full `bin/verify` before source edits. All three original
+LOCAL locks remain unchanged; none is equated with the distinct hosted cohort.
+The first runner incorrectly assumed ignored generated locks existed in the
+fresh checkout. Its preflight failure preceded all commands and remains
+retained. The corrected preparation initializes exact original frozen LOCAL
+lock bytes and requires unchanged hashes after each standard command. It
+copies no native binary or report and changes no source, SDK or runtime policy.
+
+Initial free space8.38GB was below the chosen12GiB preparation floor. Under the
+official exclusive lease,829 declared incremental compiler objects/depgraph/
+query/workproduct cache files were removed only from inactive OWN predecessor
+worktrees (11,507,457,811 logical bytes). Before/after protected source/HEAD/
+native/RLIB/executable hashes match. Evidence, archives, frozen601 and other
+tasks remain untouched. Observed free space after cleanup was19.69GB. No
+model/test/source/native/HEAD mutation may compete with the active baseline.
 
 Frozen601 and both completed failed campaigns remain unchanged. Any eventual
 Dart change still needs actual two-Dart-broker fresh50-row controlled source

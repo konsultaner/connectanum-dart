@@ -36,9 +36,19 @@ or capture is ready. Both strict campaigns stay failed, source601 frozen/unadopt
 Receive/control tracing has identified a narrower source-only hypothesis:
 avoid a redundant custom-dictionary loader when the existing exact PPT matcher
 proves no custom fields. Preserve a fresh mutable nonnull map and every fallback.
-An isolated clean601 worktree is prepared, with no edits/build/tests/capture;
-fresh baseline preparation waits for sufficient disk (8.38GB observed versus
-chosen12GiB floor). No cleanup or before-failing witness has run.
+The isolated worktree remains clean601, with no source edit or candidate
+reproduction/capture. Fresh baseline preparation is now active: bootstrap
+passes with all three original LOCAL locks unchanged; `bin/test-fast`, then
+`bin/verify`, run sequentially under the official exclusive lease. No competing
+local model/test or source/native/HEAD mutation is allowed during this work.
+Before preparation,829 declared compiler-cache files in inactive OWN predecessor
+worktrees were removed (11,507,457,811 logical bytes); all protected source/
+HEAD/native/RLIB/executable hashes remain unchanged. Observed free space then
+reached19.69GB. Evidence, frozen601 and other tasks were untouched. The first
+runner's missing-generated-lock preflight failure preceded every command and
+is retained; the corrected preparation initializes exact frozen LOCAL lock
+bytes, without hand-editing inputs, borrowing binaries or waiving cohort drift.
+No before-failing witness or repair is established.
 [Hypothesis and required controls](research/2026-11-02-flatbuffers-known-ppt-custom-map-plan.md).
 
 ## Both exact601 strict campaigns complete failed; no adoption (2026-11-02)

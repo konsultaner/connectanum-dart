@@ -14,8 +14,13 @@ Next inspect receive/control decoding and per-message metadata allocations,
 retaining both roles/allcontrols; no patch/control/capture is ready.
 Source tracing identifies a candidate redundant custom-dictionary loader for
 exact known-only PPT metadata. The isolated clean601 worktree is unedited;
-fresh baseline preparation is pending disk availability before any reproduction
-or change. No defect or RAM cause is confirmed.
+fresh baseline preparation is active under the official exclusive lease:
+bootstrap PASS/all3 original LOCAL locks unchanged, then test-fast/full verify.
+Declared inactive OWN predecessor compiler-cache cleanup preserved every
+protected source/HEAD/native/RLIB/executable hash and all evidence. Retain the
+first missing-generated-lock preflight failure, which preceded all commands;
+exact original LOCAL locks initialize the corrected preparation. No source edit,
+before-failing reproduction, candidate capture or RAM repair is established.
 [Hypothesis and required controls](../research/2026-11-02-flatbuffers-known-ppt-custom-map-plan.md).
 Owncanonical/copy/MQTT20/hostedJS/fullCI39 and proper fresh50row native control
 are complete/audited within their distinct scopes; they do not accept RAM or
