@@ -1,0 +1,34 @@
+{
+  "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "profiles": [
+    {
+      "profile": "ws_sustained",
+      "raw_rows": 5,
+      "delivered_total": 1000000,
+      "actual_native_sha256": "c648757abcad4879611d7fa06774fe30ed377948ee55894a9f6f0e741fdf04b8",
+      "broker_snapshot_sha256": "296aa4f897e38bcd8b58095565b84f7a0f7acffc6acf42b0ed4cd14299a9fa87",
+      "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+      "perf_data_sha256": "26a88804e97e64d8f12a281fa94b2d7fedc48499326a422c6ec9857ce932674b",
+      "raw_sha256": "efae72b8cb736ff62c489a01f288d8c54aa6be942516405951843ce1f9b24280",
+      "CPU": "AMD EPYC 7763 64-Core Processor",
+      "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+      "lost_samples": 0,
+      "source_binary_delivery_and_sampler_provenance_verified": true
+    },
+    {
+      "profile": "64k_sustained",
+      "raw_rows": 5,
+      "delivered_total": 25000,
+      "actual_native_sha256": "c648757abcad4879611d7fa06774fe30ed377948ee55894a9f6f0e741fdf04b8",
+      "broker_snapshot_sha256": "296aa4f897e38bcd8b58095565b84f7a0f7acffc6acf42b0ed4cd14299a9fa87",
+      "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+      "perf_data_sha256": "d904a52653cf0956a9054230604c4b31b90d36d8222bcdf6c7f5d89c56282980",
+      "raw_sha256": "a6036b3f6269f72c754c5d3016b032ca1c2b84c60800af15c09f9de2414bef47",
+      "CPU": "AMD EPYC 7763 64-Core Processor",
+      "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+      "lost_samples": 0,
+      "source_binary_delivery_and_sampler_provenance_verified": true
+    }
+  ],
+  "scope": "Same-source diagnostic broker AOTsnapshot and retained native/client bytes. All5rawrows perprofile/bodydelivery verified. Wholebroker lifetime capture, not calibratedWAMPinterior window or numerical gate rerun. Diagnostic broker snapshot is distinct from gate embeddedexe; never substitute CPU data for acceptance."
+}

@@ -1,0 +1,225 @@
+{
+  "head": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "summaries": 20,
+  "all_summaries_exact": true,
+  "all_budgets_unchanged": true,
+  "candidate_passes": false,
+  "cpu_models": [
+    "AMD EPYC 7763 64-Core Processor"
+  ],
+  "library_hashes": [
+    "c648757abcad4879611d7fa06774fe30ed377948ee55894a9f6f0e741fdf04b8"
+  ],
+  "selected": [
+    {
+      "profile": "native-v311-sustained",
+      "throughput_ratio": 0.7664065471580912,
+      "paired_throughput_ratio_median": 0.7652601139898566,
+      "broker_cpu_ratio": 2.550239234449761,
+      "passed": false
+    },
+    {
+      "profile": "native-ws-sustained",
+      "throughput_ratio": 0.660738155579304,
+      "paired_throughput_ratio_median": 0.660738155579304,
+      "broker_cpu_ratio": 2.8118279569892475,
+      "passed": false
+    },
+    {
+      "profile": "native-ws-v311-sustained",
+      "throughput_ratio": 0.6703846636932542,
+      "paired_throughput_ratio_median": 0.6666553081483705,
+      "broker_cpu_ratio": 2.8,
+      "passed": false
+    }
+  ],
+  "audit": [
+    {
+      "path": "batched/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "ba3dc0058f63bae480a52628321ac64302daadb124c05c14fea4d89974437e5c",
+      "summary_sha256": "7bedd927c27339cfcecbc2be6b462e1dd4ee1cc95d041e657dd3ec62f693680f"
+    },
+    {
+      "path": "burst/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "29351b1ff8a1a07e8cbb71447c7d6c690fb7e275aac7b2328b0a7f1bb1b1d6ff",
+      "summary_sha256": "176d3dbb23e382f8fda25896a784713d363ea7866c67ba0817867b78eae90ab5"
+    },
+    {
+      "path": "fanout/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "f491cfd8c0a8c6781240937688558f20e2b671a1c73132d34e007cd41e86bad4",
+      "summary_sha256": "e10a77e058b7bfbf49b3e41966136add12ef769fceff785acd30a394af053f81"
+    },
+    {
+      "path": "native-1k-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "68f84f1f56983a8d9ba3b1112f50a50faf4434c3832dbeb3206ffd207abd3390",
+      "summary_sha256": "51543e6bac18ea81655b202ed92e84fce872de997435249ef788ce65e3011222"
+    },
+    {
+      "path": "native-64k-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "446226733528b706a0bee439e141bf504abf0b62d2ff9286ad13b6869705cf45",
+      "summary_sha256": "4a2d05c4adef0386e894175a16bcc914626760878477eb9efe1a157101d6e9b1"
+    },
+    {
+      "path": "native-batched/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "74fc36be769d8402234226194d7b3b8b3212e1448be0b23be56d3bd8f1676b96",
+      "summary_sha256": "efe5fb8096bf614ac23902b6c605dc3af78f3931d3dbe07a25dfbbceafa4adeb"
+    },
+    {
+      "path": "native-burst/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "aa9f58797582baafd6c5de8627fa9af7548431b53edc4fc5d7aea7295f471966",
+      "summary_sha256": "9d848b2e9b630964cfa910c13f07f3b33f11fe847bc75074aafc0757f044357f"
+    },
+    {
+      "path": "native-fanout/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "427536e0acf0f6ee28623c2fd2ece2d1dfe7327b79d5c2eef36837c1b46bf887",
+      "summary_sha256": "53f02c95e075875adf0b9846852642af8d3dff4dafd8236cc340e9aefa3d0234"
+    },
+    {
+      "path": "native-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "66333a9ae67acfacc1604586c151c6c5e4692abf3fa50f4097cd32361aea8f9f",
+      "summary_sha256": "dd907c51475e29b7efddb92f3c9608b65f11cea24aebd89b4460385b8c2952af"
+    },
+    {
+      "path": "native-tls-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "ecb8ebe1823fbb79a15311fbe598667f2a37dc4dea46ca043c94b641c073e84f",
+      "summary_sha256": "a299bbfba6b3a7624936d0e4eea6bf89ff7166c5dc218a782e4158c26fe5ead2"
+    },
+    {
+      "path": "native-tls-v311-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "62c2b50920809c7db07b3129ebd94b73096efc526b8da52be50a1e508f9eaed2",
+      "summary_sha256": "6ecd01a40ca9cde92ff9fffc9d106055ce8361f88e932ab985ea1017f5c54515"
+    },
+    {
+      "path": "native-v311-sustained/summary.json",
+      "rows": 10,
+      "passed": false,
+      "raw_sha256": "bcbfcb2629ed48aab099415a501920936629f9528c03df431086ebba462bb7f7",
+      "summary_sha256": "be92f50024d72689a68814bf70586f3d7eca52a29a6dc1f58a445194c2cba9d1"
+    },
+    {
+      "path": "native-ws-sustained/summary.json",
+      "rows": 10,
+      "passed": false,
+      "raw_sha256": "2e215f67372f83ddf739ee1763ac1ea96549cb77ab7a1cd7946d1d0da552a024",
+      "summary_sha256": "956712d40a39557892240c97cee42157bf435113fc1da9d4456d13129c7e1171"
+    },
+    {
+      "path": "native-ws-v311-sustained/summary.json",
+      "rows": 10,
+      "passed": false,
+      "raw_sha256": "acc4b823b3bf8c55c3a729aab51f38564001cfce3d319ed0243abe44a2553d2f",
+      "summary_sha256": "daf29de487c9737b0629dff063651010c11172160b46a6a30fe97ecdebdf9eb2"
+    },
+    {
+      "path": "native-wss-single-smoke/summary.json",
+      "rows": 6,
+      "passed": true,
+      "raw_sha256": "7af6fbd8fa46620f0bf6765d9baa8eeade93c6ea3d74e05b145ebda249bac6b8",
+      "summary_sha256": "e58e79ded20a5b436a2e9d8777e556bad21a21e53a5653005840f24732f4793e"
+    },
+    {
+      "path": "native-wss-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "aafcd98fdc9106d8d6e820d8d066d7bd411901078c611416998b6d1f79514392",
+      "summary_sha256": "de769b555fa57cba0572b829fed919b8deb90fe3f06447712aa1ccebba5942b3"
+    },
+    {
+      "path": "native-wss-v311-single-smoke/summary.json",
+      "rows": 6,
+      "passed": true,
+      "raw_sha256": "10e3c4a3c5cf871d32c51200c54fac48fb32429d9635893d04d2291de6d436de",
+      "summary_sha256": "44698c22afdae2ba1f8296c5946798b96e28e5cfd86e82a54460ffbf0af66db8"
+    },
+    {
+      "path": "native-wss-v311-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "a24aa391d33155d6d69df99345412bc05de529e05f61d42cc13996f18bc2533e",
+      "summary_sha256": "d426f54201a14f8125ca1b50aaf4a01f0964232dce702b3090426f2debe13649"
+    },
+    {
+      "path": "sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "316079517388bd2e99dde5b1c13aed86c61e4e139c04b9ff50ca96df32084a27",
+      "summary_sha256": "88d5bcc84a9d16dea8668a5de0beaba6811f8516ec95f830169bd8e6fdc0af96"
+    },
+    {
+      "path": "v311-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "a7461fa80ed87ac1306573ca0720483c5498d037de0603f2cfd020259297ca20",
+      "summary_sha256": "6532ecae862e64bef3b5197f5cdbc577c957912404dd1901f6c246bc29ce2795"
+    }
+  ],
+  "passed_profiles": 17,
+  "failed_profiles": 3,
+  "failed_metrics": 3,
+  "numerical_gate_failures": [
+    {
+      "profile": "native-v311-sustained",
+      "transport": "tcp",
+      "mqtt_version": "311",
+      "failures": [
+        {
+          "metric": "broker_cpu_ratio",
+          "value": 2.550239234449761,
+          "threshold": 2.5,
+          "direction": "maximum"
+        }
+      ]
+    },
+    {
+      "profile": "native-ws-sustained",
+      "transport": "ws",
+      "mqtt_version": "5",
+      "failures": [
+        {
+          "metric": "throughput_ratio",
+          "value": 0.660738155579304,
+          "threshold": 0.7,
+          "direction": "minimum"
+        }
+      ]
+    },
+    {
+      "profile": "native-ws-v311-sustained",
+      "transport": "ws",
+      "mqtt_version": "311",
+      "failures": [
+        {
+          "metric": "throughput_ratio",
+          "value": 0.6703846636932542,
+          "threshold": 0.7,
+          "direction": "minimum"
+        }
+      ]
+    }
+  ],
+  "total_raw_rows": 192,
+  "scope": "All20original summaries/rawrows reproduce unchanged compare() and budget files exactly; gate uses ratio of medians, with paired median reported separately. Numerical failures retained; no retry, host selection, source/report substitution or acceptance claim. Actual native byte identity is independently verified in same-source diagnostic profile artifact.",
+  "audited_utc": "2026-11-02T06:02:30.663347+00:00"
+}

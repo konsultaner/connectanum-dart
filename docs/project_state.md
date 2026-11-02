@@ -28,7 +28,8 @@ Own native was rebuilt. Bounded local review and source inspection find no
 confirmed defect; its claims about the 65-piece entry count and hypothetical
 underflow are qualified against the actual code. Own-native-bound fragmented
 WebSocket/lifetime/router/MQTT-Paho checks pass; the candidate is now frozen
-and published with own canonical active, as recorded below. No RSS/transport
+and published with own canonical/copy passing; the actual MQTT CI blocker
+is recorded below. No RSS/transport
 acceptance or adoption claim follows.
 
 The completed D9CB payload artifact also retains actual production native
@@ -52,30 +53,51 @@ including7actualPaho, pass using own rebuilt native `be4c3878…`; three locks
 remain unchanged. Bounded GLM review is qualified against actual source and
 no confirmed defect remains. [Focused evidence](research/2026-11-02-flatbuffers-small-segment-index-correctness.json).
 
-Own frozen canonical is active, with clean HEAD/tree `2a48725c…`, own native,
-eleven guarded sources and three locks. Actual local Chrome/Wasm is enabled;
-no localJS claim. Do not edit this source/HEAD/native or start competing local
-tests/models during its exclusive lease. Exact-source
-[CI41395075328](https://github.com/konsultaner/connectanum-dart/actions/runs/41395075328)
-and [copy41395078952](https://github.com/konsultaner/connectanum-dart/actions/runs/41395078952)
-were predeclared once and their heads verified. They are not completed evidence.
-Controlled source comparison and own final strict48/50 remain required; no
-RSS/transport acceptance or adoption is claimed. D9CB strict campaigns retain
-all original rows; its completed payload misses are preserved separately.
+Own frozen canonical **passes independent audit**. Clean HEAD/tree`2a48725c…`,
+source archive`a20349a5…`, own native`be4c3878…`, all eleven source guards and
+three locks independently rehash unchanged. Log SHA is
+`8a025410efe6c18f401804eb41180f6e88fdefdddabb438d1278de82a7ea5b2c`.
+There are8,308 actual local Chrome/Wasm observations and no localJS. Both
+canonical/auditor processes are complete/reaped. Own hostedJS remains separate.
+[Canonical audit](research/2026-11-02-flatbuffers-small-segment-index-canonical-audit.json).
 
-The current AD48 hosted shared ffi-test build is independently audited: all967
-source inputs, exact native lock and actual Linux/x86_64 library `eb47cb32…`
-rehash, including artifact ZIP digest and ELF architecture. This separate
-shared build does not substitute for local canonical `be4c3878…` or later
-measured MQTT/native-view/production binaries. Full canonical/CI/copy remain
-active. [Current-source shared build audit](research/2026-11-02-flatbuffers-small-segment-index-shared-CI-audit.json).
+Own copy/lifetime is **complete pass and independently audited**:3,311source
+inputs /120live /300inventory /32zero-avoidable-copy checks includingE2EE,
+transcode and nativecrypto. All3,308native-view inputs, exact archive/fixture/
+ports,3positive phases/expectednegative/cleanup verify. Actualnative-view
+`c648757a…` bytes rehash from this own-source retained profile artifact. Copy
+production`7ab70d97…` native /`e432a974…` driver have stable receipts but their
+bytes are not retained in that artifact; no ffi-test/sharedCI substitution.
+[Copy/lifetime audit](research/2026-11-02-flatbuffers-small-segment-index-copy-audit.json).
 
-A read-only decomposition also verifies all28 original paired RSS inputs
-across D9CB's four failing payload cases. Client/server contributions vary;
-median component deltas do not add to a median total or reproduce a paired
-ratio. These observations establish no single cause or retained leak, and
-no new measurements or numerical reruns were taken.
-[Original role decomposition](research/2026-11-02-flatbuffers-d9cb-payload-rss-attribution.json).
+**CI blocker:** the original measuredMQTT job125114532993 fails onEPYC7763 /
+Dart3.13.1. All20summaries /192rawrows independently reproduce unchanged
+budgets:17pass,3profiles /3metrics fail. NativeTCP3.1.1 CPU ratio2.550239>2.5;
+WS5 /3.1.1 throughput ratios0.660738 /0.670385<0.70. These throughput gates use
+the ratio of medians; paired medians are recorded separately. No numerical
+retry, source/report substitution or favorable host selection. WholeCI41395075328
+is still active and must finish naturally; cleanCI is not established.
+Original numerical timestamps/artifact digests are retained for final comparison.
+[Full original MQTT audit](research/2026-11-02-flatbuffers-small-segment-index-MQTT-audit.json).
+
+Both own diagnostic profiles verify all10rows /actual`c648757a…` native,
+`296aa4f8…` AOTsnapshot /`3020a016…` client bytes, perf data and sampler. These
+whole-broker profiles are distinct from the gate executable/interior window.
+Separately,967 sharedCI source inputs /actual`eb47cb32…` /lock rehash; never
+substitute that shared binary for the measured one. Local GLM triage and root
+source review find cost hypotheses, **no confirmed runtime defect**: a64KiB
+profile cannot directly explain the failed128byteTCP CPU case, and allocation/
+copy counts do not establish causality. Native polling's scratch-to-owned copy
+and decoder output ownership must remain safe. A bounded count-only diagnostic
+is a possible nextCI-repair investigation; no production fix is prepared.
+[Diagnostic input audit](research/2026-11-02-flatbuffers-small-segment-index-CPU-profile-audit.json),
+[SharedCI audit](research/2026-11-02-flatbuffers-small-segment-index-shared-CI-audit.json).
+
+The D9CB RSS role decomposition still verifies28 original paired inputs across
+four failing cases; roles vary, with no single cause established. Its original
+primary/protocol/encrypted campaigns continue and every row is retained.
+Own final strict48/50 is not dispatched; RAM/broadWAMP acceptance and adoption
+remain unresolved. Fix the actualCI blocker before new feature/benchmark work.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 

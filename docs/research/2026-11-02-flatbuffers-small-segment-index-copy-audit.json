@@ -1,0 +1,134 @@
+{
+  "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "copy_run": 41395078952,
+  "artifact_id": 13119975536,
+  "owned_copy": {
+    "head": "ad48d679b24a371cca37ad9397a64b261008f57c",
+    "verified_source_inputs": 3311,
+    "retained_generated_inputs": [
+      "pubspec.lock",
+      "native/bench/Cargo.lock",
+      "native/transport/Cargo.lock",
+      ".dart_tool/package_config.json (digest-only; hosted unchanged receipt)"
+    ],
+    "live": {
+      "rows": 120,
+      "encoded_volume": 120,
+      "e2ee": 96,
+      "transcode": 120,
+      "native_crypto": 48
+    },
+    "inventory": {
+      "rows": 300,
+      "encoded_volume": 300,
+      "zero_avoidable_payload_copy": 32,
+      "e2ee": 96,
+      "native_crypto": 72,
+      "transcode": 60
+    },
+    "source_inputs_unchanged": true,
+    "binaries_unchanged": true,
+    "complete_source_derived_case_inventory_verified": true,
+    "binary_scope": "Hosted stable digest receipts here; independently rehash retained production binaries when available and compare exact hashes, without substituting another build."
+  },
+  "native_view": {
+    "head": "ad48d679b24a371cca37ad9397a64b261008f57c",
+    "phases": [
+      {
+        "name": "existing-api-baseline",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5496,
+        "failures": 0
+      },
+      {
+        "name": "direct-native",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5651,
+        "failures": 0
+      },
+      {
+        "name": "public-native-lease",
+        "rows": 6,
+        "observations": 12,
+        "pid": 5809,
+        "failures": 0
+      }
+    ],
+    "negative_control": {
+      "rows": 0,
+      "expected_failures": 1
+    },
+    "cleanup_verified": true
+  },
+  "exact_inputs_and_binary_scope": {
+    "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+    "run": 41395078952,
+    "artifact_id": 13119975536,
+    "native_view_source_inputs_verified": 3308,
+    "source_archive_reconstructed_exactly": true,
+    "source_archive_sha256": "a20349a557931235c5a1ca7f3a299a31bb3a0fc4812d15f4d3e2c5cfbcc8a0ad",
+    "fixture_verified": true,
+    "reported_native_view_binary_sha256": "c648757abcad4879611d7fa06774fe30ed377948ee55894a9f6f0e741fdf04b8",
+    "actual_same_source_native_view_binary_rehashed": true,
+    "native_view_byte_witness": {
+      "run": 41395075328,
+      "artifact_id": 13119578041,
+      "profile": "ws_sustained",
+      "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+      "actual_native_sha256": "c648757abcad4879611d7fa06774fe30ed377948ee55894a9f6f0e741fdf04b8"
+    },
+    "ports": [
+      {
+        "phase": "negative-control",
+        "listener_ports": [
+          21734,
+          23965,
+          27282
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "existing-api-baseline",
+        "listener_ports": [
+          62135,
+          1134,
+          18359
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "direct-native",
+        "listener_ports": [
+          32623,
+          5633,
+          62240
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      },
+      {
+        "phase": "public-native-lease",
+        "listener_ports": [
+          61402,
+          28476,
+          22353
+        ],
+        "selected_outside_ephemeral_range": true,
+        "cleanup_verified": true
+      }
+    ],
+    "production_binaries_unchanged_receipt": true,
+    "production_binary_retention_limit": "Copy artifact has stable productionnative/driver digest receipts but does not retain thosebytes; do not substitute ffi-test or another sharedCI build.",
+    "scope": "OwnAD48 copy/lifetime reports/source inputs pass; actualnative-view bytes independently rehashed from its own currentAD48 retained CI profile artifact. Not RAM/throughput/finalacceptance. No phase retry or gate weakening.",
+    "audited_utc": "2026-11-02T06:02:30.624747+00:00",
+    "production_binary_hash_receipts": {
+      "native_library": "7ab70d97ebacecc5da2845ba1c562a1dfea7bd10bbe56f41e85e822c7182785a",
+      "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940"
+    }
+  },
+  "scope": "Complete own-source copy/lifetime correctness; no RAM/throughput/transport or complete strict acceptance claim."
+}
