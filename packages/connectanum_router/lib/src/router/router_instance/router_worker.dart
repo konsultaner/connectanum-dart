@@ -195,15 +195,13 @@ Future<void> sendMessage(
     }
     nextProfile = profile.prepareOutgoing(message);
   }
-  final payload = encodeMessage(serializer, message);
   final changesProfile =
       nextProfile != null && !identical(nextProfile, state?.flatBuffersProfile);
   final acceptedReply = changesProfile ? ReceivePort() : null;
   try {
-    bossPort.send({
+    sendWorkerMessagePayload(bossPort, serializer, message, {
       'type': 'worker_send',
       'connectionId': connectionId,
-      'payload': payload,
       if (acceptedReply != null) 'acceptedReply': acceptedReply.sendPort,
     });
     if (acceptedReply != null) {
@@ -226,6 +224,67 @@ Future<void> sendMessage(
   } finally {
     acceptedReply?.close();
   }
+}
+
+// Exact lengths prevent copying unused backing capacity through SendPort.
+const _workerScratchByteLimit = 1024 * 1024;
+const _workerScratchEntryLimit = 4;
+final _workerFrameScratch = <int, Uint8List>{};
+int _workerFrameScratchBytes = 0;
+Map<String, int> get workerFrameScratchMetricsForTest => {
+  'buffers': _workerFrameScratch.length,
+  'bytes': _workerFrameScratchBytes,
+};
+Uint8List _workerFrameBuffer(int length) {
+  final cached = _workerFrameScratch.remove(length);
+  if (cached != null) {
+    _workerFrameScratch[length] = cached;
+    return cached;
+  }
+  if (length > _workerScratchByteLimit) return Uint8List(length);
+  while (_workerFrameScratch.length >= _workerScratchEntryLimit ||
+      _workerFrameScratchBytes + length > _workerScratchByteLimit) {
+    final oldest = _workerFrameScratch.keys.first;
+    _workerFrameScratchBytes -= _workerFrameScratch.remove(oldest)!.length;
+  }
+  final result = Uint8List(length);
+  _workerFrameScratch[length] = result;
+  _workerFrameScratchBytes += length;
+  return result;
+}
+
+void sendWorkerMessagePayload(
+  SendPort target,
+  NativeMessageSerializer serializer,
+  AbstractMessage message,
+  Map<String, Object?> envelope,
+) {
+  if (serializer == NativeMessageSerializer.cbor &&
+      message is event_msg.Event &&
+      message.details.pptScheme == null &&
+      !message.hasLazyArguments &&
+      !message.hasLazyArgumentsKeywords &&
+      !message.hasDecodedPptPayload &&
+      message.transparentBinaryPayload == null &&
+      message.wireArgumentsKeywords == null) {
+    final arguments = message.wireArguments;
+    if (arguments?.length == 1 &&
+        arguments!.single is Uint8List &&
+        (arguments.single as Uint8List).length >= 16 * 1024) {
+      final fragments = _cborSerializer.serializeEventFragments(message)!;
+      final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
+      final output = _workerFrameBuffer(length);
+      var offset = 0;
+      for (final fragment in fragments) {
+        output.setRange(offset, offset + fragment.length, fragment);
+        offset += fragment.length;
+      }
+      // Mutable bytes are snapshotted before send returns, then reused.
+      target.send({...envelope, 'payload': output});
+      return;
+    }
+  }
+  target.send({...envelope, 'payload': encodeMessage(serializer, message)});
 }
 
 Uint8List encodeMessage(

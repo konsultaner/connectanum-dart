@@ -48,7 +48,241 @@ final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
 const _zeroCopyPublishTag = 'zero_copy_publish';
 
+void _sendScratchEvents(List<Object> arguments) {
+  final target = arguments[0] as SendPort;
+  final serializer = NativeMessageSerializer.values[arguments[1] as int];
+  for (var index = 0; index < 3; index++) {
+    final storage = Uint8List.fromList(
+      List.generate(65544, (i) => (i + index) % 251),
+    );
+    final bytes = Uint8List.sublistView(storage, 3, 65539);
+    final details = event_msg.EventDetails()
+      ..custom['mqtt_topic'] = 'sensors/µ';
+    sendWorkerMessagePayload(
+      target,
+      serializer,
+      event_msg.Event(1, 2, details, arguments: [bytes]),
+      {'index': index},
+    );
+    storage.fillRange(0, storage.length, 0);
+  }
+}
+
+Future<List<Map>> _captureScratchFrames(
+  NativeMessageSerializer serializer,
+  List<AbstractMessage> messages,
+) async {
+  final reply = ReceivePort();
+  try {
+    final values = reply.take(messages.length).toList();
+    for (var index = 0; index < messages.length; index++) {
+      sendWorkerMessagePayload(reply.sendPort, serializer, messages[index], {
+        'index': index,
+      });
+    }
+    return (await values.timeout(const Duration(seconds: 10))).cast<Map>();
+  } finally {
+    reply.close();
+  }
+}
+
 void main() {
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+  ]) {
+    test(
+      'reused ${serializer.name} worker buffers keep each isolate snapshot',
+      () async {
+        final reply = ReceivePort();
+        try {
+          final frames = reply.take(3).toList();
+          await Isolate.spawn(_sendScratchEvents, <Object>[
+            reply.sendPort,
+            serializer.index,
+          ]);
+          final values = await frames.timeout(const Duration(seconds: 10));
+          for (var index = 0; index < values.length; index++) {
+            final frame = values[index] as Map;
+            final details = event_msg.EventDetails()
+              ..custom['mqtt_topic'] = 'sensors/µ';
+            final bytes = Uint8List.fromList(
+              List.generate(65536, (i) => (i + index + 3) % 251),
+            );
+            expect(frame['index'], index);
+            expect(
+              frame['payload'],
+              encodeMessage(
+                serializer,
+                event_msg.Event(1, 2, details, arguments: [bytes]),
+              ),
+            );
+          }
+        } finally {
+          reply.close();
+        }
+      },
+    );
+    test(
+      '${serializer.name} scratch frame sizes never expose cached tail bytes',
+      () async {
+        final messages = <AbstractMessage>[
+          for (final size in [
+            16383,
+            16384,
+            65536,
+            16384,
+            17000,
+            18000,
+            19000,
+            20000,
+          ])
+            event_msg.Event(
+              1,
+              2,
+              event_msg.EventDetails(),
+              arguments: [
+                Uint8List.fromList(List.generate(size, (i) => i % 251)),
+              ],
+            ),
+        ];
+        final frames = await _captureScratchFrames(serializer, messages);
+        for (var i = 0; i < messages.length; i++) {
+          expect(frames[i]['payload'], encodeMessage(serializer, messages[i]));
+        }
+        expect(
+          workerFrameScratchMetricsForTest['buffers'],
+          lessThanOrEqualTo(4),
+        );
+        expect(
+          workerFrameScratchMetricsForTest['bytes'],
+          lessThanOrEqualTo(1024 * 1024),
+        );
+      },
+    );
+  }
+  test(
+    'worker scratch cache stays bounded and bypasses oversized frames',
+    () async {
+      for (final size in [300000, 310000, 320000, 330000, 340000]) {
+        final message = event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(),
+          arguments: [Uint8List(size)],
+        );
+        final frames = await _captureScratchFrames(
+          NativeMessageSerializer.cbor,
+          [message],
+        );
+        expect(
+          frames.single['payload'],
+          encodeMessage(NativeMessageSerializer.cbor, message),
+        );
+        expect(
+          workerFrameScratchMetricsForTest['buffers'],
+          lessThanOrEqualTo(4),
+        );
+        expect(
+          workerFrameScratchMetricsForTest['bytes'],
+          lessThanOrEqualTo(1024 * 1024),
+        );
+      }
+      final before = workerFrameScratchMetricsForTest;
+      final message = event_msg.Event(
+        1,
+        2,
+        event_msg.EventDetails(),
+        arguments: [Uint8List(1024 * 1024)],
+      );
+      final frames = await _captureScratchFrames(NativeMessageSerializer.cbor, [
+        message,
+      ]);
+      expect(
+        frames.single['payload'],
+        encodeMessage(NativeMessageSerializer.cbor, message),
+      );
+      expect(workerFrameScratchMetricsForTest, before);
+    },
+  );
+  test(
+    'scratch sending preserves PPT, lazy, kwargs and ordinary messages',
+    () async {
+      final bytes = Uint8List(65536);
+      final lazy = event_msg.Event(1, 2, event_msg.EventDetails())
+        ..setLazyPayload(
+          argumentsBytes: Uint8List.fromList([0x81, 0x40]),
+          argumentsDecoder: (_) =>
+              throw StateError('unexpected materialization'),
+          encoding: LazyPayloadEncoding.cbor,
+        );
+      final messages = <AbstractMessage>[
+        lazy,
+        event_msg.Event(1, 2, event_msg.EventDetails()),
+        event_msg.Event(1, 2, event_msg.EventDetails(), arguments: ['text']),
+        event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(),
+          arguments: [bytes],
+          argumentsKeywords: {'key': 1},
+        ),
+        result_msg.Result(1, result_msg.ResultDetails(), arguments: [bytes]),
+        event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(pptScheme: 'mqtt', pptSerializer: 'cbor'),
+        )..transparentBinaryPayload = bytes,
+      ];
+      final before = workerFrameScratchMetricsForTest;
+      final frames = await _captureScratchFrames(
+        NativeMessageSerializer.cbor,
+        messages,
+      );
+      for (var i = 0; i < messages.length; i++) {
+        expect(
+          frames[i]['payload'],
+          encodeMessage(NativeMessageSerializer.cbor, messages[i]),
+        );
+      }
+      expect(workerFrameScratchMetricsForTest, before);
+      final reply = ReceivePort();
+      try {
+        expect(
+          () => sendWorkerMessagePayload(
+            reply.sendPort,
+            NativeMessageSerializer.ubjson,
+            event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [bytes]),
+            {},
+          ),
+          throwsUnsupportedError,
+        );
+      } finally {
+        reply.close();
+      }
+    },
+  );
+  test('other codecs preserve owned-frame sending without caching', () async {
+    for (final serializer in [
+      NativeMessageSerializer.json,
+      NativeMessageSerializer.messagePack,
+      NativeMessageSerializer.flatbuffers,
+    ]) {
+      final bytes = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+      final message = event_msg.Event(
+        1,
+        2,
+        event_msg.EventDetails(),
+        arguments: [bytes],
+      );
+      final expected = encodeMessage(serializer, message);
+      final before = workerFrameScratchMetricsForTest;
+      final pending = _captureScratchFrames(serializer, [message]);
+      bytes.fillRange(0, bytes.length, 0);
+      final frames = await pending;
+      expect(frames.single['payload'], expected);
+      expect(workerFrameScratchMetricsForTest, before);
+    }
+  });
   test(
     'FlatBuffers worker owns binary frames and supports control fallback',
     () {

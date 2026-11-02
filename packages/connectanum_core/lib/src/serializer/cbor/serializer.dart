@@ -983,6 +983,15 @@ class Serializer extends AbstractSerializer {
     return result;
   }
 
+  /// Encode EVENT vectors without joining the complete transport frame.
+  List<Uint8List>? serializeEventFragments(Event message) =>
+      _serializeCborPayloadSegments(4, [
+        MessageTypes.codeEvent,
+        message.subscriptionId,
+        message.publicationId,
+        _serializeEventDetails(message.details),
+      ], message);
+
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is Call) {
