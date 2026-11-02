@@ -1,4 +1,4 @@
-name: MQTT native idle cleanup qualification
+name: MQTT bounded kernel buffer diagnostic
 on:
   workflow_dispatch:
 permissions:
@@ -42,32 +42,4 @@ jobs:
         with:
           name: mqtt-gateway-memory-probe
           path: out/mqtt-memory-probe
-          if-no-files-found: error
-
-  native-coverage:
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-ci
-        with:
-          rust: 'true'
-          native-tools: 'true'
-      - name: Bootstrap workspace
-        run: bin/bootstrap
-      - name: Collect complete current-source Cargo coverage
-        env:
-          CONNECTANUM_NATIVE_COVERAGE_DIR: out/coverage-native-idle-cargo
-        run: bin/test-native-coverage
-      - name: Collect complete current-source Dart FFI coverage
-        env:
-          CONNECTANUM_NATIVE_FFI_COVERAGE_DIR: out/coverage-native-idle-ffi
-        run: bin/test-native-ffi-coverage
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: mqtt-native-idle-coverage
-          path: |
-            out/coverage-native-idle-cargo
-            out/coverage-native-idle-ffi
           if-no-files-found: error

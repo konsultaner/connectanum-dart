@@ -2575,6 +2575,12 @@ impl ListenerRegistry {
             .cloned()
             .unwrap_or(handle);
         let stream = stream.into_runtime(&handle)?;
+        // Keep a stalled MQTT peer from hiding a large burst in the kernel
+        // before the bounded application queue can apply backpressure.
+        #[cfg(target_os = "linux")]
+        if let Ok(Some(fd)) = stream.try_clone_plain_fd() {
+            let _ = socket2::SockRef::from(&fd).set_send_buffer_size(1024 * 1024);
+        }
         // Linux reactor wakeups dominate small cleartext MQTT WS traffic.
         // Other platforms and TLS retain immediate flushing.
         let coalesce_bursts = cfg!(target_os = "linux") && stream.is_plain_tcp();

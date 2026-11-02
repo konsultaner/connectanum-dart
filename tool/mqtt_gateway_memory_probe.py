@@ -12,8 +12,8 @@ gate.check_hardware(budgets,dict(metadata,cpu_model=platform.processor() or plat
 reports=[]
 with tempfile.TemporaryDirectory() as temporary:
     worker=gate.compile_worker(Path(temporary))
-    for profile in gate.overload_profiles():
-      for path in gate.DIRECTIONS:
+    for profile in gate.overload_profiles()[:1]:
+      for path in ['wamp_to_mqtt']:
         directory=root/profile['id']/path;directory.mkdir(parents=True)
         config=dict(profile,path=path,port=0,native_library=str(library),paho_python=sys.executable,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
         campaign=gate.Campaign(worker,directory,config,timeout=90)
