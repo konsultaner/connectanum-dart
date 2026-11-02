@@ -1,0 +1,45 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "run": 41463489396,
+  "attempt": 1,
+  "workflow_status": "completed",
+  "workflow_conclusion": "failure",
+  "verified": [
+    {
+      "shard": "payload",
+      "original_job": 125338207444,
+      "conclusion": "failure",
+      "artifact": 13158311612,
+      "digest": "sha256:42f1a1480f222999838143e99e04281414d8b0f2d377f85406b245bbe1df08b7",
+      "all_execution_and_step_timestamps_unchanged": true
+    },
+    {
+      "shard": "protocol",
+      "original_job": 125338207701,
+      "conclusion": "success",
+      "artifact": 13164852998,
+      "digest": "sha256:fc852a5375e2eb834dd8ec34d3b0a42758c74c6e90fd8815145caa2ca731f335",
+      "all_execution_and_step_timestamps_unchanged": true
+    },
+    {
+      "shard": "encrypted",
+      "original_job": 125338207145,
+      "conclusion": "success",
+      "artifact": 13168530231,
+      "digest": "sha256:89d869525e16199ae6755ad8ed856dca53af564c7ca31c7be0dea39201a09ec3",
+      "all_execution_and_step_timestamps_unchanged": true
+    },
+    {
+      "shard": "aggregate",
+      "original_job": 125458955025,
+      "conclusion": "failure",
+      "artifact": 13167219021,
+      "digest": "sha256:f36e3defa57d4d2bc46ed1731aa6585d22d27afab4f134013a63b0658ca6836a",
+      "all_execution_and_step_timestamps_unchanged": true
+    }
+  ],
+  "all3original_shard_executions_and_artifacts_preserved": true,
+  "original_aggregate_execution_and_artifact_preserved": true,
+  "scope": "Final completed exact601 supplemental workflow metadata independently compared with ALL original shard execution/every-step timestamps and artifactID/digest baselines. Original numerical jobs never reran. Only required new-artifact metadata fetched; no duplicate numerical downloads. This metadata preservation is separate from the full raw-data aggregate audit.",
+  "checked_utc": "2026-11-02T18:37:26.059162+00:00"
+}

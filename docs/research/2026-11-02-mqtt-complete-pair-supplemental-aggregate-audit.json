@@ -1,0 +1,194 @@
+{
+  "aggregate_findings": [
+    "wamp-flatbuffers-primary-601108ea6216464bd00ae29c16cfaf0a59c71db6-1-payload_sizes: case-batch evidence failed validation: ext_17_payload_sizes repetition 1 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_17_payload_sizes repetition 1 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_17_payload_sizes repetition 2 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_17_payload_sizes repetition 2 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_17_payload_sizes repetition 3 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_17_payload_sizes repetition 3 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_17_payload_sizes repetition 4 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_17_payload_sizes repetition 4 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_17_payload_sizes repetition 5 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_17_payload_sizes repetition 5 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_17_payload_sizes repetition 6 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_17_payload_sizes repetition 6 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_17_payload_sizes repetition 7 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_17_payload_sizes repetition 7 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_17_payload_sizes allocated_bytes_per_operation: incomplete paired resource observations; parity is unmeasured; ext_19_payload_sizes repetition 1 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_19_payload_sizes repetition 1 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_19_payload_sizes repetition 2 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_19_payload_sizes repetition 2 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_19_payload_sizes repetition 3 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_19_payload_sizes repetition 3 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_19_payload_sizes repetition 4 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_19_payload_sizes repetition 4 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_19_payload_sizes repetition 5 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_19_payload_sizes repetition 5 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_19_payload_sizes repetition 6 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_19_payload_sizes repetition 6 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_19_payload_sizes repetition 7 msgpack: missing client_process_metrics.allocated_bytes_delta; ext_19_payload_sizes repetition 7 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported; ext_19_payload_sizes allocated_bytes_per_operation: incomplete paired resource observations; parity is unmeasured",
+    "case batches do not cover the complete disjoint declared inventory",
+    "complete supplemental row count differs from the declared schedule",
+    "not every case-batch CI job succeeded"
+  ],
+  "all50_measured_numerical_misses": 192,
+  "all50_unmeasured_metrics": 2,
+  "artifact_id": 13167219021,
+  "audited_utc": "2026-11-02T18:38:04.821292+00:00",
+  "case_batches": {
+    "encrypted_progressive_results": {
+      "ZIP_sha256": "89d869525e16199ae6755ad8ed856dca53af564c7ca31c7be0dea39201a09ec3",
+      "actual_hosted_locks": {
+        "native/bench/Cargo.lock": "7c215c5878e264810759a4886e5d060cb0c04ab16c3db02fe69b42f156339187",
+        "native/transport/Cargo.lock": "ba5154f3ceb9172cd65cc1a85e04bb1bd6d426ce89f1e3bb6a9afaf06b8762e3",
+        "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+      },
+      "actual_retained_binaries": {
+        "driver": "d3f65b9ff08f067dc66c8797ddefd904efcd1539b8880c79fdb251c350c23337",
+        "native_library": "0b238fc61a3b9c256db0d57385a3ae01f85285a970941260b22150608265fdb4"
+      },
+      "all_raw_streams_inventory_order_scenarios_verified": true,
+      "all_same_artifact_policy_config_locks_actual_native_driver_bytes_verified": true,
+      "artifact_id": 13168530231,
+      "audited_utc": "2026-11-02T18:21:52.736528+00:00",
+      "by_metric": {
+        "allocated_bytes_per_operation": 8,
+        "cpu_us_per_operation": 8,
+        "gc_pause_us_per_operation": 8,
+        "latency_p95_ms": 7,
+        "latency_p99_ms": 7,
+        "summed_sampled_peak_rss_bytes": 6,
+        "throughput_mbps": 7
+      },
+      "cases": 8,
+      "comparison_sha256": "301f2aebd7b50c1291f9599637321b32720fde0716365f5bc5ebecb0d963d401",
+      "frozen_local_locks": {
+        "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189",
+        "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+        "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+      },
+      "hosted_locks_equal_frozen_local": false,
+      "matches_hosted": true,
+      "matches_original_copy_production_bytes": true,
+      "measured_numerical_misses": 51,
+      "other_findings": [],
+      "raw_rows": 240,
+      "run": 41463489396,
+      "scope": "Complete original current601 shard only. All original raw reports retained. Actual locks are checked WITHIN this hosted artifact and against own hosted-copy cohort; never inferred equal to local locks. Null allocation ratios are UNMEASURED, not numerical misses. Whole supplemental requires all3shards/1500rows and independent exact aggregate. No numerical rerun/source substitution or root-cause claim. Complete source archive is a separate same-source canonical/copy witness, not included in numerical artifact.",
+      "shard": "encrypted_progressive_results",
+      "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+      "strict_parity_pass": false,
+      "unmeasured_metrics": 0,
+      "complete_public_shard_audit": "docs/research/2026-11-02-mqtt-complete-pair-encrypted-progressive-audit.json"
+    },
+    "payload_sizes": {
+      "ZIP_sha256": "42f1a1480f222999838143e99e04281414d8b0f2d377f85406b245bbe1df08b7",
+      "actual_hosted_locks": {
+        "native/bench/Cargo.lock": "7c215c5878e264810759a4886e5d060cb0c04ab16c3db02fe69b42f156339187",
+        "native/transport/Cargo.lock": "ba5154f3ceb9172cd65cc1a85e04bb1bd6d426ce89f1e3bb6a9afaf06b8762e3",
+        "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+      },
+      "actual_retained_binaries": {
+        "driver": "d3f65b9ff08f067dc66c8797ddefd904efcd1539b8880c79fdb251c350c23337",
+        "native_library": "0b238fc61a3b9c256db0d57385a3ae01f85285a970941260b22150608265fdb4"
+      },
+      "all_raw_streams_inventory_order_scenarios_verified": true,
+      "all_same_artifact_policy_config_locks_actual_native_driver_bytes_verified": true,
+      "artifact_id": 13158311612,
+      "audited_utc": "2026-11-02T16:22:13.735882+00:00",
+      "by_metric": {
+        "cpu_us_per_operation": 3,
+        "gc_pause_us_per_operation": 2,
+        "latency_p95_ms": 1,
+        "latency_p99_ms": 1,
+        "summed_sampled_peak_rss_bytes": 6,
+        "throughput_mbps": 3
+      },
+      "cases": 12,
+      "comparison_sha256": "5b187f47148f992e008b812ea3103677a8f53577ae689a192d1015093b952d9e",
+      "frozen_local_locks": {
+        "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189",
+        "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+        "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+      },
+      "hosted_locks_equal_frozen_local": false,
+      "matches_hosted": true,
+      "matches_original_copy_production_bytes": true,
+      "measured_numerical_misses": 16,
+      "other_findings": [
+        "ext_17_payload_sizes repetition 1 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_17_payload_sizes repetition 1 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_17_payload_sizes repetition 2 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_17_payload_sizes repetition 2 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_17_payload_sizes repetition 3 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_17_payload_sizes repetition 3 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_17_payload_sizes repetition 4 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_17_payload_sizes repetition 4 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_17_payload_sizes repetition 5 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_17_payload_sizes repetition 5 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_17_payload_sizes repetition 6 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_17_payload_sizes repetition 6 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_17_payload_sizes repetition 7 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_17_payload_sizes repetition 7 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_17_payload_sizes allocated_bytes_per_operation: incomplete paired resource observations; parity is unmeasured",
+        "ext_19_payload_sizes repetition 1 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_19_payload_sizes repetition 1 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_19_payload_sizes repetition 2 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_19_payload_sizes repetition 2 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_19_payload_sizes repetition 3 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_19_payload_sizes repetition 3 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_19_payload_sizes repetition 4 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_19_payload_sizes repetition 4 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_19_payload_sizes repetition 5 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_19_payload_sizes repetition 5 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_19_payload_sizes repetition 6 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_19_payload_sizes repetition 6 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_19_payload_sizes repetition 7 msgpack: missing client_process_metrics.allocated_bytes_delta",
+        "ext_19_payload_sizes repetition 7 msgpack.client_process_metrics: allocation measurement requires measured heap/GC volume; legacy live-heap census is unsupported",
+        "ext_19_payload_sizes allocated_bytes_per_operation: incomplete paired resource observations; parity is unmeasured"
+      ],
+      "raw_rows": 360,
+      "run": 41463489396,
+      "scope": "Complete original current601 shard only. All original raw reports retained. Actual locks are checked WITHIN this hosted artifact and against own hosted-copy cohort; never inferred equal to local locks. Null allocation ratios are UNMEASURED, not numerical misses. Whole supplemental requires all3shards/1500rows and independent exact aggregate. No numerical rerun/source substitution or root-cause claim. Complete source archive is a separate same-source canonical/copy witness, not included in numerical artifact.",
+      "shard": "payload_sizes",
+      "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+      "strict_parity_pass": false,
+      "unmeasured_metrics": 2,
+      "complete_public_shard_audit": "docs/research/2026-11-02-mqtt-complete-pair-payload-audit.json"
+    },
+    "protocol": {
+      "ZIP_sha256": "fc852a5375e2eb834dd8ec34d3b0a42758c74c6e90fd8815145caa2ca731f335",
+      "actual_hosted_locks": {
+        "native/bench/Cargo.lock": "7c215c5878e264810759a4886e5d060cb0c04ab16c3db02fe69b42f156339187",
+        "native/transport/Cargo.lock": "ba5154f3ceb9172cd65cc1a85e04bb1bd6d426ce89f1e3bb6a9afaf06b8762e3",
+        "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+      },
+      "actual_retained_binaries": {
+        "driver": "d3f65b9ff08f067dc66c8797ddefd904efcd1539b8880c79fdb251c350c23337",
+        "native_library": "0b238fc61a3b9c256db0d57385a3ae01f85285a970941260b22150608265fdb4"
+      },
+      "all_raw_streams_inventory_order_scenarios_verified": true,
+      "all_same_artifact_policy_config_locks_actual_native_driver_bytes_verified": true,
+      "artifact_id": 13164852998,
+      "audited_utc": "2026-11-02T17:52:26.430115+00:00",
+      "by_metric": {
+        "allocated_bytes_per_operation": 12,
+        "cpu_us_per_operation": 20,
+        "gc_pause_us_per_operation": 11,
+        "latency_p95_ms": 19,
+        "latency_p99_ms": 19,
+        "operations_per_second": 8,
+        "summed_sampled_peak_rss_bytes": 24,
+        "throughput_mbps": 12
+      },
+      "cases": 30,
+      "comparison_sha256": "e6a098ef5477b2b6f117d72f86ae78cef7358056d19abd682f3559d7194a0d0e",
+      "frozen_local_locks": {
+        "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189",
+        "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+        "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+      },
+      "hosted_locks_equal_frozen_local": false,
+      "matches_hosted": true,
+      "matches_original_copy_production_bytes": true,
+      "measured_numerical_misses": 125,
+      "other_findings": [],
+      "raw_rows": 900,
+      "run": 41463489396,
+      "scope": "Complete original current601 shard only. All original raw reports retained. Actual locks are checked WITHIN this hosted artifact and against own hosted-copy cohort; never inferred equal to local locks. Null allocation ratios are UNMEASURED, not numerical misses. Whole supplemental requires all3shards/1500rows and independent exact aggregate. No numerical rerun/source substitution or root-cause claim. Complete source archive is a separate same-source canonical/copy witness, not included in numerical artifact.",
+      "shard": "protocol",
+      "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+      "strict_parity_pass": false,
+      "unmeasured_metrics": 0,
+      "complete_public_shard_audit": "docs/research/2026-11-02-mqtt-complete-pair-protocol-audit.json"
+    }
+  },
+  "cases_retained": 50,
+  "eligible_cases": 38,
+  "eligible_measured_findings": 176,
+  "eligible_rows": 1140,
+  "matches_hosted_manifest_and_comparison_exactly": true,
+  "raw_rows_retained": 1500,
+  "run": 41463489396,
+  "scope": "Complete exact601 supplemental50 only; all1500 original rows retained, including every ineligible payload batch. Null allocations remain unmeasured and are not included in measured misses. Absolute values are not pooled across shard hosts. This does not replace the independent primary48 campaign.",
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "strict_supplemental_parity_pass": false,
+  "all50_RSS_misses": 36,
+  "ZIP_sha256": "f36e3defa57d4d2bc46ed1731aa6585d22d27afab4f134013a63b0658ca6836a",
+  "original_audit_sha256": "42387210faf51a8e153801f00365825cdb327879569790cd2d423f8ca15fd35e",
+  "final_metadata_preservation_evidence": "docs/research/2026-11-02-mqtt-complete-pair-supplemental-preservation-audit.json"
+}

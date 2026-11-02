@@ -8,29 +8,37 @@ Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/kon
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 
-## All supplemental shards audited; final aggregate queued (2026-11-02)
+## Complete supplemental50 fails strict acceptance; primary48 active (2026-11-02)
 
-Original exact601 encrypted/progressive job125338207145 completes its diagnostic
-capture. All8cases /240rawrows independently reproduce **51 measured parity
-misses, including6 RSS**, with0 unmeasured metrics and0 integrity findings on
-EPYC9V74 /Dart3.13.5. Misses comprise8 allocation,8 CPU,8 GC,7 p95,7 p99,
-6 RSS and7 throughput metrics. Source, original scenarios/order/policy/config,
-all raw streams,3 hosted locks and actual0B23native /D3F6driver bytes verify.
-Artifact13168530231 /ZIP`89d86952…` was downloaded once. Successful diagnostic
-completion does not establish strict parity. [Complete encrypted/progressive audit](research/2026-11-02-mqtt-complete-pair-encrypted-progressive-audit.json).
+Exact601 supplemental run41463489396 is **complete failed / independently
+audited**. All50cases /1,500original rawrows are retained. Rechecking every
+actual shard cache, ZIP, raw report/stream, inventory/order/scenario, policy/
+config,3 hosted locks and actual0B23native /D3F6driver bytes reproduces the
+hosted aggregate manifest and comparison exactly. Aggregate artifact13167219021
+/ZIP`f36e3def…` was downloaded once. [Complete aggregate audit](research/2026-11-02-mqtt-complete-pair-supplemental-aggregate-audit.json).
 
-The three individual supplemental audits retain all50cases /1,500rows:
-protocol125 measured misses, encrypted/progressive51, payload16 plus2 unmeasured
-allocation metrics /30 evidence findings. The arithmetic total is192 measured
-misses; absolute costs remain scoped to their original shard hosts. Completed
-execution/step timestamps and artifact IDs/digests remain unchanged through
-the required final-shard metadata fetch. No numerical job reran.
+Eligible protocol/encrypted38cases /1,140rows have176 measured misses
+(125protocol +51encrypted). The separate payload12cases /360rows add16 measured
+misses plus2 unmeasured allocation metrics /30 evidence findings. **All50total:
+192 measured misses, including36 RSS;2 unmeasured allocations remain separate.**
+The hosted aggregate excludes payload from eligibility because allocation
+evidence is incomplete; this does not remove its360retained rows or16measured
+misses. Its4aggregate findings and all30payload evidence findings are retained.
+Absolute costs remain scoped to original shard hosts; no causal repair claim.
 
-The final supplemental report job125458955025 is still queued; its hosted
-aggregate/workflow is not complete or independently audited yet. Preserve the
-queue and all evidence, then audit the original aggregate against all3 actual
-caches. Primary48 remains active. PR132 stays40ddcb3f OPEN DRAFT/#130, no adoption
-or RAM/broadWAMP acceptance. Separate1%allocationprecision remains unresolved.
+All3 original completed numerical executions/every-step timestamps and artifact
+IDs/digests, plus the original aggregate execution/artifact, remain unchanged
+against their saved baselines. No numerical job reran. [Final preservation audit](research/2026-11-02-mqtt-complete-pair-supplemental-preservation-audit.json).
+Protocol and encrypted jobs succeeded as diagnostic captures; strict parity
+fails. Encrypted8cases /240rows independently verify51measured misses incl6RSS,
+0unmeasured /0integrity onEPYC9V74 /Dart3.13.5; actualsource/locks/binaries verify.
+[Complete encrypted/progressive audit](research/2026-11-02-mqtt-complete-pair-encrypted-progressive-audit.json).
+
+Only original primary48/run41463482638 remains active; preserve all1,440rows
+and let it finish naturally. All supplemental fetch/audit sessions are reaped.
+PR132 stays40ddcb3f OPEN DRAFT/#130, no adoption/retarget/ready/merge/close103 or
+milestone completion. RAM/broadWAMP parity and the separate1%allocationprecision
+decision remain unresolved.
 
 ## Protocol diagnostic completes; strict parity fails (2026-11-02)
 
@@ -49,8 +57,8 @@ Misses comprise12 allocation,20 CPU,11 GC,19 p95,19 p99,8 operations/second,
 24 RSS and12 throughput metrics. Keep absolute costs scoped to this shard;
 no causal host/runtime-repair claim follows. Together with the separately
 failed payload shard, this leaves strict acceptance unresolved. Primary48
-remains active; preserve all remaining rows and complete the queued
-independent50-case aggregate. PR132 remains40ddcb3f OPEN DRAFT/#130,
+remains active; the complete failed50-case aggregate is independently
+audited above. Preserve all remaining primary rows. PR132 remains40ddcb3f OPEN DRAFT/#130,
 with no candidate adoption, retarget or merge.
 
 ## Current payload shard fails strict acceptance; complete audit retained (2026-11-02)
@@ -72,7 +80,7 @@ matching source and3 hosted locks. This closes the copy production byte-witness
 limitation; the original copy artifact itself still omits the bytes. No ffi-test,
 sharedCI or other-runtime substitution. [Cross-artifact byte audit](research/2026-11-02-mqtt-complete-pair-production-bytes-audit.json).
 
-Primary48 continues naturally; the final supplemental report is queued.
+Primary48 continues naturally; the final supplemental report is complete failed.
 All1,440+1,500rows /allshards remain required. This is one failed shard, not complete
 50-case acceptance or a causal repair claim. PR132 stays40ddcb3f OPEN DRAFT/#130,
 no adoption. RAM/broadWAMP parity and separate1%allocationprecision remain
