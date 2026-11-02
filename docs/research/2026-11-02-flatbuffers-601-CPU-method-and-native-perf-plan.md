@@ -1,5 +1,9 @@
 # CPU observation method and draft native perf diagnostic
 
+Subsequent [guard-only preparation and retained counterexamples](2026-11-03-flatbuffers-native-perf-guard-preparation.md)
+now supersede this note's original no-implementation stage. The controller and
+kernel capability proof remain incomplete; there is still no capture readiness.
+
 The proposed terminal JIT CPU-profile RPC is rejected under the current GC
 constraint. No target RPC, workload or capture ran. The next method is a draft
 external native-function diagnostic; no helper implementation or guard test

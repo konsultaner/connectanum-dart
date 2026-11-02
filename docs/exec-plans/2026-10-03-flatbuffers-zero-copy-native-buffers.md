@@ -6,7 +6,7 @@ Current step: both exact601 primary48 and supplemental50 are complete failed /
 independently audited. Preserve all48/1440 and50/1500rows, original executions,
 artifacts and exact reports. Primary150measured incl43RSS,0unmeasured/0integrity;
 supplemental192measured incl36RSS plus2unmeasured allocations. No active numerical
-campaign, source/native/HEAD edit or adoption. Do not repoll/redownload/rerun.
+campaign, production-runtime/native edit or adoption. Do not repoll/redownload/rerun.
 Read-only attribution is now complete/audited for all48/336original pairs.
 Initial native-buffer RPC source tracing finds explicit producer/lease/result
 cleanup and existing externalSize accounting; no ownership defect is confirmed.
@@ -16,7 +16,9 @@ The known-only PPT empty-map shortcut was tested and rejected: later raw-byte
 metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
-exact601; no candidate committed/published/adopted, no active local workload.
+exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
+guard preparation reuses this owned worktree, now with two uncommitted tool
+files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
 Declared inactive OWN predecessor compiler-cache cleanup preserved every
@@ -38,11 +40,18 @@ Perfetto format do not bypass it. Terminal reading does not remove the pending
 GC path. That method is rejected under the current constraint, without a probe.
 An external native perf-only draft now includes all six focal RPC variants and
 all five original passing RSS controls, all codecs/warmups/repetitions. Static
-own production ELF symbols are only a capability lead. Next bind exact frozen
-driver/scenario/argv policy and prepare the isolated controller/exec barrier,
-identity/retention guards and real kernel capability control. No implementation,
-test, capture, runtime edit or readiness is claimed. All advice sessions reaped;
+own production ELF symbols are only a capability lead. Static source binding
+now reproduces full48original schedule/all10scenario bytes and filters11cases
+preserving original codec order. The guard-only prototype has28focused passes
+after retained endpoint/release-channel counterexamples. No capture controller,
+actual kernel capability probe or runtime edit exists. Next complete unprivileged
+blocked-launch/controller and actual sampler/role/image/private-FD witnesses,
+before-data tests, own verification/provenance/declaration and kernel controls.
+Privileged perf attaches to the original-UID blocked PID; never launch driver
+as a sudo perf child. Last free7.60GB is below12GiB full-build preparation floor;
+no full verification or new cleanup. All advice/test sessions are complete;
 whole-life native samples cannot prove gate-interior CPU or allocation/RSS cause.
+[Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.
 [Complete inventory and diagnostic-method limits](../research/2026-11-02-flatbuffers-601-retained-metric-inventory.md).

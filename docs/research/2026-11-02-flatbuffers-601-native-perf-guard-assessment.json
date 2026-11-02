@@ -1,0 +1,132 @@
+{
+  "scope": "Root readback of NEW static source-policy binding and tool-only guard prototype. No benchmark/perf/VMAPI/kernel inheritance probe/capture or production runtime fix. No acceptance audit/data rerun.",
+  "checked_utc": "2026-11-02T23:03:45.323604+00:00",
+  "runtime_source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "tool_branch": "codex/flatbuffers-native-perf-guard",
+  "tool_HEAD_still_parent_source": true,
+  "tool_files_uncommitted": true,
+  "runtime_packages_native_unchanged": true,
+  "before_edit_baseline_reused_same_owned_worktree": {
+    "complete_PASS_independently_audited": true,
+    "audit_sha256": "38ed3e04ba4d38356cacfa59197d80ec07b35e1259ed707d6721e1ec2207569c",
+    "scope": "Mandatory own exact601 before-edit preparation only; own600Cffi-test native is not production0B23 or a new capture witness."
+  },
+  "source_policy_binding": {
+    "source_file": "2026-11-02-flatbuffers-601-native-perf-source-policy-binding.json",
+    "sha256": "197043dd6ff3cd1415177e753978c98bd7792afe079703b43f13567599558e3f",
+    "full_original_48case_generator_all10_scenarios_byte_exact": true,
+    "new_selected_order_preserves_original_full_schedule": true,
+    "proposed_rows": 330,
+    "numeric_rows_or_gates_read_or_recomputed": false
+  },
+  "guard_verification": {
+    "initial_actual_tests": 22,
+    "initial_actual_failures": 1,
+    "endpoint_fixed_tests_PASS": 24,
+    "wrong_release_pipe_before_counterexample_tests": 1,
+    "wrong_release_pipe_before_failures": 1,
+    "final_go_fixed_tests_PASS": 28,
+    "final_source_sha256": {
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "first_failed_sources_retained_byte_exact": true,
+    "wrong_go_sources_retained_before_fix": true,
+    "all_original_failure_logs_retained": true,
+    "official_exclusive_leases_for_each_test": true,
+    "first_wrong_go_lease_refusal_before_test_retained": true
+  },
+  "findings": [
+    "Darwin creator read/write pipe endpoints have distinct fstat identities. Fixed by retaining BOTH actual creator endpoint identities and access directions, not inferring a peer; the original inherited-ack guard is retained.",
+    "Actual wrong-release-pipe negative test failed before fix. Now bind a distinct go channel, check its exact writable endpoint and reject read endpoints/reused numeric descriptors/channel aliasing before any token bytes.",
+    "Existing/partial markers remain terminal via O_EXCL. I/O errors and partial bytes are preserved; no reparsing/reclaiming a corrupt marker or retry is allowed.",
+    "Credentials must stay the original unprivileged driver UID/GID/env. Privileged perf must attach to the blocked owned PID; do not run driver as a sudo perf child. Actual privilege/process/kernel proof is still absent."
+  ],
+  "review": {
+    "complete_reaped_session": 45916,
+    "backend": "Qwen3.8 27B",
+    "output_sha256": "a1ae0a3bbec14f3eb0d18945b00741a78a4a8affb3b9a59cffc88a40aebb255e",
+    "root_qualifications": [
+      "Accepted P3 descriptor gap; root had independently identified it, then reproduced it and verified the change with real POSIX pipe tests. Go is the wrapper barrier input, not stdout; only its WRITE endpoint is valid.",
+      "Rejected P1 replay allegation: existing/partial markers refuse O_EXCL across new gate instances. Raw OSError details are intentionally preserved; do not relax refusal by validating/reclaiming corrupt JSON.",
+      "P2 is a controller witness requirement: pipe identity does not authenticate the writer. Trusted sampler executable/actual process/private FD ownership must still be established; do not claim SO_PEERCRED/getsockopt exists for anonymous pipes.",
+      "P4 pure parser has no read/parse TOCTOU operation. Actual process-stat/image/lineage identity checks belong to the future controller.",
+      "P5 environment allegation self-retracted; exact frozen tuple equality and immutable copies are verified.",
+      "No model approval, Linux inheritance proof or capture readiness inferred."
+    ]
+  },
+  "evidence_archive": {
+    "source_file": "2026-11-02-flatbuffers-601-native-perf-guard-evidence.tar.gz",
+    "sha256": "f46942886fac0bd9dcf039b4a291245dd28be3ebefd20322c6db90163a5a4b1b",
+    "all_members_decompress_byte_exact": true,
+    "members": [
+      {
+        "member": "prototype/tool/native_perf_guard.py",
+        "bytes": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "prototype/tool/test_native_perf_guard.py",
+        "bytes": 13171,
+        "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+      },
+      {
+        "member": "first-failed/tool/native_perf_guard.py",
+        "bytes": 9668,
+        "sha256": "b4fcac7f7691cbeb335beb40fb086e00f0222609e11a55059ec48e5cd4332d31"
+      },
+      {
+        "member": "first-failed/tool/test_native_perf_guard.py",
+        "bytes": 10991,
+        "sha256": "67f5e9ff91b62bcb0d2200b56169f65e246fb88e8dc0a2754caa89f6f5a45293"
+      },
+      {
+        "member": "wrong-go-before/tool/native_perf_guard.py",
+        "bytes": 10561,
+        "sha256": "d80763f9e790081e03fcb9183c97ffa2a92176df6c097337b31157d8e9418c79"
+      },
+      {
+        "member": "wrong-go-before/tool/test_native_perf_guard.py",
+        "bytes": 11862,
+        "sha256": "b3835fd5e0b679396571fc703a51195a03a9cbcbe7133b85f548073a752093aa"
+      },
+      {
+        "member": "logs/first-tests.log",
+        "bytes": 3785,
+        "sha256": "2c34fa616b60ffa48ca31022e9544d185063385bf73826a29bf85116a8d8145d"
+      },
+      {
+        "member": "logs/endpoint-fixed-tests.log",
+        "bytes": 3427,
+        "sha256": "73193bed19c73536f967386f41c4c91599f4f662b2314e0035add8c3d0aeeba9"
+      },
+      {
+        "member": "logs/wrong-go-before.log",
+        "bytes": 837,
+        "sha256": "e78ae9d4b1dee17d3f70d03826d1e382f540a30aea4a5e5f18c4d088749270a2"
+      },
+      {
+        "member": "logs/go-fixed-tests.log",
+        "bytes": 3905,
+        "sha256": "7fa90508680162e377ed864c54fb1d0a02fda81b1016bffbed89a613f95974c0"
+      },
+      {
+        "member": "advice/review-v1.txt",
+        "bytes": 6486,
+        "sha256": "a1ae0a3bbec14f3eb0d18945b00741a78a4a8affb3b9a59cffc88a40aebb255e"
+      }
+    ]
+  },
+  "resources": {
+    "guard_tests_completed_under_lease": true,
+    "full_build_preparation_floor_bytes": 12884901888,
+    "last_observed_free_bytes": 7603941376,
+    "full_canonical_started": false,
+    "new_cleanup": false
+  },
+  "ready_for_capture": false,
+  "capture_controller_implemented": false,
+  "real_kernel_capability_test_executed": false,
+  "production_defect_or_RAM_repair_confirmed": false,
+  "next": "Complete blocked-launcher/controller integration and actual sampler/role/image witnesses with meaningful before-data tests, then own verification/resource preflight/declaration/kernel capability/root review before any new diagnostic data. No unchanged benchmark retry or new strict dispatch."
+}

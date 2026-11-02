@@ -1,11 +1,35 @@
 # Project State
 
-Last updated: 2026-11-02.
+Last updated: 2026-11-03.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
+
+## Native diagnostic source policy bound; guard prototype28PASS (2026-11-03)
+
+Static binding reproduces the original full48-case generator/order and all ten
+scenario inputs byte-for-byte, then filters11declared cases preserving original
+codec order for proposed330reports. No raw metric rows/gates or workload ran.
+The same before-edit-verified owned worktree now has two uncommitted tool files
+on `codex/flatbuffers-native-perf-guard`; its HEAD is still601 and production
+package/native sources are unchanged. It is no longer a wholly clean worktree.
+
+The new guard-only prototype passes28focused synthetic/POSIX-pipe tests after
+two retained actual failures: Darwin pipe-endpoint identity assumptions, then
+missing release-pipe binding. A real official lease refusal preceded one test
+attempt; testing waited for availability. Sources/logs/qualified review are
+preserved. No benchmark/perf/kernel-inheritance probe, VM API or capture ran.
+The original published601 runtime worktree remains clean/frozen/unadopted.
+
+Next complete the unprivileged blocked launcher/controller and actual sampler/
+role/image/FD witnesses with meaningful before-data tests. Privileged perf must
+attach to the blocked PID, not launch the driver as root. These guards do not
+prove kernel inheritance or writer credentials. Full verification/provenance/
+declaration/capability controls remain pending; last free space7.60GB is below
+the12GiB full-build preparation floor. No new cleanup or production fix.
+[Complete preparation, counterexamples and source evidence](research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 
 ## CPU service method rejected; external native diagnostic remains a draft (2026-11-02)
 
@@ -22,8 +46,9 @@ cleartext RawSocket RPC variants plus all five original RSS passing controls,
 all serializers/warmups/repetitions. The retained own production ELF has native
 symbols, but no actual hot function was measured. Dedicated exec-barrier/ack
 FDs, exact source/argv/locks/image identity, synthetic guards and real kernel
-capability checks still need implementation/review before data. No helper edit,
-guard test, capture or runtime change has started. All advice sessions are reaped.
+capability checks still need implementation/review before data. Subsequent
+guard-only preparation is recorded above; no capture or runtime change has
+started. All advice sessions are reaped.
 Whole-execution native samples would not prove Dart allocation/RSS cause or
 gate-interior parity. [Source decision and draft requirements](research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 
@@ -79,8 +104,9 @@ pending-decoder budget failures and21passing controls did not cover later raw
 metadata-byte mutation. A new alias counterexample fails with the shortcut
 and passes with original601. The zero-pending budget is withdrawn: pending
 decoding preserves that behavior. All1,977initial focused tests/analysis passed,
-but that was insufficient. Both files are restored byte-for-byte and the
-isolated worktree is clean; no candidate was committed/published/adopted.
+but that was insufficient. Both production files were restored byte-for-byte;
+the later tool-only preparation above reuses that owned worktree. No runtime
+candidate was committed/published/adopted.
 [Executed rejection and preserved patch/logs](research/2026-11-02-flatbuffers-known-ppt-custom-map-rejection.md).
 
 Its distinct mandatory before-edit baseline completed bootstrap, fast tests
