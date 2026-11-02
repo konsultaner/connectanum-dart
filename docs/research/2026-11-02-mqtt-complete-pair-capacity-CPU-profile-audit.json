@@ -1,0 +1,36 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "profiles": [
+    {
+      "profile": "ws_sustained",
+      "raw_rows": 5,
+      "delivered_total": 1000000,
+      "actual_native_sha256": "2d9d1a742ea4f90c9589ed945d334ad17f2711466d536c087d4c96e99e8ff92d",
+      "broker_snapshot_sha256": "296aa4f897e38bcd8b58095565b84f7a0f7acffc6acf42b0ed4cd14299a9fa87",
+      "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+      "perf_data_sha256": "2a2618bc7fcfe983c9e7a58af47507625759569441f921404bd0274274ba00f9",
+      "raw_sha256": "a4f25e04cf4de0c1e1ad635c402e3b255874922e29e6d7eda634885e75328194",
+      "CPU": "AMD EPYC 9V45 96-Core Processor",
+      "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+      "lost_samples": 0,
+      "source_binary_delivery_and_sampler_provenance_verified": true
+    },
+    {
+      "profile": "64k_sustained",
+      "raw_rows": 5,
+      "delivered_total": 25000,
+      "actual_native_sha256": "2d9d1a742ea4f90c9589ed945d334ad17f2711466d536c087d4c96e99e8ff92d",
+      "broker_snapshot_sha256": "296aa4f897e38bcd8b58095565b84f7a0f7acffc6acf42b0ed4cd14299a9fa87",
+      "client_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+      "perf_data_sha256": "9d26f7c056d0ccd8e0abc312d997023900ad4f1ada2470961d144bba1ef17483",
+      "raw_sha256": "811a51e77242f4615cad1b0eb39cb2580175f11166f89019447717713b449983",
+      "CPU": "AMD EPYC 9V45 96-Core Processor",
+      "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+      "lost_samples": 0,
+      "source_binary_delivery_and_sampler_provenance_verified": true
+    }
+  ],
+  "scope": "Same-source diagnostic broker AOTsnapshot and retained native/client bytes. All5rawrows perprofile/bodydelivery verified. Wholebroker lifetime capture, not calibratedWAMPinterior window or numerical gate rerun. Diagnostic broker snapshot is distinct from gate embeddedexe; never substitute CPU data for acceptance.",
+  "original_client_fresh_per_publication": false,
+  "freshness_qualification": "Retained3020client reuses appbuffer/fixedtail; actualfullbody/delivery checks remain, no fresh-perpublication claim."
+}

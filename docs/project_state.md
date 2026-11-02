@@ -7,43 +7,57 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
-## Complete MQTT pair capacity frozen for verification (2026-11-02)
+## Frozen601 own verification and provenance (2026-11-02)
 
-Published `601108ea6216464bd00ae29c16cfaf0a59c71db6` on
-`codex/mqtt-small-burst-coalescing` starts atAD48. Its minimal native change sizes
-only the first combined buffer exactly when a pending tail ends the bounded
-poll or no additional chunks are currently queued; more-queued bursts keep4KiB.
-Original drain/order/limits/wake/body/ownership/worker/SDK/GC/gate policy remains.
-The actual test-only budget fails exactly once before correction while its
-longer-burst control passes. Afterward4capacity/pending controls pass, including
-a TEST-ONLY allocator rendezvous forcing a producer AFTER capacity choice:
-all384bytes still drain with normal growth and survive queue release. On this
-host complete-pair requests drop4184/three to320/two, including the same64byte
-fresh-queue cost. These requested sizes do not establish CPU/RSS/transport repair.
+Own full canonical **passes independent audit**:cleanHEAD/tree`689957a3…`,
+source/archive`816a2106…`, ownDarwin native`5cfe237b…`,12source guards and3local
+locks rehash unchanged. Log`5a7c2ca1…`;8,308actualLOCALChrome/Wasm observations,
+no localJS. Canonical/auditor are reaped; never rerun unchanged verification.
+Own hostedJS separately verifies8,192observations /8,172successes /20native-only
+skips atjob125265754644, log`10031c29…`. It is not localJS.
+[Canonical](research/2026-11-02-mqtt-complete-pair-capacity-canonical-audit.json),
+[hostedJS](research/2026-11-02-mqtt-complete-pair-capacity-hosted-JS-audit.json).
 
-All480core /2alias /2allocation /3codec /319FFI /22nativeWS /7lifetime /
-615router /115MQTT including7actualPaho pass, with own rebuilt native`5cfe237b…`
-and3locks unchanged. Independent source/native/log/count audit passes. Local
-advisory claims are qualified against actual synchronous queue/RAII/bounds;
-no confirmed production defect remains. The consumed ignored capture entry is
-removed from final tests; all6executed controls/20shapes stay, and original100
-census rows/source/executable/140RLIBs/oldnative are retained. No rerun of data.
-[Focused correctness](research/2026-11-02-mqtt-complete-pair-capacity-correctness.json).
+Original measuredMQTT125265754276 is **complete pass / independently audited**:
+all20summaries /192rawrows reproduce unchangedbudgets onEPYC9V45 /Dart3.13.1.
+WS5/3.1.1 gate ratios0.805394 /0.800651;TCP3.1.1 throughput1.042957 /CPU1.881657.
+Gate ratios are ratios of medians, paired medians separately labelled. Original
+3020client reused appbuffer/fixedtail:fullbody checks/results stand, fresh-body
+claims remain withdrawn. This is not causal repair of7763 or RAM/strictacceptance.
+Bothdiagnosticprofiles verify10rows /actual2D9Dnative /296AAOT /3020client /
+perf/sampler. Whole-broker diagnostic is separate from gate interior/executable.
+[Mqtt20](research/2026-11-02-mqtt-complete-pair-capacity-MQTT20-audit.json),
+[retained profile inputs](research/2026-11-02-mqtt-complete-pair-capacity-CPU-profile-audit.json).
 
-Own full frozen canonical is ACTIVE (native prebuildpasses; full`bin/verify`
-stillrunning, no pass yet), with cleanHEAD/tree`689957a3…`, own5CFE,12source guards,
-3locks and exact archive`816a2106…`. Actual localChrome/Wasm enabled; no localJS
-claim. Source/HEAD/native remain frozen; no competing tests/models under its
-exclusive lease. One read-only auditor waits. Own originalCI41441957326 and
-copy/lifetime41441964331 are dispatched once, exact601108ea/attempt1 verified;
-preserve all executions/raw rows/artifacts. One finalCIwatcher preserves the
-initial1completed timestamp/1artifactID-digest; one copywatcher retains metadata.
-No unchanged numerical retries or old-source report substitution. After own
-canonical andCIclean, proper all50row native-source comparison with a NEWfresh
-producer is still required; old3020client cannot provide fresh-body proof.
-Full final-runtime strict48/50 is not dispatched and remains required before
-adoption. PR132 remains40ddcb3f OPEN DRAFT/#130; RAM/broadWAMP parity unresolved.
-[Freeze and current scope](research/2026-11-02-mqtt-complete-pair-capacity-frozen.json).
+Copy41441964331 is complete pass:artifact13142400890 /ZIP`25cab99e…`.
+All3,314inputs /120live /300inventory /32zeroavoidablecopy includingE2EE,
+transcode andnativecrypto verify. All3,311native-view inputs/exactarchive/fixture,
+4non-ephemeral-port phases,3positivephases /expectednegative /cleanup verify.
+Actual2D9Dnative-view bytes rehash from its OWN current601profile13139189994.
+Production0B23native /D3F6driver have stable receipts but bytes omitted fromcopy
+artifact; no ffi-test/sharedCI substitution. [Complete copy scope](research/2026-11-02-mqtt-complete-pair-capacity-copy-audit.json).
+
+Build cohorts are **distinct**:localfrozen transportlock`0cb8ef90…` /bench`ea60fd1c…`
+usecc1.10.0; hostedtransport`ba5154f3…` /bench`7c215c58…` usecc1.11.0. Allother
+packageentries in each lock are identical. No source/lock/SDK/policy changed to
+force equality and no cross-cohort control claim is made. SharedCI13139128475
+verifiesall968nativeinputs /ownhostedlock /actualELF6C28; this doesnot substitute
+2D9Dnative-view/measurement or0B23production. Same-input controlled comparison
+still requires both arms'actualnative/locks within one declared cohort.
+[Actual shared cohort / lock difference](research/2026-11-02-mqtt-complete-pair-capacity-shared-CI-cohort-audit.json).
+
+WholeCI41441957326 remainsACTIVE; last retained snapshot34success /4nonnumerical
+jobs active, no failure observed in that snapshot. Original finalwatcher exited120
+during localdiskexhaustion; its underlyingerror is unrecorded. It is reaped.
+One READONLYrecovered watcher preservesall34completed timestamps /36artifactIDs-
+digests, including originalMQTT/profile. No job/campaign/numericdata reran.
+An initial artifact-download shell failed before Python/API/data dueENOSPC;
+space recovered before anysecondcleanup and actualZIPs were fetched once.
+Earlierpostcanonical cleanup removedonlyinactive OWNcompiler objects/metadata
+under officialexclusivelease; allsources/HEADs/actualnatives/RLIBs/evidence stayed.
+Finish currentCI naturally before NEWproperfresh native-source50rowcontrol;
+fullfinalstrict48/50 is not dispatched. PR132 stays40ddcb3f OPEN DRAFT/#130,
+RAM/broadWAMP and separate1%allocationprecision decision remain unresolved.
 
 ## Current work
 
@@ -211,9 +225,9 @@ AFTER exact capacity is selected:all384bytes still drain and normal growth occur
 The complete-pair case now requests64+256bytes instead of64+4096+24 (two vs three
 requests here). All480core /2alias /2allocation /3codec /319FFI tests pass; own
 candidate native`5cfe237b…` is rebuilt and nativeWebSocket/lifetime tests pass.
-Router/MQTT-Paho checks are still running under the official exclusive lease;
-source/HEAD/native are frozen during that pipeline. Full independent focused
-review, own canonical/copy/CI/source comparison and strict48/50 remain required.
+Router/MQTT-Paho checks and independent focused review pass; owncanonical and
+copy/source/byte scope also pass as recorded above. Current fullCI/source comparison
+and strict48/50 remain required; source/HEAD/native stay frozen.
 The component improvement is not throughput/RAM/EPYC7763 acceptance or adoption.
 
 Source fact: the actual private `MqttInbound` first merge requests

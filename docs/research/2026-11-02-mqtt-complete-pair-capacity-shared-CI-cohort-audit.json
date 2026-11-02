@@ -1,0 +1,40 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "run": 41441957326,
+  "artifact_id": 13139128475,
+  "within_hosted_artifact_source_native_lock_integrity_verified": true,
+  "complete_source_inventory_verified": true,
+  "source_inputs_verified": 968,
+  "actual_native_sha256": "6c281483917a886691688a05b846f25eb843d7aad4c9859001142c157a68e38b",
+  "actual_hosted_cargo_lock_sha256": "ba5154f3ceb9172cd65cc1a85e04bb1bd6d426ce89f1e3bb6a9afaf06b8762e3",
+  "frozen_local_cargo_lock_sha256": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+  "hosted_lock_equals_frozen_local_lock": false,
+  "lock_delta": {
+    "removed": [
+      [
+        "cc",
+        "1.10.0"
+      ]
+    ],
+    "added": [
+      [
+        "cc",
+        "1.11.0"
+      ]
+    ],
+    "all_common_package_entries_identical": true
+  },
+  "features": [
+    "ffi-test"
+  ],
+  "profile": "release",
+  "build_toolchain_record": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)"
+  },
+  "actual_ELF_x86_64_header_verified": true,
+  "artifact_zip_sha256": "70deba2735b3d295eaa14b30c9b67afa8e3220eaed920a2bcd46f34d70134f4f",
+  "manifest_sha256": "08fba90a05fa8edde5ccb6f7c91fef823aa5c9539c77b4f73ddc488bdd23fb2f",
+  "scope": "Actualretained current601 shared-CI library,complete968 sourceinputs and OWNhostedlock verified. Localcanonical andhostedresolvedbuildgraphs areDISTINCT; cross-cohort lockequalityisFALSE and isNOTwaived. Not a controllednative-sourcecomparison orRAM/transport/fullCIacceptance. Shared6C28 doesNOTsubstitute native-view2D9D/production0B23/Darwin5CFE. No source/SDK/lock/policy edits, compilation, test or gate rerun performed.",
+  "audited_utc": "2026-11-02T13:09:57.125208+00:00"
+}

@@ -1,0 +1,34 @@
+{
+  "source_archive_sha256": "816a2106432f999ff20e90899035406b670b74ceab28381092a8b8c8b2f72c85",
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "full_canonical_pass": true,
+  "actual_source_HEAD_tree_clean": true,
+  "actual_tracked_tree_sha256": "689957a3c9346b8003db481982b42bf9a2b3c98938d16acf6f889b0f74b5cd9b",
+  "own_native_sha256": "5cfe237b5e656cf860235c104b02b879e9da581a31768e7b734428c67fac3dad",
+  "all_guarded_sources_and_three_locks_unchanged": true,
+  "guarded_sources": {
+    "native/transport/ct_core/src/mqtt_inbound_allocation_probe.rs": "d4ed2827d222375aa53cccc72035bdd1e9c5b6c73d7e24c0334a5aa98a0d2a95",
+    "native/transport/ct_core/tests/flatbuffers_small_segment_allocations.rs": "7c2db0f5b539711e8a57bede620e2343ac1056a928794b7ab4ada0b35042ce99",
+    "native/transport/ct_core/src/wamp/flatbuffers_wire.rs": "bdac798e69dba52d55565b71e93bef70211c0dbeb009e4e4b148c5141b6dfc14",
+    "native/transport/ct_core/src/wamp/flatbuffers_codec.rs": "1977b563ddf11f74353ecdf66b61cf2fd9da62123c8d3ee3546c5e9dd25dd8aa",
+    "native/transport/ct_core/tests/flatbuffers_segmented_receive_alias.rs": "0914e421134b8a261be607de4c9f8e35f23416f9841d537d241b6b12b0779c7e",
+    "native/transport/ct_ffi/src/runtime/flatbuffers_opaque_tests.rs": "2b186d83b9b43b6a3a1dda6d61886be8f98a6771b9940a6e0bb42349fc5224ec",
+    "native/transport/ct_core/src/lib.rs": "67014119585c9a011f4494178bfdb5c67714a484f46a268f1cbde6fee5aefef4",
+    "native/transport/ct_core/src/wamp/flatbuffers_encoder.rs": "c93d2b659dde8e0ba649783840306b4d1adc6f79ced62c4dfbdd8ded72b674d2",
+    "native/transport/ct_core/src/wamp.rs": "0317af674358e970bfffd716b2a4e504cc852a01bf43478dffaa84f6cf596c6d",
+    "native/transport/ct_ffi/src/runtime/ffi.rs": "69b59a4453b86c34405fe4d3b57fdb5a50eaa68b921e6efcea46fa47ce1d4d9c",
+    "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart": "07b6d986a1a4d1b0e9864e6ca0ff80cb2395bf0245eed43c6a9db11410b843bf",
+    "packages/connectanum_router/lib/src/native/runtime.dart": "473d213d7e69aaba0ed86ca7692f569db3e0395c1ec8adadca9921a8284e1939"
+  },
+  "three_locks": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "log_sha256": "5a7c2ca145013c97b2888cf8f22ae5230524e825f6c2682000dbcd170a8078bd",
+  "receipt_sha256": "e24fc0cef47e2b90a4b6abecf6648c391912c77013949724e4d58cd3d81f3efe",
+  "actual_local_Chrome_Wasm_observations": 8308,
+  "actual_local_JavaScript_observations": 0,
+  "scope": "Own frozen601108ea full bin/verify; exact clean source/HEAD/tree/ownnative/three locks independently rehashed. Actual local ChromeWasm only; hostedJS separate. No transport/RAM or strict48/50 acceptance claim.",
+  "audited_utc": "2026-11-02T12:30:21.232935+00:00"
+}

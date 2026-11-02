@@ -1,0 +1,25 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "run": 41441957326,
+  "job": 125265754644,
+  "job_completed_success_from_retained_progress_metadata": true,
+  "actual_hosted_Chrome_JavaScript_observations": 8192,
+  "actual_successful_JS_cases": 8172,
+  "native_only_expected_skips": 20,
+  "actual_Wasm_observations_in_this_hosted_job": 0,
+  "all_reporter_observations_and_footers_match": true,
+  "footer_counts": [
+    [
+      5233,
+      0
+    ],
+    [
+      2939,
+      20
+    ]
+  ],
+  "Dart_SDK": "3.13.1",
+  "log_sha256": "10031c297fde4ba3b19dfb05e74f1961486211d7a158d47efd9263fa5dd5772c",
+  "scope": "Owncurrent601 hostedJS, separatefromLOCAL8308Wasm. No localJS/CIcomplete/native-runtime/RAM/transport/strict48/50acceptance claim. CLIrunlog adapter refusedwhileworkflowactive; directcompletedjobendpoint fetchedlogonce, no testsrerun.",
+  "audited_utc": "2026-11-02T13:47:36.300629+00:00"
+}

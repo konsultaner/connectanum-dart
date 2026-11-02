@@ -1,0 +1,300 @@
+{
+  "head": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "summaries": 20,
+  "raw_rows": 192,
+  "original_client_fresh_per_publication": false,
+  "scope": "OriginalMQTT20 exactrawsummaries andunchangedbudgets oncurrent601 hostedcohort; originalclient3020 reusedbuffer/fixedtail, fullbodyverification/results stand butNOT freshpublication evidence. Gate usesratioofmedians; pairedmedian separatelylabelled. Localfrozen0cb8 andhostedba515 locks differ cc1.10\u21921.11; no crosscohort equality orcausal7763repair/RAM/finalacceptance claim.",
+  "all_summaries_exact": true,
+  "all_budgets_unchanged": true,
+  "candidate_passes": true,
+  "cpu_models": [
+    "AMD EPYC 9V45 96-Core Processor"
+  ],
+  "library_hashes": [
+    "2d9d1a742ea4f90c9589ed945d334ad17f2711466d536c087d4c96e99e8ff92d"
+  ],
+  "selected": [
+    {
+      "profile": "batched/summary.json",
+      "gate_throughput_ratio": 8.172481945316086,
+      "paired_throughput_ratio_median": 8.16495579729972,
+      "broker_cpu_ratio": 0.054878048780487805,
+      "passed": true
+    },
+    {
+      "profile": "burst/summary.json",
+      "gate_throughput_ratio": 0.7707986688851913,
+      "paired_throughput_ratio_median": 0.7674775465992689,
+      "broker_cpu_ratio": 1.0,
+      "passed": true
+    },
+    {
+      "profile": "fanout/summary.json",
+      "gate_throughput_ratio": 10.243723448141099,
+      "paired_throughput_ratio_median": 9.685870896661214,
+      "broker_cpu_ratio": 0.03759398496240601,
+      "passed": true
+    },
+    {
+      "profile": "native-1k-sustained/summary.json",
+      "gate_throughput_ratio": 9.202474381513683,
+      "paired_throughput_ratio_median": 9.47328003621402,
+      "broker_cpu_ratio": 1.75,
+      "passed": true
+    },
+    {
+      "profile": "native-64k-sustained/summary.json",
+      "gate_throughput_ratio": 0.9182134654813914,
+      "paired_throughput_ratio_median": 0.92524267147047,
+      "broker_cpu_ratio": 2.8181818181818183,
+      "passed": true
+    },
+    {
+      "profile": "native-batched/summary.json",
+      "gate_throughput_ratio": 9.009921196793188,
+      "paired_throughput_ratio_median": 8.854587417889034,
+      "broker_cpu_ratio": 0.05952380952380953,
+      "passed": true
+    },
+    {
+      "profile": "native-burst/summary.json",
+      "gate_throughput_ratio": 0.8990554588148383,
+      "paired_throughput_ratio_median": 0.973758430410791,
+      "broker_cpu_ratio": 2.0,
+      "passed": true
+    },
+    {
+      "profile": "native-fanout/summary.json",
+      "gate_throughput_ratio": 7.883549339592124,
+      "paired_throughput_ratio_median": 7.738671297015722,
+      "broker_cpu_ratio": 0.06730769230769232,
+      "passed": true
+    },
+    {
+      "profile": "native-sustained/summary.json",
+      "gate_throughput_ratio": 1.0008227358124546,
+      "paired_throughput_ratio_median": 1.0191202123761773,
+      "broker_cpu_ratio": 1.9386503067484664,
+      "passed": true
+    },
+    {
+      "profile": "native-tls-sustained/summary.json",
+      "gate_throughput_ratio": 8.914579251774015,
+      "paired_throughput_ratio_median": 8.880053660894625,
+      "broker_cpu_ratio": 0.49473684210526314,
+      "passed": true
+    },
+    {
+      "profile": "native-tls-v311-sustained/summary.json",
+      "gate_throughput_ratio": 9.002543210426976,
+      "paired_throughput_ratio_median": 9.02777196909498,
+      "broker_cpu_ratio": 0.4639175257731959,
+      "passed": true
+    },
+    {
+      "profile": "native-v311-sustained/summary.json",
+      "gate_throughput_ratio": 1.0429569376729793,
+      "paired_throughput_ratio_median": 1.063344189043611,
+      "broker_cpu_ratio": 1.8816568047337279,
+      "passed": true
+    },
+    {
+      "profile": "native-ws-sustained/summary.json",
+      "gate_throughput_ratio": 0.805394332442686,
+      "paired_throughput_ratio_median": 0.8006815268062041,
+      "broker_cpu_ratio": 2.2893772893772892,
+      "passed": true
+    },
+    {
+      "profile": "native-ws-v311-sustained/summary.json",
+      "gate_throughput_ratio": 0.8006514593262881,
+      "paired_throughput_ratio_median": 0.8080143877118514,
+      "broker_cpu_ratio": 2.3,
+      "passed": true
+    },
+    {
+      "profile": "native-wss-single-smoke/summary.json",
+      "gate_throughput_ratio": 3.964342974411595,
+      "paired_throughput_ratio_median": 4.073567664910291,
+      "broker_cpu_ratio": 0.0,
+      "passed": true
+    },
+    {
+      "profile": "native-wss-sustained/summary.json",
+      "gate_throughput_ratio": 5.780959148263587,
+      "paired_throughput_ratio_median": 5.749367847644085,
+      "broker_cpu_ratio": 0.21465968586387435,
+      "passed": true
+    },
+    {
+      "profile": "native-wss-v311-single-smoke/summary.json",
+      "gate_throughput_ratio": 3.4505554184152056,
+      "paired_throughput_ratio_median": 3.4472475931868676,
+      "broker_cpu_ratio": 0.5,
+      "passed": true
+    },
+    {
+      "profile": "native-wss-v311-sustained/summary.json",
+      "gate_throughput_ratio": 5.618939228255538,
+      "paired_throughput_ratio_median": 5.588919096278241,
+      "broker_cpu_ratio": 0.34391534391534395,
+      "passed": true
+    },
+    {
+      "profile": "sustained/summary.json",
+      "gate_throughput_ratio": 0.9367621057749685,
+      "paired_throughput_ratio_median": 0.9215397957102507,
+      "broker_cpu_ratio": 1.3090909090909093,
+      "passed": true
+    },
+    {
+      "profile": "v311-sustained/summary.json",
+      "gate_throughput_ratio": 0.9775658267270668,
+      "paired_throughput_ratio_median": 0.9114685506211011,
+      "broker_cpu_ratio": 1.2562499999999999,
+      "passed": true
+    }
+  ],
+  "audit": [
+    {
+      "path": "batched/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "dc0a5194f4749805db18696602644999305ff246e4aa4b766f60211bcd153464",
+      "summary_sha256": "c52b813c7f9a0cb8bdf4c288dbdc7f971aebe7efeb2fed65b7f4c58adf109567"
+    },
+    {
+      "path": "burst/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "f111349abb4329d4f6f1724ed1bcdd989d070a92ee8189b4b8de78583f8c05eb",
+      "summary_sha256": "ba3f06b2c707ce0af5c0cf087c42122f48cafc153678f74ba950dd668e7e3220"
+    },
+    {
+      "path": "fanout/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "a9e4169c96a8eabb9184723eb40f554982dc8611c6da42f94a64e8acd0d96601",
+      "summary_sha256": "9bed3139746418ba661dc05c598ab31fed1facd0c892a7be4e28f859c363d7b0"
+    },
+    {
+      "path": "native-1k-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "e2b78a183c9423e5c97ef219a5559a7a86e0a311d4ac31981189f4d93cb5e4ce",
+      "summary_sha256": "39451c4daaa6490156325c233a24d49af8a7fcce9ba458bc8bd1b8149cc88920"
+    },
+    {
+      "path": "native-64k-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "26be7a783e3cfb85abe7d06890bb4ad2c7321d87097cbe1058f8e5f49a74bd28",
+      "summary_sha256": "96d0f89f49a9f0bd741c1def79ef1304c552fe2b788b8164add31bdc01e2021c"
+    },
+    {
+      "path": "native-batched/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "c9763ddda59f795586c3e90d5ce55cf8dceae6496f570ad1d96548ca326a9297",
+      "summary_sha256": "72936cd16df599ae235f6ea9fa9f1cbea78732a236ddf9949896a7bb7298881b"
+    },
+    {
+      "path": "native-burst/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "b2096a607f2f46c86146a1a2c766349657f668bd81d04933802744596c368a6a",
+      "summary_sha256": "b0965166e4afc52b3ba04bd35215eee984b970288c355cf15056a7109de1bff4"
+    },
+    {
+      "path": "native-fanout/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "913704dd51a5bd0c58dbd2f870e729546fdf18d8166568097c0777e1869912cc",
+      "summary_sha256": "25ae9cfd91cf7baae6da87e8d3a7c4acf7ac1b7c0093c29f005864c46cb3d84c"
+    },
+    {
+      "path": "native-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "e0230ac5858d442a4de993c583ddd1c49e13987ef17fdc620ba6712bf7ba65bb",
+      "summary_sha256": "29813ba3a459bdffa7e8479d3c233e75705ca5604eb128e7b5fac3ca7edf24d2"
+    },
+    {
+      "path": "native-tls-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "9ccd76367a7ef02661a39af14ee0ccf49ca07a490e7914abb752ccb5f6580545",
+      "summary_sha256": "5e2cad90b9e7c482fd649345a0e53ec678b81b8e68de406090734e28336544ba"
+    },
+    {
+      "path": "native-tls-v311-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "6c0ecbf3fb260a12ad6a4864bcd26350ace8b273dabaa72bca7ee8821835417e",
+      "summary_sha256": "9dcb5e606e574cd4e4371ec924ab76af6e673b35ec9ef0959fda841b6467c74d"
+    },
+    {
+      "path": "native-v311-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "f30cd3a7564d288a0d8afe3cfc23b1584a667e9e96aaad003634972baf4449cc",
+      "summary_sha256": "c2becb0deb39806e09e820fdb8c533c8b7ef1db4c41fb2f3ae983fafd9cd907a"
+    },
+    {
+      "path": "native-ws-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "837179a57d9cd614069207f92b2e97fc6dce3640265a405667fcf3de8e849a70",
+      "summary_sha256": "9b9da6b9e4072d6f0a266b0f52fd83c2c6ff209f58aa0a0ed3feb101282c8d50"
+    },
+    {
+      "path": "native-ws-v311-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "189f7e38dea3165c0af4b7fd03fe792577e0bfdaa0053701b6fc7574cae8892b",
+      "summary_sha256": "4c4ab2ad409a94d0676048a593097ef6d1a6b1e4d289b179b3550764f5fcb387"
+    },
+    {
+      "path": "native-wss-single-smoke/summary.json",
+      "rows": 6,
+      "passed": true,
+      "raw_sha256": "0acff24cfd7e134df995a88568b156eca7edce5ed1d9ff18c3113870c02d725d",
+      "summary_sha256": "5c8151a197812ee1cf25cf5c06320df982d34c6b99e5e1f37b1a41d2f6c9c372"
+    },
+    {
+      "path": "native-wss-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "78e6e00d5c2a597826eb29ac74e3c646c6f3ba78917dac7a092f1786255b823f",
+      "summary_sha256": "2af43500b29bc8ceed398e39226aea043d3d5cd7e9a76539a58d8ab8bc0d8595"
+    },
+    {
+      "path": "native-wss-v311-single-smoke/summary.json",
+      "rows": 6,
+      "passed": true,
+      "raw_sha256": "d45e8408c4bad47228b4f4855cfc420201e2c372c8cd4c69af2e37d22740d0d8",
+      "summary_sha256": "029d8ac6f2ad45d3827f17a7d2659678a74a7a7413054982d5cad9ba255edfdc"
+    },
+    {
+      "path": "native-wss-v311-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "34a3bb7671e8bb3d8072307523313753f6b6dd2b5daefe1d30d51dc44d9d7814",
+      "summary_sha256": "fe37a91885f358d678e2c93696c6c9d30d263322f238c8c2c539fdf6d6c5ab02"
+    },
+    {
+      "path": "sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "0b6cdd19f661fb7b8792e983ca13c7fd46e37d65137d12a2463038b2afd5a942",
+      "summary_sha256": "cce7918c8216ce77077a5a3f81889e60821b54aff30d6754b57a552686a8e8a6"
+    },
+    {
+      "path": "v311-sustained/summary.json",
+      "rows": 10,
+      "passed": true,
+      "raw_sha256": "e895c55cc052fa0ded234c77f069637f2455cc0735e9aaeef1a877c8e3b63293",
+      "summary_sha256": "2178a8ce1d2eb4cf69cd75d2e400eaaa1e6cb1c29258af545f76218115c8aa32"
+    }
+  ]
+}

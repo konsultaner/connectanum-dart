@@ -12,9 +12,15 @@
   "tracked_tree_sha256": "689957a3c9346b8003db481982b42bf9a2b3c98938d16acf6f889b0f74b5cd9b",
   "frozen_utc": "2026-11-02T12:02:12.937814+00:00",
   "published": true,
-  "canonical_complete_pass": false,
-  "canonical_active": true,
+  "canonical_complete_pass": true,
+  "canonical_active": false,
   "CI": 41441957326,
   "copy_lifetime": 41441964331,
-  "scope": "Exactfrozen601108eaownverificationactive; no finalCI/RAM/strict48/50/adoption claim."
+  "scope": "Exactfrozen601108eaownverificationactive; no finalCI/RAM/strict48/50/adoption claim.",
+  "canonical_log_sha256": "5a7c2ca145013c97b2888cf8f22ae5230524e825f6c2682000dbcd170a8078bd",
+  "canonical_receipt_sha256": "e24fc0cef47e2b90a4b6abecf6648c391912c77013949724e4d58cd3d81f3efe",
+  "MQTT20_complete_pass": true,
+  "copy_workflow_complete_pass": true,
+  "whole_CI_complete": false,
+  "controlled_source_capture_ready": false
 }
