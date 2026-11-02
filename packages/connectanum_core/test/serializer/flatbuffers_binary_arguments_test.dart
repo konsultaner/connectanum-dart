@@ -8,6 +8,48 @@ import 'package:connectanum_core/src/serializer/flatbuffers/wire_writer.dart';
 
 void main() {
   final codec = flatbuffers.Serializer();
+  test(
+    'ordinary and transport encoding retain the complete-frame byte cap',
+    () {
+      final message = Call(
+        1,
+        'com.large',
+        options: CallOptions(pptScheme: 'opaque', pptSerializer: 'flatbuffers'),
+      )..transparentBinaryPayload = Uint8List(64 * 1024 * 1024);
+      final byteLimit = isA<ArgumentError>().having(
+        (error) => error.message,
+        'message',
+        contains('byte limit'),
+      );
+      expect(() => codec.serialize(message), throwsA(byteLimit));
+      expect(
+        () => codec.serializeTransportFragments(message),
+        throwsA(byteLimit),
+      );
+    },
+  );
+  test(
+    'transport fragments finish empty payload frames without rebuilding',
+    () {
+      for (final message in <AbstractMessage>[
+        Result(1, ResultDetails()),
+        Call(2, 'com.empty'),
+        Event(3, 4, EventDetails()),
+      ]) {
+        final counting = _CountingSerializer();
+        final parts = counting.serializeTransportFragments(message);
+        expect(counting.normalEncodes, 0);
+        expect(parts, hasLength(1));
+        expect(parts.single, codec.serialize(message));
+        expect(codec.deserialize(parts.single)!.id, message.id);
+      }
+      final counting = _CountingSerializer();
+      final control = Goodbye(null, 'wamp.close.normal');
+      final parts = counting.serializeTransportFragments(control);
+      expect(counting.normalEncodes, 1);
+      expect(parts.single, codec.serialize(control));
+    },
+  );
   test('default fragments preserve detached binary argument storage', () {
     final bytes = Uint8List.fromList(List.generate(65536, (i) => i % 251));
     final message = Publish(1, 'com.test', arguments: [bytes]);
@@ -139,5 +181,15 @@ void main() {
         },
       );
     }
+  }
+}
+
+class _CountingSerializer extends flatbuffers.Serializer {
+  int normalEncodes = 0;
+
+  @override
+  Uint8List serialize(AbstractMessage message) {
+    normalEncodes++;
+    return super.serialize(message);
   }
 }

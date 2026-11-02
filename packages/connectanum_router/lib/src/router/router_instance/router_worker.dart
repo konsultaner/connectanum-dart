@@ -240,11 +240,9 @@ Uint8List encodeMessage(
     case NativeMessageSerializer.cbor:
       return _cborSerializer.serialize(message);
     case NativeMessageSerializer.flatbuffers:
-      final fragments = _flatBuffersSerializer.serializeFragments(
+      final fragments = _flatBuffersSerializer.serializeTransportFragments(
         message,
-        borrowBinaryArguments: true,
       );
-      if (fragments == null) return _flatBuffersSerializer.serialize(message);
       final output = BytesBuilder(copy: false);
       for (final fragment in fragments) {
         output.add(fragment);
