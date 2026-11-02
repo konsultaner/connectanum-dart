@@ -34,10 +34,13 @@ class Serializer extends AbstractSerializer {
   /// Encode one WAMP frame while retaining its encoded application byte views.
   /// Concatenate the fragments in order; each fragment is part of that frame.
   /// Keep their backing owners and contents valid until transmission completes.
-  /// Binary application arguments can retain their bytes inside CBOR vectors.
-  /// Other Dart arguments require CBOR encoding before composition.
+  /// Set [borrowBinaryArguments] to retain materialized binary argument bytes
+  /// inside CBOR vectors. The default keeps their detached encoded storage.
   @override
-  List<Uint8List>? serializeFragments(AbstractMessage message) {
+  List<Uint8List>? serializeFragments(
+    AbstractMessage message, {
+    bool borrowBinaryArguments = false,
+  }) {
     if (message is! AbstractMessageWithPayload) return null;
     final builder = WampFlatBufferBuilder();
     final vectors = <DeferredFlatBufferVector>[];
@@ -45,6 +48,7 @@ class Serializer extends AbstractSerializer {
       message,
       builder,
       deferredVectors: vectors,
+      borrowBinaryArguments: borrowBinaryArguments,
     );
     if (vectors.isEmpty) return null;
     return finishWampFlatBufferFragments(builder, root, vectors);

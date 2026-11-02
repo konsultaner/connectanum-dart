@@ -19,6 +19,7 @@ int writeWampFlatBufferMessage(
   FlatBufferByteVectorReference? argumentsKeywordsVector,
   FlatBufferByteVectorReference? payloadVector,
   bool includeApplicationPayload = true,
+  bool borrowBinaryArguments = false,
   List<DeferredFlatBufferVector>? deferredVectors,
 }) {
   final projection = projectWampFlatBufferMessage(message);
@@ -70,7 +71,7 @@ int writeWampFlatBufferMessage(
         lazy.argumentsBytes != null) {
       body['args'] = lazy.argumentsBytes;
     } else if (message.wireArguments != null) {
-      final parts = deferredVectors == null
+      final parts = deferredVectors == null || !borrowBinaryArguments
           ? null
           : encodeWampFlatBufferBinaryCborFragments(message.wireArguments);
       body['args'] = parts == null

@@ -12,6 +12,8 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
+import 'package:connectanum_core/src/serializer/flatbuffers/serializer.dart'
+    as flatbuffers_serializer;
 import 'package:connectanum_core/src/message/goodbye.dart' as goodbye_msg;
 import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
 import 'package:connectanum_core/src/message/event.dart' as event_msg;
@@ -47,6 +49,35 @@ final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
 const _zeroCopyPublishTag = 'zero_copy_publish';
 
 void main() {
+  test(
+    'FlatBuffers worker owns binary frames and supports control fallback',
+    () {
+      final codec = flatbuffers_serializer.Serializer();
+      final payload = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+      final expected = Uint8List.fromList(payload);
+      final encoded = encodeMessage(
+        NativeMessageSerializer.flatbuffers,
+        event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [payload]),
+      );
+      payload.fillRange(0, payload.length, 0);
+      encodeMessage(
+        NativeMessageSerializer.flatbuffers,
+        event_msg.Event(3, 4, event_msg.EventDetails(), arguments: [payload]),
+      );
+      final decoded = codec.deserialize(encoded) as event_msg.Event;
+      expect(decoded.subscriptionId, 1);
+      expect(decoded.publicationId, 2);
+      expect(decoded.arguments, [expected]);
+      final goodbye = goodbye_msg.Goodbye(null, 'wamp.close.normal');
+      expect(codec.serializeFragments(goodbye), isNull);
+      final control =
+          codec.deserialize(
+                encodeMessage(NativeMessageSerializer.flatbuffers, goodbye),
+              )
+              as goodbye_msg.Goodbye;
+      expect(control.reason, goodbye.reason);
+    },
+  );
   test(
     'large JSON worker events retain exact owned bytes across later encodes',
     () {
