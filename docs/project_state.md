@@ -9,9 +9,10 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Verify frozen busy-pass wake candidate `600e82f5` with its own canonical,
-remaining exact-source CI after canonical/copy proof and the complete mixed
-Dart-source transport comparison.
+Resume controlled diagnosis of the remaining FlatBuffers RAM/performance
+failures. Frozen busy-pass wake candidate `600e82f5` now passes its own canonical,
+copy/lifetime and all 39 exact-source CI jobs; the complete Dart-source transport
+comparison remains mixed and near unity.
 All original numerical observations are preserved. No candidate is adopted;
 RAM and broad WAMP parity remain incomplete.
 
@@ -58,8 +59,12 @@ provenance. Separately, 965 shared-CI native source inputs, lock and actual
 `ab99dad7…` library verify. The shared-CI build is distinct from measured
 `10c9aaa7…`. The same-source hosted Chrome/JS job also passes: 8,192 log observations,
 8,172 successes and 20 skips, independently audited. It is separate from
-actual local Chrome/Wasm. Full CI remains active. This host-specific pass does not prove
+actual local Chrome/Wasm. Full CI now passes all 39 jobs on attempt one. This host-specific pass does not prove
 repair of the previous 7763 failures or a Dart-source performance benefit.
+All 21 previously completed execution timestamps and 10 recorded artifact
+IDs/digests, including performance, independently remain unchanged; all 40
+final artifacts are inventoried. No job or numerical observation reran.
+[Final CI and preservation audit](research/2026-11-02-router-busy-wake-final-CI-audit.json).
 [Copy/lifetime and binary scope](research/2026-11-02-router-busy-wake-copy-audit.json),
 [MQTT/raw inputs and binary audit](research/2026-11-02-router-busy-wake-mqtt-audit.json).
 
@@ -114,7 +119,7 @@ a causal explanation or repair of the prior 7763 gate.
 [All counters and byte audit](research/2026-11-01-mqtt-ffi-census-audit.json).
 
 The subsequent busy-wake component has now reproduced the redundant idle turn;
-its reviewed published candidate and pending own verification are described
+its reviewed published candidate and complete own verification are described
 above. Count-only observations remain diagnostic, without a performance or
 RAM acceptance claim.
 

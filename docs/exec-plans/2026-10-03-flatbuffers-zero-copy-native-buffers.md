@@ -4,8 +4,7 @@ Status: active; the user resumed the FlatBuffers milestone after the MQTT/master
 
 Current step: verify frozen busy-pass wake runtime `600e82f5` after the actual
 before-failing deterministic regression, fresh full fast baseline and all615
-router-runtime/115MQTT cases pass. Own canonical/copy/MQTT now pass; full exact-source CI remains
-active; the predeclared full Dart-source comparison is complete and mixed, after both
+router-runtime/115MQTT cases pass. Own canonical/copy/MQTT and all 39 exact-source CI jobs now pass; the predeclared full Dart-source comparison is complete and mixed, after both
 own canonicals, all eighteen guards and review pass. Preserve every original numerical result. No source/HEAD/native
 changes during canonical, or adoption before complete final-runtime acceptance.
 Local focused/diagnostic evidence is scoped below, not final acceptance. All
@@ -56,8 +55,12 @@ provenance. Separately, 965 shared-CI native source inputs, lock and actual
 `ab99dad7…` library verify. The shared-CI build is distinct from measured
 `10c9aaa7…`. The same-source hosted Chrome/JS job also passes: 8,192 log observations,
 8,172 successes and 20 skips, independently audited. It is separate from
-actual local Chrome/Wasm. Full CI remains active. This host-specific pass does not prove
+actual local Chrome/Wasm. Full CI now passes all 39 jobs on attempt one. This host-specific pass does not prove
 repair of the previous 7763 failures or a Dart-source performance benefit.
+All 21 previously completed execution timestamps and 10 recorded artifact
+IDs/digests, including performance, independently remain unchanged; all 40
+final artifacts are inventoried. No job or numerical observation reran.
+[Final CI and preservation audit](../research/2026-11-02-router-busy-wake-final-CI-audit.json).
 [Copy/lifetime and binary scope](../research/2026-11-02-router-busy-wake-copy-audit.json),
 [MQTT/raw inputs and binary audit](../research/2026-11-02-router-busy-wake-mqtt-audit.json).
 
@@ -112,7 +115,7 @@ a causal explanation or repair of the prior 7763 gate.
 [All counters and byte audit](../research/2026-11-01-mqtt-ffi-census-audit.json).
 
 The subsequent busy-wake component has now reproduced the redundant idle turn;
-its reviewed published candidate and pending own verification are described
+its reviewed published candidate and complete own verification are described
 above. Count-only observations remain diagnostic, without a performance or
 RAM acceptance claim.
 

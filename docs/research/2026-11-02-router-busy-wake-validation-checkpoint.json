@@ -24,12 +24,14 @@
   "MQTT20_complete_pass": true,
   "MQTT_host": "Xeon Platinum 8573C",
   "MQTT_audit": "docs/research/2026-11-02-router-busy-wake-mqtt-audit.json",
-  "full_CI_complete": false,
+  "full_CI_complete": true,
   "canonical_audit": "docs/research/2026-11-02-router-busy-wake-canonical-audit.json",
   "control_guard_tests_passed": 18,
   "control_driver_sha256": "b1cff42a609fc5cce64fcd20755621a831170ba7782ec4d83c16a0e23d0a98fe",
   "control_capture_complete": true,
   "control_capture_rows": 50,
   "control_fresh_verified_deliveries": 8050000,
-  "control_audit": "docs/research/2026-11-02-router-busy-wake-Dart-control-audit.json"
+  "control_audit": "docs/research/2026-11-02-router-busy-wake-Dart-control-audit.json",
+  "full_CI_result": "all39jobsPASSattempt1;21priorcompletedtimestamps/10priorartifactIDs-digests preserved,40totalartifacts; no retries",
+  "full_CI_audit": "docs/research/2026-11-02-router-busy-wake-final-CI-audit.json"
 }
