@@ -44,6 +44,20 @@ Controlled source comparison and own final strict48/50 remain required; no
 RSS/transport acceptance or adoption is claimed. D9CB strict campaigns retain
 all original rows; its completed payload misses are preserved separately.
 
+The current AD48 hosted shared ffi-test build is independently audited: all967
+source inputs, exact native lock and actual Linux/x86_64 library `eb47cb32…`
+rehash, including artifact ZIP digest and ELF architecture. This separate
+shared build does not substitute for local canonical `be4c3878…` or later
+measured MQTT/native-view/production binaries. Full canonical/CI/copy remain
+active. [Current-source shared build audit](../research/2026-11-02-flatbuffers-small-segment-index-shared-CI-audit.json).
+
+A read-only decomposition also verifies all28 original paired RSS inputs
+across D9CB's four failing payload cases. Client/server contributions vary;
+median component deltas do not add to a median total or reproduce a paired
+ratio. These observations establish no single cause or retained leak, and
+no new measurements or numerical reruns were taken.
+[Original role decomposition](../research/2026-11-02-flatbuffers-d9cb-payload-rss-attribution.json).
+
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
 Published `600e82f56d3da6ac998eeb5a60fec175354215ca` on

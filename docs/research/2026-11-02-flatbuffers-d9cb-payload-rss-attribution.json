@@ -1,0 +1,264 @@
+{
+  "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "scope": "Descriptive attribution of the unchanged four measured paired RSS gate inputs. Matches every hosted paired ratio exactly; no causal repair, new measurement or gate change. Median component deltas need not sum to median total delta.",
+  "cases": {
+    "ext_08_payload_sizes": [
+      {
+        "repetition": 1,
+        "baseline": "msgpack",
+        "ratio": 1.0021498406525144,
+        "client_delta_bytes": 598016,
+        "server_delta_bytes": 1032192
+      },
+      {
+        "repetition": 2,
+        "baseline": "msgpack",
+        "ratio": 1.0886996705318557,
+        "client_delta_bytes": 27398144,
+        "server_delta_bytes": 40529920
+      },
+      {
+        "repetition": 3,
+        "baseline": "msgpack",
+        "ratio": 0.995574611363256,
+        "client_delta_bytes": -3670016,
+        "server_delta_bytes": -12288
+      },
+      {
+        "repetition": 4,
+        "baseline": "msgpack",
+        "ratio": 1.0040718086068985,
+        "client_delta_bytes": 5083136,
+        "server_delta_bytes": -1396736
+      },
+      {
+        "repetition": 5,
+        "baseline": "cbor",
+        "ratio": 0.9967897043596666,
+        "client_delta_bytes": -3854336,
+        "server_delta_bytes": 1073152
+      },
+      {
+        "repetition": 6,
+        "baseline": "cbor",
+        "ratio": 1.0075915691034334,
+        "client_delta_bytes": 5165056,
+        "server_delta_bytes": 1777664
+      },
+      {
+        "repetition": 7,
+        "baseline": "msgpack",
+        "ratio": 1.001642014669245,
+        "client_delta_bytes": 450560,
+        "server_delta_bytes": 1093632
+      }
+    ],
+    "ext_09_payload_sizes": [
+      {
+        "repetition": 1,
+        "baseline": "msgpack",
+        "ratio": 1.011951223294547,
+        "client_delta_bytes": 12480512,
+        "server_delta_bytes": -3010560
+      },
+      {
+        "repetition": 2,
+        "baseline": "msgpack",
+        "ratio": 0.9988998961323252,
+        "client_delta_bytes": 487424,
+        "server_delta_bytes": -1294336
+      },
+      {
+        "repetition": 3,
+        "baseline": "cbor",
+        "ratio": 1.0020622843592308,
+        "client_delta_bytes": 1388544,
+        "server_delta_bytes": 114688
+      },
+      {
+        "repetition": 4,
+        "baseline": "msgpack",
+        "ratio": 1.0053751086511276,
+        "client_delta_bytes": 1855488,
+        "server_delta_bytes": 2551808
+      },
+      {
+        "repetition": 5,
+        "baseline": "msgpack",
+        "ratio": 1.0025236172482097,
+        "client_delta_bytes": 4636672,
+        "server_delta_bytes": -2465792
+      },
+      {
+        "repetition": 6,
+        "baseline": "msgpack",
+        "ratio": 1.011925719802374,
+        "client_delta_bytes": 5861376,
+        "server_delta_bytes": 5320704
+      },
+      {
+        "repetition": 7,
+        "baseline": "msgpack",
+        "ratio": 1.0142037920255293,
+        "client_delta_bytes": 11005952,
+        "server_delta_bytes": 2375680
+      }
+    ],
+    "ext_10_payload_sizes": [
+      {
+        "repetition": 1,
+        "baseline": "msgpack",
+        "ratio": 0.9979333380098531,
+        "client_delta_bytes": -1486848,
+        "server_delta_bytes": -81920
+      },
+      {
+        "repetition": 2,
+        "baseline": "cbor",
+        "ratio": 1.0041228420781751,
+        "client_delta_bytes": -364544,
+        "server_delta_bytes": 3448832
+      },
+      {
+        "repetition": 3,
+        "baseline": "cbor",
+        "ratio": 1.0006590067611076,
+        "client_delta_bytes": 782336,
+        "server_delta_bytes": -245760
+      },
+      {
+        "repetition": 4,
+        "baseline": "cbor",
+        "ratio": 0.9960948437937518,
+        "client_delta_bytes": 1314816,
+        "server_delta_bytes": -4513792
+      },
+      {
+        "repetition": 5,
+        "baseline": "msgpack",
+        "ratio": 0.9972574305317485,
+        "client_delta_bytes": -208896,
+        "server_delta_bytes": -2183168
+      },
+      {
+        "repetition": 6,
+        "baseline": "cbor",
+        "ratio": 1.0051871440195281,
+        "client_delta_bytes": -385024,
+        "server_delta_bytes": 5189632
+      },
+      {
+        "repetition": 7,
+        "baseline": "msgpack",
+        "ratio": 1.019480920338998,
+        "client_delta_bytes": 11698176,
+        "server_delta_bytes": 6397952
+      }
+    ],
+    "ext_15_payload_sizes": [
+      {
+        "repetition": 1,
+        "baseline": "cbor",
+        "ratio": 1.1234945700561387,
+        "client_delta_bytes": 102465536,
+        "server_delta_bytes": -7585792
+      },
+      {
+        "repetition": 2,
+        "baseline": "cbor",
+        "ratio": 1.1629533058104486,
+        "client_delta_bytes": 120934400,
+        "server_delta_bytes": -1134592
+      },
+      {
+        "repetition": 3,
+        "baseline": "cbor",
+        "ratio": 1.0232623470328186,
+        "client_delta_bytes": 15507456,
+        "server_delta_bytes": 3825664
+      },
+      {
+        "repetition": 4,
+        "baseline": "cbor",
+        "ratio": 0.9325402679613213,
+        "client_delta_bytes": -58068992,
+        "server_delta_bytes": -3739648
+      },
+      {
+        "repetition": 5,
+        "baseline": "msgpack",
+        "ratio": 0.8897025514163374,
+        "client_delta_bytes": -117448704,
+        "server_delta_bytes": 2760704
+      },
+      {
+        "repetition": 6,
+        "baseline": "cbor",
+        "ratio": 0.9794244654934346,
+        "client_delta_bytes": -23941120,
+        "server_delta_bytes": 4775936
+      },
+      {
+        "repetition": 7,
+        "baseline": "cbor",
+        "ratio": 1.1286402058882257,
+        "client_delta_bytes": 116875264,
+        "server_delta_bytes": 1871872
+      }
+    ]
+  },
+  "original_comparison_sha256": "3490706b8012b9d3e666452e6adf0f7f9b8d9fd6b8417208f14624fdae9ebecb",
+  "original_measured_rss_inputs_verified": 28,
+  "case_summary": {
+    "ext_08_payload_sizes": {
+      "client_median_delta_bytes": 598016,
+      "server_median_delta_bytes": 1073152,
+      "client_delta_range_bytes": [
+        -3854336,
+        27398144
+      ],
+      "server_delta_range_bytes": [
+        -1396736,
+        40529920
+      ]
+    },
+    "ext_09_payload_sizes": {
+      "client_median_delta_bytes": 4636672,
+      "server_median_delta_bytes": 114688,
+      "client_delta_range_bytes": [
+        487424,
+        12480512
+      ],
+      "server_delta_range_bytes": [
+        -3010560,
+        5320704
+      ]
+    },
+    "ext_10_payload_sizes": {
+      "client_median_delta_bytes": -208896,
+      "server_median_delta_bytes": -81920,
+      "client_delta_range_bytes": [
+        -1486848,
+        11698176
+      ],
+      "server_delta_range_bytes": [
+        -4513792,
+        6397952
+      ]
+    },
+    "ext_15_payload_sizes": {
+      "client_median_delta_bytes": 15507456,
+      "server_median_delta_bytes": 1871872,
+      "client_delta_range_bytes": [
+        -117448704,
+        120934400
+      ],
+      "server_delta_range_bytes": [
+        -7585792,
+        4775936
+      ]
+    }
+  },
+  "assessment": "The dominant role varies across cases; these original per-role observations do not establish a retained leak or single cause. A failing confidence bound can coexist with negative median component deltas. Component medians need not add to the median paired total or reproduce its ratio. No new measurements, native substitution, GC/policy change, source edit or numerical rerun.",
+  "audited_utc": "2026-11-02T05:44:25.087642+00:00"
+}

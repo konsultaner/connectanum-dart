@@ -1,0 +1,22 @@
+{
+  "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "run": 41395075328,
+  "artifact_id": 13118703647,
+  "source_inputs_verified": 967,
+  "complete_source_inventory_verified": true,
+  "actual_native_sha256": "eb47cb324a5bdc3c7651417937e9e51ad4c1c97937bff0a162aa784c9d5ec08a",
+  "cargo_lock_sha256": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+  "features": [
+    "ffi-test"
+  ],
+  "profile": "release",
+  "build_toolchain_record": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)"
+  },
+  "actual_ELF_x86_64_header_verified": true,
+  "artifact_zip_sha256": "11074db97fbb7a6c2bdf235fee34d8fa56dec452b026b8ae21a362f08ac975a1",
+  "manifest_sha256": "5b1f93e60ac7721e940e652789ff40152e084135aed1acfa9662de2ace5256b1",
+  "scope": "Actual retained current-AD48 shared-CI library bytes, complete967 source inputs and exact lock independently verified. Hosted Linux toolchain record is separate from local Darwin canonical. This shared library does not substitute for later measured MQTT/native-view/production binaries or prove fullCI/canonical/RAM/transport acceptance. No compilation/model/source/native mutation or tests were started during active own canonical.",
+  "audited_utc": "2026-11-02T05:47:04.541070+00:00"
+}
