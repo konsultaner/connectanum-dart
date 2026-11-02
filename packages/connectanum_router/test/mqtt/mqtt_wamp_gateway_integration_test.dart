@@ -176,6 +176,7 @@ void main() {
     void Function(RouterBinding, Object)? onEvent,
     worker_api.RouterWorkerEntryPoint? workerEntryPoint,
     String wampSerializer = 'cbor',
+    Future<void>? beforeClients,
   }) async {
     final runtime = NativeTransportRuntime(
       libraryPath: resolveOrBuildNativeLib()!,
@@ -284,6 +285,9 @@ void main() {
               maxPendingOperations: maxPendingOperations,
               operationTimeout: operationTimeout,
             ));
+    if (beforeClients != null) {
+      await beforeClients.timeout(const Duration(seconds: 5));
+    }
     final port = binding.listeners.single.port;
     final session = await wamp_client.Client(
       realm: _realm,
@@ -319,7 +323,10 @@ void main() {
         final observations = <Map>[];
         final outgoingFrames = <Map>[];
         final errors = <Map>[];
+        final workersReady = Completer<void>();
+        var registeredWorkers = 0;
         final fixture = await start(
+          beforeClients: workersReady.future,
           wampSerializer: codec == 'mixed' ? 'cbor' : codec,
           transformSettings: (s) =>
               s.copyWith(workerPool: WorkerPoolSettings(minWorkers: workers)),
@@ -329,6 +336,10 @@ void main() {
             _ => _observePublicationWorker,
           },
           onEvent: (_, e) {
+            if (e is Map && e['type'] == 'worker_registered') {
+              registeredWorkers++;
+              if (registeredWorkers == workers) workersReady.complete();
+            }
             if (e is Map && e['type'] == 'worker_error') errors.add(e);
             final observed = e is Map && e['payload'] is Map ? e['payload'] : e;
             if (observed is Map &&
@@ -367,6 +378,9 @@ void main() {
           subscribed.onEvent(event.complete);
           received.add(event.future.timeout(const Duration(seconds: 5)));
         }
+        // minWorkers is a lower bound. Connecting before the prestarted pool
+        // registers may create another worker and change this test's topology.
+        expect(registeredWorkers, workers);
         if (mode == 'mixed') {
           final internal = await fixture.binding.createInternalSession(
             realmUri: _realm,

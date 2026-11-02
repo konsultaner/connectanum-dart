@@ -34,8 +34,22 @@ by regression tests.
 | WSS slow-peer recovery audit | 8,192 exact deliveries plus 256 recovery; zero duplicates |
 | Complete sixteen-shard qualification | All 1,304 samples pass; 64 translation and 4 overload results; zero duplicates |
 | Independent secure smoke | All 264 samples verified, both clients, four transports/codecs, fault and retention controls |
-| Final working-branch `bin/verify` and table checks | Passed at 15:52 UTC; all 29 table/fixture checks pass; no runtime drift |
-| Exact-head publication CI | Required PR checks and the archived CI supplement provide the publication record |
+| Follow-up working-branch `bin/verify` and table checks | Passed at 17:37 UTC, including Chrome/Wasm; all 29 table/fixture checks pass; no source drift during verification |
+| Publication CI follow-up | First run passes all sixteen numeric shards and secure smoke; fixture/runner fixes pass locally and await the next exact-head run |
+
+Publication CI `e1bae7ad` delivered all four test payloads but observed two workers
+where its fixture assumed one. The fixture now waits for the configured minimum
+pool to register before connecting clients and asserts its actual topology;
+all 55 gateway integration cases pass under VM coverage. `bin/test-fast` and the
+complete follow-up `bin/verify` pass. Runtime code and numeric
+budgets are unchanged. The ownership job executed no steps because GitHub could
+not acquire an ARM64 macOS runner. It now uses the supported `macos-15-intel`
+label; gateway benchmark runners remain ARM64. The cancelled assignment and
+failed test log are retained with the publication CI evidence.
+All sixteen first-publication numeric shards pass, and all 264 secure samples
+were independently audited. Its 53 artifacts were captured and their immutable
+GitHub digests verified. The complete first run remains recorded as failed;
+the next exact-head checks and downloaded CI supplement provide final acceptance.
 
 [Complete source qualification](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501)
 measures both translation directions, direct MQTT/WAMP controls, CPU, latency,

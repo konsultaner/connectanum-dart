@@ -124,7 +124,7 @@ jobs:
 
   native-memory:
     name: Native Ownership GuardMalloc
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5

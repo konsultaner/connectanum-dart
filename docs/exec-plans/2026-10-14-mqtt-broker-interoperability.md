@@ -1,11 +1,15 @@
 # MQTT broker interoperability
 
 Status: active publication. Direct QoS 0 is merged; the authorized gateway and
-both-direction performance/memory qualification are complete. Final working-branch verification passes; history publication and exact-head
-PR checks remain.
+both-direction performance/memory qualification and downloaded history verification
+are complete. Publication CI found a fixture startup race and a macOS runner
+capacity failure. Follow-up `bin/test-fast` and full Rust/Dart/Chrome/Wasm
+`bin/verify` pass (17:37 UTC), with no source drift during verification.
+The fixes require a new exact-head PR run.
 
-The working branch contains runtime `839bbf6e`, with 1,229 runtime/gate inputs
-identical to its frozen source. Coverage is 1,016/1,016 Dart, 979/979 added native
+The working branch contains runtime `839bbf6e`. Runtime and benchmark gate inputs
+match its frozen source; the non-benchmark macOS ownership lane now explicitly
+selects Intel. Coverage is 1,016/1,016 Dart, 979/979 added native
 lines and 1,084/1,084 gateway tooling statements with zero exclusions. Payload
 lifetime, shared isolate snapshots, bounds, ordering, profile acceptance and
 per-recipient failures have fail-first/live regressions and local review.
@@ -21,7 +25,9 @@ verification passed at 14:40 UTC without source drift.
 - [x] Promote the exact runtime and refresh source-matched 100% coverage.
 - [x] Publish friendly README tables and test every displayed cell.
 - [x] Finish canonical verification on the working branch, including Chrome/Wasm and zero source drift.
-- [ ] Publish complete accepted/rejected history with downloaded checksum verification.
+- [x] Publish complete accepted/rejected history with downloaded checksum verification.
+- [x] Synchronize fan-out fixture worker registration; preserve exact batching assertions and pass all 55 cases under VM coverage.
+- [x] Verify the fixture/runner follow-up without runtime or numeric budget drift.
 - [ ] Pass the complete exact-head GitHub Actions chain before handoff.
 
 Use [project state](../project_state.md) for current verification status. The
@@ -64,6 +70,19 @@ retains every complete/partial/rejected campaign, source snapshots, coverage,
 raw reports and reproduction helpers outside Git. Earlier gateway, ARM64 and
 PR #128 evidence remains linked from the [archive index](../benchmarks/README.md#archive).
 Final source and exact-head CI records must remain separately attributable.
+
+Publication run `41477975179` exposed a test topology race: `minWorkers` permits
+additional workers while the prestarted pool is pending. Fan-out cases now wait
+for `worker_registered` before opening clients and still require one shared graph
+per configured worker. GitHub also cancelled the ownership lane without assigning
+a runner, with explicit macOS ARM64 capacity annotations. The follow-up uses the
+[documented Intel macOS 15 label](https://github.com/actions/runner-images#available-images)
+for the same GuardMalloc checks. This changes neither ARM64 benchmark hardware nor
+any measurement budget. Preserve the first run's failed/cancelled records and raw
+benchmark samples alongside the final CI supplement. All sixteen numeric shards
+pass in that first run; all 264 secure samples were independently audited, and
+all 53 artifacts were captured with verified GitHub digests. Its complete CI
+conclusion remains failed until the follow-up passes its own exact-head chain.
 
 ## Remaining milestone and release work
 
