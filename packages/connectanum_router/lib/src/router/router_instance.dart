@@ -26,6 +26,7 @@ import 'dart:io'
         Socket,
         pid;
 
+import 'package:connectanum_client/native_buffers.dart';
 import 'package:cbor/cbor.dart';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart' show sha256;

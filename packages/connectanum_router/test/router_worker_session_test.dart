@@ -9,6 +9,7 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_client/native_buffers.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
@@ -48,41 +49,28 @@ final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
 const _zeroCopyPublishTag = 'zero_copy_publish';
 
-void _sendScratchEvents(List<Object> arguments) {
+void _sendBorrowedEvents(List<Object> arguments) async {
   final target = arguments[0] as SendPort;
   final serializer = NativeMessageSerializer.values[arguments[1] as int];
-  for (var index = 0; index < 3; index++) {
-    final storage = Uint8List.fromList(
-      List.generate(65544, (i) => (i + index) % 251),
-    );
-    final bytes = Uint8List.sublistView(storage, 3, 65539);
-    final details = event_msg.EventDetails()
-      ..custom['mqtt_topic'] = 'sensors/µ';
-    sendWorkerMessagePayload(
-      target,
-      serializer,
-      event_msg.Event(1, 2, details, arguments: [bytes]),
-      {'index': index},
-    );
-    storage.fillRange(0, storage.length, 0);
-  }
-}
-
-Future<List<Map>> _captureScratchFrames(
-  NativeMessageSerializer serializer,
-  List<AbstractMessage> messages,
-) async {
-  final reply = ReceivePort();
+  final allocator = NativeMessageHandleDecoder().nativeBuffers;
   try {
-    final values = reply.take(messages.length).toList();
-    for (var index = 0; index < messages.length; index++) {
-      sendWorkerMessagePayload(reply.sendPort, serializer, messages[index], {
-        'index': index,
-      });
+    for (var i = 0; i < 3; i++) {
+      final payload = Uint8List.fromList(
+        List.generate(65536, (j) => (j + i) % 251),
+      );
+      final pending = sendWorkerMessagePayload(
+        target,
+        serializer,
+        event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [payload]),
+        {'index': i},
+        nativeBuffers: allocator,
+      );
+      payload.fillRange(0, payload.length, 0);
+      await pending;
     }
-    return (await values.timeout(const Duration(seconds: 10))).cast<Map>();
-  } finally {
-    reply.close();
+    target.send({'done': true});
+  } catch (error) {
+    target.send({'error': error.toString()});
   }
 }
 
@@ -94,176 +82,165 @@ void main() {
     NativeMessageSerializer.flatbuffers,
   ]) {
     test(
-      'reused ${serializer.name} worker buffers keep each isolate snapshot',
+      '${serializer.name} borrowed worker handoff across real isolates',
       () async {
-        final reply = ReceivePort();
-        try {
-          final frames = reply.take(3).toList();
-          await Isolate.spawn(_sendScratchEvents, <Object>[
-            reply.sendPort,
-            serializer.index,
-          ]);
-          final values = await frames.timeout(const Duration(seconds: 10));
-          for (var index = 0; index < values.length; index++) {
-            final frame = values[index] as Map;
-            final details = event_msg.EventDetails()
-              ..custom['mqtt_topic'] = 'sensors/µ';
-            final bytes = Uint8List.fromList(
-              List.generate(65536, (i) => (i + index + 3) % 251),
-            );
-            expect(frame['index'], index);
+        final port = ReceivePort();
+        final allocator = NativeMessageHandleDecoder().nativeBuffers;
+        final done = Completer<void>();
+        var received = 0;
+        final listener = port.listen((value) {
+          final frame = value as Map;
+          if (frame['error'] != null) {
+            done.completeError(StateError('${frame['error']}'));
+            return;
+          }
+          if (frame['done'] == true) {
+            done.complete();
+            return;
+          }
+          final owner = allocator.retainBorrowedBuffer((
+            handle: frame['payloadHandle'] as int,
+            library: frame['payloadLibrary'] as int,
+          ), length: frame['payloadLength'] as int);
+          try {
+            expect(frame['index'], received);
             expect(
-              frame['payload'],
+              owner.bytes,
               encodeMessage(
                 serializer,
-                event_msg.Event(1, 2, details, arguments: [bytes]),
+                event_msg.Event(
+                  1,
+                  2,
+                  event_msg.EventDetails(),
+                  arguments: [
+                    Uint8List.fromList(
+                      List.generate(65536, (j) => (j + received) % 251),
+                    ),
+                  ],
+                ),
               ),
             );
+            received++;
+          } finally {
+            owner.dispose();
           }
+          (frame['borrowedFrameReply'] as SendPort).send(true);
+        });
+        final isolate = await Isolate.spawn(_sendBorrowedEvents, <Object>[
+          port.sendPort,
+          serializer.index,
+        ]);
+        try {
+          await done.future.timeout(const Duration(seconds: 10));
+          expect(received, 3);
         } finally {
-          reply.close();
+          isolate.kill();
+          await listener.cancel();
+          port.close();
         }
-      },
-    );
-    test(
-      '${serializer.name} scratch frame sizes never expose cached tail bytes',
-      () async {
-        final messages = <AbstractMessage>[
-          for (final size in [
-            16383,
-            16384,
-            65536,
-            16384,
-            17000,
-            18000,
-            19000,
-            20000,
-          ])
-            event_msg.Event(
-              1,
-              2,
-              event_msg.EventDetails(),
-              arguments: [
-                Uint8List.fromList(List.generate(size, (i) => i % 251)),
-              ],
-            ),
-        ];
-        final frames = await _captureScratchFrames(serializer, messages);
-        for (var i = 0; i < messages.length; i++) {
-          expect(frames[i]['payload'], encodeMessage(serializer, messages[i]));
-        }
-        expect(
-          workerFrameScratchMetricsForTest['buffers'],
-          lessThanOrEqualTo(4),
-        );
-        expect(
-          workerFrameScratchMetricsForTest['bytes'],
-          lessThanOrEqualTo(1024 * 1024),
-        );
       },
     );
   }
-  test(
-    'worker scratch cache stays bounded and bypasses oversized frames',
-    () async {
-      for (final size in [300000, 310000, 320000, 330000, 340000]) {
+
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    for (final size in [128, 16383, 16384, 65536]) {
+      test('${serializer.name} borrowed worker frame boundary $size', () async {
+        final allocator = NativeMessageHandleDecoder().nativeBuffers;
+        final port = ReceivePort();
+        final payload = Uint8List.fromList(List.generate(size, (i) => i % 251));
         final message = event_msg.Event(
           1,
           2,
           event_msg.EventDetails(),
-          arguments: [Uint8List(size)],
+          arguments: [payload],
         );
-        final frames = await _captureScratchFrames(
+        final expected = encodeMessage(serializer, message);
+        final first = port.first;
+        final pending = sendWorkerMessagePayload(
+          port.sendPort,
+          serializer,
+          message,
+          {'connectionId': 7},
+          nativeBuffers: allocator,
+        );
+        final frame = await first as Map;
+        payload.fillRange(0, payload.length, 0);
+        if (size < 16384) {
+          expect(frame['payload'], expected);
+          expect(frame.containsKey('payloadHandle'), isFalse);
+          await pending;
+        } else {
+          final token = (
+            handle: frame['payloadHandle'] as int,
+            library: frame['payloadLibrary'] as int,
+          );
+          final owner = allocator.retainBorrowedBuffer(
+            token,
+            length: frame['payloadLength'] as int,
+          );
+          try {
+            expect(owner.bytes, expected);
+            (frame['borrowedFrameReply'] as SendPort).send(true);
+            await pending;
+            expect(
+              () => allocator.retainBorrowedBuffer(
+                token,
+                length: expected.length,
+              ),
+              throwsA(isA<NativeBufferException>()),
+            );
+            expect(owner.bytes, expected);
+          } finally {
+            owner.dispose();
+          }
+        }
+        port.close();
+      });
+    }
+  }
+  for (final acknowledge in [false, true]) {
+    test(
+      'borrowed worker frame releases on rejection or timeout $acknowledge',
+      () async {
+        final allocator = NativeMessageHandleDecoder().nativeBuffers;
+        final port = ReceivePort();
+        final first = port.first;
+        final pending = sendWorkerMessagePayload(
+          port.sendPort,
           NativeMessageSerializer.cbor,
-          [message],
-        );
-        expect(
-          frames.single['payload'],
-          encodeMessage(NativeMessageSerializer.cbor, message),
-        );
-        expect(
-          workerFrameScratchMetricsForTest['buffers'],
-          lessThanOrEqualTo(4),
-        );
-        expect(
-          workerFrameScratchMetricsForTest['bytes'],
-          lessThanOrEqualTo(1024 * 1024),
-        );
-      }
-      final before = workerFrameScratchMetricsForTest;
-      final message = event_msg.Event(
-        1,
-        2,
-        event_msg.EventDetails(),
-        arguments: [Uint8List(1024 * 1024)],
-      );
-      final frames = await _captureScratchFrames(NativeMessageSerializer.cbor, [
-        message,
-      ]);
-      expect(
-        frames.single['payload'],
-        encodeMessage(NativeMessageSerializer.cbor, message),
-      );
-      expect(workerFrameScratchMetricsForTest, before);
-    },
-  );
-  test(
-    'scratch sending preserves PPT, lazy, kwargs and ordinary messages',
-    () async {
-      final bytes = Uint8List(65536);
-      final lazy = event_msg.Event(1, 2, event_msg.EventDetails())
-        ..setLazyPayload(
-          argumentsBytes: Uint8List.fromList([0x81, 0x40]),
-          argumentsDecoder: (_) =>
-              throw StateError('unexpected materialization'),
-          encoding: LazyPayloadEncoding.cbor,
-        );
-      final messages = <AbstractMessage>[
-        lazy,
-        event_msg.Event(1, 2, event_msg.EventDetails()),
-        event_msg.Event(1, 2, event_msg.EventDetails(), arguments: ['text']),
-        event_msg.Event(
-          1,
-          2,
-          event_msg.EventDetails(),
-          arguments: [bytes],
-          argumentsKeywords: {'key': 1},
-        ),
-        result_msg.Result(1, result_msg.ResultDetails(), arguments: [bytes]),
-        event_msg.Event(
-          1,
-          2,
-          event_msg.EventDetails(pptScheme: 'mqtt', pptSerializer: 'cbor'),
-        )..transparentBinaryPayload = bytes,
-      ];
-      final before = workerFrameScratchMetricsForTest;
-      final frames = await _captureScratchFrames(
-        NativeMessageSerializer.cbor,
-        messages,
-      );
-      for (var i = 0; i < messages.length; i++) {
-        expect(
-          frames[i]['payload'],
-          encodeMessage(NativeMessageSerializer.cbor, messages[i]),
-        );
-      }
-      expect(workerFrameScratchMetricsForTest, before);
-      final reply = ReceivePort();
-      try {
-        expect(
-          () => sendWorkerMessagePayload(
-            reply.sendPort,
-            NativeMessageSerializer.ubjson,
-            event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [bytes]),
-            {},
+          event_msg.Event(
+            1,
+            2,
+            event_msg.EventDetails(),
+            arguments: [Uint8List(16384)],
           ),
-          throwsUnsupportedError,
+          {},
+          nativeBuffers: allocator,
+          enqueueTimeout: const Duration(milliseconds: 100),
         );
-      } finally {
-        reply.close();
-      }
-    },
-  );
+        final result = acknowledge
+            ? expectLater(pending, completes)
+            : expectLater(pending, throwsA(isA<TimeoutException>()));
+        final frame = await first as Map;
+        if (acknowledge) (frame['borrowedFrameReply'] as SendPort).send(false);
+        await result;
+        expect(
+          () => allocator.retainBorrowedBuffer((
+            handle: frame['payloadHandle'] as int,
+            library: frame['payloadLibrary'] as int,
+          ), length: frame['payloadLength'] as int),
+          throwsA(isA<NativeBufferException>()),
+        );
+        port.close();
+      },
+    );
+  }
+
   test(
     'FlatBuffers worker owns binary frames and supports control fallback',
     () {

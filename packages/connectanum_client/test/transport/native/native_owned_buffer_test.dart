@@ -27,6 +27,33 @@ void main() {
     allocator = NativeBufferAllocator.instance();
   });
 
+  test('borrowed tokens retain independent immutable ownership', () {
+    final builder = allocator.allocate(4)..writeBytes(0, [1, 2, 3, 4]);
+    final original = builder.freeze();
+    final token = original.borrowedToken;
+    expect(
+      () => allocator.retainBorrowedBuffer((
+        handle: token.handle,
+        library: token.library + 1,
+      ), length: 4),
+      throwsArgumentError,
+    );
+    expect(
+      () => allocator.retainBorrowedBuffer(token, length: 3),
+      throwsStateError,
+    );
+    final retained = allocator.retainBorrowedBuffer(token, length: 4);
+    original.dispose();
+    expect(() => original.borrowedToken, throwsStateError);
+    expect(
+      () => allocator.retainBorrowedBuffer(token, length: 4),
+      throwsA(isA<NativeBufferException>()),
+    );
+    expect(retained.bytes, [1, 2, 3, 4]);
+    retained.dispose();
+    builder.dispose();
+  });
+
   test('complete native ownership ABI is available', () {
     expect(
       allocator.isSupported,

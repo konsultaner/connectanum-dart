@@ -184,6 +184,7 @@ Future<void> sendMessage(
   NativeMessageSerializer serializer,
   AbstractMessage message, {
   WorkerConnectionState? state,
+  NativeBufferAllocator? nativeBuffers,
 }) async {
   flatbuffers.FlatBuffersSessionProfile? nextProfile;
   final previousProfile = state?.flatBuffersProfile;
@@ -199,11 +200,11 @@ Future<void> sendMessage(
       nextProfile != null && !identical(nextProfile, state?.flatBuffersProfile);
   final acceptedReply = changesProfile ? ReceivePort() : null;
   try {
-    sendWorkerMessagePayload(bossPort, serializer, message, {
+    await sendWorkerMessagePayload(bossPort, serializer, message, {
       'type': 'worker_send',
       'connectionId': connectionId,
       if (acceptedReply != null) 'acceptedReply': acceptedReply.sendPort,
-    });
+    }, nativeBuffers: nativeBuffers);
     if (acceptedReply != null) {
       final result = await acceptedReply.first.timeout(
         const Duration(seconds: 5),
@@ -226,42 +227,17 @@ Future<void> sendMessage(
   }
 }
 
-// Exact-size buffers avoid copying unrelated backing storage through SendPort.
-const _workerScratchByteLimit = 1024 * 1024;
-const _workerScratchEntryLimit = 4;
-final _workerFrameScratch = <int, Uint8List>{};
-int _workerFrameScratchBytes = 0;
-
-Map<String, int> get workerFrameScratchMetricsForTest => {
-  'buffers': _workerFrameScratch.length,
-  'bytes': _workerFrameScratchBytes,
-};
-
-Uint8List _workerFrameBuffer(int length) {
-  final cached = _workerFrameScratch.remove(length);
-  if (cached != null) {
-    _workerFrameScratch[length] = cached;
-    return cached;
-  }
-  if (length > _workerScratchByteLimit) return Uint8List(length);
-  while (_workerFrameScratch.length >= _workerScratchEntryLimit ||
-      _workerFrameScratchBytes + length > _workerScratchByteLimit) {
-    final oldest = _workerFrameScratch.keys.first;
-    _workerFrameScratchBytes -= _workerFrameScratch.remove(oldest)!.length;
-  }
-  final result = Uint8List(length);
-  _workerFrameScratch[length] = result;
-  _workerFrameScratchBytes += length;
-  return result;
-}
-
-void sendWorkerMessagePayload(
+Future<void> sendWorkerMessagePayload(
   SendPort target,
   NativeMessageSerializer serializer,
   AbstractMessage message,
-  Map<String, Object?> envelope,
-) {
-  if (message is event_msg.Event &&
+  Map<String, Object?> envelope, {
+  NativeBufferAllocator? nativeBuffers,
+  Duration enqueueTimeout = const Duration(seconds: 5),
+}) async {
+  if (nativeBuffers != null &&
+      nativeBuffers.isSupported &&
+      message is event_msg.Event &&
       message.details.pptScheme == null &&
       !message.hasLazyArguments &&
       !message.hasLazyArgumentsKeywords &&
@@ -287,14 +263,29 @@ void sendWorkerMessagePayload(
       };
       if (fragments != null) {
         final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
-        final output = _workerFrameBuffer(length);
-        var offset = 0;
-        for (final fragment in fragments) {
-          output.setRange(offset, offset + fragment.length, fragment);
-          offset += fragment.length;
+        final builder = nativeBuffers.allocate(length);
+        NativeOwnedBuffer? buffer;
+        final reply = ReceivePort();
+        try {
+          var offset = 0;
+          for (final fragment in fragments) {
+            builder.writeBytes(offset, fragment);
+            offset += fragment.length;
+          }
+          buffer = builder.freeze();
+          target.send({
+            ...envelope,
+            'payloadHandle': buffer.borrowedToken.handle,
+            'payloadLibrary': buffer.borrowedToken.library,
+            'payloadLength': length,
+            'borrowedFrameReply': reply.sendPort,
+          });
+          await reply.first.timeout(enqueueTimeout);
+        } finally {
+          reply.close();
+          buffer?.dispose();
+          builder.dispose();
         }
-        // SendPort snapshots mutable bytes before returning; only then reuse.
-        target.send({...envelope, 'payload': output});
         return;
       }
     }
@@ -381,6 +372,9 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   unawaited(RemoteWampDelegateRegistry.warmUpForSettings(settings));
 
   final decoder = NativeMessageHandleDecoder(libraryPath: libraryPath);
+  final nativeBuffers = init['borrowedFrames'] == true
+      ? decoder.nativeBuffers
+      : null;
   final commandPort = ReceivePort();
   final Map<int, int> connections = initialConnectionId > 0
       ? <int, int>{initialConnectionId: initialListenerId}
@@ -624,6 +618,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         serializer,
         message,
         state: state,
+        nativeBuffers: nativeBuffers,
       );
     } else if (command == _workerCmdDrainConnections) {
       final reason = raw.length > 1 && raw[1] is String

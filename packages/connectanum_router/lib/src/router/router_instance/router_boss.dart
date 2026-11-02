@@ -1834,6 +1834,9 @@ class _RouterBoss {
       'connectionId': connectionId,
       'listenerId': listener.listenerId,
       'libraryPath': libraryPathHint,
+      'borrowedFrames':
+          runtime is NativeRuntimeWithBorrowedFrames &&
+          (runtime as NativeRuntimeWithBorrowedFrames).supportsBorrowedFrames,
       'statePort': _stateStore.commandPort,
       'settings': RouterSettingsCodec.toMap(settings),
       'listener': {
@@ -1903,11 +1906,19 @@ class _RouterBoss {
         ..addAll(message.cast<String, Object?>());
     } else if (type == 'worker_send') {
       final connectionId = message['connectionId'] as int;
-      final Uint8List payloadBytes = message['payload'] as Uint8List;
+      final payloadHandle = message['payloadHandle'] as int?;
       final acceptedReply = message['acceptedReply'] as SendPort?;
       var accepted = false;
       try {
-        runtime.sendMessage(connectionId, payloadBytes);
+        if (payloadHandle != null) {
+          (runtime as NativeRuntimeWithBorrowedFrames).sendBorrowedFrame(
+            connectionId,
+            (handle: payloadHandle, library: message['payloadLibrary'] as int),
+            message['payloadLength'] as int,
+          );
+        } else {
+          runtime.sendMessage(connectionId, message['payload'] as Uint8List);
+        }
         accepted = true;
         _lastActivityByConnection[connectionId] = DateTime.now();
         payload
@@ -1935,6 +1946,7 @@ class _RouterBoss {
           ..['error'] = error.toString();
       } finally {
         acceptedReply?.send({'accepted': accepted});
+        (message['borrowedFrameReply'] as SendPort?)?.send(accepted);
       }
     } else if (type == 'worker_forward_message') {
       final connectionId = message['connectionId'] as int;

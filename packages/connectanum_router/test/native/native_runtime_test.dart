@@ -638,6 +638,47 @@ void main() {
       final framePayload = await _readFrame(socket);
       expect(framePayload, welcomePayload);
 
+      expect(runtime.supportsBorrowedFrames, isTrue);
+      final allocator = NativeMessageHandleDecoder(
+        libraryPath: libraryPath,
+      ).nativeBuffers;
+      final builder = allocator.allocate(welcomePayload.length)
+        ..writeBytes(0, welcomePayload);
+      final owner = builder.freeze();
+      final beforeBorrowed = runtime.transportCopyMetricsSnapshot();
+      try {
+        runtime.sendBorrowedFrame(polledId, owner.borrowedToken, owner.length);
+        expect(await _readFrame(socket), welcomePayload);
+        expect(owner.bytes, welcomePayload);
+        expect(
+          runtime.transportCopyMetricsSnapshot().dartToNativeCopiedBytesTotal -
+              beforeBorrowed.dartToNativeCopiedBytesTotal,
+          owner.length,
+        );
+        expect(
+          () => runtime.sendBorrowedFrame(
+            0x7ffffffe,
+            owner.borrowedToken,
+            owner.length,
+          ),
+          throwsA(isA<NativeTransportException>()),
+        );
+        expect(owner.bytes, welcomePayload);
+        final expired = owner.borrowedToken;
+        owner.dispose();
+        expect(
+          () => runtime.sendBorrowedFrame(
+            polledId,
+            expired,
+            welcomePayload.length,
+          ),
+          throwsA(isA<NativeTransportException>()),
+        );
+      } finally {
+        owner.dispose();
+        builder.dispose();
+      }
+
       expect(
         () => runtime.pollConnection(9999),
         throwsA(isA<NativeTransportException>()),

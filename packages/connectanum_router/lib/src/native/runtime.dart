@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:connectanum_client/native_message_bytes.dart';
+import 'package:connectanum_client/native_buffers.dart';
 import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
 import 'package:connectanum_core/mqtt.dart' show MqttFrame, MqttFrameDecoder;
 import 'package:ffi/ffi.dart';
@@ -83,6 +84,17 @@ abstract class NativeRuntime {
 }
 
 /// Opens listeners by configuration position when their addresses are ambiguous.
+/// Optional native-backed worker handoff; the boss preserves frame ordering.
+abstract interface class NativeRuntimeWithBorrowedFrames
+    implements NativeRuntime {
+  bool get supportsBorrowedFrames;
+  void sendBorrowedFrame(
+    int connectionId,
+    ({int handle, int library}) token,
+    int length,
+  );
+}
+
 abstract class NativeRuntimeWithConfiguredListeners implements NativeRuntime {
   int listenConfiguredEndpoint(
     String host,
@@ -2150,6 +2162,10 @@ class NativeMessageHandleDecoder {
   final CtFfiBindings _bindings;
   final _MessageBindings _messageBindings;
 
+  late final NativeBufferAllocator nativeBuffers = NativeBufferAllocator(
+    _library,
+  );
+
   NativeIncomingMessage materialize(int handle) =>
       _messageBindings.materialize(handle);
 
@@ -2311,6 +2327,7 @@ abstract final class NativeLibraryLoader {
 class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
+        NativeRuntimeWithBorrowedFrames,
         NativeRuntimeWithMqttFrames,
         NativeRuntimeWithConfiguredListeners,
         NativeRuntimeWithRouterConfiguration,
@@ -3980,6 +3997,31 @@ class NativeTransportRuntime
       procedure: procedure,
       bodyLength: info.bodyLen,
     );
+  }
+
+  late final NativeBufferAllocator _workerBuffers = NativeBufferAllocator(
+    _library,
+  );
+
+  @override
+  bool get supportsBorrowedFrames => _workerBuffers.isSupported;
+
+  @override
+  void sendBorrowedFrame(
+    int connectionId,
+    ({int handle, int library}) token,
+    int length,
+  ) {
+    NativeOwnedBuffer? buffer;
+    try {
+      buffer = _workerBuffers.retainBorrowedBuffer(token, length: length);
+      _dartToNativeCopiedBytesTotal += length;
+      _workerBuffers.send(connectionId, buffer, transfer: true);
+    } on NativeBufferException catch (error) {
+      _throwForError(error.code, 'Failed to send worker frame');
+    } finally {
+      buffer?.dispose();
+    }
   }
 
   /// Sends one serialized WAMP frame on [connectionId].

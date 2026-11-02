@@ -569,6 +569,31 @@ final class NativeBufferAllocator {
     }
   }
 
+  /// Retain a checked immutable buffer borrowed from another isolate.
+  /// The producer keeps its owner live until receipt acknowledgment. An expired
+  /// token or different native library fails without dereferencing stale memory.
+  NativeOwnedBuffer retainBorrowedBuffer(
+    ({int handle, int library}) token, {
+    required int length,
+  }) {
+    _require();
+    if (token.library != _identity) {
+      throw ArgumentError('Borrowed buffer belongs to another native library');
+    }
+    final info = _getInfoId(token.handle);
+    if (info.writable != 0 || info.length != length) {
+      throw StateError('Borrowed frame must be frozen with matching length');
+    }
+    final retained = _slice(token.handle, 0, length);
+    _check(retained);
+    return NativeOwnedBuffer._(
+      _OwnedHandle(this, retained, externalSize: info.capacity),
+      length,
+      0,
+      0,
+    );
+  }
+
   /// Queue acceptance only. A transferred buffer is consumed on success or
   /// native rejection; retained sends preserve the caller's immutable handle.
   void send(
@@ -736,6 +761,13 @@ final class NativeOwnedBuffer implements ffi.Finalizable {
   /// for retaining this handle during native payload submission.
   bool ownsPptPayloadBytes(Uint8List bytes) =>
       !isDisposed && identical(_pptViews[bytes], _pptViewIdentity);
+
+  /// A borrowed token for the same process and native library.
+  /// It owns no storage; keep this owner live until the recipient retains it.
+  ({int handle, int library}) get borrowedToken {
+    _handle.check();
+    return (handle: _handle.id, library: _handle.api._identity);
+  }
 
   NativeOwnedBuffer retain() => slice(0, length);
 
