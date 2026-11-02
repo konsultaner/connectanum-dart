@@ -8,6 +8,27 @@ Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/kon
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 
+## Protocol diagnostic completes; strict parity fails (2026-11-02)
+
+Original exact601 protocol job125338207701 completes successfully as a
+diagnostic capture. Its independent audit reproduces **125 measured parity
+misses across30cases /900rawrows**, including24 RSS misses. There are0
+unmeasured metrics and0 integrity findings. The hosted comparison status is
+`diagnostic_shard_complete`; successful job completion does not establish
+strict parity. All original inventory/order/scenarios/policy/config/raw
+streams,3 hosted locks and actual0B23native /D3F6driver ELF bytes verify on
+EPYC7763 /Dart3.13.5. Artifact13164852998 /ZIP`fc852a53…` was downloaded once;
+original successful execution/step timestamps and artifact metadata are
+preserved. No numerical job reran. [Complete protocol audit](research/2026-11-02-mqtt-complete-pair-protocol-audit.json).
+
+Misses comprise12 allocation,20 CPU,11 GC,19 p95,19 p99,8 operations/second,
+24 RSS and12 throughput metrics. Keep absolute costs scoped to this shard;
+no causal host/runtime-repair claim follows. Together with the separately
+failed payload shard, this leaves strict acceptance unresolved. Primary48
+and encrypted/progressive remain active; preserve all remaining rows and
+complete the independent50-case aggregate. PR132 remains40ddcb3f OPEN DRAFT/#130,
+with no candidate adoption, retarget or merge.
+
 ## Current payload shard fails strict acceptance; complete audit retained (2026-11-02)
 
 Original exact601 supplemental payload job125338207444 is complete failed.
@@ -27,7 +48,7 @@ matching source and3 hosted locks. This closes the copy production byte-witness
 limitation; the original copy artifact itself still omits the bytes. No ffi-test,
 sharedCI or other-runtime substitution. [Cross-artifact byte audit](research/2026-11-02-mqtt-complete-pair-production-bytes-audit.json).
 
-Primary48, protocol and encrypted/progressive continue naturally; all1,440+
+Primary48 and encrypted/progressive continue naturally; all1,440+
 1,500rows /allshards remain required. This is one failed shard, not complete
 50-case acceptance or a causal repair claim. PR132 stays40ddcb3f OPEN DRAFT/#130,
 no adoption. RAM/broadWAMP parity and separate1%allocationprecision remain
