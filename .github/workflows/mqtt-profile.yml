@@ -1,4 +1,4 @@
-name: MQTT owned-frame allocation diagnostic
+name: MQTT precise default RSS and shutdown diagnostic
 on:
   workflow_dispatch:
 permissions:

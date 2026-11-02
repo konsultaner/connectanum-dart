@@ -30,7 +30,12 @@ Future<void> main(List<String> args) async {
       stdout.writeln(
         jsonEncode({
           ...message,
-          if (args.first == 'server' && message['kind'] == 'sampled')
+          'diagnostic_time_us': DateTime.now().microsecondsSinceEpoch,
+          if (message['memory'] != null)
+            'diagnostic_proc_rss': File(
+              '/proc/self/status',
+            ).readAsLinesSync().firstWhere((s) => s.startsWith('VmRSS:')),
+          if (message['memory'] != null)
             'diagnostic_heap': {
               for (final entry in metrics.entries)
                 entry.key: entry.value(group()),

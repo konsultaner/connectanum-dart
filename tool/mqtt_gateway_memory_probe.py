@@ -24,8 +24,8 @@ with tempfile.TemporaryDirectory() as temporary:
     checks={role:values['drained_rss_bytes']<=limit['processes']['subscriber' if role.startswith('subscriber-') else role]['max_drained_rss_bytes'] for role,values in process.items()}
     report=dict(profile=profile['id'],direction=path,processes=process,absolute_drained_rss_checks=checks,default_metrics_passed=all(checks.values()))
     reports.append(report);print(json.dumps(report),flush=True)
-    for profile in gate.overload_profiles():
-      for path in ['mqtt_to_wamp','wamp_to_mqtt']:
+    for profile in gate.overload_profiles()[1:]:
+      for path in ['wamp_to_mqtt']:
         directory=root/profile['id']/path;directory.mkdir(parents=True)
         config=dict(profile,path=path,port=0,native_library=str(library),paho_python=sys.executable,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
         campaign=gate.Campaign(worker,directory,config,timeout=90)
