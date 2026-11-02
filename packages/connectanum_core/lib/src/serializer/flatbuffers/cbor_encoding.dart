@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
+import 'package:typed_data/typed_buffers.dart';
 
 Uint8List encodeWampFlatBufferCbor(
   Object? value, {
@@ -20,7 +21,17 @@ Uint8List encodeWampFlatBufferCbor(
       'Encoded FlatBuffers CBOR value exceeds the byte limit',
     );
   }
-  return bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
+  return ownedCborByteView(bytes);
+}
+
+/// Take the completed encoder's storage without copying its whole byte vector.
+/// The encoder must not be used again after this ownership transfer.
+Uint8List ownedCborByteView(List<int> bytes) {
+  if (bytes is Uint8List) return bytes;
+  if (bytes is Uint8Buffer) {
+    return bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.length);
+  }
+  return Uint8List.fromList(bytes);
 }
 
 /// Bound and normalize construction before encoding or metadata snapshots.

@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart';
+import 'package:typed_data/typed_buffers.dart';
+import 'package:connectanum_core/src/serializer/flatbuffers/cbor_encoding.dart';
 import 'package:test/test.dart';
 
 import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart';
@@ -8,6 +10,38 @@ import 'package:connectanum_core/src/serializer/flatbuffers/cbor_validation.dart
 Uint8List bytes(List<int> values) => Uint8List.fromList(values);
 
 void main() {
+  test('completed CBOR encoder buffers transfer a bounded byte view', () {
+    final buffer = Uint8Buffer()..addAll([0, 255, 17]);
+    final bytes = ownedCborByteView(buffer);
+    expect(bytes, [0, 255, 17]);
+    expect(bytes.length, buffer.length);
+    bytes[0] = 1;
+    expect(buffer[0], 1);
+    final typed = Uint8List.fromList([1, 2]);
+    expect(identical(ownedCborByteView(typed), typed), isTrue);
+    final ordinary = [3, 4];
+    final copied = ownedCborByteView(ordinary);
+    ordinary[0] = 9;
+    expect(copied, [3, 4]);
+  });
+  test(
+    'FlatBuffers CBOR encoding owns exact bytes after later encodes and input edits',
+    () {
+      final payload = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+      final expected = Uint8List.fromList(payload);
+      final encoded = encodeWampFlatBufferCbor(['topic', payload]);
+      payload.fillRange(0, payload.length, 0);
+      encodeWampFlatBufferCbor([payload]);
+      expect((cbor.decode(encoded) as CborList).toObject(), [
+        'topic',
+        expected,
+      ]);
+      expect(
+        () => encodeWampFlatBufferCbor(['topic', payload], maximumBytes: 65536),
+        throwsArgumentError,
+      );
+    },
+  );
   test(
     'decode bounded dictionary preserves binary and portable integer values',
     () {
