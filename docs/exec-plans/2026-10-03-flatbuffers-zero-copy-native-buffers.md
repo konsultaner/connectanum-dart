@@ -2,21 +2,19 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish ONLY original exact601 primary48/run41463482638 naturally,
-then audit all1,440rows. Supplemental50/run41463489396 is complete failed and
-independently audited:ALL50/1500retained/exacthostedaggregate, eligible38/1140
-has176measured misses; payload12/360 adds16measured plus2unmeasured allocations.
-All50total192measured incl36RSS. Original executions/steps/artifactdigests stay
-unchanged; no numerical retry/cancel/source change or adoption.
-Preserve primary48/run41463482638 naturally and audit all1,440rows.
-Reuse complete supplemental50 evidence; do not repoll or redownload it.
-All source/scenario/policy/lock/actualnative+driver checks remain required. Owncanonical,
-copy/MQTT20/hostedJS/CIall39 and the proper fresh-body native-source50rowcontrol
-are complete/audited. Local control is mixed, not a broad transport/RAM repair.
-No new runtime work, numerical retries/cancellation/source substitution or adoption.
-Keep localcc1.10 and hostedcc1.11 actual build cohorts distinct; original gates,
-body generation/verification, samples/windows/SDK/GC/allocator/workers unchanged.
-RAM/broadWAMP parity and separate1%allocationprecision remain unresolved.
+Current step: both exact601 primary48 and supplemental50 are complete failed /
+independently audited. Preserve all48/1440 and50/1500rows, original executions,
+artifacts and exact reports. Primary150measured incl43RSS,0unmeasured/0integrity;
+supplemental192measured incl36RSS plus2unmeasured allocations. No active numerical
+campaign, source/native/HEAD edit or adoption. Do not repoll/redownload/rerun.
+Next perform bounded read-only attribution on retained current601 evidence to
+identify a testable production defect; no new patch/control/capture is ready.
+Owncanonical/copy/MQTT20/hostedJS/fullCI39 and proper fresh50row native control
+are complete/audited within their distinct scopes; they do not accept RAM or
+broadWAMP parity. Keep localcc1.10 and hostedcc1.11 build cohorts distinct.
+Original gates/body/ownership/windows/SDK/GC/allocator/workers remain unchanged;
+new production work requires before-failing proof and full own acceptance.
+Separate1%allocationprecision remains unresolved and is not the sole blocker.
 
 The completed D9CB payload artifact also retains actual production native
 `fc9ccb77…` and driver `e432a974…` bytes. They independently rehash exactly to
@@ -27,7 +25,41 @@ ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
 results changed. [Cross-artifact byte audit](../research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
 
 
-## Complete supplemental50 fails strict acceptance; primary48 active (2026-11-02)
+## Both exact601 strict campaigns complete failed; no adoption (2026-11-02)
+
+Original primary48/run41463482638 is **complete failed / independently audited**.
+All48cases /1,440rawrows reproduce the hosted comparison exactly: **150 measured
+misses, including43 RSS**, with0 unmeasured metrics and0 integrity findings on
+EPYC9V45 /Dart3.13.5. Misses comprise25 CPU,4 GC,19 p95,37 p99,43 RSS and22
+throughput metrics. All raw streams/reports, inventory/order/scenarios/policy/
+config,3 actual hosted locks and production0B23native /D3F6driver ELF bytes
+verify. Artifact13169648014 /ZIP`55b06b55…` was downloaded once, without source/
+SDK/GC/allocator/worker/body/window/gate changes. [Complete primary audit](../research/2026-11-02-mqtt-complete-pair-primary-audit.json).
+
+The original primary execution/every-step timestamps and artifact identity/
+digest remain unchanged in final exactsource601 /attempt1 /failedworkflow
+metadata. No numerical job reran. [Primary preservation audit](../research/2026-11-02-mqtt-complete-pair-primary-preservation-audit.json).
+Supplemental50 is separately complete failed/audited below:all50cases /1,500rows,
+192 measured misses incl36 RSS plus2 unmeasured allocation metrics. All original
+supplemental executions/artifacts and exact hosted aggregate are preserved.
+These are separate campaigns; absolute costs are not pooled across hosts.
+
+All own fetch/audit sessions are complete/reaped. No numerical campaign remains
+active. Reuse completed evidence; never poll/redownload/rerun unchanged gates
+or select favorable hosts/results. Source601/HEAD/native stay frozen/unadopted;
+PR132 stays40ddcb3f OPEN DRAFT/#130, no readiness/retarget/merge/close103/milestone.
+
+Next: bounded read-only attribution of the retained current601 RAM/performance
+misses to identify a testable production defect. No new patch, capture or
+acceptance campaign is ready. Requested allocation/copy improvements already
+proved at component level do not establish transport/RAM repair. Any production
+change still needs a before-failing regression, own full canonical/copy/cleanCI
+and complete final-runtime strict48/50. A Dart change additionally requires an
+actual two-Dart-broker source control with the same actual native/freshclient
+and all6locks. The separate1%allocationprecision decision remains unresolved
+and is not the sole blocker.
+
+## Complete supplemental50 fails strict acceptance; all evidence retained (2026-11-02)
 
 Exact601 supplemental run41463489396 is **complete failed / independently
 audited**. All50cases /1,500original rawrows are retained. Rechecking every
@@ -53,8 +85,8 @@ fails. Encrypted8cases /240rows independently verify51measured misses incl6RSS,
 0unmeasured /0integrity onEPYC9V74 /Dart3.13.5; actualsource/locks/binaries verify.
 [Complete encrypted/progressive audit](../research/2026-11-02-mqtt-complete-pair-encrypted-progressive-audit.json).
 
-Only original primary48/run41463482638 remains active; preserve all1,440rows
-and let it finish naturally. All supplemental fetch/audit sessions are reaped.
+Original primary48 is now also complete failed/audited above; all1,440rows
+are retained. All supplemental fetch/audit sessions are reaped.
 PR132 stays40ddcb3f OPEN DRAFT/#130, no adoption/retarget/ready/merge/close103 or
 milestone completion. RAM/broadWAMP parity and the separate1%allocationprecision
 decision remain unresolved.
