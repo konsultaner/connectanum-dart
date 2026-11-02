@@ -99,6 +99,29 @@ primary/protocol/encrypted campaigns continue and every row is retained.
 Own final strict48/50 is not dispatched; RAM/broadWAMP acceptance and adoption
 remain unresolved. Fix the actualCI blocker before new feature/benchmark work.
 
+## Count-only investigation of the MQTT CI blocker (2026-11-02)
+
+An isolated `codex/mqtt-dart-copy-census` checkout starts at frozenAD48. Fresh
+bootstrap passes; full pre-change `bin/test-fast` is active under the official
+exclusive lease before any tool source edits. Keep source/HEAD/tree/three locks
+unchanged and wait for pass; the new checkout's own native binds on completion.
+No competing local tests/models, implementation, instrumentation, capture or
+production patch is active. Bounded test advice is complete and root-qualified;
+it does not approve any runtime change or performance claim.
+
+The contemplated tools-only diagnostic would count explicit logical copy and
+constructor requests in an independently guarded shadow source tree, preserving
+original receive/decoder values/errors/ownership, five profiles/five fresh
+repetitions and all body verification. These are not exact heap allocations,
+RSS, timings or causal acceptance. Zero/positive/malformed/fragmented/growth/
+mutation controls and source/lock/native/broker/client guards must pass before
+one capture. The alleged already-complete pending body state is unreachable;
+growth legitimately re-copies old bytes; frame bodies are mutable owned data.
+Unsupported SDK-allocation and copy-implies-cause claims are rejected. Keep
+native scratch-to-owned copies, lifetime limits and all strict policies intact.
+[Pre-change plan](research/2026-11-02-mqtt-dart-copy-request-census-plan.json),
+[Root-qualified test advice](research/2026-11-02-mqtt-dart-copy-request-census-test-assessment.json).
+
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
 Published `600e82f56d3da6ac998eeb5a60fec175354215ca` on

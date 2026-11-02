@@ -2,14 +2,15 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: diagnose the actual original MQTT CI failure before new feature
-or benchmark work. FrozenAD48 owncanonical/copy/focused correctness pass and
-are independently audited, but originalMQTT fails3profiles /3metrics on7763.
-All20summaries /192rows and actual binary/profile evidence are retained; no
-unchanged numerical retry. WholeCI finishes naturally under one read-only
-watcher. Root-qualified triage has hypotheses only; require an actual minimal
-repro/controlled evidence before another isolated runtime correction. Every
-future final runtime still needs own canonical/copy/cleanCI/strict48/50.
+Current step: complete the fresh pre-change fullfast baseline in isolated
+`codex/mqtt-dart-copy-census` before any tool source edits for a count-only
+investigation of the actualMQTT CI blocker. Bootstrap passes; officialexclusive
+lease holds source/tree/locks. Do not start competing models/tests or edit until
+pass. No diagnostic implementation/capture or production patch is ready.
+FrozenAD48 owncanonical/copy pass, originalMQTT still fails3metrics; retain all
+192rows/profiles/binaries and finish wholeCI naturally with no numerical retry.
+Root-qualified diagnosis has hypotheses only. Any future runtime correction
+needs before-failing repro/controlled evidence and own complete finalacceptance.
 D9CB remaining campaigns preserve all rows/shards; no adoption or policy change.
 
 The completed D9CB payload artifact also retains actual production native
@@ -78,6 +79,29 @@ four failing cases; roles vary, with no single cause established. Its original
 primary/protocol/encrypted campaigns continue and every row is retained.
 Own final strict48/50 is not dispatched; RAM/broadWAMP acceptance and adoption
 remain unresolved. Fix the actualCI blocker before new feature/benchmark work.
+
+## Count-only investigation of the MQTT CI blocker (2026-11-02)
+
+An isolated `codex/mqtt-dart-copy-census` checkout starts at frozenAD48. Fresh
+bootstrap passes; full pre-change `bin/test-fast` is active under the official
+exclusive lease before any tool source edits. Keep source/HEAD/tree/three locks
+unchanged and wait for pass; the new checkout's own native binds on completion.
+No competing local tests/models, implementation, instrumentation, capture or
+production patch is active. Bounded test advice is complete and root-qualified;
+it does not approve any runtime change or performance claim.
+
+The contemplated tools-only diagnostic would count explicit logical copy and
+constructor requests in an independently guarded shadow source tree, preserving
+original receive/decoder values/errors/ownership, five profiles/five fresh
+repetitions and all body verification. These are not exact heap allocations,
+RSS, timings or causal acceptance. Zero/positive/malformed/fragmented/growth/
+mutation controls and source/lock/native/broker/client guards must pass before
+one capture. The alleged already-complete pending body state is unreachable;
+growth legitimately re-copies old bytes; frame bodies are mutable owned data.
+Unsupported SDK-allocation and copy-implies-cause claims are rejected. Keep
+native scratch-to-owned copies, lifetime limits and all strict policies intact.
+[Pre-change plan](../research/2026-11-02-mqtt-dart-copy-request-census-plan.json),
+[Root-qualified test advice](../research/2026-11-02-mqtt-dart-copy-request-census-test-assessment.json).
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 

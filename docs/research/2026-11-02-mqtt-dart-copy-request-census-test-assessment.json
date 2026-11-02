@@ -1,0 +1,19 @@
+{
+  "advisory_sha256": "3fa4ca71737825e0ab15877216605212c2d3be8e2dd7d6b6a0308b4d95017c23",
+  "reviewed_utc": "2026-11-02T06:29:33.508898+00:00",
+  "approved_scope": "Planning controls for tools-only logicalcopy/constructor-request census; no source implementation/capture/productionpatch/adoption approved. Fresh fullfast baseline mustpassbeforeanytoolsourceedit.",
+  "accepted_tests": [
+    "Whole canonical packet; zero remaining length; multiple complete packets perchunk; packet/header/body split across fresh fragments; genuine growth with sufficiently large body; partial frame resume and empty input; output/input mutation isolation; exactsizecap/nonminimalvarint/fourcontinuationbytes/badtype/terminalstate; pollpositive/null/error/unsupported counters if feasible over actualproductionpath.",
+    "Compare original-vs-instrumented values/errors/byteownership behavior; preserve zero-cap constructorrequests separately from positive logicalcopy byte counts; missinginstrumentation and wrongsource/lock/native/output replacement guards failclosed."
+  ],
+  "qualifications": [
+    "GLM example2byteheader cannot describe every large fragmentedbody; fixtures must use actualcanonical encoders/remaining-length widths and fullbodychecks.",
+    "The suggested priorcall already-complete _body state is unreachable: production emits frame and resets state in samecall. Use real header-only/zeroRemainingLength zero-bytecopy case, no fabricated private-state injection.",
+    "Pendingpartial frame can legitimately re-copy earlier bytes when storagegrows; record growthcopybytes separately, do not assert blanket no-recopy.",
+    "Actual MqttFrame.body is mutable and owned, notunmodifiable; verify mutations do not affect decoder/otherframe, andproducerinput mutationdoesnotaffectoutput. Do not change mutability/lifetime semantics.",
+    "The claim Uint8List.fromList allocates twice in some SDKs is unsupportedhere; counters measure constructor/logicalcopy requests only, not physicalheapallocs orRSS.",
+    "Do not infer >=1allocation/copy proves gatecause, or use64KiBdiagnostic asdirect128byteTCPcause; no borrowed scratch view or benchmarkbody/pattern reuse."
+  ],
+  "capture_ready": false,
+  "production_patch_prepared": false
+}

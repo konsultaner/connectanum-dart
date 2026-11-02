@@ -1,0 +1,18 @@
+{
+  "kind": "count_only_CI_cost_diagnostic_never_acceptance",
+  "base": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "branch": "codex/mqtt-dart-copy-census",
+  "locks": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "tracked_tree_sha256": "2a48725ce3e75c9876159bd34de57b0e2e86aafab0186d1e61821ec660672012",
+  "capture_ready": false,
+  "source_edits_allowed": false,
+  "production_patch_prepared": false,
+  "production_patch_applied": false,
+  "scope": "Fresh own-worktree bootstrap/fullfast BEFORE any tool source edits for CI copy-request diagnostic. OriginalAD48 remains clean/frozen/canonicalPASS, originalMQTTnumericfailure retained/no retry. Runtime/native inputs remain unchanged; contemplated future shadow-source counters count logicalcopy/constructorrequests, NOT exact heapalloc/RSS/timing. No capture/implementation now. Rootmustreview testadvice before eventual tooling. No benchmark body/pattern reuse, GC/SDK/allocator/worker/gate change.",
+  "predeclared_utc": "2026-11-02T06:25:41.852880+00:00",
+  "checkout_role": "Isolated tools-only codex/mqtt-dart-copy-census from exactAD48; no source edits until fresh fullfastPASS."
+}
