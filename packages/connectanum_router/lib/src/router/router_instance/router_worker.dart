@@ -185,6 +185,7 @@ Future<void> sendMessage(
   NativeMessageSerializer serializer,
   AbstractMessage message, {
   WorkerConnectionState? state,
+  WorkerFrameBatch? frameBatch,
 }) async {
   flatbuffers.FlatBuffersSessionProfile? nextProfile;
   final previousProfile = state?.flatBuffersProfile;
@@ -204,7 +205,7 @@ Future<void> sendMessage(
       'type': 'worker_send',
       'connectionId': connectionId,
       if (acceptedReply != null) 'acceptedReply': acceptedReply.sendPort,
-    });
+    }, frameBatch: frameBatch);
     if (acceptedReply != null) {
       final result = await acceptedReply.first.timeout(
         const Duration(seconds: 5),
@@ -254,12 +255,62 @@ Uint8List _workerFrameBuffer(int length) {
   return result;
 }
 
+// One graph shares the same binary body across fan-out recipients. Flushes
+// remain synchronous and bounded; no frame or native owner survives the command.
+final class WorkerFrameBatch {
+  WorkerFrameBatch(this.target);
+  final SendPort target;
+  final _frames = <Map<String, Object?>>[];
+  int _bytes = 0;
+  static const _byteLimit = 1024 * 1024;
+  static const _frameLimit = 64;
+
+  bool add(Map<String, Object?> envelope, List<Uint8List> fragments) {
+    final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
+    if (length > _byteLimit) return false;
+    if (_frames.length == _frameLimit || _bytes + length > _byteLimit) flush();
+    _frames.add({...envelope, 'fragments': fragments});
+    _bytes += length;
+    return true;
+  }
+
+  void flush() {
+    if (_frames.isEmpty) return;
+    target.send({'type': 'worker_send_batch', 'messages': _frames});
+    _frames.clear();
+    _bytes = 0;
+  }
+}
+
 void sendWorkerMessagePayload(
   SendPort target,
   NativeMessageSerializer serializer,
   AbstractMessage message,
-  Map<String, Object?> envelope,
-) {
+  Map<String, Object?> envelope, {
+  WorkerFrameBatch? frameBatch,
+}) {
+  if (frameBatch != null &&
+      serializer == NativeMessageSerializer.flatbuffers &&
+      envelope['acceptedReply'] == null &&
+      message is event_msg.Event &&
+      message.details.pptScheme == null &&
+      !message.hasLazyArguments &&
+      !message.hasLazyArgumentsKeywords &&
+      !message.hasDecodedPptPayload &&
+      message.transparentBinaryPayload == null &&
+      message.wireArgumentsKeywords == null) {
+    final arguments = message.wireArguments;
+    if (arguments?.length == 1 &&
+        arguments!.single is Uint8List &&
+        (arguments.single as Uint8List).length >= 16 * 1024 &&
+        frameBatch.add(
+          envelope,
+          _flatBuffersSerializer.serializeTransportFragments(message),
+        )) {
+      return;
+    }
+  }
+  frameBatch?.flush();
   if (serializer == NativeMessageSerializer.cbor &&
       message is event_msg.Event &&
       message.details.pptScheme == null &&
@@ -613,6 +664,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         state: state,
       );
     } else if (command == _workerCmdSendMessages) {
+      final frameBatch = WorkerFrameBatch(bossPort);
       for (final rawMessage in raw[1] as List) {
         final connectionId = rawMessage[0] as int;
         final state = connectionStates[connectionId];
@@ -624,8 +676,10 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
             state.serializer ?? NativeMessageSerializer.json,
             rawMessage[1] as AbstractMessage,
             state: state,
+            frameBatch: frameBatch,
           );
         } catch (error, stackTrace) {
+          frameBatch.flush();
           bossPort.send({
             'type': _workerEventError,
             'connectionId': connectionId,
@@ -634,6 +688,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
           });
         }
       }
+      frameBatch.flush();
     } else if (command == _workerCmdDrainConnections) {
       final reason = raw.length > 1 && raw[1] is String
           ? raw[1] as String

@@ -111,11 +111,12 @@ void _observePublicationCommands(
               7,
               [
                 [0x7fffffff, publications.first],
+                entries!.first,
                 [
-                  entries!.first[0],
+                  entries.first[0],
                   wamp.Event(1, 1, wamp.EventDetails(), arguments: [Object()]),
                 ],
-                ...entries,
+                ...entries.skip(1),
               ],
             ]);
           } else {
@@ -124,6 +125,22 @@ void _observePublicationCommands(
         });
       event['commandPort'] = commands!.sendPort;
       event['supportsMessageBatches'] = !legacy;
+    }
+    if (event['type'] == 'worker_send_batch') {
+      final frames = event['messages'] as List;
+      final bodies = [
+        for (final frame in frames)
+          for (final part in frame['fragments'] as List<Uint8List>)
+            if (part.length >= 16384) part,
+      ];
+      boss.send({
+        'type': 'worker_debug',
+        'stage': 'outgoing_frame_transfer',
+        'recipients': frames.length,
+        'shared_payload':
+            bodies.length == frames.length &&
+            bodies.every((body) => identical(body, bodies.first)),
+      });
     }
     boss.send(event);
     if (event['type'] == 4) {
@@ -288,6 +305,11 @@ void main() {
         for (final mode in ['batch', 'legacy']) (workers, size, mode, 'cbor'),
     (1, 65536, 'failures', 'cbor'),
     (1, 65536, 'mixed', 'cbor'),
+    (1, 65536, 'failures', 'flatbuffers'),
+    for (final workers in [1, 2])
+      for (final size in [16383, 16384])
+        for (final mode in ['batch', 'legacy'])
+          (workers, size, mode, 'flatbuffers'),
     for (final codec in ['json', 'msgpack', 'flatbuffers', 'mixed'])
       (1, 65536, 'batch', codec),
   ]) {
@@ -295,6 +317,7 @@ void main() {
       'MQTT fanout worker transfers: workers=$workers bytes=$size mode=$mode codec=$codec',
       () async {
         final observations = <Map>[];
+        final outgoingFrames = <Map>[];
         final errors = <Map>[];
         final fixture = await start(
           wampSerializer: codec == 'mixed' ? 'cbor' : codec,
@@ -308,6 +331,10 @@ void main() {
           onEvent: (_, e) {
             if (e is Map && e['type'] == 'worker_error') errors.add(e);
             final observed = e is Map && e['payload'] is Map ? e['payload'] : e;
+            if (observed is Map &&
+                observed['stage'] == 'outgoing_frame_transfer') {
+              outgoingFrames.add(observed);
+            }
             if (observed is Map &&
                 observed['stage'] == 'publication_transfer') {
               observations.add(observed);
@@ -382,6 +409,23 @@ void main() {
         );
         expect(errors, hasLength(mode == 'failures' ? 1 : 0));
         expect(observations.every((e) => e['shared_payload'] == true), isTrue);
+        if ((codec == 'flatbuffers' || codec == 'mixed') &&
+            size >= 16384 &&
+            mode != 'legacy') {
+          expect(
+            outgoingFrames.fold<int>(
+              0,
+              (sum, e) => sum + (e['recipients'] as int),
+            ),
+            codec == 'mixed' ? 1 : 4,
+          );
+          expect(
+            outgoingFrames.every((e) => e['shared_payload'] == true),
+            isTrue,
+          );
+        } else {
+          expect(outgoingFrames, isEmpty);
+        }
       },
     );
   }

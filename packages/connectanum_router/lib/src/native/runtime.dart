@@ -92,6 +92,42 @@ abstract class NativeRuntimeWithConfiguredListeners implements NativeRuntime {
   });
 }
 
+/// Sends the ordered fragments of one WAMP frame in one synchronous enqueue.
+/// The complete frame has the codecs' 64 MiB byte limit.
+/// Fragment storage is borrowed only until the method returns.
+abstract interface class NativeRuntimeWithMessageFragments
+    implements NativeRuntime {
+  void sendMessageFragments(int connectionId, List<Uint8List> fragments);
+}
+
+void sendNativeMessageFragments(
+  NativeRuntime runtime,
+  int connectionId,
+  List<Uint8List> fragments,
+) {
+  _messageFragmentsLength(fragments);
+  if (runtime is NativeRuntimeWithMessageFragments) {
+    runtime.sendMessageFragments(connectionId, fragments);
+  } else {
+    final output = BytesBuilder(copy: false);
+    for (final part in fragments) {
+      output.add(part);
+    }
+    runtime.sendMessage(connectionId, output.takeBytes());
+  }
+}
+
+int _messageFragmentsLength(List<Uint8List> fragments) {
+  var length = 0;
+  for (final part in fragments) {
+    length += part.length;
+    if (length > 64 * 1024 * 1024) {
+      throw ArgumentError('WAMP frame exceeds the byte limit');
+    }
+  }
+  return length;
+}
+
 /// Raw byte channel for MQTT connections accepted by the native listener.
 abstract class NativeRuntimeWithMqtt implements NativeRuntime {
   int mqttVersion(int connectionId);
@@ -2311,6 +2347,7 @@ abstract final class NativeLibraryLoader {
 class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
+        NativeRuntimeWithMessageFragments,
         NativeRuntimeWithMqttFrames,
         NativeRuntimeWithConfiguredListeners,
         NativeRuntimeWithRouterConfiguration,
@@ -4003,6 +4040,31 @@ class NativeTransportRuntime
       final result = _bindings.ctSendMessage(connectionId, ptr, payload.length);
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to send message');
+      }
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  @override
+  void sendMessageFragments(int connectionId, List<Uint8List> fragments) {
+    final length = _messageFragmentsLength(fragments);
+    if (length == 0) {
+      sendMessage(connectionId, Uint8List(0));
+      return;
+    }
+    final ptr = calloc<ffi.Uint8>(length);
+    try {
+      final destination = ptr.asTypedList(length);
+      var offset = 0;
+      for (final part in fragments) {
+        destination.setRange(offset, offset + part.length, part);
+        offset += part.length;
+      }
+      _dartToNativeCopiedBytesTotal += length;
+      final result = _bindings.ctSendMessage(connectionId, ptr, length);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send message fragments');
       }
     } finally {
       calloc.free(ptr);

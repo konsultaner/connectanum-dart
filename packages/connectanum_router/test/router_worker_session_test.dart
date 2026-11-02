@@ -86,7 +86,176 @@ Future<List<Map>> _captureScratchFrames(
   }
 }
 
+void _sendSharedFlatBufferFrames(SendPort target) {
+  final body = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+  final batch = WorkerFrameBatch(target);
+  for (var recipient = 0; recipient < 4; recipient++) {
+    sendWorkerMessagePayload(
+      target,
+      NativeMessageSerializer.flatbuffers,
+      event_msg.Event(
+        recipient + 1,
+        19,
+        event_msg.EventDetails(),
+        arguments: [body],
+      ),
+      {'connectionId': recipient + 1},
+      frameBatch: batch,
+    );
+  }
+  batch.flush();
+  body.fillRange(0, body.length, 0);
+  batch.flush();
+}
+
 void main() {
+  test('FlatBuffers fanout shares one independent binary snapshot', () async {
+    final port = ReceivePort();
+    try {
+      final received = port.first;
+      await Isolate.spawn(_sendSharedFlatBufferFrames, port.sendPort);
+      final event = await received.timeout(const Duration(seconds: 5)) as Map;
+      expect(event['type'], 'worker_send_batch');
+      final frames = event['messages'] as List;
+      expect(frames.map((f) => f['connectionId']), [1, 2, 3, 4]);
+      final bodies = [
+        for (final frame in frames)
+          (frame['fragments'] as List).singleWhere((p) => p.length == 65536)
+              as Uint8List,
+      ];
+      expect(bodies.every((body) => identical(body, bodies.first)), isTrue);
+      expect(bodies.first, List.generate(65536, (i) => i % 251));
+    } finally {
+      port.close();
+    }
+  });
+
+  for (final bytes in [1, 512 * 1024]) {
+    test(
+      'outgoing batches bound and reset ${bytes == 1 ? '64 frames' : 'one MiB'}',
+      () async {
+        final port = ReceivePort();
+        try {
+          final received = port.take(2).toList();
+          final batch = WorkerFrameBatch(port.sendPort);
+          final count = bytes == 1 ? 65 : 3;
+          final body = Uint8List(bytes);
+          for (var i = 0; i < count; i++) {
+            expect(batch.add({'connectionId': i}, [body]), isTrue);
+          }
+          batch.flush();
+          batch.flush();
+          final messages = await received.timeout(const Duration(seconds: 5));
+          expect(
+            [
+              (messages.first as Map)['messages'].length,
+              (messages.last as Map)['messages'].length,
+            ],
+            [count - 1, 1],
+          );
+        } finally {
+          port.close();
+        }
+      },
+    );
+  }
+
+  for (final fallback in [
+    'small',
+    'oversize',
+    'control',
+    'profile',
+    'json',
+    'cbor',
+    'msgpack',
+    'keywords',
+    'empty',
+    'lazy',
+    'ppt',
+  ]) {
+    test('outgoing batch flush precedes $fallback owned frame', () async {
+      final port = ReceivePort();
+      final accepted = ReceivePort();
+      try {
+        final received = port.take(2).toList();
+        final batch = WorkerFrameBatch(port.sendPort);
+        final body = Uint8List(16384);
+        sendWorkerMessagePayload(
+          port.sendPort,
+          NativeMessageSerializer.flatbuffers,
+          event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [body]),
+          {'connectionId': 1},
+          frameBatch: batch,
+        );
+        final AbstractMessage message = switch (fallback) {
+          'small' => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(),
+            arguments: [Uint8List(16383)],
+          ),
+          'oversize' => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(),
+            arguments: [Uint8List(1024 * 1024 + 1)],
+          ),
+          'control' => goodbye_msg.Goodbye(null, 'wamp.close.normal'),
+          'keywords' => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(),
+            arguments: [body],
+            argumentsKeywords: {'key': 1},
+          ),
+          'empty' => event_msg.Event(2, 3, event_msg.EventDetails()),
+          'lazy' =>
+            event_msg.Event(2, 3, event_msg.EventDetails())..setLazyPayload(
+              argumentsBytes: Uint8List.fromList([0x81, 0x40]),
+              argumentsDecoder: (_) =>
+                  throw StateError('unexpected materialization'),
+              encoding: LazyPayloadEncoding.cbor,
+            ),
+          'ppt' => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(pptScheme: 'mqtt', pptSerializer: 'cbor'),
+          )..transparentBinaryPayload = body,
+          _ => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(),
+            arguments: [body],
+          ),
+        };
+        sendWorkerMessagePayload(
+          port.sendPort,
+          switch (fallback) {
+            'json' => NativeMessageSerializer.json,
+            'cbor' => NativeMessageSerializer.cbor,
+            'msgpack' => NativeMessageSerializer.messagePack,
+            _ => NativeMessageSerializer.flatbuffers,
+          },
+          message,
+          {
+            'connectionId': 2,
+            if (fallback == 'profile') 'acceptedReply': accepted.sendPort,
+          },
+          frameBatch: batch,
+        );
+        batch.flush();
+        final messages = await received.timeout(const Duration(seconds: 5));
+        expect((messages.first as Map)['type'], 'worker_send_batch');
+        expect((messages.first as Map)['messages'].single['connectionId'], 1);
+        expect((messages.last as Map)['connectionId'], 2);
+        expect((messages.last as Map)['payload'], isA<Uint8List>());
+        expect((messages.last as Map).containsKey('fragments'), isFalse);
+      } finally {
+        accepted.close();
+        port.close();
+      }
+    });
+  }
   for (final serializer in [
     NativeMessageSerializer.cbor,
   ]) {
