@@ -1,0 +1,27 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "run": 41463489396,
+  "attempt": 1,
+  "checked_utc": "2026-11-02T16:05:51.876372+00:00",
+  "original_job": {
+    "id": 125338207444,
+    "started_at": "2026-11-02T14:36:24Z",
+    "completed_at": "2026-11-02T16:04:19Z",
+    "conclusion": "failure",
+    "paired_step_conclusion": "failure",
+    "evidence_upload_conclusion": "success"
+  },
+  "artifact_metadata": {
+    "id": 13158311612,
+    "name": "wamp-flatbuffers-primary-601108ea6216464bd00ae29c16cfaf0a59c71db6-1-payload_sizes",
+    "digest": "sha256:42f1a1480f222999838143e99e04281414d8b0f2d377f85406b245bbe1df08b7",
+    "size_in_bytes": 54513313,
+    "created_at": "2026-11-02T16:04:14Z"
+  },
+  "artifact_downloaded": false,
+  "independent_raw_audit_complete": false,
+  "reservation_honored": true,
+  "download_blocked_before_API_cache_or_data": true,
+  "numerical_retried": false,
+  "scope": "Original paired step failed; raw measurements and failure counts have not been audited yet. Remaining primary/protocol/encrypted jobs finish naturally."
+}

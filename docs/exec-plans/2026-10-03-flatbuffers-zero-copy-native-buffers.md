@@ -2,8 +2,10 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: preserve and finish exact601 primary48/run41463482638 and
-supplemental50/run41463489396 naturally; independently audit all1,440+1,500rows,
+Current step: retain the original failed601 payload shard and audit its new
+artifact13158311612 after the official machine lease permits downloading it.
+Preserve primary48/run41463482638 and supplemental50/run41463489396 naturally;
+independently audit all1,440+1,500rows,
 allshards/source/scenarios/policy/locks/actualnative+driver bytes. Owncanonical,
 copy/MQTT20/hostedJS/CIall39 and the proper fresh-body native-source50rowcontrol
 are complete/audited. Local control is mixed, not a broad transport/RAM repair.
@@ -20,6 +22,18 @@ this later same-binary witness closes that byte-rehash limitation without an
 ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
 results changed. [Cross-artifact byte audit](../research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
 
+
+## Current payload shard failed; raw audit pending (2026-11-02)
+
+The original exact601 supplemental `payload_sizes` job125338207444 completed
+with failure in its paired step; evidence upload succeeded. Artifact13158311612
+has metadata digest `42f1a148…`. Its ZIP and raw measurements have not yet been
+downloaded or independently audited, so no failure counts or RAM conclusion
+are claimed. The official shared resource lease refused the download before
+API/cache/data because another workload holds its reservation. That reservation
+is honored. No numerical job reran. Primary48, protocol and encrypted/progressive
+continue naturally; all rows and shards remain required. PR132 remains draft,
+with no candidate adoption. [Retained metadata](../research/2026-11-02-mqtt-complete-pair-payload-pending-audit.json).
 
 ## Fresh native-source control complete; strict campaigns active (2026-11-02)
 

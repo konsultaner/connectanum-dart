@@ -8,6 +8,18 @@ Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/kon
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 
+## Current payload shard failed; raw audit pending (2026-11-02)
+
+The original exact601 supplemental `payload_sizes` job125338207444 completed
+with failure in its paired step; evidence upload succeeded. Artifact13158311612
+has metadata digest `42f1a148…`. Its ZIP and raw measurements have not yet been
+downloaded or independently audited, so no failure counts or RAM conclusion
+are claimed. The official shared resource lease refused the download before
+API/cache/data because another workload holds its reservation. That reservation
+is honored. No numerical job reran. Primary48, protocol and encrypted/progressive
+continue naturally; all rows and shards remain required. PR132 remains draft,
+with no candidate adoption. [Retained metadata](research/2026-11-02-mqtt-complete-pair-payload-pending-audit.json).
+
 ## Fresh native-source control complete; strict campaigns active (2026-11-02)
 
 The one proper fresh-body native control completes all50rows /8.05M measured
