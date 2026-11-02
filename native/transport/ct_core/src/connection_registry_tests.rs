@@ -1,5 +1,175 @@
 use super::*;
 
+fn idle_registry() -> Arc<ListenerRegistry> {
+    Arc::new(ListenerRegistry {
+        idle_allocator: Arc::default(),
+        ..ListenerRegistry::default()
+    })
+}
+
+async fn idle_allocator_finished(state: &Arc<idle_allocator::IdleAllocatorRelease>) {
+    time::timeout(Duration::from_secs(2), async {
+        loop {
+            if let Some(reservation) = state.reserve(true) {
+                drop(reservation);
+                return;
+            }
+            time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn peer_close_schedules_idle_cleanup_without_the_public_runtime_api() {
+    let registry = idle_registry();
+    register_pending(&registry, ConnectionId(1), ConnectionProtocol::WebSocket);
+    registry.close_connection(ConnectionId(1)).unwrap();
+    assert!(
+        registry.idle_allocator.reserve(true).is_none(),
+        "peer-close watchers must reserve cleanup after removing the final connection"
+    );
+    idle_allocator_finished(&registry.idle_allocator).await;
+}
+
+#[tokio::test]
+async fn peer_close_does_not_trim_while_another_connection_is_live() {
+    let registry = idle_registry();
+    register_pending(&registry, ConnectionId(1), ConnectionProtocol::WebSocket);
+    register_pending(&registry, ConnectionId(2), ConnectionProtocol::WebSocket);
+    registry.close_connection(ConnectionId(1)).unwrap();
+    assert!(registry.idle_allocator.reserve(true).is_some());
+    registry.close_connection(ConnectionId(2)).unwrap();
+    assert!(registry.idle_allocator.reserve(true).is_none());
+    idle_allocator_finished(&registry.idle_allocator).await;
+}
+
+#[test]
+fn close_outside_tokio_leaves_cleanup_to_the_public_runtime_wrapper() {
+    let registry = idle_registry();
+    register_pending(&registry, ConnectionId(1), ConnectionProtocol::WebSocket);
+    registry.close_connection(ConnectionId(1)).unwrap();
+    assert!(registry.idle_allocator.reserve(true).is_some());
+    assert!(matches!(
+        registry.close_connection(ConnectionId(1)),
+        Err(Error::ConnectionNotFound(_))
+    ));
+}
+
+#[tokio::test]
+async fn idle_allocator_skips_live_and_reopened_connections_and_coalesces_checks() {
+    use std::sync::atomic::AtomicUsize;
+    let registry = idle_registry();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let handle = tokio::runtime::Handle::current();
+    register_pending(&registry, ConnectionId(1), ConnectionProtocol::WebSocket);
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&handle, move || {
+        count.fetch_add(100, Ordering::SeqCst);
+    });
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    registry.remove_connection(ConnectionId(1)).unwrap();
+
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&handle, move || {
+        count.fetch_add(100, Ordering::SeqCst);
+    });
+    register_pending(&registry, ConnectionId(2), ConnectionProtocol::WebSocket);
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    registry.remove_connection(ConnectionId(2)).unwrap();
+
+    let count = Arc::clone(&calls);
+    let weak = Arc::downgrade(&registry);
+    let io_thread = std::thread::current().id();
+    registry.schedule_idle_allocator_release(&handle, move || {
+        let registry = weak.upgrade().unwrap();
+        assert!(registry.connections.try_lock().is_ok());
+        assert_ne!(std::thread::current().id(), io_thread);
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&handle, move || {
+        count.fetch_add(100, Ordering::SeqCst);
+    });
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn idle_allocator_does_not_retain_a_disposed_registry() {
+    use std::sync::atomic::AtomicUsize;
+    let registry = idle_registry();
+    let gate = Arc::clone(&registry.idle_allocator);
+    let weak = Arc::downgrade(&registry);
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&tokio::runtime::Handle::current(), move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    drop(registry);
+    assert!(weak.upgrade().is_none());
+    idle_allocator_finished(&gate).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn idle_allocator_recovers_a_poisoned_empty_registry() {
+    use std::sync::atomic::AtomicUsize;
+    let registry = idle_registry();
+    let cloned = Arc::clone(&registry);
+    let _ = std::thread::spawn(move || {
+        let _guard = cloned.connections.lock().unwrap();
+        panic!("poison");
+    })
+    .join();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&tokio::runtime::Handle::current(), move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn idle_allocator_runtime_shutdown_cancels_its_reservation() {
+    let registry = idle_registry();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        registry
+            .schedule_idle_allocator_release(runtime.handle(), || panic!("cleanup after shutdown"));
+        tokio::task::yield_now().await;
+    });
+    drop(runtime);
+    assert!(registry.idle_allocator.reserve(true).is_some());
+}
+
+#[tokio::test]
+async fn idle_allocator_skips_a_shutdown_registry_with_retained_views() {
+    use std::sync::atomic::AtomicUsize;
+    let registry = idle_registry();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&tokio::runtime::Handle::current(), move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    registry.shutdown();
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&tokio::runtime::Handle::current(), move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
 fn endpoint() -> Arc<config::EndpointRuntimeConfig> {
     let config = serde_json::from_value::<config::EndpointConfig>(serde_json::json!({
         "host": "127.0.0.1", "port": 0, "tls_mode": "disabled"
@@ -96,7 +266,7 @@ fn register_pending(registry: &ListenerRegistry, id: ConnectionId, protocol: Con
 
 #[test]
 fn missing_connection_ids_preserve_identity_across_accessors() {
-    let registry = ListenerRegistry::default();
+    let registry = Arc::new(ListenerRegistry::default());
     for id in [ConnectionId(0), ConnectionId(1), ConnectionId(u32::MAX)] {
         missing(registry.connection_config(id), id);
         missing(registry.connection_stats(id), id);
@@ -133,7 +303,7 @@ fn missing_connection_ids_preserve_identity_across_accessors() {
 
 #[test]
 fn http_accessors_reject_wamp_protocols_without_consuming_requests() {
-    let registry = ListenerRegistry::default();
+    let registry = Arc::new(ListenerRegistry::default());
     for (index, protocol) in [
         ConnectionProtocol::Http,
         ConnectionProtocol::Http2,
@@ -215,7 +385,7 @@ fn http_accessors_reject_wamp_protocols_without_consuming_requests() {
 
 #[test]
 fn http_queues_are_fifo_and_keep_each_response_channel() {
-    let registry = ListenerRegistry::default();
+    let registry = Arc::new(ListenerRegistry::default());
     for protocol in [
         ConnectionProtocol::Http,
         ConnectionProtocol::Http2,
@@ -272,7 +442,7 @@ fn close_cancels_queued_requests_but_preserves_an_already_taken_response() {
         ConnectionProtocol::Http2,
         ConnectionProtocol::Http3,
     ] {
-        let registry = ListenerRegistry::default();
+        let registry = Arc::new(ListenerRegistry::default());
         let id = ConnectionId(42);
         register_pending(&registry, id, protocol);
         let (first, mut first_receiver) = request(id, "/taken");
@@ -302,7 +472,7 @@ fn close_cancels_queued_requests_but_preserves_an_already_taken_response() {
 
 #[test]
 fn pending_websocket_rejects_http_and_retains_handshake_state() {
-    let registry = ListenerRegistry::default();
+    let registry = Arc::new(ListenerRegistry::default());
     let id = ConnectionId(73);
     let protocol = ConnectionProtocol::WebSocket;
     register_pending(&registry, id, protocol);
@@ -446,7 +616,7 @@ async fn active_wamp_records_preserve_frames_backpressure_and_close_semantics() 
         (ConnectionProtocol::RawSocket, true),
         (ConnectionProtocol::WebSocket, true),
     ] {
-        let registry = ListenerRegistry::default();
+        let registry = Arc::new(ListenerRegistry::default());
         let id = ConnectionId(94);
         let (frame_tx, frame_rx) = mpsc::channel(1);
         let frames = Arc::new(Mutex::new(frame_rx));
@@ -579,5 +749,77 @@ async fn active_wamp_records_preserve_frames_backpressure_and_close_semantics() 
             .unwrap()
             .is_err_and(|error| error.is_cancelled()));
         missing(registry.connection_protocol(id), id);
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn mqtt_plain_stream_bounds_unsent_bytes_without_changing_tcp_window() {
+    for websocket in [false, true] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (server, peer_addr) = listener.accept().await.unwrap();
+        let stream = IoStream::plain(server);
+        let observer = stream.try_clone_plain_fd().unwrap().unwrap();
+        let socket = socket2::SockRef::from(&observer);
+        let send_buffer = socket.send_buffer_size().unwrap();
+        let unsent_lowat = || {
+            use std::os::fd::AsRawFd;
+            let mut value: u32 = 0;
+            let mut length = std::mem::size_of_val(&value) as libc::socklen_t;
+            let result = unsafe {
+                libc::getsockopt(
+                    observer.as_raw_fd(),
+                    libc::IPPROTO_TCP,
+                    libc::TCP_NOTSENT_LOWAT,
+                    (&mut value as *mut u32).cast(),
+                    &mut length,
+                )
+            };
+            assert_eq!(result, 0);
+            value
+        };
+        assert_ne!(unsent_lowat(), 128 * 1024);
+        let registry = Arc::new(ListenerRegistry::default());
+        let id = ConnectionId(91);
+        Arc::clone(&registry)
+            .register_mqtt_stream_connection(
+                tokio::runtime::Handle::current(),
+                ListenerId(1),
+                id,
+                Arc::new(build_client_endpoint_config(
+                    "127.0.0.1",
+                    0,
+                    false,
+                    TransportProtocol::Mqtt,
+                    config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+                    None,
+                    None,
+                )),
+                stream,
+                5,
+                peer_addr,
+                websocket,
+            )
+            .unwrap();
+        assert_eq!(socket.send_buffer_size().unwrap(), send_buffer);
+        assert_eq!(unsent_lowat(), 128 * 1024);
+        registry
+            .enqueue_mqtt_chunk(id, Bytes::from_static(&[0xd0, 0]))
+            .unwrap();
+        let expected: &[u8] = if websocket {
+            &[0x82, 2, 0xd0, 0]
+        } else {
+            &[0xd0, 0]
+        };
+        let mut received = vec![0; expected.len()];
+        time::timeout(Duration::from_secs(5), client.read_exact(&mut received))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(received, expected);
+        registry.close_connection(id).unwrap();
     }
 }

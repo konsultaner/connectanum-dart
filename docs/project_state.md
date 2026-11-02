@@ -1,66 +1,73 @@
 # Project State
 
-Last updated: 2026-11-01.
+Last updated: 2026-11-02.
 Current priority: [MQTT milestone 2](https://github.com/konsultaner/connectanum-dart/milestone/2), explicitly prioritized by the user.
 Active plan: [MQTT interoperability](exec-plans/2026-10-14-mqtt-broker-interoperability.md).
-Branch: `codex/mqtt-wamp-gateway`, based on merged master `ef822e08`.
+Branch: `codex/mqtt-wamp-gateway`, based on `ef822e08`.
+Current PR: [#135](https://github.com/konsultaner/connectanum-dart/pull/135), open and not draft.
 
-Required gateway CI uses a hardware-qualified ARM64 reference. Every candidate
-must match its four-vCPU Neoverse-N2 CPU signature before sampling. The earlier
-x64 reference, all its numeric limits and rejected cross-CPU runs are retained;
-no performance or coverage thresholds were relaxed. Exact-head GitHub checks
-remain the final acceptance step before merge.
+The opt-in QoS 0 gateway implements #116/#117: realm authorization, trusted WAMP
+caller identity, binary publications, bounded queues, cancellation and teardown.
+Direct MQTT 5/3.1.1 TCP/TLS/WS/WSS merged in PR #128. Ordinary MQTT PPT remains
+opaque. The [contract](mqtt.md) includes configuration and client examples.
 
-[PR #128](https://github.com/konsultaner/connectanum-dart/pull/128) merged direct
-QoS 0 MQTT 5/3.1.1 over TCP/TLS/WS/WSS. The current gateway implements #116/#117:
-opt-in realm authorization, trusted WAMP caller identity, binary application
-publications, bounded queues and cancellation. Ordinary MQTT PPT stays opaque.
-The [contract](mqtt.md) has configuration and client examples.
+## Current qualification
 
-The [x64 reference](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801)
-and [ARM64 reference](https://github.com/konsultaner/connectanum-dart/actions/runs/41341341988) each pass 32 profiles, six paths,
-five cycles, 960 normal samples and 12 overload/recovery cycles. Together they
-contain 23.1 million exact deliveries, including 7.7 million translations,
-zero duplicates, 49,152 healthy overload deliveries and 1,536 recovery deliveries.
-Fixed rate/p99/CPU variation caps remain 0.20/0.75/0.35. All 128 translation and
-eight overload rows pass their separate frozen budgets. README tables include
-every direction/profile result, per-process CPU and warm/peak/drained RSS,
-direct controls and memory growth.
+Runtime source `839bbf6e` releases sent CALL payloads while replies remain pending,
+shares binary publications and FlatBuffers frame bodies across recipient workers,
+and returns unused native allocator pages after peer disconnects. Frames enter
+native-owned storage through the existing ABI. Control/profile acceptance,
+per-peer backpressure, custom-worker fallback and payload ownership are covered
+by regression tests.
 
-Coverage passes 744/744 gateway/shared Dart lines, 759/759 MQTT lines, 270/270
-gateway component lines, 882/882 native added production lines and 947/947
-Python tooling lines, with zero Python exclusions. The source-hash regression
-recomputes the compressed native Cargo + Dart FFI union for current Rust source
-SHA-256 `1254e227…c93fc01`. Fresh full `bin/verify` passes on the current
-production code, including VM, consumer smoke, Chrome and WebAssembly.
-Offline tests validate every new README cell and the exact budget policy.
+| Check | Verified result |
+| --- | --- |
+| Frozen-source `bin/verify`, Rust, Dart, consumers, Chrome and Wasm | Passed at 14:40 UTC; clean source, no runtime drift |
+| Gateway/shared Dart coverage | 1,016 / 1,016 executable lines |
+| Gateway tooling, zero exclusions | 1,084 / 1,084 statements |
+| Added native production lines, matching source hashes | 979 / 979 |
+| Broad router/MQTT/Paho/native / final worker-live / recipient-error checks | 1,039 / 171 / 6 cases passed |
+| Same-host ABBA, 64 KiB FlatBuffers fan-out | All twenty samples audited; 400,000 exact deliveries; zero duplicates |
+| Paired broker drained RSS, baseline → candidate | 56–62 MiB → 34–40 MiB; unchanged 54 MiB cap |
+| Paired broker CPU seconds per million deliveries | 249.7–251.7 → 214.4–220.1 |
+| Strict pilot | All eighty samples pass; 1.6 million exact deliveries; zero duplicates |
+| WSS slow-peer recovery audit | 8,192 exact deliveries plus 256 recovery; zero duplicates |
+| Complete sixteen-shard qualification | All 1,304 samples pass; 64 translation and 4 overload results; zero duplicates |
+| Independent secure smoke | All 264 samples verified, both clients, four transports/codecs, fault and retention controls |
+| Final working-branch `bin/verify` and table checks | Passed at 15:52 UTC; all 29 table/fixture checks pass; no runtime drift |
+| Exact-head publication CI | Required PR checks and the archived CI supplement provide the publication record |
 
-Required GitHub Actions smoke and four numeric shards are Full Verify
-prerequisites. Missing, failed, skipped and cancelled lanes fail closed;
-diagnostic record-only runs remain explicit. The
-[current branch checks](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart.yml?query=branch%3Acodex%2Fmqtt-wamp-gateway)
-are authoritative for exact-head CI acceptance before merge. Historical passes
-do not validate later edits. A new merge requires user authorization.
+[Complete source qualification](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501)
+measures both translation directions, direct MQTT/WAMP controls, CPU, latency,
+per-process peak/drained RSS and separate retained-memory growth. Default-runtime
+performance and absolute RSS retain every original numeric budget. Stress-only
+collection uses a bounded nursery and independently validated managed/native
+negative controls; its timings are excluded from performance claims.
 
-Raw accepted/rejected runs, toolchain/host identities, coverage traces and
-regression logs live in the [gateway history archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01)
-and [ARM64 supplement](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-arm64-2026-11-01), with archive
-checksums and per-file manifests. Source retains compact fixtures, README
-tables, numeric budgets and current compressed coverage proof. The
-[PR #128 archive](benchmarks/README.md#archive) remains available.
+Current figures live in the [package README tables](../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway).
+Compact offline fixtures verify every displayed cell. Full raw captures, source
+snapshots, coverage reports, paired comparisons and rejected experiments live in
+the [checksum-verified benchmark archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-retention-2026-11-02).
+The source-hash proof binds unchanged native coverage to its actual GNU reports;
+a shallow-history proof-assembly failure was recovered from those exact reports,
+with all 93 collection inputs independently verified. No measurements were rerun
+or discarded during recovery.
 
-The broader milestone stays open for QoS 1/2, retained messages/wills,
-persistence, credential authentication and release conformance. #131's
-controlled-hardware release sign-off also remains open: no GitHub self-hosted
-runner is registered, and the available GitLab Linux runners are general/shared
-without a confirmed exclusive benchmark reservation. Hosted regression gates
-remain on GitHub Actions.
+## Remaining readiness work
 
-Two pre-existing auxiliary failures remain visible: strict kTLS lacks Linux TLS
-ULP support, and WAMP diagnostics miss existing 2,000 Mbit/s floors on buffered
-Dart file/heavy RawSocket paths. Their budgets stay unchanged. The native
-TCP_NODELAY correction passes all 12 Linux sustained comparisons in
+PR #135 requires code-owner review. Its merge needs new user authorization;
+the earlier admin merge applied to PR #128. The broader milestone remains open
+for QoS 1/2, retained messages/wills, persistence, credential authentication,
+complete MQTT properties and release conformance.
+
+#131's controlled-hardware release sign-off remains open: the last runner audit
+found no registered GitHub self-hosted runner or confirmed exclusive GitLab Linux
+reservation. Hosted ARM64 regression gates remain on GitHub Actions.
+
+Pre-existing auxiliary blockers remain: strict kTLS lacks Linux TLS ULP support;
+WAMP diagnostics miss their existing buffered file/heavy RawSocket floors.
+Native TCP_NODELAY passes all twelve sustained comparisons in
 [41322497967](https://github.com/konsultaner/connectanum-dart/actions/runs/41322497967).
-Other work is preserved: [ObjectBox PR #133](https://github.com/konsultaner/connectanum-dart/pull/133)
-published 3.0.0-beta.8; the [FlatBuffers plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md)
-remains deferred/reference work during this MQTT priority.
+[ObjectBox PR #133](https://github.com/konsultaner/connectanum-dart/pull/133)
+published 3.0.0-beta.8. The [FlatBuffers plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md)
+remains deferred/reference work during the MQTT priority.

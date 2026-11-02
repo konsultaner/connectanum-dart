@@ -61,11 +61,81 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             with self.subTest(architecture=architecture):
                 fixture=json.loads((REPO_ROOT/'tool/fixtures'/fixture_name).read_text())
                 budgets=json.loads((REPO_ROOT/'tool'/budget_name).read_text())
-                self._assert_gateway_reference_tables(fixture,budgets,architecture)
+                current=json.loads((REPO_ROOT/'tool/fixtures/mqtt_gateway_current_readme.json').read_text()) if architecture=='aarch64' else fixture
+                self._assert_gateway_reference_tables(fixture,budgets,architecture,current)
         section=BENCH_README.read_text().split('## MQTT and WAMP gateway',1)[1].split('## WAMP throughput',1)[0]
-        self.assertEqual(len([line for line in section.splitlines() if line.startswith('|')]),128+128+64+8+8)
+        self.assertEqual(len([line for line in section.splitlines() if line.startswith('|')]),128+128+64+8+8+64+4+4)
 
-    def _assert_gateway_reference_tables(self, fixture, budgets, architecture):
+    def test_gateway_retention_tables_preserve_every_direction_and_memory_limit(self):
+        import math
+        import run_mqtt_gateway_benchmark as gateway
+        fixture=json.loads((REPO_ROOT/'tool/fixtures/mqtt_gateway_current_readme.json').read_text())
+        reference=json.loads((REPO_ROOT/'tool/fixtures/mqtt_gateway_arm64_readme.json').read_text())
+        budgets=json.loads((REPO_ROOT/'tool/mqtt_gateway_arm64_benchmark_budgets.json').read_text())
+        self.assertEqual(fixture['schema_version'],1)
+        self.assertEqual(fixture['source_commit'],'839bbf6ec8699814ba2a8ae066ebbea4a65c28e6')
+        self.assertEqual(fixture['run_url'],'https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501')
+        self.assertRegex(fixture['verification_sha256'],r'^[0-9a-f]{64}$')
+        self.assertEqual(fixture['protocol'],gateway.RETENTION_PROTOCOL)
+        self.assertEqual(fixture['protocol'],budgets['retention_protocol'])
+        self.assertEqual(fixture['vm_options'],gateway.RETENTION_VM_OPTIONS)
+        self.assertEqual(fixture['hardware'],{key:reference['hardware'][key] for key in ('architecture','logical_cpus','cpu_signature_sha256')})
+        self.assertEqual(fixture['workload'],budgets['workload'])
+        self.assertEqual(fixture['retention_profile_warmup_messages_min'],5000)
+        counts=fixture['counts']
+        self.assertEqual(counts['normal_samples'],960)
+        self.assertEqual(counts['retention_samples'],320)
+        self.assertEqual(counts['overload_samples'],12)
+        self.assertEqual(counts['retention_overload_samples'],12)
+        self.assertEqual(counts['normal_deliveries'],reference['delivery']['normal'])
+        self.assertEqual(counts['retention_deliveries'],reference['delivery']['translation'])
+        self.assertEqual(counts['duplicates'],0)
+        section=BENCH_README.read_text().split('Retained memory after collection',1)[1].split('## WAMP throughput',1)[0]
+        self.assertIn(fixture['run_url'],section)
+        self.assertIn(fixture['archive_url'],section)
+        self.assertIn('The speed and live RSS tables above use the default runtime.',section)
+        self.assertIn('These readings measure retained growth after collection.',section)
+        profiles={p['id']:p for p in reference['profiles']+reference['overload_profiles']}
+        def label(key):
+            p=profiles[key]
+            size={128:'128 B',1024:'1 KiB',65536:'64 KiB'}[p['payload_bytes']]
+            codec={'json':'JSON','msgpack':'MessagePack','cbor':'CBOR','flatbuffers':'FlatBuffers'}[p['serializer']]
+            return f"{p['transport'].upper()} {p['mqtt_version']} · {codec} · {size} · {p['subscribers']}/{p['window']} · {'Paho' if p['mqtt_client']=='paho' else 'SDK'}"
+        def cell(row,roles,key):
+            return ' / '.join(f"{row['processes'][role][key]/1048576:.1f}" for role in roles)
+        for kind,profile_kind,expected_count in [('results','profiles',64),('overload','overload_profiles',4)]:
+            rows=fixture[kind]
+            self.assertEqual(len(rows),expected_count)
+            self.assertEqual({(r['profile'],r['direction']) for r in rows},
+                             {(p['id'],d) for p in reference[profile_kind] for d in gateway.DIRECTIONS})
+            for published in rows:
+                row=dict(published['retention'],profile=published['profile'],direction=published['direction'])
+                with self.subTest(kind=kind,profile=row['profile'],direction=row['direction']):
+                    overload=kind=='overload'
+                    limits=budgets['overload' if overload else 'profiles'][row['profile']][row['direction']]
+                    roles=['broker','publisher','subscriber-0','subscriber-1'] if overload else ['broker','publisher','subscriber-max']
+                    self.assertEqual(set(row['processes']),set(roles))
+                    for role,process in row['processes'].items():
+                        self.assertEqual(set(process),{'drained_rss_bytes','retained_bytes'})
+                        self.assertTrue(all(type(v) in (int,float) and math.isfinite(v) and v>=0 for v in process.values()))
+                        budget_role='subscriber' if role=='subscriber-max' else role
+                        self.assertLessEqual(process['retained_bytes'],limits['processes'][budget_role]['max_retained_bytes'])
+                    self.assertGreaterEqual(row['retained_growth_bytes'],0)
+                    self.assertLessEqual(row['retained_growth_bytes'],limits['max_retained_growth_bytes'])
+                    direction='MQTT → WAMP' if row['direction']=='mqtt_to_wamp' else 'WAMP → MQTT'
+                    prefix=f"| {label(row['profile'])} | {direction} | {cell(row,roles,'drained_rss_bytes')} | {cell(row,roles,'retained_bytes')} |"
+                    if overload:
+                        self.assertEqual(row['recovery_received'],64)
+                        expected=f"{prefix} {row['retained_growth_bytes']/1048576:.1f} | 64/64 |"
+                    else:
+                        self.assertGreaterEqual(row['rss_growth_bytes_per_cycle'],0)
+                        self.assertLessEqual(row['rss_growth_bytes_per_cycle'],limits['max_rss_growth_bytes_per_cycle'])
+                        expected=f"{prefix} {row['retained_growth_bytes']/1048576:.1f} / {row['rss_growth_bytes_per_cycle']/1048576:.1f} |"
+                    self.assertEqual(section.splitlines().count(expected),1)
+        self.assertEqual(len([line for line in section.splitlines() if line.startswith('|')]),64+4+4)
+
+    def _assert_gateway_reference_tables(self, fixture, budgets, architecture, published=None):
+        published=fixture if published is None else published
         import run_mqtt_gateway_benchmark as gateway
         self.assertEqual(fixture['source_commit'],budgets['baseline_source_commit'])
         self.assertEqual(fixture['profiles'],gateway.profiles('release'))
@@ -111,8 +181,8 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertEqual({(r['profile'],r['direction']) for r in fixture['overload']},
                          {(p['id'],d) for p in fixture['overload_profiles'] for d in gateway.DIRECTIONS})
         section=BENCH_README.read_text().split('## MQTT and WAMP gateway',1)[1].split('## WAMP throughput',1)[0]
-        self.assertIn(fixture['run_url'],section)
-        self.assertIn(fixture['archive_url'],section)
+        self.assertIn(published['run_url'],section)
+        self.assertIn(published['archive_url'],section)
         profiles={p['id']:p for p in [*fixture['profiles'],*fixture['overload_profiles']]}
         self.assertEqual({(r['profile'],r['direction']) for r in fixture['results']},
                          {(p['id'],d) for p in fixture['profiles'] for d in gateway.DIRECTIONS})
@@ -120,7 +190,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
             p=profiles[key]
             size={128:'128 B',1024:'1 KiB',65536:'64 KiB'}[p['payload_bytes']]
             codec={'json':'JSON','msgpack':'MessagePack','cbor':'CBOR','flatbuffers':'FlatBuffers'}[p['serializer']]
-            hosts=[h['label'] for h in fixture['hosts'] if key in h['profile_ids']+h['overload_profile_ids']]
+            hosts=[h['label'] for h in published['hosts'] if key in h['profile_ids']+h['overload_profile_ids']]
             self.assertEqual(len(hosts),1)
             return f"{p['transport'].upper()} {p['mqtt_version']} · {codec} · {size} · {p['subscribers']}/{p['window']} · {'Paho' if p['mqtt_client']=='paho' else 'SDK'} [{hosts[0]}]"
         def direction(row):return 'MQTT → WAMP' if row['direction']=='mqtt_to_wamp' else 'WAMP → MQTT'
@@ -146,6 +216,10 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 controls=next(r['rates'] for r in fixture['controls'] if r['profile']==row['profile'])
                 wamp_control='wamp_to_wamp_ack' if row['direction']=='wamp_to_mqtt' else 'wamp_to_wamp'
                 self.assertEqual(row['throughput_ratio'],row['delivered_per_sec']/min(controls['mqtt_to_mqtt'],controls[wamp_control]))
+                row=next(item for item in published['results'] if (item['profile'],item['direction'])==(row['profile'],row['direction']))
+                self.assertTrue(all(gateway.translation_checks(row,limit).values()))
+                actual_controls=next(item['rates'] for item in published['controls'] if item['profile']==row['profile'])
+                self.assertEqual(row['throughput_ratio'],row['delivered_per_sec']/min(actual_controls['mqtt_to_mqtt'],actual_controls[wamp_control]))
                 p=row['processes'];roles=['broker','publisher','subscriber-max']
                 cpu_cell=' / '.join(f"{p[k]['cpu_seconds_per_million_messages']:.1f}" for k in roles)
                 self.assertIn(f"| {label(row['profile'])} | {direction(row)} | {row['delivered_per_sec']:,.0f} | {row['payload_mib_per_sec']:.2f} | {row['p50_us']:,.0f} / {row['p95_us']:,.0f} / {row['p99_us']:,.0f} | {cpu_cell} | {row['throughput_ratio']:.3f} |",section)
@@ -158,6 +232,8 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 max_p99_us=math.ceil(row['p99_us']*1.75+50),
                 max_retained_growth_bytes=rss(row['retained_growth_bytes']+8*1048576),
                 processes={role:process_limits(process,False) for role,process in row['processes'].items()}))
+            row=next(item for item in published['overload'] if (item['profile'],item['direction'])==(row['profile'],row['direction']))
+            self.assertTrue(all(gateway.overload_checks(row,limit).values()))
             roles=['broker','publisher','subscriber-0','subscriber-1'];p=row['processes']
             peak=' / '.join(f"{p[k]['peak_rss_bytes']/1048576:.1f}" for k in roles)
             drained=' / '.join(f"{p[k]['drained_rss_bytes']/1048576:.1f}" for k in roles)
@@ -165,13 +241,15 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         self.assertEqual({r['profile'] for r in fixture['controls']},{p['id'] for p in fixture['profiles']})
         self.assertEqual(len(fixture['controls']),32)
         paths=['mqtt_to_mqtt','wamp_to_wamp','wamp_to_wamp_ack','mosquitto']
-        for row in fixture['controls']:
+        self.assertEqual(len(published['controls']),32)
+        self.assertEqual({r['profile'] for r in published['controls']},{p['id'] for p in fixture['profiles']})
+        for row in published['controls']:
             self.assertEqual(set(row['rates']),set(paths))
             values=' | '.join(f"{row['rates'][path]:,.0f}" for path in paths)
             self.assertIn(f"| {label(row['profile'])} | {values} |",section)
         lines=[line for line in section.splitlines() if line.startswith('|')]
-        self.assertIn(f"{fixture['delivery']['translation']:,} exact translation deliveries",section)
-        for host in fixture['hosts']:self.assertIn(host['cpu_model'],section)
+        self.assertIn(f"{published['delivery']['translation']:,} exact translation deliveries",section)
+        for host in published['hosts']:self.assertIn(host['cpu_model'],section)
 
 
     def test_native_mqtt_coverage_proof_matches_current_sources_and_full_union(self):

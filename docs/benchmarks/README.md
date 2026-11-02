@@ -29,7 +29,10 @@ runs, source/toolchain/host identities, exact payload/counter receipts,
 coverage traces, regression logs and the native WS comparison. Its archive,
 per-file SHA-256 manifest and checksum file are independently downloaded and
 verified before publication. The [ARM64 supplement](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-arm64-2026-11-01) retains the second hardware-qualified reference and the rejected
-x64 PR #135 candidates. Raw history stays outside Git.
+x64 PR #135 candidates. Raw history stays outside Git. The [current performance and retention archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-retention-2026-11-02)
+binds runtime `839bbf6e` to the complete [sixteen-shard campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501),
+all 1,304 benchmark and 264 secure samples, coverage, source snapshots and prior
+rejected experiments.
 
 ## Performance gates
 
@@ -65,9 +68,12 @@ WAMP results include JSON, MessagePack, CBOR and FlatBuffers. The
 [WAMP profile contract](../wamp_profile_benchmarks.md) defines release acceptance.
 MQTT↔WAMP translation uses explicit realm authorization. The
 [gateway tables](../../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway)
-report 128 measured direction/profile cases, direct controls, per-process memory
-and eight overload cases from the [x64](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801)
-and [ARM64](https://github.com/konsultaner/connectanum-dart/actions/runs/41341341988) references. Required smoke and four
+show the x64 reference and current ARM64 results, direct controls, per-process
+memory and slow-consumer cases. The [current ARM64 campaign](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501)
+passes all 1,304 performance/retention and 264 secure samples. The
+[x64](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801)
+and [ARM64](https://github.com/konsultaner/connectanum-dart/actions/runs/41341341988)
+frozen reference fixtures and original numeric limits remain unchanged. Required smoke and sixteen
 numeric release shards preserve the fixed rate/p99/CPU variation caps
 0.20/0.75/0.35 and enforce absolute and matched-control budgets. Separate compact
 [x64](../../tool/mqtt_gateway_benchmark_budgets.json) and
@@ -76,26 +82,32 @@ limit and the same derivation policy. Required CI uses the ARM64 reference and
 rejects a CPU signature mismatch before load. CI measures live paths; archived
 results do not replace a fresh pass.
 
+Default-runtime rate, latency, CPU and absolute RSS are measured separately
+from the [Linux retention stress protocol](../mqtt.md#verification-and-performance).
+The stress processes use an 8 MiB nursery limit and collection of unused memory;
+their timings do not enter performance acceptance. All original numerical
+limits remain in force.
+
 ## Coverage
 
 | Scope | Covered / executable lines |
 | --- | ---: |
-| Native MQTT added production lines | 882 / 882 |
-| MQTT Dart sources | 759 / 759 |
-| Gateway/shared Dart sources | 744 / 744 |
-| Gateway component | 270 / 270 |
+| Native MQTT added production lines | 979 / 979 |
+| MQTT Dart sources | 772 / 772 |
+| Gateway/shared Dart sources | 1,016 / 1,016 |
+| Gateway component | 280 / 280 |
 | MQTT benchmark gate Python, zero exclusions | 268 / 268 |
-| Gateway tooling Python, zero exclusions | 947 / 947 |
+| Gateway tooling Python, zero exclusions | 1,084 / 1,084 |
 
 The [native inventory](mqtt-native-added-line-coverage-ready-yield.json) records
-exact line numbers and source hashes for five current production files. The
+exact line numbers and source hashes for six current production files. The
 [Cargo LCOV](mqtt-native-added-line-coverage-ready-yield-cargo-unit.info.gz) and
 [Dart FFI LCOV](mqtt-native-added-line-coverage-ready-yield-dart-ffi.info.gz)
 allow independent recomputation of their union. Scope uses the Rust production
 filter and patience diff against `73d840c9`; tests, comments and non-executable
-lines are excluded. Collection platform is macOS arm64 with `ffi-test`.
-The proof matches current Rust source SHA-256 `1254e227…c93fc01`; a tooling
-regression verifies all five source hashes and the complete compressed union.
+lines are excluded. Collection platform is GNU Linux arm64 with `ffi-test`.
+The proof matches current Rust source SHA-256 `fe3e816e…ba58c2f`; a tooling
+regression verifies all six source hashes and the complete compressed union.
 These are scoped executable-line counts, rather than whole-repository coverage.
 
 Native regressions cover runtime transfer, bounded queues, shutdown and listener

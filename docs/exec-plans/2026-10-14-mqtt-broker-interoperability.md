@@ -1,14 +1,35 @@
 # MQTT broker interoperability
 
-Status: active; direct QoS 0 merged, authorized gateway and hosted translation
-benchmarks implemented. Current PR review and controlled release acceptance
-remain separate from the broader protocol milestone.
+Status: active publication. Direct QoS 0 is merged; the authorized gateway and
+both-direction performance/memory qualification are complete. Final working-branch verification passes; history publication and exact-head
+PR checks remain.
 
-Required CI now uses a separate hardware-qualified ARM64 reference with the
-same workload and frozen policy. Architecture, CPU count and CPU signature must
-match before sampling. Earlier x64 values and rejected cross-CPU candidates
-remain intact. Per-publication reply-port experiments were inconclusive and
-are excluded from production code.
+The working branch contains runtime `839bbf6e`, with 1,229 runtime/gate inputs
+identical to its frozen source. Coverage is 1,016/1,016 Dart, 979/979 added native
+lines and 1,084/1,084 gateway tooling statements with zero exclusions. Payload
+lifetime, shared isolate snapshots, bounds, ordering, profile acceptance and
+per-recipient failures have fail-first/live regressions and local review.
+
+[Complete qualification 41464161501](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501)
+passes all sixteen shards: 1,304 performance/retention samples, 64 translation
+and four overload results. All 264 independent secure samples pass. Every
+original rate, latency, CPU, peak/drained RSS and retained-growth cap is unchanged;
+zero duplicates are recorded. Clean frozen-source full Rust/Dart/Chrome/Wasm
+verification passed at 14:40 UTC without source drift.
+
+- [x] Qualify the final source against all sixteen strict shards and secure smoke.
+- [x] Promote the exact runtime and refresh source-matched 100% coverage.
+- [x] Publish friendly README tables and test every displayed cell.
+- [x] Finish canonical verification on the working branch, including Chrome/Wasm and zero source drift.
+- [ ] Publish complete accepted/rejected history with downloaded checksum verification.
+- [ ] Pass the complete exact-head GitHub Actions chain before handoff.
+
+Use [project state](../project_state.md) for current verification status. The
+[README](../../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway) contains
+164 current default-runtime rows and 68 separate retained-memory rows. Frozen
+references and all numeric policies remain unchanged. Stress-only collection
+uses bounded nursery capacity and verified managed/native negative controls;
+its timing is excluded from performance acceptance.
 
 ## Gateway contract and completed implementation
 
@@ -24,41 +45,25 @@ Client IDs do not confer identity; ordinary `ppt_scheme: mqtt` remains opaque.
 - [x] Separate AOT processes for both translations, matched MQTT/WAMP/acknowledged-WAMP/Mosquitto controls, all four WAMP serializers, three payload sizes, fan-out and credit windows.
 - [x] Record throughput, latency, active CPU, per-process warm/high-water/drained RSS, lifecycle growth, queue drain and overload recovery. Allocation counters remain unavailable and explicitly null.
 - [x] Accept the complete hosted baseline at unchanged rate/p99/CPU variation caps 0.20/0.75/0.35; freeze numeric budgets and every-cell README regressions.
-- [x] Require secure-peer smoke and four numeric shards before Full Verify, rejecting omitted or unsuccessful lanes.
+- [x] Require secure-peer smoke and sixteen profile shards before Full Verify, rejecting omitted or unsuccessful lanes.
 
 ## Accepted evidence and verification
 
-The [x64 reference](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801)
-and [ARM64 reference](https://github.com/konsultaner/connectanum-dart/actions/runs/41341341988) each contain 960 normal samples and 12 overload
-cycles. Combined: 23.1 million exact deliveries, including 7.7 million
-translations, zero duplicates, 49,152 healthy overload deliveries and 1,536
-recovery deliveries. All 128 direction/profile results and eight overload cases
-pass their separate [x64](../../tool/mqtt_gateway_benchmark_budgets.json) and
-[ARM64](../../tool/mqtt_gateway_arm64_benchmark_budgets.json) budgets. The
-[README tables](../../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway)
-include direct controls and every per-process memory result. All four ARM64
-shards and their secure smoke match the recorded CPU signature.
+The [paired comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/41460290435)
+independently verifies all twenty samples and 400,000 exact deliveries. For
+64 KiB FlatBuffers fan-out, broker drained RSS falls from 56–62 MiB to 34–40 MiB;
+broker CPU seconds per million deliveries falls from 249.7–251.7 to 214.4–220.1.
+The former failing profile drains at 31.07 MiB in the full campaign, below 54 MiB.
+Strict pilot, WSS recovery, both-direction controls and all complete-matrix gates
+pass. The original native proof-assembly failure lacked shallow Git history;
+its complete raw GNU reports reconstruct 979/979 coverage with all 93 inputs
+verified. No measurements were repeated or discarded during recovery.
 
-Coverage passes 744/744 gateway/shared Dart, 759/759 MQTT, 270/270 gateway
-component, 882/882 native added production and 947/947 Python lines (zero
-exclusions). Native source SHA-256 is
-`1254e2279369f2d3e5f5b78236d5beeda58295e201f9ba2b2f3edbd52c93fc01`;
-source hashes and the retained compressed Cargo/Dart FFI union are test-checked.
-Fresh full `bin/verify` passes, including Rust, Dart VM, consumers and Chrome/Wasm.
-Independent MQTT checks pass 104 tests; benchmark/worker checks pass 56.
-
-Fail-first fixes cover payload-oracle overhead, MQTT peer-FIN socket retention,
-Paho/native MQTT WS TCP_NODELAY, native receive credit and slow-peer queue
-saturation. Current native WS acceptance passes all 12 sustained checks in
-[41322497967](https://github.com/konsultaner/connectanum-dart/actions/runs/41322497967)
-with every existing budget intact. A minimum one-second/200-message warm-up
-records actual counts and durations; all measured cycles remain in acceptance.
-
-The [gateway archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01) retains accepted and rejected raw runs,
-provenance, coverage traces, regression logs and reproduction helpers outside
-Git. Compact offline fixtures validate every table cell and frozen policy.
-The [ARM64 supplement](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-arm64-2026-11-01) also retains the rejected cross-CPU PR #135 candidates.
-The earlier [PR #128 archive](../benchmarks/README.md#archive) remains available.
+The [history archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-retention-2026-11-02)
+retains every complete/partial/rejected campaign, source snapshots, coverage,
+raw reports and reproduction helpers outside Git. Earlier gateway, ARM64 and
+PR #128 evidence remains linked from the [archive index](../benchmarks/README.md#archive).
+Final source and exact-head CI records must remain separately attributable.
 
 ## Remaining milestone and release work
 

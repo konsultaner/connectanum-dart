@@ -39,8 +39,8 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.gateway_benchmarks && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ !inputs.gateway_benchmarks }}
 
 permissions:
   contents: read

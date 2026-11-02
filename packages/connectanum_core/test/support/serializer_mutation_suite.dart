@@ -1,4 +1,6 @@
 import 'package:test/test.dart';
+import '../serializer/flatbuffers_binary_arguments_test.dart'
+    as flatbuffers_binary_arguments;
 
 import '../message_lazy_payload_regression_test.dart' as lazy_payload;
 import '../serializer/cbor/serializer_indefinite_test.dart' as cbor_indefinite;
@@ -52,6 +54,7 @@ import '../serializer/serializer_security_limits_test.dart' as limits;
 import '../serializer_challenge_welcome_test.dart' as handshake;
 
 void main() {
+  group('FlatBuffers binary arguments', flatbuffers_binary_arguments.main);
   group('lazy payload', lazy_payload.main);
   group('CBOR indefinite', cbor_indefinite.main);
   group('CBOR missing messages', cbor_missing.main);

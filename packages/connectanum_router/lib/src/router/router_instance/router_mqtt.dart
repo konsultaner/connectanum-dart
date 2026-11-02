@@ -157,6 +157,7 @@ final class MqttWampGateway implements MqttBrokerGatewayPolicy {
   Future<void>? _closeFuture;
   int _pendingBytes = 0;
   int _pendingOperations = 0;
+  Completer<void>? _pendingDrained;
   int _peakPendingBytes = 0;
   int _cacheBytes = 0;
   int _mqttPublications = 0;
@@ -259,6 +260,7 @@ final class MqttWampGateway implements MqttBrokerGatewayPolicy {
   void _release(int bytes) {
     _pendingBytes -= bytes;
     _pendingOperations--;
+    if (_pendingOperations == 0) _pendingDrained?.complete();
   }
 
   Future<bool> _allow(
@@ -501,7 +503,14 @@ final class MqttWampGateway implements MqttBrokerGatewayPolicy {
     }
   }
 
-  Future<void> close() => _closeFuture ??= _close();
+  Future<void> close() {
+    final closing = _closeFuture;
+    if (closing != null) return closing;
+    final completion = Completer<void>();
+    _closeFuture = completion.future;
+    completion.complete(_close());
+    return completion.future;
+  }
 
   Future<void> _close() async {
     _closed = true;
@@ -510,6 +519,13 @@ final class MqttWampGateway implements MqttBrokerGatewayPolicy {
     _broker.closeRealm(realmUri);
     _topics.clear();
     _cacheBytes = 0;
+    // Cancellation unwinds admitted operations; their error replies must be
+    // posted before closing the service isolate that owns the response ports.
+    if (_pendingOperations > 0) {
+      _pendingDrained = Completer<void>();
+      await _pendingDrained!.future;
+      _pendingDrained = null;
+    }
     await _session?.close();
   }
 }

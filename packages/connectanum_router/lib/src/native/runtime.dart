@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
+import 'package:connectanum_core/mqtt.dart' show MqttFrame, MqttFrameDecoder;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
@@ -91,12 +92,56 @@ abstract class NativeRuntimeWithConfiguredListeners implements NativeRuntime {
   });
 }
 
+/// Sends the ordered fragments of one WAMP frame in one synchronous enqueue.
+/// The complete frame has the codecs' 64 MiB byte limit.
+/// Fragment storage is borrowed only until the method returns.
+abstract interface class NativeRuntimeWithMessageFragments
+    implements NativeRuntime {
+  void sendMessageFragments(int connectionId, List<Uint8List> fragments);
+}
+
+void sendNativeMessageFragments(
+  NativeRuntime runtime,
+  int connectionId,
+  List<Uint8List> fragments,
+) {
+  _messageFragmentsLength(fragments);
+  if (runtime is NativeRuntimeWithMessageFragments) {
+    runtime.sendMessageFragments(connectionId, fragments);
+  } else {
+    final output = BytesBuilder(copy: false);
+    for (final part in fragments) {
+      output.add(part);
+    }
+    runtime.sendMessage(connectionId, output.takeBytes());
+  }
+}
+
+int _messageFragmentsLength(List<Uint8List> fragments) {
+  var length = 0;
+  for (final part in fragments) {
+    length += part.length;
+    if (length > 64 * 1024 * 1024) {
+      throw ArgumentError('WAMP frame exceeds the byte limit');
+    }
+  }
+  return length;
+}
+
 /// Raw byte channel for MQTT connections accepted by the native listener.
 abstract class NativeRuntimeWithMqtt implements NativeRuntime {
   int mqttVersion(int connectionId);
   Uint8List? pollMqttChunk(int connectionId);
   void sendMqttChunk(int connectionId, Uint8List bytes);
   void setMqttWake(int connectionId, void Function(int)? callback);
+}
+
+/// Decodes MQTT bytes before the reusable native read buffer can be overwritten.
+/// Returned frames own their bodies. Null means no input; an empty list means
+/// input was consumed but the current packet is incomplete.
+abstract interface class NativeRuntimeWithMqttFrames
+    implements NativeRuntimeWithMqtt {
+  List<MqttFrame>? pollMqttFrames(int connectionId, MqttFrameDecoder decoder);
 }
 
 /// Creates and reloads listeners without replacing process-wide configuration.
@@ -2302,7 +2347,8 @@ abstract final class NativeLibraryLoader {
 class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
-        NativeRuntimeWithMqtt,
+        NativeRuntimeWithMessageFragments,
+        NativeRuntimeWithMqttFrames,
         NativeRuntimeWithConfiguredListeners,
         NativeRuntimeWithRouterConfiguration,
         NativeRuntimeWithInternalCallForwarding {
@@ -2825,6 +2871,21 @@ class NativeTransportRuntime
 
   @override
   Uint8List? pollMqttChunk(int connectionId) {
+    final length = _pollMqttChunkLength(connectionId);
+    if (length == 0) return null;
+    return Uint8List.fromList(_mqttReadBuffer!.asTypedList(length));
+  }
+
+  @override
+  List<MqttFrame>? pollMqttFrames(int connectionId, MqttFrameDecoder decoder) {
+    final length = _pollMqttChunkLength(connectionId);
+    if (length == 0) return null;
+    // The final decoder copies input into owned bodies synchronously. It cannot
+    // invoke caller code or retain this view while another poll reuses it.
+    return decoder.add(_mqttReadBuffer!.asTypedList(length));
+  }
+
+  int _pollMqttChunkLength(int connectionId) {
     final call = _bindings.ctPollMqttChunk;
     if (call == null) {
       throw UnsupportedError('Native MQTT transport unavailable');
@@ -2834,8 +2895,7 @@ class NativeTransportRuntime
     if (result < 0) {
       _throwForError(result, 'Failed to poll MQTT bytes');
     }
-    if (result == 0) return null;
-    return Uint8List.fromList(buffer.asTypedList(result));
+    return result;
   }
 
   @override
@@ -3980,6 +4040,31 @@ class NativeTransportRuntime
       final result = _bindings.ctSendMessage(connectionId, ptr, payload.length);
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to send message');
+      }
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  @override
+  void sendMessageFragments(int connectionId, List<Uint8List> fragments) {
+    final length = _messageFragmentsLength(fragments);
+    if (length == 0) {
+      sendMessage(connectionId, Uint8List(0));
+      return;
+    }
+    final ptr = calloc<ffi.Uint8>(length);
+    try {
+      final destination = ptr.asTypedList(length);
+      var offset = 0;
+      for (final part in fragments) {
+        destination.setRange(offset, offset + part.length, part);
+        offset += part.length;
+      }
+      _dartToNativeCopiedBytesTotal += length;
+      final result = _bindings.ctSendMessage(connectionId, ptr, length);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send message fragments');
       }
     } finally {
       calloc.free(ptr);

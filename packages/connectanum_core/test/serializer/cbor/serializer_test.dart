@@ -12,6 +12,109 @@ import '../hello_wire_expectations.dart';
 void main() {
   var serializer = Serializer();
   group('serialize', () {
+    for (final publish in [false, true]) {
+      for (final length in [0, 128, 65536]) {
+        test(
+          'trailing binary argument uses owned transport segments publish=$publish bytes=$length',
+          () {
+            final payload = Uint8List.fromList(
+              List.generate(length, (i) => i % 251),
+            );
+            final arguments = ['topic', payload];
+            final AbstractMessageWithPayload message = publish
+                ? Publish(1, 'rpc', arguments: arguments)
+                : Call(1, 'rpc', arguments: arguments);
+            final fragments = serializer.serializeFragments(message);
+            expect(fragments, isNotNull);
+            expect(identical(fragments!.last, payload), isTrue);
+            final bytes =
+                (BytesBuilder(copy: false)
+                      ..add(fragments.first)
+                      ..add(fragments.last))
+                    .takeBytes();
+            expect((cbor.decode(bytes) as CborList).toObject(), [
+              publish ? 16 : 48,
+              1,
+              {},
+              'rpc',
+              arguments,
+            ]);
+            expect(serializer.serialize(message), bytes);
+            final decoded =
+                serializer.deserialize(bytes) as AbstractMessageWithPayload;
+            expect(decoded.arguments, arguments);
+            expect(decoded.arguments!.last, isA<Uint8List>());
+          },
+        );
+      }
+    }
+    test('binary fragments encode scalar and structured prefix arguments', () {
+      final payload = Uint8List.fromList([255, 0, 17]);
+      final arguments = <dynamic>[
+        null,
+        true,
+        42,
+        {
+          'nested': [1, 2],
+        },
+        Uint8List.fromList([3, 4]),
+        payload,
+      ];
+      final message = Call(1, 'rpc', arguments: arguments);
+      final fragments = serializer.serializeFragments(message)!;
+      expect(identical(fragments.last, payload), isTrue);
+      final bytes =
+          (BytesBuilder(copy: false)
+                ..add(fragments.first)
+                ..add(fragments.last))
+              .takeBytes();
+      expect((cbor.decode(bytes) as CborList).toObject(), [
+        48,
+        1,
+        {},
+        'rpc',
+        arguments,
+      ]);
+    });
+    test(
+      'binary fragments bound the argument prefix and preserve keyword fallback',
+      () {
+        final payload = Uint8List.fromList([255, 0]);
+        for (final length in [23, 24]) {
+          final arguments = <dynamic>[
+            ...List.generate(length - 1, (i) => i),
+            payload,
+          ];
+          final message = Call(1, 'rpc', arguments: arguments);
+          expect(
+            serializer.serializeFragments(message),
+            length == 23 ? isNotNull : isNull,
+          );
+          expect(
+            (cbor.decode(serializer.serialize(message)) as CborList).toObject(),
+            [48, 1, {}, 'rpc', arguments],
+          );
+        }
+        final message = Call(
+          1,
+          'rpc',
+          arguments: ['topic', payload],
+          argumentsKeywords: {'extra': true},
+        );
+        expect(serializer.serializeFragments(message), isNull);
+        expect(
+          (cbor.decode(serializer.serialize(message)) as CborList).toObject(),
+          [
+            48,
+            1,
+            {},
+            'rpc',
+            ['topic', payload],
+            {'extra': true},
+          ],
+        );
+      },
+    );
     test('Hello', () {
       final encoded = serializer.serialize(
         Hello('my.realm', Details.forHello()),

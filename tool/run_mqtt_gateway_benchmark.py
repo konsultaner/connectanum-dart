@@ -26,6 +26,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PATHS = ('mqtt_to_mqtt', 'wamp_to_wamp', 'wamp_to_wamp_ack', 'mqtt_to_wamp', 'wamp_to_mqtt')
 DIRECTIONS = ('mqtt_to_wamp', 'wamp_to_mqtt')
 ALL_PATHS = (*PATHS, 'mosquitto')
+RETENTION_PROTOCOL = 'bounded_nursery_v1'
+RETENTION_VM_OPTIONS = '--new_gen_semi_max_size=8'
 
 
 def profiles(matrix='smoke'):
@@ -167,7 +169,32 @@ def coefficient_of_variation(values):
     return statistics.pstdev(values)/mean if mean else 0
 
 
+def retention_summary(rows, expected_profiles, runs):
+    indexed = {(r['profile'],r['path'],r['run']):r for r in rows}
+    expected = {(p['id'],d,n) for p in expected_profiles for d in DIRECTIONS for n in range(1,runs+1)}
+    if len(indexed) != len(rows) or set(indexed) != expected:
+        raise ValueError('Incomplete or duplicate collected retention matrix')
+    output = {}
+    for profile in expected_profiles:
+        for direction in DIRECTIONS:
+            samples = [indexed[profile['id'],direction,n] for n in range(1,runs+1)]
+            roles = {'broker','publisher',*[f'subscriber-{i}' for i in range(profile['subscribers'])]}
+            for row in samples:
+                if row.get('memory_protocol') != RETENTION_PROTOCOL or set(row['processes']) != roles:
+                    raise ValueError('Retention requires collected samples from every process')
+                for process in row['processes'].values():
+                    check_memory(process)
+                check_drained_queues(row['queues'],direction)
+            drains = [r['processes']['broker']['drained_rss_bytes'] for r in samples]
+            output[profile['id'],direction] = dict(
+                protocol=RETENTION_PROTOCOL,vm_options=RETENTION_VM_OPTIONS,processes=process_summary(samples),
+                retained_growth_bytes=max(0,max(drains)-drains[0]),
+                rss_growth_bytes_per_cycle=max(0,statistics.linear_regression(range(len(drains)),drains).slope) if len(drains)>1 else 0)
+    return output
+
+
 def translation_checks(result, budget):
+    retained = result.get('retention',result)
     checks = dict(
         rate_repeatability=result['max_rate_cv'] <= budget['max_rate_cv'],
         p99_repeatability=result['max_p99_cv'] <= budget['max_p99_cv'],
@@ -182,27 +209,35 @@ def translation_checks(result, budget):
         cpu=result['cpu_over_control_sum'] <= budget['max_cpu_over_control_sum'],
         peak_rss=result['peak_rss_bytes'] <= budget['max_peak_rss_bytes'],
         drained_rss=result['drained_rss_bytes'] <= budget['max_drained_rss_bytes'],
-        retained_growth=result['retained_growth_bytes'] <= budget['max_retained_growth_bytes'],
-        lifecycle_slope=result['rss_growth_bytes_per_cycle'] <= budget['max_rss_growth_bytes_per_cycle'],
+        retained_growth=retained['retained_growth_bytes'] <= budget['max_retained_growth_bytes'],
+        lifecycle_slope=retained['rss_growth_bytes_per_cycle'] <= budget['max_rss_growth_bytes_per_cycle'],
     )
     for role, process in result['processes'].items():
         limits = budget['processes']['subscriber' if role.startswith('subscriber-') else role]
         for field in ('peak_rss_bytes','drained_rss_bytes','retained_bytes','cpu_seconds_per_million_messages'):
-            checks[f'{role}_{field}'] = process[field] <= limits['max_'+field]
+            value = retained['processes'][role][field] if field == 'retained_bytes' else process[field]
+            checks[f'{role}_{field}'] = value <= limits['max_'+field]
     return checks
 
 
 def overload_checks(result, limits):
+    retained = result.get('retention',result)
     checks = dict(throughput=result['delivered_per_sec'] >= limits['min_delivered_per_sec'],
                   p99=result['p99_us'] <= limits['max_p99_us'],
-                  retained_growth=result['retained_growth_bytes'] <= limits['max_retained_growth_bytes'])
+                  retained_growth=retained['retained_growth_bytes'] <= limits['max_retained_growth_bytes'])
     for role, process in result['processes'].items():
         for field in ('peak_rss_bytes','drained_rss_bytes','retained_bytes'):
-            checks[f'{role}_{field}'] = process[field] <= limits['processes'][role]['max_'+field]
+            value = retained['processes'][role][field] if field == 'retained_bytes' else process[field]
+            checks[f'{role}_{field}'] = value <= limits['processes'][role]['max_'+field]
     return checks
 
 
-def summarize(rows, expected_profiles, runs, budgets=None):
+def summarize(rows, expected_profiles, runs, budgets=None, retention_rows=None):
+    if budgets is not None and budgets.get('retention_protocol') == RETENTION_PROTOCOL and retention_rows is None:
+        raise ValueError('The strict budget requires the separate retention matrix')
+    if budgets is not None and budgets.get('retention_protocol','raw_rss_v1') != RETENTION_PROTOCOL and retention_rows is not None:
+        raise ValueError('The supplied retention matrix does not match the strict budget protocol')
+    retained = None if retention_rows is None else retention_summary(retention_rows,expected_profiles,runs)
     indexed = {}
     for row in rows:
         key = row['profile'], row['path'], row['run']
@@ -245,6 +280,8 @@ def summarize(rows, expected_profiles, runs, budgets=None):
             result['max_rate_cv'] = max(coefficient_of_variation([r['delivered_per_sec'] for r in samples[path]]) for path in matched)
             result['max_p99_cv'] = max(coefficient_of_variation([r['p99_us'] for r in samples[path]]) for path in matched)
             result['max_cpu_cv'] = max(coefficient_of_variation([r['processes']['broker']['cpu_seconds']/r['received'] for r in samples[path]]) for path in matched)
+            if retained is not None:
+                result['retention'] = retained[profile['id'],direction]
             if budgets is not None:
                 checks = translation_checks(result,budgets['profiles'][profile['id']][direction])
                 result['checks'],result['passed'] = checks,all(checks.values())
@@ -252,7 +289,14 @@ def summarize(rows, expected_profiles, runs, budgets=None):
     return output
 
 
-def summarize_overload(rows, expected_profiles, runs, budgets=None):
+def summarize_overload(rows, expected_profiles, runs, budgets=None, retention_rows=None):
+    if budgets is not None and (budgets.get('retention_protocol') == RETENTION_PROTOCOL) != (retention_rows is not None):
+        raise ValueError('Overload retention matrix does not match the strict budget protocol')
+    retained = None
+    if retention_rows is not None:
+        if any(r.get('memory_protocol') != RETENTION_PROTOCOL for r in retention_rows):
+            raise ValueError('Overload retention requires collected samples')
+        retained = {(r['profile'],r['direction']):r for r in summarize_overload(retention_rows,expected_profiles,runs)}
     expected = {(p['id'], d, run) for p in expected_profiles for d in DIRECTIONS for run in range(1,runs+1)}
     indexed = {(r['profile'],r['path'],r['run']):r for r in rows}
     if len(indexed) != len(rows) or set(indexed) != expected:
@@ -278,6 +322,10 @@ def summarize_overload(rows, expected_profiles, runs, budgets=None):
                           retained_growth_bytes=max(0,max(drains)-drains[0]),
                           slow_received_max=max(r['slow_received'] for r in samples),
                           recovery_received=64)
+            if retained is not None:
+                collected = retained[profile['id'],direction]
+                result['retention'] = dict(protocol=RETENTION_PROTOCOL,vm_options=RETENTION_VM_OPTIONS,
+                                           processes=collected['processes'],retained_growth_bytes=collected['retained_growth_bytes'])
             if budgets is not None:
                 checks = overload_checks(result,budgets['overload'][profile['id']][direction])
                 result['checks'],result['passed'] = checks,all(checks.values())
@@ -355,6 +403,8 @@ class Campaign:
         self.events = queue.Queue()
         self.children = {}
         self.env = {**os.environ, 'CONNECTANUM_NATIVE_LIB': config['native_library']}
+        if config.get('retention_protocol') == RETENTION_PROTOCOL:
+            self.env['DART_VM_OPTIONS'] = RETENTION_VM_OPTIONS
         self.reference_version = None
 
     def spawn(self, label, role):
@@ -441,10 +491,10 @@ class Campaign:
             return
         raise ValueError(f'Unexpected event after complete delivery {label}: {message}')
 
-    def close_clients(self, labels):
+    def close_clients(self, labels, *, collect=False):
         for label in labels:
             self.children[label].closing = True
-            self.children[label].send(dict(op='close'))
+            self.children[label].send(dict(op='close',**({'collect':True} if collect else {})))
         closed = self.expect(labels, 'closed')
         for label in labels:
             self.children.pop(label).stop()
@@ -462,7 +512,7 @@ class Campaign:
             self.warmup_phase+=1
             phase=self.warmup_phase
 
-    def run(self, profile, path, runs, count, warmup, drain_seconds, warmup_seconds=1):
+    def run(self, profile, path, runs, count, warmup, drain_seconds, warmup_seconds=1, *, retention=False):
         self.config['path'] = 'mqtt_to_mqtt' if path == 'mosquitto' else path
         self.config['reference'] = path == 'mosquitto'
         raw_path = self.output / 'raw.jsonl'
@@ -479,28 +529,44 @@ class Campaign:
             for label in clients:
                 self.spawn(label, 'publisher' if label == 'publisher' else 'subscriber')
             self.expect(clients, 'ready')
-            warmed,elapsed=self.warm_up(run*2,warmup,warmup_seconds,clients,server)
+            # Preserve the accepted default-runtime workload. Stress retention
+            # processes additionally warm with a complete measured workload.
+            warmed,elapsed=self.warm_up(run*2,max(warmup,count) if retention else warmup,warmup_seconds,clients,server)
             publications+=warmed+count
+            if retention:
+                for label in ['broker',*clients]:
+                    self.children[label].send(dict(op='collect'))
+                collected = self.expect(['broker',*clients],'collected')
             reports, processes = self.phase(run * 2 + 1, count, clients, server)
+            uncollected = {label:dict(values) for label,values in processes.items()}
+            if retention:
+                for label in processes:
+                    processes[label]['warm_rss_bytes'] = collected[label]['memory']['drained_rss_bytes']
             self.settle(drain_seconds)
-            closed = self.close_clients(clients)
+            closed = self.close_clients(clients,collect=True) if retention else self.close_clients(clients)
             for label, message in closed.items():
                 processes[label]['drained_rss_bytes'] = message['memory']['drained_rss_bytes']
                 processes[label]['peak_rss_bytes'] = max(processes[label]['peak_rss_bytes'], message['memory']['peak_rss_bytes'])
             time.sleep(drain_seconds)
-            server.send(dict(op='sample'))
-            final = self.expect(['broker'], 'sampled')['broker']
-            processes['broker'].update(final['memory'])
+            server.send(dict(op='collect' if retention else 'sample'))
+            final = self.expect(['broker'], 'collected' if retention else 'sampled')['broker']
+            if retention:
+                processes['broker']['drained_rss_bytes'] = final['memory']['drained_rss_bytes']
+                processes['broker']['peak_rss_bytes'] = max(processes['broker']['peak_rss_bytes'],final['memory']['peak_rss_bytes'])
+            else:
+                processes['broker'].update(final['memory'])
             if path in DIRECTIONS:
                 check_publications(final['queues'],path,publications)
             row = dict(delivery_row(profile, path, run, count, list(reports.values()), processes, final['queues']),
                        warmup_messages=warmed,warmup_seconds=elapsed)
+            if retention:
+                row.update(memory_protocol=RETENTION_PROTOCOL,uncollected_load_memory=uncollected)
             rows.append(row)
             with raw_path.open('a') as raw:
                 raw.write(json.dumps(row) + '\n')
         return rows
 
-    def run_overload(self, profile, path, runs, count, stall_ms, drain_seconds):
+    def run_overload(self, profile, path, runs, count, stall_ms, drain_seconds, *, retention=False):
         """Stall one application isolate; the healthy recipient remains exact."""
         self.config.update(path=path, reference=False)
         server = self.spawn('broker', 'server')
@@ -515,6 +581,10 @@ class Campaign:
                 self.spawn(label, 'publisher' if label == 'publisher' else 'subscriber')
             self.expect(clients, 'ready')
             self.phase(run*3, 64, clients, server)
+            if retention:
+                for label in labels:
+                    self.children[label].send(dict(op='collect'))
+                collected = self.expect(labels,'collected')
             phase = run*3+1
             for label in labels:
                 self.children[label].send(dict(op='begin', phase=phase, count=count))
@@ -558,16 +628,20 @@ class Campaign:
                 self.children[label].send(dict(op='sample'))
             samples = self.expect(labels, 'sampled')
             processes = {label:dict(sample['memory'], cpu_seconds=cpu[label]) for label,sample in samples.items()}
+            uncollected = {label:dict(values) for label,values in processes.items()}
             self.settle(drain_seconds)
-            closed = self.close_clients(clients)
+            closed = self.close_clients(clients,collect=True) if retention else self.close_clients(clients)
             for label, sample in closed.items():
                 processes[label].update(sample['memory'])
             time.sleep(drain_seconds)
-            server.send(dict(op='sample'))
-            drained = self.expect(['broker'], 'sampled')['broker']
+            server.send(dict(op='collect' if retention else 'sample'))
+            drained = self.expect(['broker'], 'collected' if retention else 'sampled')['broker']
             check_drained_queues(drained['queues'],path)
             check_publications(drained['queues'],path,run*(count+128)-64)
             processes['broker'].update(drained['memory'])
+            if retention:
+                for label in labels:
+                    processes[label]['warm_rss_bytes'] = collected[label]['memory']['drained_rss_bytes']
             # Reuse exact delivery validation for the healthy recipient.
             healthy = delivery_row(dict(profile,subscribers=1),path,run,count,[fast],
                                    {k:v for k,v in processes.items() if k != 'subscriber-1'},drained['queues'])
@@ -588,6 +662,8 @@ class Campaign:
                        load_disconnects=1,slow_disconnected=True,
                        stalled_peak_rss_bytes=max(stalled_rss),recovery_received=64,
                        recovery_queues=final['queues'])
+            if retention:
+                row.update(memory_protocol=RETENTION_PROTOCOL,uncollected_load_memory=uncollected)
             rows.append(row)
             with (self.output/'raw.jsonl').open('a') as raw:
                 raw.write(json.dumps(row)+'\n')
@@ -611,14 +687,39 @@ def check_warmup(row, messages, seconds):
         raise ValueError('Benchmark warm-up is below its required count/duration')
 
 
-def compile_worker(directory):
+def compile_worker(directory, target='bin/mqtt_gateway_worker.dart'):
     try:
-        subprocess.run(['dart', 'build', 'cli', '--target', 'bin/mqtt_gateway_worker.dart', '--output', str(directory)],
+        subprocess.run(['dart', 'build', 'cli', '--target', target, '--output', str(directory)],
                        cwd=ROOT / 'packages/connectanum_bench', check=True, capture_output=True, text=True,
                        env={**os.environ, 'CONNECTANUM_SKIP_NATIVE_BUILD': '1'}, timeout=300)
     except subprocess.CalledProcessError as error:
         raise RuntimeError(f'AOT worker build failed:\n{error.stdout}\n{error.stderr}') from error
-    return directory / 'bundle/bin/mqtt_gateway_worker'
+    return directory / 'bundle/bin' / Path(target).stem
+
+
+def compile_retention_worker(directory, output):
+    worker = compile_worker(directory,'test/support/mqtt_gateway_retention_worker.dart')
+    try:
+        completed = subprocess.run([str(worker),'--self-test'],check=True,capture_output=True,text=True,timeout=30,
+                                   env={**os.environ,'DART_VM_OPTIONS':RETENTION_VM_OPTIONS})
+    except (subprocess.CalledProcessError,subprocess.TimeoutExpired) as error:
+        output.with_suffix('.failure.json').write_text(json.dumps(dict(error=str(error),stdout=error.stdout,stderr=error.stderr),default=repr,indent=2)+'\n')
+        raise RuntimeError(f'Retention preflight failed: {error}\n{error.stdout}\n{error.stderr}') from error
+    output.with_suffix('.stdout.log').write_text(completed.stdout)
+    output.with_suffix('.stderr.log').write_text(completed.stderr)
+    report = json.loads(completed.stdout)
+    if (report.get('kind') != 'retention-self-test' or report.get('protocol') != RETENTION_PROTOCOL
+            or report.get('collections') != 12 or report.get('live_and_released_witnesses_verified') is not True):
+        raise ValueError('The AOT retention worker did not verify collection')
+    if report.get('rooted_witness_bytes') != 32*1048576 or number(report.get('rooted_witness_rss_growth_bytes'), 'retention negative control') < 24*1048576:
+        raise ValueError('The retention negative control did not expose live memory')
+    if (report.get('native_witness_bytes') != 32*1048576
+            or number(report.get('native_witness_rss_growth_bytes'),'native retention negative control') < 24*1048576
+            or number(report.get('native_witness_rss_drop_bytes'),'native retention release control') < 24*1048576
+            or number(report.get('max_young_capacity_bytes'),'retention nursery capacity') > 16*1048576):
+        raise ValueError('The native negative control or nursery bound was not verified')
+    output.write_text(json.dumps(report,indent=2)+'\n')
+    return worker
 
 
 def shard_profiles(items, shard):
@@ -672,6 +773,8 @@ def check_hardware(budget, environment, selected):
 def validate_budget(budget, args):
     if budget['schema_version'] != 1 or len(budget['baseline_source_commit']) != 40:
         raise ValueError('Invalid gateway baseline provenance')
+    if budget.get('retention_protocol','raw_rss_v1') not in ('raw_rss_v1',RETENTION_PROTOCOL):
+        raise ValueError('Unsupported retention measurement protocol')
     if sys.platform != budget['platform']:
         raise ValueError('Numeric gateway budgets require their recorded platform; use record-only for diagnostics')
     for field in ('runs','messages','warmup','warmup_seconds','overload_runs','overload_messages','overload_stall_ms','drain_seconds'):
@@ -720,8 +823,11 @@ def main(argv=None):
     parser.add_argument('--overload-stall-ms', type=int, default=20000)
     parser.add_argument('--drain-seconds', type=float, default=.5)
     parser.add_argument('--record-only', action='store_true')
+    parser.add_argument('--retention',action='store_true',help='Also run the separate collected-RSS verification matrix')
     parser.add_argument('--budget', type=Path, default=ROOT / 'tool/mqtt_gateway_benchmark_budgets.json')
     args = parser.parse_args(argv)
+    if not args.record_only and os.environ.get('DART_VM_OPTIONS'):
+        parser.error('Strict performance measurements require default VM options')
     configured_library = os.environ.get('CONNECTANUM_NATIVE_LIB')
     if not configured_library:
         parser.error('Set CONNECTANUM_NATIVE_LIB to the native router library')
@@ -742,15 +848,26 @@ def main(argv=None):
     if args.output.exists() and any(args.output.iterdir()):
         parser.error('Benchmark output must be empty; preserve earlier evidence')
     budget = None if args.record_only else json.loads(args.budget.read_text())
+    if budget is not None and args.retention and budget.get('retention_protocol') != RETENTION_PROTOCOL:
+        parser.error('Strict retention protocol must be declared by the budget; use record-only for diagnostics')
     if budget is not None:
         validate_budget(budget,args)
+    collect_retention = args.retention or budget is not None and budget.get('retention_protocol') == RETENTION_PROTOCOL
     args.output.mkdir(parents=True, exist_ok=True)
     rows, overload_rows = [], []
     with tempfile.TemporaryDirectory() as temporary:
         worker = args.worker.resolve() if args.worker else compile_worker(Path(temporary))
+        retention_worker = compile_retention_worker(Path(temporary)/'retention',args.output/'retention-self-test.json') if collect_retention else None
         environment = {'schema_version': 2, 'diagnostic_only': args.record_only,
+                       'retention_protocol':RETENTION_PROTOCOL if collect_retention else 'raw_rss_v1',
+                       'normal_vm_options':os.environ.get('DART_VM_OPTIONS'),
+                       'retention_vm_options':RETENTION_VM_OPTIONS if collect_retention else None,
+                       'retention_timing':'stress_only_not_performance' if collect_retention else None,
+                       'retention_worker_sha256':hashlib.sha256(retention_worker.read_bytes()).hexdigest() if retention_worker else None,
                        'peak_rss_scope':'process_lifetime_high_water',
                        'native_outbound_queue_frames':64,
+                       'normal_warmup_messages_min':args.warmup,
+                       'retention_warmup_messages_min':max(args.warmup,args.messages) if collect_retention else None,
                        'observe_publisher_disconnects':True,'quiescence_before_disconnect':True,
                        'allocation_bytes_per_delivery':None,
                        'allocation_measurement':'not_exposed_by_release_runtime',
@@ -786,13 +903,32 @@ def main(argv=None):
                 try:
                     values = campaign.run(profile, path, args.runs, args.messages, args.warmup, args.drain_seconds,args.warmup_seconds)
                     for value in values:
-                        check_warmup(value,args.warmup,args.warmup_seconds)
+                        check_warmup(value,environment['normal_warmup_messages_min'],args.warmup_seconds)
                     rows.extend(values)
                     print(f"{profile['id']} {path}: {len(values)} exact lifecycles completed",flush=True)
                     (output / 'raw.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in values))
                 finally:
                     campaign.close()
-        summary = summarize(rows, selected, args.runs, budget)
+        retention_rows = []
+        if collect_retention:
+            for profile in selected:
+                for direction in DIRECTIONS:
+                    output = args.output/'retention'/profile['id']/direction
+                    output.mkdir(parents=True,exist_ok=True)
+                    config = dict(profile,path=direction,port=0,native_library=str(library),
+                                  paho_python=args.paho_python,retention_protocol=RETENTION_PROTOCOL,
+                                  certificate=str(reference.TLS_CERT),ca_certificate=str(reference.TLS_CA),key=str(reference.TLS_KEY))
+                    campaign = Campaign(retention_worker,output,config,load_timeout=300)
+                    try:
+                        values = campaign.run(profile,direction,args.runs,args.messages,args.warmup,args.drain_seconds,args.warmup_seconds,retention=True)
+                        for value in values:
+                            check_warmup(value,environment['retention_warmup_messages_min'],args.warmup_seconds)
+                        retention_rows.extend(values)
+                        print(f"{profile['id']} {direction}: {len(values)} separate retention lifecycles completed",flush=True)
+                    finally:
+                        campaign.close()
+        summary = summarize(rows, selected, args.runs, budget,retention_rows=retention_rows if collect_retention else None)
+        retention_overload_rows = []
         for profile in overload_selected:
             for direction in DIRECTIONS:
                 output = args.output / profile['id'] / direction
@@ -806,7 +942,19 @@ def main(argv=None):
                     print(f"{profile['id']} {direction}: slow-peer isolation and recovery completed",flush=True)
                 finally:
                     campaign.close()
-        overload = summarize_overload(overload_rows,overload_selected,args.overload_runs,budget)
+                if collect_retention:
+                    output = args.output/'retention'/profile['id']/direction
+                    output.mkdir(parents=True,exist_ok=True)
+                    config = dict(config,retention_protocol=RETENTION_PROTOCOL)
+                    campaign = Campaign(retention_worker,output,config,timeout=90)
+                    try:
+                        retention_overload_rows.extend(campaign.run_overload(profile,direction,args.overload_runs,
+                                                       args.overload_messages,args.overload_stall_ms,args.drain_seconds,retention=True))
+                        print(f"{profile['id']} {direction}: separate retention overload and recovery completed",flush=True)
+                    finally:
+                        campaign.close()
+        overload = summarize_overload(overload_rows,overload_selected,args.overload_runs,budget,
+                                      retention_rows=retention_overload_rows if collect_retention else None)
         result = dict(environment, results=summary,overload=overload)
         (args.output / 'summary.json').write_text(json.dumps(result, indent=2) + '\n')
         for row in [*summary,*overload]:

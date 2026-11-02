@@ -60,6 +60,58 @@ def overload_limits():
 
 
 class GatewayAccountingTest(unittest.TestCase):
+    def test_overload_retention_is_separate_complete_and_preserves_absolute_memory(self):
+        rows=[overload_sample(path=d,run=n) for d in gate.DIRECTIONS for n in (1,2)]
+        retained=[dict(copy.deepcopy(r),memory_protocol='bounded_nursery_v1') for r in rows]
+        budget=dict(retention_protocol='bounded_nursery_v1',overload={PROFILE['id']:{d:overload_limits() for d in gate.DIRECTIONS}})
+        with self.assertRaisesRegex(ValueError,'budget protocol'):gate.summarize_overload(rows,[PROFILE],2,budget)
+        with self.assertRaisesRegex(ValueError,'budget protocol'):
+            gate.summarize_overload(rows,[PROFILE],2,dict(budget,retention_protocol='raw_rss_v1'),retention_rows=retained)
+        self.assertTrue(all(r['passed'] for r in gate.summarize_overload(rows,[PROFILE],2,budget,retention_rows=retained)))
+        bad=copy.deepcopy(retained);bad[0]['memory_protocol']='raw_rss_v1'
+        with self.assertRaisesRegex(ValueError,'collected'):gate.summarize_overload(rows,[PROFILE],2,budget,retention_rows=bad)
+        with self.assertRaises(ValueError):gate.summarize_overload(rows,[PROFILE],2,budget,retention_rows=retained[:-1])
+        bad=copy.deepcopy(retained)
+        for r in bad:
+            if r['run']==2:
+                r['processes']['broker']['drained_rss_bytes']+=32*1048576
+                r['processes']['broker']['peak_rss_bytes']+=32*1048576
+        self.assertTrue(all(not r['checks']['retained_growth'] and not r['checks']['broker_retained_bytes']
+                            for r in gate.summarize_overload(rows,[PROFILE],2,budget,retention_rows=bad)))
+
+    def test_collected_retention_is_complete_and_keeps_raw_rss_and_leak_guards(self):
+        rows=[sample(path=d,run=n) for d in gate.ALL_PATHS for n in (1,2)]
+        retained=[dict(sample(path=d,run=n),memory_protocol='bounded_nursery_v1') for d in gate.DIRECTIONS for n in (1,2)]
+        budgets=dict(profiles={PROFILE['id']:{d:budget_limits() for d in gate.DIRECTIONS}},retention_protocol='bounded_nursery_v1')
+        with self.assertRaisesRegex(ValueError,'separate retention'):gate.summarize(rows,[PROFILE],2,budgets)
+        with self.assertRaisesRegex(ValueError,'budget protocol'):
+            gate.summarize(rows,[PROFILE],2,dict(budgets,retention_protocol='raw_rss_v1'),retention_rows=retained)
+        results=gate.summarize(rows,[PROFILE],2,budgets,retention_rows=retained)
+        self.assertTrue(all(r['passed'] for r in results))
+        self.assertTrue(all(r['retention']['protocol']=='bounded_nursery_v1' for r in results))
+        for defect in ['missing','duplicate','protocol','process','run']:
+            bad=copy.deepcopy(retained)
+            if defect=='missing':bad.pop()
+            if defect=='duplicate':bad.append(copy.deepcopy(bad[0]))
+            if defect=='protocol':bad[0]['memory_protocol']='raw_rss_v1'
+            if defect=='process':bad[0]['processes'].pop('publisher')
+            if defect=='run':bad[0]['run']=3
+            with self.subTest(defect=defect),self.assertRaises(ValueError):gate.retention_summary(bad,[PROFILE],2)
+        self.assertEqual(len(gate.retention_summary([r for r in retained if r['run']==1],[PROFILE],1)),2)
+        # Raw absolute RSS is still blocking even if post-GC retention is flat.
+        raw_leak=copy.deepcopy(rows)
+        for r in raw_leak:
+            if r['path'] in gate.DIRECTIONS:r['processes']['broker']['peak_rss_bytes']=201
+        self.assertTrue(all(not r['checks']['peak_rss'] for r in gate.summarize(raw_leak,[PROFILE],2,budgets,retention_rows=retained)))
+        # A genuine live allocation survives collection and fails unchanged caps.
+        leaked=copy.deepcopy(retained)
+        for r in leaked:
+            if r['run']==2:
+                for p in r['processes'].values():
+                    p['drained_rss_bytes']+=32*1048576;p['peak_rss_bytes']+=32*1048576
+        failed=gate.summarize(rows,[PROFILE],2,budgets,retention_rows=leaked)
+        self.assertTrue(all(not r['checks']['retained_growth'] and not r['checks']['lifecycle_slope'] and not r['checks']['publisher_retained_bytes'] for r in failed))
+
     def test_cpu_signature_is_stable_across_core_order_and_clock_changes(self):
         first='processor: 0\nCPU implementer: 0x41\nCPU part: 0xd49\nFeatures: asimd aes fp\nBogoMIPS: 100\n'
         second='processor: 3\nFeatures: fp asimd aes\nCPU part:  0xd49\nCPU implementer:\t0x41\nBogoMIPS: 200\n'
@@ -118,6 +170,13 @@ class GatewayAccountingTest(unittest.TestCase):
 
     def test_shards_cover_every_profile_once_and_budget_validation_is_fail_closed(self):
         profiles=gate.profiles('release')
+        for total in [1,4,16,32]:
+            shards=[gate.shard_profiles(profiles,f'{i}/{total}') for i in range(total)]
+            self.assertEqual(sorted(p['id'] for shard in shards for p in shard),sorted(p['id'] for p in profiles))
+            self.assertTrue(all(shards))
+            overload=[gate.shard_profiles(gate.overload_profiles(),f'{i}/{total}') for i in range(total)]
+            self.assertEqual(sorted(p['id'] for shard in overload for p in shard),sorted(p['id'] for p in gate.overload_profiles()))
+        self.assertEqual({len(gate.shard_profiles(profiles,f'{i}/16')) for i in range(16)},{2})
         self.assertEqual([p for i in range(4) for p in gate.shard_profiles(profiles,f'{i}/4')],
                          [p for i in range(4) for p in profiles[i::4]])
         self.assertEqual(len({p['id'] for i in range(4) for p in gate.shard_profiles(profiles,f'{i}/4')}),32)
@@ -127,7 +186,7 @@ class GatewayAccountingTest(unittest.TestCase):
                     overload={p['id']:{d:overload_limits() for d in gate.DIRECTIONS} for p in gate.overload_profiles()})
         args=SimpleNamespace(matrix='release',**workload)
         gate.validate_budget(budget,args)
-        for invalid in ['schema','commit','platform','workload','warmup_duration','matrix','profiles','directions','processes','scalar','memory']:
+        for invalid in ['schema','commit','platform','workload','warmup_duration','matrix','profiles','directions','processes','scalar','memory','retention']:
             bad=copy.deepcopy(budget);arguments=copy.deepcopy(args)
             if invalid=='schema':bad['schema_version']=2
             if invalid=='commit':bad['baseline_source_commit']='short'
@@ -140,6 +199,7 @@ class GatewayAccountingTest(unittest.TestCase):
             if invalid=='processes':bad['profiles'][PROFILE['id']]['mqtt_to_wamp']['processes'].pop('broker')
             if invalid=='scalar':bad['profiles'][PROFILE['id']]['mqtt_to_wamp']['max_peak_rss_bytes']=-1
             if invalid=='memory':bad['profiles'][PROFILE['id']]['mqtt_to_wamp']['processes']['broker']['max_peak_rss_bytes']=-1
+            if invalid=='retention':bad['retention_protocol']='unknown'
             with self.subTest(invalid=invalid),self.assertRaises(ValueError):gate.validate_budget(bad,arguments)
 
     def test_missing_short_or_invalid_warmup_fails_closed(self):
@@ -277,6 +337,15 @@ class GatewayAccountingTest(unittest.TestCase):
 
 
 class GatewayControlTest(unittest.TestCase):
+    def test_only_retention_children_receive_the_bounded_nursery(self):
+        with mock.patch.dict(gate.os.environ,{'DART_VM_OPTIONS':'--verbose_gc'}):
+            normal=self.campaign()
+            config=dict(normal.config,retention_protocol='bounded_nursery_v1')
+            retained=gate.Campaign(Path('/worker'),Path('/out'),config)
+            self.assertEqual(normal.env['DART_VM_OPTIONS'],'--verbose_gc')
+            self.assertEqual(retained.env['DART_VM_OPTIONS'],'--new_gen_semi_max_size=8')
+            self.assertEqual(gate.os.environ['DART_VM_OPTIONS'],'--verbose_gc')
+
     def campaign(self, **changes):
         return gate.Campaign(Path('worker'), Path('.'), dict(PROFILE, native_library='native',
             path='mqtt_to_wamp', paho_python='python', **changes), timeout=.01)
@@ -387,6 +456,7 @@ class GatewayControlTest(unittest.TestCase):
             with mock.patch.object(gate.time,'sleep'):
                 rows = campaign.run(PROFILE,'mosquitto',1,2,1,0,0)
             self.assertEqual(len(rows),1)
+            self.assertEqual(campaign.phase.call_args_list[0].args[1],1)
             self.assertEqual(json.loads((Path(temporary)/'raw.jsonl').read_text())['path'],'mosquitto')
             self.assertEqual(campaign.config['path'],'mqtt_to_mqtt')
             self.assertTrue(campaign.config['reference'])
@@ -400,7 +470,8 @@ class GatewayControlTest(unittest.TestCase):
             campaign.warm_up=mock.Mock(return_value=(4,1.1))
             campaign.phase.side_effect=[({'subscriber-0':report},row['processes'])]
             with mock.patch.object(gate.time,'sleep'):
-                measured=campaign.run(PROFILE,'mqtt_to_wamp',1,2,1,0)
+                measured=campaign.run(PROFILE,'mqtt_to_wamp',1,2,4,0)
+            campaign.warm_up.assert_called_once_with(2,4,1,['publisher','subscriber-0'],server)
             self.assertEqual(measured[0]['warmup_messages'],4)
             self.assertEqual(measured[0]['warmup_seconds'],1.1)
         campaign = self.campaign()
@@ -409,8 +480,41 @@ class GatewayControlTest(unittest.TestCase):
         self.assertEqual(campaign.close_clients(['publisher']),{'publisher':{'kind':'closed'}})
         self.assertFalse(campaign.children)
 
+    def test_retention_campaign_samples_collection_before_load_and_after_release(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            campaign=self.campaign();campaign.output=Path(temporary)
+            server=mock.Mock(label='broker')
+            labels=['broker','publisher','subscriber-0']
+            campaign.children={label:mock.Mock() for label in labels}
+            campaign.spawn=mock.Mock(return_value=server)
+            campaign.warm_up=mock.Mock(return_value=(2,1.1))
+            baseline={label:dict(memory=dict(MEMORY,drained_rss_bytes=90)) for label in labels}
+            final=dict(memory=dict(MEMORY,drained_rss_bytes=110,peak_rss_bytes=250),
+                       queues=dict(QUEUES,mqtt_publications=4,wamp_publications=0))
+            campaign.expect=mock.Mock(side_effect=[{'broker':dict(pid=1,port=1234)}, {},baseline,{'broker':final}])
+            row=sample()
+            report=dict(received=2,duplicates=0,payload_bytes=128,ordered=True,order_errors=0,
+                        latency_histogram_us=[[10,2]],first_sent_us=100,last_received_us=200)
+            campaign.phase=mock.Mock(return_value=({'subscriber-0':report},row['processes']))
+            campaign.close_clients=mock.Mock(return_value={label:dict(memory=MEMORY) for label in labels[1:]})
+            with mock.patch.object(gate.time,'sleep'):
+                measured=campaign.run(PROFILE,'mqtt_to_wamp',1,2,1,0,retention=True)[0]
+            for label in labels:campaign.children[label].send.assert_called_once_with(dict(op='collect'))
+            server.send.assert_called_once_with(dict(op='collect'))
+            campaign.close_clients.assert_called_once_with(labels[1:],collect=True)
+            self.assertEqual(measured['memory_protocol'],'bounded_nursery_v1')
+            self.assertEqual(measured['processes']['broker']['warm_rss_bytes'],90)
+            self.assertEqual(measured['processes']['broker']['drained_rss_bytes'],110)
+            self.assertEqual(measured['processes']['broker']['peak_rss_bytes'],250)
+            self.assertEqual(measured['uncollected_load_memory']['broker']['warm_rss_bytes'],100)
+            self.assertEqual(json.loads((Path(temporary)/'raw.jsonl').read_text()),measured)
+        campaign=self.campaign();child=mock.Mock();campaign.children={'publisher':child}
+        campaign.expect=mock.Mock(return_value={'publisher':dict(kind='closed')})
+        campaign.close_clients(['publisher'],collect=True)
+        child.send.assert_called_once_with(dict(op='close',collect=True))
+
     def test_overload_enforces_slow_disconnect_fast_exact_delivery_and_recovery(self):
-        for invalid in [None,'phase','progress','kind','full_slow','no_stall_sample','recovery']:
+        for invalid in [None,'retention','phase','progress','kind','full_slow','no_stall_sample','recovery']:
             with self.subTest(invalid=invalid),tempfile.TemporaryDirectory() as temporary:
                 campaign=self.campaign()
                 campaign.output=Path(temporary)
@@ -420,6 +524,10 @@ class GatewayControlTest(unittest.TestCase):
                 campaign.expect=mock.Mock(side_effect=[{'broker':dict(pid=1,port=1234)}, {},{}, {},
                     {label:dict(memory=MEMORY) for label in labels}, {'broker':dict(memory=MEMORY,queues=dict(QUEUES,mqtt_publications=66,wamp_publications=0))},
                     {},{'broker':dict(memory=MEMORY,queues=dict(QUEUES,mqtt_publications=130,wamp_publications=0))}])
+                if invalid=='retention':
+                    responses=list(campaign.expect.side_effect)
+                    responses.insert(2,{label:dict(memory=dict(MEMORY,drained_rss_bytes=90)) for label in labels})
+                    campaign.expect.side_effect=responses
                 report=dict(kind='received',phase=4,received=2,duplicates=0,payload_bytes=128,
                             ordered=True,order_errors=0,latency_histogram_us=[[10,2]],first_sent_us=100,last_received_us=200)
                 events=[('subscriber-0',dict(kind='progress',phase=4,received=2)),
@@ -436,8 +544,12 @@ class GatewayControlTest(unittest.TestCase):
                 campaign.phase=mock.Mock(side_effect=[({},{}),({'subscriber-0':dict(received=63 if invalid=='recovery' else 64)}, {})])
                 campaign.close_clients=mock.Mock(return_value={label:dict(memory=MEMORY) for label in labels[1:]})
                 with mock.patch.object(gate.time,'sleep'),mock.patch.object(gate.reference,'process_metrics',return_value=(1,150,200)):
-                    if invalid is None:
-                        rows=campaign.run_overload(PROFILE,'mqtt_to_wamp',1,2,1,0)
+                    if invalid in (None,'retention'):
+                        rows=campaign.run_overload(PROFILE,'mqtt_to_wamp',1,2,1,0,retention=invalid=='retention')
+                        if invalid=='retention':
+                            self.assertEqual(rows[0]['memory_protocol'],'bounded_nursery_v1')
+                            self.assertEqual(rows[0]['processes']['broker']['warm_rss_bytes'],90)
+                            self.assertEqual(rows[0]['uncollected_load_memory']['broker']['warm_rss_bytes'],100)
                         self.assertEqual(rows[0]['slow_received'],1)
                         self.assertEqual(rows[0]['recovery_received'],64)
                         self.assertTrue((campaign.output/'raw.jsonl').is_file())
@@ -510,6 +622,36 @@ class GatewayControlTest(unittest.TestCase):
         with mock.patch.object(gate.subprocess,'run',side_effect=error),self.assertRaisesRegex(RuntimeError,'compiler failure'):
             gate.compile_worker(Path('/tmp/bundle'))
 
+    def test_retention_worker_requires_the_real_aot_self_test(self):
+        good=dict(kind='retention-self-test',protocol='bounded_nursery_v1',collections=12,live_and_released_witnesses_verified=True,
+                  rooted_witness_bytes=32*1048576,rooted_witness_rss_growth_bytes=32*1048576,native_witness_bytes=32*1048576,
+                  native_witness_rss_growth_bytes=32*1048576,native_witness_rss_drop_bytes=32*1048576,max_young_capacity_bytes=524288)
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(gate,'compile_worker',return_value=Path('/worker')) as compile:
+            output=Path(temporary)/'self-test.json'
+            with mock.patch.object(gate.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(good),stderr='')) as run:
+                self.assertEqual(gate.compile_retention_worker(Path('/bundle'),output),Path('/worker'))
+                self.assertEqual(json.loads(output.read_text()),good)
+                compile.assert_called_once_with(Path('/bundle'),'test/support/mqtt_gateway_retention_worker.dart')
+                self.assertTrue(run.call_args.kwargs['check'])
+            for field in good:
+                output.unlink(missing_ok=True)
+                bad=dict(good,**{field:None})
+                with mock.patch.object(gate.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(bad),stderr='')),self.assertRaises(ValueError):
+                    gate.compile_retention_worker(Path('/bundle'),output)
+                self.assertFalse(output.exists())
+            with mock.patch.object(gate.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(dict(good,rooted_witness_rss_growth_bytes=1)),stderr='')),self.assertRaises(ValueError):
+                gate.compile_retention_worker(Path('/bundle'),output)
+            for field,value in [('native_witness_rss_growth_bytes',1),('native_witness_rss_drop_bytes',1),('max_young_capacity_bytes',16*1048576+1)]:
+                with mock.patch.object(gate.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(dict(good,**{field:value})),stderr='')),self.assertRaises(ValueError):
+                    gate.compile_retention_worker(Path('/bundle'),output)
+            for error in [subprocess.CalledProcessError(1,['worker'],output='partial proof',stderr='hook unavailable'),
+                          subprocess.TimeoutExpired(['worker'],30,output=b'partial proof',stderr=b'hook unavailable')]:
+                with mock.patch.object(gate.subprocess,'run',side_effect=error),self.assertRaisesRegex(RuntimeError,'hook unavailable'):
+                    gate.compile_retention_worker(Path('/bundle'),output)
+                failure=json.loads(output.with_suffix('.failure.json').read_text())
+                self.assertIn('partial proof',failure['stdout'])
+                self.assertIn('hook unavailable',failure['stderr'])
+
     def test_cli_preserves_artifacts_metadata_and_returns_the_gate_verdict(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary)
@@ -529,6 +671,7 @@ class GatewayControlTest(unittest.TestCase):
                   mock.patch.object(gate,'overload_profiles',return_value=[PROFILE]),
                   mock.patch.object(gate,'Campaign') as campaign,
                   mock.patch.object(gate,'compile_worker',return_value=worker),
+                  mock.patch.object(gate,'compile_retention_worker',return_value=worker),
                   mock.patch.object(gate.subprocess,'check_output',side_effect=metadata),
                   mock.patch.object(gate.reference,'mosquitto_version',return_value='mosquitto version 2.0.18'),
                   mock.patch.object(gate.reference,'cpu_model',return_value='test CPU'),
@@ -536,16 +679,37 @@ class GatewayControlTest(unittest.TestCase):
                   mock.patch.object(gate.platform,'machine',return_value='x86_64'),
                   mock.patch.object(gate.os,'cpu_count',return_value=4),
                   contextlib.redirect_stdout(io.StringIO()) as output):
-                campaign.return_value.run.side_effect=lambda p,path,*_: [sample(p,path)]
-                campaign.return_value.run_overload.side_effect=lambda p,path,runs,*_: [overload_sample(p,path,r) for r in range(1,runs+1)]
+                campaign.return_value.run.side_effect=lambda p,path,*_: [dict(sample(p,path),warmup_messages=2)]
+                campaign.return_value.run_overload.side_effect=lambda p,path,runs,*_,**opts: [dict(overload_sample(p,path,r),**({'memory_protocol':'bounded_nursery_v1'} if opts.get('retention') else {})) for r in range(1,runs+1)]
                 args=['--output',str(directory/'output'),'--matrix','release','--runs','1','--messages','2','--warmup','1','--budget',str(budget)]
                 self.assertEqual(gate.main(args),0)
+                with mock.patch.dict(gate.os.environ,{'DART_VM_OPTIONS':'--new_gen_semi_max_size=8'}),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
+                    gate.main(args+['--output',str(directory/'tuned-performance')])
                 result=json.loads((directory/'output/summary.json').read_text())
                 self.assertEqual(result['source_commit'],'a'*40)
                 self.assertFalse(result['source_dirty'])
                 self.assertIn('openssl_version',result)
                 self.assertIn('tls_ca_sha256',result)
                 self.assertEqual(len(result['results']),2)
+                self.assertEqual(result['normal_warmup_messages_min'],1)
+                with contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):
+                    gate.main(args+['--output',str(directory/'wrong-protocol'),'--retention'])
+                budgets['retention_protocol']='bounded_nursery_v1';budget.write_text(json.dumps(budgets))
+                def complete(p,path,*_,**options):
+                    return [dict(sample(p,path),warmup_messages=2,
+                                 **({'memory_protocol':'bounded_nursery_v1'} if options.get('retention') else {}))]
+                campaign.return_value.run.side_effect=complete
+                self.assertEqual(gate.main(args+['--output',str(directory/'retention')]),0)
+                collected=json.loads((directory/'retention/summary.json').read_text())
+                self.assertEqual(collected['retention_protocol'],'bounded_nursery_v1')
+                self.assertTrue(all(r['retention']['protocol']=='bounded_nursery_v1' for r in collected['results']))
+                with mock.patch.object(campaign.return_value,'run',side_effect=lambda p,path,*_,**opts: [] if opts.get('retention') else complete(p,path)),self.assertRaisesRegex(ValueError,'retention matrix'):
+                    gate.main(args+['--output',str(directory/'missing-retention')])
+                self.assertFalse((directory/'missing-retention/summary.json').exists())
+                with mock.patch.object(campaign.return_value,'run',side_effect=lambda p,path,*_,**opts: [dict(complete(p,path,**opts)[0],warmup_messages=1)] if opts.get('retention') else complete(p,path)),self.assertRaisesRegex(ValueError,'warm-up'):
+                    gate.main(args+['--output',str(directory/'cold-retention')])
+                with mock.patch.object(campaign.return_value,'run',side_effect=lambda p,path,*_: [dict(sample(p,path),warmup_messages=0)]),self.assertRaisesRegex(ValueError,'warm-up'):
+                    gate.main(args+['--output',str(directory/'underwarmed')])
                 calls=campaign.call_count
                 with mock.patch.object(gate.platform,'machine',return_value='aarch64'),self.assertRaisesRegex(ValueError,'architecture/CPU count'):
                     gate.main(args+['--output',str(directory/'wrong-hardware')])

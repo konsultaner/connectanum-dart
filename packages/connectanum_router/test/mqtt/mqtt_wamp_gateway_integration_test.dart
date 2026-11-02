@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart' as wamp_client;
@@ -12,13 +13,146 @@ import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp;
 import 'package:connectanum_core/mqtt.dart';
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart' as cbor;
+import 'package:connectanum_core/src/serializer/json/serializer.dart' as json;
+import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
+    as msgpack;
 import 'package:connectanum_router/connectanum_router.dart' hide Error;
+import 'package:connectanum_router/src/router/router_instance.dart'
+    as worker_api;
 import 'package:test/test.dart';
 
 import '../support/native_lib.dart';
 
 const _realm = 'gateway.test';
 final _deniedUri = MqttTopicUriMapper.toWampUri('forbidden');
+
+socket.SocketTransport _publicationTransport(int port, String codec) =>
+    switch (codec) {
+      'flatbuffers' => socket.SocketTransport.withFlatBuffersSerializer(
+        '127.0.0.1',
+        port,
+      ),
+      'json' => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        json.Serializer(),
+        SocketHelper.serializationJson,
+      ),
+      'msgpack' => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        msgpack.Serializer(),
+        SocketHelper.serializationMsgpack,
+      ),
+      _ => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        cbor.Serializer(),
+        SocketHelper.serializationCbor,
+      ),
+    };
+
+// Observe actual worker commands without retaining application payloads.
+void _observePublicationWorker(Map<String, Object?> init) {
+  _observePublicationCommands(init, legacy: false, injectFailures: false);
+}
+
+void _observeLegacyPublicationWorker(Map<String, Object?> init) {
+  _observePublicationCommands(init, legacy: true, injectFailures: false);
+}
+
+void _observeFailingPublicationWorker(Map<String, Object?> init) {
+  _observePublicationCommands(init, legacy: false, injectFailures: true);
+}
+
+void _observePublicationCommands(
+  Map<String, Object?> init, {
+  required bool legacy,
+  required bool injectFailures,
+}) {
+  final boss = init['bossPort'] as SendPort;
+  final events = ReceivePort();
+  ReceivePort? commands;
+  events.listen((raw) {
+    final event = Map<Object?, Object?>.from(raw as Map);
+    if (event['type'] == 1 && event['commandPort'] is SendPort) {
+      final target = event['commandPort'] as SendPort;
+      commands = ReceivePort()
+        ..listen((rawCommand) {
+          final command = rawCommand as List;
+          final List? entries = switch (command[0]) {
+            5 => [
+              [command[1], command[2]],
+            ],
+            7 => command[1] as List,
+            _ => null,
+          };
+          final publications = [
+            for (final entry in entries ?? const [])
+              if (entry[1] case final wamp.Event event
+                  when event.wireArguments?.length == 1 &&
+                      event.wireArguments!.single is Uint8List &&
+                      (event.wireArguments!.single as Uint8List).isNotEmpty)
+                event,
+          ];
+          if (publications.isNotEmpty) {
+            final bytes = publications.first.wireArguments!.single;
+            boss.send({
+              'type': 'worker_debug',
+              'stage': 'publication_transfer',
+              'recipients': publications.length,
+              'shared_payload': publications.every(
+                (e) => identical(e.wireArguments!.single, bytes),
+              ),
+            });
+          }
+          if (injectFailures && command[0] == 7) {
+            target.send([
+              7,
+              [
+                [0x7fffffff, publications.first],
+                entries!.first,
+                [
+                  entries.first[0],
+                  wamp.Event(1, 1, wamp.EventDetails(), arguments: [Object()]),
+                ],
+                ...entries.skip(1),
+              ],
+            ]);
+          } else {
+            target.send(rawCommand);
+          }
+        });
+      event['commandPort'] = commands!.sendPort;
+      event['supportsMessageBatches'] = !legacy;
+    }
+    if (event['type'] == 'worker_send_batch') {
+      final frames = event['messages'] as List;
+      final bodies = [
+        for (final frame in frames)
+          for (final part in frame['fragments'] as List<Uint8List>)
+            if (part.length >= 16384) part,
+      ];
+      boss.send({
+        'type': 'worker_debug',
+        'stage': 'outgoing_frame_transfer',
+        'recipients': frames.length,
+        'shared_payload':
+            bodies.length == frames.length &&
+            bodies.every((body) => identical(body, bodies.first)),
+      });
+    }
+    boss.send(event);
+    if (event['type'] == 4) {
+      commands?.close();
+      events.close();
+    }
+  });
+  worker_api.defaultRouterWorkerEntryPoint({
+    ...init,
+    'bossPort': events.sendPort,
+  });
+}
 
 void main() {
   setUp(AuthorizationProviderRegistry.clear);
@@ -40,6 +174,8 @@ void main() {
     bool activateListeners = true,
     Future<MqttWampGateway> Function(RouterBinding)? enable,
     void Function(RouterBinding, Object)? onEvent,
+    worker_api.RouterWorkerEntryPoint? workerEntryPoint,
+    String wampSerializer = 'cbor',
   }) async {
     final runtime = NativeTransportRuntime(
       libraryPath: resolveOrBuildNativeLib()!,
@@ -129,6 +265,8 @@ void main() {
               transformSettings?.call(settings.build()) ?? settings.build(),
         ).start(
           runtime,
+          workerEntryPoint:
+              workerEntryPoint ?? worker_api.defaultRouterWorkerEntryPoint,
           activateListeners: activateListeners,
           onEvent: (e) {
             final owner = active;
@@ -149,12 +287,7 @@ void main() {
     final port = binding.listeners.single.port;
     final session = await wamp_client.Client(
       realm: _realm,
-      transport: socket.SocketTransport(
-        '127.0.0.1',
-        port,
-        cbor.Serializer(),
-        SocketHelper.serializationCbor,
-      ),
+      transport: _publicationTransport(port, wampSerializer),
     ).connect().first.timeout(const Duration(seconds: 5));
     addTearDown(session.close);
     final mqtt = await MqttQos0Client.connect(
@@ -164,6 +297,137 @@ void main() {
     );
     addTearDown(mqtt.close);
     return (binding: binding, gateway: gateway, session: session, mqtt: mqtt);
+  }
+
+  for (final (workers, size, mode, codec) in [
+    for (final workers in [1, 2])
+      for (final size in [128, 16383, 16384, 65536])
+        for (final mode in ['batch', 'legacy']) (workers, size, mode, 'cbor'),
+    (1, 65536, 'failures', 'cbor'),
+    (1, 65536, 'mixed', 'cbor'),
+    (1, 65536, 'failures', 'flatbuffers'),
+    for (final workers in [1, 2])
+      for (final size in [16383, 16384])
+        for (final mode in ['batch', 'legacy'])
+          (workers, size, mode, 'flatbuffers'),
+    for (final codec in ['json', 'msgpack', 'flatbuffers', 'mixed'])
+      (1, 65536, 'batch', codec),
+  ]) {
+    test(
+      'MQTT fanout worker transfers: workers=$workers bytes=$size mode=$mode codec=$codec',
+      () async {
+        final observations = <Map>[];
+        final outgoingFrames = <Map>[];
+        final errors = <Map>[];
+        final fixture = await start(
+          wampSerializer: codec == 'mixed' ? 'cbor' : codec,
+          transformSettings: (s) =>
+              s.copyWith(workerPool: WorkerPoolSettings(minWorkers: workers)),
+          workerEntryPoint: switch (mode) {
+            'legacy' => _observeLegacyPublicationWorker,
+            'failures' => _observeFailingPublicationWorker,
+            _ => _observePublicationWorker,
+          },
+          onEvent: (_, e) {
+            if (e is Map && e['type'] == 'worker_error') errors.add(e);
+            final observed = e is Map && e['payload'] is Map ? e['payload'] : e;
+            if (observed is Map &&
+                observed['stage'] == 'outgoing_frame_transfer') {
+              outgoingFrames.add(observed);
+            }
+            if (observed is Map &&
+                observed['stage'] == 'publication_transfer') {
+              observations.add(observed);
+            }
+          },
+        );
+        const topic = 'sensors/fanout';
+        final sessions = [fixture.session];
+        for (var i = 1; i < 4; i++) {
+          final session = await wamp_client.Client(
+            realm: _realm,
+            transport: _publicationTransport(
+              fixture.binding.listeners.single.port,
+              codec == 'mixed'
+                  ? ['cbor', 'json', 'msgpack', 'flatbuffers'][i]
+                  : codec,
+            ),
+          ).connect().first.timeout(const Duration(seconds: 5));
+          addTearDown(session.close);
+          sessions.add(session);
+        }
+        final received = <Future<wamp.Event>>[];
+        final subscriptions = <int>[];
+        for (final session in sessions) {
+          final subscribed = await session.subscribe(
+            MqttTopicUriMapper.toWampUri(topic),
+          );
+          final event = Completer<wamp.Event>();
+          subscriptions.add(subscribed.subscriptionId);
+          subscribed.onEvent(event.complete);
+          received.add(event.future.timeout(const Duration(seconds: 5)));
+        }
+        if (mode == 'mixed') {
+          final internal = await fixture.binding.createInternalSession(
+            realmUri: _realm,
+            authId: 'mixed-internal-subscriber',
+            authRole: 'anonymous',
+            indexByRealm: false,
+          );
+          addTearDown(internal.close);
+          final subscribed = await internal.subscribe(
+            MqttTopicUriMapper.toWampUri(topic),
+          );
+          final event = Completer<wamp.Event>();
+          subscriptions.add(subscribed.subscriptionId);
+          subscribed.onEvent(event.complete);
+          received.add(event.future.timeout(const Duration(seconds: 5)));
+        }
+        final storage = Uint8List(2 * 1024 * 1024);
+        final bytes = Uint8List.sublistView(storage, 32, 32 + size);
+        bytes.setAll(0, List.generate(size, (i) => i % 251));
+        await fixture.mqtt.publish(topic, bytes);
+        storage.fillRange(0, storage.length, 0);
+        final events = await Future.wait(received);
+        for (var index = 0; index < events.length; index++) {
+          final event = events[index];
+          expect(event.subscriptionId, subscriptions[index]);
+          expect(event.arguments!.single, List.generate(size, (i) => i % 251));
+          expect(event.details.custom['mqtt_topic'], topic);
+        }
+        expect(
+          events.map((event) => event.publicationId).toSet(),
+          hasLength(1),
+        );
+        expect(
+          observations,
+          hasLength(size >= 16384 && mode != 'legacy' ? workers : 4),
+        );
+        expect(
+          observations.fold<int>(0, (sum, e) => sum + (e['recipients'] as int)),
+          4,
+        );
+        expect(errors, hasLength(mode == 'failures' ? 1 : 0));
+        expect(observations.every((e) => e['shared_payload'] == true), isTrue);
+        if ((codec == 'flatbuffers' || codec == 'mixed') &&
+            size >= 16384 &&
+            mode != 'legacy') {
+          expect(
+            outgoingFrames.fold<int>(
+              0,
+              (sum, e) => sum + (e['recipients'] as int),
+            ),
+            codec == 'mixed' ? 1 : 4,
+          );
+          expect(
+            outgoingFrames.every((e) => e['shared_payload'] == true),
+            isTrue,
+          );
+        } else {
+          expect(outgoingFrames, isEmpty);
+        }
+      },
+    );
   }
 
   test(
@@ -708,6 +972,43 @@ void main() {
   );
 
   test(
+    'gateway close replies to an admitted RPC before closing its service',
+    () async {
+      final entered = Completer<void>();
+      final decision = Completer<AuthorizationDecision?>();
+      AuthorizationProviderRegistry.registerProvider(
+        _Policy((request) {
+          if (request.options['mqtt_direction'] != 'wamp_to_mqtt') return null;
+          entered.complete();
+          return decision.future;
+        }),
+      );
+      addTearDown(() {
+        if (!decision.isCompleted) decision.complete(null);
+      });
+      final h = await start(operationTimeout: const Duration(seconds: 10));
+      final response = h.session
+          .call(
+            MqttWampGateway.publishProcedure,
+            arguments: ['blocked-close', Uint8List(1)],
+          )
+          .first;
+      await entered.future.timeout(const Duration(seconds: 2));
+      final closing = h.gateway.close();
+      await expectLater(
+        response.timeout(const Duration(seconds: 2)),
+        throwsA(isA<wamp.Error>()),
+      );
+      await closing.timeout(const Duration(seconds: 2));
+      expect(h.gateway.metrics['pending_operations'], 0);
+      expect(h.gateway.metrics['pending_bytes'], 0);
+      expect(h.gateway.metrics['pending_policy_futures'], 1);
+      expect(h.gateway.metrics['wamp_publications'], 0);
+      decision.complete(const AuthorizationDecision.allow());
+    },
+  );
+
+  test(
     'a timed-out policy closes admission and retains only bounded provider work',
     () async {
       final entered = Completer<void>();
@@ -733,7 +1034,13 @@ void main() {
               arguments: ['blocked', Uint8List(1)],
             )
             .first,
-        throwsA(isA<wamp.Error>()),
+        throwsA(
+          isA<wamp.Error>().having(
+            (error) => error.error,
+            'error URI',
+            wamp.Error.timeout,
+          ),
+        ),
       );
       await entered.future.timeout(const Duration(seconds: 2));
       expect(h.gateway.metrics['pending_policy_futures'], 1);

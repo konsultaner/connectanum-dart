@@ -70,6 +70,17 @@ class GatewayCoverageTest(unittest.TestCase):
                     else: bad[name] = lines
                     self.assertFalse(gate.check(bad, '')['passed'])
 
+    def test_pending_rpc_lifetime_changes_require_session_compiler_coverage(self):
+        name = 'packages/connectanum_client/lib/src/protocol/session.dart'
+        self.assertIn(name, gate.SHARED)
+        patch = f'+++ b/{name}\n@@ -1 +3 @@\n+request_id\n'
+        sources = {name: {1: 1} for name in gate.WHOLE}
+        self.assertFalse(gate.check(sources, patch)['passed'])
+        sources[name] = {3: 0}
+        self.assertFalse(gate.check(sources, patch)['passed'])
+        sources[name] = {3: 1}
+        self.assertTrue(gate.check(sources, patch)['passed'])
+
     def test_cli_combines_library_and_packaging_evidence_and_fails_closed(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary)

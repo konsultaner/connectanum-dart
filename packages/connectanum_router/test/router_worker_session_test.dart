@@ -12,6 +12,8 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
+import 'package:connectanum_core/src/serializer/flatbuffers/serializer.dart'
+    as flatbuffers_serializer;
 import 'package:connectanum_core/src/message/goodbye.dart' as goodbye_msg;
 import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
 import 'package:connectanum_core/src/message/event.dart' as event_msg;
@@ -46,7 +48,468 @@ final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
 const _zeroCopyPublishTag = 'zero_copy_publish';
 
+void _sendScratchEvents(List<Object> arguments) {
+  final target = arguments[0] as SendPort;
+  final serializer = NativeMessageSerializer.values[arguments[1] as int];
+  for (var index = 0; index < 3; index++) {
+    final storage = Uint8List.fromList(
+      List.generate(65544, (i) => (i + index) % 251),
+    );
+    final bytes = Uint8List.sublistView(storage, 3, 65539);
+    final details = event_msg.EventDetails()
+      ..custom['mqtt_topic'] = 'sensors/µ';
+    sendWorkerMessagePayload(
+      target,
+      serializer,
+      event_msg.Event(1, 2, details, arguments: [bytes]),
+      {'index': index},
+    );
+    storage.fillRange(0, storage.length, 0);
+  }
+}
+
+Future<List<Map>> _captureScratchFrames(
+  NativeMessageSerializer serializer,
+  List<AbstractMessage> messages,
+) async {
+  final reply = ReceivePort();
+  try {
+    final values = reply.take(messages.length).toList();
+    for (var index = 0; index < messages.length; index++) {
+      sendWorkerMessagePayload(reply.sendPort, serializer, messages[index], {
+        'index': index,
+      });
+    }
+    return (await values.timeout(const Duration(seconds: 10))).cast<Map>();
+  } finally {
+    reply.close();
+  }
+}
+
+void _sendSharedFlatBufferFrames(SendPort target) {
+  final body = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+  final batch = WorkerFrameBatch(target);
+  for (var recipient = 0; recipient < 4; recipient++) {
+    sendWorkerMessagePayload(
+      target,
+      NativeMessageSerializer.flatbuffers,
+      event_msg.Event(
+        recipient + 1,
+        19,
+        event_msg.EventDetails(),
+        arguments: [body],
+      ),
+      {'connectionId': recipient + 1},
+      frameBatch: batch,
+    );
+  }
+  batch.flush();
+  body.fillRange(0, body.length, 0);
+  batch.flush();
+}
+
 void main() {
+  test('FlatBuffers fanout shares one independent binary snapshot', () async {
+    final port = ReceivePort();
+    try {
+      final received = port.first;
+      await Isolate.spawn(_sendSharedFlatBufferFrames, port.sendPort);
+      final event = await received.timeout(const Duration(seconds: 5)) as Map;
+      expect(event['type'], 'worker_send_batch');
+      final frames = event['messages'] as List;
+      expect(frames.map((f) => f['connectionId']), [1, 2, 3, 4]);
+      final bodies = [
+        for (final frame in frames)
+          (frame['fragments'] as List).singleWhere((p) => p.length == 65536)
+              as Uint8List,
+      ];
+      expect(bodies.every((body) => identical(body, bodies.first)), isTrue);
+      expect(bodies.first, List.generate(65536, (i) => i % 251));
+    } finally {
+      port.close();
+    }
+  });
+
+  for (final bytes in [1, 512 * 1024]) {
+    test(
+      'outgoing batches bound and reset ${bytes == 1 ? '64 frames' : 'one MiB'}',
+      () async {
+        final port = ReceivePort();
+        try {
+          final received = port.take(2).toList();
+          final batch = WorkerFrameBatch(port.sendPort);
+          final count = bytes == 1 ? 65 : 3;
+          final body = Uint8List(bytes);
+          for (var i = 0; i < count; i++) {
+            expect(batch.add({'connectionId': i}, [body]), isTrue);
+          }
+          batch.flush();
+          batch.flush();
+          final messages = await received.timeout(const Duration(seconds: 5));
+          expect(
+            [
+              (messages.first as Map)['messages'].length,
+              (messages.last as Map)['messages'].length,
+            ],
+            [count - 1, 1],
+          );
+        } finally {
+          port.close();
+        }
+      },
+    );
+  }
+
+  for (final fallback in [
+    'small',
+    'oversize',
+    'control',
+    'profile',
+    'json',
+    'cbor',
+    'msgpack',
+    'keywords',
+    'empty',
+    'lazy',
+    'ppt',
+  ]) {
+    test('outgoing batch flush precedes $fallback owned frame', () async {
+      final port = ReceivePort();
+      final accepted = ReceivePort();
+      try {
+        final received = port.take(2).toList();
+        final batch = WorkerFrameBatch(port.sendPort);
+        final body = Uint8List(16384);
+        sendWorkerMessagePayload(
+          port.sendPort,
+          NativeMessageSerializer.flatbuffers,
+          event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [body]),
+          {'connectionId': 1},
+          frameBatch: batch,
+        );
+        final AbstractMessage message = switch (fallback) {
+          'small' => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(),
+            arguments: [Uint8List(16383)],
+          ),
+          'oversize' => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(),
+            arguments: [Uint8List(1024 * 1024 + 1)],
+          ),
+          'control' => goodbye_msg.Goodbye(null, 'wamp.close.normal'),
+          'keywords' => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(),
+            arguments: [body],
+            argumentsKeywords: {'key': 1},
+          ),
+          'empty' => event_msg.Event(2, 3, event_msg.EventDetails()),
+          'lazy' =>
+            event_msg.Event(2, 3, event_msg.EventDetails())..setLazyPayload(
+              argumentsBytes: Uint8List.fromList([0x81, 0x40]),
+              argumentsDecoder: (_) =>
+                  throw StateError('unexpected materialization'),
+              encoding: LazyPayloadEncoding.cbor,
+            ),
+          'ppt' => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(pptScheme: 'mqtt', pptSerializer: 'cbor'),
+          )..transparentBinaryPayload = body,
+          _ => event_msg.Event(
+            2,
+            3,
+            event_msg.EventDetails(),
+            arguments: [body],
+          ),
+        };
+        sendWorkerMessagePayload(
+          port.sendPort,
+          switch (fallback) {
+            'json' => NativeMessageSerializer.json,
+            'cbor' => NativeMessageSerializer.cbor,
+            'msgpack' => NativeMessageSerializer.messagePack,
+            _ => NativeMessageSerializer.flatbuffers,
+          },
+          message,
+          {
+            'connectionId': 2,
+            if (fallback == 'profile') 'acceptedReply': accepted.sendPort,
+          },
+          frameBatch: batch,
+        );
+        batch.flush();
+        final messages = await received.timeout(const Duration(seconds: 5));
+        expect((messages.first as Map)['type'], 'worker_send_batch');
+        expect((messages.first as Map)['messages'].single['connectionId'], 1);
+        expect((messages.last as Map)['connectionId'], 2);
+        expect((messages.last as Map)['payload'], isA<Uint8List>());
+        expect((messages.last as Map).containsKey('fragments'), isFalse);
+      } finally {
+        accepted.close();
+        port.close();
+      }
+    });
+  }
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+  ]) {
+    test(
+      'reused ${serializer.name} worker buffers keep each isolate snapshot',
+      () async {
+        final reply = ReceivePort();
+        try {
+          final frames = reply.take(3).toList();
+          await Isolate.spawn(_sendScratchEvents, <Object>[
+            reply.sendPort,
+            serializer.index,
+          ]);
+          final values = await frames.timeout(const Duration(seconds: 10));
+          for (var index = 0; index < values.length; index++) {
+            final frame = values[index] as Map;
+            final details = event_msg.EventDetails()
+              ..custom['mqtt_topic'] = 'sensors/µ';
+            final bytes = Uint8List.fromList(
+              List.generate(65536, (i) => (i + index + 3) % 251),
+            );
+            expect(frame['index'], index);
+            expect(
+              frame['payload'],
+              encodeMessage(
+                serializer,
+                event_msg.Event(1, 2, details, arguments: [bytes]),
+              ),
+            );
+          }
+        } finally {
+          reply.close();
+        }
+      },
+    );
+    test(
+      '${serializer.name} scratch frame sizes never expose cached tail bytes',
+      () async {
+        final messages = <AbstractMessage>[
+          for (final size in [
+            16383,
+            16384,
+            65536,
+            16384,
+            17000,
+            18000,
+            19000,
+            20000,
+          ])
+            event_msg.Event(
+              1,
+              2,
+              event_msg.EventDetails(),
+              arguments: [
+                Uint8List.fromList(List.generate(size, (i) => i % 251)),
+              ],
+            ),
+        ];
+        final frames = await _captureScratchFrames(serializer, messages);
+        for (var i = 0; i < messages.length; i++) {
+          expect(frames[i]['payload'], encodeMessage(serializer, messages[i]));
+        }
+        expect(
+          workerFrameScratchMetricsForTest['buffers'],
+          lessThanOrEqualTo(4),
+        );
+        expect(
+          workerFrameScratchMetricsForTest['bytes'],
+          lessThanOrEqualTo(1024 * 1024),
+        );
+      },
+    );
+  }
+  test(
+    'worker scratch cache stays bounded and bypasses oversized frames',
+    () async {
+      for (final size in [300000, 310000, 320000, 330000, 340000]) {
+        final message = event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(),
+          arguments: [Uint8List(size)],
+        );
+        final frames = await _captureScratchFrames(
+          NativeMessageSerializer.cbor,
+          [message],
+        );
+        expect(
+          frames.single['payload'],
+          encodeMessage(NativeMessageSerializer.cbor, message),
+        );
+        expect(
+          workerFrameScratchMetricsForTest['buffers'],
+          lessThanOrEqualTo(4),
+        );
+        expect(
+          workerFrameScratchMetricsForTest['bytes'],
+          lessThanOrEqualTo(1024 * 1024),
+        );
+      }
+      final before = workerFrameScratchMetricsForTest;
+      final message = event_msg.Event(
+        1,
+        2,
+        event_msg.EventDetails(),
+        arguments: [Uint8List(1024 * 1024)],
+      );
+      final frames = await _captureScratchFrames(NativeMessageSerializer.cbor, [
+        message,
+      ]);
+      expect(
+        frames.single['payload'],
+        encodeMessage(NativeMessageSerializer.cbor, message),
+      );
+      expect(workerFrameScratchMetricsForTest, before);
+    },
+  );
+  test(
+    'scratch sending preserves PPT, lazy, kwargs and ordinary messages',
+    () async {
+      final bytes = Uint8List(65536);
+      final lazy = event_msg.Event(1, 2, event_msg.EventDetails())
+        ..setLazyPayload(
+          argumentsBytes: Uint8List.fromList([0x81, 0x40]),
+          argumentsDecoder: (_) =>
+              throw StateError('unexpected materialization'),
+          encoding: LazyPayloadEncoding.cbor,
+        );
+      final messages = <AbstractMessage>[
+        lazy,
+        event_msg.Event(1, 2, event_msg.EventDetails()),
+        event_msg.Event(1, 2, event_msg.EventDetails(), arguments: ['text']),
+        event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(),
+          arguments: [bytes],
+          argumentsKeywords: {'key': 1},
+        ),
+        result_msg.Result(1, result_msg.ResultDetails(), arguments: [bytes]),
+        event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(pptScheme: 'mqtt', pptSerializer: 'cbor'),
+        )..transparentBinaryPayload = bytes,
+      ];
+      final before = workerFrameScratchMetricsForTest;
+      final frames = await _captureScratchFrames(
+        NativeMessageSerializer.cbor,
+        messages,
+      );
+      for (var i = 0; i < messages.length; i++) {
+        expect(
+          frames[i]['payload'],
+          encodeMessage(NativeMessageSerializer.cbor, messages[i]),
+        );
+      }
+      expect(workerFrameScratchMetricsForTest, before);
+      final reply = ReceivePort();
+      try {
+        expect(
+          () => sendWorkerMessagePayload(
+            reply.sendPort,
+            NativeMessageSerializer.ubjson,
+            event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [bytes]),
+            {},
+          ),
+          throwsUnsupportedError,
+        );
+      } finally {
+        reply.close();
+      }
+    },
+  );
+  test('other codecs preserve owned-frame sending without caching', () async {
+    for (final serializer in [
+      NativeMessageSerializer.json,
+      NativeMessageSerializer.messagePack,
+      NativeMessageSerializer.flatbuffers,
+    ]) {
+      final bytes = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+      final message = event_msg.Event(
+        1,
+        2,
+        event_msg.EventDetails(),
+        arguments: [bytes],
+      );
+      final expected = encodeMessage(serializer, message);
+      final before = workerFrameScratchMetricsForTest;
+      final pending = _captureScratchFrames(serializer, [message]);
+      bytes.fillRange(0, bytes.length, 0);
+      final frames = await pending;
+      expect(frames.single['payload'], expected);
+      expect(workerFrameScratchMetricsForTest, before);
+    }
+  });
+  test(
+    'FlatBuffers worker owns binary frames and supports control fallback',
+    () {
+      final codec = flatbuffers_serializer.Serializer();
+      final payload = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+      final expected = Uint8List.fromList(payload);
+      final encoded = encodeMessage(
+        NativeMessageSerializer.flatbuffers,
+        event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [payload]),
+      );
+      payload.fillRange(0, payload.length, 0);
+      encodeMessage(
+        NativeMessageSerializer.flatbuffers,
+        event_msg.Event(3, 4, event_msg.EventDetails(), arguments: [payload]),
+      );
+      final decoded = codec.deserialize(encoded) as event_msg.Event;
+      expect(decoded.subscriptionId, 1);
+      expect(decoded.publicationId, 2);
+      expect(decoded.arguments, [expected]);
+      final goodbye = goodbye_msg.Goodbye(null, 'wamp.close.normal');
+      expect(codec.serializeFragments(goodbye), isNull);
+      final control =
+          codec.deserialize(
+                encodeMessage(NativeMessageSerializer.flatbuffers, goodbye),
+              )
+              as goodbye_msg.Goodbye;
+      expect(control.reason, goodbye.reason);
+    },
+  );
+  test(
+    'large JSON worker events retain exact owned bytes across later encodes',
+    () {
+      final payload = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+      final details = event_msg.EventDetails()
+        ..custom['mqtt_topic'] = 'sensors/µ';
+      final expected = utf8.encode(
+        jsonEncode([
+          36,
+          1,
+          2,
+          {'mqtt_topic': 'sensors/µ'},
+          ['\u0000${base64Encode(payload)}'],
+        ]),
+      );
+      final encoded = encodeMessage(
+        NativeMessageSerializer.json,
+        event_msg.Event(1, 2, details, arguments: [payload]),
+      );
+      payload.fillRange(0, payload.length, 0);
+      final later = encodeMessage(
+        NativeMessageSerializer.json,
+        event_msg.Event(3, 4, event_msg.EventDetails(), arguments: [payload]),
+      );
+      expect(encoded, expected);
+      expect(later, isNot(equals(encoded)));
+      expect(utf8.decode(encoded), utf8.decode(expected));
+    },
+  );
   late RouterSettings routerSettings;
   late RouterStateStore stateStore;
 

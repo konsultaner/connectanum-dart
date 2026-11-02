@@ -15,6 +15,78 @@ import 'package:test/test.dart';
 const _marker = 'private-application-payload';
 
 void main() {
+  final cborCodec = cbor_serializer.Serializer();
+  final eventCodecs =
+      <
+        ({
+          String name,
+          List<Uint8List>? Function(Event) fragments,
+          Uint8List Function(Event) original,
+          AbstractMessage? Function(Uint8List) decode,
+        })
+      >[
+        (
+          name: 'cbor',
+          fragments: cborCodec.serializeEventFragments,
+          original: cborCodec.serialize,
+          decode: cborCodec.deserialize,
+        ),
+      ];
+  for (final codec in eventCodecs) {
+    for (final size in [0, 128, 65536]) {
+      test(
+        '${codec.name} EVENT fragments preserve exact binary bytes=$size',
+        () {
+          final storage = Uint8List.fromList(
+            List.generate(size + 8, (i) => i % 251),
+          );
+          final bytes = Uint8List.sublistView(storage, 3, size + 3);
+          final details = EventDetails()..custom['mqtt_topic'] = 'sensors/µ';
+          final message = Event(1, 2, details, arguments: [bytes]);
+          final parts = codec.fragments(message)!;
+          final output = BytesBuilder(copy: false);
+          for (final part in parts) {
+            output.add(part);
+          }
+          final encoded = output.takeBytes();
+          expect(encoded, codec.original(message));
+          final decoded = codec.decode(encoded) as Event;
+          expect(decoded.arguments!.single, bytes);
+          expect(decoded.details.custom['mqtt_topic'], 'sensors/µ');
+          if (codec.name != 'json') {
+            expect(parts.any((part) => identical(part, bytes)), isTrue);
+          }
+        },
+      );
+    }
+    test(
+      '${codec.name} unsupported EVENT vectors retain ordinary fallback',
+      () {
+        for (final arguments in <List<dynamic>?>[
+          null,
+          [],
+          ['text'],
+        ]) {
+          expect(
+            codec.fragments(Event(1, 2, EventDetails(), arguments: arguments)),
+            isNull,
+          );
+        }
+        expect(
+          codec.fragments(
+            Event(
+              1,
+              2,
+              EventDetails(),
+              arguments: [Uint8List(128)],
+              argumentsKeywords: {'extra': 1},
+            ),
+          ),
+          isNull,
+        );
+      },
+    );
+  }
   final serializers = <_SerializerHarness>[
     _SerializerHarness(
       'json',
