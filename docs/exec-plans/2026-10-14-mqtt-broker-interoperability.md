@@ -21,9 +21,10 @@ The current Dart candidate removes a redundant MQTT input copy by decoding into
 owned frame bodies before the reusable FFI buffer is touched again. Regression
 coverage includes split packets, interleaved clients, ownership after shutdown,
 legacy runtime fallback and malformed input. Gateway shutdown now drains
-admitted operation wrappers before closing service reply ports. Fresh scoped coverage passes 770/770 gateway/shared, 772/772 MQTT, 280/280
+admitted operation wrappers before closing service reply ports. Fresh scoped coverage passes 784/784 gateway/shared, 772/772 MQTT, 280/280
 gateway-component and 1,084/1,084 Python lines with zero exclusions. Linux
-default RSS diagnostics and full verification are in progress.
+default RSS diagnostics remain open; full verification passed for the current
+owned-frame and shutdown source, including Chrome and Wasm.
 Earlier rejected/superseded candidates and the complete sample sets remain
 archived evidence; they do not qualify current source.
 

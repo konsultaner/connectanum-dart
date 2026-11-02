@@ -18,27 +18,31 @@ candidate decodes directly from the reusable FFI input buffer into owned MQTT
 frames, removing an intermediate chunk copy. Its regressions cover fragmented
 and interleaved clients, ownership after shutdown, and legacy runtime fallback.
 A separate lifecycle fix lets admitted gateway RPCs post cancellation replies
-before closing the service. Fresh Linux measurements and whole-source coverage
-are required before accepting this candidate.
+before closing the service. CBOR binary RPCs now keep a small argument prefix
+and trailing bytes segmented, including the gateway's `[topic, bytes]` shape.
+The JSON network worker also avoids a redundant complete-frame copy. Independent
+wire decode, 4,787 core VM tests and 38 live native cases pass, including empty
+and 64 KiB payloads over every link/codec in both directions. Focused Linux
+comparison and whole-matrix qualification are required before accepting it.
 
 Native cleanup runs off I/O threads after a delayed empty-registry check, with
 coalescing and a shared two-second rate limit. Plain MQTT TCP/WS also uses a
 128 KiB unsent watermark while preserving send-buffer autotuning. Regression
 tests verify its native setting, unchanged send buffer and exact bytes. Current
 native added-line coverage is 971/971 from matching Cargo/complete Dart FFI
-traces and current source hashes. The preceding full `bin/verify` passed Rust,
-Dart VM, consumers, Chrome and Wasm; fresh verification is running for the
-owned-frame and gateway shutdown changes. A bounded MCP unsubscribe assertion
-preserves the exact expected final state and passes full Linux FFI collection.
+traces and current source hashes. Full `bin/verify` passed for owned frames and
+gateway shutdown, including Rust, Dart VM, consumers, Chrome and Wasm. Fresh
+verification is running for the subsequent CBOR/JSON changes. A bounded MCP
+unsubscribe assertion preserves the exact final state and passes full Linux
+FFI collection.
 
 Retention uses a separate collection-normalized stress campaign. Normal
 performance/RSS uses default VM settings; the internal retention worker alone
 uses an 8 MiB nursery and checked SDK GC hooks. Rooted/unrooted 32 MiB managed
 and native controls verify physical release and ownership. A 1 MiB nursery was
 rejected for a 35.5-second WAMP-to-MQTT slowdown; an 8 MiB Linux probe passes
-15 full workloads and 225,000 exact translations. Python coverage is
-1,084/1,084 and the changed gateway worker is 308/308. Full `bin/verify` passed
-before the native cleanup change; current full verification remains required after the frame and shutdown changes.
+15 full workloads and 225,000 exact translations. Raw default-runtime memory
+and stress-only retained memory remain separately visible.
 
 Required gateway CI uses a hardware-qualified ARM64 reference. Every candidate
 must match its four-vCPU Neoverse-N2 CPU signature before sampling. The earlier
@@ -66,9 +70,8 @@ Current native proof covers 971/971 added production lines, with matching
 Cargo and complete Dart FFI traces. The source-hash regression independently
 recomputes their compressed union. Python tooling covers 1,084/1,084 lines with
 zero exclusions; the changed gateway worker covers 308/308. Fresh whole-gateway
-Dart coverage passes 770/770, MQTT sources 772/772 and the gateway component
-280/280. Exact-head CI remains required. The preceding full verification
-passed VM, consumer smoke, Chrome and WebAssembly; current `bin/verify` is running for the new Dart changes.
+Dart coverage passes 784/784, MQTT sources 772/772 and the gateway component
+280/280. Exact-head CI and current full verification remain required.
 Frozen x64/ARM64 fixtures and every numeric limit remain unchanged. Current
 ARM64 README values will be published only from complete verified samples.
 

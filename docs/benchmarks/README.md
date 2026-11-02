@@ -88,7 +88,7 @@ limits remain in force.
 | --- | ---: |
 | Native MQTT added production lines | 971 / 971 |
 | MQTT Dart sources | 772 / 772 |
-| Gateway/shared Dart sources | 770 / 770 |
+| Gateway/shared Dart sources | 784 / 784 |
 | Gateway component | 280 / 280 |
 | MQTT benchmark gate Python, zero exclusions | 268 / 268 |
 | Gateway tooling Python, zero exclusions | 1,084 / 1,084 |

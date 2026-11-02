@@ -234,9 +234,7 @@ Uint8List encodeMessage(
 ) {
   switch (serializer) {
     case NativeMessageSerializer.json:
-      return Uint8List.fromList(
-        utf8.encode(_jsonSerializer.serializeToString(message)),
-      );
+      return utf8.encode(_jsonSerializer.serializeToString(message));
     case NativeMessageSerializer.messagePack:
       return _msgpackSerializer.serialize(message);
     case NativeMessageSerializer.cbor:

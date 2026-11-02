@@ -123,10 +123,11 @@ void main() {
           final publisher = await connect('publisher');
           addTearDown(publisher.close);
           final received = subscriber.messages
-              .take(2)
+              .take(3)
               .toList()
               .timeout(const Duration(seconds: 5));
           final bytes = [
+            Uint8List(0),
             Uint8List.fromList([0, 255, 16, 0]),
             Uint8List(65536)..[65535] = 255,
           ];
@@ -138,7 +139,7 @@ void main() {
             (await server.metrics())[direction == 'mqtt_to_wamp'
                 ? 'mqtt_publications'
                 : 'wamp_publications'],
-            2,
+            bytes.length,
           );
         });
       }
