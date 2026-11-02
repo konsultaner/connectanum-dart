@@ -9,12 +9,13 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Frozen segmented-receive candidate `d9cb93c2` now passes its own canonical,
-copy/lifetime, hosted JavaScript and all 20 original MQTT profiles under
-unchanged budgets. Full current-source CI is not complete. Preserve every
-execution/artifact and keep the published candidate frozen. After clean CI,
-audit relevant controlled before/after evidence and complete final strict48/50.
-No candidate is adopted; RAM and broad WAMP parity remain unresolved.
+Frozen segmented-receive candidate `d9cb93c2` passes its own canonical,
+copy/lifetime, hosted JavaScript, original MQTT20 and all 39 exact-source CI
+jobs. Original passing executions/artifacts are preserved without reruns.
+Complete strict48/50 campaigns are now active; retain every row and shard.
+The new controlled decoder comparison has passed preflights and guard checks,
+with review pending before capture. Candidate source stays frozen and
+unadopted; RAM and broad WAMP parity remain unresolved.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
@@ -118,10 +119,25 @@ native/AOT/client/perf/sampler bytes. Separately, all 966 shared-CI native input
 lock and actual `eb4d9f21…` library verify; it is distinct from measured
 `36162748…`. These passes do not establish causal repair of earlier 7763 failures,
 full WAMP/RAM parity or source adoption. Full [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41378268724)
-is not complete. A single read-only final watcher will check 11 previously
-completed execution timestamps and 12 artifact IDs/digests, including performance.
-No numerical gate reran. Relevant controlled before/after and complete strict
-final-runtime48/50 remain pending.
+now passes all 39 jobs on attempt one. The final watcher is complete and reaped;
+all 11 previously completed execution timestamps and 12 artifact IDs/digests,
+including performance, independently remain unchanged. All 40 artifacts are
+inventoried. No numerical gate reran.
+
+The complete [primary48](https://github.com/konsultaner/connectanum-dart/actions/runs/41387274244)
+and [supplemental50](https://github.com/konsultaner/connectanum-dart/actions/runs/41387276897)
+campaigns are predeclared and active on this exact source. Preserve every
+1,440 + 1,500 raw row and all three supplemental shards regardless of outcome.
+No sample/window/body/gate/worker/SDK/GC/allocator policy changes. The separate
+1% allocation-precision decision remains unanswered; null ratios stay unmeasured.
+These campaigns were declared before results and are not selected by the local
+component comparison's outcome. A new controlled public-decoder comparison has
+passed both full-size preflights and 14 guard checks; review remains pending and
+no capture has started. Its first dependency-byte isolation failure is retained;
+shared codec dependency bytes now match. This is component allocation/copy work,
+with no transport timing, RSS or final acceptance claim.
+[Complete CI and preserved execution/artifacts](research/2026-11-02-flatbuffers-segmented-receive-final-CI-audit.json),
+[predeclared complete strict campaigns](research/2026-11-02-flatbuffers-segmented-receive-strict-campaigns.json),
 [Own canonical and separate hosted browser audit](research/2026-11-02-flatbuffers-segmented-receive-canonical-audit.json),
 [copy/lifetime and binary scope](research/2026-11-02-flatbuffers-segmented-receive-copy-audit.json),
 [all MQTT summaries and distinct builds](research/2026-11-02-flatbuffers-segmented-receive-mqtt-audit.json),

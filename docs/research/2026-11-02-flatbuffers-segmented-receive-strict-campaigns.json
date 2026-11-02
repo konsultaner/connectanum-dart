@@ -1,0 +1,47 @@
+{
+  "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "branch": "codex/flatbuffers-segmented-decode-views",
+  "predeclared_utc": "2026-11-02T04:13:41.527955+00:00",
+  "scope": "ONE complete exact-D9CB strictprimary48 andsupplemental50 campaign; all1440+1500rows/all3supplementalshards retained regardlessoutcome. Owncanonical/fullCI39/copy/hostedJS/MQTT20 completepass beforedispatch. Originalsamples/windows/fullfreshbodygeneration/verification/workers/runtimecounts/sourcepolicy/standardSDK/allocator/GC/gates unchanged; onlycampaign CLIargument, alloriginaldefaults. No cancellation/luckyunchangedrerun/favorablehostselection/sourceorreportsubstitution. NullSDK-limitedallocationratios remainunmeasured, notnumerical; no precisiondecisionwaiver.",
+  "candidate_control_component_status": "NEW v2 two-source decoder component build/preflight (no captureyet) after v1stddependency-byte isolationguardstopped beforedata. Strict campaigns are predeclared now and are NOT selected by futurecomponent outcome; finalclaimrequires bothrelevantcontrol andcompleteacceptance. Allcandidate runtime/sourceHEAD/native stayfrozen.",
+  "own_canonical_audit_sha256": "9a911c264b0e3ca622dbd190b822f3ed573b8d66f13c561a39d5dd2a262c1ed3",
+  "own_CI_audit_sha256": "b85ae882bc15cccc472b5c07abe9755dcffddd54386c40cab78a69c8d6acff41",
+  "source_archive_sha256": "85b953dd4a1045683105550c85383744161c6be0b21054b277653a57eef88279",
+  "workflow_policy_source_sha256": {
+    ".github/workflows/wamp-profile-benchmarks.yml": "466e9a2837ac522868425b50dd384aa4476afa4241b919ef697252f26b463a92",
+    "tool/wamp_serializer_extensions.py": "48cd85c5ebce7241fb9556acf60fa89de83fdaaea85c81c7df72976e61677ad4",
+    "tool/profile_wamp_serializers.py": "32aeea2c408f2f46c72b2470a3aa83f2727559b48fe358c74884497c0593f103"
+  },
+  "dispatches": [
+    {
+      "kind": "primary48",
+      "workflow": "wamp-profile-benchmarks.yml",
+      "inputs": {
+        "campaign": "flatbuffers_primary"
+      },
+      "requested_utc": "2026-11-02T04:13:41.528408+00:00",
+      "dispatch_exit": 0,
+      "stdout": "https://github.com/konsultaner/connectanum-dart/actions/runs/41387274244\n",
+      "stderr": "",
+      "run": 41387274244,
+      "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41387274244",
+      "verified_head_sha": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+      "initial_status": "in_progress"
+    },
+    {
+      "kind": "supplemental50",
+      "workflow": "wamp-profile-benchmarks.yml",
+      "inputs": {
+        "campaign": "flatbuffers_extensions"
+      },
+      "requested_utc": "2026-11-02T04:13:43.331567+00:00",
+      "dispatch_exit": 0,
+      "stdout": "https://github.com/konsultaner/connectanum-dart/actions/runs/41387276897\n",
+      "stderr": "",
+      "run": 41387276897,
+      "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41387276897",
+      "verified_head_sha": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+      "initial_status": "in_progress"
+    }
+  ]
+}

@@ -14,9 +14,14 @@
     "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41378268724",
     "attempt": 1,
     "source_head_verified": true,
-    "status": "not_complete",
+    "status": "complete_success_independently_audited",
     "completed_MQTT_job": 125063218930,
-    "MQTT20": "COMPLETEPASS/independentlyreproduced originalbudgets; no unchangedrerun"
+    "MQTT20": "COMPLETEPASS/independentlyreproduced originalbudgets; no unchangedrerun",
+    "successful_jobs": 39,
+    "total_jobs": 39,
+    "previous_completed_execution_timestamps_preserved": 11,
+    "previous_artifact_IDs_digests_preserved": 12,
+    "artifacts": 40
   },
   "copy_lifetime": {
     "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41378271401",
@@ -24,7 +29,15 @@
     "source_head_verified": true,
     "status": "completed_success_independently_audited"
   },
-  "acceptance": "Own canonical/copy/browser/MQTT completepass; fullCI notcomplete. Relevant controlled measurements and strict48/50 pending; no source adoption or RSS/transport parity.",
+  "acceptance": "Owncanonical/copy/browser/MQTT andfullCI39 allPASS; alloriginalcompletedexecutions/artifacts unchanged. Controlleddata andcomplete strict48/50 stillpending; sourceunadopted.",
   "canonical_log_sha256": "fd5abbe031061a0462245d1702f407d2cee23b7c1f137508e6b450e465eff6aa",
-  "hosted_JS": "Own separate hostedJS8192 observations/8172success20native-onlyskip PASS, independently audited."
+  "hosted_JS": "Own separate hostedJS8192 observations/8172success20native-onlyskip PASS, independently audited.",
+  "strict_campaigns": {
+    "primary48": 41387274244,
+    "supplemental50": 41387276897,
+    "source_heads_verified": true,
+    "all_rows_shards_must_be_preserved": true,
+    "acceptance_complete": false
+  },
+  "control_component": "Two-source externaldecoder v2:148fullsizepreflights/arm+14guardchecksPASS, reviewpending, no captureyet. Oldcopyfailing baseline isexplicit, nozero-copy passclaim; preservev1stddependencybyteguardfailure beforedata. Sharedactualfourcodecdependencies heldconstant; otherarchives remainrecorded, noTLS/timing/RSSclaim."
 }

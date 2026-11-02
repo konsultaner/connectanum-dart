@@ -1,0 +1,43 @@
+{
+  "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "run": 41378268724,
+  "attempt": 1,
+  "complete": true,
+  "conclusion": "success",
+  "successful_jobs": 39,
+  "total_jobs": 39,
+  "failed_jobs": [],
+  "prior_completed_execution_timestamps_preserved": 11,
+  "prior_artifact_ids_digests_preserved": 12,
+  "preserved_job_ids": [
+    "125063218876",
+    "125063218924",
+    "125063218930",
+    "125063219054",
+    "125063219089",
+    "125063219142",
+    "125063554940",
+    "125063554944",
+    "125063554968",
+    "125063554973",
+    "125063554984"
+  ],
+  "preserved_artifact_ids": [
+    "13113321220",
+    "13113300406",
+    "13113191699",
+    "13112842541",
+    "13112800148",
+    "13112700915",
+    "13112442605",
+    "13112361648",
+    "13112254799",
+    "13112177776",
+    "13112172845",
+    "13111899045"
+  ],
+  "total_artifacts": 40,
+  "numerical_execution_retried": false,
+  "scope": "Final exactD9CB original CI metadata, every original completed execution timestamp and preserved artifact ID/digest verified. Reuses completed current-source MQTT/copy/native byte audits. Current hosted-browser log audit is separately required when its job completes. No numerical gate rerun, data download, RAM/transport repair or strict48/50 adoption claim.",
+  "audited_utc": "2026-11-02T03:55:12.060440+00:00"
+}
