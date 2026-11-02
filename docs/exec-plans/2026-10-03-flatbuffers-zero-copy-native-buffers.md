@@ -2,14 +2,39 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: reproduce the measured small-index allocation regression on an
-isolated D9CB checkout after its fresh full fast baseline. One queued test-only
-pipeline requires a real+1request/+32byte failure and a passing contiguous/
-counter control, then stops for root production review. Do not edit source or
-start competing tests/models while the baseline owns its official lease.
-The complete decoder comparison is audited; D9CB strict48/50 campaigns continue
-unchanged with every1,440+1,500 row/all shards preserved. No source adoption,
-RSS/transport acceptance or gate/body/window/SDK/GC/allocator/worker weakening.
+Current step: finish own frozen canonical and hosted CI/copy for published
+`ad48d679` bounded-index allocation correction. Fresh baseline/test-only failure,
+all focused Rust/FFI/Dart/native/Paho checks and independent audit pass. Keep
+source/HEAD/native frozen during verification; only actual setup-failed
+nonnumerical jobs/dependents may retry after workflow permits. Controlled source
+evidence and complete own strict48/50 remain required before adoption. Frozen
+D9CB campaigns continue; completed payload16 measured misses plus2 unmeasured
+allocation metrics are retained, with every remaining row/shard preserved.
+No gate/body/window/SDK/GC/allocator/worker weakening or numerical rerun.
+
+## Bounded segment index frozen for verification (2026-11-02)
+
+Published `ad48d679b24a371cca37ad9397a64b261008f57c` on
+`codex/flatbuffers-small-segment-index` contains the minimal allocation
+correction from D9CB. Fresh full baseline, actual before failure, and all focused
+Rust/codec/FFI/fragmented WebSocket/lifetime/router/MQTT-Paho checks are complete
+and independently audited. New1/2/64-piece budgets equal the contiguous control
+(6requests /798bytes);65-piece indexed control passes. All474core,2alias,
+2allocation,3codec,319FFI,22nativeWS,7clientlifetime,615router and115MQTT cases,
+including7actualPaho, pass using own rebuilt native `be4c3878…`; three locks
+remain unchanged. Bounded GLM review is qualified against actual source and
+no confirmed defect remains. [Focused evidence](../research/2026-11-02-flatbuffers-small-segment-index-correctness.json).
+
+Own frozen canonical is active, with clean HEAD/tree `2a48725c…`, own native,
+eleven guarded sources and three locks. Actual local Chrome/Wasm is enabled;
+no localJS claim. Do not edit this source/HEAD/native or start competing local
+tests/models during its exclusive lease. Exact-source
+[CI41395075328](https://github.com/konsultaner/connectanum-dart/actions/runs/41395075328)
+and [copy41395078952](https://github.com/konsultaner/connectanum-dart/actions/runs/41395078952)
+were predeclared once and their heads verified. They are not completed evidence.
+Controlled source comparison and own final strict48/50 remain required; no
+RSS/transport acceptance or adoption is claimed. D9CB strict campaigns retain
+all original rows; its completed payload misses are preserved separately.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
@@ -99,14 +124,26 @@ All rows, repetitions, failures and limitations are retained.
 [Complete comparison and source/input scope](../research/2026-11-02-flatbuffers-segmented-receive-source-control.md).
 
 An isolated `codex/flatbuffers-small-segment-index` checkout starts at D9CB.
-One guarded fresh bootstrap/fullfast baseline is active before source edits;
-a queued test-only pipeline then requires exactly one real +1request/+32byte
-failure and one passing contiguous/counter control. It stops for root review,
-without a production patch. The direction is to avoid a heap index for a
-bounded list of at most64 pieces, retaining the larger-fragment index and all
-logical bounds, cached-length, schema/projection, copy/lifetime and strict
-policies. Source/HEAD edits wait for baseline pass. D9CB and its active strict
-campaigns remain frozen; preserve every row/shard regardless of outcome.
+Fresh bootstrap/fullfast passes, then the new public-parser test fails exactly
+once with +1request/+32bytes while the contiguous/counter control passes. The
+minimal reviewed correction retains unconditional physical length validation,
+skips the sparse heap index for at most64 pieces and scans those lists from
+zero. Larger lists retain the original sparse index. Actual new 1/2/64-piece
+allocation budgets equal the fresh contiguous control;65 pieces decode, all474
+core /2alias /3codec and319 FFI cases pass. Own rebuilt native passes all
+fragmented WebSocket/lifetime/router/MQTT-Paho checks. The reviewed candidate
+is published asAD48 with own canonical/hosted CI/copy active above; none is yet
+complete acceptance. Preserve logical bounds, schema/projection,
+copy/lifetime and all strict policies.
+
+D9CB's payload shard is complete and independently reproduced: all12cases /
+360rows,16 measured misses (2throughput,2p95,4p99,2CPU,2GC,4RSS), two unmeasured
+allocation metrics and30 evidence findings. EPYC9V45, original parameters,
+source-derived inventory/order/scenarios/policy/locks and actual retained
+native/driver bytes all verify. Do not repoll/redownload/rerun this completed
+shard or count null ratios as numerical observations. Primary/protocol/encrypted
+continue; keep every row/shard regardless of this follow-up's outcome.
+[Payload audit](../research/2026-11-02-flatbuffers-d9cb-payload-audit.json).
 
 ## Segmented receive views frozen for verification (2026-11-02)
 

@@ -1,0 +1,67 @@
+{
+  "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "run": 41387276897,
+  "artifact_id": 13118751611,
+  "cases": 12,
+  "raw_rows": 360,
+  "complete_original_driver_stream_verified": true,
+  "comparison_matches_hosted": true,
+  "exact_source_case_inventory_and_schedule_verified": true,
+  "exact_canonical_scenario_bytes_verified": true,
+  "policy_locks_router_config_and_actual_binaries_verified": true,
+  "retained_binary_hashes": {
+    "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940",
+    "native_library": "fc9ccb77e78cf1e6316eba72390d257d38c2decd9cba056cdaa6b33853fde656"
+  },
+  "measured_numerical_misses": 16,
+  "unmeasured_metrics": 2,
+  "evidence_findings": 30,
+  "by_metric": {
+    "throughput_mbps": 2,
+    "latency_p95_ms": 2,
+    "latency_p99_ms": 4,
+    "cpu_us_per_operation": 2,
+    "gc_pause_us_per_operation": 2,
+    "summed_sampled_peak_rss_bytes": 4
+  },
+  "unmeasured": [
+    {
+      "case": "ext_17_payload_sizes",
+      "ci_95_high": null,
+      "ci_95_low": null,
+      "median_ratio": null,
+      "metric": "allocated_bytes_per_operation",
+      "passed": false
+    },
+    {
+      "case": "ext_19_payload_sizes",
+      "ci_95_high": null,
+      "ci_95_low": null,
+      "median_ratio": null,
+      "metric": "allocated_bytes_per_operation",
+      "passed": false
+    }
+  ],
+  "platform": {
+    "cpu_model": "AMD EPYC 9V45 96-Core Processor",
+    "dart_version": "Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_x64\"",
+    "kernel": "7.0.0-1017-azure",
+    "logical_cpu_count": 4,
+    "os": "Linux",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "runner_image": "github-hosted/ubuntu24/20261026.354.1",
+    "rustc_version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "comparison_sha256": "3490706b8012b9d3e666452e6adf0f7f9b8d9fd6b8417208f14624fdae9ebecb",
+  "parameters": {
+    "warmups": 3,
+    "repetitions": 7,
+    "duration_ms": 10000,
+    "samples": 1000,
+    "concurrency": 1,
+    "in_flight": 1
+  },
+  "scope": "Complete single payload shard only; whole primary/supplemental campaigns remain active. Every360 original row retained; measured and null ratios classified separately. Revision/clean receipt and source-derived inventory verified; this numerical artifact does not include complete source archive (own copy archive retained separately). No numerical rerun or runtime substitution. Classification is descriptive, not root cause.",
+  "strict_parity_pass": false,
+  "audited_utc": "2026-11-02T05:31:28.335505+00:00"
+}

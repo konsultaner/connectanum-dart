@@ -10,12 +10,50 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 ## Current work
 
 Frozen `d9cb93c2` passes own canonical/copy/hostedJS/MQTT20/all39CI and its
-complete1,480-row decoder comparison is independently audited. Strict48/50
-campaigns remain active with all rows/shards retained. The comparison exposes
-an avoidable +1allocation/+32bytes in five one-piece control shapes; an isolated
-small-index checkout is running fresh pre-change bootstrap/fullfast before a
-queued test-only regression. No production change yet. Keep all frozen D9CB
-evidence and campaigns intact; RAM/broadWAMP acceptance and adoption remain pending.
+complete 1,480-row decoder comparison is independently audited. Its strict
+payload shard has now failed: all 12 cases /360 rows reproduce exactly,
+with 16 measured misses (four RSS) plus two unmeasured allocation metrics and
+30 evidence findings on EPYC 9V45. Actual retained native/driver bytes, source
+inventory, order, scenarios, policy and locks verify. This is one shard;
+primary48 and the protocol/encrypted shards continue unchanged.
+[Payload audit](research/2026-11-02-flatbuffers-d9cb-payload-audit.json).
+
+The isolated small-index checkout completed its fresh bootstrap/fullfast
+baseline, then reproduced exactly one +1allocation/+32byte regression while
+its contiguous/counter control passed. A minimal change skips the heap index
+for at most64 pieces, retaining the larger sparse index and all physical/
+logical bounds checks. The new 1/2/64-piece budgets now match the contiguous
+control; the 65-piece control, all474 core /2alias /3codec and319 FFI tests pass.
+Own native was rebuilt. Bounded local review and source inspection find no
+confirmed defect; its claims about the 65-piece entry count and hypothetical
+underflow are qualified against the actual code. Own-native-bound fragmented
+WebSocket/lifetime/router/MQTT-Paho checks pass; the candidate is now frozen
+and published with own canonical active, as recorded below. No RSS/transport
+acceptance or adoption claim follows.
+
+## Bounded segment index frozen for verification (2026-11-02)
+
+Published `ad48d679b24a371cca37ad9397a64b261008f57c` on
+`codex/flatbuffers-small-segment-index` contains the minimal allocation
+correction from D9CB. Fresh full baseline, actual before failure, and all focused
+Rust/codec/FFI/fragmented WebSocket/lifetime/router/MQTT-Paho checks are complete
+and independently audited. New1/2/64-piece budgets equal the contiguous control
+(6requests /798bytes);65-piece indexed control passes. All474core,2alias,
+2allocation,3codec,319FFI,22nativeWS,7clientlifetime,615router and115MQTT cases,
+including7actualPaho, pass using own rebuilt native `be4c3878…`; three locks
+remain unchanged. Bounded GLM review is qualified against actual source and
+no confirmed defect remains. [Focused evidence](research/2026-11-02-flatbuffers-small-segment-index-correctness.json).
+
+Own frozen canonical is active, with clean HEAD/tree `2a48725c…`, own native,
+eleven guarded sources and three locks. Actual local Chrome/Wasm is enabled;
+no localJS claim. Do not edit this source/HEAD/native or start competing local
+tests/models during its exclusive lease. Exact-source
+[CI41395075328](https://github.com/konsultaner/connectanum-dart/actions/runs/41395075328)
+and [copy41395078952](https://github.com/konsultaner/connectanum-dart/actions/runs/41395078952)
+were predeclared once and their heads verified. They are not completed evidence.
+Controlled source comparison and own final strict48/50 remain required; no
+RSS/transport acceptance or adoption is claimed. D9CB strict campaigns retain
+all original rows; its completed payload misses are preserved separately.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
