@@ -46,16 +46,19 @@ verifiesall968nativeinputs /ownhostedlock /actualELF6C28; this doesnot substitut
 still requires both arms'actualnative/locks within one declared cohort.
 [Actual shared cohort / lock difference](research/2026-11-02-mqtt-complete-pair-capacity-shared-CI-cohort-audit.json).
 
-WholeCI41441957326 remainsACTIVE; last retained snapshot34success /4nonnumerical
-jobs active, no failure observed in that snapshot. Original finalwatcher exited120
+WholeCI41441957326 is **complete pass:all39jobs on attempt one**. Independent
+final audit preservesall34previous completed execution timestamps /36artifactIDs-
+digests includingMQTT/profile;40totalartifacts. Recoveredwatcher is reaped.
+No job or numerical result reran. [Final CI audit](research/2026-11-02-mqtt-complete-pair-capacity-final-CI-audit.json).
+Original finalwatcher exited120
 during localdiskexhaustion; its underlyingerror is unrecorded. It is reaped.
-One READONLYrecovered watcher preservesall34completed timestamps /36artifactIDs-
-digests, including originalMQTT/profile. No job/campaign/numericdata reran.
+The READONLYrecovered watcher preserved the original executions/artifacts.
+No job/campaign/numericdata reran.
 An initial artifact-download shell failed before Python/API/data dueENOSPC;
 space recovered before anysecondcleanup and actualZIPs were fetched once.
 Earlierpostcanonical cleanup removedonlyinactive OWNcompiler objects/metadata
 under officialexclusivelease; allsources/HEADs/actualnatives/RLIBs/evidence stayed.
-Finish currentCI naturally before NEWproperfresh native-source50rowcontrol;
+Prepare NEWproperfresh native-source50rowcontrol now that currentCI is clean;
 fullfinalstrict48/50 is not dispatched. PR132 stays40ddcb3f OPEN DRAFT/#130,
 RAM/broadWAMP and separate1%allocationprecision decision remain unresolved.
 
