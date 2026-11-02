@@ -24,10 +24,15 @@ on:
         required: false
         default: ''
         type: string
+      dart_copy_census_declaration:
+        description: Optional reviewed AD48 Dart logical-copy census declaration; diagnostic only
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -35,7 +40,7 @@ permissions:
 
 jobs:
   profile:
-    if: ${{ inputs.probe_intel != true }}
+    if: ${{ inputs.probe_intel != true && inputs.dart_copy_census_declaration == '' }}
     name: MQTT native CPU diagnostic
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -103,7 +108,7 @@ jobs:
           if-no-files-found: error
 
   intel:
-    if: ${{ inputs.probe_intel == true }}
+    if: ${{ inputs.probe_intel == true && inputs.dart_copy_census_declaration == '' }}
     name: Intel 8370C MQTT availability and comparison
     runs-on: ubuntu-22.04
     timeout-minutes: 45
@@ -200,4 +205,91 @@ jobs:
         with:
           name: mqtt-intel-proof
           path: ${{ runner.temp }}/mqtt-intel-proof
+          if-no-files-found: error
+
+  dart-copy-census:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dart_copy_census_declaration != '' }}
+    name: Whole-lifetime logical requests, no performance acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Require this isolated diagnostic mode
+        env:
+          RECOVER_RUN: ${{ inputs.recover_run }}
+          COMPARE_WORKERS: ${{ inputs.compare_workers }}
+          PROBE_INTEL: ${{ inputs.probe_intel }}
+        run: |
+          set -euo pipefail
+          [[ -z "$RECOVER_RUN" && -z "$COMPARE_WORKERS" && "$PROBE_INTEL" != true ]]
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.13.1'
+      - name: Bind the reviewed declaration before any capture
+        env:
+          DECLARATION: ${{ inputs.dart_copy_census_declaration }}
+        run: |
+          mkdir -p out/mqtt-dart-copy
+          python3 - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'tool')
+          import run_mqtt_dart_copy_census as census
+          value = json.loads(os.environ['DECLARATION'])
+          census.verify_declaration(value)
+          Path('out/mqtt-dart-copy/predeclaration.json').write_text(json.dumps(value, indent=2) + '\n')
+          PY
+      - name: Retain the exact original native, client, archives and locks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tool/fetch_mqtt_dart_copy_inputs.py --output out/mqtt-dart-copy/inputs
+      - name: Seed only the exact original resolved locks and run guards
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, 'tool')
+          import run_mqtt_dart_copy_census as census
+          root = Path('out/mqtt-dart-copy/inputs')
+          _, locks = census.verify_inputs(root)
+          for name, wanted in census.probe.LOCKS.items():
+              path = Path(name)
+              data = (locks / name).read_bytes()
+              if path.exists() and path.read_bytes() != data:
+                  raise ValueError('Existing lock differs: ' + name)
+              if not path.exists():
+                  path.parent.mkdir(parents=True, exist_ok=True)
+                  path.write_bytes(data)
+              assert census.support.digest(path) == wanted
+          PY
+          python3 tool/test_mqtt_dart_copy_census.py -v
+          python3 tool/test_mqtt_dart_copy_probe.py -v
+      - name: Compile and check actual original and shadow decoder controls
+        run: |
+          python3 tool/check_mqtt_dart_copy_probe.py \
+            --output "$RUNNER_TEMP/mqtt-dart-copy-decoder-controls" \
+            --lock-root out/mqtt-dart-copy/inputs/copy/wamp-native-ppt-copy-proof/protocol/campaign/inputs \
+            --nonce-base 188000000
+      - name: Verify fresh-body source, full bytes and ownership
+        run: |
+          python3 tool/mqtt_copy_census_client.py \
+            --output "$RUNNER_TEMP/mqtt-dart-copy-fresh-body-controls" \
+            --lock-root out/mqtt-dart-copy/inputs/copy/wamp-native-ppt-copy-proof/protocol/campaign/inputs
+      - name: Count all predeclared rows with the separately compiled fresh-body client
+        run: |
+          python3 tool/run_mqtt_dart_copy_census.py \
+            --inputs out/mqtt-dart-copy/inputs \
+            --output out/mqtt-dart-copy/capture \
+            --declaration out/mqtt-dart-copy/predeclaration.json
+      - name: Retain all inputs, controls, raw rows and partial failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-dart-copy-census-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            out/mqtt-dart-copy
+            ${{ runner.temp }}/mqtt-dart-copy-decoder-controls
+            ${{ runner.temp }}/mqtt-dart-copy-fresh-body-controls
           if-no-files-found: error
