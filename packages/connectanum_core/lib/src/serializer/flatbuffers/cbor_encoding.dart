@@ -23,6 +23,64 @@ Uint8List encodeWampFlatBufferCbor(
   return bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
 }
 
+/// Encode common binary argument arrays while retaining their original bytes.
+/// The caller keeps the bytes unchanged until the fragments have been sent.
+List<Uint8List>? encodeWampFlatBufferBinaryCborFragments(
+  Object? value, {
+  int maximumBytes = 67108864,
+}) {
+  final Uint8List binary;
+  switch (value) {
+    case [Uint8List bytes]:
+      binary = bytes;
+    case [String _, Uint8List bytes]:
+      binary = bytes;
+    case [Uint8List bytes, String _]:
+      binary = bytes;
+    default:
+      return null;
+  }
+  final normalized = normalizeWampFlatBufferCborInput(
+    value,
+    maximumBytes: maximumBytes,
+  );
+  final output = _BinaryCborFragments(binary, maximumBytes);
+  final conversion = cbor.encoder.startChunkedConversion(output);
+  conversion.add(CborValue(normalized));
+  conversion.close();
+  return output.parts;
+}
+
+final class _BinaryCborFragments implements Sink<List<int>> {
+  _BinaryCborFragments(this.binary, this.maximumBytes);
+  final Uint8List binary;
+  final int maximumBytes;
+  final prefix = BytesBuilder(copy: false);
+  final parts = <Uint8List>[];
+  int length = 0;
+
+  @override
+  void add(List<int> bytes) {
+    length += bytes.length;
+    if (length > maximumBytes) {
+      throw ArgumentError(
+        'Encoded FlatBuffers CBOR value exceeds the byte limit',
+      );
+    }
+    if (identical(bytes, binary)) {
+      if (prefix.isNotEmpty) parts.add(prefix.takeBytes());
+      parts.add(binary);
+    } else {
+      prefix.add(bytes);
+    }
+  }
+
+  @override
+  void close() {
+    if (prefix.isNotEmpty) parts.add(prefix.takeBytes());
+  }
+}
+
 /// Bound and normalize construction before encoding or metadata snapshots.
 /// Transferable data is materialized once even if the input aliases it.
 Object? normalizeWampFlatBufferCborInput(

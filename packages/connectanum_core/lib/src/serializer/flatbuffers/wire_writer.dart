@@ -121,7 +121,7 @@ class _Writer {
     if (fields.keys.any((key) => !names.contains(key))) invalid();
     final offsets = <int, int>{};
     final scalars = <int, int>{};
-    final borrowed = <int, Uint8List>{};
+    final borrowed = <int, FlatBufferByteVectorParts>{};
     for (var slot = 0; slot < spec.fields.length; slot++) {
       final field = spec.fields[slot];
       final value = fields[field.name];
@@ -157,9 +157,11 @@ class _Writer {
               field.kind == FlatBufferFieldKind.scalarVector &&
               field.width == 1 &&
               {'args', 'kwargs', 'payload'}.contains(field.name) &&
-              value is Uint8List) {
+              (value is Uint8List || value is FlatBufferByteVectorParts)) {
             offsets[slot] = builder.writeListUint8(const <int>[]);
-            borrowed[slot] = value;
+            borrowed[slot] = value is Uint8List
+                ? FlatBufferByteVectorParts([value])
+                : value as FlatBufferByteVectorParts;
           } else {
             offsets[slot] = vector(field, value);
           }
@@ -184,7 +186,11 @@ class _Writer {
     final offset = builder.endTable();
     for (final entry in borrowed.entries) {
       deferredVectors!.add(
-        DeferredFlatBufferVector(offset, entry.key, entry.value),
+        DeferredFlatBufferVector.withParts(
+          offset,
+          entry.key,
+          entry.value.parts,
+        ),
       );
     }
     return offset;
@@ -236,11 +242,32 @@ class _Writer {
 }
 
 /// A byte vector appended after the owned routing envelope has been finished.
+class FlatBufferByteVectorParts {
+  FlatBufferByteVectorParts(List<Uint8List> parts)
+    : parts = List<Uint8List>.unmodifiable(parts);
+  final List<Uint8List> parts;
+}
+
 class DeferredFlatBufferVector {
-  DeferredFlatBufferVector(this.tableOffset, this.slot, this.bytes);
+  DeferredFlatBufferVector(int tableOffset, int slot, Uint8List bytes)
+    : this.withParts(tableOffset, slot, [bytes]);
+  DeferredFlatBufferVector.withParts(
+    this.tableOffset,
+    this.slot,
+    List<Uint8List> parts,
+  ) : parts = List<Uint8List>.unmodifiable(parts);
   final int tableOffset;
   final int slot;
-  final Uint8List bytes;
+  final List<Uint8List> parts;
+  int get length => parts.fold(0, (sum, bytes) => sum + bytes.length);
+  Uint8List get bytes {
+    if (parts.length == 1) return parts.single;
+    final output = BytesBuilder(copy: false);
+    for (final part in parts) {
+      output.add(part);
+    }
+    return output.takeBytes();
+  }
 }
 
 /// Patch forward offsets into the envelope and retain the exact body views.
@@ -280,7 +307,7 @@ List<Uint8List> finishWampFlatBufferFragments(
     }
     final padding = (12 - length % 8) % 8;
     final target = length + padding;
-    final nextLength = target + 4 + vector.bytes.length;
+    final nextLength = target + 4 + vector.length;
     if (nextLength > maximumBytes) {
       throw ArgumentError('FlatBuffers frame exceeds the byte limit');
     }
@@ -288,9 +315,9 @@ List<Uint8List> finishWampFlatBufferFragments(
     final header = Uint8List(padding + 4);
     ByteData.sublistView(
       header,
-    ).setUint32(padding, vector.bytes.length, Endian.little);
+    ).setUint32(padding, vector.length, Endian.little);
     fragments.add(header);
-    fragments.add(vector.bytes);
+    fragments.addAll(vector.parts);
     length = nextLength;
   }
   return fragments;

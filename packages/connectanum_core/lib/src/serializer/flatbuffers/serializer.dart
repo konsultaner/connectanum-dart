@@ -34,7 +34,8 @@ class Serializer extends AbstractSerializer {
   /// Encode one WAMP frame while retaining its encoded application byte views.
   /// Concatenate the fragments in order; each fragment is part of that frame.
   /// Keep their backing owners and contents valid until transmission completes.
-  /// Ordinary Dart arguments still require CBOR encoding before composition.
+  /// Binary application arguments can retain their bytes inside CBOR vectors.
+  /// Other Dart arguments require CBOR encoding before composition.
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is! AbstractMessageWithPayload) return null;

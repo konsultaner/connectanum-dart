@@ -240,7 +240,13 @@ Uint8List encodeMessage(
     case NativeMessageSerializer.cbor:
       return _cborSerializer.serialize(message);
     case NativeMessageSerializer.flatbuffers:
-      return _flatBuffersSerializer.serialize(message);
+      final fragments = _flatBuffersSerializer.serializeFragments(message);
+      if (fragments == null) return _flatBuffersSerializer.serialize(message);
+      final output = BytesBuilder(copy: false);
+      for (final fragment in fragments) {
+        output.add(fragment);
+      }
+      return output.takeBytes();
     default:
       throw UnsupportedError('Serializer ${serializer.name} not supported');
   }
