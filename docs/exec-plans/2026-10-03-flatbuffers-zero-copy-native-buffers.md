@@ -2,14 +2,15 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: prepare a NEW properly guarded fresh-body native-source50row
-comparison of frozenAD48 and601. Own601canonical/copy/MQTT20/hostedJS/fullCI
-all39jobs pass and independently audit; previous completed executions/artifacts
-are preserved. Both control arms must use actual own canonical native bytes,
-identical locks within one declared cohort, the same actual Dart broker and a
-separately compiled fresh-body client. No control is ready or captured yet.
-Final-runtime strict48/50 remains required; no adoption or RAM-parity claim.
-Local and hosted locks differcc1.10→1.11 and remain separate cohorts.
+Current step: preserve and finish exact601 primary48/run41463482638 and
+supplemental50/run41463489396 naturally; independently audit all1,440+1,500rows,
+allshards/source/scenarios/policy/locks/actualnative+driver bytes. Owncanonical,
+copy/MQTT20/hostedJS/CIall39 and the proper fresh-body native-source50rowcontrol
+are complete/audited. Local control is mixed, not a broad transport/RAM repair.
+No new runtime work, numerical retries/cancellation/source substitution or adoption.
+Keep localcc1.10 and hostedcc1.11 actual build cohorts distinct; original gates,
+body generation/verification, samples/windows/SDK/GC/allocator/workers unchanged.
+RAM/broadWAMP parity and separate1%allocationprecision remain unresolved.
 
 The completed D9CB payload artifact also retains actual production native
 `fc9ccb77…` and driver `e432a974…` bytes. They independently rehash exactly to
@@ -18,6 +19,29 @@ source revision and locks. The copy artifact itself omitted these binaries;
 this later same-binary witness closes that byte-rehash limitation without an
 ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
 results changed. [Cross-artifact byte audit](../research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
+
+
+## Fresh native-source control complete; strict campaigns active (2026-11-02)
+
+The one proper fresh-body native control completes all50rows /8.05M measured
+deliveries plus5,000warmups, bothactualowncanonicalBE4C/5CFE natives, sameactual
+F2DBbroker/F250freshclient, sixidenticalLOCALlocks/allsourcearchives/body/order/
+cleanup. Allpairs are independently audited. WS5 pairedmedian1.011593 but ratio
+ofmedians0.979078; WS3111.013730 byboth; TCP311paired1.051981 /ratio1.045899.
+Otherprofiles are nearunity. This is mixed/local evidence, no broadWS/RAM or
+causal7763 acceptance. No unchanged numerical result reran. Both pre-data control
+setup failures and all43finalguards/full+delta reviews remain retained.
+[Complete fresh control](../research/2026-11-02-mqtt-complete-pair-native-control.md).
+
+Own601canonical/copy/MQTT20/hostedJS/fullCI39 already pass. Exact601 primary48
+[41463482638](https://github.com/konsultaner/connectanum-dart/actions/runs/41463482638)
+and supplemental50[41463489396](https://github.com/konsultaner/connectanum-dart/actions/runs/41463489396)
+are dispatched once with original policy/samples/windows/fresh-body/full-byte
+checks, no cancellation or favorable reruns. Preserveall1,440+1,500rawrows and
+allthree supplemental shards; independently audit actualnewnative/driver bytes,
+resolvedlocks/source/scenarios/policy/reports when complete. RAM/broadWAMP and
+separate1%allocationprecision decision remain unresolved. PR132 staysOPEN DRAFT
+40ddcb3f/#130, no adoption/retarget/merge/close103/milestone.
 
 ## Frozen601 own verification and provenance (2026-11-02)
 
@@ -70,8 +94,8 @@ An initial artifact-download shell failed before Python/API/data dueENOSPC;
 space recovered before anysecondcleanup and actualZIPs were fetched once.
 Earlierpostcanonical cleanup removedonlyinactive OWNcompiler objects/metadata
 under officialexclusivelease; allsources/HEADs/actualnatives/RLIBs/evidence stayed.
-Prepare NEWproperfresh native-source50rowcontrol now that currentCI is clean;
-fullfinalstrict48/50 is not dispatched. PR132 stays40ddcb3f OPEN DRAFT/#130,
+The proper fresh native-source50row control is now complete/audited;
+fullstrict48/50 campaigns are active as recorded above. PR132 stays40ddcb3f OPEN DRAFT/#130,
 RAM/broadWAMP and separate1%allocationprecision decision remain unresolved.
 
 ## Bounded segment index frozen for verification (2026-11-02)

@@ -1,0 +1,76 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "branch": "codex/mqtt-small-burst-coalescing",
+  "predeclared_utc": "2026-11-02T14:34:56.527618+00:00",
+  "scope": "ONE complete exact601 strictprimary48 +supplemental50 withall1440+1500rows/three supplementalshards retained. Owncanonical/copy/fullCI39/MQTT20/hostedJS completepass/audited. Native-sourceFRESHall50rowcontrol is alreadyactive, outcomesNOTselectedyet. Dispatch followscompleteauditedcontrol and isnotconditioned on favorableindividualprofiles. No cancel/numericalretry/favorablehost/sourceorreportsubstitution. Fullraw inventory/source/scenario/policy/config/locks/actualnative+driverbytes audited beforeanyadoption; null allocationratios remainUNMEASUREDnotnumeric, separate1%productdecisionunchanged.",
+  "workflow_policy_source_sha256": {
+    ".github/workflows/wamp-profile-benchmarks.yml": "466e9a2837ac522868425b50dd384aa4476afa4241b919ef697252f26b463a92",
+    "tool/wamp_serializer_extensions.py": "48cd85c5ebce7241fb9556acf60fa89de83fdaaea85c81c7df72976e61677ad4",
+    "tool/profile_wamp_serializers.py": "32aeea2c408f2f46c72b2470a3aa83f2727559b48fe358c74884497c0593f103",
+    "tool/run_wamp_serializer_campaign.py": "be62c841ab33ed4f5b4e65cca156f1de0a83fe95a56fb7208449edbcfbeab64a",
+    "tool/merge_wamp_extension_campaigns.py": "6c29135797dbd6c9653cd3e55cc6004eca8b454e7165b55940e58cf33dc04315"
+  },
+  "own_canonical_audit_sha256": "f2dc8309a1094df99332881ebfd6a72f093a84f63c2e47174a4e839ec3352ac5",
+  "own_CI_audit_sha256": "303ff2262708bf0c855ab136ba2b9d173745a53ba8072b7cab385e3e3a387419",
+  "source_archive_sha256": "816a2106432f999ff20e90899035406b670b74ceab28381092a8b8c8b2f72c85",
+  "unchanged_inputs": {
+    "warmups": 3,
+    "repetitions": 7,
+    "duration_ms": 10000,
+    "samples": 1000,
+    "concurrency": 1,
+    "in_flight": 1,
+    "router_workers": 1,
+    "native_threads": 1,
+    "workload_timeout_ms": 300000,
+    "campaign_timeout_seconds": 19800,
+    "passes": 10
+  },
+  "build_cohort_policy": "Actualhostedresolvedlocks retained peroriginalworkflow andlockedbuilds; doNOTclaimlocalcc1.10==priorhostedcc1.11 orsubstitutebinaries. Auditnewactualsame-runinputsanddifferencehonestly; noSDK/GC/allocator/dependency/sourcepolicyedits toobtainpass.",
+  "native_source_control": {
+    "ready_declaration_sha256": "1d79afd1e204fb5e22ae8e266d45b3b61cea5b99b8325dcacaf9c82d974053f5",
+    "independent_audit_required_before_dispatch": true,
+    "outcomes_known_before_predeclaration": false,
+    "complete_audited_before_dispatch": true,
+    "audit_sha256": "6b86d22dc1de10aa3ebd0d4ac39e8d629b8e5153aacb9e0b74205fef395af825",
+    "result": "Mixedlocalrates, no broadWS/RAM/causal7763acceptance; allpairs retained. Strictcampaignsnotselectedbyfavorablecontrolprofiles.",
+    "audit": "docs/research/2026-11-02-mqtt-complete-pair-native-control-audit.json"
+  },
+  "dispatches": [
+    {
+      "kind": "primary48",
+      "workflow": "wamp-profile-benchmarks.yml",
+      "inputs": {
+        "campaign": "flatbuffers_primary"
+      },
+      "requested_utc": "2026-11-02T14:35:58.684240+00:00",
+      "dispatch_exit": 0,
+      "stdout": "https://github.com/konsultaner/connectanum-dart/actions/runs/41463482638\n",
+      "stderr": "",
+      "run": 41463482638,
+      "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41463482638",
+      "verified_head_sha": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+      "initial_status": "queued"
+    },
+    {
+      "kind": "supplemental50",
+      "workflow": "wamp-profile-benchmarks.yml",
+      "inputs": {
+        "campaign": "flatbuffers_extensions"
+      },
+      "requested_utc": "2026-11-02T14:36:00.919963+00:00",
+      "dispatch_exit": 0,
+      "stdout": "https://github.com/konsultaner/connectanum-dart/actions/runs/41463489396\n",
+      "stderr": "",
+      "run": 41463489396,
+      "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41463489396",
+      "verified_head_sha": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+      "initial_status": "queued"
+    }
+  ],
+  "dispatched": true,
+  "timing_clarification": "Control completed14:34:31UTC andaudit14:34:35 before this strictdeclaration waswritten; numericalprofiles hadnotbeen readbyroot. This isNOTa declarationbeforecontroloutcomes existed. Strict48/50 declaration isbeforeanystrictdispatch/data; noselection/cancellation basedoncontroloutcome.",
+  "dispatched_utc": "2026-11-02T14:36:03.346951+00:00",
+  "source_predeclaration_sha256": "3f0b86fd6365460ba3aa426b21015f66b238c74107da32591455fac5ab8df396",
+  "public_projection": "Only local evidence reference replaced by checked-in repo-relative audit path; source and dispatch data unchanged."
+}

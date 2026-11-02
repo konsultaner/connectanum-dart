@@ -1,0 +1,88 @@
+{
+  "complete": true,
+  "fresh_measured_deliveries": 8050000,
+  "profiles": [
+    {
+      "median_paired_ratio": 1.0115931797638842,
+      "median_rates": {
+        "baseline": 115238.90465421126,
+        "candidate": 112827.84952375364
+      },
+      "paired_ratios": [
+        0.9413930211528574,
+        0.9198382210463162,
+        1.0250669633286924,
+        1.0115931797638842,
+        1.0532441936633072
+      ],
+      "profile": "ws_sustained",
+      "ratio_of_medians": 0.9790777677235627
+    },
+    {
+      "median_paired_ratio": 1.0137300719920794,
+      "median_rates": {
+        "baseline": 109063.98020270631,
+        "candidate": 110561.43650263219
+      },
+      "paired_ratios": [
+        1.018832340867495,
+        1.0137300719920794,
+        0.9727695338557416,
+        0.9983665827044349,
+        1.043022091472319
+      ],
+      "profile": "ws_v311_sustained",
+      "ratio_of_medians": 1.0137300719920794
+    },
+    {
+      "median_paired_ratio": 1.0020182044174117,
+      "median_rates": {
+        "baseline": 428037.2991702497,
+        "candidate": 429717.5466565826
+      },
+      "paired_ratios": [
+        0.9894182054135816,
+        1.0020182044174117,
+        0.9934746221321689,
+        1.0141823035933277,
+        1.0056232488012578
+      ],
+      "profile": "sustained",
+      "ratio_of_medians": 1.003925469788708
+    },
+    {
+      "median_paired_ratio": 1.0519811960283034,
+      "median_rates": {
+        "baseline": 421178.5417956526,
+        "candidate": 440510.1989123803
+      },
+      "paired_ratios": [
+        1.0519811960283034,
+        1.0628042307856307,
+        1.0036440802901976,
+        1.0064500189127672,
+        1.078223598571866
+      ],
+      "profile": "v311_sustained",
+      "ratio_of_medians": 1.0458989601756754
+    },
+    {
+      "median_paired_ratio": 1.0051894392885112,
+      "median_rates": {
+        "baseline": 5630.4467534280975,
+        "candidate": 5626.018309313986
+      },
+      "paired_ratios": [
+        1.0051894392885112,
+        0.9729549443861305,
+        1.0068213862502031,
+        1.0023070368008489,
+        1.0206138956905544
+      ],
+      "profile": "64k_sustained",
+      "ratio_of_medians": 0.9992134826403579
+    }
+  ],
+  "rows": 50,
+  "strict48_50_acceptance": false
+}

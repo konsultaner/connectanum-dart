@@ -7,6 +7,29 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+
+## Fresh native-source control complete; strict campaigns active (2026-11-02)
+
+The one proper fresh-body native control completes all50rows /8.05M measured
+deliveries plus5,000warmups, bothactualowncanonicalBE4C/5CFE natives, sameactual
+F2DBbroker/F250freshclient, sixidenticalLOCALlocks/allsourcearchives/body/order/
+cleanup. Allpairs are independently audited. WS5 pairedmedian1.011593 but ratio
+ofmedians0.979078; WS3111.013730 byboth; TCP311paired1.051981 /ratio1.045899.
+Otherprofiles are nearunity. This is mixed/local evidence, no broadWS/RAM or
+causal7763 acceptance. No unchanged numerical result reran. Both pre-data control
+setup failures and all43finalguards/full+delta reviews remain retained.
+[Complete fresh control](research/2026-11-02-mqtt-complete-pair-native-control.md).
+
+Own601canonical/copy/MQTT20/hostedJS/fullCI39 already pass. Exact601 primary48
+[41463482638](https://github.com/konsultaner/connectanum-dart/actions/runs/41463482638)
+and supplemental50[41463489396](https://github.com/konsultaner/connectanum-dart/actions/runs/41463489396)
+are dispatched once with original policy/samples/windows/fresh-body/full-byte
+checks, no cancellation or favorable reruns. Preserveall1,440+1,500rawrows and
+allthree supplemental shards; independently audit actualnewnative/driver bytes,
+resolvedlocks/source/scenarios/policy/reports when complete. RAM/broadWAMP and
+separate1%allocationprecision decision remain unresolved. PR132 staysOPEN DRAFT
+40ddcb3f/#130, no adoption/retarget/merge/close103/milestone.
+
 ## Frozen601 own verification and provenance (2026-11-02)
 
 Own full canonical **passes independent audit**:cleanHEAD/tree`689957a3…`,
@@ -58,8 +81,8 @@ An initial artifact-download shell failed before Python/API/data dueENOSPC;
 space recovered before anysecondcleanup and actualZIPs were fetched once.
 Earlierpostcanonical cleanup removedonlyinactive OWNcompiler objects/metadata
 under officialexclusivelease; allsources/HEADs/actualnatives/RLIBs/evidence stayed.
-Prepare NEWproperfresh native-source50rowcontrol now that currentCI is clean;
-fullfinalstrict48/50 is not dispatched. PR132 stays40ddcb3f OPEN DRAFT/#130,
+The proper fresh native-source50row control is now complete/audited;
+fullstrict48/50 campaigns are active as recorded above. PR132 stays40ddcb3f OPEN DRAFT/#130,
 RAM/broadWAMP and separate1%allocationprecision decision remain unresolved.
 
 ## Current work
