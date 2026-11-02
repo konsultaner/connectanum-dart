@@ -2,14 +2,13 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: provisional nativeMQTT complete-pair initial-capacity correction
-has actualbeforefailure and afterregression/deterministicarrival/Rust/FFI/ownnative/
-WebSocket/lifetime passes. Router/MQTT-Paho focused checks are active under the
-official exclusive lease; no source/HEAD/native edits or competing tests/models.
-The100row before allocation census is complete/audited/retained, never rerun.
-No transport/RAM/gate acceptance follows. Own canonical/copy/CI/proper controlled
-source comparison and complete finalstrict48/50 remain mandatory before adoption.
-OriginalAD48 numericalCI failure remains retained; no unchanged numerical retry.
+Current step: finish exact frozenpublished601108ea owncanonical/CI/copy naturally.
+Actualbefore-failing MQTTcomplete-pair allocationbudget and all focused480Rust/
+319FFI/22WS/7lifetime/615router/115MQTTincl7Paho checks pass/audited. Canonical
+active underexclusivelease; no source/HEAD/native edits orcompetingtests/models.
+CI41441957326/copy41441964331 each dispatchedonce at601108ea. No finalacceptance
+or RAM/CPU/throughput/adoption claim; preservealloriginalnumericresults. Proper
+fresh native-source50rowcontrol and finalstrict48/50 followowncanonical+cleanCI.
 
 The completed D9CB payload artifact also retains actual production native
 `fc9ccb77…` and driver `e432a974…` bytes. They independently rehash exactly to
@@ -18,6 +17,44 @@ source revision and locks. The copy artifact itself omitted these binaries;
 this later same-binary witness closes that byte-rehash limitation without an
 ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
 results changed. [Cross-artifact byte audit](../research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
+
+## Complete MQTT pair capacity frozen for verification (2026-11-02)
+
+Published `601108ea6216464bd00ae29c16cfaf0a59c71db6` on
+`codex/mqtt-small-burst-coalescing` starts atAD48. Its minimal native change sizes
+only the first combined buffer exactly when a pending tail ends the bounded
+poll or no additional chunks are currently queued; more-queued bursts keep4KiB.
+Original drain/order/limits/wake/body/ownership/worker/SDK/GC/gate policy remains.
+The actual test-only budget fails exactly once before correction while its
+longer-burst control passes. Afterward4capacity/pending controls pass, including
+a TEST-ONLY allocator rendezvous forcing a producer AFTER capacity choice:
+all384bytes still drain with normal growth and survive queue release. On this
+host complete-pair requests drop4184/three to320/two, including the same64byte
+fresh-queue cost. These requested sizes do not establish CPU/RSS/transport repair.
+
+All480core /2alias /2allocation /3codec /319FFI /22nativeWS /7lifetime /
+615router /115MQTT including7actualPaho pass, with own rebuilt native`5cfe237b…`
+and3locks unchanged. Independent source/native/log/count audit passes. Local
+advisory claims are qualified against actual synchronous queue/RAII/bounds;
+no confirmed production defect remains. The consumed ignored capture entry is
+removed from final tests; all6executed controls/20shapes stay, and original100
+census rows/source/executable/140RLIBs/oldnative are retained. No rerun of data.
+[Focused correctness](../research/2026-11-02-mqtt-complete-pair-capacity-correctness.json).
+
+Own full frozen canonical is ACTIVE (native prebuildpasses; full`bin/verify`
+stillrunning, no pass yet), with cleanHEAD/tree`689957a3…`, own5CFE,12source guards,
+3locks and exact archive`816a2106…`. Actual localChrome/Wasm enabled; no localJS
+claim. Source/HEAD/native remain frozen; no competing tests/models under its
+exclusive lease. One read-only auditor waits. Own originalCI41441957326 and
+copy/lifetime41441964331 are dispatched once, exact601108ea/attempt1 verified;
+preserve all executions/raw rows/artifacts. One finalCIwatcher preserves the
+initial1completed timestamp/1artifactID-digest; one copywatcher retains metadata.
+No unchanged numerical retries or old-source report substitution. After own
+canonical andCIclean, proper all50row native-source comparison with a NEWfresh
+producer is still required; old3020client cannot provide fresh-body proof.
+Full final-runtime strict48/50 is not dispatched and remains required before
+adoption. PR132 remains40ddcb3f OPEN DRAFT/#130; RAM/broadWAMP parity unresolved.
+[Freeze and current scope](../research/2026-11-02-mqtt-complete-pair-capacity-frozen.json).
 
 ## Bounded segment index frozen for verification (2026-11-02)
 

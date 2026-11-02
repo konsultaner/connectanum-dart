@@ -1,0 +1,20 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "branch": "codex/mqtt-small-burst-coalescing",
+  "base": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "own_native_sha256": "5cfe237b5e656cf860235c104b02b879e9da581a31768e7b734428c67fac3dad",
+  "source_archive_sha256": "816a2106432f999ff20e90899035406b670b74ceab28381092a8b8c8b2f72c85",
+  "locks": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "tracked_tree_sha256": "689957a3c9346b8003db481982b42bf9a2b3c98938d16acf6f889b0f74b5cd9b",
+  "frozen_utc": "2026-11-02T12:02:12.937814+00:00",
+  "published": true,
+  "canonical_complete_pass": false,
+  "canonical_active": true,
+  "CI": 41441957326,
+  "copy_lifetime": 41441964331,
+  "scope": "Exactfrozen601108eaownverificationactive; no finalCI/RAM/strict48/50/adoption claim."
+}
