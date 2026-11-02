@@ -2466,6 +2466,27 @@ class _RouterBoss {
     }
   }
 
+  void forwardMessagesToConnections(
+    Iterable<({int connectionId, AbstractMessage message})> messages,
+  ) {
+    final grouped = <_WorkerHandle, List<List<Object?>>>{};
+    for (final message in messages) {
+      final worker = _connectionOwners[message.connectionId];
+      if (worker == null) continue;
+      (grouped[worker] ??= []).add([message.connectionId, message.message]);
+    }
+    for (final entry in grouped.entries) {
+      if (entry.key.supportsMessageBatches && entry.value.length > 1) {
+        entry.key.commandPort.send([_workerCmdSendMessages, entry.value]);
+      } else {
+        // Custom workers keep their existing single-message protocol.
+        for (final message in entry.value) {
+          entry.key.commandPort.send([_workerCmdSendMessage, ...message]);
+        }
+      }
+    }
+  }
+
   bool tryForwardMessageToConnection(
     int connectionId,
     AbstractMessage message,
@@ -2500,6 +2521,7 @@ class _RouterBoss {
       commandPort: commandPort,
       statePort: statePort ?? _stateStore.commandPort,
       isolateHash: message['workerHash'] as int? ?? isolate.hashCode,
+      supportsMessageBatches: message['supportsMessageBatches'] == true,
     );
     if (connectionId > 0) {
       worker.connections.add(connectionId);
@@ -2639,6 +2661,7 @@ class _WorkerHandle {
     required this.commandPort,
     required this.statePort,
     required this.isolateHash,
+    this.supportsMessageBatches = false,
   });
 
   final int id;
@@ -2646,6 +2669,7 @@ class _WorkerHandle {
   final SendPort commandPort;
   final SendPort statePort;
   final int isolateHash;
+  final bool supportsMessageBatches;
   final List<int> connections = [];
   int connectionCursor = 0;
   bool busy = false;

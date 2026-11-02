@@ -10,6 +10,7 @@ const int _workerCmdAddConnection = 3;
 const int _workerCmdRemoveConnection = 4;
 const int _workerCmdSendMessage = 5;
 const int _workerCmdDrainConnections = 6;
+const int _workerCmdSendMessages = 7;
 
 const int _workerEventRegister = 1;
 const int _workerEventReady = 2;
@@ -438,6 +439,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     'commandPort': commandPort.sendPort,
     'statePort': statePort,
     'workerHash': workerId,
+    'supportsMessageBatches': true,
   });
   bossPort.send({
     'type': _workerEventReady,
@@ -610,6 +612,28 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         message,
         state: state,
       );
+    } else if (command == _workerCmdSendMessages) {
+      for (final rawMessage in raw[1] as List) {
+        final connectionId = rawMessage[0] as int;
+        final state = connectionStates[connectionId];
+        if (state == null) continue;
+        try {
+          await sendMessage(
+            bossPort,
+            connectionId,
+            state.serializer ?? NativeMessageSerializer.json,
+            rawMessage[1] as AbstractMessage,
+            state: state,
+          );
+        } catch (error, stackTrace) {
+          bossPort.send({
+            'type': _workerEventError,
+            'connectionId': connectionId,
+            'error': error.toString(),
+            'stackTrace': stackTrace.toString(),
+          });
+        }
+      }
     } else if (command == _workerCmdDrainConnections) {
       final reason = raw.length > 1 && raw[1] is String
           ? raw[1] as String

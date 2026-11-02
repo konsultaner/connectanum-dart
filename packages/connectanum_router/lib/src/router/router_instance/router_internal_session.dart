@@ -187,7 +187,10 @@ class RouterSession {
     }
   }
 
-  void _handleControlMessage(dynamic message) {
+  void _handleControlMessage(
+    dynamic message, {
+    void Function(int, event_msg.Event)? collectEvent,
+  }) {
     if (_closed || message is! Map) {
       return;
     }
@@ -195,6 +198,17 @@ class RouterSession {
     if (type == _internalMsgSessionClosed) {
       _closed = true;
       binding._removeInternalSession(this);
+    } else if (type == _internalMsgForwardEvents) {
+      final forwarded = <({int connectionId, AbstractMessage message})>[];
+      for (final event in message['events'] as List) {
+        _handleControlMessage(
+          event,
+          collectEvent: (connectionId, message) {
+            forwarded.add((connectionId: connectionId, message: message));
+          },
+        );
+      }
+      binding._boss?.forwardMessagesToConnections(forwarded);
     } else if (type == _internalMsgForwardEvent) {
       final connectionId = message['connectionId'] as int?;
       final subscriptionId = message['subscriptionId'] as int?;
@@ -249,7 +263,11 @@ class RouterSession {
       );
       // A recipient may close after the routing snapshot was taken. Its event
       // is no longer deliverable; other recipients must continue normally.
-      binding._boss?.tryForwardMessageToConnection(connectionId, event);
+      if (collectEvent != null) {
+        collectEvent(connectionId, event);
+      } else {
+        binding._boss?.tryForwardMessageToConnection(connectionId, event);
+      }
     } else if (type == _internalMsgForwardInvocation) {
       final connectionId = message['connectionId'] as int?;
       final forward = message['message'];
@@ -1053,6 +1071,7 @@ const String _internalCmdClose = 'close';
 const String _internalMsgCommandResult = 'command_result';
 const String _internalMsgCommandError = 'command_error';
 const String _internalMsgForwardEvent = 'forward_event';
+const String _internalMsgForwardEvents = 'forward_events';
 const String _internalMsgSubscriptionEvent = 'subscription_event';
 const String _internalMsgInvocationRequest = 'invocation_request';
 const String _internalMsgCallResult = 'call_result';
@@ -2086,6 +2105,32 @@ class _InternalSessionIsolate {
       topic: topic,
       options: options,
     );
+    final binaryArguments = transferredPayload is Map
+        ? transferredPayload[_transferredLazyPayloadArgumentsKey]
+        : null;
+    final batchBinaryEvents =
+        eventPptScheme == null &&
+        eventPptSerializer == null &&
+        eventPptCipher == null &&
+        eventPptKeyId == null &&
+        transferredPayload is Map &&
+        transferredPayload[_transferredNativeCallPayloadKey] != true &&
+        transferredPayload[_transferredLazyPayloadPptDecodedKey] != true &&
+        transferredPayload[_transferredLazyPayloadEncodingKey] == null &&
+        transferredPayload[_transferredLazyPayloadTransparentBinaryKey] ==
+            null &&
+        transferredPayload[_transferredLazyPayloadPackedPayloadBytesKey] ==
+            null &&
+        transferredPayload[_transferredLazyPayloadArgumentsBytesKey] == null &&
+        transferredPayload[_transferredLazyPayloadArgumentsKeywordsBytesKey] ==
+            null &&
+        transferredPayload[_transferredLazyPayloadArgumentsKeywordsKey] ==
+            null &&
+        binaryArguments is List &&
+        binaryArguments.length == 1 &&
+        binaryArguments.single is Uint8List &&
+        (binaryArguments.single as Uint8List).length >= 16384;
+    final nativeEvents = <Map<String, Object?>>[];
     for (final match in routing.matches) {
       final eventDetails = Map<String, Object?>.from(match.details);
       if (customEventDetails.isNotEmpty) {
@@ -2116,7 +2161,7 @@ class _InternalSessionIsolate {
           'details': eventDetails,
         });
       } else {
-        _bootstrap.controlPort.send({
+        final forwarded = <String, Object?>{
           'type': _internalMsgForwardEvent,
           'connectionId': match.connectionId,
           'subscriptionId': match.subscriptionId,
@@ -2131,8 +2176,23 @@ class _InternalSessionIsolate {
           'pptSerializer': eventPptSerializer,
           'pptCipher': eventPptCipher,
           'pptKeyId': eventPptKeyId,
-        });
+        };
+        if (batchBinaryEvents) {
+          nativeEvents.add(forwarded);
+        } else {
+          _bootstrap.controlPort.send(forwarded);
+        }
       }
+    }
+    if (nativeEvents.length == 1) {
+      _bootstrap.controlPort.send(nativeEvents.single);
+    } else if (nativeEvents.isNotEmpty) {
+      // One graph preserves the common payload instead of copying it once
+      // for every recipient on the way to the router.
+      _bootstrap.controlPort.send({
+        'type': _internalMsgForwardEvents,
+        'events': nativeEvents,
+      });
     }
     return routing.publicationId;
   }
