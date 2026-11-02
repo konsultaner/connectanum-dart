@@ -86,6 +86,26 @@ data stayed intact. Full final-runtime strict 48/50 and clean CI remain required
 [Change and focused proof](../research/2026-11-02-router-busy-wake-consumption.md),
 [current frozen verification scope](../research/2026-11-02-router-busy-wake-validation-checkpoint.json).
 
+## Segmented receive copy under investigation (2026-11-02)
+
+The separate decoder probe stops on a real application-alias assertion before
+collecting any decoder census rows. Source tracing confirms native WebSocket
+prefix/body continuations reach `parse_message_segments`, while the FlatBuffers
+parser explicitly calls `RawFrame::into_bytes` and coalesces the complete frame.
+Metadata-bound FFI reads can avoid requesting a contiguous frame. This identifies
+a relevant copy path, without proving the prior RSS failures' cause or repair.
+
+An isolated `codex/flatbuffers-segmented-decode-views` checkout starts at frozen
+`600e82f5`. Fresh bootstrap passes; full pre-change fast regression is active
+under the official exclusive lease before any source edits. A single queued
+test-only pipeline will add a contained-vector alias regression and contiguous
+control only after baseline pass, require exactly one real failure/one pass,
+and stop before production changes. No runtime patch or source adoption exists.
+All existing schema/projection/size/depth/element/metadata validation, necessary
+cross-field copy behavior, owner lifetimes and strict acceptance policies remain
+required. No new decoder measurements or final-runtime acceptance are claimed.
+[Source route, hashes and test-first scope](../research/2026-11-02-flatbuffers-segmented-receive-investigation.json).
+
 ## Fresh native codec allocation diagnosis (2026-11-02)
 
 After clean final CI, one read-only census links the actual public Rust encoder

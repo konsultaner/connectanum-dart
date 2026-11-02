@@ -1,0 +1,25 @@
+{
+  "source": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+  "decoder_census_started": false,
+  "decoder_preflight_failure": "Actual segmented decoded application span does not alias input; selftest exit101 before any740rowobservations. Not SDK/provider setup failure, no accepted zero-copy pass.",
+  "source_facts": {
+    "native_client": "Canonical native PPT uses Dart prefix projection and sendSegments; composeFlatBufferFrame is fallback.",
+    "native_websocket_client": "Segmented writer serializes prefix/body as continuation frames; accumulator retains the pieces.",
+    "native_receive": "handle_websocket_message routes Segmented nonJSON to parse_message_segments.",
+    "FlatBuffers_decoder": "parse_with_fields calls raw.into_bytes before wire::read, which copies multi-segment complete frame. Existing unit explicitly expects Contiguous output.",
+    "FFI": "ct_message_peek uses build_message_info(include_frame=false); metadata-bound router read avoids whole-frame get. A segmented owner can be retained without eagerly requesting contiguous frame."
+  },
+  "source_sha256": {
+    "native/transport/ct_core/src/wamp/flatbuffers_codec.rs": "2dffa54d6302455006e4ba8c370264fb64788ba1b690a718be409e1f9bd6e968",
+    "native/transport/ct_core/src/wamp/flatbuffers_wire.rs": "80e517770fc17034bd938daf32dd0bf8bb587b3a90430b77176c61c5cb46dba1",
+    "native/transport/ct_core/src/wamp.rs": "0317af674358e970bfffd716b2a4e504cc852a01bf43478dffaa84f6cf596c6d",
+    "native/transport/ct_core/src/lib.rs": "0e88607d1bfeacd115097d14e3edc9077404590c1d392ec380c6dc1e55bc4265",
+    "native/transport/ct_ffi/src/runtime/ffi.rs": "69b59a4453b86c34405fe4d3b57fdb5a50eaa68b921e6efcea46fa47ce1d4d9c",
+    "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart": "07b6d986a1a4d1b0e9864e6ca0ff80cb2395bf0245eed43c6a9db11410b843bf",
+    "packages/connectanum_router/lib/src/native/runtime.dart": "473d213d7e69aaba0ed86ca7692f569db3e0395c1ec8adadca9921a8284e1939"
+  },
+  "isolated_branch": "codex/flatbuffers-segmented-decode-views",
+  "prechange_full_fast_baseline": "Fresh bootstrapPASS/fullbin/test-fast active, no sourceedits untilpass.",
+  "test_first": "One queued test-only pipeline must require actualaliasregression1failure and contiguouscontrol1pass; then stop before production edits.",
+  "scope": "Controlled source-level copy-path investigation, not measuredRSS/transport repair or acceptance. Preserve existing generic/schema/projection/limits/lifetime/copy validation, wholebody generation/verification, windows/samples and SDK/GC/allocator policy. Everyfuturefinalruntime needsowncomplete48/50 andcleanCI."
+}
