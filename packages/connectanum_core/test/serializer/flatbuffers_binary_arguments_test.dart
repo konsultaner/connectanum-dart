@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/src/serializer/flatbuffers/serializer.dart'
     as flatbuffers;
@@ -8,6 +9,38 @@ import 'package:connectanum_core/src/serializer/flatbuffers/wire_writer.dart';
 
 void main() {
   final codec = flatbuffers.Serializer();
+  for (final size in [16383, 16384, 65536]) {
+    for (final shape in ['binary', 'topic-binary', 'binary-topic']) {
+      test('owned binary CBOR $shape bytes=$size matches generic encoding', () {
+        final bytes = Uint8List.fromList(List.generate(size, (i) => i % 251));
+        final arguments = [
+          if (shape == 'topic-binary') 'sensors/µ',
+          bytes,
+          if (shape == 'binary-topic') 'application/µ',
+        ];
+        final expected = cbor.cbor.encode(cbor.CborValue(arguments));
+        final encoded = encodeWampFlatBufferCbor(
+          arguments,
+          maximumBytes: expected.length,
+        );
+        expect(encoded, expected);
+        expect(encoded.buffer.lengthInBytes, encoded.length);
+        expect(
+          encodeWampFlatBufferCbor(arguments, stringDictionaryKeys: true),
+          expected,
+        );
+        expect(
+          () => encodeWampFlatBufferCbor(
+            arguments,
+            maximumBytes: expected.length - 1,
+          ),
+          throwsArgumentError,
+        );
+        bytes.fillRange(0, bytes.length, 0);
+        expect(encoded, expected);
+      });
+    }
+  }
   test(
     'ordinary and transport encoding retain the complete-frame byte cap',
     () {

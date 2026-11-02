@@ -24,6 +24,23 @@ class _MinimalRuntime extends NativeRuntime {
   );
 }
 
+class _RecordingRuntime extends _MinimalRuntime {
+  final frames = <(int, Uint8List)>[];
+  @override
+  void sendMessage(int connectionId, Uint8List payload) {
+    frames.add((connectionId, payload));
+  }
+}
+
+class _FragmentRuntime extends _RecordingRuntime
+    implements NativeRuntimeWithMessageFragments {
+  final fragmented = <(int, List<Uint8List>)>[];
+  @override
+  void sendMessageFragments(int connectionId, List<Uint8List> fragments) {
+    fragmented.add((connectionId, fragments));
+  }
+}
+
 void main() {
   final libraryPath = resolveOrBuildNativeLib();
   final usesWide =
@@ -36,6 +53,47 @@ void main() {
 
   group('NativeRuntime optional capabilities', () {
     final runtime = _MinimalRuntime();
+    test(
+      'fragment cap applies before capability dispatch or fallback copy',
+      () {
+        final parts = List.filled(129, Uint8List(512 * 1024));
+        final capable = _FragmentRuntime();
+        final fallback = _RecordingRuntime();
+        for (final target in [capable, fallback]) {
+          expect(
+            () => sendNativeMessageFragments(target, 1, parts),
+            throwsArgumentError,
+          );
+        }
+        expect(capable.fragmented, isEmpty);
+        expect(fallback.frames, isEmpty);
+      },
+    );
+    test(
+      'fragment capability dispatches one ordered frame or joins fallback',
+      () {
+        final parts = [
+          Uint8List.fromList([1, 2]),
+          Uint8List(0),
+          Uint8List.fromList([3]),
+          Uint8List.fromList([4, 5]),
+        ];
+        final segmented = _FragmentRuntime();
+        sendNativeMessageFragments(segmented, 42, parts);
+        expect(segmented.fragmented, hasLength(1));
+        expect(segmented.fragmented.single.$1, 42);
+        expect(segmented.fragmented.single.$2, same(parts));
+        expect(segmented.frames, isEmpty);
+        final fallback = _RecordingRuntime();
+        sendNativeMessageFragments(fallback, 43, parts);
+        expect(fallback.frames, hasLength(1));
+        expect(fallback.frames.single.$1, 43);
+        parts.first.fillRange(0, 2, 0);
+        expect(fallback.frames.single.$2, [1, 2, 3, 4, 5]);
+        sendNativeMessageFragments(fallback, 44, []);
+        expect(fallback.frames.last.$2, isEmpty);
+      },
+    );
     test('absent subprotocol and metrics remain absent', () {
       expect(runtime.connectionWebSocketProtocol(42), isNull);
       expect(runtime.pollRouterMetrics(), isNull);
@@ -246,6 +304,17 @@ void main() {
           NativeTransportErrorCode.connectionNotFound,
           (r) => r.sendMessage(absent, Uint8List.fromList([91, 93])),
         ),
+        'fragmented message send': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.sendMessageFragments(absent, [
+            Uint8List.fromList([91]),
+            Uint8List.fromList([93]),
+          ]),
+        ),
+        'empty fragmented message send': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.sendMessageFragments(absent, [Uint8List(0)]),
+        ),
       };
 
       for (final entry in operations.entries) {
@@ -265,6 +334,53 @@ void main() {
           expect(runtime.pollConnection(listener), 0);
         });
       }
+
+      test('native fragments form one owned RawSocket frame', () async {
+        final socket = await Socket.connect(
+          '127.0.0.1',
+          runtime.getLocalPort(listener),
+        );
+        addTearDown(() async {
+          await _socketQueues.remove(socket)?.cancel(immediate: true);
+          _socketLeftovers.remove(socket);
+          socket.destroy();
+        });
+        await _performHandshake(socket);
+        final connection = await _pollConnectionUntil(runtime, listener);
+        final parts = [
+          Uint8List.fromList(utf8.encode('[2,')),
+          Uint8List(0),
+          Uint8List.fromList(utf8.encode('123,')),
+          Uint8List.fromList(utf8.encode('{}]')),
+        ];
+        sendNativeMessageFragments(runtime, connection, parts);
+        for (final part in parts) {
+          part.fillRange(0, part.length, 0);
+        }
+        expect(await _readFrame(socket), utf8.encode('[2,123,{}]'));
+        runtime.sendMessageFragments(connection, [Uint8List(0)]);
+        expect(await _readFrame(socket), isEmpty);
+        runtime.sendMessage(
+          connection,
+          Uint8List.fromList(utf8.encode('[6,{},"wamp.close.normal"]')),
+        );
+        expect(
+          await _readFrame(socket),
+          utf8.encode('[6,{},"wamp.close.normal"]'),
+        );
+      });
+
+      test(
+        'fragment byte limit rejects aliased expansion before allocation',
+        () {
+          final part = Uint8List(512 * 1024);
+          expect(
+            () => runtime.sendMessageFragments(absent, List.filled(129, part)),
+            throwsArgumentError,
+          );
+          expect(runtime.getLocalPort(listener), greaterThan(0));
+        },
+      );
 
       test(
         'wrong-protocol queries preserve RawSocket frame delivery',

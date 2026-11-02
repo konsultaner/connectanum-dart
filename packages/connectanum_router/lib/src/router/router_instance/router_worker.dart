@@ -259,7 +259,8 @@ void sendWorkerMessagePayload(
   AbstractMessage message,
   Map<String, Object?> envelope,
 ) {
-  if (serializer == NativeMessageSerializer.cbor &&
+  if ((serializer == NativeMessageSerializer.cbor ||
+          serializer == NativeMessageSerializer.flatbuffers) &&
       message is event_msg.Event &&
       message.details.pptScheme == null &&
       !message.hasLazyArguments &&
@@ -271,6 +272,24 @@ void sendWorkerMessagePayload(
     if (arguments?.length == 1 &&
         arguments!.single is Uint8List &&
         (arguments.single as Uint8List).length >= 16 * 1024) {
+      if (serializer == NativeMessageSerializer.flatbuffers) {
+        final fragments = _flatBuffersSerializer.serializeTransportFragments(
+          message,
+        );
+        // SendPort snapshots mutable fragments synchronously. Bound unrelated
+        // backing storage before copying it through the isolate boundary.
+        target.send({
+          ...envelope,
+          'fragments': [
+            for (final part in fragments)
+              if (part.buffer.lengthInBytes > part.length + 4096)
+                Uint8List.fromList(part)
+              else
+                part,
+          ],
+        });
+        return;
+      }
       final fragments = _cborSerializer.serializeEventFragments(message)!;
       final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
       final output = _workerFrameBuffer(length);

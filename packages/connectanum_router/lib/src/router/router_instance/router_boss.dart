@@ -1903,11 +1903,19 @@ class _RouterBoss {
         ..addAll(message.cast<String, Object?>());
     } else if (type == 'worker_send') {
       final connectionId = message['connectionId'] as int;
-      final Uint8List payloadBytes = message['payload'] as Uint8List;
+      final fragments = message['fragments'] as List?;
       final acceptedReply = message['acceptedReply'] as SendPort?;
       var accepted = false;
       try {
-        runtime.sendMessage(connectionId, payloadBytes);
+        if (fragments == null) {
+          runtime.sendMessage(connectionId, message['payload'] as Uint8List);
+        } else {
+          sendNativeMessageFragments(
+            runtime,
+            connectionId,
+            fragments.cast<Uint8List>(),
+          );
+        }
         accepted = true;
         _lastActivityByConnection[connectionId] = DateTime.now();
         payload

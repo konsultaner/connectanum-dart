@@ -14,6 +14,25 @@ Uint8List encodeWampFlatBufferCbor(
     maximumBytes: maximumBytes,
     stringDictionaryKeys: stringDictionaryKeys,
   );
+  final binary = switch (normalized) {
+    [Uint8List bytes] => bytes,
+    [String _, Uint8List bytes] => bytes,
+    [Uint8List bytes, String _] => bytes,
+    _ => null,
+  };
+  if (!stringDictionaryKeys && binary != null && binary.length >= 16384) {
+    // Keep the public owned-byte contract without growing an intermediate
+    // Uint8Buffer and then copying its entire binary value a second time.
+    final parts = encodeWampFlatBufferBinaryCborFragments(
+      normalized,
+      maximumBytes: maximumBytes,
+    )!;
+    final output = BytesBuilder(copy: false);
+    for (final part in parts) {
+      output.add(part);
+    }
+    return output.takeBytes();
+  }
   final bytes = cbor.encode(CborValue(normalized));
   if (bytes.length > maximumBytes) {
     throw ArgumentError(

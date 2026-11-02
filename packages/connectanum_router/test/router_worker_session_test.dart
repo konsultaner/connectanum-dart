@@ -86,7 +86,119 @@ Future<List<Map>> _captureScratchFrames(
   }
 }
 
+Uint8List _workerFrame(Map frame) {
+  if (frame['payload'] case final Uint8List payload) return payload;
+  final output = BytesBuilder(copy: false);
+  for (final part in frame['fragments'] as List) {
+    output.add(part as Uint8List);
+  }
+  return output.takeBytes();
+}
+
 void main() {
+  test(
+    'FlatBuffers fragments snapshot real isolate input before reuse',
+    () async {
+      final reply = ReceivePort();
+      try {
+        final pending = reply.take(3).toList();
+        await Isolate.spawn(_sendScratchEvents, [
+          reply.sendPort,
+          NativeMessageSerializer.flatbuffers.index,
+        ]);
+        final frames = await pending.timeout(const Duration(seconds: 10));
+        for (var index = 0; index < frames.length; index++) {
+          final frame = frames[index] as Map;
+          expect(frame.containsKey('payload'), isFalse);
+          expect((frame['fragments'] as List).length, greaterThanOrEqualTo(3));
+          final decoded =
+              flatbuffers_serializer.Serializer().deserialize(
+                    _workerFrame(frame),
+                  )
+                  as event_msg.Event;
+          expect(
+            decoded.arguments!.single,
+            List.generate(65536, (i) => (i + index + 3) % 251),
+          );
+          expect(decoded.details.custom['mqtt_topic'], 'sensors/µ');
+        }
+      } finally {
+        reply.close();
+      }
+    },
+  );
+  test(
+    'FlatBuffers fragment snapshots bound unrelated backing storage',
+    () async {
+      final storage = Uint8List(2 * 1024 * 1024);
+      final bytes = Uint8List.sublistView(storage, 100, 100 + 65536);
+      bytes.fillRange(0, bytes.length, 0x71);
+      final frames = await _captureScratchFrames(
+        NativeMessageSerializer.flatbuffers,
+        [
+          event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [bytes]),
+        ],
+      );
+      final fragments = (frames.single['fragments'] as List).cast<Uint8List>();
+      expect(
+        fragments.every((p) => p.buffer.lengthInBytes <= p.length + 4096),
+        isTrue,
+      );
+      storage.fillRange(0, storage.length, 0);
+      final decoded =
+          flatbuffers_serializer.Serializer().deserialize(
+                _workerFrame(frames.single),
+              )
+              as event_msg.Event;
+      expect(decoded.arguments!.single, List.filled(65536, 0x71));
+    },
+  );
+  test(
+    'FlatBuffers fragment optimization preserves owned fallback cases',
+    () async {
+      final bytes = Uint8List(65536);
+      final lazy = event_msg.Event(1, 2, event_msg.EventDetails())
+        ..setLazyPayload(
+          argumentsBytes: Uint8List.fromList([0x81, 0x40]),
+          argumentsDecoder: (_) =>
+              throw StateError('unexpected materialization'),
+          encoding: LazyPayloadEncoding.cbor,
+        );
+      final messages = <AbstractMessage>[
+        lazy,
+        event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(),
+          arguments: [Uint8List(16383)],
+        ),
+        event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(),
+          arguments: [bytes],
+          argumentsKeywords: {'key': 1},
+        ),
+        event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(pptScheme: 'mqtt', pptSerializer: 'cbor'),
+        )..transparentBinaryPayload = bytes,
+        result_msg.Result(1, result_msg.ResultDetails(), arguments: [bytes]),
+      ];
+      final frames = await _captureScratchFrames(
+        NativeMessageSerializer.flatbuffers,
+        messages,
+      );
+      for (var i = 0; i < messages.length; i++) {
+        expect(frames[i].containsKey('fragments'), isFalse);
+        expect(
+          frames[i]['payload'],
+          encodeMessage(NativeMessageSerializer.flatbuffers, messages[i]),
+        );
+      }
+    },
+  );
   for (final serializer in [
     NativeMessageSerializer.cbor,
   ]) {
@@ -279,7 +391,7 @@ void main() {
       final pending = _captureScratchFrames(serializer, [message]);
       bytes.fillRange(0, bytes.length, 0);
       final frames = await pending;
-      expect(frames.single['payload'], expected);
+      expect(_workerFrame(frames.single), expected);
       expect(workerFrameScratchMetricsForTest, before);
     }
   });
