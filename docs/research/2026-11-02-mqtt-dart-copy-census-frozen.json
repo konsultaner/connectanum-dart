@@ -34,10 +34,14 @@
   "published": true,
   "capture_ready": false,
   "scope": "Tools-only child, runtime/native/Dart source unchanged fromAD48. Own frozen verification, no benchmark/strictacceptance claim.",
-  "canonical_status": "ACTIVE, no pass yet",
-  "canonical_independent_audit_status": "read-only watcher active",
+  "canonical_status": "COMPLETEPASS, independently audited",
+  "canonical_independent_audit_status": "COMPLETEPASS, wrapper and auditor reaped",
   "count_capture_dispatched": false,
   "workflow": ".github/workflows/mqtt-profile.yml",
   "dispatch_input": "dart_copy_census_declaration",
-  "all_runtime_Dart_Rust_bin_sources_equal_AD48": true
+  "all_runtime_Dart_Rust_bin_sources_equal_AD48": true,
+  "canonical_log_sha256": "b6da6c7a3037105a1f541fd0c0c5ec14a9b39b2bf33958a554db9730facab178",
+  "canonical_receipt_sha256": "40399698f162a0e24c2e52c07e7b4083590bcb6aef7d2c89ec9e2fa34850b64d",
+  "actual_local_Chrome_Wasm_observations": 8308,
+  "actual_local_JavaScript_observations": 0
 }

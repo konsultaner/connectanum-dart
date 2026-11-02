@@ -1,0 +1,40 @@
+{
+  "source_archive_sha256": "88d18f60e4258b1562319d741a559f5468c94c45f44d8eb2abe64962a11720cf",
+  "source": "8341d3fd737a55d877b3db1d8f3c6bceb5e937d6",
+  "full_canonical_pass": true,
+  "actual_source_HEAD_tree_clean": true,
+  "actual_tracked_tree_sha256": "1c16d59f2705796644d136c5b8f945af64bf293946dcf6d46113217bd1d1d151",
+  "own_native_sha256": "1ed515b737ab5d000adf7c8e01c974e6f7a54f0e88e8308999c0126df4001cb7",
+  "all_guarded_sources_and_three_locks_unchanged": true,
+  "guarded_sources": {
+    ".github/workflows/mqtt-profile.yml": "b19cd923b07fe34d5b3297670cbc4c7cc350ca4ec5596779f88fc4366cbbec28",
+    "docs/research/2026-11-02-mqtt-dart-copy-census.md": "cb78f1815b0e41b98ae1482809dc25ffcedc07766b0312359e7cc716c43450f8",
+    "tool/check_mqtt_dart_copy_native.py": "289264b784c4e41f03c47eb3be191c24c6c54a03a8240fb5a3d36c5373488bc9",
+    "tool/check_mqtt_dart_copy_probe.py": "308cd8b92a99da9ddf5d08936d8985bdc8a4caf4c8ddf9e696d96d855b7e2bcc",
+    "tool/fetch_mqtt_dart_copy_inputs.py": "b4051d4bf0d63bbce9dc8ada0e765042a98a804245fc92d334d9c8e17ccde3c9",
+    "tool/mqtt_copy_census_client.py": "fcc19f94f23b86e70da52c45b14806ef0df7293aa769a4d9977d6473e2a7e54a",
+    "tool/mqtt_copy_census_support.py": "f5b54676b7f46e64065e515641bb11f502fc143013dfe71850010e0a87b6d031",
+    "tool/mqtt_dart_copy_probe.py": "0098d7ffb5e061eac5d8129e84f83f5f4fd2e7b6c3f1861a6013b84614dec35a",
+    "tool/mqtt_ffi_census.c": "96c2ccb6a967aa4a06b4eee0d5db2431cc2db3529bd5bf8ab54f5679a416071b",
+    "tool/run_mqtt_dart_copy_census.py": "fd0fa426736eae98a459ebe6ff8853e5a392c5d03520a3659658acb0f2566940",
+    "tool/test_mqtt_dart_copy_census.py": "6cf84915dfb8a5e41c5c408204ca36ae06511b521c9fc28c8302796c07c043f6",
+    "tool/test_mqtt_dart_copy_probe.py": "64e734606e27a98c9bb36b16008bd6a6cf7ad7df385c56d5db79e76db9d1c2e4",
+    "packages/connectanum_core/lib/src/mqtt/frame_codec.dart": "f37aeecbcdd290ff036060544a760d440e98c25540a4bb48437d3a8c1252e53d",
+    "packages/connectanum_router/lib/src/native/runtime.dart": "473d213d7e69aaba0ed86ca7692f569db3e0395c1ec8adadca9921a8284e1939",
+    "packages/connectanum_router/benchmark/mqtt_native_router_server.dart": "ed3273aeac8bfc35372a83dd2bde66ec21b13f953f2e18c5774bcf20d5c5f62c",
+    "packages/connectanum_router/benchmark/mqtt_qos0.dart": "7ceffe037cd9227a52500a6c287c0087561d9a4da99ca08092ec5df855170c15",
+    "native/transport/ct_core/src/wamp/flatbuffers_wire.rs": "bdac798e69dba52d55565b71e93bef70211c0dbeb009e4e4b148c5141b6dfc14",
+    "native/transport/ct_ffi/src/runtime/ffi.rs": "69b59a4453b86c34405fe4d3b57fdb5a50eaa68b921e6efcea46fa47ce1d4d9c"
+  },
+  "three_locks": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "log_sha256": "b6da6c7a3037105a1f541fd0c0c5ec14a9b39b2bf33958a554db9730facab178",
+  "receipt_sha256": "40399698f162a0e24c2e52c07e7b4083590bcb6aef7d2c89ec9e2fa34850b64d",
+  "actual_local_Chrome_Wasm_observations": 8308,
+  "actual_local_JavaScript_observations": 0,
+  "scope": "Own frozen tools-only8341 full bin/verify; AD48 runtime sources unchanged; exact clean source/HEAD/tree/ownnative/three locks independently rehashed. Actual local ChromeWasm only; hostedJS separate. No transport/RAM or strict48/50 acceptance claim.",
+  "audited_utc": "2026-11-02T09:32:25.777530+00:00"
+}

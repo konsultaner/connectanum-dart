@@ -152,18 +152,24 @@ original3020 client is a retained witness, not measured by the new diagnostic.
 
 The isolated `codex/mqtt-dart-copy-census` checkout completed fresh bootstrap
 and full pre-change `bin/test-fast` before tool edits. Its own native `1ed515b7…`,
-runtime source/HEAD and all three locks remain unchanged. Four provisional
-Python tools construct and verify an exact-source instrumented shadow, while
-leaving the checked-out runtime frozen. All11portable guards,12original and
+runtime sources and all three locks remain unchanged; toolHEAD is frozen at8341.
+Published Python tools construct and verify exact-source broker/client shadows,
+leaving the checked-out runtime frozen. All12driver/mode/forwarding and11generator
+guards pass, along with12original and
 12instrumented realDart decoder controls and own-native no-data/TCP3.1.1/WS5
 full-body/cleanup/atomic-output controls pass. Bounded reviews are complete and
 root-qualified against the actual source and controls; no confirmed defect.
 Development control failures are retained. The tooling is now frozen/published at `8341d3fd737a55d877b3db1d8f3c6bceb5e937d6`.
 Bounded companion/root review completes with no confirmed defect. Its OWN full
-canonical is ACTIVE, not a pass yet, with clean tree`1c16d59f…`, own native`1ed515b7…`,
-18source guards/three locks held constant and actual localChrome/Wasm enabled.
-A read-only independent auditor waits. Source/HEAD/native remain frozen; no
-competing local models/tests or duplicate verification. The new client differs
+canonical is now **COMPLETEPASS and independently audited**: clean HEAD/tree
+`1c16d59f…`, actual own native`1ed515b7…`,18source guards/three locks and exact
+own archive`88d18f60…` all independently rehash unchanged. Log SHA is
+`b6da6c7a3037105a1f541fd0c0c5ec14a9b39b2bf33958a554db9730facab178`.
+Actual localChrome/Wasm has8,308observations and no localJS; hostedJS is separate.
+The verification and read-only auditor are complete/reaped. Source/HEAD/native
+remain frozen; unchanged verification must not rerun.
+[Own canonical audit](research/2026-11-02-mqtt-dart-copy-census-canonical-audit.json).
+The new client differs
 from the original3020 witness only as described in the freshness qualification.
 Capture readiness remains false; no25-row data or production patch.
 [Frozen tooling declaration](research/2026-11-02-mqtt-dart-copy-census-frozen.json),
