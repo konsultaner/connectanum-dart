@@ -15,8 +15,10 @@ pub(super) fn parse_with_fields(raw: RawFrame) -> Result<(ParsedMessage, Arc<Fie
     if raw.len() > wire::MAX_BYTES {
         return Err(wire::invalid("byte limit"));
     }
-    let bytes = raw.into_bytes();
-    let fields = wire::read(bytes.clone())?;
+    let fields = match &raw {
+        RawFrame::Contiguous(bytes) => wire::read(bytes.clone())?,
+        RawFrame::Segmented { .. } => wire::read_frame(&raw)?,
+    };
     let tag = integer(&fields, "msg_type")? as usize;
     let reference = *schema::TABLES[schema::ROOT].fields[1]
         .values
@@ -226,7 +228,7 @@ pub(super) fn parse_with_fields(raw: RawFrame) -> Result<(ParsedMessage, Arc<Fie
     Ok((
         ParsedMessage {
             message,
-            raw: RawFrame::Contiguous(bytes),
+            raw,
             serializer: Serializer::Flatbuffers,
             encoded_metadata,
         },
@@ -370,6 +372,15 @@ mod tests {
     #[test]
     fn segmented_frames_preserve_encoded_payload_values() {
         let bytes = call(0, &[0xa0], Some(&[0x81, 0x01]), None);
+        let original = generated::root_as_message(&bytes)
+            .unwrap()
+            .msg_as_call()
+            .unwrap()
+            .args()
+            .unwrap()
+            .bytes()
+            .as_ptr();
+        let start = original as usize - bytes.as_ptr() as usize;
         for split in 0..=bytes.len() {
             let parsed = parse(RawFrame::from_segments(vec![
                 bytes.slice(..split),
@@ -379,9 +390,68 @@ mod tests {
             let WampMessage::Call { payload, .. } = parsed.message else {
                 panic!("CALL expected");
             };
-            assert_eq!(payload.args.unwrap().as_ref(), &[0x81, 0x01]);
-            assert!(parsed.raw.as_contiguous().is_some());
+            let args = payload.args.unwrap();
+            assert_eq!(args.as_ref(), &[0x81, 0x01]);
+            if split <= start || split >= start + args.len() {
+                assert_eq!(args.as_ptr(), original);
+            }
+            assert!(parsed.raw.as_contiguous().is_none());
         }
+    }
+
+    #[test]
+    fn empty_fragments_and_crossing_headers_preserve_complete_validation() {
+        let bytes = call(
+            17,
+            &[0xa1, 0x67, b't', b'i', b'm', b'e', b'o', b'u', b't', 17],
+            Some(&[0x81, 1]),
+            None,
+        );
+        let expected = parse(RawFrame::Contiguous(bytes.clone())).unwrap().message;
+        let mut segments = Vec::new();
+        for index in 0..bytes.len() {
+            segments.extend(std::iter::repeat_n(Bytes::new(), 70));
+            segments.push(bytes.slice(index..index + 1));
+        }
+        segments.extend(std::iter::repeat_n(Bytes::new(), 70));
+        let parsed = parse(RawFrame::from_segments(segments)).unwrap();
+        assert_eq!(parsed.message, expected);
+        assert!(parsed.raw.as_contiguous().is_none());
+    }
+
+    #[test]
+    fn a_crossing_application_vector_copies_only_its_own_range() {
+        let bytes = call(0, &[0xa0], Some(&[0x81, 1]), None);
+        let original = generated::root_as_message(&bytes)
+            .unwrap()
+            .msg_as_call()
+            .unwrap()
+            .args()
+            .unwrap()
+            .bytes()
+            .as_ptr();
+        let split = original as usize - bytes.as_ptr() as usize + 1;
+        // Independent allocations make a contiguous view impossible here.
+        let segments = vec![
+            Bytes::from(bytes[..split].to_vec()),
+            Bytes::from(bytes[split..].to_vec()),
+        ];
+        let before = super::super::raw_frame_copy_metrics::observed_on_current_thread();
+        let parsed = parse(RawFrame::from_segments(segments)).unwrap();
+        let after = super::super::raw_frame_copy_metrics::observed_on_current_thread();
+        let WampMessage::Call { payload, .. } = parsed.message else {
+            panic!("CALL expected");
+        };
+        assert_eq!(payload.args.unwrap().as_ref(), &[0x81, 1]);
+        assert!(parsed.raw.as_contiguous().is_none());
+        assert_eq!(
+            after.coalescing_copy_bytes_total - before.coalescing_copy_bytes_total,
+            0
+        );
+        assert_eq!(
+            after.range_copy_bytes_total - before.range_copy_bytes_total,
+            2
+        );
     }
 
     #[test]
@@ -411,6 +481,24 @@ mod tests {
             "../../../../../schemas/wamp_flatbuffers/fixtures.json"
         ))
         .unwrap();
+        fn assert_segmented_validation_matches(bytes: Bytes) {
+            let contiguous = parse(RawFrame::Contiguous(bytes.clone()))
+                .map(|parsed| parsed.message)
+                .map_err(|error| error.to_string());
+            // Both layouts cross headers and payload ranges. Empty fragments
+            // also exercise repeated logical offsets in the sparse index.
+            for width in [1, 7] {
+                let mut segments = vec![Bytes::new(); 65];
+                for chunk in bytes.chunks(width) {
+                    segments.push(Bytes::copy_from_slice(chunk));
+                    segments.push(Bytes::new());
+                }
+                let segmented = parse(RawFrame::from_segments(segments))
+                    .map(|parsed| parsed.message)
+                    .map_err(|error| error.to_string());
+                assert_eq!(segmented, contiguous, "fragment width {width}");
+            }
+        }
         for case in cases {
             let name = case["name"].as_str().unwrap();
             let bytes = Bytes::from(
@@ -422,21 +510,26 @@ mod tests {
                 .unwrap(),
             );
             assert!(wire::read(bytes.clone()).is_ok(), "{name}");
+            assert_segmented_validation_matches(bytes.clone());
             for length in 0..bytes.len() {
                 assert!(
                     std::panic::catch_unwind(|| parse(RawFrame::Contiguous(bytes.slice(..length))))
                         .is_ok(),
                     "{name} prefix {length}"
                 );
+                assert_segmented_validation_matches(bytes.slice(..length));
             }
             for index in 0..bytes.len() {
                 let mut changed = bytes.to_vec();
                 changed[index] ^= 0xff;
                 assert!(
-                    std::panic::catch_unwind(|| parse(RawFrame::Contiguous(Bytes::from(changed))))
-                        .is_ok(),
+                    std::panic::catch_unwind(|| {
+                        parse(RawFrame::Contiguous(Bytes::copy_from_slice(&changed)))
+                    })
+                    .is_ok(),
                     "{name} mutation {index}"
                 );
+                assert_segmented_validation_matches(Bytes::from(changed));
             }
         }
     }

@@ -143,3 +143,78 @@ fn flatbuffers_opaque_export_survives_narrow_and_wide_handle_release() {
         }
     }
 }
+
+#[cfg(feature = "ffi-test")]
+#[test]
+fn segmented_flatbuffers_metadata_export_retains_the_received_application_segment() {
+    let _guard = crate::tests::test_guard();
+    let seed = 88_000_001_u64;
+    let expected: Vec<u8> = (0..1024 * 1024)
+        .map(|index| {
+            ((index as u64).wrapping_mul(131) ^ seed.rotate_left((index % 61) as u32)) as u8
+        })
+        .collect();
+    let body = Bytes::from(expected.clone());
+    let original = body.as_ptr();
+    let mut message = parse_message(
+        RawSocketSerializer::Cbor,
+        Bytes::from(
+            serde_cbor::to_vec(&json!([
+                48, seed,
+                {"ppt_scheme": "x_connectanum_bench_typed", "ppt_serializer": "flatbuffers"},
+                "bench.rpc.echo"
+            ]))
+            .unwrap(),
+        ),
+    )
+    .unwrap()
+    .message;
+    let WampMessage::Call { payload, .. } = &mut message else {
+        panic!("CALL")
+    };
+    payload.transparent = Some(body);
+    let segments = ct_core::encode_flatbuffers_message_segments(&message).unwrap();
+    assert!(segments.len() > 1);
+    let parsed =
+        ct_core::parse_message_segments(RawSocketSerializer::Flatbuffers, segments).unwrap();
+    assert!(parsed.raw.as_contiguous().is_none());
+    assert_eq!(
+        extract_transparent_payload(&parsed.message)
+            .unwrap()
+            .as_ptr(),
+        original
+    );
+    drop(message);
+    let handle = store_parsed_message_wide(parsed);
+    let observer = ct_test_message_observer_new_wide(handle);
+    assert!(!observer.is_null());
+    let mut info = CtMessageInfo::default();
+    assert_eq!(ct_message_peek_wide(handle, &mut info), SUCCESS);
+    assert!(info.frame_ptr.is_null());
+    assert_ne!(info.flags & CT_MESSAGE_FLAG_METADATA_BIND, 0);
+    assert_eq!(info.binary_arg_ptr, original);
+    assert_eq!(info.binary_arg_len, expected.len());
+    super::super::message_handles::with_message(handle as u64, |stored| {
+        assert!(stored.raw.is_segmented());
+        assert!(!stored.raw.has_contiguous_cache());
+    })
+    .unwrap();
+    let mut view = CtMessageByteView {
+        ptr: ptr::null(),
+        len: 0,
+        owner: ptr::null_mut(),
+    };
+    assert_eq!(ct_message_buffer_export_wide(handle, 5, &mut view), SUCCESS);
+    assert_eq!(view.ptr, original);
+    assert_eq!(view.len, expected.len());
+    assert!(!view.owner.is_null());
+    ct_message_release_wide(handle);
+    assert_eq!(ct_test_message_observer_alive(observer), 1);
+    assert_eq!(
+        unsafe { slice::from_raw_parts(view.ptr, view.len) },
+        expected
+    );
+    ct_message_buffer_free(view.owner);
+    assert_eq!(ct_test_message_observer_alive(observer), 0);
+    ct_test_message_observer_free(observer);
+}

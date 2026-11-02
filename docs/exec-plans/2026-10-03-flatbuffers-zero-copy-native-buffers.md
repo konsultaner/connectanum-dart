@@ -2,12 +2,29 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: verify the isolated busy-pass wake correction after real before-
-failing deterministic regression, full fast baseline and 615 router-runtime /
-115 MQTT focused cases pass. Own canonical, CI/copy and controlled Dart-source
-transport comparison are next. Preserve all original numerical observations;
-complete final-runtime strict 48/50 and clean CI remain required for adoption.
-Do not mutate source/HEAD/native during active canonical verification.
+Current step: freeze and verify the reviewed segmented FlatBuffers receive
+view correction after actual before-failing alias reproduction and focused
+core/FFI/native WebSocket/router/MQTT/Paho checks pass. The published parent
+`600e82f5` already passes its own canonical/copy/all39CI; its source control is
+mixed and near unity. Candidate own canonical/copy/CI, controlled measurements
+and complete strict final-runtime48/50 remain required before adoption.
+Preserve original numerical observations and all validation/lifetime/body/gate
+policies. Do not mutate source/HEAD/native during active canonical verification.
+
+## Segmented receive views: focused verification complete (2026-11-02)
+
+An isolated child of `600e82f5` preserves segmented input through the complete
+FlatBuffers validator. Fresh full fast baseline passes before edits; a real
+contained-vector alias regression fails before correction and passes afterward,
+removing its 10,416-byte complete-frame copy. Necessary crossing-field copies
+remain. All 474 core Rust, 319 FFI, 615 router-runtime, 22 native WebSocket and
+115 MQTT cases (seven actual Paho), plus alias/codec integrations, pass with
+own rebuilt native `3170141d…`. The fresh 1 MiB FFI view retains its original
+pointer after routing release and cleans up after view release. Root review
+finds no confirmed remaining source defect. Own frozen canonical, copy/lifetime,
+CI, controlled measurements and final strict 48/50 are pending. No adoption or
+RSS/transport acceptance is claimed. Parent and historical results stay intact.
+[Change, retained failures and verification](../research/2026-11-02-flatbuffers-segmented-receive-correctness.md).
 
 ## Busy-pass wake correction under verification (2026-11-02)
 

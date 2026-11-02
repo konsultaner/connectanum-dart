@@ -1,7 +1,7 @@
 //! Checked access to the pinned schema. Byte vectors retain their Bytes owner.
-use super::{flatbuffers_schema as schema, ParseError};
+use super::{flatbuffers_schema as schema, ParseError, RawFrame};
 use bytes::Bytes;
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 pub(super) const MAX_BYTES: usize = 64 * 1024 * 1024;
 const MAX_INTEGER: u64 = 9_007_199_254_740_992;
@@ -105,16 +105,11 @@ pub(super) fn invalid(reason: &'static str) -> ParseError {
 }
 
 pub(super) fn read(bytes: Bytes) -> Result<Arc<Fields>, ParseError> {
-    if bytes.len() > MAX_BYTES {
-        return Err(invalid("byte limit"));
-    }
-    let mut reader = Reader {
-        bytes,
-        tables: TableCache::default(),
-        strings: StringCache::default(),
-        string_bytes: 0,
-        elements: 0,
-    };
+    read_frame(&RawFrame::Contiguous(bytes))
+}
+
+pub(super) fn read_frame(bytes: &RawFrame) -> Result<Arc<Fields>, ParseError> {
+    let mut reader = Reader::new(bytes)?;
     let root = reader.target(0)?;
     Ok(reader.table(root, schema::ROOT, 1)?.1)
 }
@@ -196,28 +191,128 @@ impl StringCache {
     }
 }
 
-struct Reader {
-    bytes: Bytes,
+// A sparse index bounds lookup work without an allocation per empty fragment.
+const SEGMENT_INDEX_STRIDE: usize = 64;
+
+struct Reader<'a> {
+    bytes: &'a RawFrame,
+    segment_starts: Vec<usize>,
     tables: TableCache,
     strings: StringCache,
     string_bytes: usize,
     elements: usize,
 }
-impl Reader {
-    fn range(&self, offset: usize, length: usize, alignment: usize) -> Result<&[u8], ParseError> {
+impl<'a> Reader<'a> {
+    fn new(bytes: &'a RawFrame) -> Result<Self, ParseError> {
+        if bytes.len() > MAX_BYTES {
+            return Err(invalid("byte limit"));
+        }
+        let mut segment_starts = Vec::new();
+        if let RawFrame::Segmented { segments, len } = bytes {
+            let mut actual = 0usize;
+            for segment in segments {
+                actual = actual
+                    .checked_add(segment.len())
+                    .ok_or_else(|| invalid("range"))?;
+            }
+            if actual != *len {
+                return Err(invalid("range"));
+            }
+            segment_starts.reserve(segments.len().div_ceil(SEGMENT_INDEX_STRIDE));
+            let mut start = 0;
+            for (index, segment) in segments.iter().enumerate() {
+                if index % SEGMENT_INDEX_STRIDE == 0 {
+                    segment_starts.push(start);
+                }
+                start += segment.len();
+            }
+        }
+        Ok(Self {
+            bytes,
+            segment_starts,
+            tables: TableCache::default(),
+            strings: StringCache::default(),
+            string_bytes: 0,
+            elements: 0,
+        })
+    }
+
+    fn checked_range(
+        &self,
+        offset: usize,
+        length: usize,
+        alignment: usize,
+    ) -> Result<usize, ParseError> {
         let end = offset.checked_add(length).ok_or_else(|| invalid("range"))?;
         if offset % alignment != 0 {
             return Err(invalid("alignment"));
         }
-        self.bytes.get(offset..end).ok_or_else(|| invalid("range"))
+        if end > self.bytes.len() {
+            return Err(invalid("range"));
+        }
+        Ok(end)
+    }
+
+    fn segment_at(&self, offset: usize) -> (usize, usize) {
+        let RawFrame::Segmented { segments, .. } = self.bytes else {
+            unreachable!("segment lookup requires segmented storage");
+        };
+        let block = self
+            .segment_starts
+            .partition_point(|start| *start <= offset)
+            - 1;
+        let first = block * SEGMENT_INDEX_STRIDE;
+        let mut start = self.segment_starts[block];
+        for (index, segment) in segments.iter().enumerate().skip(first) {
+            let end = start + segment.len();
+            if offset < end {
+                return (index, start);
+            }
+            start = end;
+        }
+        unreachable!("checked nonempty range must have a containing segment");
+    }
+
+    fn range(
+        &self,
+        offset: usize,
+        length: usize,
+        alignment: usize,
+    ) -> Result<Cow<'_, [u8]>, ParseError> {
+        let end = self.checked_range(offset, length, alignment)?;
+        if let RawFrame::Contiguous(bytes) = self.bytes {
+            return Ok(Cow::Borrowed(&bytes[offset..end]));
+        }
+        if length == 0 {
+            return Ok(Cow::Borrowed(&[]));
+        }
+        let RawFrame::Segmented { segments, .. } = self.bytes else {
+            unreachable!();
+        };
+        let (index, start) = self.segment_at(offset);
+        if end <= start + segments[index].len() {
+            return Ok(Cow::Borrowed(&segments[index][offset - start..end - start]));
+        }
+        // Only the requested crossing scalar/string is gathered. Byte-vector
+        // bodies use slice_or_copy below, without passing through this gather.
+        let mut copied = Vec::with_capacity(length);
+        let mut position = offset;
+        while position < end {
+            let (index, start) = self.segment_at(position);
+            let take_end = end.min(start + segments[index].len());
+            copied.extend_from_slice(&segments[index][position - start..take_end - start]);
+            super::raw_frame_copy_metrics::record_range_copy(take_end - position);
+            position = take_end;
+        }
+        Ok(Cow::Owned(copied))
     }
     fn uint(&self, offset: usize, width: usize) -> Result<u64, ParseError> {
         let data = self.range(offset, width, width)?;
         Ok(match width {
             1 => data[0] as u64,
-            2 => u16::from_le_bytes(data.try_into().unwrap()) as u64,
-            4 => u32::from_le_bytes(data.try_into().unwrap()) as u64,
-            8 => u64::from_le_bytes(data.try_into().unwrap()),
+            2 => u16::from_le_bytes(data.as_ref().try_into().unwrap()) as u64,
+            4 => u32::from_le_bytes(data.as_ref().try_into().unwrap()) as u64,
+            8 => u64::from_le_bytes(data.as_ref().try_into().unwrap()),
             _ => return Err(invalid("scalar width")),
         })
     }
@@ -229,7 +324,7 @@ impl Reader {
         let target = offset
             .checked_add(relative)
             .ok_or_else(|| invalid("offset"))?;
-        self.range(target, 4, 4)?;
+        self.checked_range(target, 4, 4)?;
         Ok(target)
     }
     fn scalar(&self, position: usize, field: &FieldSpec) -> Result<u64, ParseError> {
@@ -264,15 +359,16 @@ impl Reader {
             return Err(invalid("table limit"));
         }
         self.tables.insert((offset, reference), (0, None));
-        let signed = i32::from_le_bytes(self.range(offset, 4, 4)?.try_into().unwrap()) as i64;
+        let signed =
+            i32::from_le_bytes(self.range(offset, 4, 4)?.as_ref().try_into().unwrap()) as i64;
         let vtable = usize::try_from(offset as i64 - signed).map_err(|_| invalid("vtable"))?;
         let vtable_size = self.uint(vtable, 2)? as usize;
         let object_size = self.uint(vtable + 2, 2)? as usize;
         if vtable_size < 4 || vtable_size % 2 != 0 || object_size < 4 {
             return Err(invalid("table header"));
         }
-        self.range(vtable, vtable_size, 2)?;
-        self.range(offset, object_size, 4)?;
+        self.checked_range(vtable, vtable_size, 2)?;
+        self.checked_range(offset, object_size, 4)?;
         let spec = schema::TABLES
             .get(reference)
             .ok_or_else(|| invalid("table type"))?;
@@ -388,6 +484,7 @@ impl Reader {
         }
         let text = std::str::from_utf8(&bytes[..length]).map_err(|_| invalid("UTF-8"))?;
         let text: Arc<str> = super::codec_copy_metrics::copy_text_arc(text);
+        drop(bytes);
         self.strings.insert(offset, text.clone());
         Ok(Value::Text(text))
     }
@@ -407,9 +504,12 @@ impl Reader {
         let bytes = length
             .checked_mul(width)
             .ok_or_else(|| invalid("vector length"))?;
-        self.range(start, bytes, width)?;
+        self.checked_range(start, bytes, width)?;
         if field.kind == Kind::ScalarVector && width == 1 && field.values.is_empty() {
-            return Ok((0, Value::Bytes(self.bytes.slice(start..start + bytes))));
+            return Ok((
+                0,
+                Value::Bytes(self.bytes.slice_or_copy(&(start..start + bytes))?),
+            ));
         }
         self.elements = self
             .elements
@@ -555,13 +655,8 @@ mod copy_tests {
         let mut bytes = (text.len() as u32).to_le_bytes().to_vec();
         bytes.extend_from_slice(text.as_bytes());
         bytes.push(0);
-        let mut reader = Reader {
-            bytes: Bytes::from(bytes),
-            tables: TableCache::default(),
-            strings: StringCache::default(),
-            string_bytes: 0,
-            elements: 0,
-        };
+        let bytes = RawFrame::Contiguous(Bytes::from(bytes));
+        let mut reader = Reader::new(&bytes).unwrap();
         let Value::Text(first) = reader.string(0).unwrap() else {
             panic!("text");
         };
@@ -575,6 +670,28 @@ mod copy_tests {
             .unwrap_err()
             .to_string()
             .contains("string budget"));
+    }
+
+    #[test]
+    fn empty_segment_indexes_are_rejected_before_nonempty_lookup() {
+        for count in [0, 1, 64, 130] {
+            let frame = RawFrame::from_segments(vec![Bytes::new(); count]);
+            let reader = Reader::new(&frame).unwrap();
+            assert!(reader.range(0, 0, 1).unwrap().is_empty());
+            assert!(reader.range(0, 1, 1).is_err());
+            assert!(read_frame(&frame).is_err());
+        }
+    }
+
+    #[test]
+    fn segmented_reader_rejects_inconsistent_cached_lengths() {
+        for len in [0, 8] {
+            let frame = RawFrame::Segmented {
+                segments: vec![Bytes::from_static(&[1, 2, 3, 4])],
+                len,
+            };
+            assert!(Reader::new(&frame).is_err());
+        }
     }
 
     #[test]
@@ -592,13 +709,8 @@ mod copy_tests {
                 bytes.push(if index == 4 { last_byte } else { b'a' + index });
                 bytes.push(if index == 4 { terminator } else { 0 });
             }
-            let mut reader = Reader {
-                bytes: Bytes::from(bytes),
-                tables: TableCache::default(),
-                strings: StringCache::default(),
-                string_bytes: 0,
-                elements: 0,
-            };
+            let bytes = RawFrame::Contiguous(Bytes::from(bytes));
+            let mut reader = Reader::new(&bytes).unwrap();
             for offset in &offsets[..4] {
                 reader.string(*offset).unwrap();
             }
@@ -618,13 +730,8 @@ mod copy_tests {
             let mut bytes = (text.len() as u32).to_le_bytes().to_vec();
             bytes.extend_from_slice(text.as_bytes());
             bytes.push(0);
-            let mut reader = Reader {
-                bytes: Bytes::from(bytes),
-                tables: TableCache::default(),
-                strings: StringCache::default(),
-                string_bytes: 0,
-                elements: 0,
-            };
+            let bytes = RawFrame::Contiguous(Bytes::from(bytes));
+            let mut reader = Reader::new(&bytes).unwrap();
             let before = super::super::codec_copy_metrics::observed_on_current_thread();
             let Value::Text(first) = reader.string(0).unwrap() else {
                 panic!("expected text");

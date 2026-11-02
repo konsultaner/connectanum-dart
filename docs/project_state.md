@@ -4,15 +4,32 @@ Last updated: 2026-11-02.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Isolated candidate: `codex/router-busy-wake-consumption`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
+Isolated candidate: `codex/flatbuffers-segmented-decode-views`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
+
+## Segmented receive views: focused verification complete (2026-11-02)
+
+An isolated child of `600e82f5` preserves segmented input through the complete
+FlatBuffers validator. Fresh full fast baseline passes before edits; a real
+contained-vector alias regression fails before correction and passes afterward,
+removing its 10,416-byte complete-frame copy. Necessary crossing-field copies
+remain. All 474 core Rust, 319 FFI, 615 router-runtime, 22 native WebSocket and
+115 MQTT cases (seven actual Paho), plus alias/codec integrations, pass with
+own rebuilt native `3170141d…`. The fresh 1 MiB FFI view retains its original
+pointer after routing release and cleans up after view release. Root review
+finds no confirmed remaining source defect. Own frozen canonical, copy/lifetime,
+CI, controlled measurements and final strict 48/50 are pending. No adoption or
+RSS/transport acceptance is claimed. Parent and historical results stay intact.
+[Change, retained failures and verification](research/2026-11-02-flatbuffers-segmented-receive-correctness.md).
 
 ## Current work
 
-Verify the reviewed busy-pass wake correction with its own frozen canonical,
-CI/copy proof and complete controlled Dart-source comparison. Preserve every
-original predecessor row and report. No candidate is adopted; RAM and broad
-protocol acceptance remain incomplete.
+Freeze and validate the segmented FlatBuffers receive correction after the
+actual contained-vector alias failure and passing focused checks. Parent
+`600e82f5` canonical/copy/all39CI pass; its full source comparison is mixed.
+All original observations remain preserved. Candidate canonical/copy/CI,
+controlled before/after and complete final-runtime strict48/50 remain pending.
+No candidate is adopted; RAM and broad WAMP parity remain unresolved.
 
 ## Busy-pass wake correction under verification (2026-11-02)
 

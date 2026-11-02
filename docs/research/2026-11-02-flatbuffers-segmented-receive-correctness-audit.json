@@ -1,0 +1,60 @@
+{
+  "audit": "PASS",
+  "source_base": "600e82f56d3da6ac998eeb5a60fec175354215ca",
+  "provisional_uncommitted": true,
+  "source_sha256": {
+    "native/transport/ct_core/src/wamp/flatbuffers_wire.rs": "5f0e020cc55d936962d6c3f213d6c1b30948d69d7faa2e465b6f7b5994866b19",
+    "native/transport/ct_core/src/wamp/flatbuffers_codec.rs": "1977b563ddf11f74353ecdf66b61cf2fd9da62123c8d3ee3546c5e9dd25dd8aa",
+    "native/transport/ct_core/tests/flatbuffers_segmented_receive_alias.rs": "0914e421134b8a261be607de4c9f8e35f23416f9841d537d241b6b12b0779c7e",
+    "native/transport/ct_ffi/src/runtime/flatbuffers_opaque_tests.rs": "2b186d83b9b43b6a3a1dda6d61886be8f98a6771b9940a6e0bb42349fc5224ec"
+  },
+  "locks_sha256": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "own_postfix_native_sha256": "3170141d72a87864f874fbbbc1b7e10c61075befe63ce9d61f28bedecebb6aa2",
+  "recorded_prechange_native_sha256": "fdc06ceb5fbc218a5602a1c9ddf85ec3db65a555c72013a162e6ee9dda367f16",
+  "counts": {
+    "core": 474,
+    "alias_integration": 2,
+    "codec_integrations": 3,
+    "FFI": 319,
+    "router_runtime": 615,
+    "native_WebSocket": 22,
+    "MQTT": 115,
+    "actual_Paho_cases": 7
+  },
+  "before_failure": "FullfastbaselinePASS; fixture-only globalcounter serialization/poison recovery then actualexit101/exact1aliasFAIL/copied10416+1contiguousPASS; productionunchanged.",
+  "after_assertions": "Contained-vector samepointer/coalesced0/range0; necessary2bytecrossing copies2bytesonly. Fresh1MiBFFImetadata/export/no-framecache/afterroutingrelease/weakcleanup PASS. Samevalid/invalidparseoutcomes for allfixtures/truncations/byteflips across1/7bytefragments/emptysegments.",
+  "retained_failures": [
+    "Initial globalcounter test-fixture race",
+    "Empty-test assertion type compile error",
+    "Boundary filter0tests NOT accepted as evidence; actualnamed474core pass supersedes missing coverage",
+    "MQTT wrong-CWD missing Python/certificates; corrected packageinvocation only",
+    "Incomplete tokenlimited larger localtestreview, NOT approval"
+  ],
+  "log_sha256": {
+    "connectanum-segmented-decode-final-all-core-tests.log": "2812a670036e95d4694de994bd0c0e64696f9d1750b6917e671c6087d0a87b72",
+    "connectanum-segmented-decode-final-own-native-build.log": "b33653fab535f0e59de434ef65c70c81400f0ef2e57c75cde1a99eb4baa9ca4b",
+    "connectanum-segmented-decode-final-client-fragmented-websocket.log": "a009d6ef849402e71d685eb471f23d122e0a65926e0b5bd0ab90e945f91a43a7",
+    "connectanum-segmented-decode-final-router-mqtt-paho.log": "a74276b2d22c1134491207660e3f12f6f50fce6b673b85a3320ad233cb63eeec",
+    "connectanum-segmented-decode-v2-boundary-controls.log": "da2e5c1bf1bab92471b727b0f6e1a342d9d5f6ccdf740ffc4244cf6286ace4f4",
+    "connectanum-segmented-decode-v2-all-ffi-tests.log": "a189bdfe5260ae6c10a8922cd30e9d63ee0eb3458827f67e02aa1add63fe5b28",
+    "connectanum-segmented-decode-v2-own-native-build.log": "5fae218f1fc5e5457160ea179fbc64b574bcb5a2d0504c0584ea74eb2d7d67ba",
+    "connectanum-segmented-decode-v2-client-ppt.log": "44476722724bd4fa37dbf99becbe3b9620b254a4e411eb08b5171708c33372c6",
+    "connectanum-segmented-decode-v2-client-native-owned.log": "627ba3de53d14f809618b903b89ceadc42dcad86bf0fa1f84b4968e7f734813a",
+    "connectanum-segmented-decode-v2-client-native-segments.log": "b10d2ecac3c27a0bab9dd402fd2f37f35e1427d31c0a8f2961df29cb2e49fa34",
+    "connectanum-segmented-decode-v2-client-native-profile.log": "38bc240fb7ae96d5effd280ec9c780621086e624eec5ca9c7d45c1dd85216d8d",
+    "connectanum-segmented-decode-v2-client-native-transports.log": "8439104a74391482aea353b5425025eb4d007c310cae2b27b45a34ee0097ac78",
+    "connectanum-segmented-decode-v2-router-native-core.log": "716b1be39ff811048d62c13e63102af458f1ef5e5192ae85519de6374c34ba4a",
+    "connectanum-segmented-decode-v2-router-native-lifetime.log": "e0c87554c6a49ec5cf23341273948f8d83f5377bfba53db5c592fa909616ca30",
+    "connectanum-segmented-decode-v2-router-native-metadata.log": "fe4934e10114a868c29254a1de69274aaaa93e6ac2b75be60bc02beb224a12f1",
+    "connectanum-segmented-decode-v2-router-flatbuffers.log": "845a3d99f3cc9d9487ac3d21315f9a207f854e47fb2361ec347dbbf5d23b41e5",
+    "connectanum-segmented-decode-v2-router-runtime.log": "6f84a3792673c0cf3118f7b0d062f6f37b3ede90b557bf2323bcf294fa1721f1",
+    "connectanum-segmented-decode-v2-router-mqtt-paho.log": "1940c62dccdf20a5d9677743e36aee2d3d859b9b2bd3dc8cccae332f66c641d7"
+  },
+  "root_review_sha256": "fc18cc148ab927fc070b0bc67481c3e18b874cbcdd7d11940fbe07c7cc3fb23a",
+  "scope": "Correctness/copy/lifetime component evidence only. No RSS/throughput/transport/frozen-canonical/finalacceptance or adoption claim.",
+  "audited_utc": "2026-11-02T02:29:05.845880+00:00"
+}
