@@ -1,0 +1,39 @@
+{
+  "scope": "read_only_source_trace_not_measurement_or_complete_lifetime_audit",
+  "source_commit": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "source_worktree_clean": true,
+  "inspected_source_sha256": {
+    "packages/connectanum_bench/lib/src/bench_payload/codec.dart": "c9091fd6c31436b469958b1ca2737fd1ee12726abfea9a242a5ae0a88bb52db4",
+    "packages/connectanum_bench/lib/src/wamp_workload_runner.dart": "cbf08e5101358e64ebedb9893787ad0af572f4562fee3589b202722bb6d40f49",
+    "packages/connectanum_client/lib/native_buffers.dart": "1965188806ef264c91c1fb9c75938eed50cc04b7f97ad4cd91affc62a7d68335",
+    "packages/connectanum_client/lib/native_message_bytes.dart": "ec94bf0dc98d37be3d9c47f893bdbfe2214ff5e5801eb145e1b1e6bc048f8d26",
+    "packages/connectanum_client/lib/src/protocol/session.dart": "a1624e0367cec91bbc0e0abdd3bdb6d738346145a7548a1991093d1fbce43c94",
+    "packages/connectanum_client/lib/src/transport/native/native_transports_io.dart": "07b6d986a1a4d1b0e9864e6ca0ff80cb2395bf0245eed43c6a9db11410b843bf",
+    "packages/connectanum_client/lib/src/transport/native/native_owned_segments.dart": "e2f624a3e9400554f850c9ce3fbc7475efc7cf9c5b8f3519ec3b97e6e195bb42",
+    "packages/connectanum_client/lib/src/transport/native/runtime.dart": "f3f87308ad72ff51f758a9fa09562bf8aa8cd07c8aca063db7898c5ce4a408bd",
+    "packages/connectanum_client/test/transport/native/native_ppt_payload_lease_test.dart": "9653f1051f608f309422bc4f24dcfbcd980bfcea44d104d3dcc981af8b32a8da"
+  },
+  "new_workload_or_capture": false,
+  "production_defect_confirmed": false,
+  "production_patch_ready": false,
+  "source_findings": [
+    "Fresh native encode builder transfers its frozen owner out before builder disposal.",
+    "Preparation retains an independent lease, disposes producer; RPC finally releases received storage and prepared lease.",
+    "Actual benchmark adapter calls callSingleLazyPayloadView; final-result handlers remove pending calls.",
+    "Segmented sender disposes control builder/prefix and temporary FFI handle array; submitted spans remain independently native-retained by ABI contract.",
+    "Handle and message-byte-lease finalizers already carry externalSize. Request exported views intentionally remain independently valid after lease/producer disposal.",
+    "No missing successful-path disposal or body duplication has been established by this bounded trace; source inspection cannot establish runtime retention/RSS causality."
+  ],
+  "model_review": {
+    "session": 83154,
+    "provider": "ollama",
+    "model": "qwen3.8:27b",
+    "exit_code": 1,
+    "reaped": true,
+    "final_assessment_saved": false,
+    "reason": "token_limit",
+    "wrapper_log_sha256": "acb7e049f8dcd1b475957a12236ba6e04804e9ca45141d4f9b7733bbeadc1222",
+    "advice_or_approval_claimed": false
+  },
+  "next_step": "Inspect receive/control decoding and per-message metadata allocation paths against baseline source without changing policy or rerunning completed evidence. Require a falsifiable before-failing regression before any production edit."
+}

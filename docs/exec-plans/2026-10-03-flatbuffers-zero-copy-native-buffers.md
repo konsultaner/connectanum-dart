@@ -8,9 +8,10 @@ artifacts and exact reports. Primary150measured incl43RSS,0unmeasured/0integrity
 supplemental192measured incl36RSS plus2unmeasured allocations. No active numerical
 campaign, source/native/HEAD edit or adoption. Do not repoll/redownload/rerun.
 Read-only attribution is now complete/audited for all48/336original pairs.
-Next inspect actual Dart native-buffer client construction/lifetime source for
-the largest observed gap, retaining both roles/allcontrols; no production defect
-is confirmed and no patch/control/capture is ready.
+Initial native-buffer RPC source tracing finds explicit producer/lease/result
+cleanup and existing externalSize accounting; no ownership defect is confirmed.
+Next inspect receive/control decoding and per-message metadata allocations,
+retaining both roles/allcontrols; no patch/control/capture is ready.
 Owncanonical/copy/MQTT20/hostedJS/fullCI39 and proper fresh50row native control
 are complete/audited within their distinct scopes; they do not accept RAM or
 broadWAMP parity. Keep localcc1.10 and hostedcc1.11 build cohorts distinct.
@@ -41,10 +42,16 @@ Among301pairs from failed cases, role contributions vary:109both-positive,
 positive216times, negative84 and zero1. This is descriptive, not a retained
 leak, simultaneous physical total, single-process cause or repair. Medians and
 ratios do not distribute. [Complete method, all rows and independent audit](../research/2026-11-02-flatbuffers-601-RSS-role-attribution.md).
-Next inspect the actual Dart native-buffer client path of the largest original
-RSS gap (`rpc_rawsocket_clear_dart_native_buffer`,1.032486median ratio), retaining
-both roles/allcontrols. No production defect is confirmed; no patch or capture
-is ready. Both strict campaigns stay failed, source601 frozen/unadopted.
+The initial source trace of the largest original gap
+(`rpc_rawsocket_clear_dart_native_buffer`,1.032486median ratio) finds explicit
+producer/request-lease/result-storage cleanup and existing externalSize
+accounting; it establishes no ownership defect or RSS cause. All nine inspected
+files match frozen601. A bounded local review reached its token limit without
+saving a final assessment; no model approval is claimed.
+[Source trace and limits](../research/2026-11-02-flatbuffers-601-native-buffer-source-trace.md).
+Next inspect receive/control decoding and per-message metadata allocations,
+retaining both roles/allcontrols. No production defect is confirmed; no patch
+or capture is ready. Both strict campaigns stay failed, source601 frozen/unadopted.
 
 ## Both exact601 strict campaigns complete failed; no adoption (2026-11-02)
 
