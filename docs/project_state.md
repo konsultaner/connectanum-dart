@@ -163,10 +163,20 @@ observations match per shape. These are requested sizes, not live memory,
 physicalheap, RSS, timing, actual copy bytes or EPYC7763/gate causality. Actual
 production queue capacity is64;512/513chunk cases are larger private stress
 queues. The measured unit probe is distinct from the baseline FFI witness.
-Next assess/test a narrow capacity hypothesis when the first two chunks are the
-complete currently queued burst, keeping the existing growth strategy when more
-chunks remain. No production patch/capacity decision/adoption is ready. Preserve
-producer races, pending-tail order and all original drains/windows/ownership.
+The actual test-only complete-pair regression then fails exactly once while
+the longer-burst control passes. A minimal initial-capacity correction is now
+provisional: reserve the known output size when a pending tail ends the poll or
+no more chunks are currently queued; keep4KiB otherwise. Originaldrain/order/
+wakeup/window/ownership policy remains. Four capacity/pending-tail controls pass,
+including a TEST-ONLY allocator rendezvous that forces a producer to arrive
+AFTER exact capacity is selected:all384bytes still drain and normal growth occurs.
+The complete-pair case now requests64+256bytes instead of64+4096+24 (two vs three
+requests here). All480core /2alias /2allocation /3codec /319FFI tests pass; own
+candidate native`5cfe237b…` is rebuilt and nativeWebSocket/lifetime tests pass.
+Router/MQTT-Paho checks are still running under the official exclusive lease;
+source/HEAD/native are frozen during that pipeline. Full independent focused
+review, own canonical/copy/CI/source comparison and strict48/50 remain required.
+The component improvement is not throughput/RAM/EPYC7763 acceptance or adoption.
 
 Source fact: the actual private `MqttInbound` first merge requests
 `BytesMut::with_capacity(min(max_bytes,4096))`, including two small packets.
