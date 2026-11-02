@@ -31,6 +31,14 @@ WebSocket/lifetime/router/MQTT-Paho checks pass; the candidate is now frozen
 and published with own canonical active, as recorded below. No RSS/transport
 acceptance or adoption claim follows.
 
+The completed D9CB payload artifact also retains actual production native
+`fc9ccb77…` and driver `e432a974…` bytes. They independently rehash exactly to
+the original copy input receipt and all three copy manifests, with matching
+source revision and locks. The copy artifact itself omitted these binaries;
+this later same-binary witness closes that byte-rehash limitation without an
+ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
+results changed. [Cross-artifact byte audit](research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
+
 ## Bounded segment index frozen for verification (2026-11-02)
 
 Published `ad48d679b24a371cca37ad9397a64b261008f57c` on

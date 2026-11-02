@@ -1,0 +1,20 @@
+{
+  "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "audit": "PASS",
+  "copy_run": 41378271401,
+  "copy_artifact": 13112572270,
+  "later_original_payload_run": 41387276897,
+  "payload_artifact": 13118751611,
+  "copy_source_input_count": 3308,
+  "original_copy_input_receipt_sha256": "3331bb8a79a905a2b184f3a31be163b6cec88bff6f3cca7eab2654d4783200eb",
+  "retained_payload_manifest_sha256": "1a29dc926654dc327639c10bb541d643fb4b302e2c8d0a95955a923ddca82572",
+  "actual_retained_production_binary_sha256": {
+    "native_library": "fc9ccb77e78cf1e6316eba72390d257d38c2decd9cba056cdaa6b33853fde656",
+    "driver": "e432a97461f3e3df8eabbfc3da29ca264a9bbf39c8bc433f1b90c0ab2d913940"
+  },
+  "copy_recorded_hashes_and_all_three_copy_manifests_match_actual_bytes": true,
+  "all_source_revisions_and_three_locks_match": true,
+  "prior_full_copy_audit_log_sha256": "03439b6823e0b7bb8e71f7f223969def4cbe1d808788aafec762124719148e31",
+  "scope": "Original copy artifact did not retain production binaries. Later exact-D9CB original payload artifact retains actual production FC9C native/E432 driver bytes; both rehash exactly to original copy receipts and all3copy manifests. This closes local byte-rehash limitation using SAME actual binary digests, no ffi-test/sharedCI/alternate-runtime substitution. Does not change copy observations, strict payload failure, numerical acceptance or establish cause.",
+  "audited_utc": "2026-11-02T05:40:38.806919+00:00"
+}
