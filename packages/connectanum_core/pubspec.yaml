@@ -17,7 +17,6 @@ dependencies:
   logging: ^1.0.0
   msgpack_dart: ^1.0.0
   cbor: ^6.3.7
-  typed_data: ^1.4.0
   flat_buffers: '>=25.9.23 <25.10.0'
   web: ^1.1.1
 dev_dependencies:
