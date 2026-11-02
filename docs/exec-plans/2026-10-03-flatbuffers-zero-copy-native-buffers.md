@@ -2,16 +2,15 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: validate the provisional segmented FlatBuffers receive decoder
-patch after a fresh full pre-change fast pass and an actual test-only alias
-failure. The same complete generic validation now preserves segmented input;
-core/codec and FFI lifetime checks pass, with own-native Dart/router/Paho checks
-active. Retain all original failures and observations. No source is adopted.
-Frozen parent `600e82f5` canonical/copy/all 39 CI jobs pass; its complete source
-control remains mixed. All historical 48/50 campaigns are complete failed and
-retained. Every final runtime still requires its own frozen canonical, complete
-strict 48/50 and clean CI before adoption. Never mutate source/HEAD/native during
-an active canonical or competing tests under an exclusive lease.
+Current step: finish the frozen `d9cb93c2` segmented FlatBuffers receive
+candidate's own full canonical verification, CI and copy/lifetime campaigns.
+Focused core/FFI/native WebSocket/router/MQTT/Paho checks pass; no focused
+pipeline is active. Preserve source/HEAD/native/locks while canonical runs.
+After clean canonical and CI, audit controlled before/after evidence and complete
+own strict48/50 before adoption. Parent `600e82f5` canonical/copy/all39CI pass;
+its source comparison is mixed. All historical numerical campaigns remain
+retained, with no unchanged numerical retry or report substitution. Preserve
+all validation, ownership, body verification, window/sample and gate policies.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 

@@ -9,12 +9,14 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Current work
 
-Resume controlled diagnosis of the remaining FlatBuffers RAM/performance
-failures. Frozen busy-pass wake candidate `600e82f5` now passes its own canonical,
-copy/lifetime and all 39 exact-source CI jobs; the complete Dart-source transport
-comparison remains mixed and near unity.
-All original numerical observations are preserved. No candidate is adopted;
-RAM and broad WAMP parity remain incomplete.
+Frozen segmented-receive candidate `d9cb93c2` has passed its focused core, FFI,
+WebSocket, router and MQTT/Paho checks. Own full canonical verification,
+exact-source CI and copy/lifetime campaigns are active. Keep its source, HEAD,
+native library and three locks frozen during verification. Controlled before/
+after measurements and complete final-runtime strict48/50 remain pending.
+Parent `600e82f5` canonical/copy/all39CI pass; its complete Dart-source comparison
+is mixed and near unity. All original observations remain preserved. No
+candidate is adopted; RAM and broad WAMP parity remain unresolved.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
