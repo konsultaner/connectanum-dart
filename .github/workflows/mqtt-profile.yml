@@ -1,4 +1,4 @@
-name: MQTT heap attribution diagnostic
+name: MQTT external memory mapping diagnostic
 on:
   workflow_dispatch:
 permissions:
@@ -37,7 +37,7 @@ jobs:
           if-no-files-found: error
 
   heap-attribution:
-    name: Linux default-runtime heap attribution
+    name: Linux external memory mappings
     needs: native-build
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
