@@ -1,0 +1,26 @@
+{
+  "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "branch": "codex/flatbuffers-segmented-decode-views",
+  "own_native_sha256": "3170141d72a87864f874fbbbc1b7e10c61075befe63ce9d61f28bedecebb6aa2",
+  "full_tracked_tree_sha256": "6cf31f1b2bd1dd0f120b956dbd02333203054bc1e432382da5157c895bb277ed",
+  "source_archive_sha256": "85b953dd4a1045683105550c85383744161c6be0b21054b277653a57eef88279",
+  "three_locks_sha256": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "canonical": "ACTIVE, own clean frozen source/HEAD/tree/native/ten source guards/three locks; no pass claim yet. Actual localChromeWasm enabled, no localJS claim.",
+  "CI": {
+    "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41378268724",
+    "attempt": 1,
+    "source_head_verified": true,
+    "status": "in_progress"
+  },
+  "copy_lifetime": {
+    "url": "https://github.com/konsultaner/connectanum-dart/actions/runs/41378271401",
+    "attempt": 1,
+    "source_head_verified": true,
+    "status": "in_progress"
+  },
+  "acceptance": "Component correctness/copy/lifetime audited; controlled measures and fullstrict48/50 pending; no adoption or RSS/transport parity."
+}

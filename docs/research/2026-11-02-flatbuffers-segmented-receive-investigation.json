@@ -19,7 +19,19 @@
     "packages/connectanum_router/lib/src/native/runtime.dart": "473d213d7e69aaba0ed86ca7692f569db3e0395c1ec8adadca9921a8284e1939"
   },
   "isolated_branch": "codex/flatbuffers-segmented-decode-views",
-  "prechange_full_fast_baseline": "Fresh bootstrapPASS/fullbin/test-fast active, no sourceedits untilpass.",
-  "test_first": "One queued test-only pipeline must require actualaliasregression1failure and contiguouscontrol1pass; then stop before production edits.",
-  "scope": "Controlled source-level copy-path investigation, not measuredRSS/transport repair or acceptance. Preserve existing generic/schema/projection/limits/lifetime/copy validation, wholebody generation/verification, windows/samples and SDK/GC/allocator policy. Everyfuturefinalruntime needsowncomplete48/50 andcleanCI."
+  "prechange_full_fast_baseline": "COMPLETE PASS before production edits; own prechange native FDC06 and source/tree/three locks unchanged.",
+  "test_first": "Initial counter-interference failure retained. Shared test Mutex/poison recovery then exactly1segmented alias failure/copied10416 and1contiguous control pass, production unchanged.",
+  "scope": "Controlled source-level copy-path investigation, not measuredRSS/transport repair or acceptance. Preserve existing generic/schema/projection/limits/lifetime/copy validation, wholebody generation/verification, windows/samples and SDK/GC/allocator policy. Everyfuturefinalruntime needsowncomplete48/50 andcleanCI.",
+  "provisional_patch": {
+    "committed": true,
+    "production_files": [
+      "native/transport/ct_core/src/wamp/flatbuffers_codec.rs",
+      "native/transport/ct_core/src/wamp/flatbuffers_wire.rs"
+    ],
+    "behavior": "Preserve RawFrame segments through same complete generic validation; logical-only bounds before bytevector slice_or_copy; contained fields borrow, only crossing fields copy. Contiguous fast path borrowed. Sparse index per64segments.",
+    "verification": "COMPLETE474core+2alias+3codec/319FFI/615router-runtime/22nativeWebSocket/115MQTTincluding7actualPaho pass with own3170native. Sourcepublishedclean/frozen; canonicalactive, copy/CIactive.",
+    "test_setup_findings": "Retainedcounterrace/compileassertion/zero-testfilter/wrong-CWD MQTT failures. All actual boundary tests execute in474core; correctrouterpackagecwd MQTT115pass with sameactual3170native; no productionchange or numericalrerun.",
+    "accepted_as_RSS_or_transport_repair": false
+  },
+  "published_candidate": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f"
 }

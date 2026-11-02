@@ -2,17 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: reproduce the relevant segmented FlatBuffers receive copy on an
-isolated checkout, after fresh full pre-change fast regression. One guarded
-test-only pipeline then requires one contained-vector alias failure and a
-passing contiguous control before any production edit. Keep all validation,
-owner/copy boundaries and acceptance policies intact. Frozen `600e82f5`'s own
-canonical/copy/all 39 CI jobs pass; its complete source control remains mixed.
-The read-only encoder census preserves all 370 fresh operations; the separate
-decoder preflight failed a real segmented alias check before measurements.
-All historical 48/50 campaigns are complete failed and retained. Every final
-runtime still requires its own complete strict 48/50 and clean CI before
-adoption. Never mutate source/HEAD/native during an active canonical.
+Current step: validate the provisional segmented FlatBuffers receive decoder
+patch after a fresh full pre-change fast pass and an actual test-only alias
+failure. The same complete generic validation now preserves segmented input;
+core/codec and FFI lifetime checks pass, with own-native Dart/router/Paho checks
+active. Retain all original failures and observations. No source is adopted.
+Frozen parent `600e82f5` canonical/copy/all 39 CI jobs pass; its complete source
+control remains mixed. All historical 48/50 campaigns are complete failed and
+retained. Every final runtime still requires its own frozen canonical, complete
+strict 48/50 and clean CI before adoption. Never mutate source/HEAD/native during
+an active canonical or competing tests under an exclusive lease.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
@@ -88,24 +87,39 @@ data stayed intact. Full final-runtime strict 48/50 and clean CI remain required
 [Change and focused proof](../research/2026-11-02-router-busy-wake-consumption.md),
 [current frozen verification scope](../research/2026-11-02-router-busy-wake-validation-checkpoint.json).
 
-## Segmented receive copy under investigation (2026-11-02)
+## Segmented receive views frozen for verification (2026-11-02)
+
+Published `d9cb93c2ddc007d1d904a6b4245d7f3778a1131f` on
+`codex/flatbuffers-segmented-decode-views` is clean and frozen. Own full canonical
+is active with native `3170141d…`, tracked tree `6cf31f1b…`, ten source guards
+and three unchanged locks. Actual local Chrome/Wasm is enabled; no pass or
+local JS claim exists yet. The predeclared exact-source
+[CI](https://github.com/konsultaner/connectanum-dart/actions/runs/41378268724) and
+[copy/lifetime](https://github.com/konsultaner/connectanum-dart/actions/runs/41378271401)
+runs are active on attempt one; both source heads verify. No source/HEAD/native
+edits are allowed during canonical. Every numerical observation is retained;
+strict final-runtime48/50 has not started. No source is adopted.
+[Frozen verification scope](../research/2026-11-02-flatbuffers-segmented-receive-validation-checkpoint.json).
 
 The separate decoder probe stops on a real application-alias assertion before
 collecting any decoder census rows. Source tracing confirms native WebSocket
 prefix/body continuations reach `parse_message_segments`, while the FlatBuffers
-parser explicitly calls `RawFrame::into_bytes` and coalesces the complete frame.
+pre-change parser explicitly calls `RawFrame::into_bytes` and coalesces the complete frame.
 Metadata-bound FFI reads can avoid requesting a contiguous frame. This identifies
 a relevant copy path, without proving the prior RSS failures' cause or repair.
 
-An isolated `codex/flatbuffers-segmented-decode-views` checkout starts at frozen
-`600e82f5`. Fresh bootstrap passes; full pre-change fast regression is active
-under the official exclusive lease before any source edits. A single queued
-test-only pipeline will add a contained-vector alias regression and contiguous
-control only after baseline pass, require exactly one real failure/one pass,
-and stop before production changes. No runtime patch or source adoption exists.
-All existing schema/projection/size/depth/element/metadata validation, necessary
-cross-field copy behavior, owner lifetimes and strict acceptance policies remain
-required. No new decoder measurements or final-runtime acceptance are claimed.
+The isolated child starts at `600e82f5`. Fresh bootstrap/full fast regression,
+actual test-only alias failure and the corrected same-test pass are retained.
+The provisional two-file patch preserves segmented input through complete generic
+validation. All 474 core Rust, 319 FFI, 615 router-runtime, 22 native WebSocket
+and 115 MQTT cases, including seven actual Paho, pass. Alias/codec integrations
+and a fresh 1 MiB exported-view lifetime check pass. The rebuilt own native is
+`3170141d…`; all three locks remain unchanged. Original test/setup failures and
+the zero-test filter are retained; both actual boundary controls now execute in
+the full core pass. Root review finds no confirmed remaining source defect.
+Own frozen canonical/copy/CI/controlled measurements/final48+50 are pending;
+no adoption or RAM/transport acceptance is claimed.
+[Reviewed change and exact verification](../research/2026-11-02-flatbuffers-segmented-receive-correctness.md).
 [Source route, hashes and test-first scope](../research/2026-11-02-flatbuffers-segmented-receive-investigation.json).
 
 ## Fresh native codec allocation diagnosis (2026-11-02)
