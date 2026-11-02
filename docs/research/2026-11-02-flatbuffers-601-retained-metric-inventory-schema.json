@@ -1,0 +1,2702 @@
+{
+  "scope": "READONLY schema-only inventory of ALL canonical original601 role-metric objects, including warmups and measured runs. No numerical values, gate recomputation, workload, downloads or existing acceptance re-audit.",
+  "limits": "Candidate keys are schema-name leads, not automatic class/stack proof. Does not parse opaque strings, latency-sample arrays, derived duplicate driver/comparison files, logs, binaries or source archives. Their actual retained filename inventory is separate. No claim about undocumented opaque data.",
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "script_sha256": "9da5f94d0ff507f55bcc1ba2114ed48835706e18fe5c8a217cdef636e5726fad",
+  "caches": {
+    "primary": {
+      "manifest_sha256": "8e23c1f4a16511b4c38e1a7cd09554a956f6d73bf5a7d42e0d6da45f3d1142f3",
+      "raw_report_records": 1440,
+      "role_metric_objects": {
+        "client_process_metrics": 1440,
+        "server_process_metrics": 1440
+      },
+      "input_files": {
+        "campaign/runs/0000_warmup.jsonl": {
+          "sha256": "884ec390142a9006aafb6254e8c6cd3af59cc2ea4fa7789c1badf230cfaa2f78",
+          "rows": 144
+        },
+        "campaign/runs/0001_warmup.jsonl": {
+          "sha256": "6a7c51236c8380f8edf413c215c7ae5f3fdef03aebbef96cdbda17490406260a",
+          "rows": 144
+        },
+        "campaign/runs/0002_warmup.jsonl": {
+          "sha256": "c10c80ca3ee90e8fd5f0fec816be91c75fdae12d3eb3825284f1d7be0b0d57fa",
+          "rows": 144
+        },
+        "campaign/runs/0003_measured.jsonl": {
+          "sha256": "125f2eecd2b3deed461fb568a24a3380fe2ba09965bbd7d48f80e3a12e6a24a2",
+          "rows": 144
+        },
+        "campaign/runs/0004_measured.jsonl": {
+          "sha256": "6f2821d28f7162b8fe9fba0c56effd92c67a2b38428d9ae6e3d6c241b64e9134",
+          "rows": 144
+        },
+        "campaign/runs/0005_measured.jsonl": {
+          "sha256": "84841bf9d63c61db14585f655e8a5b0439b06f377826db9b6027f49e3ba20a98",
+          "rows": 144
+        },
+        "campaign/runs/0006_measured.jsonl": {
+          "sha256": "70e3784b55a2f2f001ffe8de3ed5dad47c02605596014ef2dc4ad9edd5b84c7f",
+          "rows": 144
+        },
+        "campaign/runs/0007_measured.jsonl": {
+          "sha256": "c04d2107ba365032c34bbb1d8498f0fe607e70da38bf7e5503647c31cbd78892",
+          "rows": 144
+        },
+        "campaign/runs/0008_measured.jsonl": {
+          "sha256": "4eff56391bd7e0a34e50c1db85f1bc9be29640c927a078287e39c8451e4441f8",
+          "rows": 144
+        },
+        "campaign/runs/0009_measured.jsonl": {
+          "sha256": "6e8b5f62cee31d472de51b8363869bc98479bd1c300b6d85b3ba84c7049f1372",
+          "rows": 144
+        }
+      },
+      "field_schema": [
+        {
+          "path": "client_process_metrics",
+          "type": "dict",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocated_bytes_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement",
+          "type": "dict",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.capture_strategy",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.end_snapshot_after_us",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.end_snapshot_before_us",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.estimated_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations",
+          "type": "list",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 117547
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_after_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_before_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_group_ids",
+          "type": "list",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_group_ids[*]",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations",
+          "type": "dict",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_old_collections",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_used_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_young_collections",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_old_collections",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_used_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_young_collections",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.method",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.observed_pid",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.observer_pid",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.old_gc_events",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.reclaimed_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.rounding_error_bound_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.scope",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.sdk_version",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.start_snapshot_after_us",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.start_snapshot_before_us",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.status",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.timeline_recorder",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.young_gc_events",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.cpu_system_us_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.cpu_user_us_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.current_rss_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.gc_count_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.gc_pause_us_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.max_rss_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.peak_rss_during_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.pid",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.rss_before_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.rss_lifetime_max_read_attempts_bytes",
+          "type": "list",
+          "occurrences": 1440
+        },
+        {
+          "path": "client_process_metrics.rss_lifetime_max_read_attempts_bytes[*]",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics",
+          "type": "dict",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocated_bytes_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement",
+          "type": "dict",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.capture_strategy",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.end_snapshot_after_us",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.end_snapshot_before_us",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.estimated_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations",
+          "type": "list",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 228354
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_after_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_before_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_group_ids",
+          "type": "list",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_group_ids[*]",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations",
+          "type": "dict",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_old_collections",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_used_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_young_collections",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_old_collections",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_used_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_young_collections",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.method",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.observed_pid",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.observer_pid",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.old_gc_events",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.reclaimed_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.rounding_error_bound_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.scope",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.sdk_version",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.start_snapshot_after_us",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.start_snapshot_before_us",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.status",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.timeline_recorder",
+          "type": "str",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.young_gc_events",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.cpu_system_us_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.cpu_user_us_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.current_rss_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.gc_count_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.gc_pause_us_delta",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.max_rss_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.peak_rss_during_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.pid",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.rss_before_bytes",
+          "type": "int",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.rss_lifetime_max_read_attempts_bytes",
+          "type": "list",
+          "occurrences": 1440
+        },
+        {
+          "path": "server_process_metrics.rss_lifetime_max_read_attempts_bytes[*]",
+          "type": "int",
+          "occurrences": 1440
+        }
+      ],
+      "candidate_class_stack_field_paths": {}
+    },
+    "protocol": {
+      "manifest_sha256": "021d2de8326466c401fb8d5003c7dd6ef5a71d00dff961864b9581c605d43439",
+      "raw_report_records": 900,
+      "role_metric_objects": {
+        "client_process_metrics": 900,
+        "server_process_metrics": 900
+      },
+      "input_files": {
+        "campaign/runs/0000_warmup.jsonl": {
+          "sha256": "8e6c06ba202e7eff4286d635136de1da0c6b7c6c413592d01512a65c1c341948",
+          "rows": 90
+        },
+        "campaign/runs/0001_warmup.jsonl": {
+          "sha256": "bfcd907a04aff2108140179873d4f3754a5238bdfab6534b68be6cb790b9ea5d",
+          "rows": 90
+        },
+        "campaign/runs/0002_warmup.jsonl": {
+          "sha256": "bdcf066a4e1d4cc4e7340eb5e21bd5908e42ff7261416b5380e0fd08e9c982d5",
+          "rows": 90
+        },
+        "campaign/runs/0003_measured.jsonl": {
+          "sha256": "19ffd52c345230f7dea763d560cf950b9621ba5b531b228432c2e9e4e789bbd9",
+          "rows": 90
+        },
+        "campaign/runs/0004_measured.jsonl": {
+          "sha256": "4396dbcd5a5e7f4e9526fd74a908b09ba933cb7fd2b52b84319ba5693e2b833b",
+          "rows": 90
+        },
+        "campaign/runs/0005_measured.jsonl": {
+          "sha256": "eac7c028200acdd06c4b4dc0ceb6619105848fa71babf2186b16a1abc075107a",
+          "rows": 90
+        },
+        "campaign/runs/0006_measured.jsonl": {
+          "sha256": "fc78b2ed661e560f12cfe1bc884a5cf447a5616068ba74a9345ea79893fcc3f0",
+          "rows": 90
+        },
+        "campaign/runs/0007_measured.jsonl": {
+          "sha256": "3d548297292512e888cbc0808ab3958137ec5716723a545c226dd554e6c04832",
+          "rows": 90
+        },
+        "campaign/runs/0008_measured.jsonl": {
+          "sha256": "4ae5a863bd28068ad4de33176b0e32622c992fc1eb8691f09c0f93cacf78a77b",
+          "rows": 90
+        },
+        "campaign/runs/0009_measured.jsonl": {
+          "sha256": "15d0a75c23d5e40e612137bff4acf1ca8f641da68219286b9b352bc755437c36",
+          "rows": 90
+        }
+      },
+      "field_schema": [
+        {
+          "path": "client_process_metrics",
+          "type": "dict",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocated_bytes_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement",
+          "type": "dict",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.capture_strategy",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.end_snapshot_after_us",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.end_snapshot_before_us",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.estimated_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations",
+          "type": "list",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 49253
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_after_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_before_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_group_ids",
+          "type": "list",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_group_ids[*]",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations",
+          "type": "dict",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_old_collections",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_used_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_young_collections",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_old_collections",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_used_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_young_collections",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.method",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.observed_pid",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.observer_pid",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.old_gc_events",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.reclaimed_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.rounding_error_bound_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.scope",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.sdk_version",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.start_snapshot_after_us",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.start_snapshot_before_us",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.status",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.timeline_recorder",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.young_gc_events",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.cpu_system_us_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.cpu_user_us_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.current_rss_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.gc_count_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.gc_pause_us_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.max_rss_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.peak_rss_during_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.pid",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.rss_before_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.rss_lifetime_max_read_attempts_bytes",
+          "type": "list",
+          "occurrences": 900
+        },
+        {
+          "path": "client_process_metrics.rss_lifetime_max_read_attempts_bytes[*]",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics",
+          "type": "dict",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocated_bytes_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement",
+          "type": "dict",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.capture_strategy",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.end_snapshot_after_us",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.end_snapshot_before_us",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.estimated_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations",
+          "type": "list",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 121879
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_after_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_before_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_group_ids",
+          "type": "list",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_group_ids[*]",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations",
+          "type": "dict",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_old_collections",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_used_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_young_collections",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_old_collections",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_used_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_young_collections",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.method",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.observed_pid",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.observer_pid",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.old_gc_events",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.reclaimed_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.rounding_error_bound_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.scope",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.sdk_version",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.start_snapshot_after_us",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.start_snapshot_before_us",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.status",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.timeline_recorder",
+          "type": "str",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.young_gc_events",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.cpu_system_us_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.cpu_user_us_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.current_rss_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.gc_count_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.gc_pause_us_delta",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.max_rss_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.peak_rss_during_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.pid",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.rss_before_bytes",
+          "type": "int",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.rss_lifetime_max_read_attempts_bytes",
+          "type": "list",
+          "occurrences": 900
+        },
+        {
+          "path": "server_process_metrics.rss_lifetime_max_read_attempts_bytes[*]",
+          "type": "int",
+          "occurrences": 900
+        }
+      ],
+      "candidate_class_stack_field_paths": {}
+    },
+    "payload_sizes": {
+      "manifest_sha256": "d8a89a6f73dcc0e809b18900e7525c42e94f6a8046f0ee8976f6327e0a93b3f7",
+      "raw_report_records": 360,
+      "role_metric_objects": {
+        "client_process_metrics": 360,
+        "server_process_metrics": 360
+      },
+      "input_files": {
+        "campaign/runs/0000_warmup.jsonl": {
+          "sha256": "2a6de1f239ce096b4d3c3f86bf1b2aeb8829f7f77593b3f3bc98cf172ba08cf9",
+          "rows": 36
+        },
+        "campaign/runs/0001_warmup.jsonl": {
+          "sha256": "f826769f895acaa09b5eefc9ef96023a8f3401fec3b05ea6ae2d57ecc584c952",
+          "rows": 36
+        },
+        "campaign/runs/0002_warmup.jsonl": {
+          "sha256": "fb8d89258a6359048658b624201d927eb8d62aa85492658a2b907f48612f5bec",
+          "rows": 36
+        },
+        "campaign/runs/0003_measured.jsonl": {
+          "sha256": "8b9da689d94bd6a8073800cc6a24ecf7c850ef40a6c0bfedfcb46b0c664a4371",
+          "rows": 36
+        },
+        "campaign/runs/0004_measured.jsonl": {
+          "sha256": "681a467cd4c5b5179501a49ee5eb9c017729ea1ea9b162d06b8e80f7bd7c66b3",
+          "rows": 36
+        },
+        "campaign/runs/0005_measured.jsonl": {
+          "sha256": "6d5e97b304589c242c7390efeb7ea14d3175c014e45082c9330cd3b0cc9d70c9",
+          "rows": 36
+        },
+        "campaign/runs/0006_measured.jsonl": {
+          "sha256": "bf6e6e3ea11d9bbccf602ed762946221b999d8e975378ca2049fdd9d898a9a0e",
+          "rows": 36
+        },
+        "campaign/runs/0007_measured.jsonl": {
+          "sha256": "243550e5c22461c4f4a2cf4c424b48a5418c25b47455ef96458135b114a9c664",
+          "rows": 36
+        },
+        "campaign/runs/0008_measured.jsonl": {
+          "sha256": "ccd6f423a773e58ea08089347f92cdce9b3c0a7b27f80acae9d20aea74d33c26",
+          "rows": 36
+        },
+        "campaign/runs/0009_measured.jsonl": {
+          "sha256": "1cb7e45d4aa2f2a6df44803a5aa5c8b788055cb3e9e3f4e6e2f147a207d6e4a0",
+          "rows": 36
+        }
+      },
+      "field_schema": [
+        {
+          "path": "client_process_metrics",
+          "type": "dict",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocated_bytes_delta",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement",
+          "type": "dict",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.capture_strategy",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.after_us",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.before_us",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups.isolateGroups/#.old_collections",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups.isolateGroups/#.used_bytes",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups.isolateGroups/#.young_collections",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.expected_collections",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.expected_collections.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.expected_collections.isolateGroups/#.old",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.expected_collections.isolateGroups/#.young",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations",
+          "type": "list",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 37682
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.observed_collections",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.observed_collections.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.observed_collections.isolateGroups/#.old",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.observed_collections.isolateGroups/#.young",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.after_us",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.before_us",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups.isolateGroups/#.old_collections",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups.isolateGroups/#.used_bytes",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups.isolateGroups/#.young_collections",
+          "type": "int",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.end_snapshot_after_us",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.end_snapshot_before_us",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.estimated_bytes",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations",
+          "type": "list",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 100989
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_after_bytes",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_before_bytes",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_group_ids",
+          "type": "list",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_group_ids[*]",
+          "type": "str",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations",
+          "type": "dict",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_old_collections",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_used_bytes",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_young_collections",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_old_collections",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_used_bytes",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_young_collections",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.method",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.observed_pid",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.observer_pid",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.old_gc_events",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.reason",
+          "type": "str",
+          "occurrences": 20
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.reclaimed_bytes",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.rounding_error_bound_bytes",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.scope",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.sdk_version",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.start_snapshot_after_us",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.start_snapshot_before_us",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.status",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.timeline_recorder",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.young_gc_events",
+          "type": "int",
+          "occurrences": 340
+        },
+        {
+          "path": "client_process_metrics.cpu_system_us_delta",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.cpu_user_us_delta",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.current_rss_bytes",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.gc_count_delta",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.gc_pause_us_delta",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.max_rss_bytes",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.peak_rss_during_bytes",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.pid",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.rss_before_bytes",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.rss_lifetime_max_read_attempts_bytes",
+          "type": "list",
+          "occurrences": 360
+        },
+        {
+          "path": "client_process_metrics.rss_lifetime_max_read_attempts_bytes[*]",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics",
+          "type": "dict",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocated_bytes_delta",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement",
+          "type": "dict",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.capture_strategy",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.after_us",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.before_us",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups.isolateGroups/#.old_collections",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups.isolateGroups/#.used_bytes",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.end_snapshot.groups.isolateGroups/#.young_collections",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.expected_collections",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.expected_collections.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.expected_collections.isolateGroups/#.old",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.expected_collections.isolateGroups/#.young",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations",
+          "type": "list",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 7129
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.observed_collections",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.observed_collections.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.observed_collections.isolateGroups/#.old",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.observed_collections.isolateGroups/#.young",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.after_us",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.before_us",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups.isolateGroups/#.old_collections",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups.isolateGroups/#.used_bytes",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.diagnostic_evidence.start_snapshot.groups.isolateGroups/#.young_collections",
+          "type": "int",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.end_snapshot_after_us",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.end_snapshot_before_us",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.estimated_bytes",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations",
+          "type": "list",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 113574
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_after_bytes",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_before_bytes",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_group_ids",
+          "type": "list",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_group_ids[*]",
+          "type": "str",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations",
+          "type": "dict",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_old_collections",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_used_bytes",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_young_collections",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_old_collections",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_used_bytes",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_young_collections",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.method",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.observed_pid",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.observer_pid",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.old_gc_events",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.reason",
+          "type": "str",
+          "occurrences": 4
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.reclaimed_bytes",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.rounding_error_bound_bytes",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.scope",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.sdk_version",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.start_snapshot_after_us",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.start_snapshot_before_us",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.status",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.timeline_recorder",
+          "type": "str",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.young_gc_events",
+          "type": "int",
+          "occurrences": 356
+        },
+        {
+          "path": "server_process_metrics.cpu_system_us_delta",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.cpu_user_us_delta",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.current_rss_bytes",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.gc_count_delta",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.gc_pause_us_delta",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.max_rss_bytes",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.peak_rss_during_bytes",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.pid",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.rss_before_bytes",
+          "type": "int",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.rss_lifetime_max_read_attempts_bytes",
+          "type": "list",
+          "occurrences": 360
+        },
+        {
+          "path": "server_process_metrics.rss_lifetime_max_read_attempts_bytes[*]",
+          "type": "int",
+          "occurrences": 360
+        }
+      ],
+      "candidate_class_stack_field_paths": {}
+    },
+    "encrypted_progressive_results": {
+      "manifest_sha256": "d99ef2523ba064c16b5fe20d45e9d05093172386c05cb3197241997463652a23",
+      "raw_report_records": 240,
+      "role_metric_objects": {
+        "client_process_metrics": 240,
+        "server_process_metrics": 240
+      },
+      "input_files": {
+        "campaign/runs/0000_warmup.jsonl": {
+          "sha256": "727e8bc7a3d82d08992f08359a41e046bc8216b0fce1af8603d346734a10dd1d",
+          "rows": 24
+        },
+        "campaign/runs/0001_warmup.jsonl": {
+          "sha256": "965232ba8ae683974c6a0035640f74c8160377522385ddd8dc4ed71db809d534",
+          "rows": 24
+        },
+        "campaign/runs/0002_warmup.jsonl": {
+          "sha256": "4c38e0c368f4a0e3ad11498ecb7766d0c400bfcfc5e4366b7873929d9e1c6d40",
+          "rows": 24
+        },
+        "campaign/runs/0003_measured.jsonl": {
+          "sha256": "1bcd758ca326ed6d00a00ac0b46bed0cefde77ee6df3619b7d3599808cd7f402",
+          "rows": 24
+        },
+        "campaign/runs/0004_measured.jsonl": {
+          "sha256": "2c93032f3f2cf5405ccd7b21997527e9cb7b6a09ca435a6d096fa136dd5a7d7f",
+          "rows": 24
+        },
+        "campaign/runs/0005_measured.jsonl": {
+          "sha256": "3e50ddf90dc25f49a43719f213a5df4eb05e0fe9c3af0e9519d49297134e575f",
+          "rows": 24
+        },
+        "campaign/runs/0006_measured.jsonl": {
+          "sha256": "c9400417c812fccb73b59d5b109b1de09708ffb2232a3ce5efa0f34931762374",
+          "rows": 24
+        },
+        "campaign/runs/0007_measured.jsonl": {
+          "sha256": "f7e26b6db67d54e5a913b92488a940956442f663d51ffe8d0008e49eea0d9071",
+          "rows": 24
+        },
+        "campaign/runs/0008_measured.jsonl": {
+          "sha256": "4b0a45d503ed9f04e33913c2523fa82cbbdca0e10b7c97ee1615aeb10f62b103",
+          "rows": 24
+        },
+        "campaign/runs/0009_measured.jsonl": {
+          "sha256": "587a03ca8e786914d7d290f5651f9e8ea4f60c0fe58173c9552797cba406af12",
+          "rows": 24
+        }
+      },
+      "field_schema": [
+        {
+          "path": "client_process_metrics",
+          "type": "dict",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocated_bytes_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement",
+          "type": "dict",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.capture_strategy",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.end_snapshot_after_us",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.end_snapshot_before_us",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.estimated_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations",
+          "type": "list",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 222995
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_after_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_before_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_group_ids",
+          "type": "list",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_group_ids[*]",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations",
+          "type": "dict",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_old_collections",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_used_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_young_collections",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_old_collections",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_used_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_young_collections",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.method",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.observed_pid",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.observer_pid",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.old_gc_events",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.reclaimed_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.rounding_error_bound_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.scope",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.sdk_version",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.start_snapshot_after_us",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.start_snapshot_before_us",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.status",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.timeline_recorder",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.allocation_measurement.young_gc_events",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.cpu_system_us_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.cpu_user_us_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.current_rss_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.gc_count_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.gc_pause_us_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.max_rss_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.peak_rss_during_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.pid",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.rss_before_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.rss_lifetime_max_read_attempts_bytes",
+          "type": "list",
+          "occurrences": 240
+        },
+        {
+          "path": "client_process_metrics.rss_lifetime_max_read_attempts_bytes[*]",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics",
+          "type": "dict",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocated_bytes_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement",
+          "type": "dict",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.capture_strategy",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.end_snapshot_after_us",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.end_snapshot_before_us",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.estimated_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations",
+          "type": "list",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*]",
+          "type": "dict",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].after_new_bytes",
+          "type": "int",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].after_old_bytes",
+          "type": "int",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].before_new_bytes",
+          "type": "int",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].before_old_bytes",
+          "type": "int",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].isolate_group_id",
+          "type": "str",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].kind",
+          "type": "str",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].thread_id",
+          "type": "int",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.gc_observations[*].timestamp_us",
+          "type": "int",
+          "occurrences": 31690
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_after_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_before_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_group_ids",
+          "type": "list",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_group_ids[*]",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations",
+          "type": "dict",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#",
+          "type": "dict",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_old_collections",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_used_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.after_young_collections",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_old_collections",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_used_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.heap_observations.isolateGroups/#.before_young_collections",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.method",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.observed_pid",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.observer_pid",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.old_gc_events",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.reclaimed_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.rounding_error_bound_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.scope",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.sdk_version",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.start_snapshot_after_us",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.start_snapshot_before_us",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.status",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.timeline_recorder",
+          "type": "str",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.allocation_measurement.young_gc_events",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.cpu_system_us_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.cpu_user_us_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.current_rss_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.gc_count_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.gc_pause_us_delta",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.max_rss_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.peak_rss_during_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.pid",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.rss_before_bytes",
+          "type": "int",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.rss_lifetime_max_read_attempts_bytes",
+          "type": "list",
+          "occurrences": 240
+        },
+        {
+          "path": "server_process_metrics.rss_lifetime_max_read_attempts_bytes[*]",
+          "type": "int",
+          "occurrences": 240
+        }
+      ],
+      "candidate_class_stack_field_paths": {}
+    }
+  },
+  "synthetic_guards_before_data": 10,
+  "checked_utc": "2026-11-02T21:43:50.289931+00:00"
+}

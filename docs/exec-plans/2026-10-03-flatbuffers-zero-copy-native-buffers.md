@@ -10,8 +10,8 @@ campaign, source/native/HEAD edit or adoption. Do not repoll/redownload/rerun.
 Read-only attribution is now complete/audited for all48/336original pairs.
 Initial native-buffer RPC source tracing finds explicit producer/lease/result
 cleanup and existing externalSize accounting; no ownership defect is confirmed.
-Next inspect receive/control decoding and per-message metadata allocations,
-retaining both roles/allcontrols; no patch/control/capture is ready.
+The subsequent receive/control metadata hypothesis was rejected below;
+no patch/control/capture is ready.
 The known-only PPT empty-map shortcut was tested and rejected: later raw-byte
 metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
@@ -24,8 +24,18 @@ protected source/HEAD/native/RLIB/executable hash and all evidence. Retain the
 first missing-generated-lock preflight failure, which preceded all commands;
 exact original LOCAL locks initialized the corrected preparation. No candidate
 source change, production defect or RAM repair is retained/established.
-Next inventory retained report/profile allocation/heap/GC and class/stack
-evidence before another optimization; no new capture or patch is ready.
+The new read-only inventory now covers40canonical streams /2,940raw records /
+5,880client+server metric objects, all warmups/measured repetitions/controls.
+Full nested schemas and selected production collector source provide aggregate
+heap/GC/CPU/RSS evidence, with no class/source-stack records identified in this
+scope. Ten method guards preceded raw access; the initial manifest admission
+failure occurred before raw reports and is retained. No numerical rerun.
+Exact SDK3.13.5 class-profile fields are heap-walk current values even when
+named accumulated; iteration can finalize pending GC. That method is rejected
+as a GC-neutral allocation-work witness; no target RPC ran. Next inspect stack
+attribution with already-enabled facilities/original launch policies and fail
+closed if unavailable/insufficient. No new capture or patch is ready.
+[Complete inventory and diagnostic-method limits](../research/2026-11-02-flatbuffers-601-retained-metric-inventory.md).
 [Rejection, exact counterexample and preserved evidence](../research/2026-11-02-flatbuffers-known-ppt-custom-map-rejection.md).
 Owncanonical/copy/MQTT20/hostedJS/fullCI39 and proper fresh50row native control
 are complete/audited within their distinct scopes; they do not accept RAM or
@@ -64,9 +74,9 @@ accounting; it establishes no ownership defect or RSS cause. All nine inspected
 files match frozen601. A bounded local review reached its token limit without
 saving a final assessment; no model approval is claimed.
 [Source trace and limits](../research/2026-11-02-flatbuffers-601-native-buffer-source-trace.md).
-Next inspect receive/control decoding and per-message metadata allocations,
-retaining both roles/allcontrols. No production defect is confirmed; no patch
-or capture is ready. Both strict campaigns stay failed, source601 frozen/unadopted.
+The subsequent receive/control metadata hypothesis was rejected in the current
+step above. No production defect is confirmed; no patch or capture is ready.
+Both strict campaigns stay failed, source601 frozen/unadopted.
 
 ## Both exact601 strict campaigns complete failed; no adoption (2026-11-02)
 

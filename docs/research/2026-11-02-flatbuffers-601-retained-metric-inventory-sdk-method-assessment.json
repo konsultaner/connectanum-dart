@@ -1,0 +1,72 @@
+{
+  "scope": "READONLY method/source assessment against official SDK3.13.5 and actual local vm_service15.4.0 client. No target RPC, test, numerical workload, acceptance rerun, flag/source/native/SDK/GC/allocator/worker change. This is not a runtime measurement.",
+  "checked_utc": "2026-11-02T21:54:59.985559+00:00",
+  "sdk_source": {
+    "runtime/vm/service.cc": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/service.cc",
+      "sha256": "1a5b0aa0ebfdb99a65e515b3cf428b8a5ad37e87183d67a5b983b7acca719e37",
+      "inspected_line_ranges": [
+        "4737-4779"
+      ]
+    },
+    "runtime/vm/class_table.cc": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/class_table.cc",
+      "sha256": "f1b938c92b4204b7b32706e61a04953eb8749701dff05e1193a481b74893a5b1",
+      "inspected_line_ranges": [
+        "285-362"
+      ]
+    },
+    "runtime/vm/heap/heap.cc": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/heap/heap.cc",
+      "sha256": "18033edaf50e6e9f1b9f2230f41424da2ced1484362d6563fbdb60cb34cb5237",
+      "inspected_line_ranges": [
+        "294-335"
+      ]
+    },
+    "runtime/vm/object_graph.cc": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/object_graph.cc",
+      "sha256": "6baaa3452aee9786828ec701f1d3fc2060b708c1cbcd5090865ccfa8c25451b7",
+      "inspected_line_ranges": [
+        "1893-1940"
+      ]
+    }
+  },
+  "preexisting_class_table_and_heap_source_revalidated_byte_identical": true,
+  "freshness_validation_sha256": "384542b0e38ad575c0d0d68310f51017c0436a1a23567e88ba6b63356d2f2996",
+  "actual_client": {
+    "package": "vm_service",
+    "version": "15.4.0",
+    "file": "lib/src/vm_service.dart",
+    "sha256": "37b9ada26e23805c8da1989acc893ff3228b12f625c97c84f6753494cb3783af",
+    "inspected_line_ranges": [
+      "765-790",
+      "3193-3255"
+    ]
+  },
+  "advisory_review": {
+    "complete_reaped_session": 99477,
+    "backend": "GLM-5.3 Flash",
+    "output_sha256": "a22f8effac9a0b9f7623c98a1fb9eb40b8a731f9482cc87cdc67ba7b11b3b68a",
+    "root_qualifications": [
+      "Same visitor count/size assigned to current and accumulated output fields is verified from exact SDK source; these fields cannot provide window allocation volume.",
+      "Model calls these live objects. Root qualifies: heap iteration counts objects currently allocated in the heap; without collection, this is not proof of semantic reachability, retained objects, leaks or retained native memory.",
+      "Heap iteration enters GC safepoint and may assist/finalize already-pending old-space work. This is a source-defined possibility, not evidence a GC occurred or a measured perturbation magnitude.",
+      "Generated client omits false. Server rejects present values other than true through source branches. This static inference has not been dynamically probed; no explicit-false raw RPC should be sent.",
+      "No model approval or diagnostic readiness inferred. Reject method only for the proposed GC-neutral allocation-work witness."
+    ]
+  },
+  "method_decision": "REJECT getAllocationProfile as a GC-neutral window-allocation-work witness for this task. No class-profile RPC will be invoked under this rejected design.",
+  "supported_findings": [
+    "SDK3.13.5 class-table response assigns identical heap-walk count/size to accumulated and current public fields; no temporal allocation accumulator is emitted by this path.",
+    "Parameter omission avoids explicit debugging-GC/reset branches, but heap iteration still reaches a GC safepoint, waits/assists old-space tasks and may finalize pending GC.",
+    "The generated vm_service15.4.0 method omits gc/reset when false; the inspected server accepts present true and rejects other present values.",
+    "Public class heap sizes come from object HeapSize; external handle accounting is maintained separately by the visitor and not added to the public bytesCurrent/accumulatedSize fields in this path. These are not physical process RSS."
+  ],
+  "not_established": [
+    "Actual target service availability or response",
+    "Runtime GC behavior or observer overhead",
+    "Class or stack allocation cause of current strict failures",
+    "Production defect, avoidable byte amount, retained leak, repair or acceptance"
+  ],
+  "next": "Design source-relevant stack attribution using already-enabled facilities only; inspect exact server path and original launch policies first. Unsupported/insufficient evidence must fail closed. No profiler/tracing enablement, forced GC, accumulator reset, flag/policy change, data substitution or automatic original workload rerun."
+}

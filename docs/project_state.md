@@ -7,6 +7,27 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Retained metric inventory complete; diagnostic method constrained (2026-11-02)
+
+A new read-only inventory covers all40 canonical streams /2,940raw records /
+5,880client+server metric objects across the four original601 shards, including
+warmups, measured repetitions and passing controls. Complete nested schemas
+and selected production collector source show aggregate heap/GC/CPU/RSS
+evidence; no class or source-stack records were identified in this scope.
+Ten synthetic guards preceded raw-report access. The initial manifest list/count
+admission error failed before raw reports and is retained. No workload or gate
+was rerun. Opaque content and duplicate derived reports are explicitly outside
+the schema scan; there is no global absence or source-cause claim.
+
+Exact SDK3.13.5 inspection also rejects a proposed class-profile RPC as a
+GC-neutral allocation-work witness: accumulated/current fields use the same
+heap-walk values, and iteration can assist/finalize pending GC even when the
+explicit GC/reset branches are avoided. No target RPC ran. Next inspect stack
+attribution using already-enabled facilities and original launch policies,
+failing closed if unavailable/insufficient. No new capture or patch is ready.
+All own sessions are reaped; source601 and the restored isolated worktree are
+clean/unadopted. [Inventory, source hashes and method limits](research/2026-11-02-flatbuffers-601-retained-metric-inventory.md).
+
 
 ## Read-only original RSS role attribution complete (2026-11-02)
 
@@ -29,9 +50,9 @@ accounting; it establishes no ownership defect or RSS cause. All nine inspected
 files match frozen601. A bounded local review reached its token limit without
 saving a final assessment; no model approval is claimed.
 [Source trace and limits](research/2026-11-02-flatbuffers-601-native-buffer-source-trace.md).
-Next inspect receive/control decoding and per-message metadata allocations,
-retaining both roles/allcontrols. No production defect is confirmed; no patch
-or capture is ready. Both strict campaigns stay failed, source601 frozen/unadopted.
+The subsequent receive/control metadata hypothesis was rejected below.
+No production defect is confirmed; no patch or capture is ready. Both strict
+campaigns stay failed, source601 frozen/unadopted.
 
 The known-only PPT empty-map shortcut is now **rejected**. Its initial six
 pending-decoder budget failures and21passing controls did not cover later raw
@@ -54,11 +75,10 @@ reached19.69GB. Evidence, frozen601 and other tasks were untouched. The first
 runner's missing-generated-lock preflight failure preceded every command and
 is retained; the corrected preparation initializes exact frozen LOCAL lock
 bytes, without hand-editing inputs, borrowing binaries or waiving cohort drift.
-No production defect or RAM repair is established. Next inventory retained
-original report/profile fields for source-relevant allocation/heap/GC or class/
-stack evidence before another optimization. The first field-schema check
-covers only one repetition/all3codecs of the initially focused case; it is not
-whole-artifact coverage or a causal result. No new capture/patch is ready.
+No production defect or RAM repair is established. The subsequent complete
+structured metric inventory is recorded above. Its earlier single-repetition,
+three-codec field check remains historical, not whole-artifact or causal proof.
+No new capture/patch is ready.
 
 ## Both exact601 strict campaigns complete failed; no adoption (2026-11-02)
 

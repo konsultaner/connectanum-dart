@@ -1,0 +1,1129 @@
+{
+  "scope": "READONLY file-name/size inventory of actual retained current601 caches; no numerical metric/gate/audit recomputation, no downloads or workload. Candidate profile names are not proof of executable or source attribution.",
+  "checked_utc": "2026-11-02T21:30:56.956219+00:00",
+  "caches": {
+    "primary": {
+      "files": [
+        {
+          "path": "campaign.log",
+          "bytes": 467
+        },
+        {
+          "path": "setup/libct_ffi.so",
+          "bytes": 9705360
+        },
+        {
+          "path": "setup/driver-build.log",
+          "bytes": 11362
+        },
+        {
+          "path": "setup/host-info.txt",
+          "bytes": 6309
+        },
+        {
+          "path": "setup/artifacts.sha256",
+          "bytes": 227
+        },
+        {
+          "path": "setup/http_stream",
+          "bytes": 12460904
+        },
+        {
+          "path": "setup/bootstrap.log",
+          "bytes": 10310
+        },
+        {
+          "path": "setup/native-exports.txt",
+          "bytes": 9540
+        },
+        {
+          "path": "setup/native-build.log",
+          "bytes": 13285
+        },
+        {
+          "path": "setup/locks/pubspec.lock",
+          "bytes": 15271
+        },
+        {
+          "path": "setup/locks/native/bench/Cargo.lock",
+          "bytes": 54312
+        },
+        {
+          "path": "setup/locks/native/transport/Cargo.lock",
+          "bytes": 41049
+        },
+        {
+          "path": "campaign/comparison.md",
+          "bytes": 71664
+        },
+        {
+          "path": "campaign/comparison.json",
+          "bytes": 127890853
+        },
+        {
+          "path": "campaign/manifest.json",
+          "bytes": 118671
+        },
+        {
+          "path": "campaign/driver.log",
+          "bytes": 1528112
+        },
+        {
+          "path": "campaign/driver-results.jsonl",
+          "bytes": 2635861011
+        },
+        {
+          "path": "campaign/scenarios/0000_warmup.toml",
+          "bytes": 65421
+        },
+        {
+          "path": "campaign/scenarios/0008_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0006_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0005_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0004_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0001_warmup.toml",
+          "bytes": 65421
+        },
+        {
+          "path": "campaign/scenarios/0003_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0007_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0009_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0002_warmup.toml",
+          "bytes": 65421
+        },
+        {
+          "path": "campaign/runs/0001_warmup.jsonl",
+          "bytes": 387733088
+        },
+        {
+          "path": "campaign/runs/0005_measured.jsonl",
+          "bytes": 214251435
+        },
+        {
+          "path": "campaign/runs/0000_warmup.jsonl",
+          "bytes": 450402035
+        },
+        {
+          "path": "campaign/runs/0004_measured.jsonl",
+          "bytes": 247548203
+        },
+        {
+          "path": "campaign/runs/0003_measured.jsonl",
+          "bytes": 283059112
+        },
+        {
+          "path": "campaign/runs/0009_measured.jsonl",
+          "bytes": 164096382
+        },
+        {
+          "path": "campaign/runs/0006_measured.jsonl",
+          "bytes": 199612427
+        },
+        {
+          "path": "campaign/runs/0007_measured.jsonl",
+          "bytes": 188532270
+        },
+        {
+          "path": "campaign/runs/0008_measured.jsonl",
+          "bytes": 174795308
+        },
+        {
+          "path": "campaign/runs/0002_warmup.jsonl",
+          "bytes": 325830751
+        },
+        {
+          "path": "campaign/inputs/policy.json",
+          "bytes": 2604
+        },
+        {
+          "path": "campaign/inputs/pubspec.lock",
+          "bytes": 15271
+        },
+        {
+          "path": "campaign/inputs/router_config.json",
+          "bytes": 12199
+        },
+        {
+          "path": "campaign/inputs/native/bench/Cargo.lock",
+          "bytes": 54312
+        },
+        {
+          "path": "campaign/inputs/native/transport/Cargo.lock",
+          "bytes": 41049
+        }
+      ],
+      "groups": {
+        "campaign.log": 1,
+        "setup/libct_ffi.so": 1,
+        "setup/driver-build.log": 1,
+        "setup/host-info.txt": 1,
+        "setup/artifacts.sha256": 1,
+        "setup/http_stream": 1,
+        "setup/bootstrap.log": 1,
+        "setup/native-exports.txt": 1,
+        "setup/native-build.log": 1,
+        "setup/locks": 3,
+        "campaign/comparison.md": 1,
+        "campaign/comparison.json": 1,
+        "campaign/manifest.json": 1,
+        "campaign/driver.log": 1,
+        "campaign/driver-results.jsonl": 1,
+        "campaign/scenarios": 10,
+        "campaign/runs": 10,
+        "campaign/inputs": 5
+      },
+      "profile_report_name_candidates": [
+        {
+          "path": "campaign/scenarios/0000_warmup.toml",
+          "bytes": 65421
+        },
+        {
+          "path": "campaign/scenarios/0008_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0006_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0005_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0004_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0001_warmup.toml",
+          "bytes": 65421
+        },
+        {
+          "path": "campaign/scenarios/0003_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0007_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0009_measured.toml",
+          "bytes": 65423
+        },
+        {
+          "path": "campaign/scenarios/0002_warmup.toml",
+          "bytes": 65421
+        },
+        {
+          "path": "campaign/runs/0001_warmup.jsonl",
+          "bytes": 387733088
+        },
+        {
+          "path": "campaign/runs/0005_measured.jsonl",
+          "bytes": 214251435
+        },
+        {
+          "path": "campaign/runs/0000_warmup.jsonl",
+          "bytes": 450402035
+        },
+        {
+          "path": "campaign/runs/0004_measured.jsonl",
+          "bytes": 247548203
+        },
+        {
+          "path": "campaign/runs/0003_measured.jsonl",
+          "bytes": 283059112
+        },
+        {
+          "path": "campaign/runs/0009_measured.jsonl",
+          "bytes": 164096382
+        },
+        {
+          "path": "campaign/runs/0006_measured.jsonl",
+          "bytes": 199612427
+        },
+        {
+          "path": "campaign/runs/0007_measured.jsonl",
+          "bytes": 188532270
+        },
+        {
+          "path": "campaign/runs/0008_measured.jsonl",
+          "bytes": 174795308
+        },
+        {
+          "path": "campaign/runs/0002_warmup.jsonl",
+          "bytes": 325830751
+        }
+      ]
+    },
+    "protocol": {
+      "files": [
+        {
+          "path": "campaign.log",
+          "bytes": 476
+        },
+        {
+          "path": "setup/libct_ffi.so",
+          "bytes": 9705360
+        },
+        {
+          "path": "setup/driver-build.log",
+          "bytes": 11362
+        },
+        {
+          "path": "setup/host-info.txt",
+          "bytes": 5585
+        },
+        {
+          "path": "setup/artifacts.sha256",
+          "bytes": 227
+        },
+        {
+          "path": "setup/http_stream",
+          "bytes": 12460904
+        },
+        {
+          "path": "setup/bootstrap.log",
+          "bytes": 10310
+        },
+        {
+          "path": "setup/native-exports.txt",
+          "bytes": 9540
+        },
+        {
+          "path": "setup/native-build.log",
+          "bytes": 13285
+        },
+        {
+          "path": "setup/locks/pubspec.lock",
+          "bytes": 15271
+        },
+        {
+          "path": "setup/locks/native/bench/Cargo.lock",
+          "bytes": 54312
+        },
+        {
+          "path": "setup/locks/native/transport/Cargo.lock",
+          "bytes": 41049
+        },
+        {
+          "path": "campaign/comparison.md",
+          "bytes": 46397
+        },
+        {
+          "path": "campaign/comparison.json",
+          "bytes": 68011835
+        },
+        {
+          "path": "campaign/manifest.json",
+          "bytes": 69806
+        },
+        {
+          "path": "campaign/driver.log",
+          "bytes": 939756
+        },
+        {
+          "path": "campaign/driver-results.jsonl",
+          "bytes": 683223523
+        },
+        {
+          "path": "campaign/scenarios/0000_warmup.toml",
+          "bytes": 36912
+        },
+        {
+          "path": "campaign/scenarios/0008_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0006_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0005_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0004_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0001_warmup.toml",
+          "bytes": 36912
+        },
+        {
+          "path": "campaign/scenarios/0003_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0007_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0009_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0002_warmup.toml",
+          "bytes": 36912
+        },
+        {
+          "path": "campaign/runs/0001_warmup.jsonl",
+          "bytes": 82284592
+        },
+        {
+          "path": "campaign/runs/0005_measured.jsonl",
+          "bytes": 65024411
+        },
+        {
+          "path": "campaign/runs/0000_warmup.jsonl",
+          "bytes": 88204294
+        },
+        {
+          "path": "campaign/runs/0004_measured.jsonl",
+          "bytes": 68784461
+        },
+        {
+          "path": "campaign/runs/0003_measured.jsonl",
+          "bytes": 73265315
+        },
+        {
+          "path": "campaign/runs/0009_measured.jsonl",
+          "bytes": 53232366
+        },
+        {
+          "path": "campaign/runs/0006_measured.jsonl",
+          "bytes": 61377855
+        },
+        {
+          "path": "campaign/runs/0007_measured.jsonl",
+          "bytes": 58254789
+        },
+        {
+          "path": "campaign/runs/0008_measured.jsonl",
+          "bytes": 55306195
+        },
+        {
+          "path": "campaign/runs/0002_warmup.jsonl",
+          "bytes": 77489245
+        },
+        {
+          "path": "campaign/inputs/policy.json",
+          "bytes": 2604
+        },
+        {
+          "path": "campaign/inputs/pubspec.lock",
+          "bytes": 15271
+        },
+        {
+          "path": "campaign/inputs/router_config.json",
+          "bytes": 12199
+        },
+        {
+          "path": "campaign/inputs/native/bench/Cargo.lock",
+          "bytes": 54312
+        },
+        {
+          "path": "campaign/inputs/native/transport/Cargo.lock",
+          "bytes": 41049
+        }
+      ],
+      "groups": {
+        "campaign.log": 1,
+        "setup/libct_ffi.so": 1,
+        "setup/driver-build.log": 1,
+        "setup/host-info.txt": 1,
+        "setup/artifacts.sha256": 1,
+        "setup/http_stream": 1,
+        "setup/bootstrap.log": 1,
+        "setup/native-exports.txt": 1,
+        "setup/native-build.log": 1,
+        "setup/locks": 3,
+        "campaign/comparison.md": 1,
+        "campaign/comparison.json": 1,
+        "campaign/manifest.json": 1,
+        "campaign/driver.log": 1,
+        "campaign/driver-results.jsonl": 1,
+        "campaign/scenarios": 10,
+        "campaign/runs": 10,
+        "campaign/inputs": 5
+      },
+      "profile_report_name_candidates": [
+        {
+          "path": "campaign/scenarios/0000_warmup.toml",
+          "bytes": 36912
+        },
+        {
+          "path": "campaign/scenarios/0008_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0006_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0005_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0004_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0001_warmup.toml",
+          "bytes": 36912
+        },
+        {
+          "path": "campaign/scenarios/0003_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0007_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0009_measured.toml",
+          "bytes": 36914
+        },
+        {
+          "path": "campaign/scenarios/0002_warmup.toml",
+          "bytes": 36912
+        },
+        {
+          "path": "campaign/runs/0001_warmup.jsonl",
+          "bytes": 82284592
+        },
+        {
+          "path": "campaign/runs/0005_measured.jsonl",
+          "bytes": 65024411
+        },
+        {
+          "path": "campaign/runs/0000_warmup.jsonl",
+          "bytes": 88204294
+        },
+        {
+          "path": "campaign/runs/0004_measured.jsonl",
+          "bytes": 68784461
+        },
+        {
+          "path": "campaign/runs/0003_measured.jsonl",
+          "bytes": 73265315
+        },
+        {
+          "path": "campaign/runs/0009_measured.jsonl",
+          "bytes": 53232366
+        },
+        {
+          "path": "campaign/runs/0006_measured.jsonl",
+          "bytes": 61377855
+        },
+        {
+          "path": "campaign/runs/0007_measured.jsonl",
+          "bytes": 58254789
+        },
+        {
+          "path": "campaign/runs/0008_measured.jsonl",
+          "bytes": 55306195
+        },
+        {
+          "path": "campaign/runs/0002_warmup.jsonl",
+          "bytes": 77489245
+        }
+      ]
+    },
+    "payload_sizes": {
+      "files": [
+        {
+          "path": "campaign.log",
+          "bytes": 457
+        },
+        {
+          "path": "setup/libct_ffi.so",
+          "bytes": 9705360
+        },
+        {
+          "path": "setup/driver-build.log",
+          "bytes": 11362
+        },
+        {
+          "path": "setup/host-info.txt",
+          "bytes": 5585
+        },
+        {
+          "path": "setup/artifacts.sha256",
+          "bytes": 227
+        },
+        {
+          "path": "setup/http_stream",
+          "bytes": 12460904
+        },
+        {
+          "path": "setup/bootstrap.log",
+          "bytes": 10310
+        },
+        {
+          "path": "setup/native-exports.txt",
+          "bytes": 9540
+        },
+        {
+          "path": "setup/native-build.log",
+          "bytes": 13285
+        },
+        {
+          "path": "setup/locks/pubspec.lock",
+          "bytes": 15271
+        },
+        {
+          "path": "setup/locks/native/bench/Cargo.lock",
+          "bytes": 54312
+        },
+        {
+          "path": "setup/locks/native/transport/Cargo.lock",
+          "bytes": 41049
+        },
+        {
+          "path": "campaign/comparison.md",
+          "bytes": 18783
+        },
+        {
+          "path": "campaign/comparison.json",
+          "bytes": 80169636
+        },
+        {
+          "path": "campaign/manifest.json",
+          "bytes": 33832
+        },
+        {
+          "path": "campaign/driver.log",
+          "bytes": 376920
+        },
+        {
+          "path": "campaign/driver-results.jsonl",
+          "bytes": 489767468
+        },
+        {
+          "path": "campaign/scenarios/0000_warmup.toml",
+          "bytes": 15657
+        },
+        {
+          "path": "campaign/scenarios/0008_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0006_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0005_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0004_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0001_warmup.toml",
+          "bytes": 15657
+        },
+        {
+          "path": "campaign/scenarios/0003_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0007_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0009_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0002_warmup.toml",
+          "bytes": 15657
+        },
+        {
+          "path": "campaign/runs/0001_warmup.jsonl",
+          "bytes": 54297267
+        },
+        {
+          "path": "campaign/runs/0005_measured.jsonl",
+          "bytes": 47834530
+        },
+        {
+          "path": "campaign/runs/0000_warmup.jsonl",
+          "bytes": 56009836
+        },
+        {
+          "path": "campaign/runs/0004_measured.jsonl",
+          "bytes": 49708843
+        },
+        {
+          "path": "campaign/runs/0003_measured.jsonl",
+          "bytes": 50982187
+        },
+        {
+          "path": "campaign/runs/0009_measured.jsonl",
+          "bytes": 42426655
+        },
+        {
+          "path": "campaign/runs/0006_measured.jsonl",
+          "bytes": 46779872
+        },
+        {
+          "path": "campaign/runs/0007_measured.jsonl",
+          "bytes": 45357830
+        },
+        {
+          "path": "campaign/runs/0008_measured.jsonl",
+          "bytes": 43652064
+        },
+        {
+          "path": "campaign/runs/0002_warmup.jsonl",
+          "bytes": 52718384
+        },
+        {
+          "path": "campaign/inputs/policy.json",
+          "bytes": 2604
+        },
+        {
+          "path": "campaign/inputs/pubspec.lock",
+          "bytes": 15271
+        },
+        {
+          "path": "campaign/inputs/router_config.json",
+          "bytes": 12199
+        },
+        {
+          "path": "campaign/inputs/native/bench/Cargo.lock",
+          "bytes": 54312
+        },
+        {
+          "path": "campaign/inputs/native/transport/Cargo.lock",
+          "bytes": 41049
+        }
+      ],
+      "groups": {
+        "campaign.log": 1,
+        "setup/libct_ffi.so": 1,
+        "setup/driver-build.log": 1,
+        "setup/host-info.txt": 1,
+        "setup/artifacts.sha256": 1,
+        "setup/http_stream": 1,
+        "setup/bootstrap.log": 1,
+        "setup/native-exports.txt": 1,
+        "setup/native-build.log": 1,
+        "setup/locks": 3,
+        "campaign/comparison.md": 1,
+        "campaign/comparison.json": 1,
+        "campaign/manifest.json": 1,
+        "campaign/driver.log": 1,
+        "campaign/driver-results.jsonl": 1,
+        "campaign/scenarios": 10,
+        "campaign/runs": 10,
+        "campaign/inputs": 5
+      },
+      "profile_report_name_candidates": [
+        {
+          "path": "campaign/scenarios/0000_warmup.toml",
+          "bytes": 15657
+        },
+        {
+          "path": "campaign/scenarios/0008_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0006_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0005_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0004_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0001_warmup.toml",
+          "bytes": 15657
+        },
+        {
+          "path": "campaign/scenarios/0003_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0007_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0009_measured.toml",
+          "bytes": 15659
+        },
+        {
+          "path": "campaign/scenarios/0002_warmup.toml",
+          "bytes": 15657
+        },
+        {
+          "path": "campaign/runs/0001_warmup.jsonl",
+          "bytes": 54297267
+        },
+        {
+          "path": "campaign/runs/0005_measured.jsonl",
+          "bytes": 47834530
+        },
+        {
+          "path": "campaign/runs/0000_warmup.jsonl",
+          "bytes": 56009836
+        },
+        {
+          "path": "campaign/runs/0004_measured.jsonl",
+          "bytes": 49708843
+        },
+        {
+          "path": "campaign/runs/0003_measured.jsonl",
+          "bytes": 50982187
+        },
+        {
+          "path": "campaign/runs/0009_measured.jsonl",
+          "bytes": 42426655
+        },
+        {
+          "path": "campaign/runs/0006_measured.jsonl",
+          "bytes": 46779872
+        },
+        {
+          "path": "campaign/runs/0007_measured.jsonl",
+          "bytes": 45357830
+        },
+        {
+          "path": "campaign/runs/0008_measured.jsonl",
+          "bytes": 43652064
+        },
+        {
+          "path": "campaign/runs/0002_warmup.jsonl",
+          "bytes": 52718384
+        }
+      ]
+    },
+    "encrypted_progressive_results": {
+      "files": [
+        {
+          "path": "campaign.log",
+          "bytes": 476
+        },
+        {
+          "path": "setup/libct_ffi.so",
+          "bytes": 9705360
+        },
+        {
+          "path": "setup/driver-build.log",
+          "bytes": 11362
+        },
+        {
+          "path": "setup/host-info.txt",
+          "bytes": 5593
+        },
+        {
+          "path": "setup/artifacts.sha256",
+          "bytes": 227
+        },
+        {
+          "path": "setup/http_stream",
+          "bytes": 12460904
+        },
+        {
+          "path": "setup/bootstrap.log",
+          "bytes": 10310
+        },
+        {
+          "path": "setup/native-exports.txt",
+          "bytes": 9540
+        },
+        {
+          "path": "setup/native-build.log",
+          "bytes": 13285
+        },
+        {
+          "path": "setup/locks/pubspec.lock",
+          "bytes": 15271
+        },
+        {
+          "path": "setup/locks/native/bench/Cargo.lock",
+          "bytes": 54312
+        },
+        {
+          "path": "setup/locks/native/transport/Cargo.lock",
+          "bytes": 41049
+        },
+        {
+          "path": "campaign/comparison.md",
+          "bytes": 17940
+        },
+        {
+          "path": "campaign/comparison.json",
+          "bytes": 83147280
+        },
+        {
+          "path": "campaign/manifest.json",
+          "bytes": 31121
+        },
+        {
+          "path": "campaign/driver.log",
+          "bytes": 258938
+        },
+        {
+          "path": "campaign/driver-results.jsonl",
+          "bytes": 119624651
+        },
+        {
+          "path": "campaign/scenarios/0000_warmup.toml",
+          "bytes": 11509
+        },
+        {
+          "path": "campaign/scenarios/0008_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0006_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0005_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0004_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0001_warmup.toml",
+          "bytes": 11509
+        },
+        {
+          "path": "campaign/scenarios/0003_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0007_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0009_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0002_warmup.toml",
+          "bytes": 11509
+        },
+        {
+          "path": "campaign/runs/0001_warmup.jsonl",
+          "bytes": 12419125
+        },
+        {
+          "path": "campaign/runs/0005_measured.jsonl",
+          "bytes": 11903763
+        },
+        {
+          "path": "campaign/runs/0000_warmup.jsonl",
+          "bytes": 12601230
+        },
+        {
+          "path": "campaign/runs/0004_measured.jsonl",
+          "bytes": 11889434
+        },
+        {
+          "path": "campaign/runs/0003_measured.jsonl",
+          "bytes": 12169894
+        },
+        {
+          "path": "campaign/runs/0009_measured.jsonl",
+          "bytes": 11552166
+        },
+        {
+          "path": "campaign/runs/0006_measured.jsonl",
+          "bytes": 11541806
+        },
+        {
+          "path": "campaign/runs/0007_measured.jsonl",
+          "bytes": 11737480
+        },
+        {
+          "path": "campaign/runs/0008_measured.jsonl",
+          "bytes": 11573092
+        },
+        {
+          "path": "campaign/runs/0002_warmup.jsonl",
+          "bytes": 12236661
+        },
+        {
+          "path": "campaign/inputs/policy.json",
+          "bytes": 2604
+        },
+        {
+          "path": "campaign/inputs/pubspec.lock",
+          "bytes": 15271
+        },
+        {
+          "path": "campaign/inputs/router_config.json",
+          "bytes": 12199
+        },
+        {
+          "path": "campaign/inputs/native/bench/Cargo.lock",
+          "bytes": 54312
+        },
+        {
+          "path": "campaign/inputs/native/transport/Cargo.lock",
+          "bytes": 41049
+        }
+      ],
+      "groups": {
+        "campaign.log": 1,
+        "setup/libct_ffi.so": 1,
+        "setup/driver-build.log": 1,
+        "setup/host-info.txt": 1,
+        "setup/artifacts.sha256": 1,
+        "setup/http_stream": 1,
+        "setup/bootstrap.log": 1,
+        "setup/native-exports.txt": 1,
+        "setup/native-build.log": 1,
+        "setup/locks": 3,
+        "campaign/comparison.md": 1,
+        "campaign/comparison.json": 1,
+        "campaign/manifest.json": 1,
+        "campaign/driver.log": 1,
+        "campaign/driver-results.jsonl": 1,
+        "campaign/scenarios": 10,
+        "campaign/runs": 10,
+        "campaign/inputs": 5
+      },
+      "profile_report_name_candidates": [
+        {
+          "path": "campaign/scenarios/0000_warmup.toml",
+          "bytes": 11509
+        },
+        {
+          "path": "campaign/scenarios/0008_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0006_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0005_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0004_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0001_warmup.toml",
+          "bytes": 11509
+        },
+        {
+          "path": "campaign/scenarios/0003_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0007_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0009_measured.toml",
+          "bytes": 11511
+        },
+        {
+          "path": "campaign/scenarios/0002_warmup.toml",
+          "bytes": 11509
+        },
+        {
+          "path": "campaign/runs/0001_warmup.jsonl",
+          "bytes": 12419125
+        },
+        {
+          "path": "campaign/runs/0005_measured.jsonl",
+          "bytes": 11903763
+        },
+        {
+          "path": "campaign/runs/0000_warmup.jsonl",
+          "bytes": 12601230
+        },
+        {
+          "path": "campaign/runs/0004_measured.jsonl",
+          "bytes": 11889434
+        },
+        {
+          "path": "campaign/runs/0003_measured.jsonl",
+          "bytes": 12169894
+        },
+        {
+          "path": "campaign/runs/0009_measured.jsonl",
+          "bytes": 11552166
+        },
+        {
+          "path": "campaign/runs/0006_measured.jsonl",
+          "bytes": 11541806
+        },
+        {
+          "path": "campaign/runs/0007_measured.jsonl",
+          "bytes": 11737480
+        },
+        {
+          "path": "campaign/runs/0008_measured.jsonl",
+          "bytes": 11573092
+        },
+        {
+          "path": "campaign/runs/0002_warmup.jsonl",
+          "bytes": 12236661
+        }
+      ]
+    },
+    "aggregate": {
+      "files": [
+        {
+          "path": "extension-artifacts.json",
+          "bytes": 2429
+        },
+        {
+          "path": "flatbuffers-extensions/comparison.md",
+          "bytes": 67116
+        },
+        {
+          "path": "flatbuffers-extensions/comparison.json",
+          "bytes": 151164925
+        },
+        {
+          "path": "flatbuffers-extensions/manifest.json",
+          "bytes": 4458
+        }
+      ],
+      "groups": {
+        "extension-artifacts.json": 1,
+        "flatbuffers-extensions/comparison.md": 1,
+        "flatbuffers-extensions/comparison.json": 1,
+        "flatbuffers-extensions/manifest.json": 1
+      },
+      "profile_report_name_candidates": []
+    }
+  }
+}
