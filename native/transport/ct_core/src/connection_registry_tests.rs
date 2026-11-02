@@ -715,3 +715,63 @@ async fn active_wamp_records_preserve_frames_backpressure_and_close_semantics() 
         missing(registry.connection_protocol(id), id);
     }
 }
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn mqtt_plain_stream_requests_bounded_kernel_send_buffer_and_preserves_bytes() {
+    for websocket in [false, true] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (server, peer_addr) = listener.accept().await.unwrap();
+        let stream = IoStream::plain(server);
+        let observer = stream.try_clone_plain_fd().unwrap().unwrap();
+        let socket = socket2::SockRef::from(&observer);
+        socket.set_send_buffer_size(16 * 1024).unwrap();
+        let reference =
+            socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
+        reference.set_send_buffer_size(1024 * 1024).unwrap();
+        let requested = reference.send_buffer_size().unwrap();
+        assert_ne!(socket.send_buffer_size().unwrap(), requested);
+        let registry = Arc::new(ListenerRegistry::default());
+        let id = ConnectionId(91);
+        Arc::clone(&registry)
+            .register_mqtt_stream_connection(
+                tokio::runtime::Handle::current(),
+                ListenerId(1),
+                id,
+                Arc::new(build_client_endpoint_config(
+                    "127.0.0.1",
+                    0,
+                    false,
+                    TransportProtocol::Mqtt,
+                    config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+                    None,
+                    None,
+                )),
+                stream,
+                5,
+                peer_addr,
+                websocket,
+            )
+            .unwrap();
+        assert_eq!(socket.send_buffer_size().unwrap(), requested);
+        assert!(requested <= 2 * 1024 * 1024);
+        registry
+            .enqueue_mqtt_chunk(id, Bytes::from_static(&[0xd0, 0]))
+            .unwrap();
+        let expected: &[u8] = if websocket {
+            &[0x82, 2, 0xd0, 0]
+        } else {
+            &[0xd0, 0]
+        };
+        let mut received = vec![0; expected.len()];
+        time::timeout(Duration::from_secs(5), client.read_exact(&mut received))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(received, expected);
+        registry.close_connection(id).unwrap();
+    }
+}
