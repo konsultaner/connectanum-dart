@@ -1,0 +1,4713 @@
+{
+  "ZIP_sha256": "89d869525e16199ae6755ad8ed856dca53af564c7ca31c7be0dea39201a09ec3",
+  "actual_hosted_locks": {
+    "native/bench/Cargo.lock": "7c215c5878e264810759a4886e5d060cb0c04ab16c3db02fe69b42f156339187",
+    "native/transport/Cargo.lock": "ba5154f3ceb9172cd65cc1a85e04bb1bd6d426ce89f1e3bb6a9afaf06b8762e3",
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+  },
+  "actual_retained_binaries": {
+    "driver": "d3f65b9ff08f067dc66c8797ddefd904efcd1539b8880c79fdb251c350c23337",
+    "native_library": "0b238fc61a3b9c256db0d57385a3ae01f85285a970941260b22150608265fdb4"
+  },
+  "all_raw_streams_inventory_order_scenarios_verified": true,
+  "all_same_artifact_policy_config_locks_actual_native_driver_bytes_verified": true,
+  "artifact_id": 13168530231,
+  "audited_utc": "2026-11-02T18:21:52.736528+00:00",
+  "by_metric": {
+    "allocated_bytes_per_operation": 8,
+    "cpu_us_per_operation": 8,
+    "gc_pause_us_per_operation": 8,
+    "latency_p95_ms": 7,
+    "latency_p99_ms": 7,
+    "summed_sampled_peak_rss_bytes": 6,
+    "throughput_mbps": 7
+  },
+  "cases": 8,
+  "comparison_sha256": "301f2aebd7b50c1291f9599637321b32720fde0716365f5bc5ebecb0d963d401",
+  "frozen_local_locks": {
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+  },
+  "hosted_locks_equal_frozen_local": false,
+  "matches_hosted": true,
+  "matches_original_copy_production_bytes": true,
+  "measured_findings": [
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_42_encrypted_progressive_results",
+      "ci_95_high": 1.0075528700906344,
+      "ci_95_low": 0.97815045519885,
+      "median_ratio": 1.0006359011627908,
+      "metric": "latency_p99_ms",
+      "observations": [
+        {
+          "best_baseline": 11.008,
+          "best_baseline_codec": "msgpack",
+          "cbor": 12.522,
+          "flatbuffers": 11.015,
+          "msgpack": 11.008,
+          "ratio": 1.0006359011627908,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 10.435,
+          "best_baseline_codec": "msgpack",
+          "cbor": 10.771,
+          "flatbuffers": 10.207,
+          "msgpack": 10.435,
+          "ratio": 0.97815045519885,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 11.145,
+          "best_baseline_codec": "msgpack",
+          "cbor": 11.158,
+          "flatbuffers": 10.95,
+          "msgpack": 11.145,
+          "ratio": 0.9825033647375504,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 11.254,
+          "best_baseline_codec": "msgpack",
+          "cbor": 11.338,
+          "flatbuffers": 11.339,
+          "msgpack": 11.254,
+          "ratio": 1.0075528700906344,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 11.142,
+          "best_baseline_codec": "cbor",
+          "cbor": 11.142,
+          "flatbuffers": 10.594,
+          "msgpack": 11.262,
+          "ratio": 0.9508167294920122,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 11.007,
+          "best_baseline_codec": "msgpack",
+          "cbor": 11.265,
+          "flatbuffers": 11.034,
+          "msgpack": 11.007,
+          "ratio": 1.0024529844644319,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 12.221,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13.793,
+          "flatbuffers": 12.381,
+          "msgpack": 12.221,
+          "ratio": 1.0130922183127404,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0006359011627908,
+        0.97815045519885,
+        0.9825033647375504,
+        1.0075528700906344,
+        0.9508167294920122,
+        1.0024529844644319,
+        1.0130922183127404
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_42_encrypted_progressive_results",
+      "ci_95_high": 1.030540520754248,
+      "ci_95_low": 1.018600090280991,
+      "median_ratio": 1.0265646179650045,
+      "metric": "cpu_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 29248.39596700275,
+          "best_baseline_codec": "msgpack",
+          "cbor": 30756.143667296787,
+          "flatbuffers": 29792.41877256318,
+          "msgpack": 29248.39596700275,
+          "ratio": 1.018600090280991,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 29151.62454873646,
+          "best_baseline_codec": "msgpack",
+          "cbor": 29291.553133514986,
+          "flatbuffers": 29616.4139161463,
+          "msgpack": 29151.62454873646,
+          "ratio": 1.0159438581761642,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 31019.04761904762,
+          "best_baseline_codec": "msgpack",
+          "cbor": 31149.42528735632,
+          "flatbuffers": 32579.403272377287,
+          "msgpack": 31019.04761904762,
+          "ratio": 1.0503031451027371,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 32285.992217898834,
+          "best_baseline_codec": "msgpack",
+          "cbor": 32926.10837438424,
+          "flatbuffers": 33272.023233301064,
+          "msgpack": 32285.992217898834,
+          "ratio": 1.030540520754248,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 30804.06654343808,
+          "best_baseline_codec": "msgpack",
+          "cbor": 31918.32858499525,
+          "flatbuffers": 31622.36480293309,
+          "msgpack": 30804.06654343808,
+          "ratio": 1.0265646179650045,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 31631.878557874763,
+          "best_baseline_codec": "msgpack",
+          "cbor": 32747.572815533982,
+          "flatbuffers": 32297.674418604653,
+          "msgpack": 31631.878557874763,
+          "ratio": 1.021048255465186,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 32783.70514064016,
+          "best_baseline_codec": "msgpack",
+          "cbor": 34360.0,
+          "flatbuffers": 33773.946360153255,
+          "msgpack": 32783.70514064016,
+          "ratio": 1.0302052869028995,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.018600090280991,
+        1.0159438581761642,
+        1.0503031451027371,
+        1.030540520754248,
+        1.0265646179650045,
+        1.021048255465186,
+        1.0302052869028995
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_42_encrypted_progressive_results",
+      "ci_95_high": 1.0092696626212696,
+      "ci_95_low": 0.9987550088078708,
+      "median_ratio": 1.0056676814818934,
+      "metric": "allocated_bytes_per_operation",
+      "observations": [
+        {
+          "best_baseline": 13763592.403299725,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14008902.003780719,
+          "comparison_bounds": {
+            "cbor_lower": 14005874.52551985,
+            "flatbuffers_upper": 13746456.85198556,
+            "msgpack_lower": 13763592.403299725
+          },
+          "flatbuffers": 13743479.119133575,
+          "msgpack": 13766580.868927589,
+          "ratio": 0.9987550088078708,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 14044919.220216606,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14296114.281562217,
+          "comparison_bounds": {
+            "cbor_lower": 14293059.952770209,
+            "flatbuffers_upper": 14124521.348795718,
+            "msgpack_lower": 14044919.220216606
+          },
+          "flatbuffers": 14121501.416592328,
+          "msgpack": 14047919.133574007,
+          "ratio": 1.0056676814818934,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 14114342.948571429,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14406108.459770115,
+          "comparison_bounds": {
+            "cbor_lower": 14403056.076628353,
+            "flatbuffers_upper": 14234688.6159769,
+            "msgpack_lower": 14114342.948571429
+          },
+          "flatbuffers": 14231668.850818094,
+          "msgpack": 14117333.028571429,
+          "ratio": 1.0085264803217533,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 14578131.221789883,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14883361.812807882,
+          "comparison_bounds": {
+            "cbor_lower": 14880268.626600986,
+            "flatbuffers_upper": 14713265.579864474,
+            "msgpack_lower": 14578131.221789883
+          },
+          "flatbuffers": 14710210.431752179,
+          "msgpack": 14581161.385214008,
+          "ratio": 1.0092696626212696,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 14602319.615526803,
+          "best_baseline_codec": "msgpack",
+          "cbor": 15086103.99240266,
+          "comparison_bounds": {
+            "cbor_lower": 15082999.901234569,
+            "flatbuffers_upper": 14800600.593950504,
+            "msgpack_lower": 14602319.615526803
+          },
+          "flatbuffers": 14797550.181484876,
+          "msgpack": 14605334.831792977,
+          "ratio": 1.0135787315744593,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 14806585.077798862,
+          "best_baseline_codec": "msgpack",
+          "cbor": 15127079.782524271,
+          "comparison_bounds": {
+            "cbor_lower": 15123983.922330096,
+            "flatbuffers_upper": 14780173.11255814,
+            "msgpack_lower": 14806585.077798862
+          },
+          "flatbuffers": 14777128.736744186,
+          "msgpack": 14809639.590132827,
+          "ratio": 0.9982162014332174,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 14940953.047526672,
+          "best_baseline_codec": "msgpack",
+          "cbor": 15266777.776,
+          "comparison_bounds": {
+            "cbor_lower": 15263689.392,
+            "flatbuffers_upper": 15010385.793103449,
+            "msgpack_lower": 14940953.047526672
+          },
+          "flatbuffers": 15007329.486590039,
+          "msgpack": 14943998.23084384,
+          "ratio": 1.0046471430139639,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9987550088078708,
+        1.0056676814818934,
+        1.0085264803217533,
+        1.0092696626212696,
+        1.0135787315744593,
+        0.9982162014332174,
+        1.0046471430139639
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_42_encrypted_progressive_results",
+      "ci_95_high": 1.0747733474989813,
+      "ci_95_low": 1.0615705626329608,
+      "median_ratio": 1.0637946161545344,
+      "metric": "gc_pause_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 422.0980751604033,
+          "best_baseline_codec": "msgpack",
+          "cbor": 450.15122873345933,
+          "flatbuffers": 439.12364620938627,
+          "msgpack": 422.0980751604033,
+          "ratio": 1.0403355808777688,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 398.25613079019075,
+          "best_baseline_codec": "cbor",
+          "cbor": 398.25613079019075,
+          "flatbuffers": 422.7769848349688,
+          "msgpack": 404.28971119133575,
+          "ratio": 1.0615705626329608,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 429.08429118773944,
+          "best_baseline_codec": "cbor",
+          "cbor": 429.08429118773944,
+          "flatbuffers": 472.5351299326275,
+          "msgpack": 434.08,
+          "ratio": 1.1012641097268154,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 445.6770428015564,
+          "best_baseline_codec": "msgpack",
+          "cbor": 459.1891625615764,
+          "flatbuffers": 476.9757986447241,
+          "msgpack": 445.6770428015564,
+          "ratio": 1.0702274356480683,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 433.4482439926063,
+          "best_baseline_codec": "msgpack",
+          "cbor": 449.8309591642925,
+          "flatbuffers": 461.0999083409716,
+          "msgpack": 433.4482439926063,
+          "ratio": 1.0637946161545344,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 417.6584440227704,
+          "best_baseline_codec": "msgpack",
+          "cbor": 437.40485436893204,
+          "flatbuffers": 443.7386046511628,
+          "msgpack": 417.6584440227704,
+          "ratio": 1.062443752788033,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 452.6517943743938,
+          "best_baseline_codec": "msgpack",
+          "cbor": 483.128,
+          "flatbuffers": 486.49808429118775,
+          "msgpack": 452.6517943743938,
+          "ratio": 1.0747733474989813,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0403355808777688,
+        1.0615705626329608,
+        1.1012641097268154,
+        1.0702274356480683,
+        1.0637946161545344,
+        1.062443752788033,
+        1.0747733474989813
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 3,
+        "msgpack": 4
+      },
+      "case": "ext_43_encrypted_progressive_results",
+      "ci_95_high": 1.0011011463264146,
+      "ci_95_low": 0.9719846779185061,
+      "median_ratio": 0.9967878391197719,
+      "metric": "throughput_mbps",
+      "observations": [
+        {
+          "best_baseline": 1.8422964963465205,
+          "best_baseline_codec": "cbor",
+          "cbor": 1.8422964963465205,
+          "flatbuffers": 1.836378743611175,
+          "msgpack": 1.833436597183453,
+          "ratio": 0.9967878391197719,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 1.8517490299283135,
+          "best_baseline_codec": "msgpack",
+          "cbor": 1.8409869403940176,
+          "flatbuffers": 1.7998716844407778,
+          "msgpack": 1.8517490299283135,
+          "ratio": 0.9719846779185061,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 1.8369375721295669,
+          "best_baseline_codec": "cbor",
+          "cbor": 1.8369375721295669,
+          "flatbuffers": 1.8389603091889704,
+          "msgpack": 1.8309948674403598,
+          "ratio": 1.0011011463264146,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 1.8305415352786714,
+          "best_baseline_codec": "msgpack",
+          "cbor": 1.8199975204607348,
+          "flatbuffers": 1.827990647108466,
+          "msgpack": 1.8305415352786714,
+          "ratio": 0.9986064844085513,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 1.820657043241701,
+          "best_baseline_codec": "msgpack",
+          "cbor": 1.5735948429065911,
+          "flatbuffers": 1.5976556795225962,
+          "msgpack": 1.820657043241701,
+          "ratio": 0.8775159964657329,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 1.830327821499007,
+          "best_baseline_codec": "msgpack",
+          "cbor": 1.8192540728147113,
+          "flatbuffers": 1.8229148451395045,
+          "msgpack": 1.830327821499007,
+          "ratio": 0.9959499187673214,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 1.7759676884878675,
+          "best_baseline_codec": "cbor",
+          "cbor": 1.7759676884878675,
+          "flatbuffers": 1.8335808697350913,
+          "msgpack": 1.7747774230806654,
+          "ratio": 1.0324404445084685,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9967878391197719,
+        0.9719846779185061,
+        1.0011011463264146,
+        0.9986064844085513,
+        0.8775159964657329,
+        0.9959499187673214,
+        1.0324404445084685
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 3,
+        "msgpack": 4
+      },
+      "case": "ext_43_encrypted_progressive_results",
+      "ci_95_high": 1.0216407834705878,
+      "ci_95_low": 0.9969883721784353,
+      "median_ratio": 1.0008636084194502,
+      "metric": "latency_p95_ms",
+      "observations": [
+        {
+          "best_baseline": 136.139,
+          "best_baseline_codec": "cbor",
+          "cbor": 136.139,
+          "flatbuffers": 135.729,
+          "msgpack": 136.659,
+          "ratio": 0.9969883721784353,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 134.021,
+          "best_baseline_codec": "msgpack",
+          "cbor": 135.411,
+          "flatbuffers": 141.395,
+          "msgpack": 134.021,
+          "ratio": 1.055021228016505,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 135.407,
+          "best_baseline_codec": "cbor",
+          "cbor": 135.407,
+          "flatbuffers": 135.543,
+          "msgpack": 135.567,
+          "ratio": 1.001004379389544,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 136.228,
+          "best_baseline_codec": "msgpack",
+          "cbor": 140.973,
+          "flatbuffers": 136.182,
+          "msgpack": 136.228,
+          "ratio": 0.9996623307983673,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 156.279,
+          "best_baseline_codec": "msgpack",
+          "cbor": 160.69,
+          "flatbuffers": 159.661,
+          "msgpack": 156.279,
+          "ratio": 1.0216407834705878,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 136.636,
+          "best_baseline_codec": "msgpack",
+          "cbor": 137.293,
+          "flatbuffers": 136.754,
+          "msgpack": 136.636,
+          "ratio": 1.0008636084194502,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 141.044,
+          "best_baseline_codec": "cbor",
+          "cbor": 141.044,
+          "flatbuffers": 136.071,
+          "msgpack": 141.19,
+          "ratio": 0.9647414991066616,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9969883721784353,
+        1.055021228016505,
+        1.001004379389544,
+        0.9996623307983673,
+        1.0216407834705878,
+        1.0008636084194502,
+        0.9647414991066616
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_43_encrypted_progressive_results",
+      "ci_95_high": 1.020983138325859,
+      "ci_95_low": 0.9938408681442996,
+      "median_ratio": 1.0014901421366345,
+      "metric": "latency_p99_ms",
+      "observations": [
+        {
+          "best_baseline": 139.584,
+          "best_baseline_codec": "msgpack",
+          "cbor": 139.675,
+          "flatbuffers": 139.792,
+          "msgpack": 139.584,
+          "ratio": 1.0014901421366345,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 137.083,
+          "best_baseline_codec": "msgpack",
+          "cbor": 142.128,
+          "flatbuffers": 145.038,
+          "msgpack": 137.083,
+          "ratio": 1.058030536244465,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 138.827,
+          "best_baseline_codec": "msgpack",
+          "cbor": 139.239,
+          "flatbuffers": 139.367,
+          "msgpack": 138.827,
+          "ratio": 1.0038897332651429,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 143.202,
+          "best_baseline_codec": "cbor",
+          "cbor": 143.202,
+          "flatbuffers": 142.32,
+          "msgpack": 143.667,
+          "ratio": 0.9938408681442996,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 159.652,
+          "best_baseline_codec": "msgpack",
+          "cbor": 165.313,
+          "flatbuffers": 163.002,
+          "msgpack": 159.652,
+          "ratio": 1.020983138325859,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 139.74,
+          "best_baseline_codec": "msgpack",
+          "cbor": 140.295,
+          "flatbuffers": 139.683,
+          "msgpack": 139.74,
+          "ratio": 0.999592099613568,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 145.249,
+          "best_baseline_codec": "cbor",
+          "cbor": 145.249,
+          "flatbuffers": 139.337,
+          "msgpack": 145.631,
+          "ratio": 0.959297482254611,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0014901421366345,
+        1.058030536244465,
+        1.0038897332651429,
+        0.9938408681442996,
+        1.020983138325859,
+        0.999592099613568,
+        0.959297482254611
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_43_encrypted_progressive_results",
+      "ci_95_high": 1.037609948437974,
+      "ci_95_low": 1.0022191567204461,
+      "median_ratio": 1.0058098174057386,
+      "metric": "cpu_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 165820.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 165820.0,
+          "flatbuffers": 166230.0,
+          "msgpack": 166950.0,
+          "ratio": 1.0024725606078881,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 164850.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 166200.0,
+          "flatbuffers": 171050.0,
+          "msgpack": 164850.0,
+          "ratio": 1.037609948437974,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 166730.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 166730.0,
+          "flatbuffers": 167100.0,
+          "msgpack": 167640.0,
+          "ratio": 1.0022191567204461,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 168680.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 169960.0,
+          "flatbuffers": 169660.0,
+          "msgpack": 168680.0,
+          "ratio": 1.0058098174057386,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 170670.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 197570.0,
+          "flatbuffers": 195980.0,
+          "msgpack": 170670.0,
+          "ratio": 1.1482978848069374,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 169770.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 170800.0,
+          "flatbuffers": 171190.0,
+          "msgpack": 169770.0,
+          "ratio": 1.0083642575248866,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 176370.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 176400.0,
+          "flatbuffers": 172440.0,
+          "msgpack": 176370.0,
+          "ratio": 0.9777172988603504,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0024725606078881,
+        1.037609948437974,
+        1.0022191567204461,
+        1.0058098174057386,
+        1.1482978848069374,
+        1.0083642575248866,
+        0.9777172988603504
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_43_encrypted_progressive_results",
+      "ci_95_high": 1.0049902286290726,
+      "ci_95_low": 0.9986507190157679,
+      "median_ratio": 1.0026969785218733,
+      "metric": "allocated_bytes_per_operation",
+      "observations": [
+        {
+          "best_baseline": 10891145.856,
+          "best_baseline_codec": "msgpack",
+          "cbor": 11001141.008,
+          "comparison_bounds": {
+            "cbor_lower": 10998980.367999999,
+            "flatbuffers_upper": 10876450.64,
+            "msgpack_lower": 10891145.856
+          },
+          "flatbuffers": 10874312.528,
+          "msgpack": 10893286.016,
+          "ratio": 0.9986507190157679,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 11371438.144,
+          "best_baseline_codec": "msgpack",
+          "cbor": 11544658.048,
+          "comparison_bounds": {
+            "cbor_lower": 11542464.64,
+            "flatbuffers_upper": 11383127.456,
+            "msgpack_lower": 11371438.144
+          },
+          "flatbuffers": 11380962.72,
+          "msgpack": 11373609.024,
+          "ratio": 1.0010279537075237,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 11525783.84,
+          "best_baseline_codec": "msgpack",
+          "cbor": 11658776.832,
+          "comparison_bounds": {
+            "cbor_lower": 11656573.184,
+            "flatbuffers_upper": 11576390.784,
+            "msgpack_lower": 11525783.84
+          },
+          "flatbuffers": 11574209.664,
+          "msgpack": 11527958.816,
+          "ratio": 1.0043907594227448,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 12032724.672,
+          "best_baseline_codec": "msgpack",
+          "cbor": 12223559.536,
+          "comparison_bounds": {
+            "cbor_lower": 12221325.168,
+            "flatbuffers_upper": 12065176.672,
+            "msgpack_lower": 12032724.672
+          },
+          "flatbuffers": 12062962.784,
+          "msgpack": 12034934.464,
+          "ratio": 1.0026969785218733,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 12432607.248,
+          "best_baseline_codec": "msgpack",
+          "cbor": 12913428.24,
+          "comparison_bounds": {
+            "cbor_lower": 12911165.200000001,
+            "flatbuffers_upper": 12776404.304,
+            "msgpack_lower": 12432607.248
+          },
+          "flatbuffers": 12774155.6,
+          "msgpack": 12434829.328,
+          "ratio": 1.0276528526271353,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 12788133.92,
+          "best_baseline_codec": "msgpack",
+          "cbor": 12915474.816,
+          "comparison_bounds": {
+            "cbor_lower": 12913199.488,
+            "flatbuffers_upper": 12851949.632,
+            "msgpack_lower": 12788133.92
+          },
+          "flatbuffers": 12849684.544,
+          "msgpack": 12790386.72,
+          "ratio": 1.0049902286290726,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 13293890.304,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13372027.936,
+          "comparison_bounds": {
+            "cbor_lower": 13369719.84,
+            "flatbuffers_upper": 13219539.008,
+            "msgpack_lower": 13293890.304
+          },
+          "flatbuffers": 13217257.536,
+          "msgpack": 13296173.824,
+          "ratio": 0.9944071077540313,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9986507190157679,
+        1.0010279537075237,
+        1.0043907594227448,
+        1.0026969785218733,
+        1.0276528526271353,
+        1.0049902286290726,
+        0.9944071077540313
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 4,
+        "msgpack": 3
+      },
+      "case": "ext_43_encrypted_progressive_results",
+      "ci_95_high": 1.113768337408313,
+      "ci_95_low": 1.0562223159093522,
+      "median_ratio": 1.0706063926295077,
+      "metric": "gc_pause_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 328.454,
+          "best_baseline_codec": "cbor",
+          "cbor": 328.454,
+          "flatbuffers": 344.718,
+          "msgpack": 331.785,
+          "ratio": 1.049516827318285,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 327.2,
+          "best_baseline_codec": "cbor",
+          "cbor": 327.2,
+          "flatbuffers": 364.425,
+          "msgpack": 329.471,
+          "ratio": 1.113768337408313,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 326.775,
+          "best_baseline_codec": "cbor",
+          "cbor": 326.775,
+          "flatbuffers": 351.684,
+          "msgpack": 328.063,
+          "ratio": 1.076226761533165,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 339.516,
+          "best_baseline_codec": "msgpack",
+          "cbor": 342.695,
+          "flatbuffers": 363.488,
+          "msgpack": 339.516,
+          "ratio": 1.0706063926295077,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 349.838,
+          "best_baseline_codec": "msgpack",
+          "cbor": 379.546,
+          "flatbuffers": 399.817,
+          "msgpack": 349.838,
+          "ratio": 1.1428632681412538,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 351.778,
+          "best_baseline_codec": "cbor",
+          "cbor": 351.778,
+          "flatbuffers": 376.31,
+          "msgpack": 358.335,
+          "ratio": 1.069737163779429,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 365.282,
+          "best_baseline_codec": "msgpack",
+          "cbor": 374.889,
+          "flatbuffers": 385.819,
+          "msgpack": 365.282,
+          "ratio": 1.0562223159093522,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.049516827318285,
+        1.113768337408313,
+        1.076226761533165,
+        1.0706063926295077,
+        1.1428632681412538,
+        1.069737163779429,
+        1.0562223159093522
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 4,
+        "msgpack": 3
+      },
+      "case": "ext_43_encrypted_progressive_results",
+      "ci_95_high": 1.0027516547679969,
+      "ci_95_low": 0.9978724508328577,
+      "median_ratio": 1.0009004952723999,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "observations": [
+        {
+          "best_baseline": 473604096.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 473604096.0,
+          "flatbuffers": 472596480.0,
+          "msgpack": 473694208.0,
+          "ratio": 0.9978724508328577,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 468828160.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 469344256.0,
+          "flatbuffers": 467705856.0,
+          "msgpack": 468828160.0,
+          "ratio": 0.997606150620304,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 467185664.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 467185664.0,
+          "flatbuffers": 471805952.0,
+          "msgpack": 471715840.0,
+          "ratio": 1.0098896185307604,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 488247296.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 488247296.0,
+          "flatbuffers": 489590784.0,
+          "msgpack": 488783872.0,
+          "ratio": 1.0027516547679969,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 494714880.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 494714880.0,
+          "flatbuffers": 495325184.0,
+          "msgpack": 494944256.0,
+          "ratio": 1.0012336479549595,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 491249664.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 491876352.0,
+          "flatbuffers": 491692032.0,
+          "msgpack": 491249664.0,
+          "ratio": 1.0009004952723999,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 496377856.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 496492544.0,
+          "flatbuffers": 495738880.0,
+          "msgpack": 496377856.0,
+          "ratio": 0.9987127225917185,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9978724508328577,
+        0.997606150620304,
+        1.0098896185307604,
+        1.0027516547679969,
+        1.0012336479549595,
+        1.0009004952723999,
+        0.9987127225917185
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_44_encrypted_progressive_results",
+      "ci_95_high": 0.9839853443396186,
+      "ci_95_low": 0.9489435497653451,
+      "median_ratio": 0.9687284944768868,
+      "metric": "throughput_mbps",
+      "observations": [
+        {
+          "best_baseline": 67.63236746453741,
+          "best_baseline_codec": "cbor",
+          "cbor": 67.63236746453741,
+          "flatbuffers": 65.51740151182891,
+          "msgpack": 65.91076899293053,
+          "ratio": 0.9687284944768868,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 67.72364069186416,
+          "best_baseline_codec": "msgpack",
+          "cbor": 67.4844205444517,
+          "flatbuffers": 66.63906990611656,
+          "msgpack": 67.72364069186416,
+          "ratio": 0.9839853443396186,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 63.71406761079624,
+          "best_baseline_codec": "msgpack",
+          "cbor": 63.385486055580536,
+          "flatbuffers": 62.668718530665906,
+          "msgpack": 63.71406761079624,
+          "ratio": 0.9835931197091989,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 60.91862235544179,
+          "best_baseline_codec": "msgpack",
+          "cbor": 60.33864770442121,
+          "flatbuffers": 57.59499360923726,
+          "msgpack": 60.91862235544179,
+          "ratio": 0.9454414985484707,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 62.45477960744544,
+          "best_baseline_codec": "cbor",
+          "cbor": 62.45477960744544,
+          "flatbuffers": 59.926942971147795,
+          "msgpack": 61.98782941993299,
+          "ratio": 0.9595253293312992,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 61.564898621145204,
+          "best_baseline_codec": "msgpack",
+          "cbor": 58.82736703512587,
+          "flatbuffers": 58.42161343849313,
+          "msgpack": 61.564898621145204,
+          "ratio": 0.9489435497653451,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 56.5462546467435,
+          "best_baseline_codec": "msgpack",
+          "cbor": 56.11322375318795,
+          "flatbuffers": 56.56445482803437,
+          "msgpack": 56.5462546467435,
+          "ratio": 1.0003218636036033,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9687284944768868,
+        0.9839853443396186,
+        0.9835931197091989,
+        0.9454414985484707,
+        0.9595253293312992,
+        0.9489435497653451,
+        1.0003218636036033
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 5,
+        "msgpack": 2
+      },
+      "case": "ext_44_encrypted_progressive_results",
+      "ci_95_high": 1.0569937788480837,
+      "ci_95_low": 1.0052312199204856,
+      "median_ratio": 1.0368835474513054,
+      "metric": "latency_p95_ms",
+      "observations": [
+        {
+          "best_baseline": 4.597,
+          "best_baseline_codec": "cbor",
+          "cbor": 4.597,
+          "flatbuffers": 4.869,
+          "msgpack": 5.104,
+          "ratio": 1.0591690232760496,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 4.465,
+          "best_baseline_codec": "cbor",
+          "cbor": 4.465,
+          "flatbuffers": 4.49,
+          "msgpack": 4.48,
+          "ratio": 1.0055991041433372,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4.779,
+          "best_baseline_codec": "cbor",
+          "cbor": 4.779,
+          "flatbuffers": 4.804,
+          "msgpack": 4.85,
+          "ratio": 1.0052312199204856,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 4.983,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.996,
+          "flatbuffers": 5.267,
+          "msgpack": 4.983,
+          "ratio": 1.0569937788480837,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 4.826,
+          "best_baseline_codec": "cbor",
+          "cbor": 4.826,
+          "flatbuffers": 5.004,
+          "msgpack": 4.874,
+          "ratio": 1.0368835474513054,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 4.954,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.118,
+          "flatbuffers": 5.16,
+          "msgpack": 4.954,
+          "ratio": 1.0415825595478403,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 5.492,
+          "best_baseline_codec": "cbor",
+          "cbor": 5.492,
+          "flatbuffers": 5.36,
+          "msgpack": 5.604,
+          "ratio": 0.9759650400582667,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0591690232760496,
+        1.0055991041433372,
+        1.0052312199204856,
+        1.0569937788480837,
+        1.0368835474513054,
+        1.0415825595478403,
+        0.9759650400582667
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 5,
+        "msgpack": 2
+      },
+      "case": "ext_44_encrypted_progressive_results",
+      "ci_95_high": 1.0684955752212388,
+      "ci_95_low": 0.9884912785470239,
+      "median_ratio": 1.0472668230200253,
+      "metric": "latency_p99_ms",
+      "observations": [
+        {
+          "best_baseline": 5.598,
+          "best_baseline_codec": "cbor",
+          "cbor": 5.598,
+          "flatbuffers": 6.128,
+          "msgpack": 7.024,
+          "ratio": 1.0946766702393713,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 5.258,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.281,
+          "flatbuffers": 5.224,
+          "msgpack": 5.258,
+          "ratio": 0.99353366298973,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 5.561,
+          "best_baseline_codec": "cbor",
+          "cbor": 5.561,
+          "flatbuffers": 5.497,
+          "msgpack": 5.606,
+          "ratio": 0.9884912785470239,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 5.65,
+          "best_baseline_codec": "cbor",
+          "cbor": 5.65,
+          "flatbuffers": 6.037,
+          "msgpack": 5.793,
+          "ratio": 1.0684955752212388,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 5.543,
+          "best_baseline_codec": "cbor",
+          "cbor": 5.543,
+          "flatbuffers": 5.805,
+          "msgpack": 5.593,
+          "ratio": 1.0472668230200253,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 5.629,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.688,
+          "flatbuffers": 5.995,
+          "msgpack": 5.629,
+          "ratio": 1.065020429916504,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 6.984,
+          "best_baseline_codec": "cbor",
+          "cbor": 6.984,
+          "flatbuffers": 6.412,
+          "msgpack": 7.174,
+          "ratio": 0.918098510882016,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0946766702393713,
+        0.99353366298973,
+        0.9884912785470239,
+        1.0684955752212388,
+        1.0472668230200253,
+        1.065020429916504,
+        0.918098510882016
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_44_encrypted_progressive_results",
+      "ci_95_high": 1.093733261080904,
+      "ci_95_low": 1.0639563057135535,
+      "median_ratio": 1.086635582729372,
+      "metric": "cpu_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 14458.57558139535,
+          "best_baseline_codec": "cbor",
+          "cbor": 14458.57558139535,
+          "flatbuffers": 15903.9759939985,
+          "msgpack": 15085.756897837435,
+          "ratio": 1.0999683823946687,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 14909.288824383164,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14927.166788055354,
+          "flatbuffers": 15862.83185840708,
+          "msgpack": 14909.288824383164,
+          "ratio": 1.0639563057135535,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 15788.661781720015,
+          "best_baseline_codec": "msgpack",
+          "cbor": 15891.472868217053,
+          "flatbuffers": 16803.92156862745,
+          "msgpack": 15788.661781720015,
+          "ratio": 1.0643030930007569,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 16526.82533279548,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16563.517915309447,
+          "flatbuffers": 18075.9385665529,
+          "msgpack": 16526.82533279548,
+          "ratio": 1.093733261080904,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 15881.195908733282,
+          "best_baseline_codec": "cbor",
+          "cbor": 15881.195908733282,
+          "flatbuffers": 17257.072570725708,
+          "msgpack": 16080.063416567578,
+          "ratio": 1.086635582729372,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 16097.366320830008,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16691.72932330827,
+          "flatbuffers": 17569.38603868797,
+          "msgpack": 16097.366320830008,
+          "ratio": 1.0914447549070911,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 17136.027813993915,
+          "best_baseline_codec": "msgpack",
+          "cbor": 17149.73730297723,
+          "flatbuffers": 17871.41615986099,
+          "msgpack": 17136.027813993915,
+          "ratio": 1.042914749780374,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0999683823946687,
+        1.0639563057135535,
+        1.0643030930007569,
+        1.093733261080904,
+        1.086635582729372,
+        1.0914447549070911,
+        1.042914749780374
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_44_encrypted_progressive_results",
+      "ci_95_high": 1.0541167472441422,
+      "ci_95_low": 1.0259774761398308,
+      "median_ratio": 1.0452665798135523,
+      "metric": "allocated_bytes_per_operation",
+      "observations": [
+        {
+          "best_baseline": 3871494.7325581396,
+          "best_baseline_codec": "cbor",
+          "cbor": 3872114.6395348837,
+          "comparison_bounds": {
+            "cbor_lower": 3871494.7325581396,
+            "flatbuffers_upper": 3972066.3945986493,
+            "msgpack_lower": 3913326.9500372857
+          },
+          "flatbuffers": 3971428.7951987996,
+          "msgpack": 3913959.982102908,
+          "ratio": 1.0259774761398308,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 3922587.349782293,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4080090.627822287,
+          "comparison_bounds": {
+            "cbor_lower": 4079451.4668608885,
+            "flatbuffers_upper": 4100149.463126844,
+            "msgpack_lower": 3922587.349782293
+          },
+          "flatbuffers": 4099510.5958702066,
+          "msgpack": 3923209.3294629897,
+          "ratio": 1.0452665798135523,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4127891.591207096,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4262276.725581395,
+          "comparison_bounds": {
+            "cbor_lower": 4261623.429457365,
+            "flatbuffers_upper": 4274939.394509804,
+            "msgpack_lower": 4127891.591207096
+          },
+          "flatbuffers": 4274288.8533333335,
+          "msgpack": 4128529.764751253,
+          "ratio": 1.03562298089803,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 4215113.1198063735,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4377575.022801303,
+          "comparison_bounds": {
+            "cbor_lower": 4376914.592833877,
+            "flatbuffers_upper": 4454759.215017065,
+            "msgpack_lower": 4215113.1198063735
+          },
+          "flatbuffers": 4454097.8088737205,
+          "msgpack": 4215757.508672852,
+          "ratio": 1.0568540127866606,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 4371562.419342053,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4572661.092053501,
+          "comparison_bounds": {
+            "cbor_lower": 4571992.390243902,
+            "flatbuffers_upper": 4608137.157851578,
+            "msgpack_lower": 4371562.419342053
+          },
+          "flatbuffers": 4607465.407134071,
+          "msgpack": 4372212.61672612,
+          "ratio": 1.0541167472441422,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 4491454.512370312,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4743497.029239766,
+          "comparison_bounds": {
+            "cbor_lower": 4742818.639933166,
+            "flatbuffers_upper": 4696450.516400336,
+            "msgpack_lower": 4491454.512370312
+          },
+          "flatbuffers": 4695780.481076535,
+          "msgpack": 4492110.754988029,
+          "ratio": 1.0456413403420712,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 4774216.003476749,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4930188.700525394,
+          "comparison_bounds": {
+            "cbor_lower": 4929495.572679509,
+            "flatbuffers_upper": 4867169.202432667,
+            "msgpack_lower": 4774216.003476749
+          },
+          "flatbuffers": 4866486.832319722,
+          "msgpack": 4774896.0,
+          "ratio": 1.0194698352333087,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0259774761398308,
+        1.0452665798135523,
+        1.03562298089803,
+        1.0568540127866606,
+        1.0541167472441422,
+        1.0456413403420712,
+        1.0194698352333087
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 7
+      },
+      "case": "ext_44_encrypted_progressive_results",
+      "ci_95_high": 1.1282629778211901,
+      "ci_95_low": 1.0908923040110827,
+      "median_ratio": 1.1131004072756518,
+      "metric": "gc_pause_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 186.82885174418604,
+          "best_baseline_codec": "cbor",
+          "cbor": 186.82885174418604,
+          "flatbuffers": 208.18979744936235,
+          "msgpack": 227.00782997762863,
+          "ratio": 1.1143342985077305,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 181.5091041514931,
+          "best_baseline_codec": "cbor",
+          "cbor": 181.5091041514931,
+          "flatbuffers": 194.29461651917404,
+          "msgpack": 214.06240928882437,
+          "ratio": 1.0704400609955618,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 193.33139534883722,
+          "best_baseline_codec": "cbor",
+          "cbor": 193.33139534883722,
+          "flatbuffers": 215.19725490196078,
+          "msgpack": 227.67219436945624,
+          "ratio": 1.1131004072756518,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 191.9165309446254,
+          "best_baseline_codec": "cbor",
+          "cbor": 191.9165309446254,
+          "flatbuffers": 220.93643344709898,
+          "msgpack": 231.26663977410246,
+          "ratio": 1.1512110622239562,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 188.62077104642015,
+          "best_baseline_codec": "cbor",
+          "cbor": 188.62077104642015,
+          "flatbuffers": 209.569905699057,
+          "msgpack": 228.00753071739993,
+          "ratio": 1.1110648341453402,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 190.8450292397661,
+          "best_baseline_codec": "cbor",
+          "cbor": 190.8450292397661,
+          "flatbuffers": 215.3233809924306,
+          "msgpack": 222.37909018355947,
+          "ratio": 1.1282629778211901,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 204.90323992994746,
+          "best_baseline_codec": "cbor",
+          "cbor": 204.90323992994746,
+          "flatbuffers": 223.52736750651607,
+          "msgpack": 238.00304215558452,
+          "ratio": 1.0908923040110827,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.1143342985077305,
+        1.0704400609955618,
+        1.1131004072756518,
+        1.1512110622239562,
+        1.1110648341453402,
+        1.1282629778211901,
+        1.0908923040110827
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 3,
+        "msgpack": 4
+      },
+      "case": "ext_44_encrypted_progressive_results",
+      "ci_95_high": 1.0094808879986648,
+      "ci_95_low": 1.0036209462962653,
+      "median_ratio": 1.006035145332588,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "observations": [
+        {
+          "best_baseline": 470814720.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 470814720.0,
+          "flatbuffers": 473841664.0,
+          "msgpack": 472866816.0,
+          "ratio": 1.0064291617730219,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 468975616.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 468975616.0,
+          "flatbuffers": 471805952.0,
+          "msgpack": 471388160.0,
+          "ratio": 1.006035145332588,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 472358912.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 474415104.0,
+          "flatbuffers": 476901376.0,
+          "msgpack": 472358912.0,
+          "ratio": 1.0096165519155063,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 489807872.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 489807872.0,
+          "flatbuffers": 491581440.0,
+          "msgpack": 490254336.0,
+          "ratio": 1.0036209462962653,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 482963456.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 483897344.0,
+          "flatbuffers": 485765120.0,
+          "msgpack": 482963456.0,
+          "ratio": 1.0058009854890553,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 491823104.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 492355584.0,
+          "flatbuffers": 491581440.0,
+          "msgpack": 491823104.0,
+          "ratio": 0.9995086363409231,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 490782720.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 492257280.0,
+          "flatbuffers": 495435776.0,
+          "msgpack": 490782720.0,
+          "ratio": 1.0094808879986648,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0064291617730219,
+        1.006035145332588,
+        1.0096165519155063,
+        1.0036209462962653,
+        1.0058009854890553,
+        0.9995086363409231,
+        1.0094808879986648
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_45_encrypted_progressive_results",
+      "ci_95_high": 0.9617535687423688,
+      "ci_95_low": 0.9452455934030994,
+      "median_ratio": 0.9563075674672827,
+      "metric": "throughput_mbps",
+      "observations": [
+        {
+          "best_baseline": 75.70832181407238,
+          "best_baseline_codec": "msgpack",
+          "cbor": 74.41605358394642,
+          "flatbuffers": 71.56295757869566,
+          "msgpack": 75.70832181407238,
+          "ratio": 0.9452455934030994,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 68.8452776737474,
+          "best_baseline_codec": "msgpack",
+          "cbor": 68.69278907865115,
+          "flatbuffers": 66.2121914937859,
+          "msgpack": 68.8452776737474,
+          "ratio": 0.9617535687423688,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 70.81356478871366,
+          "best_baseline_codec": "msgpack",
+          "cbor": 69.74793331630569,
+          "flatbuffers": 67.73617852607401,
+          "msgpack": 70.81356478871366,
+          "ratio": 0.956542418506657,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 63.867786841479,
+          "best_baseline_codec": "msgpack",
+          "cbor": 62.775778895205846,
+          "flatbuffers": 59.747681320812426,
+          "msgpack": 63.867786841479,
+          "ratio": 0.9354900846823963,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 66.1896278988441,
+          "best_baseline_codec": "msgpack",
+          "cbor": 64.53961513043097,
+          "flatbuffers": 63.29764204750819,
+          "msgpack": 66.1896278988441,
+          "ratio": 0.9563075674672827,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 62.905665138949345,
+          "best_baseline_codec": "msgpack",
+          "cbor": 61.090358450273484,
+          "flatbuffers": 60.50718700856587,
+          "msgpack": 62.905665138949345,
+          "ratio": 0.9618718262483102,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 63.26074243643507,
+          "best_baseline_codec": "msgpack",
+          "cbor": 61.3337164834855,
+          "flatbuffers": 59.8518737721881,
+          "msgpack": 63.26074243643507,
+          "ratio": 0.9461139953001305,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9452455934030994,
+        0.9617535687423688,
+        0.956542418506657,
+        0.9354900846823963,
+        0.9563075674672827,
+        0.9618718262483102,
+        0.9461139953001305
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_45_encrypted_progressive_results",
+      "ci_95_high": 1.0510310352009997,
+      "ci_95_low": 1.0319237147595357,
+      "median_ratio": 1.0410722006052744,
+      "metric": "latency_p95_ms",
+      "observations": [
+        {
+          "best_baseline": 4.087,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.142,
+          "flatbuffers": 4.233,
+          "msgpack": 4.087,
+          "ratio": 1.0357230242231465,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 4.458,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.569,
+          "flatbuffers": 4.565,
+          "msgpack": 4.458,
+          "ratio": 1.0240017945266937,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4.321,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.346,
+          "flatbuffers": 4.524,
+          "msgpack": 4.321,
+          "ratio": 1.0469798657718121,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 4.799,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.91,
+          "flatbuffers": 5.1,
+          "msgpack": 4.799,
+          "ratio": 1.0627214002917273,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 4.626,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.747,
+          "flatbuffers": 4.816,
+          "msgpack": 4.626,
+          "ratio": 1.0410722006052744,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 4.824,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.94,
+          "flatbuffers": 4.978,
+          "msgpack": 4.824,
+          "ratio": 1.0319237147595357,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 4.801,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.927,
+          "flatbuffers": 5.046,
+          "msgpack": 4.801,
+          "ratio": 1.0510310352009997,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0357230242231465,
+        1.0240017945266937,
+        1.0469798657718121,
+        1.0627214002917273,
+        1.0410722006052744,
+        1.0319237147595357,
+        1.0510310352009997
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_45_encrypted_progressive_results",
+      "ci_95_high": 1.047433628318584,
+      "ci_95_low": 1.01078360891445,
+      "median_ratio": 1.0321537290715372,
+      "metric": "latency_p99_ms",
+      "observations": [
+        {
+          "best_baseline": 4.938,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.006,
+          "flatbuffers": 4.889,
+          "msgpack": 4.938,
+          "ratio": 0.9900769542324829,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 5.256,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.541,
+          "flatbuffers": 5.425,
+          "msgpack": 5.256,
+          "ratio": 1.0321537290715372,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4.956,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.222,
+          "flatbuffers": 5.227,
+          "msgpack": 4.956,
+          "ratio": 1.054681194511703,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 5.65,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.792,
+          "flatbuffers": 5.918,
+          "msgpack": 5.65,
+          "ratio": 1.047433628318584,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 5.38,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.463,
+          "flatbuffers": 5.476,
+          "msgpack": 5.38,
+          "ratio": 1.0178438661710036,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 5.564,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.711,
+          "flatbuffers": 5.624,
+          "msgpack": 5.564,
+          "ratio": 1.01078360891445,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 5.469,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.737,
+          "flatbuffers": 5.666,
+          "msgpack": 5.469,
+          "ratio": 1.0360212104589503,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9900769542324829,
+        1.0321537290715372,
+        1.054681194511703,
+        1.047433628318584,
+        1.0178438661710036,
+        1.01078360891445,
+        1.0360212104589503
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_45_encrypted_progressive_results",
+      "ci_95_high": 1.0855303863605115,
+      "ci_95_low": 1.0712023363909342,
+      "median_ratio": 1.0766987263393923,
+      "metric": "cpu_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 13489.126906848425,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13682.298546895641,
+          "flatbuffers": 14642.857142857143,
+          "msgpack": 13489.126906848425,
+          "ratio": 1.0855303863605115,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 14543.183440399715,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14695.994277539341,
+          "flatbuffers": 15658.627087198516,
+          "msgpack": 14543.183440399715,
+          "ratio": 1.0766987263393923,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 14323.386537126995,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14487.495597041212,
+          "flatbuffers": 15455.204932898077,
+          "msgpack": 14323.386537126995,
+          "ratio": 1.0790189102861496,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 15756.060023085802,
+          "best_baseline_codec": "msgpack",
+          "cbor": 15827.788649706457,
+          "flatbuffers": 17265.625,
+          "msgpack": 15756.060023085802,
+          "ratio": 1.0958085317460318,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 15133.630289532293,
+          "best_baseline_codec": "msgpack",
+          "cbor": 15317.853064331937,
+          "flatbuffers": 16211.180124223603,
+          "msgpack": 15133.630289532293,
+          "ratio": 1.0712023363909342,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 15871.09375,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16166.532582461787,
+          "flatbuffers": 16857.490864799027,
+          "msgpack": 15871.09375,
+          "ratio": 1.0621505442748094,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 15770.873786407767,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16013.621794871795,
+          "flatbuffers": 16937.6026272578,
+          "msgpack": 15770.873786407767,
+          "ratio": 1.0739799745183165,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0855303863605115,
+        1.0766987263393923,
+        1.0790189102861496,
+        1.0958085317460318,
+        1.0712023363909342,
+        1.0621505442748094,
+        1.0739799745183165
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_45_encrypted_progressive_results",
+      "ci_95_high": 1.048048787873576,
+      "ci_95_low": 1.030653365051092,
+      "median_ratio": 1.0406744283294853,
+      "metric": "allocated_bytes_per_operation",
+      "observations": [
+        {
+          "best_baseline": 3694277.7539759814,
+          "best_baseline_codec": "msgpack",
+          "cbor": 3835628.5970937912,
+          "comparison_bounds": {
+            "cbor_lower": 3835007.0277410834,
+            "flatbuffers_upper": 3805232.324175824,
+            "msgpack_lower": 3694277.7539759814
+          },
+          "flatbuffers": 3804611.313186813,
+          "msgpack": 3694887.9662447255,
+          "ratio": 1.0300341711124528,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 3912870.6809421843,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4059243.0386266094,
+          "comparison_bounds": {
+            "cbor_lower": 4058602.8555078683,
+            "flatbuffers_upper": 4032813.33432282,
+            "msgpack_lower": 3912870.6809421843
+          },
+          "flatbuffers": 4032178.796289425,
+          "msgpack": 3913493.4132762314,
+          "ratio": 1.030653365051092,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4125199.405968078,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4267315.843606904,
+          "comparison_bounds": {
+            "cbor_lower": 4266663.715392744,
+            "flatbuffers_upper": 4292989.533550962,
+            "msgpack_lower": 4125199.405968078
+          },
+          "flatbuffers": 4292336.580340951,
+          "msgpack": 4125837.540596808,
+          "ratio": 1.0406744283294853,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 4246102.1623701425,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4381071.085714285,
+          "comparison_bounds": {
+            "cbor_lower": 4380413.801956947,
+            "flatbuffers_upper": 4446089.552631579,
+            "msgpack_lower": 4246102.1623701425
+          },
+          "flatbuffers": 4445427.657894737,
+          "msgpack": 4246747.530588688,
+          "ratio": 1.0470990528757804,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 4324742.034149963,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4529921.924628854,
+          "comparison_bounds": {
+            "cbor_lower": 4529254.590026646,
+            "flatbuffers_upper": 4539038.546583851,
+            "msgpack_lower": 4324742.034149963
+          },
+          "flatbuffers": 4538373.900621118,
+          "msgpack": 4325392.772086117,
+          "ratio": 1.0495512820745638,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 4534635.175,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4765117.464199517,
+          "comparison_bounds": {
+            "cbor_lower": 4764432.051488334,
+            "flatbuffers_upper": 4717453.810799838,
+            "msgpack_lower": 4534635.175
+          },
+          "flatbuffers": 4716778.62768981,
+          "msgpack": 4535297.575,
+          "ratio": 1.0403160626477164,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 4699188.36815534,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4890882.730769231,
+          "comparison_bounds": {
+            "cbor_lower": 4890193.5,
+            "flatbuffers_upper": 4924978.673234811,
+            "msgpack_lower": 4699188.36815534
+          },
+          "flatbuffers": 4924290.962233169,
+          "msgpack": 4699860.430291262,
+          "ratio": 1.048048787873576,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0300341711124528,
+        1.030653365051092,
+        1.0406744283294853,
+        1.0470990528757804,
+        1.0495512820745638,
+        1.0403160626477164,
+        1.048048787873576
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 7
+      },
+      "case": "ext_45_encrypted_progressive_results",
+      "ci_95_high": 1.1317343701799991,
+      "ci_95_low": 1.1025336766462202,
+      "median_ratio": 1.1155383307629356,
+      "metric": "gc_pause_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 180.87813738441216,
+          "best_baseline_codec": "cbor",
+          "cbor": 180.87813738441216,
+          "flatbuffers": 199.09787087912088,
+          "msgpack": 212.3398247322298,
+          "ratio": 1.1007293294710745,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 190.33440629470672,
+          "best_baseline_codec": "cbor",
+          "cbor": 190.33440629470672,
+          "flatbuffers": 209.85009276437847,
+          "msgpack": 224.02105638829408,
+          "ratio": 1.1025336766462202,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 183.80028178936246,
+          "best_baseline_codec": "cbor",
+          "cbor": 183.80028178936246,
+          "flatbuffers": 212.21617700398986,
+          "msgpack": 219.29770992366412,
+          "ratio": 1.1546020220316766,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 199.19647749510764,
+          "best_baseline_codec": "cbor",
+          "cbor": 199.19647749510764,
+          "flatbuffers": 225.4375,
+          "msgpack": 234.45594459407465,
+          "ratio": 1.1317343701799991,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 189.3144271031595,
+          "best_baseline_codec": "cbor",
+          "cbor": 189.3144271031595,
+          "flatbuffers": 211.1875,
+          "msgpack": 221.46919079435784,
+          "ratio": 1.1155383307629356,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 197.05148833467416,
+          "best_baseline_codec": "cbor",
+          "cbor": 197.05148833467416,
+          "flatbuffers": 218.76451481932602,
+          "msgpack": 233.3765625,
+          "ratio": 1.1101896091633383,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 194.75520833333334,
+          "best_baseline_codec": "cbor",
+          "cbor": 194.75520833333334,
+          "flatbuffers": 218.8805418719212,
+          "msgpack": 224.28776699029126,
+          "ratio": 1.1238751648546217,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.1007293294710745,
+        1.1025336766462202,
+        1.1546020220316766,
+        1.1317343701799991,
+        1.1155383307629356,
+        1.1101896091633383,
+        1.1238751648546217
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 5,
+        "msgpack": 2
+      },
+      "case": "ext_45_encrypted_progressive_results",
+      "ci_95_high": 1.0052006811807133,
+      "ci_95_low": 0.995877241150886,
+      "median_ratio": 1.0042062735564437,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "observations": [
+        {
+          "best_baseline": 469929984.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 469929984.0,
+          "flatbuffers": 467992576.0,
+          "msgpack": 472788992.0,
+          "ratio": 0.995877241150886,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 468389888.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 468389888.0,
+          "flatbuffers": 470360064.0,
+          "msgpack": 468783104.0,
+          "ratio": 1.0042062735564437,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 479391744.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 479391744.0,
+          "flatbuffers": 486342656.0,
+          "msgpack": 484589568.0,
+          "ratio": 1.0144994403574876,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 490668032.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 490668032.0,
+          "flatbuffers": 493219840.0,
+          "msgpack": 495022080.0,
+          "ratio": 1.0052006811807133,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 493305856.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 493498368.0,
+          "flatbuffers": 482451456.0,
+          "msgpack": 493305856.0,
+          "ratio": 0.977996612308612,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 491663360.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 491663360.0,
+          "flatbuffers": 493686784.0,
+          "msgpack": 493932544.0,
+          "ratio": 1.0041154663223226,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 494542848.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 498077696.0,
+          "flatbuffers": 497065984.0,
+          "msgpack": 494542848.0,
+          "ratio": 1.0051019563020755,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.995877241150886,
+        1.0042062735564437,
+        1.0144994403574876,
+        1.0052006811807133,
+        0.977996612308612,
+        1.0041154663223226,
+        1.0051019563020755
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_46_encrypted_progressive_results",
+      "ci_95_high": 1.0081777972652124,
+      "ci_95_low": 0.9722402734918355,
+      "median_ratio": 0.9842128854705346,
+      "metric": "throughput_mbps",
+      "observations": [
+        {
+          "best_baseline": 21.26618976959205,
+          "best_baseline_codec": "cbor",
+          "cbor": 21.26618976959205,
+          "flatbuffers": 20.777680091193186,
+          "msgpack": 20.697029046582465,
+          "ratio": 0.9770288103467707,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 21.443974562504003,
+          "best_baseline_codec": "msgpack",
+          "cbor": 21.31930182756453,
+          "flatbuffers": 19.810912833595747,
+          "msgpack": 21.443974562504003,
+          "ratio": 0.9238451937093902,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 21.916752724879473,
+          "best_baseline_codec": "cbor",
+          "cbor": 21.916752724879473,
+          "flatbuffers": 21.30834966328975,
+          "msgpack": 20.83623537993785,
+          "ratio": 0.9722402734918355,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 20.443161423115548,
+          "best_baseline_codec": "msgpack",
+          "cbor": 20.190508489280692,
+          "flatbuffers": 20.120422892384475,
+          "msgpack": 20.443161423115548,
+          "ratio": 0.9842128854705346,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 19.029647487704793,
+          "best_baseline_codec": "msgpack",
+          "cbor": 18.147189389801493,
+          "flatbuffers": 20.49414095726051,
+          "msgpack": 19.029647487704793,
+          "ratio": 1.076958518044117,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 21.190254965948668,
+          "best_baseline_codec": "msgpack",
+          "cbor": 20.325151142260093,
+          "flatbuffers": 21.363544575058356,
+          "msgpack": 21.190254965948668,
+          "ratio": 1.0081777972652124,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 20.994290127148034,
+          "best_baseline_codec": "msgpack",
+          "cbor": 20.846380346179185,
+          "flatbuffers": 21.046352072688016,
+          "msgpack": 20.994290127148034,
+          "ratio": 1.0024798145221714,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9770288103467707,
+        0.9238451937093902,
+        0.9722402734918355,
+        0.9842128854705346,
+        1.076958518044117,
+        1.0081777972652124,
+        1.0024798145221714
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 3,
+        "msgpack": 4
+      },
+      "case": "ext_46_encrypted_progressive_results",
+      "ci_95_high": 1.0321182571008436,
+      "ci_95_low": 0.9735433315230042,
+      "median_ratio": 1.0146748824387872,
+      "metric": "latency_p95_ms",
+      "observations": [
+        {
+          "best_baseline": 13.633,
+          "best_baseline_codec": "cbor",
+          "cbor": 13.633,
+          "flatbuffers": 13.989,
+          "msgpack": 14.949,
+          "ratio": 1.0261131078999488,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 13.417,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13.448,
+          "flatbuffers": 15.264,
+          "msgpack": 13.417,
+          "ratio": 1.1376611761198479,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 12.334,
+          "best_baseline_codec": "cbor",
+          "cbor": 12.334,
+          "flatbuffers": 12.515,
+          "msgpack": 12.798,
+          "ratio": 1.0146748824387872,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 12.921,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13.476,
+          "flatbuffers": 13.336,
+          "msgpack": 12.921,
+          "ratio": 1.0321182571008436,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 14.656,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14.98,
+          "flatbuffers": 13.17,
+          "msgpack": 14.656,
+          "ratio": 0.89860807860262,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 12.889,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13.22,
+          "flatbuffers": 12.548,
+          "msgpack": 12.889,
+          "ratio": 0.9735433315230042,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 12.755,
+          "best_baseline_codec": "cbor",
+          "cbor": 12.755,
+          "flatbuffers": 12.624,
+          "msgpack": 12.871,
+          "ratio": 0.9897295178361427,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0261131078999488,
+        1.1376611761198479,
+        1.0146748824387872,
+        1.0321182571008436,
+        0.89860807860262,
+        0.9735433315230042,
+        0.9897295178361427
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_46_encrypted_progressive_results",
+      "ci_95_high": 1.0166769610870907,
+      "ci_95_low": 1.0020995800839831,
+      "median_ratio": 1.0141467727674625,
+      "metric": "cpu_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 32350.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 32350.0,
+          "flatbuffers": 32700.0,
+          "msgpack": 32930.0,
+          "ratio": 1.010819165378671,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 32140.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 32430.0,
+          "flatbuffers": 33750.0,
+          "msgpack": 32140.0,
+          "ratio": 1.050093341630367,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 32380.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 32380.0,
+          "flatbuffers": 32920.0,
+          "msgpack": 33410.0,
+          "ratio": 1.0166769610870907,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 33930.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 34360.0,
+          "flatbuffers": 34410.0,
+          "msgpack": 33930.0,
+          "ratio": 1.0141467727674625,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 35460.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 36620.0,
+          "flatbuffers": 34270.0,
+          "msgpack": 35460.0,
+          "ratio": 0.9664410603496898,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 33340.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 34210.0,
+          "flatbuffers": 33410.0,
+          "msgpack": 33340.0,
+          "ratio": 1.0020995800839831,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 33540.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 33810.0,
+          "flatbuffers": 34080.0,
+          "msgpack": 33540.0,
+          "ratio": 1.0161001788908766,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.010819165378671,
+        1.050093341630367,
+        1.0166769610870907,
+        1.0141467727674625,
+        0.9664410603496898,
+        1.0020995800839831,
+        1.0161001788908766
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_46_encrypted_progressive_results",
+      "ci_95_high": 1.0231283212636326,
+      "ci_95_low": 1.0002922626245825,
+      "median_ratio": 1.0043261444324392,
+      "metric": "allocated_bytes_per_operation",
+      "observations": [
+        {
+          "best_baseline": 13084580.544,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13209201.76,
+          "comparison_bounds": {
+            "cbor_lower": 13206318.175999999,
+            "flatbuffers_upper": 13035666.704,
+            "msgpack_lower": 13084580.544
+          },
+          "flatbuffers": 13032815.888,
+          "msgpack": 13087443.648,
+          "ratio": 0.9962617189113923,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 13090902.256000001,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13460206.72,
+          "comparison_bounds": {
+            "cbor_lower": 13457273.984000001,
+            "flatbuffers_upper": 13139055.712000001,
+            "msgpack_lower": 13090902.256000001
+          },
+          "flatbuffers": 13136182.368,
+          "msgpack": 13093763.312,
+          "ratio": 1.0036783909205287,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 13278382.832,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13827133.424,
+          "comparison_bounds": {
+            "cbor_lower": 13824153.584,
+            "flatbuffers_upper": 13585489.536,
+            "msgpack_lower": 13278382.832
+          },
+          "flatbuffers": 13582552.704,
+          "msgpack": 13281254.128,
+          "ratio": 1.0231283212636326,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 13472889.04,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13649427.408,
+          "comparison_bounds": {
+            "cbor_lower": 13646527.44,
+            "flatbuffers_upper": 13541839.248000002,
+            "msgpack_lower": 13472889.04
+          },
+          "flatbuffers": 13538963.856,
+          "msgpack": 13475752.144,
+          "ratio": 1.0051177002790785,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 13196694.256000001,
+          "best_baseline_codec": "cbor",
+          "cbor": 13199471.344,
+          "comparison_bounds": {
+            "cbor_lower": 13196694.256000001,
+            "flatbuffers_upper": 13591281.632,
+            "msgpack_lower": 13742200.336
+          },
+          "flatbuffers": 13588404.192,
+          "msgpack": 13745102.352,
+          "ratio": 1.029900471159328,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 13974226.112,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14203211.616,
+          "comparison_bounds": {
+            "cbor_lower": 14200239.968,
+            "flatbuffers_upper": 13978310.256000001,
+            "msgpack_lower": 13974226.112
+          },
+          "flatbuffers": 13975373.424,
+          "msgpack": 13977160.896,
+          "ratio": 1.0002922626245825,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 14103207.36,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14329652.144,
+          "comparison_bounds": {
+            "cbor_lower": 14326684.592,
+            "flatbuffers_upper": 14164219.872,
+            "msgpack_lower": 14103207.36
+          },
+          "flatbuffers": 14161270.752,
+          "msgpack": 14106146.24,
+          "ratio": 1.0043261444324392,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9962617189113923,
+        1.0036783909205287,
+        1.0231283212636326,
+        1.0051177002790785,
+        1.029900471159328,
+        1.0002922626245825,
+        1.0043261444324392
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_46_encrypted_progressive_results",
+      "ci_95_high": 1.1166547485926275,
+      "ci_95_low": 1.076388134795671,
+      "median_ratio": 1.0890597550116718,
+      "metric": "gc_pause_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 431.986,
+          "best_baseline_codec": "cbor",
+          "cbor": 431.986,
+          "flatbuffers": 456.125,
+          "msgpack": 432.505,
+          "ratio": 1.0558791257124074,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 417.636,
+          "best_baseline_codec": "msgpack",
+          "cbor": 426.605,
+          "flatbuffers": 483.143,
+          "msgpack": 417.636,
+          "ratio": 1.1568518997404438,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 415.53,
+          "best_baseline_codec": "msgpack",
+          "cbor": 419.24,
+          "flatbuffers": 452.537,
+          "msgpack": 415.53,
+          "ratio": 1.0890597550116718,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 427.223,
+          "best_baseline_codec": "msgpack",
+          "cbor": 433.502,
+          "flatbuffers": 462.832,
+          "msgpack": 427.223,
+          "ratio": 1.083349913277141,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 442.032,
+          "best_baseline_codec": "cbor",
+          "cbor": 442.032,
+          "flatbuffers": 475.798,
+          "msgpack": 445.855,
+          "ratio": 1.076388134795671,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 420.158,
+          "best_baseline_codec": "msgpack",
+          "cbor": 441.836,
+          "flatbuffers": 465.263,
+          "msgpack": 420.158,
+          "ratio": 1.107352472165233,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 416.734,
+          "best_baseline_codec": "msgpack",
+          "cbor": 419.569,
+          "flatbuffers": 465.348,
+          "msgpack": 416.734,
+          "ratio": 1.1166547485926275,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0558791257124074,
+        1.1568518997404438,
+        1.0890597550116718,
+        1.083349913277141,
+        1.076388134795671,
+        1.107352472165233,
+        1.1166547485926275
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 5,
+        "msgpack": 2
+      },
+      "case": "ext_47_encrypted_progressive_results",
+      "ci_95_high": 1.0015300745794393,
+      "ci_95_low": 0.9812504158520373,
+      "median_ratio": 0.9938478878711011,
+      "metric": "throughput_mbps",
+      "observations": [
+        {
+          "best_baseline": 1.8248800113175827,
+          "best_baseline_codec": "msgpack",
+          "cbor": 1.8172656026848681,
+          "flatbuffers": 1.8114272668538838,
+          "msgpack": 1.8248800113175827,
+          "ratio": 0.9926281484918091,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 1.8227134932166147,
+          "best_baseline_codec": "cbor",
+          "cbor": 1.8227134932166147,
+          "flatbuffers": 1.811499955427489,
+          "msgpack": 1.7416672232806256,
+          "ratio": 0.9938478878711011,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 1.8065304930600663,
+          "best_baseline_codec": "cbor",
+          "cbor": 1.8065304930600663,
+          "flatbuffers": 1.8092946194444794,
+          "msgpack": 1.7323898895143253,
+          "ratio": 1.0015300745794393,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 1.7986424596734238,
+          "best_baseline_codec": "cbor",
+          "cbor": 1.7986424596734238,
+          "flatbuffers": 1.7221451518197852,
+          "msgpack": 1.7314977756601562,
+          "ratio": 0.9574694195379285,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 1.6366802091698087,
+          "best_baseline_codec": "msgpack",
+          "cbor": 1.5801479816043154,
+          "flatbuffers": 1.6935870818723449,
+          "msgpack": 1.6366802091698087,
+          "ratio": 1.034769695621481,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 1.7913255845770482,
+          "best_baseline_codec": "cbor",
+          "cbor": 1.7913255845770482,
+          "flatbuffers": 1.7899063744810566,
+          "msgpack": 1.7838825946264574,
+          "ratio": 0.9992077319119368,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 1.7800062363955476,
+          "best_baseline_codec": "cbor",
+          "cbor": 1.7800062363955476,
+          "flatbuffers": 1.746631859682351,
+          "msgpack": 1.7541087424227277,
+          "ratio": 0.9812504158520373,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9926281484918091,
+        0.9938478878711011,
+        1.0015300745794393,
+        0.9574694195379285,
+        1.034769695621481,
+        0.9992077319119368,
+        0.9812504158520373
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 5,
+        "msgpack": 2
+      },
+      "case": "ext_47_encrypted_progressive_results",
+      "ci_95_high": 1.0184632755760625,
+      "ci_95_low": 1.0030382431842286,
+      "median_ratio": 1.008910048593872,
+      "metric": "latency_p95_ms",
+      "observations": [
+        {
+          "best_baseline": 136.703,
+          "best_baseline_codec": "msgpack",
+          "cbor": 137.54,
+          "flatbuffers": 138.957,
+          "msgpack": 136.703,
+          "ratio": 1.0164882994520967,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 136.988,
+          "best_baseline_codec": "cbor",
+          "cbor": 136.988,
+          "flatbuffers": 139.749,
+          "msgpack": 143.782,
+          "ratio": 1.020155050077379,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 139.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 139.0,
+          "flatbuffers": 138.137,
+          "msgpack": 145.497,
+          "ratio": 0.9937913669064748,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 143.474,
+          "best_baseline_codec": "cbor",
+          "cbor": 143.474,
+          "flatbuffers": 146.123,
+          "msgpack": 146.438,
+          "ratio": 1.0184632755760625,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 160.29,
+          "best_baseline_codec": "msgpack",
+          "cbor": 161.378,
+          "flatbuffers": 160.777,
+          "msgpack": 160.29,
+          "ratio": 1.0030382431842286,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 139.343,
+          "best_baseline_codec": "cbor",
+          "cbor": 139.343,
+          "flatbuffers": 139.849,
+          "msgpack": 144.266,
+          "ratio": 1.0036313270131976,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 142.199,
+          "best_baseline_codec": "cbor",
+          "cbor": 142.199,
+          "flatbuffers": 143.466,
+          "msgpack": 142.595,
+          "ratio": 1.008910048593872,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0164882994520967,
+        1.020155050077379,
+        0.9937913669064748,
+        1.0184632755760625,
+        1.0030382431842286,
+        1.0036313270131976,
+        1.008910048593872
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 4,
+        "msgpack": 3
+      },
+      "case": "ext_47_encrypted_progressive_results",
+      "ci_95_high": 1.0173547965446694,
+      "ci_95_low": 0.9978716657112539,
+      "median_ratio": 1.011472002171537,
+      "metric": "latency_p99_ms",
+      "observations": [
+        {
+          "best_baseline": 139.993,
+          "best_baseline_codec": "msgpack",
+          "cbor": 142.237,
+          "flatbuffers": 141.599,
+          "msgpack": 139.993,
+          "ratio": 1.011472002171537,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 140.768,
+          "best_baseline_codec": "cbor",
+          "cbor": 140.768,
+          "flatbuffers": 143.211,
+          "msgpack": 150.435,
+          "ratio": 1.0173547965446694,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 142.848,
+          "best_baseline_codec": "cbor",
+          "cbor": 142.848,
+          "flatbuffers": 142.685,
+          "msgpack": 150.186,
+          "ratio": 0.998858926971326,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 145.781,
+          "best_baseline_codec": "cbor",
+          "cbor": 145.781,
+          "flatbuffers": 150.15,
+          "msgpack": 155.559,
+          "ratio": 1.0299696119521748,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 163.978,
+          "best_baseline_codec": "msgpack",
+          "cbor": 164.679,
+          "flatbuffers": 163.629,
+          "msgpack": 163.978,
+          "ratio": 0.9978716657112539,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 144.844,
+          "best_baseline_codec": "cbor",
+          "cbor": 144.844,
+          "flatbuffers": 142.47,
+          "msgpack": 145.208,
+          "ratio": 0.9836099527767805,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 145.322,
+          "best_baseline_codec": "msgpack",
+          "cbor": 147.36,
+          "flatbuffers": 147.412,
+          "msgpack": 145.322,
+          "ratio": 1.0143818554657933,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.011472002171537,
+        1.0173547965446694,
+        0.998858926971326,
+        1.0299696119521748,
+        0.9978716657112539,
+        0.9836099527767805,
+        1.0143818554657933
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 5,
+        "msgpack": 2
+      },
+      "case": "ext_47_encrypted_progressive_results",
+      "ci_95_high": 1.0204433214654876,
+      "ci_95_low": 0.9991677070328756,
+      "median_ratio": 1.0082386192795718,
+      "metric": "cpu_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 164710.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 165510.0,
+          "flatbuffers": 166420.0,
+          "msgpack": 164710.0,
+          "ratio": 1.0103818833100602,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 166290.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 166290.0,
+          "flatbuffers": 167660.0,
+          "msgpack": 173860.0,
+          "ratio": 1.0082386192795718,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 168210.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 168210.0,
+          "flatbuffers": 168070.0,
+          "msgpack": 175520.0,
+          "ratio": 0.9991677070328756,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 169370.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 169370.0,
+          "flatbuffers": 177110.0,
+          "msgpack": 176110.0,
+          "ratio": 1.0456987660152328,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 188030.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 194730.0,
+          "flatbuffers": 181490.0,
+          "msgpack": 188030.0,
+          "ratio": 0.9652183162261341,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 172540.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 172540.0,
+          "flatbuffers": 172700.0,
+          "msgpack": 173100.0,
+          "ratio": 1.000927321200881,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 174140.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 174140.0,
+          "flatbuffers": 177700.0,
+          "msgpack": 177040.0,
+          "ratio": 1.0204433214654876,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0103818833100602,
+        1.0082386192795718,
+        0.9991677070328756,
+        1.0456987660152328,
+        0.9652183162261341,
+        1.000927321200881,
+        1.0204433214654876
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_47_encrypted_progressive_results",
+      "ci_95_high": 1.0041252179092286,
+      "ci_95_low": 0.9971783115399389,
+      "median_ratio": 1.0009457572888785,
+      "metric": "allocated_bytes_per_operation",
+      "observations": [
+        {
+          "best_baseline": 10824663.072,
+          "best_baseline_codec": "msgpack",
+          "cbor": 10979082.384,
+          "comparison_bounds": {
+            "cbor_lower": 10976876.688,
+            "flatbuffers_upper": 10834900.576,
+            "msgpack_lower": 10824663.072
+          },
+          "flatbuffers": 10832717.408,
+          "msgpack": 10826848.288,
+          "ratio": 1.0009457572888785,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 11350299.103999998,
+          "best_baseline_codec": "msgpack",
+          "cbor": 11380254.96,
+          "comparison_bounds": {
+            "cbor_lower": 11378028.784,
+            "flatbuffers_upper": 11318272.095999999,
+            "msgpack_lower": 11350299.103999998
+          },
+          "flatbuffers": 11316054.112,
+          "msgpack": 11352506.848,
+          "ratio": 0.9971783115399389,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 11888600.704,
+          "best_baseline_codec": "msgpack",
+          "cbor": 11979906.944,
+          "comparison_bounds": {
+            "cbor_lower": 11977641.856,
+            "flatbuffers_upper": 11867083.695999999,
+            "msgpack_lower": 11888600.704
+          },
+          "flatbuffers": 11864839.088,
+          "msgpack": 11890843.264,
+          "ratio": 0.9981901143342494,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 12070980.272,
+          "best_baseline_codec": "msgpack",
+          "cbor": 12119129.344,
+          "comparison_bounds": {
+            "cbor_lower": 12116854.016,
+            "flatbuffers_upper": 12120775.696,
+            "msgpack_lower": 12070980.272
+          },
+          "flatbuffers": 12118518.8,
+          "msgpack": 12073239.216,
+          "ratio": 1.0041252179092286,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 12595028.512,
+          "best_baseline_codec": "msgpack",
+          "cbor": 12776333.44,
+          "comparison_bounds": {
+            "cbor_lower": 12774027.391999999,
+            "flatbuffers_upper": 12530191.248,
+            "msgpack_lower": 12595028.512
+          },
+          "flatbuffers": 12527907.728,
+          "msgpack": 12597307.936,
+          "ratio": 0.9948521542497323,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 13074084.976,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13254069.056,
+          "comparison_bounds": {
+            "cbor_lower": 13251720.0,
+            "flatbuffers_upper": 13145526.928,
+            "msgpack_lower": 13074084.976
+          },
+          "flatbuffers": 13143204.496,
+          "msgpack": 13076399.216,
+          "ratio": 1.0054643940383703,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 13340570.704,
+          "best_baseline_codec": "msgpack",
+          "cbor": 13460081.456,
+          "comparison_bounds": {
+            "cbor_lower": 13457726.256000001,
+            "flatbuffers_upper": 13371549.008,
+            "msgpack_lower": 13340570.704
+          },
+          "flatbuffers": 13369210.192,
+          "msgpack": 13342903.376,
+          "ratio": 1.002322112350914,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0009457572888785,
+        0.9971783115399389,
+        0.9981901143342494,
+        1.0041252179092286,
+        0.9948521542497323,
+        1.0054643940383703,
+        1.002322112350914
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 3,
+        "msgpack": 4
+      },
+      "case": "ext_47_encrypted_progressive_results",
+      "ci_95_high": 1.0710295898312716,
+      "ci_95_low": 1.0608169898777704,
+      "median_ratio": 1.066400499741981,
+      "metric": "gc_pause_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 328.694,
+          "best_baseline_codec": "msgpack",
+          "cbor": 332.156,
+          "flatbuffers": 352.041,
+          "msgpack": 328.694,
+          "ratio": 1.0710295898312716,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 345.713,
+          "best_baseline_codec": "msgpack",
+          "cbor": 347.739,
+          "flatbuffers": 368.567,
+          "msgpack": 345.713,
+          "ratio": 1.066106857422197,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 344.919,
+          "best_baseline_codec": "cbor",
+          "cbor": 344.919,
+          "flatbuffers": 364.731,
+          "msgpack": 358.646,
+          "ratio": 1.057439572769259,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 342.717,
+          "best_baseline_codec": "cbor",
+          "cbor": 342.717,
+          "flatbuffers": 379.104,
+          "msgpack": 360.126,
+          "ratio": 1.10617214786544,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 382.722,
+          "best_baseline_codec": "msgpack",
+          "cbor": 400.758,
+          "flatbuffers": 405.998,
+          "msgpack": 382.722,
+          "ratio": 1.0608169898777704,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 368.19,
+          "best_baseline_codec": "msgpack",
+          "cbor": 376.37,
+          "flatbuffers": 392.638,
+          "msgpack": 368.19,
+          "ratio": 1.066400499741981,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 380.934,
+          "best_baseline_codec": "cbor",
+          "cbor": 380.934,
+          "flatbuffers": 407.159,
+          "msgpack": 385.561,
+          "ratio": 1.0688439467204291,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0710295898312716,
+        1.066106857422197,
+        1.057439572769259,
+        1.10617214786544,
+        1.0608169898777704,
+        1.066400499741981,
+        1.0688439467204291
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_47_encrypted_progressive_results",
+      "ci_95_high": 1.0035012528579503,
+      "ci_95_low": 0.9968862882982166,
+      "median_ratio": 1.0018098518894154,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "observations": [
+        {
+          "best_baseline": 468307968.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 469254144.0,
+          "flatbuffers": 466849792.0,
+          "msgpack": 468307968.0,
+          "ratio": 0.9968862882982166,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 468475904.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 478605312.0,
+          "flatbuffers": 469323776.0,
+          "msgpack": 468475904.0,
+          "ratio": 1.0018098518894154,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 474857472.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 481792000.0,
+          "flatbuffers": 479887360.0,
+          "msgpack": 474857472.0,
+          "ratio": 1.0105924162440052,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 485494784.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 485494784.0,
+          "flatbuffers": 487194624.0,
+          "msgpack": 491003904.0,
+          "ratio": 1.0035012528579503,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 491130880.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 491130880.0,
+          "flatbuffers": 490401792.0,
+          "msgpack": 491491328.0,
+          "ratio": 0.9985154914307159,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 493928448.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 494927872.0,
+          "flatbuffers": 495616000.0,
+          "msgpack": 493928448.0,
+          "ratio": 1.0034165920323748,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 494948352.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 495751168.0,
+          "flatbuffers": 492974080.0,
+          "msgpack": 494948352.0,
+          "ratio": 0.9960111555235566,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9968862882982166,
+        1.0018098518894154,
+        1.0105924162440052,
+        1.0035012528579503,
+        0.9985154914307159,
+        1.0034165920323748,
+        0.9960111555235566
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_48_encrypted_progressive_results",
+      "ci_95_high": 0.9750503501622728,
+      "ci_95_low": 0.9590869558389409,
+      "median_ratio": 0.9624205629019851,
+      "metric": "throughput_mbps",
+      "observations": [
+        {
+          "best_baseline": 68.49871520961283,
+          "best_baseline_codec": "msgpack",
+          "cbor": 67.66807340416311,
+          "flatbuffers": 67.3990476025746,
+          "msgpack": 68.49871520961283,
+          "ratio": 0.9839461571845087,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 62.75420173612305,
+          "best_baseline_codec": "cbor",
+          "cbor": 62.75420173612305,
+          "flatbuffers": 60.39593415934428,
+          "msgpack": 61.10131396715151,
+          "ratio": 0.9624205629019851,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 64.523490636099,
+          "best_baseline_codec": "msgpack",
+          "cbor": 63.03829468970826,
+          "flatbuffers": 62.56965756658862,
+          "msgpack": 64.523490636099,
+          "ratio": 0.9697190426269767,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 62.78963933672155,
+          "best_baseline_codec": "msgpack",
+          "cbor": 59.68561145298264,
+          "flatbuffers": 61.22305982183317,
+          "msgpack": 62.78963933672155,
+          "ratio": 0.9750503501622728,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 59.75769316599386,
+          "best_baseline_codec": "msgpack",
+          "cbor": 58.14830130954998,
+          "flatbuffers": 57.49772614997022,
+          "msgpack": 59.75769316599386,
+          "ratio": 0.9621811536508623,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 56.743271671614096,
+          "best_baseline_codec": "msgpack",
+          "cbor": 54.689708928641586,
+          "flatbuffers": 54.29965115550179,
+          "msgpack": 56.743271671614096,
+          "ratio": 0.9569355018819838,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 57.71861156247414,
+          "best_baseline_codec": "msgpack",
+          "cbor": 56.26904099141582,
+          "flatbuffers": 55.357167458703614,
+          "msgpack": 57.71861156247414,
+          "ratio": 0.9590869558389409,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9839461571845087,
+        0.9624205629019851,
+        0.9697190426269767,
+        0.9750503501622728,
+        0.9621811536508623,
+        0.9569355018819838,
+        0.9590869558389409
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_48_encrypted_progressive_results",
+      "ci_95_high": 1.0420638209697473,
+      "ci_95_low": 1.013357994245787,
+      "median_ratio": 1.0226209048361934,
+      "metric": "latency_p95_ms",
+      "observations": [
+        {
+          "best_baseline": 4.474,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.488,
+          "flatbuffers": 4.479,
+          "msgpack": 4.474,
+          "ratio": 1.0011175681716584,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 4.826,
+          "best_baseline_codec": "cbor",
+          "cbor": 4.826,
+          "flatbuffers": 5.029,
+          "msgpack": 5.023,
+          "ratio": 1.0420638209697473,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4.692,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.769,
+          "flatbuffers": 4.829,
+          "msgpack": 4.692,
+          "ratio": 1.0291986359761296,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 4.866,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.136,
+          "flatbuffers": 4.931,
+          "msgpack": 4.866,
+          "ratio": 1.013357994245787,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 5.128,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.188,
+          "flatbuffers": 5.244,
+          "msgpack": 5.128,
+          "ratio": 1.0226209048361934,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 5.333,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.488,
+          "flatbuffers": 5.578,
+          "msgpack": 5.333,
+          "ratio": 1.0459403712732045,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 5.285,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.31,
+          "flatbuffers": 5.402,
+          "msgpack": 5.285,
+          "ratio": 1.0221381267738883,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0011175681716584,
+        1.0420638209697473,
+        1.0291986359761296,
+        1.013357994245787,
+        1.0226209048361934,
+        1.0459403712732045,
+        1.0221381267738883
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_48_encrypted_progressive_results",
+      "ci_95_high": 1.0573959255978744,
+      "ci_95_low": 0.9983821678950207,
+      "median_ratio": 1.038771658946646,
+      "metric": "latency_p99_ms",
+      "observations": [
+        {
+          "best_baseline": 5.313,
+          "best_baseline_codec": "cbor",
+          "cbor": 5.313,
+          "flatbuffers": 5.295,
+          "msgpack": 5.329,
+          "ratio": 0.9966120835686053,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 5.645,
+          "best_baseline_codec": "cbor",
+          "cbor": 5.645,
+          "flatbuffers": 5.969,
+          "msgpack": 5.863,
+          "ratio": 1.0573959255978744,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 5.563,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.771,
+          "flatbuffers": 5.554,
+          "msgpack": 5.563,
+          "ratio": 0.9983821678950208,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 5.557,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.877,
+          "flatbuffers": 5.572,
+          "msgpack": 5.557,
+          "ratio": 1.0026992981824725,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 5.829,
+          "best_baseline_codec": "msgpack",
+          "cbor": 6.024,
+          "flatbuffers": 6.055,
+          "msgpack": 5.829,
+          "ratio": 1.038771658946646,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 6.079,
+          "best_baseline_codec": "msgpack",
+          "cbor": 6.221,
+          "flatbuffers": 6.43,
+          "msgpack": 6.079,
+          "ratio": 1.0577397598289193,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 5.903,
+          "best_baseline_codec": "msgpack",
+          "cbor": 6.081,
+          "flatbuffers": 6.175,
+          "msgpack": 5.903,
+          "ratio": 1.0460782652888363,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9966120835686053,
+        1.0573959255978744,
+        0.9983821678950208,
+        1.0026992981824725,
+        1.038771658946646,
+        1.0577397598289193,
+        1.0460782652888363
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_48_encrypted_progressive_results",
+      "ci_95_high": 1.0834494110430228,
+      "ci_95_low": 1.0689470359665407,
+      "median_ratio": 1.073688530425424,
+      "metric": "cpu_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 14928.263988522238,
+          "best_baseline_codec": "msgpack",
+          "cbor": 15098.039215686274,
+          "flatbuffers": 15778.344877870944,
+          "msgpack": 14928.263988522238,
+          "ratio": 1.0569443901851079,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 16037.588097102584,
+          "best_baseline_codec": "cbor",
+          "cbor": 16037.588097102584,
+          "flatbuffers": 17375.91537835639,
+          "msgpack": 16525.93486127865,
+          "ratio": 1.0834494110430228,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 15788.271134805787,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16091.192517537023,
+          "flatbuffers": 16920.659858601728,
+          "msgpack": 15788.271134805787,
+          "ratio": 1.071723415067249,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 16082.191780821919,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16806.584362139918,
+          "flatbuffers": 17191.011235955055,
+          "msgpack": 16082.191780821919,
+          "ratio": 1.0689470359665407,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 16784.53947368421,
+          "best_baseline_codec": "msgpack",
+          "cbor": 17063.79383185467,
+          "flatbuffers": 18021.36752136752,
+          "msgpack": 16784.53947368421,
+          "ratio": 1.073688530425424,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 17488.090082286704,
+          "best_baseline_codec": "msgpack",
+          "cbor": 18086.253369272235,
+          "flatbuffers": 18986.425339366517,
+          "msgpack": 17488.090082286704,
+          "ratio": 1.0856774667805174,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 17228.60791826309,
+          "best_baseline_codec": "msgpack",
+          "cbor": 17497.816593886462,
+          "flatbuffers": 18517.532179316466,
+          "msgpack": 17228.60791826309,
+          "ratio": 1.0748130241960558,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0569443901851079,
+        1.0834494110430228,
+        1.071723415067249,
+        1.0689470359665407,
+        1.073688530425424,
+        1.0856774667805174,
+        1.0748130241960558
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_48_encrypted_progressive_results",
+      "ci_95_high": 1.0576981601600906,
+      "ci_95_low": 1.0226557186930432,
+      "median_ratio": 1.0369662419914105,
+      "metric": "allocated_bytes_per_operation",
+      "observations": [
+        {
+          "best_baseline": 3767934.318507891,
+          "best_baseline_codec": "msgpack",
+          "cbor": 3895607.9186637616,
+          "comparison_bounds": {
+            "cbor_lower": 3894978.794480755,
+            "flatbuffers_upper": 3836387.406489245,
+            "msgpack_lower": 3767934.318507891
+          },
+          "flatbuffers": 3835766.212176449,
+          "msgpack": 3768549.893830703,
+          "ratio": 1.0181672720899395,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 4013898.126256534,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4062223.198120595,
+          "comparison_bounds": {
+            "cbor_lower": 4061587.307752545,
+            "flatbuffers_upper": 4104835.873067535,
+            "msgpack_lower": 4013898.126256534
+          },
+          "flatbuffers": 4104194.3108218065,
+          "msgpack": 4014531.3839967833,
+          "ratio": 1.0226557186930432,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4181938.2421934498,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4338240.941543258,
+          "comparison_bounds": {
+            "cbor_lower": 4337583.282930631,
+            "flatbuffers_upper": 4367147.871170464,
+            "msgpack_lower": 4181938.2421934498
+          },
+          "flatbuffers": 4366495.503534957,
+          "msgpack": 4182580.874333587,
+          "ratio": 1.044287987591101,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 4206114.818003914,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4415420.977777778,
+          "comparison_bounds": {
+            "cbor_lower": 4414754.324279835,
+            "flatbuffers_upper": 4353887.614767255,
+            "msgpack_lower": 4206114.818003914
+          },
+          "flatbuffers": 4353234.260032102,
+          "msgpack": 4206756.872015656,
+          "ratio": 1.0351328489966114,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 4471907.618421053,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4586044.26869455,
+          "comparison_bounds": {
+            "cbor_lower": 4585372.850021124,
+            "flatbuffers_upper": 4637217.237606837,
+            "msgpack_lower": 4471907.618421053
+          },
+          "flatbuffers": 4636546.823931624,
+          "msgpack": 4472568.671052632,
+          "ratio": 1.0369662419914105,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 4513047.88566479,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4773867.176999101,
+          "comparison_bounds": {
+            "cbor_lower": 4773182.670260557,
+            "flatbuffers_upper": 4802097.867873303,
+            "msgpack_lower": 4513047.88566479
+          },
+          "flatbuffers": 4801415.8190045245,
+          "msgpack": 4513705.126028583,
+          "ratio": 1.064047621370615,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 4752910.944231587,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4949056.30742358,
+          "comparison_bounds": {
+            "cbor_lower": 4948362.312663755,
+            "flatbuffers_upper": 5027145.161118508,
+            "msgpack_lower": 4752910.944231587
+          },
+          "flatbuffers": 5026447.041278295,
+          "msgpack": 4753584.892294593,
+          "ratio": 1.0576981601600906,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0181672720899395,
+        1.0226557186930432,
+        1.044287987591101,
+        1.0351328489966114,
+        1.0369662419914105,
+        1.064047621370615,
+        1.0576981601600906
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 7
+      },
+      "case": "ext_48_encrypted_progressive_results",
+      "ci_95_high": 1.0996308443445264,
+      "ci_95_low": 1.0538374770324692,
+      "median_ratio": 1.0844225032566357,
+      "metric": "gc_pause_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 192.76216412490922,
+          "best_baseline_codec": "cbor",
+          "cbor": 192.76216412490922,
+          "flatbuffers": 203.1399927087131,
+          "msgpack": 227.53084648493544,
+          "ratio": 1.0538374770324692,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 201.70555990602975,
+          "best_baseline_codec": "cbor",
+          "cbor": 201.70555990602975,
+          "flatbuffers": 221.82709519934906,
+          "msgpack": 246.62364294330519,
+          "ratio": 1.0997569690329483,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 194.42127825409196,
+          "best_baseline_codec": "cbor",
+          "cbor": 194.42127825409196,
+          "flatbuffers": 209.42262372348782,
+          "msgpack": 234.6043412033511,
+          "ratio": 1.0771589694508148,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 200.92962962962963,
+          "best_baseline_codec": "cbor",
+          "cbor": 200.92962962962963,
+          "flatbuffers": 205.94060995184591,
+          "msgpack": 234.89158512720155,
+          "ratio": 1.0249389815302647,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 203.37304604985212,
+          "best_baseline_codec": "cbor",
+          "cbor": 203.37304604985212,
+          "flatbuffers": 220.5423076923077,
+          "msgpack": 247.83552631578948,
+          "ratio": 1.0844225032566357,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 207.16666666666666,
+          "best_baseline_codec": "cbor",
+          "cbor": 207.16666666666666,
+          "flatbuffers": 225.7651583710407,
+          "msgpack": 245.06409701169338,
+          "ratio": 1.0897755029977831,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 204.6532751091703,
+          "best_baseline_codec": "cbor",
+          "cbor": 204.6532751091703,
+          "flatbuffers": 225.04305370616956,
+          "msgpack": 244.8969774372073,
+          "ratio": 1.0996308443445264,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0538374770324692,
+        1.0997569690329483,
+        1.0771589694508148,
+        1.0249389815302647,
+        1.0844225032566357,
+        1.0897755029977831,
+        1.0996308443445264
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 3,
+        "msgpack": 4
+      },
+      "case": "ext_48_encrypted_progressive_results",
+      "ci_95_high": 1.0101962360424275,
+      "ci_95_low": 1.003864701545033,
+      "median_ratio": 1.0076933551198257,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "observations": [
+        {
+          "best_baseline": 468803584.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 470249472.0,
+          "flatbuffers": 473583616.0,
+          "msgpack": 468803584.0,
+          "ratio": 1.0101962360424275,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 467025920.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 471801856.0,
+          "flatbuffers": 472281088.0,
+          "msgpack": 467025920.0,
+          "ratio": 1.0112524118575688,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 481296384.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 483819520.0,
+          "flatbuffers": 484999168.0,
+          "msgpack": 481296384.0,
+          "ratio": 1.0076933551198257,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 488177664.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 488177664.0,
+          "flatbuffers": 488304640.0,
+          "msgpack": 488525824.0,
+          "ratio": 1.0002601020271178,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 483291136.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 483291136.0,
+          "flatbuffers": 485158912.0,
+          "msgpack": 484757504.0,
+          "ratio": 1.003864701545033,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 493875200.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 493875200.0,
+          "flatbuffers": 496418816.0,
+          "msgpack": 495484928.0,
+          "ratio": 1.0051503213767365,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 495579136.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 496074752.0,
+          "flatbuffers": 500088832.0,
+          "msgpack": 495579136.0,
+          "ratio": 1.009099850402096,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0101962360424275,
+        1.0112524118575688,
+        1.0076933551198257,
+        1.0002601020271178,
+        1.003864701545033,
+        1.0051503213767365,
+        1.009099850402096
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_49_encrypted_progressive_results",
+      "ci_95_high": 0.9725174986724298,
+      "ci_95_low": 0.9573836107120471,
+      "median_ratio": 0.9653839545019532,
+      "metric": "throughput_mbps",
+      "observations": [
+        {
+          "best_baseline": 72.64956789885257,
+          "best_baseline_codec": "msgpack",
+          "cbor": 71.12928956308498,
+          "flatbuffers": 70.65297605262495,
+          "msgpack": 72.64956789885257,
+          "ratio": 0.9725174986724298,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 64.63412378075176,
+          "best_baseline_codec": "cbor",
+          "cbor": 64.63412378075176,
+          "flatbuffers": 62.396746011230874,
+          "msgpack": 64.07251304708225,
+          "ratio": 0.9653839545019532,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 65.84779092804905,
+          "best_baseline_codec": "msgpack",
+          "cbor": 65.13165143901804,
+          "flatbuffers": 64.02554101509858,
+          "msgpack": 65.84779092804905,
+          "ratio": 0.9723263318743431,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 60.49137025306932,
+          "best_baseline_codec": "msgpack",
+          "cbor": 59.123760340308905,
+          "flatbuffers": 59.74938954864087,
+          "msgpack": 60.49137025306932,
+          "ratio": 0.9877341065126426,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 63.84846149686215,
+          "best_baseline_codec": "msgpack",
+          "cbor": 62.054263480620335,
+          "flatbuffers": 59.04383507353769,
+          "msgpack": 63.84846149686215,
+          "ratio": 0.9247495349036627,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 60.379675637104974,
+          "best_baseline_codec": "msgpack",
+          "cbor": 58.708424731074246,
+          "flatbuffers": 57.80651187507379,
+          "msgpack": 60.379675637104974,
+          "ratio": 0.9573836107120471,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 60.79219697299953,
+          "best_baseline_codec": "msgpack",
+          "cbor": 58.34784082099634,
+          "flatbuffers": 58.31703434023202,
+          "msgpack": 60.79219697299953,
+          "ratio": 0.9592848629262924,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9725174986724298,
+        0.9653839545019532,
+        0.9723263318743431,
+        0.9877341065126426,
+        0.9247495349036627,
+        0.9573836107120471,
+        0.9592848629262924
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 2,
+        "msgpack": 5
+      },
+      "case": "ext_49_encrypted_progressive_results",
+      "ci_95_high": 1.064860589282183,
+      "ci_95_low": 1.0064858490566038,
+      "median_ratio": 1.0172312512238104,
+      "metric": "latency_p95_ms",
+      "observations": [
+        {
+          "best_baseline": 4.287,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.377,
+          "flatbuffers": 4.298,
+          "msgpack": 4.287,
+          "ratio": 1.0025658968975975,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 5.057,
+          "best_baseline_codec": "cbor",
+          "cbor": 5.057,
+          "flatbuffers": 5.385,
+          "msgpack": 5.203,
+          "ratio": 1.064860589282183,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4.656,
+          "best_baseline_codec": "cbor",
+          "cbor": 4.656,
+          "flatbuffers": 4.723,
+          "msgpack": 4.676,
+          "ratio": 1.0143900343642611,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 5.088,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.146,
+          "flatbuffers": 5.121,
+          "msgpack": 5.088,
+          "ratio": 1.0064858490566038,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 4.772,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4.881,
+          "flatbuffers": 5.164,
+          "msgpack": 4.772,
+          "ratio": 1.0821458507963118,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 5.107,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.208,
+          "flatbuffers": 5.195,
+          "msgpack": 5.107,
+          "ratio": 1.0172312512238104,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 4.929,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.272,
+          "flatbuffers": 5.107,
+          "msgpack": 4.929,
+          "ratio": 1.036112801785352,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0025658968975975,
+        1.064860589282183,
+        1.0143900343642611,
+        1.0064858490566038,
+        1.0821458507963118,
+        1.0172312512238104,
+        1.036112801785352
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_49_encrypted_progressive_results",
+      "ci_95_high": 1.0640420899854863,
+      "ci_95_low": 0.9920155793573516,
+      "median_ratio": 1.0101558396077743,
+      "metric": "latency_p99_ms",
+      "observations": [
+        {
+          "best_baseline": 5.135,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.379,
+          "flatbuffers": 5.094,
+          "msgpack": 5.135,
+          "ratio": 0.9920155793573516,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 6.565,
+          "best_baseline_codec": "cbor",
+          "cbor": 6.565,
+          "flatbuffers": 6.996,
+          "msgpack": 6.713,
+          "ratio": 1.0656511805026656,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 5.606,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.61,
+          "flatbuffers": 5.526,
+          "msgpack": 5.606,
+          "ratio": 0.9857295754548697,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 5.99,
+          "best_baseline_codec": "msgpack",
+          "cbor": 6.114,
+          "flatbuffers": 5.954,
+          "msgpack": 5.99,
+          "ratio": 0.9939899833055091,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 5.512,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.634,
+          "flatbuffers": 5.865,
+          "msgpack": 5.512,
+          "ratio": 1.0640420899854863,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 5.703,
+          "best_baseline_codec": "msgpack",
+          "cbor": 6.036,
+          "flatbuffers": 5.985,
+          "msgpack": 5.703,
+          "ratio": 1.0494476591267754,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 5.711,
+          "best_baseline_codec": "msgpack",
+          "cbor": 5.946,
+          "flatbuffers": 5.769,
+          "msgpack": 5.711,
+          "ratio": 1.0101558396077743,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        0.9920155793573516,
+        1.0656511805026656,
+        0.9857295754548697,
+        0.9939899833055091,
+        1.0640420899854863,
+        1.0494476591267754,
+        1.0101558396077743
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 1,
+        "msgpack": 6
+      },
+      "case": "ext_49_encrypted_progressive_results",
+      "ci_95_high": 1.0736670847032506,
+      "ci_95_low": 1.061134006621479,
+      "median_ratio": 1.0630497460634214,
+      "metric": "cpu_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 14078.45789651674,
+          "best_baseline_codec": "msgpack",
+          "cbor": 14352.331606217616,
+          "flatbuffers": 14939.130434782608,
+          "msgpack": 14078.45789651674,
+          "ratio": 1.061134006621479,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 15300.380228136883,
+          "best_baseline_codec": "cbor",
+          "cbor": 15300.380228136883,
+          "flatbuffers": 16275.590551181102,
+          "msgpack": 15306.748466257668,
+          "ratio": 1.063737652823218,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 15522.388059701492,
+          "best_baseline_codec": "msgpack",
+          "cbor": 15662.014334213505,
+          "flatbuffers": 16473.522640061397,
+          "msgpack": 15522.388059701492,
+          "ratio": 1.0612750162347246,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 16657.18927701056,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16916.043225270158,
+          "flatbuffers": 17417.763157894737,
+          "msgpack": 16657.18927701056,
+          "ratio": 1.0456603973356948,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 15740.669488264717,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16015.841584158416,
+          "flatbuffers": 17403.245942571786,
+          "msgpack": 15740.669488264717,
+          "ratio": 1.1056229822719157,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 16585.266585266585,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16870.29288702929,
+          "flatbuffers": 17807.05482362941,
+          "msgpack": 16585.266585266585,
+          "ratio": 1.0736670847032506,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 16455.13338722716,
+          "best_baseline_codec": "msgpack",
+          "cbor": 16846.315789473683,
+          "flatbuffers": 17492.625368731562,
+          "msgpack": 16455.13338722716,
+          "ratio": 1.0630497460634214,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.061134006621479,
+        1.063737652823218,
+        1.0612750162347246,
+        1.0456603973356948,
+        1.1056229822719157,
+        1.0736670847032506,
+        1.0630497460634214
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "msgpack": 7
+      },
+      "case": "ext_49_encrypted_progressive_results",
+      "ci_95_high": 1.0533766561497921,
+      "ci_95_low": 1.025086750175912,
+      "median_ratio": 1.0391717463440608,
+      "metric": "allocated_bytes_per_operation",
+      "observations": [
+        {
+          "best_baseline": 3645810.7487318227,
+          "best_baseline_codec": "msgpack",
+          "cbor": 3775680.9892918826,
+          "comparison_bounds": {
+            "cbor_lower": 3775058.45388601,
+            "flatbuffers_upper": 3737272.2921739127,
+            "msgpack_lower": 3645810.7487318227
+          },
+          "flatbuffers": 3736657.536,
+          "msgpack": 3646420.2313155225,
+          "ratio": 1.025086750175912,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 3806119.343558282,
+          "best_baseline_codec": "msgpack",
+          "cbor": 3975842.585551331,
+          "comparison_bounds": {
+            "cbor_lower": 3975213.3901140685,
+            "flatbuffers_upper": 3955211.6850393703,
+            "msgpack_lower": 3806119.343558282
+          },
+          "flatbuffers": 3954583.577952756,
+          "msgpack": 3806731.073619632,
+          "ratio": 1.0391717463440608,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 4098999.4208955225,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4229331.615239533,
+          "comparison_bounds": {
+            "cbor_lower": 4228678.820067899,
+            "flatbuffers_upper": 4193795.0023023793,
+            "msgpack_lower": 4098999.4208955225
+          },
+          "flatbuffers": 4193152.1534919417,
+          "msgpack": 4099635.2179104476,
+          "ratio": 1.0231265173943709,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 4259757.419983754,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4409348.522028263,
+          "comparison_bounds": {
+            "cbor_lower": 4408687.986699917,
+            "flatbuffers_upper": 4405699.27631579,
+            "msgpack_lower": 4259757.419983754
+          },
+          "flatbuffers": 4405039.907894737,
+          "msgpack": 4260405.426482535,
+          "ratio": 1.0342606026454417,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 4432758.685648327,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4620741.024950495,
+          "comparison_bounds": {
+            "cbor_lower": 4620067.820990099,
+            "flatbuffers_upper": 4686966.025801081,
+            "msgpack_lower": 4432758.685648327
+          },
+          "flatbuffers": 4686285.91593841,
+          "msgpack": 4433415.085802232,
+          "ratio": 1.0573474349000287,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 4564003.470899471,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4769689.218410042,
+          "comparison_bounds": {
+            "cbor_lower": 4769005.409205021,
+            "flatbuffers_upper": 4807614.71483213,
+            "msgpack_lower": 4564003.470899471
+          },
+          "flatbuffers": 4806931.467913303,
+          "msgpack": 4564664.4656084655,
+          "ratio": 1.0533766561497921,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 4715065.241713824,
+          "best_baseline_codec": "msgpack",
+          "cbor": 4918976.761263158,
+          "comparison_bounds": {
+            "cbor_lower": 4918286.04631579,
+            "flatbuffers_upper": 4925911.383059419,
+            "msgpack_lower": 4715065.241713824
+          },
+          "flatbuffers": 4925223.538137379,
+          "msgpack": 4715740.734033953,
+          "ratio": 1.0447175448348531,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.025086750175912,
+        1.0391717463440608,
+        1.0231265173943709,
+        1.0342606026454417,
+        1.0573474349000287,
+        1.0533766561497921,
+        1.0447175448348531
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 7
+      },
+      "case": "ext_49_encrypted_progressive_results",
+      "ci_95_high": 1.1214079689157224,
+      "ci_95_low": 1.0647976492454754,
+      "median_ratio": 1.091158170592053,
+      "metric": "gc_pause_us_per_operation",
+      "observations": [
+        {
+          "best_baseline": 193.60103626943004,
+          "best_baseline_codec": "cbor",
+          "cbor": 193.60103626943004,
+          "flatbuffers": 199.24591304347825,
+          "msgpack": 227.0385525870815,
+          "ratio": 1.0291572652854624,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 204.00342205323193,
+          "best_baseline_codec": "cbor",
+          "cbor": 204.00342205323193,
+          "flatbuffers": 223.18622047244094,
+          "msgpack": 250.83972392638037,
+          "ratio": 1.0940317482233386,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 200.89475669558658,
+          "best_baseline_codec": "cbor",
+          "cbor": 200.89475669558658,
+          "flatbuffers": 217.80851880276285,
+          "msgpack": 240.86007462686567,
+          "ratio": 1.084192153072494,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 212.2689110556941,
+          "best_baseline_codec": "cbor",
+          "cbor": 212.2689110556941,
+          "flatbuffers": 226.0234375,
+          "msgpack": 256.4033306255077,
+          "ratio": 1.0647976492454754,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 198.51722772277228,
+          "best_baseline_codec": "cbor",
+          "cbor": 198.51722772277228,
+          "flatbuffers": 227.05784436121516,
+          "msgpack": 237.42593305117353,
+          "ratio": 1.1437689663805886,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 202.1410041841004,
+          "best_baseline_codec": "cbor",
+          "cbor": 202.1410041841004,
+          "flatbuffers": 226.68253293667658,
+          "msgpack": 248.2157102157102,
+          "ratio": 1.1214079689157224,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 204.1915789473684,
+          "best_baseline_codec": "cbor",
+          "cbor": 204.1915789473684,
+          "flatbuffers": 222.8053097345133,
+          "msgpack": 243.7930476960388,
+          "ratio": 1.091158170592053,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0291572652854624,
+        1.0940317482233386,
+        1.084192153072494,
+        1.0647976492454754,
+        1.1437689663805886,
+        1.1214079689157224,
+        1.091158170592053
+      ],
+      "passed": false
+    },
+    {
+      "best_baseline_by_repetition": {
+        "cbor": 3,
+        "msgpack": 4
+      },
+      "case": "ext_49_encrypted_progressive_results",
+      "ci_95_high": 1.006544809346858,
+      "ci_95_low": 0.9989555443189071,
+      "median_ratio": 1.0018977499363024,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "observations": [
+        {
+          "best_baseline": 466202624.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 469487616.0,
+          "flatbuffers": 467087360.0,
+          "msgpack": 466202624.0,
+          "ratio": 1.0018977499363024,
+          "repetition": 1
+        },
+        {
+          "best_baseline": 475033600.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 477847552.0,
+          "flatbuffers": 475844608.0,
+          "msgpack": 475033600.0,
+          "ratio": 1.0017072644966587,
+          "repetition": 2
+        },
+        {
+          "best_baseline": 465850368.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 465850368.0,
+          "flatbuffers": 473980928.0,
+          "msgpack": 467468288.0,
+          "ratio": 1.0174531578345776,
+          "repetition": 3
+        },
+        {
+          "best_baseline": 489406464.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 489779200.0,
+          "flatbuffers": 492609536.0,
+          "msgpack": 489406464.0,
+          "ratio": 1.006544809346858,
+          "repetition": 4
+        },
+        {
+          "best_baseline": 493314048.0,
+          "best_baseline_codec": "msgpack",
+          "cbor": 494772224.0,
+          "flatbuffers": 494526464.0,
+          "msgpack": 493314048.0,
+          "ratio": 1.0024576960759892,
+          "repetition": 5
+        },
+        {
+          "best_baseline": 494129152.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 494129152.0,
+          "flatbuffers": 493613056.0,
+          "msgpack": 494157824.0,
+          "ratio": 0.9989555443189071,
+          "repetition": 6
+        },
+        {
+          "best_baseline": 500060160.0,
+          "best_baseline_codec": "cbor",
+          "cbor": 500060160.0,
+          "flatbuffers": 493768704.0,
+          "msgpack": 500314112.0,
+          "ratio": 0.9874186017938321,
+          "repetition": 7
+        }
+      ],
+      "paired_ratios": [
+        1.0018977499363024,
+        1.0017072644966587,
+        1.0174531578345776,
+        1.006544809346858,
+        1.0024576960759892,
+        0.9989555443189071,
+        0.9874186017938321
+      ],
+      "passed": false
+    }
+  ],
+  "measured_numerical_misses": 51,
+  "other_findings": [],
+  "platform": {
+    "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+    "dart_version": "Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_x64\"",
+    "kernel": "7.0.0-1017-azure",
+    "logical_cpu_count": 4,
+    "os": "Linux",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "runner_image": "github-hosted/ubuntu24/20261026.354.1",
+    "rustc_version": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "raw_rows": 240,
+  "run": 41463489396,
+  "scope": "Complete original current601 shard only. All original raw reports retained. Actual locks are checked WITHIN this hosted artifact and against own hosted-copy cohort; never inferred equal to local locks. Null allocation ratios are UNMEASURED, not numerical misses. Whole supplemental requires all3shards/1500rows and independent exact aggregate. No numerical rerun/source substitution or root-cause claim. Complete source archive is a separate same-source canonical/copy witness, not included in numerical artifact.",
+  "shard": "encrypted_progressive_results",
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "strict_parity_pass": false,
+  "unmeasured_findings": [],
+  "unmeasured_metrics": 0,
+  "original_job_conclusion": "success",
+  "hosted_comparison_status": "diagnostic_shard_complete",
+  "artifact_evidence": "https://github.com/konsultaner/connectanum-dart/actions/runs/41463489396/artifacts/13168530231",
+  "original_audit_sha256": "46fe251d01288057357dba13d64756d0a7469cafb94ee791a5e1abf9f30bef2f",
+  "original_completed_execution_and_all_step_timestamps_unchanged": true
+}

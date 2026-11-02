@@ -2,11 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: preserve completed601 protocol30/900 and payload12/360 audits,
-finish remaining primary48/encrypted campaigns naturally, then audit the full
-supplemental50 aggregate. Protocol has125measured misses incl24RSS despite
-successful diagnostic completion. Payload has16measured incl6RSS plus2unmeasured
-allocations/30evidence. No strict parity or adoption claim.
+Current step: finish exact601 primary48 and queued supplemental50 final report
+job125458955025 naturally, then independently audit the full aggregate against
+all3actual caches. Individual shardaudits retain all50/1500rows:protocol125,
+encrypted/progressive51 andpayload16 measured misses, plus2unmeasured allocations.
+The arithmetic192misses does not replace the pending hostedaggregate/workflow.
+No strict parity or adoption claim; no numerical retries or source changes.
 Preserve primary48/run41463482638 and supplemental50/run41463489396 naturally;
 independently audit all1,440+1,500rows,
 allshards/source/scenarios/policy/locks/actualnative+driver bytes. Owncanonical,
@@ -26,6 +27,30 @@ ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
 results changed. [Cross-artifact byte audit](../research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
 
 
+## All supplemental shards audited; final aggregate queued (2026-11-02)
+
+Original exact601 encrypted/progressive job125338207145 completes its diagnostic
+capture. All8cases /240rawrows independently reproduce **51 measured parity
+misses, including6 RSS**, with0 unmeasured metrics and0 integrity findings on
+EPYC9V74 /Dart3.13.5. Misses comprise8 allocation,8 CPU,8 GC,7 p95,7 p99,
+6 RSS and7 throughput metrics. Source, original scenarios/order/policy/config,
+all raw streams,3 hosted locks and actual0B23native /D3F6driver bytes verify.
+Artifact13168530231 /ZIP`89d86952…` was downloaded once. Successful diagnostic
+completion does not establish strict parity. [Complete encrypted/progressive audit](../research/2026-11-02-mqtt-complete-pair-encrypted-progressive-audit.json).
+
+The three individual supplemental audits retain all50cases /1,500rows:
+protocol125 measured misses, encrypted/progressive51, payload16 plus2 unmeasured
+allocation metrics /30 evidence findings. The arithmetic total is192 measured
+misses; absolute costs remain scoped to their original shard hosts. Completed
+execution/step timestamps and artifact IDs/digests remain unchanged through
+the required final-shard metadata fetch. No numerical job reran.
+
+The final supplemental report job125458955025 is still queued; its hosted
+aggregate/workflow is not complete or independently audited yet. Preserve the
+queue and all evidence, then audit the original aggregate against all3 actual
+caches. Primary48 remains active. PR132 stays40ddcb3f OPEN DRAFT/#130, no adoption
+or RAM/broadWAMP acceptance. Separate1%allocationprecision remains unresolved.
+
 ## Protocol diagnostic completes; strict parity fails (2026-11-02)
 
 Original exact601 protocol job125338207701 completes successfully as a
@@ -43,8 +68,8 @@ Misses comprise12 allocation,20 CPU,11 GC,19 p95,19 p99,8 operations/second,
 24 RSS and12 throughput metrics. Keep absolute costs scoped to this shard;
 no causal host/runtime-repair claim follows. Together with the separately
 failed payload shard, this leaves strict acceptance unresolved. Primary48
-and encrypted/progressive remain active; preserve all remaining rows and
-complete the independent50-case aggregate. PR132 remains40ddcb3f OPEN DRAFT/#130,
+remains active; preserve all remaining rows and complete the queued
+independent50-case aggregate. PR132 remains40ddcb3f OPEN DRAFT/#130,
 with no candidate adoption, retarget or merge.
 
 ## Current payload shard fails strict acceptance; complete audit retained (2026-11-02)
@@ -66,8 +91,8 @@ matching source and3 hosted locks. This closes the copy production byte-witness
 limitation; the original copy artifact itself still omits the bytes. No ffi-test,
 sharedCI or other-runtime substitution. [Cross-artifact byte audit](../research/2026-11-02-mqtt-complete-pair-production-bytes-audit.json).
 
-Primary48 and encrypted/progressive continue naturally; all1,440+
-1,500rows /allshards remain required. This is one failed shard, not complete
+Primary48 continues naturally; the final supplemental report is queued.
+All1,440+1,500rows /allshards remain required. This is one failed shard, not complete
 50-case acceptance or a causal repair claim. PR132 stays40ddcb3f OPEN DRAFT/#130,
 no adoption. RAM/broadWAMP parity and separate1%allocationprecision remain
 unresolved. The prior pending-audit metadata is retained as historical evidence.
