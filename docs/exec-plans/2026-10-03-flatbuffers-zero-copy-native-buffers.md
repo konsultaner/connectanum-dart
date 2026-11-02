@@ -2,8 +2,8 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: complete the properly guarded tools-only shadow-source copy-request
-capture driver and review. Fresh pre-change baseline and provisional generator /
+Current step: complete final review and own frozen verification of the new
+tools-only shadow-source copy-request driver and isolated workflow mode. Fresh pre-change baseline and provisional generator /
 original-vs-shadow decoder / own-native functional controls pass; no capture or
 production fix is ready. FrozenAD48 original CI is complete failed only on the
 original measuredMQTT gate and dependentFullVerify, all numerical execution and
@@ -95,6 +95,26 @@ four evidence findings. Both aggregate files match exactly. Green shard reportin
 jobs do not establish parity. Every row is retained; primary48 continues.
 [Complete aggregate audit](../research/2026-11-02-flatbuffers-d9cb-supplemental-audit.json).
 
+## MQTT client freshness qualification (2026-11-02)
+
+Source inspection finds the retained `3020a016…` MQTT client initializes one
+application buffer/fixed tail pattern and changes its messageID. Earlier MQTT
+census/control fully verified delivery totals remain valid, but claims of fresh
+per-publication application buffers/patterns using that client are withdrawn.
+This qualification includes the earlier7FC census and MQTT source controls; no
+original rows, timings, binaries or results change or rerun. Separate fresh
+WAMP campaign and public Rust decoder/encoder probes use different producers.
+[Source qualification](../research/2026-11-02-mqtt-original-client-freshness-audit.json).
+
+The NEW count-only diagnostic derives and separately compiles a client with a
+fresh owned body and row-nonce/messageID pattern for every publication, full-byte
+verification and unchanged count/window/warmup/order/duplicate/timeout policy.
+Source/ownership/mutation controls pass. Combined own-native Cforwarder/Dart
+zero/TCP3.1.1/WS5 controls now agree on actual positive poll counts/bytes; full
+fresh bodies and cleanup verify. Negative terminal polls remain recorded. The
+original3020 client is a retained witness, not measured by the new diagnostic.
+[Complete fresh-body and independent-counter controls](../research/2026-11-02-mqtt-dart-copy-fresh-controls.json).
+
 ## Count-only investigation of the MQTT CI blocker (2026-11-02)
 
 The isolated `codex/mqtt-dart-copy-census` checkout completed fresh bootstrap
@@ -105,8 +125,8 @@ leaving the checked-out runtime frozen. All11portable guards,12original and
 12instrumented realDart decoder controls and own-native no-data/TCP3.1.1/WS5
 full-body/cleanup/atomic-output controls pass. Bounded reviews are complete and
 root-qualified against the actual source and controls; no confirmed defect.
-Development control failures are retained. The capture driver/workflow is still
-pending; readiness remains false, with no25-row capture or production patch.
+Development control failures are retained. The new capture driver and isolated workflow mode are provisional and under
+final review; readiness remains false, with no25-row capture or production patch.
 [Controls and scope](../research/2026-11-02-mqtt-dart-copy-request-controls.json).
 
 The proposed complete tools-only diagnostic would count explicit logical copy and

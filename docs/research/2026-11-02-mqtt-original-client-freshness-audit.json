@@ -1,0 +1,10 @@
+{
+  "source_client_sha256": "7ceffe037cd9227a52500a6c287c0087561d9a4da99ca08092ec5df855170c15",
+  "retained_client_binary_sha256": "3020a016d00618264a0da6e15def15232bb0f0771c30bb4661dec0943159d0db",
+  "actual_source_finding": "One Uint8List application payload is initialized once with fixed tail(i*29+7), then messageID prefix mutated through warmup/measured loops. Wire encoding can create fresh packets but does not establish fresh application bodies/patterns.",
+  "affected_claim": "Prior MQTT census/control delivery totals and full-body verification remain valid, but fresh application-buffer/pattern assertions based on this retained original client are withdrawn. No numerical data/results altered or rerun.",
+  "not_affected": "Distinct WAMP campaigns/native fresh-body producer audits and standalone decoder/encoder controls do not use this MQTT client.",
+  "new_client": "Tools-only exact-source derived separate client creates owned fresh body and per-row/message pattern; original3020 retained only as witness, not measured by new count capture. Generated source/binaries and all original workloads/verification/ownership controls must bind before capture.",
+  "capture_ready": false,
+  "checked_utc": "2026-11-02T08:47:59.036069+00:00"
+}
