@@ -190,6 +190,7 @@ class RouterSession {
   void _handleControlMessage(
     dynamic message, {
     void Function(int, event_msg.Event)? collectEvent,
+    Object? transferredEventPayload,
   }) {
     if (_closed || message is! Map) {
       return;
@@ -200,9 +201,13 @@ class RouterSession {
       binding._removeInternalSession(this);
     } else if (type == _internalMsgForwardEvents) {
       final forwarded = <({int connectionId, AbstractMessage message})>[];
+      final sharedPayload = _materializeTransferredValue(
+        message[_internalMsgLazyPayload],
+      );
       for (final event in message['events'] as List) {
         _handleControlMessage(
           event,
+          transferredEventPayload: sharedPayload,
           collectEvent: (connectionId, message) {
             forwarded.add((connectionId: connectionId, message: message));
           },
@@ -242,9 +247,9 @@ class RouterSession {
       if (custom.isNotEmpty) {
         details.custom.addAll(custom);
       }
-      final transferredPayload = _materializeTransferredValue(
-        message[_internalMsgLazyPayload],
-      );
+      final transferredPayload =
+          transferredEventPayload ??
+          _materializeTransferredValue(message[_internalMsgLazyPayload]);
       final event = event_msg.Event(subscriptionId, publicationId, details);
       _applyTransferredLazyPayload(
         event,
@@ -2187,11 +2192,18 @@ class _InternalSessionIsolate {
     if (nativeEvents.length == 1) {
       _bootstrap.controlPort.send(nativeEvents.single);
     } else if (nativeEvents.isNotEmpty) {
-      // One graph preserves the common payload instead of copying it once
-      // for every recipient on the way to the router.
+      // Transfer the common binary storage once. The receiver materializes it
+      // once and shares it across recipient Events; metadata remains distinct.
+      final sharedPayload = _transferIsolateValue(transferredPayload);
+      for (final event in nativeEvents) {
+        event.remove(_internalMsgLazyPayload);
+        event.remove('arguments');
+        event.remove('argumentsKeywords');
+      }
       _bootstrap.controlPort.send({
         'type': _internalMsgForwardEvents,
         'events': nativeEvents,
+        _internalMsgLazyPayload: sharedPayload,
       });
     }
     return routing.publicationId;
@@ -2477,6 +2489,7 @@ class _InternalSessionIsolate {
           'arguments': decodedMessage['arguments'],
           'argumentsKeywords': decodedMessage['argumentsKeywords'],
           'publisherSessionId': decodedMessage['publisherSessionId'],
+          'details': decodedMessage['details'],
           'pptScheme': (decodedMessage['details'] as Map?)?['ppt_scheme'],
           'pptSerializer':
               (decodedMessage['details'] as Map?)?['ppt_serializer'],

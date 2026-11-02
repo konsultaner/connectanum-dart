@@ -262,6 +262,7 @@ void main() {
       for (final size in [128, 16383, 16384, 65536])
         for (final mode in ['batch', 'legacy']) (workers, size, mode),
     (1, 65536, 'failures'),
+    (1, 65536, 'mixed'),
   ]) {
     test(
       'MQTT fanout worker transfers: workers=$workers bytes=$size mode=$mode',
@@ -304,6 +305,22 @@ void main() {
         final subscriptions = <int>[];
         for (final session in sessions) {
           final subscribed = await session.subscribe(
+            MqttTopicUriMapper.toWampUri(topic),
+          );
+          final event = Completer<wamp.Event>();
+          subscriptions.add(subscribed.subscriptionId);
+          subscribed.onEvent(event.complete);
+          received.add(event.future.timeout(const Duration(seconds: 5)));
+        }
+        if (mode == 'mixed') {
+          final internal = await fixture.binding.createInternalSession(
+            realmUri: _realm,
+            authId: 'mixed-internal-subscriber',
+            authRole: 'anonymous',
+            indexByRealm: false,
+          );
+          addTearDown(internal.close);
+          final subscribed = await internal.subscribe(
             MqttTopicUriMapper.toWampUri(topic),
           );
           final event = Completer<wamp.Event>();
