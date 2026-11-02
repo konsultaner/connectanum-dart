@@ -1,4 +1,4 @@
-name: MQTT first-cycle idle and Dart heap diagnostic
+name: MQTT JSON TLS default Dart heap diagnostic
 on:
   workflow_dispatch:
 permissions:

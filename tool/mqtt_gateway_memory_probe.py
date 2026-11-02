@@ -12,19 +12,17 @@ gate.check_hardware(budgets,dict(metadata,cpu_model=platform.processor() or plat
 reports=[]
 with tempfile.TemporaryDirectory() as temporary:
     worker=gate.compile_worker(Path(temporary),'test/support/mqtt_gateway_heap_probe.dart')
-    for profile in gate.overload_profiles()[1:]:
-      for path in ['mqtt_to_wamp']:
-        directory=root/profile['id']/path;directory.mkdir(parents=True)
-        config=dict(profile,path=path,port=0,native_library=str(library),paho_python=sys.executable,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
-        campaign=gate.Campaign(worker,directory,config,timeout=90)
-        try:rows=campaign.run_overload(profile,path,3,2048,20000,.5)
-        finally:campaign.close()
-        process=gate.process_summary(rows)
-        import statistics
-        report=dict(profile=profile['id'],direction=path,delivered_per_sec=statistics.median(x['delivered_per_sec'] for x in rows),p99_us=statistics.median(x['p99_us'] for x in rows),retained_growth_bytes=max(0,max(x['processes']['broker']['drained_rss_bytes'] for x in rows)-rows[0]['processes']['broker']['drained_rss_bytes']),processes=process)
-        all_checks=gate.overload_checks(report,budgets['overload'][profile['id']][path])
-        checks={key:value for key,value in all_checks.items() if 'retained' not in key}
-        report.update(default_metrics_checks=checks,default_metrics_passed=all(checks.values()),raw_retention_checks={key:value for key,value in all_checks.items() if 'retained' in key})
-        reports.append(report);print(json.dumps(report),flush=True)
+    profile=next(p for p in gate.profiles('release') if p['id']=='tls-3.1.1-json-65536-4-16')
+    path='mqtt_to_wamp'
+    directory=root/profile['id']/path;directory.mkdir(parents=True)
+    config=dict(profile,path=path,port=0,native_library=str(library),paho_python=sys.executable,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
+    campaign=gate.Campaign(worker,directory,config,load_timeout=300)
+    try:rows=campaign.run(profile,path,5,5000,200,.5,1)
+    finally:campaign.close()
+    process=gate.process_summary(rows)
+    limit=budgets['profiles'][profile['id']][path]
+    checks={role:values['drained_rss_bytes']<=limit['processes']['subscriber' if role.startswith('subscriber-') else role]['max_drained_rss_bytes'] for role,values in process.items()}
+    report=dict(profile=profile['id'],direction=path,processes=process,absolute_drained_rss_checks=checks,default_metrics_passed=all(checks.values()))
+    reports.append(report);print(json.dumps(report),flush=True)
 (root/'checks.json').write_text(json.dumps(reports,indent=2)+'\n')
 raise SystemExit(int(not all(x['default_metrics_passed'] for x in reports)))
