@@ -60,7 +60,9 @@ void main() {
           final message = Event(1, 2, details, arguments: [bytes]);
           final parts = codec.fragments(message)!;
           final output = BytesBuilder(copy: false);
-          for (final part in parts) output.add(part);
+          for (final part in parts) {
+            output.add(part);
+          }
           final encoded = output.takeBytes();
           expect(encoded, codec.original(message));
           final decoded = codec.decode(encoded) as Event;

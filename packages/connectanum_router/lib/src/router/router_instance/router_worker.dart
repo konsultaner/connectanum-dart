@@ -195,15 +195,13 @@ Future<void> sendMessage(
     }
     nextProfile = profile.prepareOutgoing(message);
   }
-  final payload = encodeWorkerMessagePayload(serializer, message);
   final changesProfile =
       nextProfile != null && !identical(nextProfile, state?.flatBuffersProfile);
   final acceptedReply = changesProfile ? ReceivePort() : null;
   try {
-    bossPort.send({
+    sendWorkerMessagePayload(bossPort, serializer, message, {
       'type': 'worker_send',
       'connectionId': connectionId,
-      'payload': payload,
       if (acceptedReply != null) 'acceptedReply': acceptedReply.sendPort,
     });
     if (acceptedReply != null) {
@@ -228,9 +226,40 @@ Future<void> sendMessage(
   }
 }
 
-Object encodeWorkerMessagePayload(
+// Exact-size buffers avoid copying unrelated backing storage through SendPort.
+const _workerScratchByteLimit = 1024 * 1024;
+const _workerScratchEntryLimit = 4;
+final _workerFrameScratch = <int, Uint8List>{};
+int _workerFrameScratchBytes = 0;
+
+Map<String, int> get workerFrameScratchMetricsForTest => {
+  'buffers': _workerFrameScratch.length,
+  'bytes': _workerFrameScratchBytes,
+};
+
+Uint8List _workerFrameBuffer(int length) {
+  final cached = _workerFrameScratch.remove(length);
+  if (cached != null) {
+    _workerFrameScratch[length] = cached;
+    return cached;
+  }
+  if (length > _workerScratchByteLimit) return Uint8List(length);
+  while (_workerFrameScratch.length >= _workerScratchEntryLimit ||
+      _workerFrameScratchBytes + length > _workerScratchByteLimit) {
+    final oldest = _workerFrameScratch.keys.first;
+    _workerFrameScratchBytes -= _workerFrameScratch.remove(oldest)!.length;
+  }
+  final result = Uint8List(length);
+  _workerFrameScratch[length] = result;
+  _workerFrameScratchBytes += length;
+  return result;
+}
+
+void sendWorkerMessagePayload(
+  SendPort target,
   NativeMessageSerializer serializer,
   AbstractMessage message,
+  Map<String, Object?> envelope,
 ) {
   if (message is event_msg.Event &&
       message.details.pptScheme == null &&
@@ -257,12 +286,20 @@ Object encodeWorkerMessagePayload(
         _ => null,
       };
       if (fragments != null) {
-        // Capture once, then transfer ownership across the isolate boundary.
-        return TransferableTypedData.fromList(fragments);
+        final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
+        final output = _workerFrameBuffer(length);
+        var offset = 0;
+        for (final fragment in fragments) {
+          output.setRange(offset, offset + fragment.length, fragment);
+          offset += fragment.length;
+        }
+        // SendPort snapshots mutable bytes before returning; only then reuse.
+        target.send({...envelope, 'payload': output});
+        return;
       }
     }
   }
-  return encodeMessage(serializer, message);
+  target.send({...envelope, 'payload': encodeMessage(serializer, message)});
 }
 
 Uint8List encodeMessage(

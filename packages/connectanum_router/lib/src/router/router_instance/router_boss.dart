@@ -1903,10 +1903,7 @@ class _RouterBoss {
         ..addAll(message.cast<String, Object?>());
     } else if (type == 'worker_send') {
       final connectionId = message['connectionId'] as int;
-      final encoded = message['payload'];
-      final payloadBytes = encoded is TransferableTypedData
-          ? encoded.materialize().asUint8List()
-          : encoded as Uint8List;
+      final Uint8List payloadBytes = message['payload'] as Uint8List;
       final acceptedReply = message['acceptedReply'] as SendPort?;
       var accepted = false;
       try {

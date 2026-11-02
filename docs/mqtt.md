@@ -196,3 +196,10 @@ release runs at most once every two seconds, with no registry/limiter lock held.
 Live buffers retain their owners; Dart VM settings stay at their defaults.
 
 Manual gateway campaigns use unique [concurrency groups](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), so a newer dispatch cannot replace queued or running benchmark evidence.
+
+Large ordinary binary worker events use exact-size scratch buffers, capped at
+four buffers and 1 MiB per worker. Oversized frames are not cached. The worker
+finishes the synchronous `SendPort.send` call before reusing a buffer; Dart
+[documents that mutable messages are copied during that call](https://api.dart.dev/dart-isolate/SendPort/send.html).
+Real-isolate regressions overwrite inputs and reuse or evict buffers before
+receiving the messages, checking every frame against the ordinary codec bytes.
