@@ -50,8 +50,26 @@ impl Reservation {
             due
         };
         // Never hold the connection registry or limiter lock in the allocator.
+        let rss = || {
+            std::fs::read_to_string("/proc/self/status")
+                .unwrap_or_default()
+                .lines()
+                .find(|line| line.starts_with("VmRSS:"))
+                .unwrap_or("missing")
+                .to_string()
+        };
+        eprintln!(
+            "IDLE_TRACE before due={due} idle={idle} rss={} at={:?}",
+            rss(),
+            std::time::SystemTime::now()
+        );
         if due {
             release();
+            eprintln!(
+                "IDLE_TRACE after rss={} at={:?}",
+                rss(),
+                std::time::SystemTime::now()
+            );
         }
         due
     }

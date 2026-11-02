@@ -2358,6 +2358,10 @@ impl ListenerRegistry {
                 .lock()
                 .unwrap_or_else(|poison| poison.into_inner())
                 .is_empty();
+        eprintln!(
+            "IDLE_TRACE request idle={idle} at={:?}",
+            std::time::SystemTime::now()
+        );
         let Some(reservation) = self.idle_allocator.reserve(idle) else {
             return;
         };
