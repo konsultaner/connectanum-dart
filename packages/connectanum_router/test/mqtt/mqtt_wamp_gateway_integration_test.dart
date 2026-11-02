@@ -13,6 +13,9 @@ import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp;
 import 'package:connectanum_core/mqtt.dart';
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart' as cbor;
+import 'package:connectanum_core/src/serializer/json/serializer.dart' as json;
+import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
+    as msgpack;
 import 'package:connectanum_router/connectanum_router.dart' hide Error;
 import 'package:connectanum_router/src/router/router_instance.dart'
     as worker_api;
@@ -22,6 +25,32 @@ import '../support/native_lib.dart';
 
 const _realm = 'gateway.test';
 final _deniedUri = MqttTopicUriMapper.toWampUri('forbidden');
+
+socket.SocketTransport _publicationTransport(int port, String codec) =>
+    switch (codec) {
+      'flatbuffers' => socket.SocketTransport.withFlatBuffersSerializer(
+        '127.0.0.1',
+        port,
+      ),
+      'json' => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        json.Serializer(),
+        SocketHelper.serializationJson,
+      ),
+      'msgpack' => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        msgpack.Serializer(),
+        SocketHelper.serializationMsgpack,
+      ),
+      _ => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        cbor.Serializer(),
+        SocketHelper.serializationCbor,
+      ),
+    };
 
 // Observe actual worker commands without retaining application payloads.
 void _observePublicationWorker(Map<String, Object?> init) {
@@ -36,10 +65,36 @@ void _observeFailingPublicationWorker(Map<String, Object?> init) {
   _observePublicationCommands(init, legacy: false, injectFailures: true);
 }
 
+void _observeBatchOnlyPublicationWorker(Map<String, Object?> init) {
+  _observePublicationCommands(
+    init,
+    legacy: false,
+    injectFailures: false,
+    binarySupport: false,
+  );
+}
+
+worker_api.RouterWorkerEntryPoint _mixedCapabilityPublicationWorker(
+  SendPort allocator,
+) => (init) {
+  final reply = ReceivePort();
+  allocator.send(reply.sendPort);
+  reply.first.then((supported) {
+    reply.close();
+    _observePublicationCommands(
+      init,
+      legacy: false,
+      injectFailures: false,
+      binarySupport: supported as bool,
+    );
+  });
+};
+
 void _observePublicationCommands(
   Map<String, Object?> init, {
   required bool legacy,
   required bool injectFailures,
+  bool binarySupport = true,
 }) {
   final boss = init['bossPort'] as SendPort;
   final events = ReceivePort();
@@ -56,8 +111,18 @@ void _observePublicationCommands(
               [command[1], command[2]],
             ],
             7 => command[1] as List,
+            8 => command[1] as List,
             _ => null,
           };
+          Uint8List? transferredBytes;
+          if (command[0] == 8) {
+            transferredBytes = (command[2] as TransferableTypedData)
+                .materialize()
+                .asUint8List();
+            for (final entry in entries!) {
+              (entry[1] as wamp.Event).arguments = [transferredBytes];
+            }
+          }
           final publications = [
             for (final entry in entries ?? const [])
               if (entry[1] case final wamp.Event event
@@ -72,22 +137,44 @@ void _observePublicationCommands(
               'type': 'worker_debug',
               'stage': 'publication_transfer',
               'recipients': publications.length,
+              'binary_transfer': command[0] == 8,
               'shared_payload': publications.every(
                 (e) => identical(e.wireArguments!.single, bytes),
               ),
             });
           }
-          if (injectFailures && command[0] == 7) {
-            target.send([
-              7,
+          if (command[0] == 8) {
+            for (final entry in entries!) {
+              (entry[1] as wamp.Event).arguments = null;
+            }
+          }
+          if (injectFailures && (command[0] == 7 || command[0] == 8)) {
+            final injected = [
+              [0x7fffffff, publications.first],
               [
-                [0x7fffffff, publications.first],
-                [
-                  entries!.first[0],
-                  wamp.Event(1, 1, wamp.EventDetails(), arguments: [Object()]),
-                ],
-                ...entries,
+                entries!.first[0],
+                wamp.Event(
+                  1,
+                  1,
+                  wamp.EventDetails()..custom['unsupported'] = Object(),
+                ),
               ],
+              ...entries,
+            ];
+            target.send(
+              command[0] == 8
+                  ? [
+                      8,
+                      injected,
+                      TransferableTypedData.fromList([transferredBytes!]),
+                    ]
+                  : [7, injected],
+            );
+          } else if (command[0] == 8) {
+            target.send([
+              8,
+              entries,
+              TransferableTypedData.fromList([transferredBytes!]),
             ]);
           } else {
             target.send(rawCommand);
@@ -95,6 +182,11 @@ void _observePublicationCommands(
         });
       event['commandPort'] = commands!.sendPort;
       event['supportsMessageBatches'] = !legacy;
+      if (binarySupport) {
+        event['supportsTransferredBinaryEvents'] = !legacy;
+      } else {
+        event.remove('supportsTransferredBinaryEvents');
+      }
     }
     boss.send(event);
     if (event['type'] == 4) {
@@ -129,6 +221,7 @@ void main() {
     Future<MqttWampGateway> Function(RouterBinding)? enable,
     void Function(RouterBinding, Object)? onEvent,
     worker_api.RouterWorkerEntryPoint? workerEntryPoint,
+    String wampSerializer = 'cbor',
   }) async {
     final runtime = NativeTransportRuntime(
       libraryPath: resolveOrBuildNativeLib()!,
@@ -240,12 +333,7 @@ void main() {
     final port = binding.listeners.single.port;
     final session = await wamp_client.Client(
       realm: _realm,
-      transport: socket.SocketTransport(
-        '127.0.0.1',
-        port,
-        cbor.Serializer(),
-        SocketHelper.serializationCbor,
-      ),
+      transport: _publicationTransport(port, wampSerializer),
     ).connect().first.timeout(const Duration(seconds: 5));
     addTearDown(session.close);
     final mqtt = await MqttQos0Client.connect(
@@ -257,24 +345,46 @@ void main() {
     return (binding: binding, gateway: gateway, session: session, mqtt: mqtt);
   }
 
-  for (final (workers, size, mode) in [
+  for (final (workers, size, mode, codec) in [
     for (final workers in [1, 2])
       for (final size in [128, 16383, 16384, 65536])
-        for (final mode in ['batch', 'legacy']) (workers, size, mode),
-    (1, 65536, 'failures'),
-    (1, 65536, 'mixed'),
+        for (final mode in ['batch', 'legacy', 'batch-only'])
+          (workers, size, mode, 'cbor'),
+    (1, 65536, 'failures', 'cbor'),
+    (1, 65536, 'mixed', 'cbor'),
+    (2, 65536, 'single', 'cbor'),
+    (2, 65536, 'single-batch-only', 'cbor'),
+    (2, 65536, 'mixed-workers', 'cbor'),
+    for (final codec in ['json', 'msgpack', 'flatbuffers', 'mixed'])
+      (1, 65536, 'batch', codec),
   ]) {
     test(
-      'MQTT fanout worker transfers: workers=$workers bytes=$size mode=$mode',
+      'MQTT fanout worker transfers: workers=$workers bytes=$size mode=$mode codec=$codec',
       () async {
         final observations = <Map>[];
         final errors = <Map>[];
+        final nativeRecipients = mode.startsWith('single') ? 2 : 4;
+        ReceivePort? capabilities;
+        if (mode == 'mixed-workers') {
+          capabilities = ReceivePort();
+          var ordinal = 0;
+          capabilities.listen((reply) {
+            (reply as SendPort).send(ordinal++ == 0);
+          });
+          addTearDown(capabilities.close);
+        }
         final fixture = await start(
+          wampSerializer: codec == 'mixed' ? 'cbor' : codec,
           transformSettings: (s) =>
               s.copyWith(workerPool: WorkerPoolSettings(minWorkers: workers)),
           workerEntryPoint: switch (mode) {
             'legacy' => _observeLegacyPublicationWorker,
             'failures' => _observeFailingPublicationWorker,
+            'batch-only' ||
+            'single-batch-only' => _observeBatchOnlyPublicationWorker,
+            'mixed-workers' => _mixedCapabilityPublicationWorker(
+              capabilities!.sendPort,
+            ),
             _ => _observePublicationWorker,
           },
           onEvent: (_, e) {
@@ -288,14 +398,14 @@ void main() {
         );
         const topic = 'sensors/fanout';
         final sessions = [fixture.session];
-        for (var i = 1; i < 4; i++) {
+        for (var i = 1; i < nativeRecipients; i++) {
           final session = await wamp_client.Client(
             realm: _realm,
-            transport: socket.SocketTransport(
-              '127.0.0.1',
+            transport: _publicationTransport(
               fixture.binding.listeners.single.port,
-              cbor.Serializer(),
-              SocketHelper.serializationCbor,
+              codec == 'mixed'
+                  ? ['cbor', 'json', 'msgpack', 'flatbuffers'][i]
+                  : codec,
             ),
           ).connect().first.timeout(const Duration(seconds: 5));
           addTearDown(session.close);
@@ -346,12 +456,30 @@ void main() {
         );
         expect(
           observations,
-          hasLength(size >= 16384 && mode != 'legacy' ? workers : 4),
+          hasLength(
+            size >= 16384 && mode != 'legacy' ? workers : nativeRecipients,
+          ),
         );
         expect(
           observations.fold<int>(0, (sum, e) => sum + (e['recipients'] as int)),
-          4,
+          nativeRecipients,
         );
+        if (mode == 'mixed-workers') {
+          expect(
+            observations.map((e) => e['binary_transfer']),
+            unorderedEquals([true, false]),
+          );
+        } else {
+          final binaryExpected =
+              size >= 16384 &&
+              mode != 'legacy' &&
+              mode != 'batch-only' &&
+              mode != 'single-batch-only';
+          expect(
+            observations.every((e) => e['binary_transfer'] == binaryExpected),
+            isTrue,
+          );
+        }
         expect(errors, hasLength(mode == 'failures' ? 1 : 0));
         expect(observations.every((e) => e['shared_payload'] == true), isTrue);
       },

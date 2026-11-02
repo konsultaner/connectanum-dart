@@ -190,7 +190,6 @@ class RouterSession {
   void _handleControlMessage(
     dynamic message, {
     void Function(int, event_msg.Event)? collectEvent,
-    Object? transferredEventPayload,
   }) {
     if (_closed || message is! Map) {
       return;
@@ -201,19 +200,20 @@ class RouterSession {
       binding._removeInternalSession(this);
     } else if (type == _internalMsgForwardEvents) {
       final forwarded = <({int connectionId, AbstractMessage message})>[];
-      final sharedPayload = _materializeTransferredValue(
-        message[_internalMsgLazyPayload],
-      );
+      final binaryPayload =
+          message[_internalMsgBinaryPayload] as TransferableTypedData?;
       for (final event in message['events'] as List) {
         _handleControlMessage(
           event,
-          transferredEventPayload: sharedPayload,
           collectEvent: (connectionId, message) {
             forwarded.add((connectionId: connectionId, message: message));
           },
         );
       }
-      binding._boss?.forwardMessagesToConnections(forwarded);
+      binding._boss?.forwardMessagesToConnections(
+        forwarded,
+        binaryPayload: binaryPayload,
+      );
     } else if (type == _internalMsgForwardEvent) {
       final connectionId = message['connectionId'] as int?;
       final subscriptionId = message['subscriptionId'] as int?;
@@ -247,9 +247,9 @@ class RouterSession {
       if (custom.isNotEmpty) {
         details.custom.addAll(custom);
       }
-      final transferredPayload =
-          transferredEventPayload ??
-          _materializeTransferredValue(message[_internalMsgLazyPayload]);
+      final transferredPayload = _materializeTransferredValue(
+        message[_internalMsgLazyPayload],
+      );
       final event = event_msg.Event(subscriptionId, publicationId, details);
       _applyTransferredLazyPayload(
         event,
@@ -1077,6 +1077,7 @@ const String _internalMsgCommandResult = 'command_result';
 const String _internalMsgCommandError = 'command_error';
 const String _internalMsgForwardEvent = 'forward_event';
 const String _internalMsgForwardEvents = 'forward_events';
+const String _internalMsgBinaryPayload = 'binary_payload';
 const String _internalMsgSubscriptionEvent = 'subscription_event';
 const String _internalMsgInvocationRequest = 'invocation_request';
 const String _internalMsgCallResult = 'call_result';
@@ -2192,9 +2193,11 @@ class _InternalSessionIsolate {
     if (nativeEvents.length == 1) {
       _bootstrap.controlPort.send(nativeEvents.single);
     } else if (nativeEvents.isNotEmpty) {
-      // Transfer the common binary storage once. The receiver materializes it
-      // once and shares it across recipient Events; metadata remains distinct.
-      final sharedPayload = _transferIsolateValue(transferredPayload);
+      // The boss routes this storage without materializing it. Its destination
+      // worker restores the common binary argument once before encoding Events.
+      final sharedPayload = TransferableTypedData.fromList([
+        binaryArguments.single as Uint8List,
+      ]);
       for (final event in nativeEvents) {
         event.remove(_internalMsgLazyPayload);
         event.remove('arguments');
@@ -2203,7 +2206,7 @@ class _InternalSessionIsolate {
       _bootstrap.controlPort.send({
         'type': _internalMsgForwardEvents,
         'events': nativeEvents,
-        _internalMsgLazyPayload: sharedPayload,
+        _internalMsgBinaryPayload: sharedPayload,
       });
     }
     return routing.publicationId;

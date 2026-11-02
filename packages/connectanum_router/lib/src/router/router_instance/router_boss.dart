@@ -2467,15 +2467,42 @@ class _RouterBoss {
   }
 
   void forwardMessagesToConnections(
-    Iterable<({int connectionId, AbstractMessage message})> messages,
-  ) {
+    Iterable<({int connectionId, AbstractMessage message})> messages, {
+    TransferableTypedData? binaryPayload,
+  }) {
     final grouped = <_WorkerHandle, List<List<Object?>>>{};
     for (final message in messages) {
       final worker = _connectionOwners[message.connectionId];
       if (worker == null) continue;
       (grouped[worker] ??= []).add([message.connectionId, message.message]);
     }
+    if (grouped.isEmpty) return;
+    final directBinary =
+        binaryPayload != null &&
+        grouped.length == 1 &&
+        grouped.keys.single.supportsMessageBatches &&
+        grouped.keys.single.supportsTransferredBinaryEvents;
+    final bytes = binaryPayload != null && !directBinary
+        ? binaryPayload.materialize().asUint8List()
+        : null;
     for (final entry in grouped.entries) {
+      if (binaryPayload != null &&
+          entry.key.supportsMessageBatches &&
+          entry.key.supportsTransferredBinaryEvents) {
+        entry.key.commandPort.send([
+          _workerCmdSendBinaryEvents,
+          entry.value,
+          directBinary
+              ? binaryPayload
+              : TransferableTypedData.fromList([bytes!]),
+        ]);
+        continue;
+      }
+      if (bytes != null) {
+        for (final message in entry.value) {
+          (message[1] as event_msg.Event).arguments = [bytes];
+        }
+      }
       if (entry.key.supportsMessageBatches && entry.value.length > 1) {
         entry.key.commandPort.send([_workerCmdSendMessages, entry.value]);
       } else {
@@ -2522,6 +2549,8 @@ class _RouterBoss {
       statePort: statePort ?? _stateStore.commandPort,
       isolateHash: message['workerHash'] as int? ?? isolate.hashCode,
       supportsMessageBatches: message['supportsMessageBatches'] == true,
+      supportsTransferredBinaryEvents:
+          message['supportsTransferredBinaryEvents'] == true,
     );
     if (connectionId > 0) {
       worker.connections.add(connectionId);
@@ -2662,6 +2691,7 @@ class _WorkerHandle {
     required this.statePort,
     required this.isolateHash,
     this.supportsMessageBatches = false,
+    this.supportsTransferredBinaryEvents = false,
   });
 
   final int id;
@@ -2670,6 +2700,7 @@ class _WorkerHandle {
   final SendPort statePort;
   final int isolateHash;
   final bool supportsMessageBatches;
+  final bool supportsTransferredBinaryEvents;
   final List<int> connections = [];
   int connectionCursor = 0;
   bool busy = false;

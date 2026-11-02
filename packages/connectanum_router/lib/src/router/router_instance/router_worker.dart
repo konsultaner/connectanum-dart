@@ -11,6 +11,7 @@ const int _workerCmdRemoveConnection = 4;
 const int _workerCmdSendMessage = 5;
 const int _workerCmdDrainConnections = 6;
 const int _workerCmdSendMessages = 7;
+const int _workerCmdSendBinaryEvents = 8;
 
 const int _workerEventRegister = 1;
 const int _workerEventReady = 2;
@@ -440,6 +441,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
     'statePort': statePort,
     'workerHash': workerId,
     'supportsMessageBatches': true,
+    'supportsTransferredBinaryEvents': true,
   });
   bossPort.send({
     'type': _workerEventReady,
@@ -612,17 +614,25 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         message,
         state: state,
       );
-    } else if (command == _workerCmdSendMessages) {
+    } else if (command == _workerCmdSendMessages ||
+        command == _workerCmdSendBinaryEvents) {
+      final binary = command == _workerCmdSendBinaryEvents
+          ? (raw[2] as TransferableTypedData).materialize().asUint8List()
+          : null;
       for (final rawMessage in raw[1] as List) {
         final connectionId = rawMessage[0] as int;
         final state = connectionStates[connectionId];
         if (state == null) continue;
         try {
+          final message = rawMessage[1] as AbstractMessage;
+          if (binary != null) {
+            (message as event_msg.Event).arguments = [binary];
+          }
           await sendMessage(
             bossPort,
             connectionId,
             state.serializer ?? NativeMessageSerializer.json,
-            rawMessage[1] as AbstractMessage,
+            message,
             state: state,
           );
         } catch (error, stackTrace) {
