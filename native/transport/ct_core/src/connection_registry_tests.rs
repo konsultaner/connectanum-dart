@@ -1,5 +1,139 @@
 use super::*;
 
+fn idle_registry() -> Arc<ListenerRegistry> {
+    Arc::new(ListenerRegistry {
+        idle_allocator: Arc::default(),
+        ..ListenerRegistry::default()
+    })
+}
+
+async fn idle_allocator_finished(state: &Arc<idle_allocator::IdleAllocatorRelease>) {
+    time::timeout(Duration::from_secs(2), async {
+        loop {
+            if let Some(reservation) = state.reserve(true) {
+                drop(reservation);
+                return;
+            }
+            time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn idle_allocator_skips_live_and_reopened_connections_and_coalesces_checks() {
+    use std::sync::atomic::AtomicUsize;
+    let registry = idle_registry();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let handle = tokio::runtime::Handle::current();
+    register_pending(&registry, ConnectionId(1), ConnectionProtocol::WebSocket);
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&handle, move || {
+        count.fetch_add(100, Ordering::SeqCst);
+    });
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    registry.close_connection(ConnectionId(1)).unwrap();
+
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&handle, move || {
+        count.fetch_add(100, Ordering::SeqCst);
+    });
+    register_pending(&registry, ConnectionId(2), ConnectionProtocol::WebSocket);
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    registry.close_connection(ConnectionId(2)).unwrap();
+
+    let count = Arc::clone(&calls);
+    let weak = Arc::downgrade(&registry);
+    let io_thread = std::thread::current().id();
+    registry.schedule_idle_allocator_release(&handle, move || {
+        let registry = weak.upgrade().unwrap();
+        assert!(registry.connections.try_lock().is_ok());
+        assert_ne!(std::thread::current().id(), io_thread);
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&handle, move || {
+        count.fetch_add(100, Ordering::SeqCst);
+    });
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn idle_allocator_does_not_retain_a_disposed_registry() {
+    use std::sync::atomic::AtomicUsize;
+    let registry = idle_registry();
+    let gate = Arc::clone(&registry.idle_allocator);
+    let weak = Arc::downgrade(&registry);
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&tokio::runtime::Handle::current(), move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    drop(registry);
+    assert!(weak.upgrade().is_none());
+    idle_allocator_finished(&gate).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn idle_allocator_recovers_a_poisoned_empty_registry() {
+    use std::sync::atomic::AtomicUsize;
+    let registry = idle_registry();
+    let cloned = Arc::clone(&registry);
+    let _ = std::thread::spawn(move || {
+        let _guard = cloned.connections.lock().unwrap();
+        panic!("poison");
+    })
+    .join();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&tokio::runtime::Handle::current(), move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn idle_allocator_runtime_shutdown_cancels_its_reservation() {
+    let registry = idle_registry();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        registry
+            .schedule_idle_allocator_release(runtime.handle(), || panic!("cleanup after shutdown"));
+        tokio::task::yield_now().await;
+    });
+    drop(runtime);
+    assert!(registry.idle_allocator.reserve(true).is_some());
+}
+
+#[tokio::test]
+async fn idle_allocator_skips_a_shutdown_registry_with_retained_views() {
+    use std::sync::atomic::AtomicUsize;
+    let registry = idle_registry();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&tokio::runtime::Handle::current(), move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    registry.shutdown();
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    let count = Arc::clone(&calls);
+    registry.schedule_idle_allocator_release(&tokio::runtime::Handle::current(), move || {
+        count.fetch_add(1, Ordering::SeqCst);
+    });
+    idle_allocator_finished(&registry.idle_allocator).await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
 fn endpoint() -> Arc<config::EndpointRuntimeConfig> {
     let config = serde_json::from_value::<config::EndpointConfig>(serde_json::json!({
         "host": "127.0.0.1", "port": 0, "tls_mode": "disabled"

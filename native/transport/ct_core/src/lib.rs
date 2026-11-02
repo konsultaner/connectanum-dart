@@ -58,6 +58,8 @@ mod http1_stream;
 mod http3_admission_tests;
 mod http_body;
 mod http_stream;
+#[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+mod idle_allocator;
 mod io_stream;
 mod ktls;
 mod platform;
@@ -1713,6 +1715,10 @@ struct ListenerRegistry {
     connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
     connection_events: Mutex<VecDeque<HttpConnectionEvent>>,
     next_listener_id: AtomicU32,
+    #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+    idle_allocator: Arc<idle_allocator::IdleAllocatorRelease>,
+    #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+    shutting_down: AtomicBool,
 }
 
 impl Default for ListenerRegistry {
@@ -1723,6 +1729,10 @@ impl Default for ListenerRegistry {
             connections: Mutex::new(HashMap::new()),
             connection_events: Mutex::new(VecDeque::new()),
             next_listener_id: AtomicU32::new(0),
+            #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+            idle_allocator: idle_allocator::shared(),
+            #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+            shutting_down: AtomicBool::new(false),
         }
     }
 }
@@ -2208,6 +2218,8 @@ impl ListenerRegistry {
     }
 
     fn shutdown(&self) {
+        #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+        self.shutting_down.store(true, Ordering::Release);
         let listener_entries: Vec<ListenerEntry> = self
             .listeners
             .lock()
@@ -2332,6 +2344,39 @@ impl ListenerRegistry {
             | ConnectionRecord::Http3Pending { .. } => {}
         }
         Ok(())
+    }
+
+    #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+    fn schedule_idle_allocator_release(
+        self: &Arc<Self>,
+        handle: &tokio::runtime::Handle,
+        release: impl FnOnce() + Send + 'static,
+    ) {
+        let idle = !self.shutting_down.load(Ordering::Acquire)
+            && self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner())
+                .is_empty();
+        let Some(reservation) = self.idle_allocator.reserve(idle) else {
+            return;
+        };
+        let registry = Arc::downgrade(self);
+        handle.spawn(async move {
+            time::sleep(idle_allocator::IDLE_DELAY).await;
+            // Allocator locks and page release must not occupy an I/O worker.
+            tokio::task::spawn_blocking(move || {
+                if let Some(registry) = registry.upgrade() {
+                    let idle = !registry.shutting_down.load(Ordering::Acquire)
+                        && registry
+                            .connections
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner())
+                            .is_empty();
+                    reservation.release_if_due(idle, Instant::now(), release);
+                }
+            });
+        });
     }
 
     fn register_rawsocket_connection(
@@ -6793,9 +6838,17 @@ pub fn wait_connection_message(
 /// and send Close(1000), then cancels it after one second if the peer is stalled.
 /// Await tracked write receipts or a drain barrier before close when successful
 /// local delivery is required. Independent caller-owned views remain valid.
+/// On glibc Linux, an empty registry also schedules bounded idle allocator cleanup.
 pub fn close_connection(connection_id: ConnectionId) -> Result<(), Error> {
     let manager = RuntimeManager::global();
-    manager.with_state(|state| state.registry.close_connection(connection_id))
+    manager.with_state(|state| {
+        let result = state.registry.close_connection(connection_id);
+        #[cfg(all(target_os = "linux", target_env = "gnu"))]
+        state
+            .registry
+            .schedule_idle_allocator_release(&state.handle, idle_allocator::release_unused_pages);
+        result
+    })
 }
 
 /// Opens an outbound RawSocket client connection and registers it in the runtime.

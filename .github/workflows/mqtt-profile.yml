@@ -1,4 +1,4 @@
-name: MQTT gateway idle native allocator diagnostic
+name: MQTT native idle cleanup qualification
 on:
   workflow_dispatch:
 permissions:
@@ -6,7 +6,7 @@ permissions:
 jobs:
   memory:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci
@@ -26,7 +26,9 @@ jobs:
           build_native_ffi_test_release
           echo "CONNECTANUM_NATIVE_LIB=$CONNECTANUM_NATIVE_LIB" >> "$GITHUB_ENV"
           bin/bootstrap
-      - name: Compare complete memory lifecycles at both warm-up workloads
+      - name: Check native idle cleanup regressions
+        run: cargo test --manifest-path native/transport/Cargo.toml --release --target-dir native/transport/target/ffi-test -p ct_core --features ffi-test idle_allocator
+      - name: Check default-VM overload performance and absolute RSS
         run: |
           set -euo pipefail
           mkdir -p out/mqtt-memory-probe
@@ -40,4 +42,32 @@ jobs:
         with:
           name: mqtt-gateway-memory-probe
           path: out/mqtt-memory-probe
+          if-no-files-found: error
+
+  native-coverage:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+          native-tools: 'true'
+      - name: Bootstrap workspace
+        run: bin/bootstrap
+      - name: Collect complete current-source Cargo coverage
+        env:
+          CONNECTANUM_NATIVE_COVERAGE_DIR: out/coverage-native-idle-cargo
+        run: bin/test-native-coverage
+      - name: Collect complete current-source Dart FFI coverage
+        env:
+          CONNECTANUM_NATIVE_FFI_COVERAGE_DIR: out/coverage-native-idle-ffi
+        run: bin/test-native-ffi-coverage
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mqtt-native-idle-coverage
+          path: |
+            out/coverage-native-idle-cargo
+            out/coverage-native-idle-ffi
           if-no-files-found: error
