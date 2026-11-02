@@ -195,7 +195,7 @@ Future<void> sendMessage(
     }
     nextProfile = profile.prepareOutgoing(message);
   }
-  final payload = encodeMessage(serializer, message);
+  final payload = encodeWorkerMessagePayload(serializer, message);
   final changesProfile =
       nextProfile != null && !identical(nextProfile, state?.flatBuffersProfile);
   final acceptedReply = changesProfile ? ReceivePort() : null;
@@ -226,6 +226,43 @@ Future<void> sendMessage(
   } finally {
     acceptedReply?.close();
   }
+}
+
+Object encodeWorkerMessagePayload(
+  NativeMessageSerializer serializer,
+  AbstractMessage message,
+) {
+  if (message is event_msg.Event &&
+      message.details.pptScheme == null &&
+      !message.hasLazyArguments &&
+      !message.hasLazyArgumentsKeywords &&
+      !message.hasDecodedPptPayload &&
+      message.transparentBinaryPayload == null &&
+      message.wireArgumentsKeywords == null) {
+    final arguments = message.wireArguments;
+    if (arguments?.length == 1 &&
+        arguments!.single is Uint8List &&
+        (arguments.single as Uint8List).length >= 16 * 1024) {
+      final fragments = switch (serializer) {
+        NativeMessageSerializer.json => _jsonSerializer.serializeEventFragments(
+          message,
+        ),
+        NativeMessageSerializer.cbor => _cborSerializer.serializeEventFragments(
+          message,
+        ),
+        NativeMessageSerializer.messagePack =>
+          _msgpackSerializer.serializeEventFragments(message),
+        NativeMessageSerializer.flatbuffers =>
+          _flatBuffersSerializer.serializeTransportFragments(message),
+        _ => null,
+      };
+      if (fragments != null) {
+        // Capture once, then transfer ownership across the isolate boundary.
+        return TransferableTypedData.fromList(fragments);
+      }
+    }
+  }
+  return encodeMessage(serializer, message);
 }
 
 Uint8List encodeMessage(

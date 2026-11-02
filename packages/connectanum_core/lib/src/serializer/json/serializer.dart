@@ -1045,6 +1045,14 @@ class Serializer extends AbstractSerializer {
     return serializeToString(message);
   }
 
+  /// Encode EVENT vectors without joining the complete transport frame.
+  List<Uint8List>? serializeEventFragments(Event message) {
+    final prefix =
+        '[${MessageTypes.codeEvent},${message.subscriptionId},${message.publicationId},${_serializeEventDetails(message.details, allowOmit: false)}';
+    return _serializeLazyJsonPayloadFragments(prefix, message) ??
+        _serializeSingleBinaryPayloadFragments(prefix, message);
+  }
+
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is Call) {

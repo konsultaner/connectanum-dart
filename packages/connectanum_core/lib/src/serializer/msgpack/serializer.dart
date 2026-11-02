@@ -858,6 +858,15 @@ class Serializer extends AbstractSerializer {
   }
 
   /// Converts a WAMP message object into a uint8 msgpack message
+  /// Encode EVENT vectors without joining the complete transport frame.
+  List<Uint8List>? serializeEventFragments(Event message) =>
+      _serializeMsgPackPayloadSegments(4, [
+        msgpack_dart.serialize(MessageTypes.codeEvent),
+        msgpack_dart.serialize(message.subscriptionId),
+        msgpack_dart.serialize(message.publicationId),
+        _serializeEventDetails(message.details),
+      ], message);
+
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is Call) {

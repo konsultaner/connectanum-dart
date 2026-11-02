@@ -16,6 +16,8 @@ WHOLE = (
     'packages/connectanum_bench/bin/mqtt_gateway_worker.dart',
 )
 SHARED = (
+    'packages/connectanum_core/lib/src/serializer/json/serializer.dart',
+    'packages/connectanum_core/lib/src/serializer/msgpack/serializer.dart',
     'packages/connectanum_core/lib/src/serializer/flatbuffers/serializer.dart',
     'packages/connectanum_core/lib/src/serializer/flatbuffers/message_writer.dart',
     'packages/connectanum_core/lib/src/serializer/flatbuffers/wire_writer.dart',
