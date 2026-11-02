@@ -1,5 +1,7 @@
 # Native perf diagnostic guard preparation
 
+The subsequent [blocked-exec consumer preparation](2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md) adds26 POSIX callback fixtures and updates current disk/tool status. This note retains the earlier28-primitive phase; it is not a claim that those unchanged tests reran.
+
 The tool-only prototype now passes28 focused synthetic/POSIX-pipe unit guards.
 Two actual guard counterexamples were retained and fixed. This is preparation,
 not a working capture controller, production defect, RAM repair or acceptance.
@@ -79,10 +81,10 @@ not proof of the future host's perf version, permissions or kernel behavior.
 A bounded real kernel capability control over owned non-benchmark processes
 must still establish the actual inheritance/arming behavior before data.
 
-The current module only guards supplied witnesses and pipe writes. It does not
-implement blocked-exec consumption, a real controller, privileged sampler
+The primitive module only guards supplied witnesses and pipe writes. The later
+consumer component is linked above; a real controller, privileged sampler
 identity discovery, process/image/lineage collection, a kernel capability probe
-or capture orchestration. It has no benchmark/capture entrypoint. Those pieces,
+or capture orchestration remain absent. It has no benchmark/capture entrypoint. Those pieces,
 their meaningful tests and own verification/provenance/declaration/root review
 remain the next work. No profiling/heap RPC, sample reset, setFlag, JIT-symbol,
 AOT, SDK, GC, allocator or worker-policy change is a workaround.

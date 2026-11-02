@@ -7,29 +7,31 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
-## Native diagnostic source policy bound; guard prototype28PASS (2026-11-03)
+## Blocked launcher passes26 fixtures; real perf controller pending (2026-11-03)
 
-Static binding reproduces the original full48-case generator/order and all ten
-scenario inputs byte-for-byte, then filters11declared cases preserving original
-codec order for proposed330reports. No raw metric rows/gates or workload ran.
-The same before-edit-verified owned worktree now has two uncommitted tool files
-on `codex/flatbuffers-native-perf-guard`; its HEAD is still601 and production
-package/native sources are unchanged. It is no longer a wholly clean worktree.
+The new tool-only blocked-exec consumer passes26 POSIX callback fixtures after
+four retained actual counterexamples: lost refusal log, FIFO marker blocking,
+set-ID mode admission and declared-path drift. These fixtures simulate exec;
+no actual FD exec, privileged image, perf/kernel probe, VM API, benchmark or
+capture ran. The earlier28 guard primitives remain retained without rerunning.
+The real attach controller and actual sampler/role/image/lineage/private-FD
+witnesses are still missing; no performance result or production fix exists.
+[Source versions, executed failures, qualified review and root readback](research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
 
-The new guard-only prototype passes28focused synthetic/POSIX-pipe tests after
-two retained actual failures: Darwin pipe-endpoint identity assumptions, then
-missing release-pipe binding. A real official lease refusal preceded one test
-attempt; testing waited for availability. Sources/logs/qualified review are
-preserved. No benchmark/perf/kernel-inheritance probe, VM API or capture ran.
-The original published601 runtime worktree remains clean/frozen/unadopted.
+The owned worktree now has four uncommitted Python tools, branch
+`codex/flatbuffers-native-perf-guard`, HEAD601; production package/native sources
+are unchanged. The original published601 runtime remains frozen/unadopted.
+The original full48 schedule/scenarios still bind the filtered11-case diagnostic
+order and proposed330reports. New tool full canonical/provenance/declaration
+and real Linux non-benchmark capability controls remain pending. Privileged
+perf must attach to the original-UID blocked driver, never launch it as root.
 
-Next complete the unprivileged blocked launcher/controller and actual sampler/
-role/image/FD witnesses with meaningful before-data tests. Privileged perf must
-attach to the blocked PID, not launch the driver as root. These guards do not
-prove kernel inheritance or writer credentials. Full verification/provenance/
-declaration/capability controls remain pending; last free space7.60GB is below
-the12GiB full-build preparation floor. No new cleanup or production fix.
-[Complete preparation, counterexamples and source evidence](research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
+All own test/advice sessions are complete/reaped. An official lease refusal
+preceded post-fix tests; work waited. Free space later recovered to20.23GB,
+above the12GiB full-build floor, without own cleanup; cause unmeasured. Full
+canonical has not started while the controller remains incomplete. Both strict
+campaigns stay failed; PR132 stays draft, without adoption or a new dispatch.
+[Earlier guard/source-policy preparation](research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 
 ## CPU service method rejected; external native diagnostic remains a draft (2026-11-02)
 

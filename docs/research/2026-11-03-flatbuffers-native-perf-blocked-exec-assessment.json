@@ -1,0 +1,186 @@
+{
+  "scope": "NEW blocked-exec component and POSIX callback fixture verification. Readback of retained own guard executions only; no numerical acceptance re-audit or workload rerun.",
+  "checked_utc": "2026-11-02T23:51:04.246927+00:00",
+  "runtime_source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "branch": "codex/flatbuffers-native-perf-guard",
+  "HEAD_still_parent": true,
+  "tool_files_uncommitted": 4,
+  "production_packages_native_unchanged": true,
+  "verification": {
+    "first_fixture_tests_PASS": 20,
+    "new_before_counterexamples": 4,
+    "before_failures": 3,
+    "before_errors": 1,
+    "fixed_fixture_tests_PASS": 26,
+    "all_source_and_log_receipt_hashes_exact": true,
+    "official_exclusive_lease_each_test": true,
+    "postfix_admission_refusal_before_test_preserved": true,
+    "no_duplicate_postfix_test": true,
+    "fixed_source_sha256": {
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    }
+  },
+  "verified_changes": [
+    "Primary child refusal reaches the declared log before any possibly closed protocol FD. Actual callback-raises counterexample lost the reason before the fix.",
+    "A FIFO marker previously blocked open and timed out. NONBLOCK open followed by regular-file/owner/exact-byte validation now refuses it; only the owned synthetic fixture was reaped during cleanup.",
+    "SUID/SGID permission bits now refuse before fork. The counterexample only changed mode on an owned non-ELF fixture; no privileged image executed and no credential transition occurred.",
+    "Original declared argv0 pathname must still resolve to the pinned inode after GO. Before fix a retargeted symlink was accepted while the correct old FD stayed pinned; this demonstrates missing fail-closed path-drift rejection, not execution of substituted bytes."
+  ],
+  "component_contract": [
+    "Original effective UID/GID/env hash/argv/cwd/signal mask are bound. Child uses original setsid, devnull stdin and declared log stdio; unrelated FDs close before READY.",
+    "Pinned executable FD is checked around hashing before READY and again after GO. Real mode requires Linux FD exec and ELF; there is no path-exec fallback.",
+    "GO requires exact declaration hash/nonce plus EOF. Only controller closes its writer after complete token; a writer held open is an intentional bounded refusal.",
+    "Consumed marker creation between READY and GO is intentional after sampler ACK, not a successful-race defect. Existing/partial markers remain terminal.",
+    "Callback fixture explicitly simulates close-on-exec; it is not real fd-exec or Linux perf/kernel evidence."
+  ],
+  "qualified_advice": {
+    "test_advice_session_complete_reaped": 87426,
+    "source_review_session_complete_reaped": 46718,
+    "backend": "GLM-5.3 Flash",
+    "qualifications": [
+      "Reject test-advice F1 close-before-GO ordering; close the controller writer AFTER the complete token. Child never owns writer.",
+      "Review P1 framing concern self-retracted. P2 bounded EOF wait is intentional, not a defect or permission to change declared timeout policy.",
+      "Review P3 primary-error retention accepted, but actual fixture READY FD was already closed, not available for a second response. Before-failing witness verifies lost log reason.",
+      "Review P4 marker creation between READY and GO is intentional post-ACK consumption. Actual private-controller/sampler provenance is still pending.",
+      "Review P5 self-enumeration closed descriptor is handled; no concurrent child thread is assumed. Linux-specific paths still require real capability controls.",
+      "Root independently reproduced FIFO/setid/path-drift gaps. Advice is advisory, not capture approval."
+    ]
+  },
+  "archive": {
+    "source_file": "2026-11-03-flatbuffers-native-perf-blocked-exec-evidence.tar.gz",
+    "sha256": "d04e69541faf94cc28188c423cd9f5f30d08681021a2aa8fdc61b8e03f61866a",
+    "members_decompress_byte_exact": true,
+    "members": [
+      {
+        "member": "first/tool/native_perf_guard.py",
+        "bytes": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "first/tool/test_native_perf_guard.py",
+        "bytes": 13171,
+        "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+      },
+      {
+        "member": "first/tool/native_perf_blocked_exec.py",
+        "bytes": 12973,
+        "sha256": "935f96f773ae47096facfc2eb8ade66f32efe8173f3b551e2389025329279f49"
+      },
+      {
+        "member": "first/tool/test_native_perf_blocked_exec.py",
+        "bytes": 11961,
+        "sha256": "aef250acd8beb18a6be6ecfe4da0d17c7f9dcb3998bd8c1f9d1e8be3e8608976"
+      },
+      {
+        "member": "logs/first.log",
+        "bytes": 2967,
+        "sha256": "464da56e3712b2786d9192aa2a62f99e6a5175ac0b19ea04d36fc5cf8746c6e5"
+      },
+      {
+        "member": "receipts/first.json",
+        "bytes": 930,
+        "sha256": "1e557b1abcec06bfe35a1d1bc167ea3e26e97c4eebf31cfa2d62c3c2650ba4cf"
+      },
+      {
+        "member": "before/tool/native_perf_blocked_exec.py",
+        "bytes": 12973,
+        "sha256": "935f96f773ae47096facfc2eb8ade66f32efe8173f3b551e2389025329279f49"
+      },
+      {
+        "member": "before/tool/test_native_perf_blocked_exec.py",
+        "bytes": 13764,
+        "sha256": "599dc6e80df6ab910df8b58b2036cefe493af810463b2fab909b1059e4ff5c2e"
+      },
+      {
+        "member": "logs/before.log",
+        "bytes": 4264,
+        "sha256": "dd142186ef6fc229bdcc465fae8ff5c5339182973742b285fda1558fffc640d9"
+      },
+      {
+        "member": "receipts/before.json",
+        "bytes": 763,
+        "sha256": "3a10d3f1b515f3728d981abe62c3407eeffb7a8fbfabeebf729cb7b907f914ad"
+      },
+      {
+        "member": "fixed/tool/native_perf_guard.py",
+        "bytes": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "fixed/tool/test_native_perf_guard.py",
+        "bytes": 13171,
+        "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+      },
+      {
+        "member": "fixed/tool/native_perf_blocked_exec.py",
+        "bytes": 13407,
+        "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+      },
+      {
+        "member": "fixed/tool/test_native_perf_blocked_exec.py",
+        "bytes": 15027,
+        "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+      },
+      {
+        "member": "logs/fixed.log",
+        "bytes": 3953,
+        "sha256": "e43534c528f9bf8e8c86308bc203e690036b0fb99f43bb0f6c2e73ee660e1a83"
+      },
+      {
+        "member": "receipts/fixed.json",
+        "bytes": 1292,
+        "sha256": "217122eaca0e014ef6b5551f0763702decb662276c2a31b17a3ccfd8f4bde332"
+      },
+      {
+        "member": "advice/test-advice.txt",
+        "bytes": 3641,
+        "sha256": "55d589c5201b3d266a477e9d8ab6a244f48861034f7eda9b3fc4997e82b8ee3f"
+      },
+      {
+        "member": "advice/source-review.txt",
+        "bytes": 2862,
+        "sha256": "56f7c9d76309df3c5ad9641adec749a15c6cfba0002de50bffd975c50f9c2fda"
+      },
+      {
+        "member": "advice/test-advice-wrapper.log",
+        "bytes": 4361,
+        "sha256": "d329d3c4e452505b616ee9e43d83eb3f87b2d71d3fbce23c80b45c461550ea2a"
+      },
+      {
+        "member": "advice/source-review-wrapper.log",
+        "bytes": 3751,
+        "sha256": "93b007a48d0390144fae5100f265a70442179e7fc4c20a31b12e06a7f13c203e"
+      },
+      {
+        "member": "receipts/postfix-lease-refusal-public-projection.json",
+        "bytes": 737,
+        "sha256": "d812ceaaca5d789c58b129572461206b3ee9b53907b2f21c72ec29d5d71aca0f"
+      },
+      {
+        "member": "receipts/readback-preflight-corrections.json",
+        "bytes": 1095,
+        "sha256": "1d4af714945a0c20ee792253c19feb6be624041b27aeec20fb075176fc45305c"
+      }
+    ],
+    "note": "Original traceback text remains byte-exact inside raw failure logs. Public projection references use archive members; the local admission receipt is projected by basename without altering its retained original."
+  },
+  "resources": {
+    "last_fixed_test_free_bytes": 20228919296,
+    "full_build_floor_bytes": 12884901888,
+    "small_test_floor_bytes": 1073741824,
+    "free_space_recovered_without_own_cleanup": true,
+    "recovery_cause_measured": false,
+    "new_cleanup": false,
+    "full_canonical_started": false
+  },
+  "real_fd_exec_executed": false,
+  "actual_privileged_sampler_identity_verified": false,
+  "Linux_kernel_perf_probe_executed": false,
+  "benchmark_or_capture_started": false,
+  "production_defect_or_RAM_repair_confirmed": false,
+  "capture_ready": false,
+  "next": "Implement external attach controller and actual sampler/role/image/lineage/private-FD discovery. Keep original-UID blocked driver separate from privileged attaching perf. Complete own full verification/provenance, bounded real nonbenchmark Linux capability controls, qualified review and immutable declaration before any diagnostic data. No unchanged acceptance rerun or production edit."
+}
