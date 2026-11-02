@@ -1,40 +1,45 @@
-name: MQTT gateway native cleanup qualification
+name: MQTT unsent watermark diagnostic
 on:
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 jobs:
-  gateway:
-    uses: ./.github/workflows/mqtt-gateway-benchmarks.yml
-
-  native-coverage:
+  memory:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 120
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci
         with:
           rust: 'true'
-          native-tools: 'true'
-      - name: Bootstrap workspace
-        run: bin/bootstrap
-      - name: Collect complete current-source Cargo coverage
-        env:
-          CONNECTANUM_NATIVE_COVERAGE_DIR: out/coverage-native-idle-cargo
-        run: bin/test-native-coverage
-      - name: Collect complete current-source Dart FFI coverage
-        env:
-          CONNECTANUM_NATIVE_FFI_COVERAGE_DIR: out/coverage-native-idle-ffi
-        run: bin/test-native-ffi-coverage
+      - id: rust
+        run: echo "identity=$(rustc -Vv | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v5
+        with:
+          path: native/transport/target/ffi-test
+          key: ffi-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-${{ hashFiles('native/transport/**', 'bin/common.sh') }}
+          restore-keys: ffi-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-
+      - name: Build current native source and prepare workspace
+        run: |
+          set -euo pipefail
+          source bin/common.sh
+          build_native_ffi_test_release
+          echo "CONNECTANUM_NATIVE_LIB=$CONNECTANUM_NATIVE_LIB" >> "$GITHUB_ENV"
+          bin/bootstrap
+      - name: Check native idle cleanup regressions
+        run: cargo test --manifest-path native/transport/Cargo.toml --release --target-dir native/transport/target/ffi-test -p ct_core --features ffi-test mqtt_plain_stream_bounds_unsent_bytes
+      - name: Check default-VM overload performance and absolute RSS
+        run: |
+          set -euo pipefail
+          mkdir -p out/mqtt-memory-probe
+          lscpu --json > out/mqtt-memory-probe/hardware.json
+          cat /proc/cpuinfo > out/mqtt-memory-probe/cpuinfo.txt
+          python3 -m venv "$RUNNER_TEMP/memory-python"
+          "$RUNNER_TEMP/memory-python/bin/pip" install paho-mqtt==2.1.0
+          "$RUNNER_TEMP/memory-python/bin/python" tool/mqtt_gateway_memory_probe.py | tee out/mqtt-memory-probe/results.log
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: mqtt-native-idle-coverage
-          path: |
-            out/coverage-native-idle-cargo
-            out/coverage-native-idle-ffi/*.json
-            out/coverage-native-idle-ffi/*.info
-            out/coverage-native-idle-ffi/*.log
-            out/coverage-native-idle-ffi/profiles
+          name: mqtt-gateway-memory-probe
+          path: out/mqtt-memory-probe
           if-no-files-found: error

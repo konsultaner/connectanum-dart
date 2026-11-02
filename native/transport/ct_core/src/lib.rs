@@ -2575,11 +2575,23 @@ impl ListenerRegistry {
             .cloned()
             .unwrap_or(handle);
         let stream = stream.into_runtime(&handle)?;
-        // Keep a stalled MQTT peer from hiding a large burst in the kernel
-        // before the bounded application queue can apply backpressure.
+        // Bound unsent MQTT bytes without disabling the kernel's TCP window
+        // autotuning for high-latency links.
         #[cfg(target_os = "linux")]
         if let Ok(Some(fd)) = stream.try_clone_plain_fd() {
-            let _ = socket2::SockRef::from(&fd).set_send_buffer_size(1024 * 1024);
+            use std::os::fd::AsRawFd;
+            let lowat: u32 = 128 * 1024;
+            // SAFETY: fd owns a live TCP socket; lowat points to a valid u32
+            // for the duration of this synchronous socket-option call.
+            let _ = unsafe {
+                libc::setsockopt(
+                    fd.as_raw_fd(),
+                    libc::IPPROTO_TCP,
+                    libc::TCP_NOTSENT_LOWAT,
+                    (&lowat as *const u32).cast(),
+                    std::mem::size_of_val(&lowat) as libc::socklen_t,
+                )
+            };
         }
         // Linux reactor wakeups dominate small cleartext MQTT WS traffic.
         // Other platforms and TLS retain immediate flushing.

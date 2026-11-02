@@ -718,7 +718,7 @@ async fn active_wamp_records_preserve_frames_backpressure_and_close_semantics() 
 
 #[cfg(target_os = "linux")]
 #[tokio::test]
-async fn mqtt_plain_stream_requests_bounded_kernel_send_buffer_and_preserves_bytes() {
+async fn mqtt_plain_stream_bounds_unsent_bytes_without_changing_tcp_window() {
     for websocket in [false, true] {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
@@ -728,12 +728,24 @@ async fn mqtt_plain_stream_requests_bounded_kernel_send_buffer_and_preserves_byt
         let stream = IoStream::plain(server);
         let observer = stream.try_clone_plain_fd().unwrap().unwrap();
         let socket = socket2::SockRef::from(&observer);
-        socket.set_send_buffer_size(16 * 1024).unwrap();
-        let reference =
-            socket2::Socket::new(socket2::Domain::IPV4, socket2::Type::STREAM, None).unwrap();
-        reference.set_send_buffer_size(1024 * 1024).unwrap();
-        let requested = reference.send_buffer_size().unwrap();
-        assert_ne!(socket.send_buffer_size().unwrap(), requested);
+        let send_buffer = socket.send_buffer_size().unwrap();
+        let unsent_lowat = || {
+            use std::os::fd::AsRawFd;
+            let mut value: u32 = 0;
+            let mut length = std::mem::size_of_val(&value) as libc::socklen_t;
+            let result = unsafe {
+                libc::getsockopt(
+                    observer.as_raw_fd(),
+                    libc::IPPROTO_TCP,
+                    libc::TCP_NOTSENT_LOWAT,
+                    (&mut value as *mut u32).cast(),
+                    &mut length,
+                )
+            };
+            assert_eq!(result, 0);
+            value
+        };
+        assert_ne!(unsent_lowat(), 128 * 1024);
         let registry = Arc::new(ListenerRegistry::default());
         let id = ConnectionId(91);
         Arc::clone(&registry)
@@ -756,8 +768,8 @@ async fn mqtt_plain_stream_requests_bounded_kernel_send_buffer_and_preserves_byt
                 websocket,
             )
             .unwrap();
-        assert_eq!(socket.send_buffer_size().unwrap(), requested);
-        assert!(requested <= 2 * 1024 * 1024);
+        assert_eq!(socket.send_buffer_size().unwrap(), send_buffer);
+        assert_eq!(unsent_lowat(), 128 * 1024);
         registry
             .enqueue_mqtt_chunk(id, Bytes::from_static(&[0xd0, 0]))
             .unwrap();
