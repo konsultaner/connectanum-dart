@@ -1,13 +1,9 @@
-name: MQTT gateway native cleanup qualification
+name: MQTT current-source native FFI qualification
 on:
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 jobs:
-  gateway:
-    uses: ./.github/workflows/mqtt-gateway-benchmarks.yml
-
   native-coverage:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 120
@@ -19,10 +15,6 @@ jobs:
           native-tools: 'true'
       - name: Bootstrap workspace
         run: bin/bootstrap
-      - name: Collect complete current-source Cargo coverage
-        env:
-          CONNECTANUM_NATIVE_COVERAGE_DIR: out/coverage-native-idle-cargo
-        run: bin/test-native-coverage
       - name: Collect complete current-source Dart FFI coverage
         env:
           CONNECTANUM_NATIVE_FFI_COVERAGE_DIR: out/coverage-native-idle-ffi
@@ -30,9 +22,8 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: mqtt-native-idle-coverage
+          name: mqtt-native-idle-ffi-coverage
           path: |
-            out/coverage-native-idle-cargo
             out/coverage-native-idle-ffi/*.json
             out/coverage-native-idle-ffi/*.info
             out/coverage-native-idle-ffi/*.log

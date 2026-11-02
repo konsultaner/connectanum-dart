@@ -7188,14 +7188,18 @@ void main() {
                 options: core.PublishOptions(acknowledge: true),
               );
             }
-            final afterFailure = await client.lookupWampSubscriptionDirect(
-              topic,
-            );
+            var afterFailure = await client.lookupWampSubscriptionDirect(topic);
+            // Publication acknowledgment does not await failed-stream teardown.
+            // Require the actual unsubscribe, bounded so leaked owners still fail.
+            final cleanupWait = Stopwatch()..start();
+            while (afterFailure.arguments?.isNotEmpty == true &&
+                cleanupWait.elapsed < const Duration(seconds: 5)) {
+              await Future<void>.delayed(const Duration(milliseconds: 20));
+              afterFailure = await client.lookupWampSubscriptionDirect(topic);
+            }
             expect(stream.closeAttempts, 1);
             expect(stream.isClosed, isTrue);
             expect(clock.timers.single.isActive, isFalse);
-            // The round trip observes the WAMP unsubscribe, including cleanup
-            // after both the write and close diagnostics have thrown.
             expect(afterFailure.arguments, isEmpty);
             expect(uncaught, throwObserver ? [same(observerError)] : isEmpty);
             observeErrors = false;
