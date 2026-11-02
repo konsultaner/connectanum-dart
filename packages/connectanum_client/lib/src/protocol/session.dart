@@ -806,21 +806,22 @@ class Session {
       payload: payload,
       options: options,
     );
+    final requestId = call.requestId;
     final controller = StreamController<Result>(
       sync: true,
       onCancel: () async {
-        final pending = _pendingCalls.remove(call.requestId);
+        final pending = _pendingCalls.remove(requestId);
         if (pending != null) {
           await pending.close();
         }
       },
     );
-    _pendingCalls[call.requestId] = _PendingCallStream(
+    _pendingCalls[requestId] = _PendingCallStream(
       procedure: procedure,
       controller: controller,
     );
     _transport.send(call);
-    _attachCallCancellation(call.requestId, cancelCompleter);
+    _attachCallCancellation(requestId, cancelCompleter);
     return controller.stream;
   }
 
