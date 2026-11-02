@@ -1,0 +1,90 @@
+{
+  "scope": "READONLY source/method decision, not a new measurement, target RPC, gate rerun or production edit. Both source601 worktrees remain frozen/restored clean; no capture ready.",
+  "checked_utc": "2026-11-02T22:12:28.114594+00:00",
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "source_files_sha256": {
+    "native/bench/src/bin/http_stream.rs": "f735a4d00ebc74710ca22b3af83e4b963baae2d9c61f4c95d162714329340c2c",
+    "packages/connectanum_bench/lib/src/dart_vm_metrics.dart": "bd04d132444ca47a5933ce31790b1a89ff1e532d38c8b5a348b7e05d931fab1f",
+    "packages/connectanum_bench/lib/src/native_wamp_worker.dart": "f8d5c4399886471960c9e2feab1c9494d510f0e238a7b6e4f0d9ed05eea0f531",
+    "packages/connectanum_bench/tool/bench_main.dart": "a3626a7683213e5871417b0d04e929f14bbe6dbb856e3755e8c6cf242bd4d7c2",
+    "tool/profile_wamp_serializers.py": "32aeea2c408f2f46c72b2470a3aa83f2727559b48fe358c74884497c0593f103",
+    "tool/run_wamp_serializer_campaign.py": "be62c841ab33ed4f5b4e65cca156f1de0a83fe95a56fb7208449edbcfbeab64a"
+  },
+  "sdk_source": {
+    "runtime/vm/service.cc": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/service.cc",
+      "sha256": "1a5b0aa0ebfdb99a65e515b3cf428b8a5ad37e87183d67a5b983b7acca719e37",
+      "inspected_ranges": [
+        "4378-4400",
+        "4683-4686"
+      ]
+    },
+    "runtime/bin/main_options.cc": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/bin/main_options.cc",
+      "sha256": "7e7e668909ff8a1e66c9e5e6e9c0ce24299f5d790611b9f9fbef7ff079da2ef9",
+      "inspected_ranges": [
+        "463-491"
+      ]
+    },
+    "runtime/vm/profiler.cc": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/profiler.cc",
+      "sha256": "69b3000fcc7f72ee0856229cb6c3735db27eba5fad1cab5f2ea482fc02bb5cf6",
+      "inspected_ranges": [
+        "787-812",
+        "1406-1462",
+        "2027-2031"
+      ]
+    },
+    "runtime/vm/profiler_service.cc": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/profiler_service.cc",
+      "sha256": "d524640f7788c57de654aad0629a14994c617e2c5588f33ac0bebf1dcdd3ae46",
+      "inspected_ranges": [
+        "920-925",
+        "1514-1526",
+        "2040-2092"
+      ]
+    },
+    "runtime/vm/flag_list.h": {
+      "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/flag_list.h",
+      "sha256": "0f3ab55957616a8419fa7ccd82fd3aa80f34e30e73f2d74ec8363ed51c302f79",
+      "inspected_ranges": [
+        "49-58"
+      ]
+    }
+  },
+  "initial_source_trace_sha256": "9d242d5e9eb8cba82dadda58c70ae745ffefaafd84895bbf66d2dee2cdede0a0",
+  "decision": "REJECT terminal JIT getCpuSamples design under current GC constraint; no target RPC will execute under this design.",
+  "supported_findings": [
+    "Frozen source launches observed WAMP roles using dart run, with observe conditional on existing metrics enablement. SDK3.13.5 observe expands to profiler; actual target capability has not been probed.",
+    "getCpuSamples calls PrintJSON -> PrintCommon -> PrintCommonImpl -> Profile.Build -> ProfileBuilder.FilterSamples -> BuildProcessedSampleBuffer. A default processed buffer constructs CodeLookupTable, whose non-precompiled branch uses HeapIterationScope.",
+    "The include_code_samples/_code flag affects serialization after Profile.Build. Setting it false does not bypass code-table construction. The inspected Perfetto route also uses the common profile-building path, so changing format does not close the JIT heap-iteration issue.",
+    "The source heap-iteration path can assist/finalize already-pending old-space GC. A terminal read does not prove that path unreachable and does not waive the constraint. This is static reachability, not evidence a new GC occurred or a measured perturbation amount.",
+    "AOT would take a different code-table branch, but replacing the original JIT launch is a workload/build-policy change and is not a valid workaround.",
+    "CPU samples are not allocation volume, reachability, retained bytes, RSS, causal repair or strict acceptance. Default ring coverage and end-window/cleanup ordering would remain separate limitations."
+  ],
+  "method_review": {
+    "complete_reaped_session": 69356,
+    "backend": "GLM-5.3 Flash",
+    "output_sha256": "72ba16a3036c6ec34da69d33b1b69ecaab5764f74431f2ef17d326d50ce05feb",
+    "root_qualifications": [
+      "Model calls the pending finalization an explicit forced GC. Root records the precise conditional pending-old-space finalization path, not a demonstrated new collection or measured event. Execution is still rejected under the current constraint.",
+      "Model correctly notes that its supplied excerpts omit PrintCommonImpl/Profile.Build. Root closes this gap from the retained exact SDK source; _code false does not gate construction. No repeated model review or target API probe was needed.",
+      "No approval or permission inferred from advisory output."
+    ]
+  },
+  "existing_profiler_orientation": {
+    "complete_reaped_session": 73694,
+    "backend": "Gemma",
+    "output_sha256": "28e96f26abb036762525c396ffb4b1e49662781b43b9497a964c3d4dfa57f690",
+    "root_qualifications": [
+      "Verified: existing tool unconditionally sets profiler true, clears CPU samples and reads getCpuSamples; optional memory mode calls allocation profiles, including an explicit post-workload GC request.",
+      "Verified: its native perf path adds generate-perf-events-symbols launch wrappers/flags; memory=false is not a perf-only or unchanged-flags path.",
+      "Reject suggestion to bypass workload run/HTTP control: a new diagnostic must retain original fresh work/body verification/windows; only observer machinery is to be separated.",
+      "The summary says allocation profile calls are always paired; root qualifies these calls are conditional on memory. The unconditional profiler RPCs/flag and symbol-launch changes suffice to reject unchanged reuse."
+    ]
+  },
+  "existing_tool_reuse_decision": "Do not execute or modify frozen profile_wamp_serializers.py as a perf-only workaround. No old capture/control is rerun.",
+  "next": "Draft an external native perf-only diagnostic and its before-data guards. Preserve original JIT/runtime/SDK/GC/allocator/worker policies and fresh benchmark work. Do not enable/reset/read VM profiler/heap APIs or add JIT-symbol flags. Native symbols/unknown frames remain explicitly limited and all data retained. No capture or production fix is ready.",
+  "no_target_RPC_test_workload_or_capture": true,
+  "all_model_sessions_complete_reaped": true
+}

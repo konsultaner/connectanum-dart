@@ -32,9 +32,19 @@ scope. Ten method guards preceded raw access; the initial manifest admission
 failure occurred before raw reports and is retained. No numerical rerun.
 Exact SDK3.13.5 class-profile fields are heap-walk current values even when
 named accumulated; iteration can finalize pending GC. That method is rejected
-as a GC-neutral allocation-work witness; no target RPC ran. Next inspect stack
-attribution with already-enabled facilities/original launch policies and fail
-closed if unavailable/insufficient. No new capture or patch is ready.
+as a GC-neutral allocation-work witness; no target RPC ran. Subsequent JIT CPU
+service tracing also reaches heap iteration; `_code=false` and the inspected
+Perfetto format do not bypass it. Terminal reading does not remove the pending
+GC path. That method is rejected under the current constraint, without a probe.
+An external native perf-only draft now includes all six focal RPC variants and
+all five original passing RSS controls, all codecs/warmups/repetitions. Static
+own production ELF symbols are only a capability lead. Next bind exact frozen
+driver/scenario/argv policy and prepare the isolated controller/exec barrier,
+identity/retention guards and real kernel capability control. No implementation,
+test, capture, runtime edit or readiness is claimed. All advice sessions reaped;
+whole-life native samples cannot prove gate-interior CPU or allocation/RSS cause.
+[Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
+No new capture or production patch is ready.
 [Complete inventory and diagnostic-method limits](../research/2026-11-02-flatbuffers-601-retained-metric-inventory.md).
 [Rejection, exact counterexample and preserved evidence](../research/2026-11-02-flatbuffers-known-ppt-custom-map-rejection.md).
 Owncanonical/copy/MQTT20/hostedJS/fullCI39 and proper fresh50row native control

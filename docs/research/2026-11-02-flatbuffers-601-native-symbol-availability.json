@@ -1,0 +1,41 @@
+{
+  "scope": "NEW static symbol-availability question for diagnostic design, reading retained production ELF only. Not binary execution, new measurement, acceptance re-audit or a source-performance claim. No artifact download or production digest recomputation.",
+  "checked_utc": "2026-11-02T22:14:26.521695+00:00",
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "binary": "primary artifact13169648014 setup/libct_ffi.so",
+  "original_verified_sha256": "0b238fc61a3b9c256db0d57385a3ae01f85285a970941260b22150608265fdb4",
+  "tool": "Xcode llvm-objdump",
+  "tool_version": "Apple LLVM version 21.0.0",
+  "outputs": {
+    "sections": {
+      "sha256": "9f23069d2deab502bf3160496ffc66e787a6add3bbdf75b5bb6f012fbf652231",
+      "lines": 38
+    },
+    "symbols": {
+      "sha256": "506c04b21b31deeff324254e1c8e11cdd367e77182a5b39e02d8fa2eedd06167",
+      "lines": 21136
+    }
+  },
+  "symtab_section_present": true,
+  "dynsym_section_present": true,
+  "text_section_present": true,
+  "example_symbol_lines": [
+    "00000000001ed7a0 l     F .text\t000000000000011f ct_ffi::runtime::ffi::flatbuffers_routing_details",
+    "000000000020c810 l     F .text\t00000000000003c9 .hidden ct_ffi::runtime::state::with_channel::<ct_ffi::runtime::ffi::ct_poll_connection::{closure#0}, core::result::Result<ct_core::ConnectionId, tokio::sync::mpsc::error::TryRecvError>>",
+    "00000000002850f0 l     F .text\t0000000000000045 .hidden core::ptr::drop_glue::<alloc::sync::UniqueArcUninit<ct_core::wamp::flatbuffers_wire::Fields, alloc::alloc::Global>> (.llvm.6965311640009938489)",
+    "000000000029c800 l     F .text\t00000000000000c9 .hidden <alloc::sync::Arc<ct_core::wamp::flatbuffers_wire::Fields>>::clone_from_ref_in",
+    "000000000029e920 l     F .text\t000000000000010b <alloc::sync::Arc<ct_core::wamp::flatbuffers_wire::Fields>>::drop_slow",
+    "00000000002a53b0 l     F .text\t00000000000000b9 core::ptr::drop_glue::<alloc::vec::Vec<(&str, ct_core::wamp::flatbuffers_wire::Value)>>",
+    "00000000002aa770 l     F .text\t00000000000001bc <ct_core::wamp::flatbuffers_wire::Value as <[_]>::to_vec_in::ConvertVec>::to_vec::<alloc::alloc::Global>",
+    "00000000002ab790 l     F .text\t00000000000000e4 ct_core::wamp::flatbuffers_codec::parse_with_fields::{closure#2}",
+    "00000000002ab880 l     F .text\t000000000000007f ct_core::wamp::flatbuffers_codec::parse_with_fields::{closure#3}",
+    "00000000002ab900 l     F .text\t0000000000000106 ct_core::wamp::flatbuffers_codec::parse_with_fields::{closure#4}",
+    "00000000002acc20 l     F .text\t00000000000000ab ct_core::wamp::flatbuffers_codec::byte_vector",
+    "00000000002af250 l     F .text\t0000000000000078 ct_core::wamp::flatbuffers_codec::integer"
+  ],
+  "limits": [
+    "Presence of symbols is a static capability lead; no actual perf sample was resolved.",
+    "Inlining, stripped debug locations, unresolved JIT/native frames, sampling loss and actual loaded-image identity remain future diagnostic limits.",
+    "No JIT symbol flag, profiling API, forced GC, native/source edit, new workload or acceptance claim."
+  ]
+}

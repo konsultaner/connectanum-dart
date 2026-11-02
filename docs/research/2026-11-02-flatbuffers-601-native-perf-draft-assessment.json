@@ -1,0 +1,46 @@
+{
+  "scope": "Root assessment of a DRAFT external native-function sampling diagnostic, not implementation, readiness, permission request, a new workload or acceptance evidence.",
+  "checked_utc": "2026-11-02T22:20:02.908700+00:00",
+  "runtime_source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "draft_plan_sha256": "46f02736300df3b42e24dfa01d06537f98e20ac5c6c2d1b3c691031f4814e008",
+  "rejected_CPU_method_assessment_sha256": "bc51fd21a4be5cdbe1945f21b1f1e9e402dbc7cead8fd23149cfa31e9aced7f7",
+  "pending_GC_path_source": {
+    "url": "https://github.com/dart-lang/sdk/blob/3.13.5/runtime/vm/heap/heap.cc",
+    "sha256": "18033edaf50e6e9f1b9f2230f41424da2ced1484362d6563fbdb60cb34cb5237",
+    "inspected_ranges": [
+      "294-335"
+    ]
+  },
+  "static_symbol_receipt_sha256": "98e280cc9ca2d7f5f29beedf2d481b95feb2499ecb3b87433fdfa2479d97f288",
+  "test_advice": {
+    "complete_reaped_session": 85246,
+    "backend": "Qwen3.8 27B",
+    "output_sha256": "85a8b1a05326bd1d9d88d062c46a11ddf71a035b103d4d717be66faf8fe2e952",
+    "root_qualifications": [
+      "Advice commands/log labels are hypothetical, not existing tools or executed tests. No test or benchmark has run.",
+      "Use synthetic process-stat/starttime/lineage fixtures for PID-reuse negatives; do not stress the host to force PID recycling.",
+      "Simulate ENOSPC/writer faults in controlled test doubles; never fill the real disk or alter evidence to test preservation.",
+      "Use actual forbidden flag names and exact argv/env policy assertions; invented example flags are not a complete policy check.",
+      "Adopt real kernel perf inheritance/arming capability as an unresolved BEFORE-DATA guard on an owned non-benchmark synthetic process tree. Fake streams alone cannot establish kernel behavior.",
+      "No need to assume strace/bpftrace or require unrelated access. A bounded declared perf-only capability control may be designed; availability and actual record identity must fail closed.",
+      "An idle descendant may emit no samples. Distinguish process lineage/events/actual image identity from positive sample counts; never drop unmatched samples or infer exhaustive CPU coverage from mocks.",
+      "No advice grants capture approval or establishes production/native/RAM defect. No additional user approval is being requested; technical readiness is false."
+    ]
+  },
+  "root_design_constraints": [
+    "Sampler control/ack must use dedicated FDs rather than workload stdout. Declared wrapper must close sampler control/ack FDs before announcing its blocked exec barrier; otherwise a child may spoof the acknowledgement.",
+    "Real sampler executable/identity, wrapper/driver/native sources and binaries, exact args/env/runtime flags, process instances and official resources must be bound before releasing the one-shot exec barrier.",
+    "The frozen serializer workload and HTTP/control run must remain. Do not follow the orientation suggestion to bypass work to achieve perf-only observation.",
+    "All six focal-family variants plus all five original passing RSS controls, each three codecs/three warmups/seven repetitions, are a proposed330-row diagnostic scope, not original strict campaign repetition or result substitution. Exact frozen inventory/order/policy checks remain pending.",
+    "Native instruction-pointer/function attribution is narrower than Dart source stacks or allocation classes. Static native symbols do not demonstrate a hotspot. Preserve unresolved JIT/native/driver/observer/kernel samples, loss and all partial evidence.",
+    "Whole-execution samples include setup/warmup/cleanup. Do not label them gate-interior CPU, per-operation cost, allocation volume, retained memory, physical RSS, causal repair or parity.",
+    "New capture still requires own appropriate source/native/archive/actual lock/generated-config/static-RLIB/tool provenance and verification, declaration, synthetic/adversarial tests, real capability controls and qualified root review before data. No borrowed binary/source-effect comparison.",
+    "No runtime patch, helper source implementation, target RPC, test/capability probe, workflow dispatch or capture has started. Do not rerun consumed original measurements, audits, reviews or cleanup."
+  ],
+  "ready": false,
+  "helper_implementation_started": false,
+  "tests_or_live_guards_executed": false,
+  "new_workload_or_capture_started": false,
+  "all_three_current_advice_sessions_complete_reaped": true,
+  "next": "Implement and review the isolated controller/guard preparation only after binding exact source argv/scenario policy. Obtain meaningful before-data refusal/ordering/retention tests and a bounded kernel capability plan. No data until all technical readiness conditions hold."
+}

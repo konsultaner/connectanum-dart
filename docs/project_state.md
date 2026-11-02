@@ -7,6 +7,26 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## CPU service method rejected; external native diagnostic remains a draft (2026-11-02)
+
+Exact SDK3.13.5 tracing shows that JIT `getCpuSamples` also constructs a code
+lookup table through heap iteration. `_code=false` and the inspected Perfetto
+format do not bypass construction. Pending GC finalization remains reachable
+even for a terminal read, so that method is rejected under the current GC
+constraint. No target RPC or workload ran; no observer-overhead magnitude or
+production cause is established. Frozen profiling tools are not suitable for
+unchanged reuse because they set/clear/read profiler state and add symbol flags.
+
+A new external native perf design is now drafted, not ready: all six focal
+cleartext RawSocket RPC variants plus all five original RSS passing controls,
+all serializers/warmups/repetitions. The retained own production ELF has native
+symbols, but no actual hot function was measured. Dedicated exec-barrier/ack
+FDs, exact source/argv/locks/image identity, synthetic guards and real kernel
+capability checks still need implementation/review before data. No helper edit,
+guard test, capture or runtime change has started. All advice sessions are reaped.
+Whole-execution native samples would not prove Dart allocation/RSS cause or
+gate-interior parity. [Source decision and draft requirements](research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
+
 ## Retained metric inventory complete; diagnostic method constrained (2026-11-02)
 
 A new read-only inventory covers all40 canonical streams /2,940raw records /
@@ -22,9 +42,9 @@ the schema scan; there is no global absence or source-cause claim.
 Exact SDK3.13.5 inspection also rejects a proposed class-profile RPC as a
 GC-neutral allocation-work witness: accumulated/current fields use the same
 heap-walk values, and iteration can assist/finalize pending GC even when the
-explicit GC/reset branches are avoided. No target RPC ran. Next inspect stack
-attribution using already-enabled facilities and original launch policies,
-failing closed if unavailable/insufficient. No new capture or patch is ready.
+explicit GC/reset branches are avoided. No target RPC ran. The subsequent CPU
+service-method investigation and external native diagnostic draft are above.
+No new capture or patch is ready.
 All own sessions are reaped; source601 and the restored isolated worktree are
 clean/unadopted. [Inventory, source hashes and method limits](research/2026-11-02-flatbuffers-601-retained-metric-inventory.md).
 

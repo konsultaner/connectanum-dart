@@ -1,0 +1,59 @@
+{
+  "phase": "DRAFT_NOT_READY_no_helper_patch_probe_test_or_capture",
+  "created_utc": "2026-11-02T22:16:51.472160+00:00",
+  "question": "Can external OS native instruction-pointer samples identify source-relevant native CPU functions in the existing focal RPC family, while keeping all original WAMP work and runtime policies unchanged? This does not answer Dart allocation class/stack or physical RAM cause.",
+  "runtime_source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "focal_case_ids": [
+    "rpc_rawsocket_clear_dart_values",
+    "rpc_rawsocket_clear_dart_native_buffer",
+    "rpc_rawsocket_clear_dart_pre_encoded_span",
+    "rpc_rawsocket_clear_native_values",
+    "rpc_rawsocket_clear_native_native_buffer",
+    "rpc_rawsocket_clear_native_pre_encoded_span"
+  ],
+  "passing_control_case_ids": [
+    "rpc_websocket_clear_dart_pre_encoded_span",
+    "pubsub_rawsocket_clear_native_native_buffer",
+    "pubsub_rawsocket_tls_dart_native_buffer",
+    "pubsub_rawsocket_tls_native_native_buffer",
+    "pubsub_websocket_tls_native_pre_encoded_span"
+  ],
+  "selection_basis": "All six source-defined construction/implementation variants of the previously inspected cleartext RawSocket RPC family plus ALL five retained original primary RSS passing controls. Scope selected from ALREADY EXISTING original results; any later declaration predates only NEW diagnostic data, not original data.",
+  "selection_source_summary_sha256": "4ec0277bb3d777a698142cf6fd9c0c60a5d8d36c49a735798696a079b4e7fdc7",
+  "all_original_48_50_cases_rows_failures_remain_retained": true,
+  "future_diagnostic_rows_if_unchanged_manifest_verified": 330,
+  "codecs": [
+    "msgpack",
+    "flatbuffers",
+    "cbor"
+  ],
+  "warmups_per_codec": 3,
+  "measured_repetitions_per_codec": 7,
+  "work_policy": "Original full fresh application bodies/patterns/byte verification, minimum1000samples/10s, concurrency1/inflight1/routerworker1/nativethread1 and original JIT SDK/GC/allocator/worker policies. Exact frozen inventory/order/scenarios/config/argv/env must be bound and source-checked before readiness. No native/client/broker substitute.",
+  "observer_design": "External Linux perf CPU-clock frequency999 flat instruction-pointer sampling over an owned blocked launcher/driver and its descendants. Do not ask VM service for CPU/allocation/heap profiles, clear samples, set flags, add JIT-symbol flags, force/reset GC, alter frame-pointer/unwinder build policy, or change benchmark driver/runtime code.",
+  "arming_design": "A NEW declared minimal owned wrapper waits before exec of exact frozen driver argv. Perf control enable acknowledgement and controller identity check must precede releasing its one-shot exec barrier. Same PID across exec; trace all descendants. Pending proof: kernel perf inheritance/readiness, immutable launcher/wrapper/driver/native/flags/locks/source/body policies and fresh source/data identity. No real launch yet.",
+  "scope_and_retention": "Whole owned execution lifetime, all warmups/repetitions/codecs/cases, all sampled records and unresolved/unclassified/lost samples retained. Role reports classify actual process instances via PID+starttime/lineage+exec+loaded-image identity. No trimming to favorable windows/results. Whole-life native sample counts are not gate-interior CPU ratios, allocation volume, RSS, managed stacks, causal repair or acceptance.",
+  "source_capability_lead": "Own retained original production0B23 ELF has symtab/dynsym/text and native FlatBuffers/FFI symbol names. Static tables only; no measured hotspot or future loaded-image identity established. JIT addresses may remain unresolved.",
+  "required_before_data": [
+    "Separate helper/controller source in owned isolated preparation with existing exact601 bootstrap/fast/full baseline; no production runtime edit.",
+    "Meaningful synthetic/adversarial ordering/identity/policy/retention/output/refusal tests under official exclusive lease, with no benchmark workload.",
+    "Qualified local test/review advice and root source review; no model approval inference.",
+    "Source/native/driver/archive/config/actual lock/generated package-config/static RLIB/tool/kernel/SDK/permissions manifests and own appropriate verification; local/hosted cohorts distinct.",
+    "Exact scenario inventory/order/flags/env/window/fresh-body guards and both-role process/image identity plan; all declarations complete before NEW data.",
+    "Bounded resource/disk plan and official local leases/hosted concurrency; no reservation bypass or data/evidence cleanup.",
+    "One-shot consumed marker and exclusive outputs/partials preserved. No retry, cancellation, favorable host/subset/result selection or fallback observer/flags after any data.",
+    "Capability/setup refusal retained before any workload. No readiness on incomplete/truncated identity or unsupported perf. No target API/capture currently authorized by this draft."
+  ],
+  "guard_questions": [
+    "Can a fake perf acknowledgement or unrelated sampler PID release the driver?",
+    "Can a warmup/worker process be replaced or PID-reused while retaining the numeric PID?",
+    "Can driver/observer/JIT/kernel/unknown samples be silently relabelled as native target samples or dropped?",
+    "Can actual loaded native bytes differ from a declaration that only hashes a convenient path?",
+    "Can wrapper argv/env inject profiler/GC/JIT-symbol policy changes or change sample windows/body mode?",
+    "Can sampler failure before/after data silently rerun the same workload, advance data marker incorrectly, overwrite output or drop partial evidence?",
+    "Can inherited child/thread records escape both-role classification while still claiming complete source attribution?",
+    "Can static symbol presence be mistaken for an actual hotspot, or whole-life sampling for gate-interior CPU or allocation/RSS cause?"
+  ],
+  "ready": false,
+  "no_new_workload_or_target_RPC": true
+}
