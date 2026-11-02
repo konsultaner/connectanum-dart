@@ -2,9 +2,11 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish real readiness guards and review for the single count-only
-capture on frozen tools-only `8341d3fd`. Own canonical and independent audit pass;
-source/HEAD/native stay frozen and unchanged verification must not rerun. Fresh pre-change baseline and provisional generator /
+Current step: assess the complete8341 count-only audit and choose one bounded
+controlled cost diagnostic before any runtime optimization. Own canonical and
+17final guards pass; the single25-row capture is complete/audited with a generated
+configuration retention limitation. Source/HEAD/native stay frozen; unchanged
+verification/data must not rerun. Fresh pre-change baseline and provisional generator /
 original-vs-shadow decoder / own-native functional controls pass; no capture or
 production fix is ready. FrozenAD48 original CI is complete failed only on the
 original measuredMQTT gate and dependentFullVerify, all numerical execution and
@@ -151,7 +153,34 @@ remain frozen; unchanged verification must not rerun.
 [Own canonical audit](../research/2026-11-02-mqtt-dart-copy-census-canonical-audit.json).
 The new client differs
 from the original3020 witness only as described in the freshness qualification.
-Capture readiness remains false; no25-row data or production patch.
+The single count-only capture41422955671 is now **complete and independently
+audited**: all25rows /4,025,000fresh measured bodies plus2,500warmups, every
+stdout/order/nonce, C/Dart positive-poll conservation and graceful cleanup verify.
+ActualLinux native`c648757a…`, broker`99ca5b70…`, fresh client`ed61e0c9…` and
+shim`21ca2e37…` bytes rehash. Original3020client/296AAOT are witnesses only; no
+original MQTT/profile/intel/numerical gate executed. Both legacy jobs skipped.
+The one declared capture is consumed: do not rerun or redispatch it. No runtime
+production patch or performance/strict-acceptance claim follows.
+
+Whole-broker totals include4,027,594body constructor requests and2,229,754,495
+explicit decoder body-copy bytes, with **zero growth allocations/back-copy
+requests across all25rows**. Native scratch-to-owned copy requests account for
+2,241,862,683bytes. Extra body-copy calls come from fragmented bodies, not repeated
+copies of the same bytes: body-copy bytes equal completed-body bytes per row.
+These are logical source requests/bytes, not physical heap/RSS or causal cost.
+
+Retention limitation: hidden generated package-config files and loose fresh
+client source were omitted by the uploader. Exact client source is independently
+reconstructed from immutable original archive/generator and matches its actual
+pre-capture source hash`cf43aada…`; all original hidden source bytes are covered
+by exact retained archives. Generated package-config bytes were not independently
+rehashed. Preserve this limitation and every original result; do not rerun data
+to fill it. Future captures must retain generated configurations explicitly.
+[Complete bounded audit](../research/2026-11-02-mqtt-dart-copy-census-audit.json),
+[all25delivery rows](../research/2026-11-02-mqtt-dart-copy-census-rows.jsonl),
+[allC/Dart ledgers](../research/2026-11-02-mqtt-dart-copy-census-counters.json),
+[exact reconstructed client](../research/2026-11-02-mqtt-dart-copy-census-reconstructed-client.dart.txt).
+
 [Frozen tooling declaration](../research/2026-11-02-mqtt-dart-copy-census-frozen.json),
 [Root-qualified reviews](../research/2026-11-02-mqtt-dart-copy-census-root-review.json).
 [Controls and scope](../research/2026-11-02-mqtt-dart-copy-request-controls.json).

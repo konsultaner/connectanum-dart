@@ -1,0 +1,208 @@
+{
+  "run": 41422955671,
+  "tool_source": "8341d3fd737a55d877b3db1d8f3c6bceb5e937d6",
+  "runtime_source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "complete_count_capture": true,
+  "artifact_id": 13130533339,
+  "artifact_zip_sha256": "fc27523256f9eb84cd0623bac8104700f3878ceeda1e0fd1145117d017766d5f",
+  "rows": 25,
+  "measured_fresh_full_body_deliveries": 4025000,
+  "fresh_warmup_full_body_deliveries": 2500,
+  "all25_raw_stdout_rows_order_nonces_and_graceful_cleanup_verified": true,
+  "all25_independent_C_Dart_poll_and_body_conservation_verified": true,
+  "actual_retained_binaries_sha256": {
+    "instrumented-broker.aot": "99ca5b709b1f0af2e3acbf5c1cb96e2f51aecb8c2a9f2f2a614c885b08b5e2ef",
+    "native/libct_ffi.so": "c648757abcad4879611d7fa06774fe30ed377948ee55894a9f6f0e741fdf04b8",
+    "fresh-client": "ed61e0c9afb233940ae666790ad263210b7ae1d260c0f907a5fdecd02ce639aa",
+    "native/mqtt-census.so": "21ca2e37ba783bac09d322d9d8dcecb878e4bb1dc4032a92d02a070fec80f7fc"
+  },
+  "exact_original_archives_locks_and_retained_sources_verified": true,
+  "source_inventory": [
+    {
+      "arm": "shadow",
+      "retained_loose_source_files_verified": 3262,
+      "original_hidden_files_covered_by_exact_retained_archive": 46
+    },
+    {
+      "arm": "client-shadow",
+      "retained_loose_source_files_verified": 3261,
+      "original_hidden_files_covered_by_exact_retained_archive": 46
+    }
+  ],
+  "reconstructed_actual_fresh_client_source_sha256": "cf43aada4f7c8fc0ed014183118d3af379bcae344ce181eb5668200078c8e6cf",
+  "generated_package_config_bytes_retained": false,
+  "CPU": "AMD EPYC 9V74 80-Core Processor",
+  "SDK": "Dart SDK version: 3.13.1 (stable) (Tue Aug 18 01:00:59 2026 -0700) on \"linux_x64\"",
+  "sum_whole_lifetime_Dart_counters": {
+    "native_poll_copy_requests": 2052848,
+    "native_poll_copy_bytes": 2241862683,
+    "body_constructor_requests": 4027594,
+    "body_constructor_requested_bytes": 2229754495,
+    "zero_body_constructor_requests": 19,
+    "growth_constructor_requests": 0,
+    "growth_constructor_requested_bytes": 0,
+    "nonempty_growth_copy_requests": 0,
+    "growth_copy_bytes": 0,
+    "nonempty_body_copy_requests": 4053075,
+    "body_copy_bytes": 2229754495,
+    "frames_completed": 4027594,
+    "completed_body_bytes": 2229754495,
+    "nonempty_frames_completed": 4027575
+  },
+  "profiles": {
+    "ws_sustained": {
+      "rows": 5,
+      "whole_broker_lifetime_Dart_medians": {
+        "native_poll_copy_requests": 115028,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      },
+      "whole_broker_lifetime_FFI_medians": {
+        "poll_calls": 547881,
+        "poll_positive": 115028,
+        "poll_empty": 432851,
+        "poll_errors": 2,
+        "poll_bytes": 28614369,
+        "send_calls": 108589,
+        "send_errors": 0,
+        "arm_calls": 216460
+      }
+    },
+    "ws_v311_sustained": {
+      "rows": 5,
+      "whole_broker_lifetime_Dart_medians": {
+        "native_poll_copy_requests": 115778,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      },
+      "whole_broker_lifetime_FFI_medians": {
+        "poll_calls": 559559,
+        "poll_positive": 115778,
+        "poll_empty": 443779,
+        "poll_errors": 2,
+        "poll_bytes": 28414266,
+        "send_calls": 111202,
+        "send_errors": 0,
+        "arm_calls": 221924
+      }
+    },
+    "sustained": {
+      "rows": 5,
+      "whole_broker_lifetime_Dart_medians": {
+        "native_poll_copy_requests": 85538,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      },
+      "whole_broker_lifetime_FFI_medians": {
+        "poll_calls": 385310,
+        "poll_positive": 85538,
+        "poll_empty": 300366,
+        "poll_errors": 2,
+        "poll_bytes": 28614369,
+        "send_calls": 75360,
+        "send_errors": 0,
+        "arm_calls": 150216
+      }
+    },
+    "v311_sustained": {
+      "rows": 5,
+      "whole_broker_lifetime_Dart_medians": {
+        "native_poll_copy_requests": 79758,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      },
+      "whole_broker_lifetime_FFI_medians": {
+        "poll_calls": 357437,
+        "poll_positive": 79758,
+        "poll_empty": 277677,
+        "poll_errors": 2,
+        "poll_bytes": 28414266,
+        "send_calls": 69290,
+        "send_errors": 0,
+        "arm_calls": 138872
+      }
+    },
+    "64k_sustained": {
+      "rows": 5,
+      "whole_broker_lifetime_Dart_medians": {
+        "native_poll_copy_requests": 10171,
+        "native_poll_copy_bytes": 334315267,
+        "body_constructor_requests": 5103,
+        "body_constructor_requested_bytes": 334294861,
+        "zero_body_constructor_requests": 0,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 10203,
+        "body_copy_bytes": 334294861,
+        "frames_completed": 5103,
+        "completed_body_bytes": 334294861,
+        "nonempty_frames_completed": 5103
+      },
+      "whole_broker_lifetime_FFI_medians": {
+        "poll_calls": 31140,
+        "poll_positive": 10171,
+        "poll_empty": 20968,
+        "poll_errors": 2,
+        "poll_bytes": 334315267,
+        "send_calls": 5103,
+        "send_errors": 0,
+        "arm_calls": 10518
+      }
+    }
+  },
+  "original_profile_intel_and_numerical_gate_not_executed": true,
+  "strict_acceptance": false,
+  "limitations": [
+    "The uploader excludes hidden files: generated .dart_tool/package_config bytes and loose fresh-client source were not retained. Exact fresh-client source was independently reconstructed from immutable source/generator and matches the actual pre-capture source hash. Original hidden source bytes are covered by the retained exact archive. No claim that generated package-config bytes were independently rehashed.",
+    "Whole-lifetime logical constructor/copy requests, not exact physical heap allocations, RSS, timing, interior gate windows or causal repair. Observer overhead and freshly generated client pattern change timing; retain original results without comparison.",
+    "Original3020 client and296A AOT are retained witnesses, not measured. Actual fresh client ED61/broker99CA/nativeC648/shim21CA bytes are rehashed. Own Darwin1ED canonical is a separate witness, never substituted into Linux data."
+  ],
+  "raw_sha256": "610ba3861df16f1fa2b5af4fff7e7467193bb2d07e7c78e408008bf1bd4060d2",
+  "audited_utc": "2026-11-02T09:58:54.377727+00:00"
+}

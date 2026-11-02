@@ -1,0 +1,1752 @@
+[
+  {
+    "profile": "ws_sustained",
+    "repeat": 1,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 118175,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 571028,
+      "poll_empty": 452851,
+      "poll_errors": 2,
+      "poll_positive": 118175,
+      "poll_bytes": 28614369,
+      "send_calls": 113494,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 226460,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        56745,
+        59802,
+        1212,
+        360,
+        46,
+        6,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        50213,
+        61325,
+        1489,
+        411,
+        47,
+        6,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_sustained",
+    "repeat": 2,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 115028,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 547881,
+      "poll_empty": 432851,
+      "poll_errors": 2,
+      "poll_positive": 115028,
+      "poll_bytes": 28614369,
+      "send_calls": 108589,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 216460,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        57356,
+        55351,
+        1815,
+        462,
+        35,
+        5,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        49499,
+        55992,
+        2568,
+        487,
+        35,
+        5,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_sustained",
+    "repeat": 3,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 114365,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 546578,
+      "poll_empty": 432211,
+      "poll_errors": 2,
+      "poll_positive": 114365,
+      "poll_bytes": 28614369,
+      "send_calls": 108328,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 216155,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        53338,
+        58625,
+        1908,
+        442,
+        40,
+        8,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        45513,
+        59763,
+        2538,
+        464,
+        38,
+        9,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_sustained",
+    "repeat": 4,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 113168,
+        "native_poll_copy_bytes": 28614367,
+        "body_constructor_requests": 200103,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 0,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200103,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 540205,
+      "poll_empty": 427035,
+      "poll_errors": 2,
+      "poll_positive": 113168,
+      "poll_bytes": 28614367,
+      "send_calls": 107106,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 213552,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        3,
+        0,
+        53625,
+        57239,
+        1841,
+        417,
+        39,
+        4,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        46250,
+        57802,
+        2565,
+        443,
+        39,
+        4,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_sustained",
+    "repeat": 5,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 118912,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 570601,
+      "poll_empty": 451687,
+      "poll_errors": 2,
+      "poll_positive": 118912,
+      "poll_bytes": 28614369,
+      "send_calls": 113293,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 225879,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        58358,
+        58599,
+        1563,
+        366,
+        18,
+        4,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        51297,
+        59366,
+        2205,
+        400,
+        18,
+        4,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_v311_sustained",
+    "repeat": 1,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 115635,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 555008,
+      "poll_empty": 439371,
+      "poll_errors": 2,
+      "poll_positive": 115635,
+      "poll_bytes": 28414266,
+      "send_calls": 110285,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 219719,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        55879,
+        57349,
+        1987,
+        382,
+        32,
+        2,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        49216,
+        58035,
+        2586,
+        411,
+        32,
+        2,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_v311_sustained",
+    "repeat": 2,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 118679,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 571430,
+      "poll_empty": 452749,
+      "poll_errors": 2,
+      "poll_positive": 118679,
+      "poll_bytes": 28414266,
+      "send_calls": 113455,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 226409,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        57683,
+        59383,
+        1239,
+        351,
+        17,
+        2,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        50840,
+        60546,
+        1664,
+        382,
+        18,
+        2,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_v311_sustained",
+    "repeat": 3,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 114418,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 543707,
+      "poll_empty": 429287,
+      "poll_errors": 2,
+      "poll_positive": 114418,
+      "poll_bytes": 28414266,
+      "send_calls": 107724,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 214677,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        54373,
+        57995,
+        1673,
+        358,
+        13,
+        2,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        46533,
+        58221,
+        2567,
+        385,
+        13,
+        2,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_v311_sustained",
+    "repeat": 4,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 117065,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 562842,
+      "poll_empty": 445775,
+      "poll_errors": 2,
+      "poll_positive": 117065,
+      "poll_bytes": 28414266,
+      "send_calls": 111796,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 222921,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        54952,
+        59756,
+        2032,
+        314,
+        7,
+        0,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        48418,
+        60211,
+        2795,
+        360,
+        9,
+        0,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "ws_v311_sustained",
+    "repeat": 5,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 115778,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 559559,
+      "poll_empty": 443779,
+      "poll_errors": 2,
+      "poll_positive": 115778,
+      "poll_bytes": 28414266,
+      "send_calls": 111202,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 221924,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        55220,
+        58803,
+        1368,
+        373,
+        9,
+        1,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        49032,
+        60036,
+        1721,
+        400,
+        8,
+        2,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "sustained",
+    "repeat": 1,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 88058,
+        "native_poll_copy_bytes": 28614367,
+        "body_constructor_requests": 200103,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 0,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200103,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 398743,
+      "poll_empty": 310683,
+      "poll_errors": 2,
+      "poll_positive": 88058,
+      "poll_bytes": 28614367,
+      "send_calls": 78117,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 155375,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        3,
+        0,
+        36632,
+        35505,
+        15065,
+        836,
+        10,
+        7,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        28192,
+        31647,
+        16868,
+        1392,
+        8,
+        7,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "sustained",
+    "repeat": 2,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 85538,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 381460,
+      "poll_empty": 295920,
+      "poll_errors": 2,
+      "poll_positive": 85538,
+      "poll_bytes": 28614369,
+      "send_calls": 74486,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 147994,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        34631,
+        36378,
+        13292,
+        1216,
+        12,
+        5,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        26029,
+        31085,
+        15231,
+        2120,
+        13,
+        5,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "sustained",
+    "repeat": 3,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 87434,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 395716,
+      "poll_empty": 308280,
+      "poll_errors": 2,
+      "poll_positive": 87434,
+      "poll_bytes": 28614369,
+      "send_calls": 77598,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 154174,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        36088,
+        36222,
+        14070,
+        1036,
+        10,
+        4,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        28047,
+        32023,
+        15886,
+        1624,
+        10,
+        5,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "sustained",
+    "repeat": 4,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 84949,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 382561,
+      "poll_empty": 297610,
+      "poll_errors": 2,
+      "poll_positive": 84949,
+      "poll_bytes": 28614369,
+      "send_calls": 74434,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 148838,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        34748,
+        32667,
+        16493,
+        1023,
+        10,
+        4,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        26259,
+        28465,
+        17925,
+        1766,
+        11,
+        5,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "sustained",
+    "repeat": 5,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 84942,
+        "native_poll_copy_bytes": 28614369,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 28014061,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 28014061,
+        "frames_completed": 200104,
+        "completed_body_bytes": 28014061,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 385310,
+      "poll_empty": 300366,
+      "poll_errors": 2,
+      "poll_positive": 84942,
+      "poll_bytes": 28614369,
+      "send_calls": 75360,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28614342,
+      "arm_calls": 150216,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        33872,
+        33861,
+        16155,
+        1037,
+        8,
+        5,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        26131,
+        30132,
+        17371,
+        1710,
+        8,
+        5,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "v311_sustained",
+    "repeat": 1,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 78502,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 348034,
+      "poll_empty": 269530,
+      "poll_errors": 2,
+      "poll_positive": 78502,
+      "poll_bytes": 28414266,
+      "send_calls": 67443,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 134798,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        29052,
+        30973,
+        16882,
+        1586,
+        4,
+        1,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        21429,
+        26186,
+        16570,
+        3240,
+        14,
+        1,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "v311_sustained",
+    "repeat": 2,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 79758,
+        "native_poll_copy_bytes": 28414264,
+        "body_constructor_requests": 200103,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 0,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200103,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 357437,
+      "poll_empty": 277677,
+      "poll_errors": 2,
+      "poll_positive": 79758,
+      "poll_bytes": 28414264,
+      "send_calls": 69290,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 138872,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        3,
+        0,
+        31194,
+        28817,
+        18194,
+        1538,
+        11,
+        1,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        23615,
+        24608,
+        18249,
+        2804,
+        8,
+        3,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "v311_sustained",
+    "repeat": 3,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 88125,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 402131,
+      "poll_empty": 314004,
+      "poll_errors": 2,
+      "poll_positive": 88125,
+      "poll_bytes": 28414266,
+      "send_calls": 78419,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 157035,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        37384,
+        32666,
+        17293,
+        767,
+        8,
+        3,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        28940,
+        29654,
+        18588,
+        1222,
+        8,
+        4,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "v311_sustained",
+    "repeat": 4,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 76194,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 335458,
+      "poll_empty": 259262,
+      "poll_errors": 2,
+      "poll_positive": 76194,
+      "poll_bytes": 28414266,
+      "send_calls": 64902,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 129664,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        26923,
+        31450,
+        15991,
+        1816,
+        7,
+        3,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        19489,
+        26228,
+        15580,
+        3589,
+        9,
+        4,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "v311_sustained",
+    "repeat": 5,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 87250,
+        "native_poll_copy_bytes": 28414266,
+        "body_constructor_requests": 200104,
+        "body_constructor_requested_bytes": 27813958,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 200103,
+        "body_copy_bytes": 27813958,
+        "frames_completed": 200104,
+        "completed_body_bytes": 27813958,
+        "nonempty_frames_completed": 200103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 400385,
+      "poll_empty": 313133,
+      "poll_errors": 2,
+      "poll_positive": 87250,
+      "poll_bytes": 28414266,
+      "send_calls": 78389,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 28414213,
+      "arm_calls": 156601,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4,
+        0,
+        35594,
+        33621,
+        17177,
+        847,
+        5,
+        2,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        28027,
+        30644,
+        18434,
+        1273,
+        6,
+        2,
+        0
+      ]
+    }
+  },
+  {
+    "profile": "64k_sustained",
+    "repeat": 1,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 10170,
+        "native_poll_copy_bytes": 334315267,
+        "body_constructor_requests": 5103,
+        "body_constructor_requested_bytes": 334294861,
+        "zero_body_constructor_requests": 0,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 10203,
+        "body_copy_bytes": 334294861,
+        "frames_completed": 5103,
+        "completed_body_bytes": 334294861,
+        "nonempty_frames_completed": 5103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 31140,
+      "poll_empty": 20968,
+      "poll_errors": 2,
+      "poll_positive": 10170,
+      "poll_bytes": 334315267,
+      "send_calls": 5103,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 334315242,
+      "arm_calls": 10518,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        5058,
+        11,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5101,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5100
+      ]
+    }
+  },
+  {
+    "profile": "64k_sustained",
+    "repeat": 2,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 10171,
+        "native_poll_copy_bytes": 334315267,
+        "body_constructor_requests": 5103,
+        "body_constructor_requested_bytes": 334294861,
+        "zero_body_constructor_requests": 0,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 10203,
+        "body_copy_bytes": 334294861,
+        "frames_completed": 5103,
+        "completed_body_bytes": 334294861,
+        "nonempty_frames_completed": 5103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 31198,
+      "poll_empty": 21025,
+      "poll_errors": 2,
+      "poll_positive": 10171,
+      "poll_bytes": 334315267,
+      "send_calls": 5103,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 334315242,
+      "arm_calls": 10548,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        5067,
+        4,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5100,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5100
+      ]
+    }
+  },
+  {
+    "profile": "64k_sustained",
+    "repeat": 3,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 10174,
+        "native_poll_copy_bytes": 334315269,
+        "body_constructor_requests": 5104,
+        "body_constructor_requested_bytes": 334294861,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 10203,
+        "body_copy_bytes": 334294861,
+        "frames_completed": 5104,
+        "completed_body_bytes": 334294861,
+        "nonempty_frames_completed": 5103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 31186,
+      "poll_empty": 21010,
+      "poll_errors": 2,
+      "poll_positive": 10174,
+      "poll_bytes": 334315269,
+      "send_calls": 5103,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 334315242,
+      "arm_calls": 10539,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        4973,
+        101,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5100,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5100
+      ]
+    }
+  },
+  {
+    "profile": "64k_sustained",
+    "repeat": 4,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 10195,
+        "native_poll_copy_bytes": 334315267,
+        "body_constructor_requests": 5103,
+        "body_constructor_requested_bytes": 334294861,
+        "zero_body_constructor_requests": 0,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 10203,
+        "body_copy_bytes": 334294861,
+        "frames_completed": 5103,
+        "completed_body_bytes": 334294861,
+        "nonempty_frames_completed": 5103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 31095,
+      "poll_empty": 20898,
+      "poll_errors": 2,
+      "poll_positive": 10195,
+      "poll_bytes": 334315267,
+      "send_calls": 5103,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 334315242,
+      "arm_calls": 10482,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        5039,
+        55,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5101,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5100
+      ]
+    }
+  },
+  {
+    "profile": "64k_sustained",
+    "repeat": 5,
+    "Dart": {
+      "diagnostic_only": true,
+      "kind": "mqtt_dart_logical_copy_requests",
+      "scope": "whole broker lifetime; requests, not heap allocations/RSS/timing",
+      "counts": {
+        "native_poll_copy_requests": 10165,
+        "native_poll_copy_bytes": 334315269,
+        "body_constructor_requests": 5104,
+        "body_constructor_requested_bytes": 334294861,
+        "zero_body_constructor_requests": 1,
+        "growth_constructor_requests": 0,
+        "growth_constructor_requested_bytes": 0,
+        "nonempty_growth_copy_requests": 0,
+        "growth_copy_bytes": 0,
+        "nonempty_body_copy_requests": 10203,
+        "body_copy_bytes": 334294861,
+        "frames_completed": 5104,
+        "completed_body_bytes": 334294861,
+        "nonempty_frames_completed": 5103
+      }
+    },
+    "FFI": {
+      "diagnostic_only": true,
+      "poll_calls": 31118,
+      "poll_empty": 20951,
+      "poll_errors": 2,
+      "poll_positive": 10165,
+      "poll_bytes": 334315269,
+      "send_calls": 5103,
+      "send_errors": 0,
+      "send_requested_positive_bytes": 334315242,
+      "arm_calls": 10510,
+      "size_upper_bounds": [
+        64,
+        128,
+        256,
+        512,
+        1024,
+        4096,
+        16384,
+        65536,
+        2147483647
+      ],
+      "poll_sizes": [
+        5058,
+        6,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5101,
+        0
+      ],
+      "send_sizes": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        5100
+      ]
+    }
+  }
+]
