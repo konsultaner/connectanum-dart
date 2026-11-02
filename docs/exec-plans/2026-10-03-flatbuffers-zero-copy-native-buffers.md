@@ -2,15 +2,17 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: verify frozen busy-pass wake runtime `600e82f5` after the actual
-before-failing deterministic regression, fresh full fast baseline and all615
-router-runtime/115MQTT cases pass. Own canonical/copy/MQTT and all 39 exact-source CI jobs now pass; the predeclared full Dart-source comparison is complete and mixed, after both
-own canonicals, all eighteen guards and review pass. Preserve every original numerical result. No source/HEAD/native
-changes during canonical, or adoption before complete final-runtime acceptance.
-Local focused/diagnostic evidence is scoped below, not final acceptance. All
-predecessor primary/supplemental campaigns have finished failed and are retained.
-Require complete final-runtime strict 48-/50-case acceptance and clean CI before
-adoption; change no source/HEAD/native during canonical verification.
+Current step: reproduce the relevant segmented FlatBuffers receive copy on an
+isolated checkout, after fresh full pre-change fast regression. One guarded
+test-only pipeline then requires one contained-vector alias failure and a
+passing contiguous control before any production edit. Keep all validation,
+owner/copy boundaries and acceptance policies intact. Frozen `600e82f5`'s own
+canonical/copy/all 39 CI jobs pass; its complete source control remains mixed.
+The read-only encoder census preserves all 370 fresh operations; the separate
+decoder preflight failed a real segmented alias check before measurements.
+All historical 48/50 campaigns are complete failed and retained. Every final
+runtime still requires its own complete strict 48/50 and clean CI before
+adoption. Never mutate source/HEAD/native during an active canonical.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
