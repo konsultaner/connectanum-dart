@@ -12,6 +12,11 @@ Initial native-buffer RPC source tracing finds explicit producer/lease/result
 cleanup and existing externalSize accounting; no ownership defect is confirmed.
 Next inspect receive/control decoding and per-message metadata allocations,
 retaining both roles/allcontrols; no patch/control/capture is ready.
+Source tracing identifies a candidate redundant custom-dictionary loader for
+exact known-only PPT metadata. The isolated clean601 worktree is unedited;
+fresh baseline preparation is pending disk availability before any reproduction
+or change. No defect or RAM cause is confirmed.
+[Hypothesis and required controls](../research/2026-11-02-flatbuffers-known-ppt-custom-map-plan.md).
 Owncanonical/copy/MQTT20/hostedJS/fullCI39 and proper fresh50row native control
 are complete/audited within their distinct scopes; they do not accept RAM or
 broadWAMP parity. Keep localcc1.10 and hostedcc1.11 build cohorts distinct.

@@ -33,6 +33,14 @@ Next inspect receive/control decoding and per-message metadata allocations,
 retaining both roles/allcontrols. No production defect is confirmed; no patch
 or capture is ready. Both strict campaigns stay failed, source601 frozen/unadopted.
 
+Receive/control tracing has identified a narrower source-only hypothesis:
+avoid a redundant custom-dictionary loader when the existing exact PPT matcher
+proves no custom fields. Preserve a fresh mutable nonnull map and every fallback.
+An isolated clean601 worktree is prepared, with no edits/build/tests/capture;
+fresh baseline preparation waits for sufficient disk (8.38GB observed versus
+chosen12GiB floor). No cleanup or before-failing witness has run.
+[Hypothesis and required controls](research/2026-11-02-flatbuffers-known-ppt-custom-map-plan.md).
+
 ## Both exact601 strict campaigns complete failed; no adoption (2026-11-02)
 
 Original primary48/run41463482638 is **complete failed / independently audited**.
