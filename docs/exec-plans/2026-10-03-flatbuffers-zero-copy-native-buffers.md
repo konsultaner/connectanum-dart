@@ -2,17 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: assess the complete8341 count-only audit and choose one bounded
-controlled cost diagnostic before any runtime optimization. Own canonical and
-17final guards pass; the single25-row capture is complete/audited with a generated
-configuration retention limitation. Source/HEAD/native stay frozen; unchanged
-verification/data must not rerun. Fresh pre-change baseline and provisional generator /
-original-vs-shadow decoder / own-native functional controls pass; no capture or
-production fix is ready. FrozenAD48 original CI is complete failed only on the
-original measuredMQTT gate and dependentFullVerify, all numerical execution and
-artifacts preserved. Diagnose that blocker before any new runtime work. D9CB
-supplemental50 is complete failed with202measured misses plus2unmeasured; preserve
-all1,500rows. Its primary48 is complete failed with145measured misses /38RSS. No acceptance/adoption or policy change.
+Current step: finish fresh pre-change bootstrap/fullfast baseline in isolated
+`codex/mqtt-small-burst-coalescing` before any test/source edits for actual-private
+MQTT coalescer allocation/copy diagnosis. Bootstrap passes; fullfast active under
+official exclusive lease with cleanAD48/tree2A48/three locks. No instrumentation,
+production patch or capture is ready. Original8341 count25rows and own canonical
+are complete/audited; do not rerun. Read-only arm10row component is6.863ns hot
+isolatedDarwin difference, notLinux/gate proof; no wake policy change. Original
+AD48 CI remains failed only on measuredMQTT/FullVerify, all results retained.
+BothD9CBstrict campaigns complete failed(145primary/38RSS;202supplemental plus
+2unmeasured). No adoption or policy change; keep actualCIrepair priority.
 
 The completed D9CB payload artifact also retains actual production native
 `fc9ccb77…` and driver `e432a974…` bytes. They independently rehash exactly to
@@ -109,6 +108,42 @@ ineligible payload shard:38eligible cases /1,140rows have186measured misses and
 four evidence findings. Both aggregate files match exactly. Green shard reporting
 jobs do not establish parity. Every row is retained; primary48 is also complete failed as recorded above.
 [Complete aggregate audit](../research/2026-11-02-flatbuffers-d9cb-supplemental-audit.json).
+
+## Next bounded MQTT cost diagnosis (2026-11-02)
+
+One read-only AOT public-notifier component probe is complete/audited:all10rows /
+fiveABBApairs /fixed5,000,000iterations and10,000warmups, exactownDarwin native
+`1ed515b7…` /standardSDK3.13.1 /actualprobe`5ead7a0c…` /source bytes verify.
+Preflight independentC counters record308active nativearms /0suspended and no
+callbacks. Measured rows use the actual native directly, without the observer;
+paired median hot-call difference is6.863ns. This is isolated Darwin callee cost,
+excluding Boss outer dispatch/cache contention; it cannot establish EPYC7763
+cost, a CPU-ratio/RSS repair, or strict acceptance. No arm reordering, wake,
+worker, native or runtime policy changes are justified by it.
+[Complete probe audit](../research/2026-11-02-mqtt-global-arm-component-audit.json),
+[all10rows](../research/2026-11-02-mqtt-global-arm-component-rows.jsonl),
+[probe source](../research/2026-11-02-mqtt-global-arm-component.dart.txt).
+
+The next isolated TEST-ONLY checkout `codex/mqtt-small-burst-coalescing` starts
+at frozenAD48. Fresh bootstrap passes; pre-change full `bin/test-fast` is ACTIVE
+under the official exclusive lease, with cleanAD48/tree2A48 and3locks frozen.
+Own new native binds on completion. No source/HEAD edits, competing tests/models,
+duplicate baseline, queued instrumentation, production patch or data capture.
+Only absent ignored locks were seeded with exact own canonical hashes.
+
+Source fact: the actual private `MqttInbound` first merge requests
+`BytesMut::with_capacity(min(max_bytes,4096))`, including two small packets.
+The allocation/cost/amortization tradeoff is unmeasured. After baseline pass,
+plan and review a TEST-ONLY actual-private-code allocation/copy/full-fresh-byte/
+lifetime diagnostic across small, large, many and mixed bursts; do not copy an
+algorithm or select a capacity change from requested bytes alone. Root qualifies
+bounded test advice:under cap200,150+300bytes yield200/200/50,never250; TLS excludes
+other threads and synchronous channels need no async runtime; preserve public
+FFI minimum capacity and actual empty/disconnected wake semantics. No runtime
+correction is selected. All corpus inputs/patterns must be fresh per operation,
+created before counters and fully verified afterward; no gate/ownership/body/
+SDK/GC/allocator/worker/drain/wakeup changes.
+[Test planning assessment](../research/2026-11-02-mqtt-small-burst-test-assessment.json).
 
 ## MQTT client freshness qualification (2026-11-02)
 

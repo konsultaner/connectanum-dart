@@ -1,0 +1,40 @@
+
+import 'dart:convert';
+import 'dart:ffi';
+import 'dart:io';
+import 'message_ready_notifications.dart';
+Future<void> main(List<String> args) async {
+  if (args.length != 3 || !['active','suspended'].contains(args[0])) throw ArgumentError('mode iterations warmup');
+  final active = args[0] == 'active';
+  final iterations = int.parse(args[1]);
+  final warmup = int.parse(args[2]);
+  if (iterations < 1 || warmup < 0) throw ArgumentError('fixed positive counts');
+  final library = DynamicLibrary.open(Platform.environment['CONNECTANUM_NATIVE_LIB']!);
+  final notifier = NativeMessageReadyNotifications(library);
+  if (!notifier.hasNativeSupport) throw StateError('Actual optional native API missing');
+  var callbacks = 0;
+  final subscription = notifier.events.listen((_) { callbacks++; });
+  notifier.resume();
+  if (!active) notifier.suspend();
+  var checksum = 0;
+  for (var i = 0; i < warmup; i++) {
+    notifier.arm();
+    checksum = (checksum + i) & 0x7fffffff;
+  }
+  final watch = Stopwatch()..start();
+  for (var i = 0; i < iterations; i++) {
+    notifier.arm();
+    checksum = (checksum + i) & 0x7fffffff;
+  }
+  watch.stop();
+  await subscription.cancel();
+  notifier.dispose();
+  await Future<void>.delayed(Duration.zero);
+  if (callbacks != 0) throw StateError('Arm must not itself emit notifications');
+  stdout.writeln(jsonEncode({
+    'kind':'isolated_notifier_arm_cost_not_transport_acceptance',
+    'mode':args[0], 'iterations':iterations, 'warmup':warmup,
+    'checksum':checksum, 'callbacks':callbacks,
+    'elapsed_us':watch.elapsedMicroseconds, 'standard_runtime':Platform.version,
+  }));
+}

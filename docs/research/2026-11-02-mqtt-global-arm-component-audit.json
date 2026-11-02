@@ -1,0 +1,49 @@
+{
+  "source": "8341d3fd737a55d877b3db1d8f3c6bceb5e937d6",
+  "actual_own_native_sha256": "1ed515b737ab5d000adf7c8e01c974e6f7a54f0e88e8308999c0126df4001cb7",
+  "actual_probe_exe_sha256": "5ead7a0c5c00458cab9467ec21864459c5e78f213fdeed4e33f2f01ab2665733",
+  "all10rows_and5ABBApairs_verified": true,
+  "fixed_iterations": 5000000,
+  "fixed_warmup": 10000,
+  "raw_sha256": "267a6f1529cc3b17f968503d2b304c6a4d3ce536db5e067fd9c5a00e2df9a208",
+  "observed_callbacks": 0,
+  "preflight_C_actual_arm_calls": {
+    "active": 308,
+    "suspended": 0
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "active_ns_per_call": 7.8874,
+      "suspended_ns_per_call": 1.038,
+      "difference_ns_per_call": 6.8494
+    },
+    {
+      "pair": 2,
+      "active_ns_per_call": 7.9082,
+      "suspended_ns_per_call": 1.0452,
+      "difference_ns_per_call": 6.863
+    },
+    {
+      "pair": 3,
+      "active_ns_per_call": 7.8846,
+      "suspended_ns_per_call": 1.0818,
+      "difference_ns_per_call": 6.8028
+    },
+    {
+      "pair": 4,
+      "active_ns_per_call": 7.9024,
+      "suspended_ns_per_call": 1.0258,
+      "difference_ns_per_call": 6.8766
+    },
+    {
+      "pair": 5,
+      "active_ns_per_call": 7.908,
+      "suspended_ns_per_call": 1.038,
+      "difference_ns_per_call": 6.87
+    }
+  ],
+  "median_difference_ns_per_call": 6.863,
+  "scope": "Hot isolated public-notifier direct callee only on ownDarwin/standardSDK3.13.1, without observer in measuredrows. NotEPYC7763, noRouterBoss outerdispatch/cachecontention/fulltransport/window/CPUratio/RAMrepair or precision claim. Localmeasurement deprioritizes globalarm simplification; it doesnotproveLinuxcost. No productionpatch, noarmreordering orworker/gatepolicy change.",
+  "audited_utc": "2026-11-02T10:41:26.733475+00:00"
+}

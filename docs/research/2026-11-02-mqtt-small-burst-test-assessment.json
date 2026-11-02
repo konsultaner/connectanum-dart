@@ -1,0 +1,15 @@
+{
+  "advice_complete_reaped": true,
+  "advice_sha256": "b5b50b114b5d92c362016474d359d7e873bd6e5ccbae6df7c71bd4d1fcf6381f",
+  "scope": "Test-only actual privateMqttInbound allocation/copy/lifetime diagnosis afterfreshfullbaseline PASS; no productionpatch/capacitydecision yet.",
+  "root_corrections": [
+    "Advicecase4 is wrong: after150+300 bytes undermax200, outputs200,200,50; never250 inonecall. Preserveeachcallcap/remainderorder exactly.",
+    "Thread-local counter scope excludesotherthreads byconstruction; no Tokio runtime/async test needed for synchronous channel try_send/try_recv. PrimeTLSbeforecounting andforwardSystem unchanged; avoid testframework/factory/verification withinactivecounter.",
+    "Repeatedbyte-filledpatterns are insufficient for userfresh-patterncontract: nativeappbodies/queues freshlycreatedperoperationwith disjointnonces/fullbytevalidation, no input/bodycache reused.",
+    "Useactualnativegate max65536 for smallpacketdiagnosis. Private smaller-cap boundary controls maytestmethodsemantics butmustnotweaken publicct_poll minimumcapacity16384. No max0-validity assumption.",
+    "Disconnected returns onlyafterpending/remainder andqueue aredrained; after_reset executesonlyonEmpty, notDisconnected. Match actualsource ratherthanforcingflagresets."
+  ],
+  "planned_coverage": "Empty/single-smallzeroalloc control; two/small/many/mixed/large-firstburst actualrequestedalloc+realloc includingBytesmetadata; exactcap andsplitremainder; empty-reset-race helper; dropped-sender drain. Positiveallocatorcontrol andall freshfullbyte/lifetime verification outsidecounter. Matrix/declaration stillnotfinal, no rowscollected.",
+  "read_only_source_fact": "Firstmerge currentlyrequestsBytesMut::with_capacity(min(max_bytes,4096)); benefit/cost/amortization tradeoff andcausalCPU/RSSeffect unmeasured.",
+  "reviewed_utc": "2026-11-02T10:48:05.239895+00:00"
+}
