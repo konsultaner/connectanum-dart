@@ -218,13 +218,17 @@ impl<'a> Reader<'a> {
             if actual != *len {
                 return Err(invalid("range"));
             }
-            segment_starts.reserve(segments.len().div_ceil(SEGMENT_INDEX_STRIDE));
-            let mut start = 0;
-            for (index, segment) in segments.iter().enumerate() {
-                if index % SEGMENT_INDEX_STRIDE == 0 {
-                    segment_starts.push(start);
+            // A short list already fits in one bounded scan; only longer
+            // lists need the sparse heap index.
+            if segments.len() > SEGMENT_INDEX_STRIDE {
+                segment_starts.reserve(segments.len().div_ceil(SEGMENT_INDEX_STRIDE));
+                let mut start = 0;
+                for (index, segment) in segments.iter().enumerate() {
+                    if index % SEGMENT_INDEX_STRIDE == 0 {
+                        segment_starts.push(start);
+                    }
+                    start += segment.len();
                 }
-                start += segment.len();
             }
         }
         Ok(Self {
@@ -257,12 +261,15 @@ impl<'a> Reader<'a> {
         let RawFrame::Segmented { segments, .. } = self.bytes else {
             unreachable!("segment lookup requires segmented storage");
         };
-        let block = self
-            .segment_starts
-            .partition_point(|start| *start <= offset)
-            - 1;
-        let first = block * SEGMENT_INDEX_STRIDE;
-        let mut start = self.segment_starts[block];
+        let (first, mut start) = if self.segment_starts.is_empty() {
+            (0, 0)
+        } else {
+            let block = self
+                .segment_starts
+                .partition_point(|start| *start <= offset)
+                - 1;
+            (block * SEGMENT_INDEX_STRIDE, self.segment_starts[block])
+        };
         for (index, segment) in segments.iter().enumerate().skip(first) {
             let end = start + segment.len();
             if offset < end {

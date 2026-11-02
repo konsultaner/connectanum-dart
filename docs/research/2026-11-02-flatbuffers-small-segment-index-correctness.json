@@ -1,0 +1,65 @@
+{
+  "audit": "PASS",
+  "base": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "scope": "Actual before-failing allocation regression and focused correctness only; source provisional at audit time. No canonical/CI/RSS/transport/final strict acceptance claim.",
+  "before": {
+    "full_fast_pass": true,
+    "regression_exit": 101,
+    "regression_failed": 1,
+    "contiguous_control_passed": 1,
+    "extra_allocation_calls": 1,
+    "extra_requested_bytes": 32,
+    "own_native_sha256": "0290ba1c9dadd631af470b40d4e1645a66edf1abd99fb427fea74e6a61cd0bca"
+  },
+  "after": {
+    "core": 474,
+    "alias_cases": 2,
+    "allocation_cases": 2,
+    "codec_integrations": 3,
+    "FFI": 319,
+    "client-fragmented-websocket": 22,
+    "client-flatbuffer-lifetime": 7,
+    "router-runtime": 615,
+    "router-mqtt-paho": 115,
+    "actual_Paho_cases": 7,
+    "short_segment_counts": [
+      1,
+      2,
+      64
+    ],
+    "contiguous_and_short_segment_allocation_calls": 6,
+    "contiguous_and_short_segment_requested_bytes": 798,
+    "copy_bytes": 0,
+    "indexed_65_piece_control_passed": true,
+    "own_native_sha256": "be4c3878ecf170b3eaa3a4ef26d61b623c460f622a0f3aa85a0a5027385005bf"
+  },
+  "production_sha256": "bdac798e69dba52d55565b71e93bef70211c0dbeb009e4e4b148c5141b6dfc14",
+  "test_sha256": "7c2db0f5b539711e8a57bede620e2343ac1056a928794b7ab4ada0b35042ce99",
+  "locks": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "logs_sha256": {
+    "bootstrap": "dafa3d398d632c145849ef98acee47492f15bc5cc00f098e3e6643702b96b134",
+    "before-fast": "67d18fbf020703c0fdcc90cf3aa50b52f12245840c5c4c06512736ecb7df709a",
+    "before-regression": "2a8e0de4286c3fab6e62afd4236d9a014df27aefef9ea92ab8592843c7ce4e69",
+    "format": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "regression-after": "d98182856c0875786d9cd52a62cb3f373c806719d84762f469aa7cb5dba0d596",
+    "all-core-codec": "0a918750a1000f8d50746de459a7f1207797f9acfaefbd42cfb16c692aaccb10",
+    "all-ffi": "d97a79302c39ecee32aca3497ec4542e18b028a88dec0fc70e767537d18c7ce2",
+    "own-native-build": "fc11dcbca3e2c11d2918ab480b7fd0c2c535a2fe158147d307e3766a7ae4a180",
+    "client-fragmented-websocket": "4832ff395242d776eb2134e58c11885b8b29de10ab347e6074c8ac62b06430ed",
+    "client-flatbuffer-lifetime": "74095e5f620bb83a6a6f6086cfc21498da0140f96495bc8300d7fb79fd7a2039",
+    "router-runtime": "a0be07d9700e59361b87fb9107002ce4cb04e41258f7dd24d6def24dbf6fb575",
+    "router-mqtt-paho": "f4cf1c42699dccfaeea6a7e937387ee5efca466b2c92f23cc93cba918d181b35"
+  },
+  "root_review_sha256": "164c411673fc69a219b5154f36ce611edee624f9698ddff7bad301e45982693d",
+  "review_qualifications": [
+    "GLM says65piecescreatesoneindexentry; actualloop indexes0and64, so twoentries. Thresholdisstillcorrect.",
+    "GLM futureoffset==len underflow claim is unsupported: emptyindexusesfallback withnosubtraction; nonemptyindexhasfirststart0<=allusizeoffsets, so partitioncannotreturn0. Existing checked_range/zeroearlyreturn preventpositiveinvalidlookups; currenttests executeempty/malformed/crossingcontrols.",
+    "new validates physicalsum/cachedlen, not specificoffset. checked_range validatesactualreadbounds.",
+    "Qwen2000tokenlimit attempt incomplete/notapproval; retained. GLMcompletedunderproperlease, no confirmedcurrentdefect, qualifiedbyactualsourceandtests."
+  ],
+  "audited_utc": "2026-11-02T05:36:23.139277+00:00"
+}
