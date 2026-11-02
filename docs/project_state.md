@@ -58,7 +58,9 @@ source archive`a20349a5…`, own native`be4c3878…`, all eleven source guards a
 three locks independently rehash unchanged. Log SHA is
 `8a025410efe6c18f401804eb41180f6e88fdefdddabb438d1278de82a7ea5b2c`.
 There are8,308 actual local Chrome/Wasm observations and no localJS. Both
-canonical/auditor processes are complete/reaped. Own hostedJS remains separate.
+canonical/auditor processes are complete/reaped. Own hostedChrome/JS separately
+passes8,192observations /8,172successes /20native-only skips; it is not localJS.
+[HostedJS audit](research/2026-11-02-flatbuffers-small-segment-index-hosted-JS-audit.json).
 [Canonical audit](research/2026-11-02-flatbuffers-small-segment-index-canonical-audit.json).
 
 Own copy/lifetime is **complete pass and independently audited**:3,311source
@@ -75,9 +77,12 @@ Dart3.13.1. All20summaries /192rawrows independently reproduce unchanged
 budgets:17pass,3profiles /3metrics fail. NativeTCP3.1.1 CPU ratio2.550239>2.5;
 WS5 /3.1.1 throughput ratios0.660738 /0.670385<0.70. These throughput gates use
 the ratio of medians; paired medians are recorded separately. No numerical
-retry, source/report substitution or favorable host selection. WholeCI41395075328
-is still active and must finish naturally; cleanCI is not established.
-Original numerical timestamps/artifact digests are retained for final comparison.
+retry, source/report substitution or favorable host selection. WholeCI41395075328 is now **complete failed on attempt one**:37jobs pass;
+only originalMQTT and dependentFullVerify fail. The dependent explicitly reports
+only the MQTT prerequisite. All4previous passing timestamps /4artifactIDs-digests
+and, separately, the original failedMQTT timestamps /2numerical artifacts are
+unchanged;40total artifacts retained. No job or observation reran. CleanCI
+remains blocked. [Final CI audit](research/2026-11-02-flatbuffers-small-segment-index-final-CI-audit.json).
 [Full original MQTT audit](research/2026-11-02-flatbuffers-small-segment-index-MQTT-audit.json).
 
 Both own diagnostic profiles verify all10rows /actual`c648757a…` native,
@@ -99,17 +104,33 @@ primary/protocol/encrypted campaigns continue and every row is retained.
 Own final strict48/50 is not dispatched; RAM/broadWAMP acceptance and adoption
 remain unresolved. Fix the actualCI blocker before new feature/benchmark work.
 
+## D9CB supplemental acceptance complete failed (2026-11-02)
+
+The full50-case supplemental campaign independently reproduces all1,500raw rows,
+source-derived inventory/order/scenarios/policy/config/locks and actual retained
+native/driver bytes. All50 cases contain202 **measured** strict misses:131protocol,
+55encrypted/progressive and16payload. Two payload allocation metrics remain
+**unmeasured**, with30evidence findings. The hosted aggregate excludes that
+ineligible payload shard:38eligible cases /1,140rows have186measured misses and
+four evidence findings. Both aggregate files match exactly. Green shard reporting
+jobs do not establish parity. Every row is retained; primary48 continues.
+[Complete aggregate audit](research/2026-11-02-flatbuffers-d9cb-supplemental-audit.json).
+
 ## Count-only investigation of the MQTT CI blocker (2026-11-02)
 
-An isolated `codex/mqtt-dart-copy-census` checkout starts at frozenAD48. Fresh
-bootstrap passes; full pre-change `bin/test-fast` is active under the official
-exclusive lease before any tool source edits. Keep source/HEAD/tree/three locks
-unchanged and wait for pass; the new checkout's own native binds on completion.
-No competing local tests/models, implementation, instrumentation, capture or
-production patch is active. Bounded test advice is complete and root-qualified;
-it does not approve any runtime change or performance claim.
+The isolated `codex/mqtt-dart-copy-census` checkout completed fresh bootstrap
+and full pre-change `bin/test-fast` before tool edits. Its own native `1ed515b7…`,
+runtime source/HEAD and all three locks remain unchanged. Four provisional
+Python tools construct and verify an exact-source instrumented shadow, while
+leaving the checked-out runtime frozen. All11portable guards,12original and
+12instrumented realDart decoder controls and own-native no-data/TCP3.1.1/WS5
+full-body/cleanup/atomic-output controls pass. Bounded reviews are complete and
+root-qualified against the actual source and controls; no confirmed defect.
+Development control failures are retained. The capture driver/workflow is still
+pending; readiness remains false, with no25-row capture or production patch.
+[Controls and scope](research/2026-11-02-mqtt-dart-copy-request-controls.json).
 
-The contemplated tools-only diagnostic would count explicit logical copy and
+The proposed complete tools-only diagnostic would count explicit logical copy and
 constructor requests in an independently guarded shadow source tree, preserving
 original receive/decoder values/errors/ownership, five profiles/five fresh
 repetitions and all body verification. These are not exact heap allocations,

@@ -1,0 +1,14 @@
+{
+  "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "run": 41395075328,
+  "attempt": 1,
+  "original_failed_MQTT_execution_unchanged": true,
+  "original_MQTT_artifact_ids_digests_unchanged": [
+    13119592575,
+    13119578041
+  ],
+  "jobs_metadata_sha256": "a73ed6283ee6a5d3b7ca1912112353ed1a0668e570b38432e7b5b0be234f77d6",
+  "artifact_metadata_sha256": "d4c31b037ef39358f275907808bb5c3741cdef0a3b4edba41ad320d7fb7f3ec7",
+  "scope": "Read-only comparison of retained original numerical execution/artifact identity against final metadata. No job/data rerun or completed artifact download.",
+  "audited_utc": "2026-11-02T08:25:26.814985+00:00"
+}

@@ -1,0 +1,43 @@
+{
+  "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "run": 41395075328,
+  "attempt": 1,
+  "complete": true,
+  "conclusion": "failure",
+  "successful_jobs": 37,
+  "total_jobs": 39,
+  "failed_jobs": [
+    {
+      "id": 125114532993,
+      "name": "MQTT QoS 0 interoperability and benchmark gate",
+      "conclusion": "failure"
+    },
+    {
+      "id": 125146079113,
+      "name": "Full Verify",
+      "conclusion": "failure"
+    }
+  ],
+  "prior_completed_execution_timestamps_preserved": 4,
+  "prior_artifact_ids_digests_preserved": 4,
+  "preserved_job_ids": [
+    "125114533089",
+    "125114533104",
+    "125114533170",
+    "125114533282"
+  ],
+  "preserved_artifact_ids": [
+    "13119286560",
+    "13118738607",
+    "13118703647",
+    "13118554110"
+  ],
+  "total_artifacts": 40,
+  "numerical_execution_retried": false,
+  "scope": "Final exactAD48 original CI metadata, every original completed execution timestamp and preserved artifact ID/digest verified. Current-source MQTT/copy/native/profile audits remain separately required; no parent audit substitutes. Current hosted-browser log audit is separately required when its job completes. No numerical gate rerun, data download, RAM/transport repair or strict48/50 adoption claim.",
+  "audited_utc": "2026-11-02T07:18:58.105149+00:00",
+  "dependent_fullverify_reports_only_original_MQTT_failure": true,
+  "fullverify_log_sha256": "8bec8747df504123b469c5248f797b670aedbe8a01bb0cbf9e9be84eb6869c09",
+  "original_failed_numerical_preservation_audit": "connectanum-small-segment-index-numerical-preservation-independent-audit.json",
+  "own_hosted_JS_audit": "connectanum-small-segment-index-ci-browser-independent-audit.json"
+}

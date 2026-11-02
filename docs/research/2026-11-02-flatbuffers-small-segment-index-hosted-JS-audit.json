@@ -1,0 +1,24 @@
+{
+  "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "run": 41395075328,
+  "job": 125114533366,
+  "job_success": true,
+  "actual_hosted_Chrome_JavaScript_observations": 8192,
+  "actual_success_observations": 8172,
+  "actual_native_only_skips": 20,
+  "hosted_Chrome_Wasm_observations": 0,
+  "suite_summaries": [
+    [
+      5233,
+      0
+    ],
+    [
+      2939,
+      20
+    ]
+  ],
+  "log_sha256": "2b85fdebde25f387066bf61316b4d9e14f80eb5be95bb58df84172d55f6b4b56",
+  "job_metadata_sha256": "6c53d2eab23980a529323ed552cd66dc92f13e439218b7aafbd18bc939306d98",
+  "scope": "Own exactAD48 hostedChrome/JS proof fromoriginalcompletedjob log and checkout/run/head/step identity. Actual emoji success/skip counts and bothterminal summaries agree. SeparatefromownlocalChrome/Wasm8308; notlocalJS/fullCI/throughput/RAM/finalacceptance. No tests/numericalrerun or parentreport substitution.",
+  "audited_utc": "2026-11-02T06:41:11.895499+00:00"
+}
