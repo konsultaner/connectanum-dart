@@ -2,14 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: complete the reviewed two-source decoder component capture and
-independent audit while preserving the active full strict48/50 campaigns for
-frozen `d9cb93c2`. Own canonical/copy/hostedJS/MQTT20 and all39CI pass, with
-original execution timestamps and artifact identities unchanged. Complete
-preflights/guards pass; capture review remains pending. Retain all1,440+1,500
-rows and every supplemental shard regardless of outcome. No unchanged numerical
-reruns, favorable source/host selection, gate/window/sample/body/SDK/GC/
-allocator/worker policy changes or report substitution. No candidate is adopted.
+Current step: reproduce the measured small-index allocation regression on an
+isolated D9CB checkout after its fresh full fast baseline. One queued test-only
+pipeline requires a real+1request/+32byte failure and a passing contiguous/
+counter control, then stops for root production review. Do not edit source or
+start competing tests/models while the baseline owns its official lease.
+The complete decoder comparison is audited; D9CB strict48/50 campaigns continue
+unchanged with every1,440+1,500 row/all shards preserved. No source adoption,
+RSS/transport acceptance or gate/body/window/SDK/GC/allocator/worker weakening.
 
 ## Busy-pass wake candidate frozen for verification (2026-11-02)
 
@@ -85,6 +85,29 @@ data stayed intact. Full final-runtime strict 48/50 and clean CI remain required
 [Change and focused proof](../research/2026-11-02-router-busy-wake-consumption.md),
 [current frozen verification scope](../research/2026-11-02-router-busy-wake-validation-checkpoint.json).
 
+## Controlled decoder comparison and small-index follow-up (2026-11-02)
+
+The complete two-source decoder comparison is independently audited: all1,480
+fresh operations /1,480 unique wires /920 complete nonempty bodies, own
+canonicals/native witnesses/source archives/three locks/actual static inputs.
+Coalescing is 121,805,120 bytes before and zero afterward. All370 contiguous
+pairs have identical request counts. Segmented requests improve in69 shapes,
+while five one-piece plain controls add one allocation /32 bytes. The 1 MiB
+PPT CALL changes16/1,050,508 requested bytes to15/1,788; these are component
+requests and observed copies, **not RSS, timing or transport acceptance**.
+All rows, repetitions, failures and limitations are retained.
+[Complete comparison and source/input scope](../research/2026-11-02-flatbuffers-segmented-receive-source-control.md).
+
+An isolated `codex/flatbuffers-small-segment-index` checkout starts at D9CB.
+One guarded fresh bootstrap/fullfast baseline is active before source edits;
+a queued test-only pipeline then requires exactly one real +1request/+32byte
+failure and one passing contiguous/counter control. It stops for root review,
+without a production patch. The direction is to avoid a heap index for a
+bounded list of at most64 pieces, retaining the larger-fragment index and all
+logical bounds, cached-length, schema/projection, copy/lifetime and strict
+policies. Source/HEAD edits wait for baseline pass. D9CB and its active strict
+campaigns remain frozen; preserve every row/shard regardless of outcome.
+
 ## Segmented receive views frozen for verification (2026-11-02)
 
 Published `d9cb93c2ddc007d1d904a6b4245d7f3778a1131f` on
@@ -125,11 +148,11 @@ campaigns are predeclared and active on this exact source. Preserve every
 No sample/window/body/gate/worker/SDK/GC/allocator policy changes. The separate
 1% allocation-precision decision remains unanswered; null ratios stay unmeasured.
 These campaigns were declared before results and are not selected by the local
-component comparison's outcome. A new controlled public-decoder comparison has
-passed both full-size preflights and 14 guard checks; review remains pending and
-no capture has started. Its first dependency-byte isolation failure is retained;
-shared codec dependency bytes now match. This is component allocation/copy work,
-with no transport timing, RSS or final acceptance claim.
+component comparison's outcome. The complete controlled public-decoder comparison now passes independent audit
+of all1,480 fresh rows and920 full nonempty bodies after full-size preflights,
+17 guards and root review. All earlier failures are retained before data.
+Its one-piece +32-byte allocation regressions motivate the isolated follow-up
+above. This is component evidence, with no RSS/transport/final acceptance claim.
 [Complete CI and preserved execution/artifacts](../research/2026-11-02-flatbuffers-segmented-receive-final-CI-audit.json),
 [predeclared complete strict campaigns](../research/2026-11-02-flatbuffers-segmented-receive-strict-campaigns.json),
 [Own canonical and separate hosted browser audit](../research/2026-11-02-flatbuffers-segmented-receive-canonical-audit.json),

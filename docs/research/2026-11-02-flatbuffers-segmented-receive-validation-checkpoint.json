@@ -39,5 +39,5 @@
     "all_rows_shards_must_be_preserved": true,
     "acceptance_complete": false
   },
-  "control_component": "Two-source externaldecoder v2:148fullsizepreflights/arm+14guardchecksPASS, reviewpending, no captureyet. Oldcopyfailing baseline isexplicit, nozero-copy passclaim; preservev1stddependencybyteguardfailure beforedata. Sharedactualfourcodecdependencies heldconstant; otherarchives remainrecorded, noTLS/timing/RSSclaim."
+  "control_component": "COMPLETE/AUDITED all1480freshoperations/920nonemptyfullbodies/1480uniquewires;69segmentedshapeslowerrequestedbytes,5one-pieceplaincontrolshapes+1allocation/+32bytes; all370contiguouspairsidentical. Before121805120coalescedbytes/candidate0; allactualinputs/binaries/sources retained. ComponentNOTRSS/timing/transport/FFI/finalacceptance. Newisolatedsmall-indexbaseline/test-firstqueued, productionunchanged."
 }

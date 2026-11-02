@@ -1,0 +1,14 @@
+{
+  "base": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f",
+  "branch": "codex/flatbuffers-small-segment-index",
+  "three_locks": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "evidence": "docs/research/2026-11-02-flatbuffers-segmented-receive-source-control-audit.json",
+  "baseline": "FreshbootstrapPASS/fullbin/test-fast ACTIVE; no sourceedits untilPASS. OwnnewWTnative/cleanHEAD/tree/3locks guarded.",
+  "test_first": "Onequeuedtest-onlypipeline afterbaselinePASS; requireexact1real+1allocation/+32byte failure and1contiguous/allocatorcontrolPASS, thenstopawaitrootproductionreview. No productionpatchprepared.",
+  "direction": "Avoidheapindex forbounded<=64segments; keep indexedlargerfragmentlookup, alllogicalbounds/cachedlen/schema/metadata/copy/lifetime validation. Mustreviewactualbeforefailure beforeminimalfix andownfocused/canonical/copy/CI/controlleddata/finalacceptance.",
+  "published_D9CB_and_active_strict_campaigns_unchanged": true
+}
