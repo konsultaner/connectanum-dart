@@ -1,0 +1,3476 @@
+{
+  "case_count": 48,
+  "cases": [
+    {
+      "construction": "values",
+      "id": "rpc_rawsocket_clear_dart_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9153742308703954,
+          "ci_95_low": 0.8775913533039754,
+          "median_ratio": 0.8925497115153205,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0238704490266624,
+          "ci_95_low": 0.9786823576390511,
+          "median_ratio": 1.0037986916443653,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0599838422665264,
+          "ci_95_low": 0.8551367526901529,
+          "median_ratio": 0.9309098160561169,
+          "passed": false
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0059400059400059,
+          "ci_95_low": 0.9572933998890738,
+          "median_ratio": 0.9930922389272654,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0285474391267841,
+          "ci_95_low": 0.9584064144324731,
+          "median_ratio": 1.0149803536345776,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0010757326154853,
+          "ci_95_low": 0.9961523041628617,
+          "median_ratio": 0.9984544390717802,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0066243942913398,
+          "ci_95_low": 0.9838456672974798,
+          "median_ratio": 0.99681856340362,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "rpc_rawsocket_clear_dart_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 1.0172980878071318,
+          "ci_95_low": 0.9953554894030949,
+          "median_ratio": 0.9984814551356191,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0267831370453948,
+          "ci_95_low": 1.0124335487470926,
+          "median_ratio": 1.0173539133967129,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0389968166929493,
+          "ci_95_low": 0.9863119058105508,
+          "median_ratio": 0.996105242587407,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.035171385991058,
+          "ci_95_low": 0.9797979797979799,
+          "median_ratio": 1.015748031496063,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0206349206349208,
+          "ci_95_low": 1.0007279786459595,
+          "median_ratio": 1.012293756065998,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.006132279684563,
+          "ci_95_low": 0.9952514773181677,
+          "median_ratio": 1.005155617408907,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9924785510081358,
+          "ci_95_low": 0.9725757348158219,
+          "median_ratio": 0.9880469042552527,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "rpc_rawsocket_clear_dart_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9165136080882579,
+          "ci_95_low": 0.8773445157299212,
+          "median_ratio": 0.8995101772116567,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0146876640482718,
+          "ci_95_low": 0.9931402439024389,
+          "median_ratio": 1.0081988728212077,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0062594895488741,
+          "ci_95_low": 0.8875717737373926,
+          "median_ratio": 0.9515821933411217,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0188205771643664,
+          "ci_95_low": 0.9667700487372618,
+          "median_ratio": 1.0019011406844105,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0259646592138478,
+          "ci_95_low": 1.0025510204081634,
+          "median_ratio": 1.0183812629706492,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0281142565162094,
+          "ci_95_low": 1.0105853970754763,
+          "median_ratio": 1.0193826717231784,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0008210963709079,
+          "ci_95_low": 0.9860310494637485,
+          "median_ratio": 0.992924545124433,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "rpc_rawsocket_clear_native_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9061234411319844,
+          "ci_95_low": 0.8675746559611839,
+          "median_ratio": 0.8882575599013639,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0054952478678136,
+          "ci_95_low": 0.9806627822486367,
+          "median_ratio": 0.9914038098007852,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9469063565511844,
+          "ci_95_low": 0.8673493538486506,
+          "median_ratio": 0.8907155323073639,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.9888487040385775,
+          "ci_95_low": 0.9560333761232349,
+          "median_ratio": 0.9726190476190476,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.017982799061767,
+          "ci_95_low": 0.9701754385964912,
+          "median_ratio": 0.9874031007751938,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0090694447552762,
+          "ci_95_low": 1.0026994144931944,
+          "median_ratio": 1.0035022867545846,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0099211815286477,
+          "ci_95_low": 0.9959927036626612,
+          "median_ratio": 1.0023817324220838,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "rpc_rawsocket_clear_native_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9987826040480238,
+          "ci_95_low": 0.9853600040239395,
+          "median_ratio": 0.9939217880264481,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0458287762790133,
+          "ci_95_low": 0.9848027907150275,
+          "median_ratio": 0.9897195557119164,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0041552363917454,
+          "ci_95_low": 0.9332393847663625,
+          "median_ratio": 0.9951820448407094,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.04,
+          "ci_95_low": 0.9725085910652921,
+          "median_ratio": 0.9892773892773892,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0446954813359528,
+          "ci_95_low": 0.9827417779225007,
+          "median_ratio": 0.9966580022279986,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0141039696096679,
+          "ci_95_low": 0.949750085656126,
+          "median_ratio": 0.998193212615694,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0142281395341535,
+          "ci_95_low": 0.966966418879633,
+          "median_ratio": 1.0038625147447733,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "rpc_rawsocket_clear_native_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9073670589218868,
+          "ci_95_low": 0.8537487863895412,
+          "median_ratio": 0.8895743978789178,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 0.9977234445731129,
+          "ci_95_low": 0.9769288170022381,
+          "median_ratio": 0.9925877319766433,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9099818308472268,
+          "ci_95_low": 0.8145752040000632,
+          "median_ratio": 0.8839383215543386,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.9887152777777778,
+          "ci_95_low": 0.9278033794162825,
+          "median_ratio": 0.9865392965696916,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0312008390141583,
+          "ci_95_low": 0.9711503786512802,
+          "median_ratio": 0.9906497242867417,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0075051311160947,
+          "ci_95_low": 0.993259175163199,
+          "median_ratio": 0.9997109842653165,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0190359598785683,
+          "ci_95_low": 0.9993045948865418,
+          "median_ratio": 1.00554547776826,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "rpc_rawsocket_tls_dart_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9344772154828009,
+          "ci_95_low": 0.9023541226242642,
+          "median_ratio": 0.9175008986327384,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0192192980471138,
+          "ci_95_low": 0.9748457522543901,
+          "median_ratio": 1.0045703135029656,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9326133384620972,
+          "ci_95_low": 0.9083606430529513,
+          "median_ratio": 0.9159904939922595,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0218831559927726,
+          "ci_95_low": 0.9753557792433184,
+          "median_ratio": 1.0069897483690589,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0246694296427867,
+          "ci_95_low": 0.952590791672998,
+          "median_ratio": 1.0114424410540914,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.008620887178077,
+          "ci_95_low": 0.9981823047929166,
+          "median_ratio": 1.0064068808144637,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0255399099663758,
+          "ci_95_low": 0.9804758365540946,
+          "median_ratio": 0.9945562351067014,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "rpc_rawsocket_tls_dart_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9990140700972541,
+          "ci_95_low": 0.9947180564181168,
+          "median_ratio": 0.9970861109203696,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0086269118405224,
+          "ci_95_low": 0.9770152063295978,
+          "median_ratio": 0.9888584506080066,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0270132095362339,
+          "ci_95_low": 0.9570237500898612,
+          "median_ratio": 0.9865133762766704,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0154314720812183,
+          "ci_95_low": 0.975774355424814,
+          "median_ratio": 0.9861342207432058,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0493051843933725,
+          "ci_95_low": 0.9673680456490727,
+          "median_ratio": 1.0051739518287244,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.009565661273498,
+          "ci_95_low": 1.0012390951256678,
+          "median_ratio": 1.006405088974802,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0227774502672753,
+          "ci_95_low": 0.9903473388155589,
+          "median_ratio": 1.0093370717148613,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "rpc_rawsocket_tls_dart_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.934638448481099,
+          "ci_95_low": 0.9049667634126551,
+          "median_ratio": 0.912011199567449,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.021234202357315,
+          "ci_95_low": 0.9626098394688333,
+          "median_ratio": 1.0011814733498836,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9725873045340098,
+          "ci_95_low": 0.8945024944857991,
+          "median_ratio": 0.9524949999791231,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0171267378601652,
+          "ci_95_low": 0.9653439611852365,
+          "median_ratio": 0.984654145671095,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.026258601955813,
+          "ci_95_low": 0.9628214548126377,
+          "median_ratio": 1.0144491270319085,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.009315246688678,
+          "ci_95_low": 1.0032625133814026,
+          "median_ratio": 1.0061890131226936,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.033759244263054,
+          "ci_95_low": 0.9765872341861884,
+          "median_ratio": 0.9964443907224464,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "rpc_rawsocket_tls_native_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9140685664524025,
+          "ci_95_low": 0.8703399547737176,
+          "median_ratio": 0.9006638544047108,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0046225614006892,
+          "ci_95_low": 0.9871196235222862,
+          "median_ratio": 0.9902460651381887,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9189730210492691,
+          "ci_95_low": 0.844434451826444,
+          "median_ratio": 0.8946757233805702,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.9992044550517105,
+          "ci_95_low": 0.9580419580419579,
+          "median_ratio": 0.9823056300268097,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0353187668362764,
+          "ci_95_low": 0.9685164212910532,
+          "median_ratio": 0.9962800135272236,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.002488121139713,
+          "ci_95_low": 0.9951880453873818,
+          "median_ratio": 0.9969238153416529,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0096099249582926,
+          "ci_95_low": 0.9938082850173848,
+          "median_ratio": 1.0054278431600912,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "rpc_rawsocket_tls_native_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9925531506364877,
+          "ci_95_low": 0.9814088937122326,
+          "median_ratio": 0.9871253075700875,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 0.9902527669157051,
+          "ci_95_low": 0.975756050549437,
+          "median_ratio": 0.9834582169164338,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9527501681144563,
+          "ci_95_low": 0.8545248852321929,
+          "median_ratio": 0.9162046818037135,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.008837044892188,
+          "ci_95_low": 0.9729290741743367,
+          "median_ratio": 0.9829515183803942,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0247911614120184,
+          "ci_95_low": 0.9539450196358443,
+          "median_ratio": 0.9952648712636875,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0609611391278553,
+          "ci_95_low": 0.9304288411084782,
+          "median_ratio": 1.0139908124728276,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0229014985990772,
+          "ci_95_low": 1.0055976627510157,
+          "median_ratio": 1.008621360666281,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "rpc_rawsocket_tls_native_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9178661382193241,
+          "ci_95_low": 0.8767167751911957,
+          "median_ratio": 0.9090006370087794,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0337096381749387,
+          "ci_95_low": 0.9909374041792013,
+          "median_ratio": 1.0156465399508348,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9784449855156049,
+          "ci_95_low": 0.8805725246194024,
+          "median_ratio": 0.8895227402871444,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0267886311662855,
+          "ci_95_low": 0.9910634495084897,
+          "median_ratio": 1.0043859649122806,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0348101265822784,
+          "ci_95_low": 0.9963360376864695,
+          "median_ratio": 1.0192249924902372,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.011914753558792,
+          "ci_95_low": 0.9986217551503566,
+          "median_ratio": 1.0034233628764648,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0027841074062647,
+          "ci_95_low": 0.9743283680161103,
+          "median_ratio": 0.9901890791628389,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "rpc_websocket_clear_dart_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9416099604526351,
+          "ci_95_low": 0.9071752764090093,
+          "median_ratio": 0.9218099739406346,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.036651320956503,
+          "ci_95_low": 0.9874615046194456,
+          "median_ratio": 1.0086463534931138,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9615429712508483,
+          "ci_95_low": 0.8843827155539113,
+          "median_ratio": 0.9460651042051467,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.012431776834445,
+          "ci_95_low": 1.002553626149132,
+          "median_ratio": 1.0100125156445556,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.038569424964937,
+          "ci_95_low": 0.9744582043343655,
+          "median_ratio": 1.01953125,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0034201235657547,
+          "ci_95_low": 1.002241839870174,
+          "median_ratio": 1.0026527259811757,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0046797016877835,
+          "ci_95_low": 0.9594272625779237,
+          "median_ratio": 0.9897087866233083,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "rpc_websocket_clear_dart_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 1.0152144278470996,
+          "ci_95_low": 0.996539126774475,
+          "median_ratio": 0.9993750003411371,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.03974897792158,
+          "ci_95_low": 1.0048123195380174,
+          "median_ratio": 1.0091970637969594,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0184723796897057,
+          "ci_95_low": 0.9166842905147553,
+          "median_ratio": 1.0039807923285091,
+          "passed": false
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0167802831672785,
+          "ci_95_low": 0.9608091024020226,
+          "median_ratio": 1.012037449843959,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0376692171865802,
+          "ci_95_low": 0.9681672025723473,
+          "median_ratio": 1.0035795639440286,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0108118147639524,
+          "ci_95_low": 1.000783699059561,
+          "median_ratio": 1.0072339975626994,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9953392068349466,
+          "ci_95_low": 0.9719703455328762,
+          "median_ratio": 0.9874338796204918,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "rpc_websocket_clear_dart_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9236784510630317,
+          "ci_95_low": 0.8912939058337095,
+          "median_ratio": 0.9194315335487493,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0436088224952724,
+          "ci_95_low": 0.9902545584510817,
+          "median_ratio": 0.9957912844247232,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9638981933813809,
+          "ci_95_low": 0.866410239775506,
+          "median_ratio": 0.8779736485518753,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0632761679479599,
+          "ci_95_low": 0.9775342465753425,
+          "median_ratio": 1.0017686593562078,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.045079980610761,
+          "ci_95_low": 0.9762437115707099,
+          "median_ratio": 0.9843672456575682,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.00749869988984,
+          "ci_95_low": 0.9992768663472367,
+          "median_ratio": 1.0002420188774725,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0076146006232478,
+          "ci_95_low": 0.957106544016364,
+          "median_ratio": 0.9969399677561437,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "rpc_websocket_clear_native_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9169865715391143,
+          "ci_95_low": 0.8711581799312789,
+          "median_ratio": 0.899258103450007,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0174887698219408,
+          "ci_95_low": 0.9939475453934096,
+          "median_ratio": 0.9976702030002672,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9455356439264501,
+          "ci_95_low": 0.886203908732069,
+          "median_ratio": 0.9238518614307168,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.998644251626898,
+          "ci_95_low": 0.9793767186067828,
+          "median_ratio": 0.9859611231101512,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0123180291153415,
+          "ci_95_low": 0.982154445165477,
+          "median_ratio": 1.0038517091959558,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0043872722043559,
+          "ci_95_low": 1.0004156594217959,
+          "median_ratio": 1.003179676985195,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0024102519732863,
+          "ci_95_low": 0.9915648886623699,
+          "median_ratio": 0.9997323596699886,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "rpc_websocket_clear_native_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 1.0025393609160205,
+          "ci_95_low": 0.9849207192592964,
+          "median_ratio": 0.9934029519595668,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0197955211512264,
+          "ci_95_low": 0.9764231195360918,
+          "median_ratio": 0.9824187972875571,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9572192575077848,
+          "ci_95_low": 0.8591595310423117,
+          "median_ratio": 0.895683928521839,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0256045519203414,
+          "ci_95_low": 0.9859205776173284,
+          "median_ratio": 0.9975161450571287,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0189734857698858,
+          "ci_95_low": 0.9400346620450608,
+          "median_ratio": 0.9483640081799591,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0427314799970073,
+          "ci_95_low": 0.987383794472953,
+          "median_ratio": 0.9992149395336407,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.01189539196359,
+          "ci_95_low": 0.9857986647275316,
+          "median_ratio": 1.0090351439566871,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "rpc_websocket_clear_native_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9028576900225295,
+          "ci_95_low": 0.8756788939704514,
+          "median_ratio": 0.8857313678826031,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0098360655737704,
+          "ci_95_low": 0.9884658956099225,
+          "median_ratio": 0.9937902346711021,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9212382364893685,
+          "ci_95_low": 0.7182065180237629,
+          "median_ratio": 0.8397563984287438,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.006754354781372,
+          "ci_95_low": 0.9703408587870741,
+          "median_ratio": 0.9853198182453686,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 0.998626750892612,
+          "ci_95_low": 0.9752394300397104,
+          "median_ratio": 0.9891061452513966,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0067291654684534,
+          "ci_95_low": 0.9958231568936823,
+          "median_ratio": 0.9988609581598963,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0097642269824347,
+          "ci_95_low": 0.9901168728525943,
+          "median_ratio": 0.9965629660734937,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "rpc_websocket_tls_dart_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9418350730532022,
+          "ci_95_low": 0.9183138275562702,
+          "median_ratio": 0.9290257871664369,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0393567014711758,
+          "ci_95_low": 0.9947290442768224,
+          "median_ratio": 1.0092056467130812,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9712941095511274,
+          "ci_95_low": 0.8657177794425157,
+          "median_ratio": 0.9197360307994347,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0389879717959352,
+          "ci_95_low": 0.9724674232870953,
+          "median_ratio": 1.005232281591882,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0565184626978146,
+          "ci_95_low": 0.9478539156626505,
+          "median_ratio": 1.0309475292919001,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0040461578453643,
+          "ci_95_low": 0.99639192819602,
+          "median_ratio": 1.0011420702619112,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0060829836773628,
+          "ci_95_low": 0.9623086776073184,
+          "median_ratio": 0.9913763134896584,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "rpc_websocket_tls_dart_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9973873154026094,
+          "ci_95_low": 0.994659840843343,
+          "median_ratio": 0.9964345589595479,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0181425282776633,
+          "ci_95_low": 0.98641662454138,
+          "median_ratio": 1.0061158314548293,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.1058838507456408,
+          "ci_95_low": 0.9802196843096573,
+          "median_ratio": 1.0292640098500323,
+          "passed": false
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.002056202878684,
+          "ci_95_low": 0.972698719497463,
+          "median_ratio": 0.9853290183387272,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0170126424223505,
+          "ci_95_low": 0.9739474781158817,
+          "median_ratio": 0.9873799208890562,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0079329508784511,
+          "ci_95_low": 1.001034361948827,
+          "median_ratio": 1.003657210635564,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0129082559573799,
+          "ci_95_low": 0.9825072403111399,
+          "median_ratio": 0.9947831041488232,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "rpc_websocket_tls_dart_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.93975785806504,
+          "ci_95_low": 0.9132234940956953,
+          "median_ratio": 0.9315398108852825,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0365609249504295,
+          "ci_95_low": 0.9844519811547329,
+          "median_ratio": 0.9988180655583226,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.938820671525074,
+          "ci_95_low": 0.8967950499848931,
+          "median_ratio": 0.9192065871736932,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0099934825114056,
+          "ci_95_low": 0.9761392949269132,
+          "median_ratio": 0.9969275257545634,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0177299350957734,
+          "ci_95_low": 0.9651595224114308,
+          "median_ratio": 0.9710847139731167,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0045384005626947,
+          "ci_95_low": 0.9976077077689417,
+          "median_ratio": 1.002083198060732,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0146217205900838,
+          "ci_95_low": 0.9686158880733946,
+          "median_ratio": 0.9982733994856687,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "rpc_websocket_tls_native_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9141623810837589,
+          "ci_95_low": 0.8610247381856796,
+          "median_ratio": 0.8965267734132755,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.007811786203746,
+          "ci_95_low": 0.986141488689794,
+          "median_ratio": 0.9988994918939308,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9341127359639579,
+          "ci_95_low": 0.8734474238837466,
+          "median_ratio": 0.8927337872501078,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0272795216741404,
+          "ci_95_low": 0.9665391969407264,
+          "median_ratio": 0.9944196428571429,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0322682695349572,
+          "ci_95_low": 0.9731425702811245,
+          "median_ratio": 0.9878172588832487,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.004459045854042,
+          "ci_95_low": 0.9958819981356583,
+          "median_ratio": 0.9988860838851603,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0139839920397016,
+          "ci_95_low": 0.9914787191727652,
+          "median_ratio": 0.9944123228994236,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "rpc_websocket_tls_native_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9932581173364239,
+          "ci_95_low": 0.9849151413041602,
+          "median_ratio": 0.9900462113106645,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 0.9981595092024539,
+          "ci_95_low": 0.9690499392687114,
+          "median_ratio": 0.9938796621240683,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.972568863874133,
+          "ci_95_low": 0.8896314543943119,
+          "median_ratio": 0.9106331037318421,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0387945964669207,
+          "ci_95_low": 0.9451697127937337,
+          "median_ratio": 0.9570391872278665,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 0.9914451573479988,
+          "ci_95_low": 0.9522709776751347,
+          "median_ratio": 0.9868900218499638,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0044321907764298,
+          "ci_95_low": 0.9764025076354284,
+          "median_ratio": 0.9852221932690574,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0271842727234806,
+          "ci_95_low": 0.9999077087768954,
+          "median_ratio": 1.002783579362429,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "rpc_websocket_tls_native_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9119487253212515,
+          "ci_95_low": 0.8732240773949574,
+          "median_ratio": 0.8840586185971588,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 0.9970886515859978,
+          "ci_95_low": 0.9573283163849424,
+          "median_ratio": 0.9911616161616161,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.8512931891831486,
+          "ci_95_low": 0.6960144220756682,
+          "median_ratio": 0.8234242799765659,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0134146341463415,
+          "ci_95_low": 0.9193776520509194,
+          "median_ratio": 0.9714457469191464,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0141843971631206,
+          "ci_95_low": 0.9393179538615848,
+          "median_ratio": 0.9872196768748494,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0089054289284565,
+          "ci_95_low": 0.9943588065298062,
+          "median_ratio": 0.9992288212428484,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0576422180319784,
+          "ci_95_low": 0.9974698786702545,
+          "median_ratio": 1.0040380735754948,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "pubsub_rawsocket_clear_dart_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.8878277487418236,
+          "ci_95_low": 0.8635407096204725,
+          "median_ratio": 0.870831848781765,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0469731956430064,
+          "ci_95_low": 1.017955397005667,
+          "median_ratio": 1.029808738497156,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0552324191659024,
+          "ci_95_low": 0.8806301303096854,
+          "median_ratio": 0.9495333358919901,
+          "passed": false
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0929846409298465,
+          "ci_95_low": 1.0180722891566265,
+          "median_ratio": 1.021312872975277,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0894481503941782,
+          "ci_95_low": 0.9943029490616623,
+          "median_ratio": 1.0190226303706134,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.00545420456676,
+          "ci_95_low": 0.9936124448693159,
+          "median_ratio": 1.0040091923470942,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9841450997381646,
+          "ci_95_low": 0.9635085834973905,
+          "median_ratio": 0.9791619774796501,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "pubsub_rawsocket_clear_dart_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9995046370333199,
+          "ci_95_low": 0.9940108811531054,
+          "median_ratio": 0.9963149860678148,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0429104082206404,
+          "ci_95_low": 1.0139611450949721,
+          "median_ratio": 1.021786449532569,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0795309445033947,
+          "ci_95_low": 0.963867379476144,
+          "median_ratio": 1.0425171853396142,
+          "passed": false
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.061868176304084,
+          "ci_95_low": 1.0112414467253177,
+          "median_ratio": 1.0181208053691275,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0763405028779156,
+          "ci_95_low": 0.9984270546598506,
+          "median_ratio": 1.0374096196164728,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0639239645439913,
+          "ci_95_low": 1.0030891788814422,
+          "median_ratio": 1.0144473721729672,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9961065177788635,
+          "ci_95_low": 0.9685361599997284,
+          "median_ratio": 0.9831840276846826,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "pubsub_rawsocket_clear_dart_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.8929239860561685,
+          "ci_95_low": 0.8556776907876346,
+          "median_ratio": 0.8790047120444732,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0273991993085327,
+          "ci_95_low": 0.9810067960831997,
+          "median_ratio": 1.0096165710226745,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9330338051711081,
+          "ci_95_low": 0.84600642224308,
+          "median_ratio": 0.9182303823752083,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0341841385597084,
+          "ci_95_low": 0.9583802024746908,
+          "median_ratio": 1.0006184291898579,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.016188149053146,
+          "ci_95_low": 0.9634760705289672,
+          "median_ratio": 0.9953632148377126,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0161759610148888,
+          "ci_95_low": 0.9930234078011481,
+          "median_ratio": 1.0091456830648295,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0213118365170981,
+          "ci_95_low": 0.9840235770433922,
+          "median_ratio": 0.992292042389412,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "pubsub_rawsocket_clear_native_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.8777926451615456,
+          "ci_95_low": 0.8470986527554913,
+          "median_ratio": 0.8697247172411331,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.01834359357656,
+          "ci_95_low": 0.9867335912597367,
+          "median_ratio": 0.9979117741602254,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9278881625400134,
+          "ci_95_low": 0.785309474389041,
+          "median_ratio": 0.8302536389646226,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0317919075144508,
+          "ci_95_low": 0.9920586438607208,
+          "median_ratio": 0.998825831702544,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0370127743203406,
+          "ci_95_low": 0.9927838966957843,
+          "median_ratio": 1.0214125918823906,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0109762063109065,
+          "ci_95_low": 1.0025365243028677,
+          "median_ratio": 1.0047676073841427,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.020922308607391,
+          "ci_95_low": 0.9934657418726174,
+          "median_ratio": 1.003267906020538,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "pubsub_rawsocket_clear_native_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9949260725888683,
+          "ci_95_low": 0.9826994500261635,
+          "median_ratio": 0.9909315242025957,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 0.9920943478659539,
+          "ci_95_low": 0.952563953558373,
+          "median_ratio": 0.9817238442633149,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9664731776653924,
+          "ci_95_low": 0.8838651931128167,
+          "median_ratio": 0.9057981132818215,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.9877966101694915,
+          "ci_95_low": 0.9599170697995854,
+          "median_ratio": 0.9696164071401443,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.001180986123413,
+          "ci_95_low": 0.9482419127988748,
+          "median_ratio": 0.9847399563998754,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0532501970902315,
+          "ci_95_low": 0.992468655755943,
+          "median_ratio": 1.0100163923405883,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0385060509477748,
+          "ci_95_low": 1.0073620102184593,
+          "median_ratio": 1.0261868665019236,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "pubsub_rawsocket_clear_native_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.889008726310481,
+          "ci_95_low": 0.8327365987879543,
+          "median_ratio": 0.8563739353899151,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0145254767778042,
+          "ci_95_low": 0.9765063386846378,
+          "median_ratio": 0.9919998644550146,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9140365986179592,
+          "ci_95_low": 0.8203751015587781,
+          "median_ratio": 0.8794818215979388,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0037140204271124,
+          "ci_95_low": 0.9557522123893807,
+          "median_ratio": 0.9904761904761905,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0547219770520742,
+          "ci_95_low": 0.9308176100628931,
+          "median_ratio": 0.9828832255610499,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.005097624314706,
+          "ci_95_low": 0.9948381719683289,
+          "median_ratio": 1.0012357884330203,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0216104642674109,
+          "ci_95_low": 0.9949008022779721,
+          "median_ratio": 1.019834817796023,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "pubsub_rawsocket_tls_dart_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9155550173247388,
+          "ci_95_low": 0.8804642112759887,
+          "median_ratio": 0.9101827638949971,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0334284549531187,
+          "ci_95_low": 1.010500786341989,
+          "median_ratio": 1.0174057190219643,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.96184843835074,
+          "ci_95_low": 0.917318091541056,
+          "median_ratio": 0.9343869153375074,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0585489204434935,
+          "ci_95_low": 0.9982604914111763,
+          "median_ratio": 1.027439653393852,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.066822066822067,
+          "ci_95_low": 1.0208581644815258,
+          "median_ratio": 1.0355805243445693,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0044356317623326,
+          "ci_95_low": 1.0013218143994111,
+          "median_ratio": 1.0030949067631505,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9956563062963747,
+          "ci_95_low": 0.9674944824283124,
+          "median_ratio": 0.9828628662533085,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "pubsub_rawsocket_tls_dart_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9998872985822504,
+          "ci_95_low": 0.9964560773496223,
+          "median_ratio": 0.996635903113476,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.060504557532898,
+          "ci_95_low": 0.996055308502126,
+          "median_ratio": 1.0077695618585145,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.0134877594092953,
+          "ci_95_low": 0.9549557104647907,
+          "median_ratio": 0.9817464951874086,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0517107309486782,
+          "ci_95_low": 0.9764173415912338,
+          "median_ratio": 1.013215859030837,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0549337007060444,
+          "ci_95_low": 0.9987618654560462,
+          "median_ratio": 1.0307312696276356,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0069133907317183,
+          "ci_95_low": 0.9983623682005637,
+          "median_ratio": 1.0025286683634878,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0065548862495293,
+          "ci_95_low": 0.9484556238924071,
+          "median_ratio": 0.9939778292299778,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "pubsub_rawsocket_tls_dart_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9295600397653041,
+          "ci_95_low": 0.8780173826750785,
+          "median_ratio": 0.908864666747314,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0200760389166292,
+          "ci_95_low": 0.9939930942172247,
+          "median_ratio": 1.0015072344547844,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9681353364749148,
+          "ci_95_low": 0.901291722995033,
+          "median_ratio": 0.9220742405382787,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0161186331399097,
+          "ci_95_low": 0.9874348032242769,
+          "median_ratio": 0.9988864142538976,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.036507339104253,
+          "ci_95_low": 0.9709452736318407,
+          "median_ratio": 0.9906629318394023,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.007799803208367,
+          "ci_95_low": 0.9979051119643815,
+          "median_ratio": 1.0010411329270552,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.009240946458589,
+          "ci_95_low": 0.9890447289474295,
+          "median_ratio": 0.9960250923028456,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "pubsub_rawsocket_tls_native_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.8871143940444767,
+          "ci_95_low": 0.8432407220198415,
+          "median_ratio": 0.8710503097654081,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0110943525280942,
+          "ci_95_low": 0.9789418123667711,
+          "median_ratio": 0.9950807539941665,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9416813666765755,
+          "ci_95_low": 0.8221528832499913,
+          "median_ratio": 0.8874857827318157,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0062066447608615,
+          "ci_95_low": 0.9263932702418506,
+          "median_ratio": 0.9846813725490197,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 0.9952973720608574,
+          "ci_95_low": 0.9369369369369369,
+          "median_ratio": 0.9746434231378763,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0046131607774051,
+          "ci_95_low": 0.9989088748447037,
+          "median_ratio": 1.0014843075705184,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.024435836489597,
+          "ci_95_low": 1.0054447451042605,
+          "median_ratio": 1.012413084794696,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "pubsub_rawsocket_tls_native_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.996591007615446,
+          "ci_95_low": 0.9902251724418544,
+          "median_ratio": 0.9938865583169678,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.011736616405365,
+          "ci_95_low": 0.9823190214647318,
+          "median_ratio": 0.9956657336921488,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.8696133095398928,
+          "ci_95_low": 0.7849696552767229,
+          "median_ratio": 0.8595926664674293,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0149253731343284,
+          "ci_95_low": 0.9736668861092825,
+          "median_ratio": 0.9893486276116347,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0024664291586736,
+          "ci_95_low": 0.9934372436423298,
+          "median_ratio": 0.9977697240033454,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0365777228079711,
+          "ci_95_low": 1.0040847839061704,
+          "median_ratio": 1.0065417372741479,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0323274038583947,
+          "ci_95_low": 0.9973363757492999,
+          "median_ratio": 1.0059736415897722,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "pubsub_rawsocket_tls_native_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.893389750281304,
+          "ci_95_low": 0.8341057718243983,
+          "median_ratio": 0.8853729336063629,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0306910831731928,
+          "ci_95_low": 0.9805000323691535,
+          "median_ratio": 1.0032312718437066,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9409199051621426,
+          "ci_95_low": 0.8098005518222945,
+          "median_ratio": 0.8661239783718275,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0335471139615195,
+          "ci_95_low": 0.9675467546754675,
+          "median_ratio": 0.9980244962465428,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0301480484522207,
+          "ci_95_low": 0.9674568099638409,
+          "median_ratio": 0.9902851770604827,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0113226740971715,
+          "ci_95_low": 1.0032634575192874,
+          "median_ratio": 1.0057122363483268,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0374114833225634,
+          "ci_95_low": 0.9883806101627735,
+          "median_ratio": 0.9949338135477711,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "pubsub_websocket_clear_dart_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.914099399072973,
+          "ci_95_low": 0.8834226728801805,
+          "median_ratio": 0.9014823328299183,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.03857340565082,
+          "ci_95_low": 1.001920347105297,
+          "median_ratio": 1.012676822125459,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.957148614291344,
+          "ci_95_low": 0.8763663884644621,
+          "median_ratio": 0.9049781883118551,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.1021276595744682,
+          "ci_95_low": 0.9984051036682615,
+          "median_ratio": 1.0048038430744595,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0500342700479781,
+          "ci_95_low": 0.9664164361912287,
+          "median_ratio": 1.0146715571857285,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0060789940633967,
+          "ci_95_low": 1.0015413172461798,
+          "median_ratio": 1.0048755837650836,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9975033244573897,
+          "ci_95_low": 0.972141178055623,
+          "median_ratio": 0.9932395288030818,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "pubsub_websocket_clear_dart_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 1.0128708915196958,
+          "ci_95_low": 0.9958199047704231,
+          "median_ratio": 0.9970248510960003,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.035082256782896,
+          "ci_95_low": 1.0130246152105642,
+          "median_ratio": 1.0212498055188755,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.012733468528757,
+          "ci_95_low": 0.9540979571222002,
+          "median_ratio": 0.9730457313031683,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0344379467186486,
+          "ci_95_low": 1.0141242937853105,
+          "median_ratio": 1.0231532524807057,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0628338045868677,
+          "ci_95_low": 0.9828416616496087,
+          "median_ratio": 1.001105379513633,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.003506563071197,
+          "ci_95_low": 0.9961756980999373,
+          "median_ratio": 1.0004565812932122,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9903799955680458,
+          "ci_95_low": 0.9683713403180999,
+          "median_ratio": 0.9825387957972596,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "pubsub_websocket_clear_dart_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9101694421059389,
+          "ci_95_low": 0.8754154743137275,
+          "median_ratio": 0.9030164816953183,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0463626555696837,
+          "ci_95_low": 1.005690805574877,
+          "median_ratio": 1.0196135578583765,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9593166139193987,
+          "ci_95_low": 0.8849351656872203,
+          "median_ratio": 0.8980246039541447,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0557122708039492,
+          "ci_95_low": 0.9994447529150473,
+          "median_ratio": 1.0126035289881166,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0328638497652582,
+          "ci_95_low": 0.9750825577904534,
+          "median_ratio": 1.0189600689457052,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0262040112416966,
+          "ci_95_low": 0.9950377450854095,
+          "median_ratio": 1.0008899370369546,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9966793023204655,
+          "ci_95_low": 0.972960626039424,
+          "median_ratio": 0.9856075542457431,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "pubsub_websocket_clear_native_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.8887212051821948,
+          "ci_95_low": 0.8361273561200162,
+          "median_ratio": 0.8611820830470721,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0196111964534005,
+          "ci_95_low": 0.9865069714732464,
+          "median_ratio": 1.0120841905737137,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9792318983440014,
+          "ci_95_low": 0.8665295285641939,
+          "median_ratio": 0.9216409206080461,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0171449869549014,
+          "ci_95_low": 0.9821200510855683,
+          "median_ratio": 1.0029498525073746,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0501385041551248,
+          "ci_95_low": 1.0028643036161833,
+          "median_ratio": 1.0169351507641473,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0200266720914988,
+          "ci_95_low": 1.0014767386117556,
+          "median_ratio": 1.0036716322174668,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.025854892150079,
+          "ci_95_low": 0.9924103307227118,
+          "median_ratio": 0.9964795181758992,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "pubsub_websocket_clear_native_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9949350683563137,
+          "ci_95_low": 0.9910571340515176,
+          "median_ratio": 0.9924600050841053,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0060373282417394,
+          "ci_95_low": 0.9800057486413994,
+          "median_ratio": 0.9899758207431818,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.8499447830009459,
+          "ci_95_low": 0.7508115059661609,
+          "median_ratio": 0.7949407262706607,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.992014742014742,
+          "ci_95_low": 0.928053541550474,
+          "median_ratio": 0.9819494584837545,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0125689760882894,
+          "ci_95_low": 0.9501445086705202,
+          "median_ratio": 0.9936476094951521,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0010832879695155,
+          "ci_95_low": 0.997218551870399,
+          "median_ratio": 0.9992432518548864,
+          "passed": true
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0191074083683067,
+          "ci_95_low": 1.0046420385213264,
+          "median_ratio": 1.0110303149901338,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "pubsub_websocket_clear_native_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.8749452717213958,
+          "ci_95_low": 0.8314759499052641,
+          "median_ratio": 0.8664166200775567,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0200495944270458,
+          "ci_95_low": 0.9604653427673242,
+          "median_ratio": 0.9780064331329826,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.8448788362181437,
+          "ci_95_low": 0.7667333785179882,
+          "median_ratio": 0.8319883320360311,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.9994192799070849,
+          "ci_95_low": 0.929782082324455,
+          "median_ratio": 0.9624916275954454,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0545587696814354,
+          "ci_95_low": 0.9343928280358598,
+          "median_ratio": 0.9675595238095238,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0168898169758016,
+          "ci_95_low": 0.9979060185080945,
+          "median_ratio": 1.003679770739132,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0543891066933955,
+          "ci_95_low": 0.9904370004905059,
+          "median_ratio": 1.0379671734370404,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "pubsub_websocket_tls_dart_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9277421094221608,
+          "ci_95_low": 0.9045575297870715,
+          "median_ratio": 0.9141860810171469,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0187567793074677,
+          "ci_95_low": 0.9754130305854444,
+          "median_ratio": 1.012645677270922,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9581643450343866,
+          "ci_95_low": 0.8966711788683684,
+          "median_ratio": 0.9246025995994043,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0263838592860837,
+          "ci_95_low": 0.9966850828729282,
+          "median_ratio": 1.007645259938838,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0264712316779698,
+          "ci_95_low": 0.9836870446626544,
+          "median_ratio": 1.0226523887973642,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.003349795513339,
+          "ci_95_low": 0.9991178408316863,
+          "median_ratio": 1.0023245078967324,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0277368901310118,
+          "ci_95_low": 0.9822642992902357,
+          "median_ratio": 0.9965212735073447,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "pubsub_websocket_tls_dart_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 1.010955081584253,
+          "ci_95_low": 0.9950633252302891,
+          "median_ratio": 1.000004833496618,
+          "passed": false
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0549558141013415,
+          "ci_95_low": 0.9979447222438917,
+          "median_ratio": 1.0262247592653955,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 1.049581902466263,
+          "ci_95_low": 0.940009097036748,
+          "median_ratio": 0.965988558104352,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0467253176930595,
+          "ci_95_low": 0.9846153846153847,
+          "median_ratio": 1.027005347593583,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.0669865642994243,
+          "ci_95_low": 0.986246297079983,
+          "median_ratio": 1.0082350322724238,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0032595133266273,
+          "ci_95_low": 0.9976139523705984,
+          "median_ratio": 1.0004116739761668,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0050453470213956,
+          "ci_95_low": 0.9627595870018656,
+          "median_ratio": 0.9726853090382506,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "pubsub_websocket_tls_dart_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9299820949612594,
+          "ci_95_low": 0.908142411062796,
+          "median_ratio": 0.9177642407697427,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.041202421619757,
+          "ci_95_low": 1.0106456085357767,
+          "median_ratio": 1.0143694024775547,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9247511445852743,
+          "ci_95_low": 0.8981101837348056,
+          "median_ratio": 0.9024253449828897,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.044394618834081,
+          "ci_95_low": 1.0129471143296027,
+          "median_ratio": 1.0165489029378951,
+          "passed": false
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.1200482259731313,
+          "ci_95_low": 0.9995698924731181,
+          "median_ratio": 1.0075449796865932,
+          "passed": false
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.004909822381565,
+          "ci_95_low": 0.9983595890223698,
+          "median_ratio": 1.00020186161265,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 0.9930575785014301,
+          "ci_95_low": 0.9689968337147057,
+          "median_ratio": 0.989834999405089,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "values",
+      "id": "pubsub_websocket_tls_native_values",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.8996825598384017,
+          "ci_95_low": 0.8495213258548092,
+          "median_ratio": 0.8807594739338684,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.008770429363634,
+          "ci_95_low": 0.9924199583283473,
+          "median_ratio": 1.0005046404984972,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9572673601640334,
+          "ci_95_low": 0.8723607901163686,
+          "median_ratio": 0.9048449845456267,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.9969639468690702,
+          "ci_95_low": 0.9093167701863355,
+          "median_ratio": 0.981828193832599,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.004572735067162,
+          "ci_95_low": 0.9605118829981718,
+          "median_ratio": 0.9974842767295597,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.006365142367944,
+          "ci_95_low": 0.995443204562279,
+          "median_ratio": 1.0005154523654782,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0199955714943374,
+          "ci_95_low": 0.9968808306015129,
+          "median_ratio": 0.9994845836419546,
+          "passed": false
+        }
+      }
+    },
+    {
+      "construction": "native_buffer",
+      "id": "pubsub_websocket_tls_native_native_buffer",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.9973074400401253,
+          "ci_95_low": 0.9901108300757896,
+          "median_ratio": 0.9953284246455757,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.0341993532022036,
+          "ci_95_low": 1.0000726772538733,
+          "median_ratio": 1.0080493592785953,
+          "passed": false
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.9610489917251314,
+          "ci_95_low": 0.8045363331350617,
+          "median_ratio": 0.9006778584102648,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 1.0211830535571544,
+          "ci_95_low": 0.9909047391096217,
+          "median_ratio": 0.9959128065395095,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 1.01583645263461,
+          "ci_95_low": 0.9771210676835083,
+          "median_ratio": 0.9916463626870866,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.024299781859996,
+          "ci_95_low": 1.0008848590779986,
+          "median_ratio": 1.0046745595019733,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0091231157010927,
+          "ci_95_low": 0.9876318428913892,
+          "median_ratio": 1.0047462537665912,
+          "passed": true
+        }
+      }
+    },
+    {
+      "construction": "pre_encoded_span",
+      "id": "pubsub_websocket_tls_native_pre_encoded_span",
+      "metrics": {
+        "allocated_bytes_per_operation": {
+          "ci_95_high": 0.8964208874582772,
+          "ci_95_low": 0.8409412807101341,
+          "median_ratio": 0.870638702517357,
+          "passed": true
+        },
+        "cpu_us_per_operation": {
+          "ci_95_high": 1.002731666316453,
+          "ci_95_low": 0.9687965603406447,
+          "median_ratio": 0.99516925365908,
+          "passed": true
+        },
+        "gc_pause_us_per_operation": {
+          "ci_95_high": 0.8465103553381821,
+          "ci_95_low": 0.7284872180524905,
+          "median_ratio": 0.7883817099952228,
+          "passed": true
+        },
+        "latency_p95_ms": {
+          "ci_95_high": 0.9900922446190639,
+          "ci_95_low": 0.948,
+          "median_ratio": 0.9761295822676896,
+          "passed": true
+        },
+        "latency_p99_ms": {
+          "ci_95_high": 0.9954441913439636,
+          "ci_95_low": 0.937155814706835,
+          "median_ratio": 0.9875751503006012,
+          "passed": true
+        },
+        "summed_sampled_peak_rss_bytes": {
+          "ci_95_high": 1.0103768923228966,
+          "ci_95_low": 0.9964267903041064,
+          "median_ratio": 1.007178136684612,
+          "passed": false
+        },
+        "throughput_mbps": {
+          "ci_95_high": 1.0349366403554634,
+          "ci_95_low": 1.0006811431431712,
+          "median_ratio": 1.0269074299075505,
+          "passed": true
+        }
+      }
+    }
+  ],
+  "inputs_and_binaries_verified": true,
+  "matches_hosted": true,
+  "numeric_findings": [
+    {
+      "case": "rpc_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0066243942913398,
+      "ci_95_low": 0.9838456672974798,
+      "median_ratio": 0.99681856340362,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0285474391267841,
+      "ci_95_low": 0.9584064144324731,
+      "median_ratio": 1.0149803536345776,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0238704490266624,
+      "ci_95_low": 0.9786823576390511,
+      "median_ratio": 1.0037986916443653,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0599838422665264,
+      "ci_95_low": 0.8551367526901529,
+      "median_ratio": 0.9309098160561169,
+      "metric": "gc_pause_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 0.9924785510081358,
+      "ci_95_low": 0.9725757348158219,
+      "median_ratio": 0.9880469042552527,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.035171385991058,
+      "ci_95_low": 0.9797979797979799,
+      "median_ratio": 1.015748031496063,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0206349206349208,
+      "ci_95_low": 1.0007279786459595,
+      "median_ratio": 1.012293756065998,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0267831370453948,
+      "ci_95_low": 1.0124335487470926,
+      "median_ratio": 1.0173539133967129,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.006132279684563,
+      "ci_95_low": 0.9952514773181677,
+      "median_ratio": 1.005155617408907,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0008210963709079,
+      "ci_95_low": 0.9860310494637485,
+      "median_ratio": 0.992924545124433,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0188205771643664,
+      "ci_95_low": 0.9667700487372618,
+      "median_ratio": 1.0019011406844105,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0259646592138478,
+      "ci_95_low": 1.0025510204081634,
+      "median_ratio": 1.0183812629706492,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0146876640482718,
+      "ci_95_low": 0.9931402439024389,
+      "median_ratio": 1.0081988728212077,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0281142565162094,
+      "ci_95_low": 1.0105853970754763,
+      "median_ratio": 1.0193826717231784,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_clear_native_values",
+      "ci_95_high": 1.0090694447552762,
+      "ci_95_low": 1.0026994144931944,
+      "median_ratio": 1.0035022867545846,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_values",
+      "ci_95_high": 1.0255399099663758,
+      "ci_95_low": 0.9804758365540946,
+      "median_ratio": 0.9945562351067014,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_values",
+      "ci_95_high": 1.0218831559927726,
+      "ci_95_low": 0.9753557792433184,
+      "median_ratio": 1.0069897483690589,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_values",
+      "ci_95_high": 1.0246694296427867,
+      "ci_95_low": 0.952590791672998,
+      "median_ratio": 1.0114424410540914,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_values",
+      "ci_95_high": 1.0192192980471138,
+      "ci_95_low": 0.9748457522543901,
+      "median_ratio": 1.0045703135029656,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_values",
+      "ci_95_high": 1.008620887178077,
+      "ci_95_low": 0.9981823047929166,
+      "median_ratio": 1.0064068808144637,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0493051843933725,
+      "ci_95_low": 0.9673680456490727,
+      "median_ratio": 1.0051739518287244,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_native_buffer",
+      "ci_95_high": 1.009565661273498,
+      "ci_95_low": 1.0012390951256678,
+      "median_ratio": 1.006405088974802,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.033759244263054,
+      "ci_95_low": 0.9765872341861884,
+      "median_ratio": 0.9964443907224464,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.026258601955813,
+      "ci_95_low": 0.9628214548126377,
+      "median_ratio": 1.0144491270319085,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.021234202357315,
+      "ci_95_low": 0.9626098394688333,
+      "median_ratio": 1.0011814733498836,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.009315246688678,
+      "ci_95_low": 1.0032625133814026,
+      "median_ratio": 1.0061890131226936,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_native_buffer",
+      "ci_95_high": 1.0609611391278553,
+      "ci_95_low": 0.9304288411084782,
+      "median_ratio": 1.0139908124728276,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.0027841074062647,
+      "ci_95_low": 0.9743283680161103,
+      "median_ratio": 0.9901890791628389,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.0267886311662855,
+      "ci_95_low": 0.9910634495084897,
+      "median_ratio": 1.0043859649122806,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.0348101265822784,
+      "ci_95_low": 0.9963360376864695,
+      "median_ratio": 1.0192249924902372,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.0337096381749387,
+      "ci_95_low": 0.9909374041792013,
+      "median_ratio": 1.0156465399508348,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_rawsocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.011914753558792,
+      "ci_95_low": 0.9986217551503566,
+      "median_ratio": 1.0034233628764648,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_values",
+      "ci_95_high": 1.0046797016877835,
+      "ci_95_low": 0.9594272625779237,
+      "median_ratio": 0.9897087866233083,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_values",
+      "ci_95_high": 1.012431776834445,
+      "ci_95_low": 1.002553626149132,
+      "median_ratio": 1.0100125156445556,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_values",
+      "ci_95_high": 1.038569424964937,
+      "ci_95_low": 0.9744582043343655,
+      "median_ratio": 1.01953125,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_values",
+      "ci_95_high": 1.036651320956503,
+      "ci_95_low": 0.9874615046194456,
+      "median_ratio": 1.0086463534931138,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_values",
+      "ci_95_high": 1.0034201235657547,
+      "ci_95_low": 1.002241839870174,
+      "median_ratio": 1.0026527259811757,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_native_buffer",
+      "ci_95_high": 0.9953392068349466,
+      "ci_95_low": 0.9719703455328762,
+      "median_ratio": 0.9874338796204918,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0167802831672785,
+      "ci_95_low": 0.9608091024020226,
+      "median_ratio": 1.012037449843959,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0376692171865802,
+      "ci_95_low": 0.9681672025723473,
+      "median_ratio": 1.0035795639440286,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.03974897792158,
+      "ci_95_low": 1.0048123195380174,
+      "median_ratio": 1.0091970637969594,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0184723796897057,
+      "ci_95_low": 0.9166842905147553,
+      "median_ratio": 1.0039807923285091,
+      "metric": "gc_pause_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0108118147639524,
+      "ci_95_low": 1.000783699059561,
+      "median_ratio": 1.0072339975626994,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0076146006232478,
+      "ci_95_low": 0.957106544016364,
+      "median_ratio": 0.9969399677561437,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0632761679479599,
+      "ci_95_low": 0.9775342465753425,
+      "median_ratio": 1.0017686593562078,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.00749869988984,
+      "ci_95_low": 0.9992768663472367,
+      "median_ratio": 1.0002420188774725,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_native_values",
+      "ci_95_high": 1.0024102519732863,
+      "ci_95_low": 0.9915648886623699,
+      "median_ratio": 0.9997323596699886,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_native_values",
+      "ci_95_high": 1.0123180291153415,
+      "ci_95_low": 0.982154445165477,
+      "median_ratio": 1.0038517091959558,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_native_values",
+      "ci_95_high": 1.0043872722043559,
+      "ci_95_low": 1.0004156594217959,
+      "median_ratio": 1.003179676985195,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_clear_native_pre_encoded_span",
+      "ci_95_high": 1.0097642269824347,
+      "ci_95_low": 0.9901168728525943,
+      "median_ratio": 0.9965629660734937,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_values",
+      "ci_95_high": 1.0060829836773628,
+      "ci_95_low": 0.9623086776073184,
+      "median_ratio": 0.9913763134896584,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_values",
+      "ci_95_high": 1.0389879717959352,
+      "ci_95_low": 0.9724674232870953,
+      "median_ratio": 1.005232281591882,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_values",
+      "ci_95_high": 1.0565184626978146,
+      "ci_95_low": 0.9478539156626505,
+      "median_ratio": 1.0309475292919001,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_values",
+      "ci_95_high": 1.0393567014711758,
+      "ci_95_low": 0.9947290442768224,
+      "median_ratio": 1.0092056467130812,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_values",
+      "ci_95_high": 1.0040461578453643,
+      "ci_95_low": 0.99639192819602,
+      "median_ratio": 1.0011420702619112,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0129082559573799,
+      "ci_95_low": 0.9825072403111399,
+      "median_ratio": 0.9947831041488232,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0181425282776633,
+      "ci_95_low": 0.98641662454138,
+      "median_ratio": 1.0061158314548293,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.1058838507456408,
+      "ci_95_low": 0.9802196843096573,
+      "median_ratio": 1.0292640098500323,
+      "metric": "gc_pause_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0079329508784511,
+      "ci_95_low": 1.001034361948827,
+      "median_ratio": 1.003657210635564,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.0146217205900838,
+      "ci_95_low": 0.9686158880733946,
+      "median_ratio": 0.9982733994856687,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.0045384005626947,
+      "ci_95_low": 0.9976077077689417,
+      "median_ratio": 1.002083198060732,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "rpc_websocket_tls_native_values",
+      "ci_95_high": 1.0139839920397016,
+      "ci_95_low": 0.9914787191727652,
+      "median_ratio": 0.9944123228994236,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_values",
+      "ci_95_high": 0.9841450997381646,
+      "ci_95_low": 0.9635085834973905,
+      "median_ratio": 0.9791619774796501,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0929846409298465,
+      "ci_95_low": 1.0180722891566265,
+      "median_ratio": 1.021312872975277,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0894481503941782,
+      "ci_95_low": 0.9943029490616623,
+      "median_ratio": 1.0190226303706134,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0469731956430064,
+      "ci_95_low": 1.017955397005667,
+      "median_ratio": 1.029808738497156,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_values",
+      "ci_95_high": 1.0552324191659024,
+      "ci_95_low": 0.8806301303096854,
+      "median_ratio": 0.9495333358919901,
+      "metric": "gc_pause_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_values",
+      "ci_95_high": 1.00545420456676,
+      "ci_95_low": 0.9936124448693159,
+      "median_ratio": 1.0040091923470942,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 0.9961065177788635,
+      "ci_95_low": 0.9685361599997284,
+      "median_ratio": 0.9831840276846826,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.061868176304084,
+      "ci_95_low": 1.0112414467253177,
+      "median_ratio": 1.0181208053691275,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0763405028779156,
+      "ci_95_low": 0.9984270546598506,
+      "median_ratio": 1.0374096196164728,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0429104082206404,
+      "ci_95_low": 1.0139611450949721,
+      "median_ratio": 1.021786449532569,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0795309445033947,
+      "ci_95_low": 0.963867379476144,
+      "median_ratio": 1.0425171853396142,
+      "metric": "gc_pause_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0639239645439913,
+      "ci_95_low": 1.0030891788814422,
+      "median_ratio": 1.0144473721729672,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0213118365170981,
+      "ci_95_low": 0.9840235770433922,
+      "median_ratio": 0.992292042389412,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0341841385597084,
+      "ci_95_low": 0.9583802024746908,
+      "median_ratio": 1.0006184291898579,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0273991993085327,
+      "ci_95_low": 0.9810067960831997,
+      "median_ratio": 1.0096165710226745,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0161759610148888,
+      "ci_95_low": 0.9930234078011481,
+      "median_ratio": 1.0091456830648295,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_native_values",
+      "ci_95_high": 1.0370127743203406,
+      "ci_95_low": 0.9927838966957843,
+      "median_ratio": 1.0214125918823906,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_native_values",
+      "ci_95_high": 1.0109762063109065,
+      "ci_95_low": 1.0025365243028677,
+      "median_ratio": 1.0047676073841427,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_native_native_buffer",
+      "ci_95_high": 1.0532501970902315,
+      "ci_95_low": 0.992468655755943,
+      "median_ratio": 1.0100163923405883,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_native_pre_encoded_span",
+      "ci_95_high": 1.0547219770520742,
+      "ci_95_low": 0.9308176100628931,
+      "median_ratio": 0.9828832255610499,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_clear_native_pre_encoded_span",
+      "ci_95_high": 1.005097624314706,
+      "ci_95_low": 0.9948381719683289,
+      "median_ratio": 1.0012357884330203,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_values",
+      "ci_95_high": 0.9956563062963747,
+      "ci_95_low": 0.9674944824283124,
+      "median_ratio": 0.9828628662533085,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_values",
+      "ci_95_high": 1.0585489204434935,
+      "ci_95_low": 0.9982604914111763,
+      "median_ratio": 1.027439653393852,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_values",
+      "ci_95_high": 1.066822066822067,
+      "ci_95_low": 1.0208581644815258,
+      "median_ratio": 1.0355805243445693,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_values",
+      "ci_95_high": 1.0334284549531187,
+      "ci_95_low": 1.010500786341989,
+      "median_ratio": 1.0174057190219643,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_values",
+      "ci_95_high": 1.0044356317623326,
+      "ci_95_low": 1.0013218143994111,
+      "median_ratio": 1.0030949067631505,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0065548862495293,
+      "ci_95_low": 0.9484556238924071,
+      "median_ratio": 0.9939778292299778,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0517107309486782,
+      "ci_95_low": 0.9764173415912338,
+      "median_ratio": 1.013215859030837,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0549337007060444,
+      "ci_95_low": 0.9987618654560462,
+      "median_ratio": 1.0307312696276356,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_native_buffer",
+      "ci_95_high": 1.060504557532898,
+      "ci_95_low": 0.996055308502126,
+      "median_ratio": 1.0077695618585145,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0069133907317183,
+      "ci_95_low": 0.9983623682005637,
+      "median_ratio": 1.0025286683634878,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.009240946458589,
+      "ci_95_low": 0.9890447289474295,
+      "median_ratio": 0.9960250923028456,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.0200760389166292,
+      "ci_95_low": 0.9939930942172247,
+      "median_ratio": 1.0015072344547844,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.007799803208367,
+      "ci_95_low": 0.9979051119643815,
+      "median_ratio": 1.0010411329270552,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_native_values",
+      "ci_95_high": 1.0046131607774051,
+      "ci_95_low": 0.9989088748447037,
+      "median_ratio": 1.0014843075705184,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_native_native_buffer",
+      "ci_95_high": 1.0365777228079711,
+      "ci_95_low": 1.0040847839061704,
+      "median_ratio": 1.0065417372741479,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.0374114833225634,
+      "ci_95_low": 0.9883806101627735,
+      "median_ratio": 0.9949338135477711,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.0306910831731928,
+      "ci_95_low": 0.9805000323691535,
+      "median_ratio": 1.0032312718437066,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_rawsocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.0113226740971715,
+      "ci_95_low": 1.0032634575192874,
+      "median_ratio": 1.0057122363483268,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_values",
+      "ci_95_high": 0.9975033244573897,
+      "ci_95_low": 0.972141178055623,
+      "median_ratio": 0.9932395288030818,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_values",
+      "ci_95_high": 1.1021276595744682,
+      "ci_95_low": 0.9984051036682615,
+      "median_ratio": 1.0048038430744595,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_values",
+      "ci_95_high": 1.0500342700479781,
+      "ci_95_low": 0.9664164361912287,
+      "median_ratio": 1.0146715571857285,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_values",
+      "ci_95_high": 1.03857340565082,
+      "ci_95_low": 1.001920347105297,
+      "median_ratio": 1.012676822125459,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_values",
+      "ci_95_high": 1.0060789940633967,
+      "ci_95_low": 1.0015413172461798,
+      "median_ratio": 1.0048755837650836,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_native_buffer",
+      "ci_95_high": 0.9903799955680458,
+      "ci_95_low": 0.9683713403180999,
+      "median_ratio": 0.9825387957972596,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0344379467186486,
+      "ci_95_low": 1.0141242937853105,
+      "median_ratio": 1.0231532524807057,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.0628338045868677,
+      "ci_95_low": 0.9828416616496087,
+      "median_ratio": 1.001105379513633,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.035082256782896,
+      "ci_95_low": 1.0130246152105642,
+      "median_ratio": 1.0212498055188755,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_native_buffer",
+      "ci_95_high": 1.003506563071197,
+      "ci_95_low": 0.9961756980999373,
+      "median_ratio": 1.0004565812932122,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 0.9966793023204655,
+      "ci_95_low": 0.972960626039424,
+      "median_ratio": 0.9856075542457431,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0557122708039492,
+      "ci_95_low": 0.9994447529150473,
+      "median_ratio": 1.0126035289881166,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0328638497652582,
+      "ci_95_low": 0.9750825577904534,
+      "median_ratio": 1.0189600689457052,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0463626555696837,
+      "ci_95_low": 1.005690805574877,
+      "median_ratio": 1.0196135578583765,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_dart_pre_encoded_span",
+      "ci_95_high": 1.0262040112416966,
+      "ci_95_low": 0.9950377450854095,
+      "median_ratio": 1.0008899370369546,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_native_values",
+      "ci_95_high": 1.025854892150079,
+      "ci_95_low": 0.9924103307227118,
+      "median_ratio": 0.9964795181758992,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_native_values",
+      "ci_95_high": 1.0171449869549014,
+      "ci_95_low": 0.9821200510855683,
+      "median_ratio": 1.0029498525073746,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_native_values",
+      "ci_95_high": 1.0501385041551248,
+      "ci_95_low": 1.0028643036161833,
+      "median_ratio": 1.0169351507641473,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_native_values",
+      "ci_95_high": 1.0196111964534005,
+      "ci_95_low": 0.9865069714732464,
+      "median_ratio": 1.0120841905737137,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_native_values",
+      "ci_95_high": 1.0200266720914988,
+      "ci_95_low": 1.0014767386117556,
+      "median_ratio": 1.0036716322174668,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_native_pre_encoded_span",
+      "ci_95_high": 1.0545587696814354,
+      "ci_95_low": 0.9343928280358598,
+      "median_ratio": 0.9675595238095238,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_clear_native_pre_encoded_span",
+      "ci_95_high": 1.0168898169758016,
+      "ci_95_low": 0.9979060185080945,
+      "median_ratio": 1.003679770739132,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_values",
+      "ci_95_high": 1.0277368901310118,
+      "ci_95_low": 0.9822642992902357,
+      "median_ratio": 0.9965212735073447,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_values",
+      "ci_95_high": 1.0263838592860837,
+      "ci_95_low": 0.9966850828729282,
+      "median_ratio": 1.007645259938838,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_values",
+      "ci_95_high": 1.0264712316779698,
+      "ci_95_low": 0.9836870446626544,
+      "median_ratio": 1.0226523887973642,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_values",
+      "ci_95_high": 1.0187567793074677,
+      "ci_95_low": 0.9754130305854444,
+      "median_ratio": 1.012645677270922,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_values",
+      "ci_95_high": 1.003349795513339,
+      "ci_95_low": 0.9991178408316863,
+      "median_ratio": 1.0023245078967324,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0050453470213956,
+      "ci_95_low": 0.9627595870018656,
+      "median_ratio": 0.9726853090382506,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0467253176930595,
+      "ci_95_low": 0.9846153846153847,
+      "median_ratio": 1.027005347593583,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0669865642994243,
+      "ci_95_low": 0.986246297079983,
+      "median_ratio": 1.0082350322724238,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0549558141013415,
+      "ci_95_low": 0.9979447222438917,
+      "median_ratio": 1.0262247592653955,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.010955081584253,
+      "ci_95_low": 0.9950633252302891,
+      "median_ratio": 1.000004833496618,
+      "metric": "allocated_bytes_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_native_buffer",
+      "ci_95_high": 1.0032595133266273,
+      "ci_95_low": 0.9976139523705984,
+      "median_ratio": 1.0004116739761668,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 0.9930575785014301,
+      "ci_95_low": 0.9689968337147057,
+      "median_ratio": 0.989834999405089,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.044394618834081,
+      "ci_95_low": 1.0129471143296027,
+      "median_ratio": 1.0165489029378951,
+      "metric": "latency_p95_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.1200482259731313,
+      "ci_95_low": 0.9995698924731181,
+      "median_ratio": 1.0075449796865932,
+      "metric": "latency_p99_ms",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.041202421619757,
+      "ci_95_low": 1.0106456085357767,
+      "median_ratio": 1.0143694024775547,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_dart_pre_encoded_span",
+      "ci_95_high": 1.004909822381565,
+      "ci_95_low": 0.9983595890223698,
+      "median_ratio": 1.00020186161265,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_native_values",
+      "ci_95_high": 1.0199955714943374,
+      "ci_95_low": 0.9968808306015129,
+      "median_ratio": 0.9994845836419546,
+      "metric": "throughput_mbps",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_native_values",
+      "ci_95_high": 1.008770429363634,
+      "ci_95_low": 0.9924199583283473,
+      "median_ratio": 1.0005046404984972,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_native_values",
+      "ci_95_high": 1.006365142367944,
+      "ci_95_low": 0.995443204562279,
+      "median_ratio": 1.0005154523654782,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_native_native_buffer",
+      "ci_95_high": 1.0341993532022036,
+      "ci_95_low": 1.0000726772538733,
+      "median_ratio": 1.0080493592785953,
+      "metric": "cpu_us_per_operation",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_native_native_buffer",
+      "ci_95_high": 1.024299781859996,
+      "ci_95_low": 1.0008848590779986,
+      "median_ratio": 1.0046745595019733,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    },
+    {
+      "case": "pubsub_websocket_tls_native_pre_encoded_span",
+      "ci_95_high": 1.0103768923228966,
+      "ci_95_low": 0.9964267903041064,
+      "median_ratio": 1.007178136684612,
+      "metric": "summed_sampled_peak_rss_bytes",
+      "passed": false
+    }
+  ],
+  "other_findings": [],
+  "rows": 1440,
+  "source": "d9cb93c2ddc007d1d904a6b4245d7f3778a1131f"
+}

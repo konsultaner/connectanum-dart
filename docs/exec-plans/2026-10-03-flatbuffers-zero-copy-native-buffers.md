@@ -9,7 +9,7 @@ production fix is ready. FrozenAD48 original CI is complete failed only on the
 original measuredMQTT gate and dependentFullVerify, all numerical execution and
 artifacts preserved. Diagnose that blocker before any new runtime work. D9CB
 supplemental50 is complete failed with202measured misses plus2unmeasured; preserve
-all1,500rows. Its primary48 remains active. No acceptance/adoption or policy change.
+all1,500rows. Its primary48 is complete failed with145measured misses /38RSS. No acceptance/adoption or policy change.
 
 The completed D9CB payload artifact also retains actual production native
 `fc9ccb77…` and driver `e432a974…` bytes. They independently rehash exactly to
@@ -78,10 +78,22 @@ is a possible nextCI-repair investigation; no production fix is prepared.
 [SharedCI audit](../research/2026-11-02-flatbuffers-small-segment-index-shared-CI-audit.json).
 
 The D9CB RSS role decomposition still verifies28 original paired inputs across
-four failing cases; roles vary, with no single cause established. Its original
-primary/protocol/encrypted campaigns continue and every row is retained.
+four failing cases; roles vary, with no single cause established. All original
+primary/protocol/encrypted campaigns are complete failed and every row is retained.
 Own final strict48/50 is not dispatched; RAM/broadWAMP acceptance and adoption
 remain unresolved. Fix the actualCI blocker before new feature/benchmark work.
+
+## D9CB primary acceptance complete failed (2026-11-02)
+
+The full48-case primary campaign independently reproduces all1,440raw rows,
+source-derived inventory/order/scenarios/policy/config/locks and actual retained
+native/driver bytes. It has145measured strict misses, including38RSS, with
+zero unmeasured metrics and zero integrity findings. All ten passes retain
+original3warmups /7repetitions /10,000ms /1,000samples /concurrency1 /in-flight1.
+Both strict campaigns are now complete failed and retained; no numerical rerun,
+selection, policy change or causal RAM-repair inference. All result series stand.
+[Primary audit](../research/2026-11-02-flatbuffers-d9cb-primary-audit.json),
+[Every case/metric](../research/2026-11-02-flatbuffers-d9cb-primary-metrics.json).
 
 ## D9CB supplemental acceptance complete failed (2026-11-02)
 
@@ -92,7 +104,7 @@ native/driver bytes. All50 cases contain202 **measured** strict misses:131protoc
 **unmeasured**, with30evidence findings. The hosted aggregate excludes that
 ineligible payload shard:38eligible cases /1,140rows have186measured misses and
 four evidence findings. Both aggregate files match exactly. Green shard reporting
-jobs do not establish parity. Every row is retained; primary48 continues.
+jobs do not establish parity. Every row is retained; primary48 is also complete failed as recorded above.
 [Complete aggregate audit](../research/2026-11-02-flatbuffers-d9cb-supplemental-audit.json).
 
 ## MQTT client freshness qualification (2026-11-02)
