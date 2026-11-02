@@ -580,6 +580,12 @@ final class NativeBufferAllocator {
     if (token.library != _identity) {
       throw ArgumentError('Borrowed buffer belongs to another native library');
     }
+    RangeError.checkValueInInterval(
+      token.handle,
+      1,
+      0x7fffffff,
+      'token.handle',
+    );
     final info = _getInfoId(token.handle);
     if (info.writable != 0 || info.length != length) {
       throw StateError('Borrowed frame must be frozen with matching length');

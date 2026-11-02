@@ -31,6 +31,15 @@ void main() {
     final builder = allocator.allocate(4)..writeBytes(0, [1, 2, 3, 4]);
     final original = builder.freeze();
     final token = original.borrowedToken;
+    for (final invalid in [0, -1, 0x80000000, token.handle + 0x100000000]) {
+      expect(
+        () => allocator.retainBorrowedBuffer((
+          handle: invalid,
+          library: token.library,
+        ), length: 4),
+        throwsRangeError,
+      );
+    }
     expect(
       () => allocator.retainBorrowedBuffer((
         handle: token.handle,
