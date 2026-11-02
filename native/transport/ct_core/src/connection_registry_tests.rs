@@ -22,6 +22,42 @@ async fn idle_allocator_finished(state: &Arc<idle_allocator::IdleAllocatorReleas
 }
 
 #[tokio::test]
+async fn peer_close_schedules_idle_cleanup_without_the_public_runtime_api() {
+    let registry = idle_registry();
+    register_pending(&registry, ConnectionId(1), ConnectionProtocol::WebSocket);
+    registry.close_connection(ConnectionId(1)).unwrap();
+    assert!(
+        registry.idle_allocator.reserve(true).is_none(),
+        "peer-close watchers must reserve cleanup after removing the final connection"
+    );
+    idle_allocator_finished(&registry.idle_allocator).await;
+}
+
+#[tokio::test]
+async fn peer_close_does_not_trim_while_another_connection_is_live() {
+    let registry = idle_registry();
+    register_pending(&registry, ConnectionId(1), ConnectionProtocol::WebSocket);
+    register_pending(&registry, ConnectionId(2), ConnectionProtocol::WebSocket);
+    registry.close_connection(ConnectionId(1)).unwrap();
+    assert!(registry.idle_allocator.reserve(true).is_some());
+    registry.close_connection(ConnectionId(2)).unwrap();
+    assert!(registry.idle_allocator.reserve(true).is_none());
+    idle_allocator_finished(&registry.idle_allocator).await;
+}
+
+#[test]
+fn close_outside_tokio_leaves_cleanup_to_the_public_runtime_wrapper() {
+    let registry = idle_registry();
+    register_pending(&registry, ConnectionId(1), ConnectionProtocol::WebSocket);
+    registry.close_connection(ConnectionId(1)).unwrap();
+    assert!(registry.idle_allocator.reserve(true).is_some());
+    assert!(matches!(
+        registry.close_connection(ConnectionId(1)),
+        Err(Error::ConnectionNotFound(_))
+    ));
+}
+
+#[tokio::test]
 async fn idle_allocator_skips_live_and_reopened_connections_and_coalesces_checks() {
     use std::sync::atomic::AtomicUsize;
     let registry = idle_registry();
@@ -34,7 +70,7 @@ async fn idle_allocator_skips_live_and_reopened_connections_and_coalesces_checks
     });
     idle_allocator_finished(&registry.idle_allocator).await;
     assert_eq!(calls.load(Ordering::SeqCst), 0);
-    registry.close_connection(ConnectionId(1)).unwrap();
+    registry.remove_connection(ConnectionId(1)).unwrap();
 
     let count = Arc::clone(&calls);
     registry.schedule_idle_allocator_release(&handle, move || {
@@ -43,7 +79,7 @@ async fn idle_allocator_skips_live_and_reopened_connections_and_coalesces_checks
     register_pending(&registry, ConnectionId(2), ConnectionProtocol::WebSocket);
     idle_allocator_finished(&registry.idle_allocator).await;
     assert_eq!(calls.load(Ordering::SeqCst), 0);
-    registry.close_connection(ConnectionId(2)).unwrap();
+    registry.remove_connection(ConnectionId(2)).unwrap();
 
     let count = Arc::clone(&calls);
     let weak = Arc::downgrade(&registry);
@@ -230,7 +266,7 @@ fn register_pending(registry: &ListenerRegistry, id: ConnectionId, protocol: Con
 
 #[test]
 fn missing_connection_ids_preserve_identity_across_accessors() {
-    let registry = ListenerRegistry::default();
+    let registry = Arc::new(ListenerRegistry::default());
     for id in [ConnectionId(0), ConnectionId(1), ConnectionId(u32::MAX)] {
         missing(registry.connection_config(id), id);
         missing(registry.connection_stats(id), id);
@@ -267,7 +303,7 @@ fn missing_connection_ids_preserve_identity_across_accessors() {
 
 #[test]
 fn http_accessors_reject_wamp_protocols_without_consuming_requests() {
-    let registry = ListenerRegistry::default();
+    let registry = Arc::new(ListenerRegistry::default());
     for (index, protocol) in [
         ConnectionProtocol::Http,
         ConnectionProtocol::Http2,
@@ -349,7 +385,7 @@ fn http_accessors_reject_wamp_protocols_without_consuming_requests() {
 
 #[test]
 fn http_queues_are_fifo_and_keep_each_response_channel() {
-    let registry = ListenerRegistry::default();
+    let registry = Arc::new(ListenerRegistry::default());
     for protocol in [
         ConnectionProtocol::Http,
         ConnectionProtocol::Http2,
@@ -406,7 +442,7 @@ fn close_cancels_queued_requests_but_preserves_an_already_taken_response() {
         ConnectionProtocol::Http2,
         ConnectionProtocol::Http3,
     ] {
-        let registry = ListenerRegistry::default();
+        let registry = Arc::new(ListenerRegistry::default());
         let id = ConnectionId(42);
         register_pending(&registry, id, protocol);
         let (first, mut first_receiver) = request(id, "/taken");
@@ -436,7 +472,7 @@ fn close_cancels_queued_requests_but_preserves_an_already_taken_response() {
 
 #[test]
 fn pending_websocket_rejects_http_and_retains_handshake_state() {
-    let registry = ListenerRegistry::default();
+    let registry = Arc::new(ListenerRegistry::default());
     let id = ConnectionId(73);
     let protocol = ConnectionProtocol::WebSocket;
     register_pending(&registry, id, protocol);
@@ -580,7 +616,7 @@ async fn active_wamp_records_preserve_frames_backpressure_and_close_semantics() 
         (ConnectionProtocol::RawSocket, true),
         (ConnectionProtocol::WebSocket, true),
     ] {
-        let registry = ListenerRegistry::default();
+        let registry = Arc::new(ListenerRegistry::default());
         let id = ConnectionId(94);
         let (frame_tx, frame_rx) = mpsc::channel(1);
         let frames = Arc::new(Mutex::new(frame_rx));

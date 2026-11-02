@@ -69,6 +69,10 @@ pub(super) fn release_unused_pages() {
     unsafe { libc::malloc_trim(0) };
 }
 
+// Non-glibc hosts still exercise scheduling, coalescing and cancellation in tests.
+#[cfg(all(test, not(all(target_os = "linux", target_env = "gnu"))))]
+pub(super) fn release_unused_pages() {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

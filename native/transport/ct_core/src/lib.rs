@@ -2287,7 +2287,18 @@ impl ListenerRegistry {
         }
     }
 
-    fn close_connection(&self, connection_id: ConnectionId) -> Result<(), Error> {
+    fn close_connection(self: &Arc<Self>, connection_id: ConnectionId) -> Result<(), Error> {
+        let result = self.remove_connection(connection_id);
+        // Peer disconnects and heartbeat failures close from Tokio tasks rather
+        // than the public FFI wrapper. They must also return idle allocator pages.
+        #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            self.schedule_idle_allocator_release(&handle, idle_allocator::release_unused_pages);
+        }
+        result
+    }
+
+    fn remove_connection(&self, connection_id: ConnectionId) -> Result<(), Error> {
         let entry = self
             .connections
             .lock()
