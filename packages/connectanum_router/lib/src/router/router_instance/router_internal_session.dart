@@ -2477,6 +2477,7 @@ class _InternalSessionIsolate {
           'arguments': decodedMessage['arguments'],
           'argumentsKeywords': decodedMessage['argumentsKeywords'],
           'publisherSessionId': decodedMessage['publisherSessionId'],
+          'details': decodedMessage['details'],
           'pptScheme': (decodedMessage['details'] as Map?)?['ppt_scheme'],
           'pptSerializer':
               (decodedMessage['details'] as Map?)?['ppt_serializer'],

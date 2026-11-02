@@ -13,6 +13,9 @@ import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp;
 import 'package:connectanum_core/mqtt.dart';
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart' as cbor;
+import 'package:connectanum_core/src/serializer/json/serializer.dart' as json;
+import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
+    as msgpack;
 import 'package:connectanum_router/connectanum_router.dart' hide Error;
 import 'package:connectanum_router/src/router/router_instance.dart'
     as worker_api;
@@ -22,6 +25,32 @@ import '../support/native_lib.dart';
 
 const _realm = 'gateway.test';
 final _deniedUri = MqttTopicUriMapper.toWampUri('forbidden');
+
+socket.SocketTransport _publicationTransport(int port, String codec) =>
+    switch (codec) {
+      'flatbuffers' => socket.SocketTransport.withFlatBuffersSerializer(
+        '127.0.0.1',
+        port,
+      ),
+      'json' => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        json.Serializer(),
+        SocketHelper.serializationJson,
+      ),
+      'msgpack' => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        msgpack.Serializer(),
+        SocketHelper.serializationMsgpack,
+      ),
+      _ => socket.SocketTransport(
+        '127.0.0.1',
+        port,
+        cbor.Serializer(),
+        SocketHelper.serializationCbor,
+      ),
+    };
 
 // Observe actual worker commands without retaining application payloads.
 void _observePublicationWorker(Map<String, Object?> init) {
@@ -129,6 +158,7 @@ void main() {
     Future<MqttWampGateway> Function(RouterBinding)? enable,
     void Function(RouterBinding, Object)? onEvent,
     worker_api.RouterWorkerEntryPoint? workerEntryPoint,
+    String wampSerializer = 'cbor',
   }) async {
     final runtime = NativeTransportRuntime(
       libraryPath: resolveOrBuildNativeLib()!,
@@ -240,12 +270,7 @@ void main() {
     final port = binding.listeners.single.port;
     final session = await wamp_client.Client(
       realm: _realm,
-      transport: socket.SocketTransport(
-        '127.0.0.1',
-        port,
-        cbor.Serializer(),
-        SocketHelper.serializationCbor,
-      ),
+      transport: _publicationTransport(port, wampSerializer),
     ).connect().first.timeout(const Duration(seconds: 5));
     addTearDown(session.close);
     final mqtt = await MqttQos0Client.connect(
@@ -257,18 +282,22 @@ void main() {
     return (binding: binding, gateway: gateway, session: session, mqtt: mqtt);
   }
 
-  for (final (workers, size, mode) in [
+  for (final (workers, size, mode, codec) in [
     for (final workers in [1, 2])
       for (final size in [128, 16383, 16384, 65536])
-        for (final mode in ['batch', 'legacy']) (workers, size, mode),
-    (1, 65536, 'failures'),
+        for (final mode in ['batch', 'legacy']) (workers, size, mode, 'cbor'),
+    (1, 65536, 'failures', 'cbor'),
+    (1, 65536, 'mixed', 'cbor'),
+    for (final codec in ['json', 'msgpack', 'flatbuffers', 'mixed'])
+      (1, 65536, 'batch', codec),
   ]) {
     test(
-      'MQTT fanout worker transfers: workers=$workers bytes=$size mode=$mode',
+      'MQTT fanout worker transfers: workers=$workers bytes=$size mode=$mode codec=$codec',
       () async {
         final observations = <Map>[];
         final errors = <Map>[];
         final fixture = await start(
+          wampSerializer: codec == 'mixed' ? 'cbor' : codec,
           transformSettings: (s) =>
               s.copyWith(workerPool: WorkerPoolSettings(minWorkers: workers)),
           workerEntryPoint: switch (mode) {
@@ -290,11 +319,11 @@ void main() {
         for (var i = 1; i < 4; i++) {
           final session = await wamp_client.Client(
             realm: _realm,
-            transport: socket.SocketTransport(
-              '127.0.0.1',
+            transport: _publicationTransport(
               fixture.binding.listeners.single.port,
-              cbor.Serializer(),
-              SocketHelper.serializationCbor,
+              codec == 'mixed'
+                  ? ['cbor', 'json', 'msgpack', 'flatbuffers'][i]
+                  : codec,
             ),
           ).connect().first.timeout(const Duration(seconds: 5));
           addTearDown(session.close);
@@ -304,6 +333,22 @@ void main() {
         final subscriptions = <int>[];
         for (final session in sessions) {
           final subscribed = await session.subscribe(
+            MqttTopicUriMapper.toWampUri(topic),
+          );
+          final event = Completer<wamp.Event>();
+          subscriptions.add(subscribed.subscriptionId);
+          subscribed.onEvent(event.complete);
+          received.add(event.future.timeout(const Duration(seconds: 5)));
+        }
+        if (mode == 'mixed') {
+          final internal = await fixture.binding.createInternalSession(
+            realmUri: _realm,
+            authId: 'mixed-internal-subscriber',
+            authRole: 'anonymous',
+            indexByRealm: false,
+          );
+          addTearDown(internal.close);
+          final subscribed = await internal.subscribe(
             MqttTopicUriMapper.toWampUri(topic),
           );
           final event = Completer<wamp.Event>();

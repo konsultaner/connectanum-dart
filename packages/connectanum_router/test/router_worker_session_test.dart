@@ -66,6 +66,7 @@ void _sendScratchEvents(List<Object> arguments) {
     );
     storage.fillRange(0, storage.length, 0);
   }
+  (arguments[2] as SendPort).send(workerFrameScratchMetricsForTest);
 }
 
 Future<List<Map>> _captureScratchFrames(
@@ -89,18 +90,26 @@ Future<List<Map>> _captureScratchFrames(
 void main() {
   for (final serializer in [
     NativeMessageSerializer.cbor,
+    NativeMessageSerializer.flatbuffers,
   ]) {
     test(
       'reused ${serializer.name} worker buffers keep each isolate snapshot',
       () async {
         final reply = ReceivePort();
+        final allocation = ReceivePort();
         try {
+          final allocated = allocation.first;
           final frames = reply.take(3).toList();
           await Isolate.spawn(_sendScratchEvents, <Object>[
             reply.sendPort,
             serializer.index,
+            allocation.sendPort,
           ]);
           final values = await frames.timeout(const Duration(seconds: 10));
+          final metrics =
+              await allocated.timeout(const Duration(seconds: 10)) as Map;
+          expect(metrics['buffers'], 1);
+          expect(metrics['bytes'], (values.first as Map)['payload'].length);
           for (var index = 0; index < values.length; index++) {
             final frame = values[index] as Map;
             final details = event_msg.EventDetails()
@@ -119,6 +128,7 @@ void main() {
           }
         } finally {
           reply.close();
+          allocation.close();
         }
       },
     );
@@ -204,85 +214,97 @@ void main() {
       expect(workerFrameScratchMetricsForTest, before);
     },
   );
-  test(
-    'scratch sending preserves PPT, lazy, kwargs and ordinary messages',
-    () async {
-      final bytes = Uint8List(65536);
-      final lazy = event_msg.Event(1, 2, event_msg.EventDetails())
-        ..setLazyPayload(
-          argumentsBytes: Uint8List.fromList([0x81, 0x40]),
-          argumentsDecoder: (_) =>
-              throw StateError('unexpected materialization'),
-          encoding: LazyPayloadEncoding.cbor,
+  for (final serializer in [
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    test(
+      '${serializer.name} scratch sending preserves PPT, lazy, kwargs and ordinary messages',
+      () async {
+        final bytes = Uint8List(65536);
+        final lazy = event_msg.Event(1, 2, event_msg.EventDetails())
+          ..setLazyPayload(
+            argumentsBytes: Uint8List.fromList([0x81, 0x40]),
+            argumentsDecoder: (_) =>
+                throw StateError('unexpected materialization'),
+            encoding: LazyPayloadEncoding.cbor,
+          );
+        final messages = <AbstractMessage>[
+          lazy,
+          event_msg.Event(1, 2, event_msg.EventDetails()),
+          event_msg.Event(1, 2, event_msg.EventDetails(), arguments: ['text']),
+          event_msg.Event(
+            1,
+            2,
+            event_msg.EventDetails(),
+            arguments: [bytes],
+            argumentsKeywords: {'key': 1},
+          ),
+          result_msg.Result(1, result_msg.ResultDetails(), arguments: [bytes]),
+          event_msg.Event(
+            1,
+            2,
+            event_msg.EventDetails(pptScheme: 'mqtt', pptSerializer: 'cbor'),
+          )..transparentBinaryPayload = bytes,
+        ];
+        final before = workerFrameScratchMetricsForTest;
+        final frames = await _captureScratchFrames(
+          serializer,
+          messages,
         );
-      final messages = <AbstractMessage>[
-        lazy,
-        event_msg.Event(1, 2, event_msg.EventDetails()),
-        event_msg.Event(1, 2, event_msg.EventDetails(), arguments: ['text']),
-        event_msg.Event(
+        for (var i = 0; i < messages.length; i++) {
+          expect(
+            frames[i]['payload'],
+            encodeMessage(serializer, messages[i]),
+          );
+        }
+        expect(workerFrameScratchMetricsForTest, before);
+        final reply = ReceivePort();
+        try {
+          expect(
+            () => sendWorkerMessagePayload(
+              reply.sendPort,
+              NativeMessageSerializer.ubjson,
+              event_msg.Event(
+                1,
+                2,
+                event_msg.EventDetails(),
+                arguments: [bytes],
+              ),
+              {},
+            ),
+            throwsUnsupportedError,
+          );
+        } finally {
+          reply.close();
+        }
+      },
+    );
+  }
+  test(
+    'JSON and MessagePack retain owned-frame sending without caching',
+    () async {
+      for (final serializer in [
+        NativeMessageSerializer.json,
+        NativeMessageSerializer.messagePack,
+      ]) {
+        final bytes = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+        final message = event_msg.Event(
           1,
           2,
           event_msg.EventDetails(),
           arguments: [bytes],
-          argumentsKeywords: {'key': 1},
-        ),
-        result_msg.Result(1, result_msg.ResultDetails(), arguments: [bytes]),
-        event_msg.Event(
-          1,
-          2,
-          event_msg.EventDetails(pptScheme: 'mqtt', pptSerializer: 'cbor'),
-        )..transparentBinaryPayload = bytes,
-      ];
-      final before = workerFrameScratchMetricsForTest;
-      final frames = await _captureScratchFrames(
-        NativeMessageSerializer.cbor,
-        messages,
-      );
-      for (var i = 0; i < messages.length; i++) {
-        expect(
-          frames[i]['payload'],
-          encodeMessage(NativeMessageSerializer.cbor, messages[i]),
         );
-      }
-      expect(workerFrameScratchMetricsForTest, before);
-      final reply = ReceivePort();
-      try {
-        expect(
-          () => sendWorkerMessagePayload(
-            reply.sendPort,
-            NativeMessageSerializer.ubjson,
-            event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [bytes]),
-            {},
-          ),
-          throwsUnsupportedError,
-        );
-      } finally {
-        reply.close();
+        final expected = encodeMessage(serializer, message);
+        final before = workerFrameScratchMetricsForTest;
+        final pending = _captureScratchFrames(serializer, [message]);
+        bytes.fillRange(0, bytes.length, 0);
+        final frames = await pending;
+        expect(frames.single['payload'], expected);
+        expect(workerFrameScratchMetricsForTest, before);
       }
     },
   );
-  test('other codecs preserve owned-frame sending without caching', () async {
-    for (final serializer in [
-      NativeMessageSerializer.json,
-      NativeMessageSerializer.messagePack,
-      NativeMessageSerializer.flatbuffers,
-    ]) {
-      final bytes = Uint8List.fromList(List.generate(65536, (i) => i % 251));
-      final message = event_msg.Event(
-        1,
-        2,
-        event_msg.EventDetails(),
-        arguments: [bytes],
-      );
-      final expected = encodeMessage(serializer, message);
-      final before = workerFrameScratchMetricsForTest;
-      final pending = _captureScratchFrames(serializer, [message]);
-      bytes.fillRange(0, bytes.length, 0);
-      final frames = await pending;
-      expect(frames.single['payload'], expected);
-      expect(workerFrameScratchMetricsForTest, before);
-    }
-  });
   test(
     'FlatBuffers worker owns binary frames and supports control fallback',
     () {

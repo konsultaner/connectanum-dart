@@ -260,7 +260,8 @@ void sendWorkerMessagePayload(
   AbstractMessage message,
   Map<String, Object?> envelope,
 ) {
-  if (serializer == NativeMessageSerializer.cbor &&
+  if ((serializer == NativeMessageSerializer.cbor ||
+          serializer == NativeMessageSerializer.flatbuffers) &&
       message is event_msg.Event &&
       message.details.pptScheme == null &&
       !message.hasLazyArguments &&
@@ -272,7 +273,9 @@ void sendWorkerMessagePayload(
     if (arguments?.length == 1 &&
         arguments!.single is Uint8List &&
         (arguments.single as Uint8List).length >= 16 * 1024) {
-      final fragments = _cborSerializer.serializeEventFragments(message)!;
+      final fragments = serializer == NativeMessageSerializer.cbor
+          ? _cborSerializer.serializeEventFragments(message)!
+          : _flatBuffersSerializer.serializeTransportFragments(message);
       final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
       final output = _workerFrameBuffer(length);
       var offset = 0;
