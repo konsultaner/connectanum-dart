@@ -1,5 +1,5 @@
 """Diagnostic qualification: default VM, unchanged overload rate/latency/absolute RSS."""
-import hashlib,json,os,platform,subprocess,sys,tempfile
+import hashlib,json,os,platform,statistics,subprocess,sys,tempfile
 from pathlib import Path
 import run_mqtt_gateway_benchmark as gate
 assert not os.environ.get('DART_VM_OPTIONS')
@@ -24,5 +24,18 @@ with tempfile.TemporaryDirectory() as temporary:
     checks={role:values['drained_rss_bytes']<=limit['processes']['subscriber' if role.startswith('subscriber-') else role]['max_drained_rss_bytes'] for role,values in process.items()}
     report=dict(profile=profile['id'],direction=path,processes=process,absolute_drained_rss_checks=checks,default_metrics_passed=all(checks.values()))
     reports.append(report);print(json.dumps(report),flush=True)
+    for profile in gate.overload_profiles():
+      for path in ['mqtt_to_wamp','wamp_to_mqtt']:
+        directory=root/profile['id']/path;directory.mkdir(parents=True)
+        config=dict(profile,path=path,port=0,native_library=str(library),paho_python=sys.executable,certificate=str(gate.reference.TLS_CERT),ca_certificate=str(gate.reference.TLS_CA),key=str(gate.reference.TLS_KEY))
+        campaign=gate.Campaign(worker,directory,config,timeout=90)
+        try:rows=campaign.run_overload(profile,path,3,2048,20000,.5)
+        finally:campaign.close()
+        process=gate.process_summary(rows)
+        report=dict(profile=profile['id'],direction=path,delivered_per_sec=statistics.median(x['delivered_per_sec'] for x in rows),p99_us=statistics.median(x['p99_us'] for x in rows),retained_growth_bytes=max(0,max(x['processes']['broker']['drained_rss_bytes'] for x in rows)-rows[0]['processes']['broker']['drained_rss_bytes']),processes=process)
+        all_checks=gate.overload_checks(report,budgets['overload'][profile['id']][path])
+        checks={key:value for key,value in all_checks.items() if 'retained' not in key}
+        report.update(default_metrics_checks=checks,default_metrics_passed=all(checks.values()),raw_retention_checks={key:value for key,value in all_checks.items() if 'retained' in key})
+        reports.append(report);print(json.dumps(report),flush=True)
 (root/'checks.json').write_text(json.dumps(reports,indent=2)+'\n')
 raise SystemExit(int(not all(x['default_metrics_passed'] for x in reports)))

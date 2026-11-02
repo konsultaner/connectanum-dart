@@ -7192,7 +7192,7 @@ void main() {
             // Publication acknowledgment does not await failed-stream teardown.
             // Require the actual unsubscribe, bounded so leaked owners still fail.
             final cleanupWait = Stopwatch()..start();
-            while (afterFailure.arguments?.isNotEmpty == true &&
+            while (afterFailure.arguments.isNotEmpty &&
                 cleanupWait.elapsed < const Duration(seconds: 5)) {
               await Future<void>.delayed(const Duration(milliseconds: 20));
               afterFailure = await client.lookupWampSubscriptionDirect(topic);

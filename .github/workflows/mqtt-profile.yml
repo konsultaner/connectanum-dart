@@ -1,4 +1,4 @@
-name: MQTT JSON TLS default Dart heap diagnostic
+name: MQTT owned-frame allocation diagnostic
 on:
   workflow_dispatch:
 permissions:

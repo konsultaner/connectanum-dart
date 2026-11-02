@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_client/native_message_bytes.dart';
 import 'package:connectanum_core/connectanum_core.dart' show AbstractMessage;
+import 'package:connectanum_core/mqtt.dart' show MqttFrame, MqttFrameDecoder;
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
@@ -97,6 +98,14 @@ abstract class NativeRuntimeWithMqtt implements NativeRuntime {
   Uint8List? pollMqttChunk(int connectionId);
   void sendMqttChunk(int connectionId, Uint8List bytes);
   void setMqttWake(int connectionId, void Function(int)? callback);
+}
+
+/// Decodes MQTT bytes before the reusable native read buffer can be overwritten.
+/// Returned frames own their bodies. Null means no input; an empty list means
+/// input was consumed but the current packet is incomplete.
+abstract interface class NativeRuntimeWithMqttFrames
+    implements NativeRuntimeWithMqtt {
+  List<MqttFrame>? pollMqttFrames(int connectionId, MqttFrameDecoder decoder);
 }
 
 /// Creates and reloads listeners without replacing process-wide configuration.
@@ -2302,7 +2311,7 @@ abstract final class NativeLibraryLoader {
 class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
-        NativeRuntimeWithMqtt,
+        NativeRuntimeWithMqttFrames,
         NativeRuntimeWithConfiguredListeners,
         NativeRuntimeWithRouterConfiguration,
         NativeRuntimeWithInternalCallForwarding {
@@ -2825,6 +2834,21 @@ class NativeTransportRuntime
 
   @override
   Uint8List? pollMqttChunk(int connectionId) {
+    final length = _pollMqttChunkLength(connectionId);
+    if (length == 0) return null;
+    return Uint8List.fromList(_mqttReadBuffer!.asTypedList(length));
+  }
+
+  @override
+  List<MqttFrame>? pollMqttFrames(int connectionId, MqttFrameDecoder decoder) {
+    final length = _pollMqttChunkLength(connectionId);
+    if (length == 0) return null;
+    // The final decoder copies input into owned bodies synchronously. It cannot
+    // invoke caller code or retain this view while another poll reuses it.
+    return decoder.add(_mqttReadBuffer!.asTypedList(length));
+  }
+
+  int _pollMqttChunkLength(int connectionId) {
     final call = _bindings.ctPollMqttChunk;
     if (call == null) {
       throw UnsupportedError('Native MQTT transport unavailable');
@@ -2834,8 +2858,7 @@ class NativeTransportRuntime
     if (result < 0) {
       _throwForError(result, 'Failed to poll MQTT bytes');
     }
-    if (result == 0) return null;
-    return Uint8List.fromList(buffer.asTypedList(result));
+    return result;
   }
 
   @override
