@@ -47,6 +47,35 @@ final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
 const _zeroCopyPublishTag = 'zero_copy_publish';
 
 void main() {
+  test(
+    'large JSON worker events retain exact owned bytes across later encodes',
+    () {
+      final payload = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+      final details = event_msg.EventDetails()
+        ..custom['mqtt_topic'] = 'sensors/µ';
+      final expected = utf8.encode(
+        jsonEncode([
+          36,
+          1,
+          2,
+          {'mqtt_topic': 'sensors/µ'},
+          ['\u0000${base64Encode(payload)}'],
+        ]),
+      );
+      final encoded = encodeMessage(
+        NativeMessageSerializer.json,
+        event_msg.Event(1, 2, details, arguments: [payload]),
+      );
+      payload.fillRange(0, payload.length, 0);
+      final later = encodeMessage(
+        NativeMessageSerializer.json,
+        event_msg.Event(3, 4, event_msg.EventDetails(), arguments: [payload]),
+      );
+      expect(encoded, expected);
+      expect(later, isNot(equals(encoded)));
+      expect(utf8.decode(encoded), utf8.decode(expected));
+    },
+  );
   late RouterSettings routerSettings;
   late RouterStateStore stateStore;
 

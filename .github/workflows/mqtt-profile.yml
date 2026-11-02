@@ -1,4 +1,4 @@
-name: MQTT precise default RSS and shutdown diagnostic
+name: MQTT binary and JSON allocation diagnostic
 on:
   workflow_dispatch:
 permissions:
@@ -26,8 +26,6 @@ jobs:
           build_native_ffi_test_release
           echo "CONNECTANUM_NATIVE_LIB=$CONNECTANUM_NATIVE_LIB" >> "$GITHUB_ENV"
           bin/bootstrap
-      - name: Check native idle cleanup regressions
-        run: cargo test --manifest-path native/transport/Cargo.toml --release --target-dir native/transport/target/ffi-test -p ct_core --features ffi-test mqtt_plain_stream_bounds_unsent_bytes
       - name: Check default-VM overload performance and absolute RSS
         run: |
           set -euo pipefail
