@@ -8,7 +8,7 @@ library=Path(os.environ['CONNECTANUM_NATIVE_LIB']).resolve()
 metadata=dict(diagnostic_only=True,scope='default_overload_performance_and_absolute_rss_only',normal_vm_options=None,source_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),native_library_sha256=hashlib.sha256(library.read_bytes()).hexdigest(),architecture=platform.machine(),logical_cpus=os.cpu_count(),cpu_signature_sha256=gate.cpu_signature_sha256())
 (root/'environment.json').write_text(json.dumps(metadata,indent=2)+'\n')
 budgets=json.loads((gate.ROOT/'tool/mqtt_gateway_arm64_benchmark_budgets.json').read_text())
-gate.check_hardware(budgets,dict(metadata,cpu_model=platform.processor() or platform.machine()),gate.overload_profiles())
+gate.check_hardware(budgets,dict(metadata,cpu_model=platform.processor() or platform.machine()),gate.profiles('release'))
 reports=[]
 with tempfile.TemporaryDirectory() as temporary:
     worker=gate.compile_worker(Path(temporary))
