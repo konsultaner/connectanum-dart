@@ -1,0 +1,378 @@
+//! Test-only requested-allocation census of the actual private queue consumer.
+//! No timing, RSS, physical allocation, transport or gate acceptance is inferred.
+use super::*;
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
+use std::hint::black_box;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Counts {
+    allocs: usize,
+    reallocs: usize,
+    requested: usize,
+    events: usize,
+    sizes: [usize; 32],
+}
+thread_local! { static COUNTS: Cell<Option<Counts>> = const { Cell::new(None) }; }
+fn record(size: usize, realloc: bool) {
+    let _ = COUNTS.try_with(|state| {
+        if let Some(mut count) = state.get() {
+            count.allocs += usize::from(!realloc);
+            count.reallocs += usize::from(realloc);
+            count.requested += size;
+            if count.events < count.sizes.len() {
+                count.sizes[count.events] = size;
+            }
+            count.events += 1;
+            state.set(Some(count));
+        }
+    });
+}
+struct ForwardSystem;
+unsafe impl GlobalAlloc for ForwardSystem {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        record(layout.size(), false);
+        unsafe { System.alloc(layout) }
+    }
+    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+        record(layout.size(), false);
+        unsafe { System.alloc_zeroed(layout) }
+    }
+    unsafe fn realloc(&self, pointer: *mut u8, layout: Layout, size: usize) -> *mut u8 {
+        record(size, true);
+        unsafe { System.realloc(pointer, layout, size) }
+    }
+    unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
+        unsafe { System.dealloc(pointer, layout) }
+    }
+}
+#[global_allocator]
+static ALLOCATOR: ForwardSystem = ForwardSystem;
+fn measure<T>(operation: impl FnOnce() -> T) -> (T, Counts) {
+    struct DisableOnUnwind;
+    impl Drop for DisableOnUnwind {
+        fn drop(&mut self) {
+            COUNTS.with(|state| state.set(None));
+        }
+    }
+    COUNTS.with(|state| {
+        assert!(state.get().is_none());
+        state.set(Some(Counts::default()));
+    });
+    let guard = DisableOnUnwind;
+    let value = operation();
+    let counts = COUNTS.with(|state| state.replace(None).unwrap());
+    drop(guard);
+    (value, counts)
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+struct Shape {
+    name: &'static str,
+    lengths: Vec<usize>,
+    cap: usize,
+    disconnect: bool,
+}
+fn shapes() -> Vec<Shape> {
+    let mut cases = vec![
+        ("empty-open", vec![], 65536),
+        ("single128", vec![128], 65536),
+        ("two128", vec![128; 2], 65536),
+        ("three128", vec![128; 3], 65536),
+        ("many32x128", vec![128; 32], 65536),
+        ("many64x128", vec![128; 64], 65536),
+        ("many512x128", vec![128; 512], 65536),
+        ("many513x128", vec![128; 513], 65536),
+        ("single65536", vec![65536], 65536),
+        ("two4096", vec![4096; 2], 65536),
+        ("two8192", vec![8192; 2], 65536),
+        ("mixed128-8192-128", vec![128, 8192, 128], 65536),
+        ("first8192-128", vec![8192, 128], 65536),
+        ("oversize65537", vec![65537], 65536),
+        ("split150-300-cap200", vec![150, 300], 200),
+        ("exact256", vec![128; 2], 256),
+        ("tail256", vec![128; 3], 256),
+        ("empty-pieces", vec![0, 128, 0, 128], 65536),
+    ]
+    .into_iter()
+    .map(|(name, lengths, cap)| Shape {
+        name,
+        lengths,
+        cap,
+        disconnect: false,
+    })
+    .collect::<Vec<_>>();
+    cases.push(Shape {
+        name: "empty-disconnected",
+        lengths: vec![],
+        cap: 65536,
+        disconnect: true,
+    });
+    cases.push(Shape {
+        name: "drain-disconnected",
+        lengths: vec![128, 65537, 128],
+        cap: 65536,
+        disconnect: true,
+    });
+    cases
+}
+// Every row owns newly allocated chunks with disjoint row/chunk nonce keys.
+// Inputs are raw transport chunks, not an MQTT protocol/client benchmark.
+fn pattern(nonce: u64, chunk: usize, offset: usize) -> u8 {
+    if offset < 8 {
+        return nonce.to_le_bytes()[offset];
+    }
+    if offset < 16 {
+        return (chunk as u64).to_le_bytes()[offset - 8];
+    }
+    let mut word = nonce
+        ^ (chunk as u64 + 1)
+            .wrapping_mul(0x9e3779b185ebca87_u64)
+            .wrapping_add(offset as u64);
+    word = (word ^ (word >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    word = (word ^ (word >> 27)).wrapping_mul(0x94d049bb133111eb);
+    (word ^ (word >> 31)) as u8
+}
+fn fresh(nonce: u64, chunk: usize, len: usize) -> Bytes {
+    Bytes::from(
+        (0..len)
+            .map(|i| pattern(nonce, chunk, i))
+            .collect::<Vec<_>>(),
+    )
+}
+
+#[derive(Debug, serde::Serialize)]
+struct Call {
+    output_len: Option<usize>,
+    error: Option<&'static str>,
+    aliased_input: bool,
+    allocs: usize,
+    reallocs: usize,
+    requested: usize,
+    request_sizes: Vec<usize>,
+}
+#[derive(Debug, serde::Serialize)]
+struct Row {
+    shape: Shape,
+    nonce: u64,
+    calls: Vec<Call>,
+    input_bytes: usize,
+    output_sha1: String,
+    full_bytes_verified: bool,
+    survives_queue_release: bool,
+}
+fn run_shape(shape: Shape, nonce: u64) -> Row {
+    let (sender, receiver) = mpsc::channel(shape.lengths.len().max(1));
+    let mut originals = Vec::with_capacity(shape.lengths.len());
+    for (chunk, &len) in shape.lengths.iter().enumerate() {
+        let bytes = fresh(nonce, chunk, len);
+        originals.push((bytes.as_ptr() as usize, bytes.len()));
+        // Never clone queued Bytes for verification: ownership affects promotion.
+        sender.try_send(bytes).unwrap();
+    }
+    let sender = if shape.disconnect {
+        drop(sender);
+        None
+    } else {
+        Some(sender)
+    };
+    let mut inbound = MqttInbound::new(receiver);
+    let total: usize = shape.lengths.iter().sum();
+    let bound = shape.lengths.len() + total / shape.cap + 4;
+    let mut outputs = Vec::with_capacity(bound);
+    let mut calls = Vec::with_capacity(bound);
+    for _ in 0..bound {
+        // Only the real private operation is inside the thread-local counter.
+        let (result, count) = measure(|| inbound.try_recv_limited(black_box(shape.cap)));
+        assert!(
+            count.events <= count.sizes.len(),
+            "request-event truncation"
+        );
+        let mut call = Call {
+            output_len: None,
+            error: None,
+            aliased_input: false,
+            allocs: count.allocs,
+            reallocs: count.reallocs,
+            requested: count.requested,
+            request_sizes: count.sizes[..count.events].to_vec(),
+        };
+        match result {
+            Ok(bytes) => {
+                assert!(bytes.len() <= shape.cap);
+                call.output_len = Some(bytes.len());
+                let start = bytes.as_ptr() as usize;
+                call.aliased_input = !bytes.is_empty()
+                    && originals
+                        .iter()
+                        .any(|&(p, n)| start >= p && start + bytes.len() <= p + n);
+                outputs.push(bytes);
+                calls.push(call);
+            }
+            Err(error) => {
+                assert_eq!(
+                    error,
+                    if shape.disconnect {
+                        TryRecvError::Disconnected
+                    } else {
+                        TryRecvError::Empty
+                    }
+                );
+                call.error = Some(if shape.disconnect {
+                    "disconnected"
+                } else {
+                    "empty"
+                });
+                calls.push(call);
+                break;
+            }
+        }
+    }
+    assert!(
+        calls.last().unwrap().error.is_some(),
+        "poll bound exhausted"
+    );
+    assert!(inbound.pending.is_none());
+    drop(inbound);
+    drop(sender);
+    // Verify every byte after releasing both queue endpoints and pending owner.
+    let mut output = outputs.iter().flat_map(|b| b.iter().copied());
+    let mut hash = Sha1::new();
+    for (chunk, &len) in shape.lengths.iter().enumerate() {
+        for offset in 0..len {
+            let value = output.next().expect("missing byte");
+            assert_eq!(value, pattern(nonce, chunk, offset));
+            hash.update([value]);
+        }
+    }
+    assert!(output.next().is_none(), "extra bytes");
+    Row {
+        shape,
+        nonce,
+        calls,
+        input_bytes: total,
+        output_sha1: format!("{:x}", hash.finalize()),
+        full_bytes_verified: true,
+        survives_queue_release: true,
+    }
+}
+
+#[test]
+fn mqtt_probe_counter_and_wake_ownership_controls() {
+    let (boxed, count) = measure(|| black_box(Box::new([0_u8; 19])));
+    assert_eq!((count.allocs, count.reallocs, count.requested), (1, 0, 19));
+    drop(boxed);
+    let (_, zero) = measure(|| black_box(19_u64));
+    assert_eq!(zero, Counts::default());
+    // Reallocation is a new requested size, not live or physical allocation.
+    let layout = Layout::from_size_align(17, 1).unwrap();
+    let (pointer, count) = measure(|| unsafe { std::alloc::alloc(layout) });
+    assert!(!pointer.is_null());
+    assert_eq!((count.allocs, count.requested), (1, 17));
+    let (grown, count) = measure(|| unsafe { std::alloc::realloc(pointer, layout, 53) });
+    assert!(!grown.is_null());
+    assert_eq!((count.reallocs, count.requested), (1, 53));
+    unsafe { std::alloc::dealloc(grown, Layout::from_size_align(53, 1).unwrap()) };
+
+    let (sender, receiver) = mpsc::channel(2);
+    let mut inbound = MqttInbound::new(receiver);
+    let pending = AtomicBool::new(true);
+    let raced = fresh(234_100_001, 0, 128);
+    let p = raced.as_ptr();
+    let out = inbound
+        .poll_with_wake_reset(65536, &pending, || {
+            assert!(!pending.load(Ordering::Acquire));
+            sender.try_send(raced).unwrap();
+        })
+        .unwrap();
+    assert_eq!(out.as_ptr(), p);
+    assert!(!pending.load(Ordering::Acquire));
+    drop(inbound);
+    drop(sender);
+    assert!(out
+        .iter()
+        .enumerate()
+        .all(|(i, b)| *b == pattern(234_100_001, 0, i)));
+
+    let (sender, receiver) = mpsc::channel(1);
+    drop(sender);
+    let mut inbound = MqttInbound::new(receiver);
+    pending.store(true, Ordering::Release);
+    assert!(inbound
+        .poll_with_wake_reset(65536, &pending, || panic!("disconnected must not reset"))
+        .is_none());
+    assert!(pending.load(Ordering::Acquire));
+}
+
+fn fresh_queue_control(nonce: u64) -> Counts {
+    let (sender, mut receiver) = mpsc::channel(1);
+    sender.try_send(fresh(nonce, 0, 128)).unwrap();
+    let (value, counts) = measure(|| receiver.try_recv());
+    let value = value.unwrap();
+    drop(receiver);
+    drop(sender);
+    assert!(value
+        .iter()
+        .enumerate()
+        .all(|(i, b)| *b == pattern(nonce, 0, i)));
+    counts
+}
+#[test]
+fn mqtt_probe_full_matrix_preflight() {
+    // Fresh bounded queues may initialize platform-specific synchronization on
+    // first receive. Retain that real cost and compare the single-chunk path to
+    // an independently fresh direct queue receive; do not warm it away.
+    let direct = fresh_queue_control(234_100_002);
+    let mutex = Mutex::new(());
+    let (guard, lock_counts) = measure(|| mutex.lock().unwrap());
+    drop(guard);
+    println!("FRESH_QUEUE_CONTROL {direct:?} MUTEX_CONTROL {lock_counts:?}");
+    for (index, shape) in shapes().into_iter().enumerate() {
+        let row = run_shape(shape, 234_000_001 + index as u64);
+        match row.shape.name {
+            "empty-open" | "empty-disconnected" => {
+                assert!(
+                    row.calls.iter().all(|c| c.allocs == 0 && c.reallocs == 0),
+                    "unexpected requests in {row:?}"
+                );
+            }
+            "single128" | "single65536" => {
+                let first = &row.calls[0];
+                assert!(first.aliased_input);
+                assert_eq!(
+                    (first.allocs, first.reallocs, first.requested),
+                    (direct.allocs, direct.reallocs, direct.requested),
+                    "single-chunk consumer differs from direct fresh queue: {row:?}"
+                );
+                assert_eq!(first.request_sizes, direct.sizes[..direct.events]);
+                assert!(row.calls[1..]
+                    .iter()
+                    .all(|c| c.allocs == 0 && c.reallocs == 0));
+            }
+            "split150-300-cap200" => assert_eq!(
+                row.calls
+                    .iter()
+                    .filter_map(|c| c.output_len)
+                    .collect::<Vec<_>>(),
+                [200, 200, 50]
+            ),
+            _ => (),
+        }
+    }
+}
+
+#[test]
+#[ignore = "one externally guarded/predeclared count-only capture"]
+fn mqtt_probe_capture_all_shapes() {
+    assert_eq!(
+        std::env::var("CONNECTANUM_MQTT_PROBE_CAPTURE").as_deref(),
+        Ok("231000001")
+    );
+    for repetition in 0..5 {
+        for (index, shape) in shapes().into_iter().enumerate() {
+            let nonce = 231_000_001 + repetition * 20 + index as u64;
+            let row = run_shape(shape, nonce);
+            println!("MQTT_INBOUND_ROW {}", serde_json::to_string(&row).unwrap());
+        }
+    }
+}

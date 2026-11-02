@@ -2,16 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: finish fresh pre-change bootstrap/fullfast baseline in isolated
-`codex/mqtt-small-burst-coalescing` before any test/source edits for actual-private
-MQTT coalescer allocation/copy diagnosis. Bootstrap passes; fullfast active under
-official exclusive lease with cleanAD48/tree2A48/three locks. No instrumentation,
-production patch or capture is ready. Original8341 count25rows and own canonical
-are complete/audited; do not rerun. Read-only arm10row component is6.863ns hot
-isolatedDarwin difference, notLinux/gate proof; no wake policy change. Original
-AD48 CI remains failed only on measuredMQTT/FullVerify, all results retained.
-BothD9CBstrict campaigns complete failed(145primary/38RSS;202supplemental plus
-2unmeasured). No adoption or policy change; keep actualCIrepair priority.
+Current step: actual-private MQTT coalescer100row requested-allocation census
+is complete/audited with all fresh raw bodies/lifetimes/source/locks/native and
+probe bytes retained. Two128byte chunks use64+4096+24bytes; exact256capacity
+control uses64+256. Prepare a narrow, reviewed test-first capacity hypothesis
+for a complete two-chunk burst; no production patch or causal/RAM/gate claim.
+Freshbootstrap/fullfast passed before edits. All original failures/100rows stand;
+no census/numerical rerun. OriginalAD48 CI remains blocked on measuredMQTT;
+final-runtime strict48/50 and cleanCI remain mandatory.
 
 The completed D9CB payload artifact also retains actual production native
 `fc9ccb77…` and driver `e432a974…` bytes. They independently rehash exactly to
@@ -124,12 +122,30 @@ worker, native or runtime policy changes are justified by it.
 [all10rows](../research/2026-11-02-mqtt-global-arm-component-rows.jsonl),
 [probe source](../research/2026-11-02-mqtt-global-arm-component.dart.txt).
 
-The next isolated TEST-ONLY checkout `codex/mqtt-small-burst-coalescing` starts
-at frozenAD48. Fresh bootstrap passes; pre-change full `bin/test-fast` is ACTIVE
-under the official exclusive lease, with cleanAD48/tree2A48 and3locks frozen.
-Own new native binds on completion. No source/HEAD edits, competing tests/models,
-duplicate baseline, queued instrumentation, production patch or data capture.
-Only absent ignored locks were seeded with exact own canonical hashes.
+The isolated `codex/mqtt-small-burst-coalescing` checkout completed fresh
+bootstrap/fullfast before edits; cleanAD48/tree2A48,3locks and own native
+`351ccf09…` independently verified. Its TEST-ONLY actual-private `MqttInbound`
+probe is complete and independently audited:100rows /20shapes /five fresh
+repetitions /1,919,060fully regenerated raw bytes,90unique nonempty streams.
+All source/archive/native witness/probe/140staticRLIBs/locks/17guards and full
+byte/order/cap/after-queue-release lifetime checks verify. No runtime changed.
+The original two zero-allocation fixture failures remain: a fresh directqueue
+and freshmutex each request64bytes here; that real cold cost stays in the data.
+All20preflight shapes pass after comparing single chunks to the directqueue.
+[Complete allocation audit](../research/2026-11-02-mqtt-small-burst-allocation-audit.json),
+[all100rows](../research/2026-11-02-mqtt-small-burst-allocation-rows.jsonl),
+[actual probe source](../research/2026-11-02-mqtt-small-burst-allocation-probe.rs.txt).
+
+Two128byte chunks request64+4096+24bytes; the exact256capacity boundary control
+requests64+256. Three small chunks still use4096;64chunks grow to8192. All five
+observations match per shape. These are requested sizes, not live memory,
+physicalheap, RSS, timing, actual copy bytes or EPYC7763/gate causality. Actual
+production queue capacity is64;512/513chunk cases are larger private stress
+queues. The measured unit probe is distinct from the baseline FFI witness.
+Next assess/test a narrow capacity hypothesis when the first two chunks are the
+complete currently queued burst, keeping the existing growth strategy when more
+chunks remain. No production patch/capacity decision/adoption is ready. Preserve
+producer races, pending-tail order and all original drains/windows/ownership.
 
 Source fact: the actual private `MqttInbound` first merge requests
 `BytesMut::with_capacity(min(max_bytes,4096))`, including two small packets.

@@ -1,0 +1,1468 @@
+{
+  "complete_pass": true,
+  "source": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "actual_own_native_witness_sha256": "351ccf09e39460e85a057977376cdabcb14547fca854a6c2e6c3d4bebcba657d",
+  "actual_measured_unit_probe_sha256": "1f39f602d68fd37b1da01068887b7a3a35e16eb885200a615589d114293c26a8",
+  "source_archive_sha256": "a20349a557931235c5a1ca7f3a299a31bb3a0fc4812d15f4d3e2c5cfbcc8a0ad",
+  "probe_source_sha256": "cfc1a362d3acfba509f62d300105f18679d07a00e40e39fea71739711b035dcd",
+  "rows": 100,
+  "shapes": 20,
+  "repetitions": 5,
+  "full_fresh_raw_bytes_independently_verified": 1919060,
+  "unique_nonempty_row_streams": 90,
+  "all_140_static_rlibs_3locks_original_sources_retained_and_unchanged": true,
+  "raw_sha256": "356a4427c0aabd99059fa7441fccae0670d23a941b3bc83d456f64cc2585a3c6",
+  "row_sha256": "bc49f8bf9fe908348f9f42eacc8f718fd23fd6b8b2c68031f93db94546558039",
+  "all_series": {
+    "empty-open": [
+      {
+        "nonce": 231000001,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      },
+      {
+        "nonce": 231000021,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      },
+      {
+        "nonce": 231000041,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      },
+      {
+        "nonce": 231000061,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      },
+      {
+        "nonce": 231000081,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      }
+    ],
+    "single128": [
+      {
+        "nonce": 231000002,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          128
+        ]
+      },
+      {
+        "nonce": 231000022,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          128
+        ]
+      },
+      {
+        "nonce": 231000042,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          128
+        ]
+      },
+      {
+        "nonce": 231000062,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          128
+        ]
+      },
+      {
+        "nonce": 231000082,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          128
+        ]
+      }
+    ],
+    "two128": [
+      {
+        "nonce": 231000003,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000023,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000043,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000063,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000083,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      }
+    ],
+    "three128": [
+      {
+        "nonce": 231000004,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          384
+        ]
+      },
+      {
+        "nonce": 231000024,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          384
+        ]
+      },
+      {
+        "nonce": 231000044,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          384
+        ]
+      },
+      {
+        "nonce": 231000064,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          384
+        ]
+      },
+      {
+        "nonce": 231000084,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          384
+        ]
+      }
+    ],
+    "many32x128": [
+      {
+        "nonce": 231000005,
+        "requested": 4160,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096
+        ],
+        "output_lengths": [
+          4096
+        ]
+      },
+      {
+        "nonce": 231000025,
+        "requested": 4160,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096
+        ],
+        "output_lengths": [
+          4096
+        ]
+      },
+      {
+        "nonce": 231000045,
+        "requested": 4160,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096
+        ],
+        "output_lengths": [
+          4096
+        ]
+      },
+      {
+        "nonce": 231000065,
+        "requested": 4160,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096
+        ],
+        "output_lengths": [
+          4096
+        ]
+      },
+      {
+        "nonce": 231000085,
+        "requested": 4160,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096
+        ],
+        "output_lengths": [
+          4096
+        ]
+      }
+    ],
+    "many64x128": [
+      {
+        "nonce": 231000006,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      },
+      {
+        "nonce": 231000026,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      },
+      {
+        "nonce": 231000046,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      },
+      {
+        "nonce": 231000066,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      },
+      {
+        "nonce": 231000086,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      }
+    ],
+    "many512x128": [
+      {
+        "nonce": 231000007,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536
+        ]
+      },
+      {
+        "nonce": 231000027,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536
+        ]
+      },
+      {
+        "nonce": 231000047,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536
+        ]
+      },
+      {
+        "nonce": 231000067,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536
+        ]
+      },
+      {
+        "nonce": 231000087,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536
+        ]
+      }
+    ],
+    "many513x128": [
+      {
+        "nonce": 231000008,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536,
+          128
+        ]
+      },
+      {
+        "nonce": 231000028,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536,
+          128
+        ]
+      },
+      {
+        "nonce": 231000048,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536,
+          128
+        ]
+      },
+      {
+        "nonce": 231000068,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536,
+          128
+        ]
+      },
+      {
+        "nonce": 231000088,
+        "requested": 127040,
+        "allocs": 2,
+        "reallocs": 4,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          32768,
+          65536
+        ],
+        "output_lengths": [
+          65536,
+          128
+        ]
+      }
+    ],
+    "single65536": [
+      {
+        "nonce": 231000009,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          65536
+        ]
+      },
+      {
+        "nonce": 231000029,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          65536
+        ]
+      },
+      {
+        "nonce": 231000049,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          65536
+        ]
+      },
+      {
+        "nonce": 231000069,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          65536
+        ]
+      },
+      {
+        "nonce": 231000089,
+        "requested": 64,
+        "allocs": 1,
+        "reallocs": 0,
+        "requests": [
+          64
+        ],
+        "output_lengths": [
+          65536
+        ]
+      }
+    ],
+    "two4096": [
+      {
+        "nonce": 231000010,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      },
+      {
+        "nonce": 231000030,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      },
+      {
+        "nonce": 231000050,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      },
+      {
+        "nonce": 231000070,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      },
+      {
+        "nonce": 231000090,
+        "requested": 12352,
+        "allocs": 2,
+        "reallocs": 1,
+        "requests": [
+          64,
+          4096,
+          8192
+        ],
+        "output_lengths": [
+          8192
+        ]
+      }
+    ],
+    "two8192": [
+      {
+        "nonce": 231000011,
+        "requested": 28736,
+        "allocs": 2,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384
+        ],
+        "output_lengths": [
+          16384
+        ]
+      },
+      {
+        "nonce": 231000031,
+        "requested": 28736,
+        "allocs": 2,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384
+        ],
+        "output_lengths": [
+          16384
+        ]
+      },
+      {
+        "nonce": 231000051,
+        "requested": 28736,
+        "allocs": 2,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384
+        ],
+        "output_lengths": [
+          16384
+        ]
+      },
+      {
+        "nonce": 231000071,
+        "requested": 28736,
+        "allocs": 2,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384
+        ],
+        "output_lengths": [
+          16384
+        ]
+      },
+      {
+        "nonce": 231000091,
+        "requested": 28736,
+        "allocs": 2,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384
+        ],
+        "output_lengths": [
+          16384
+        ]
+      }
+    ],
+    "mixed128-8192-128": [
+      {
+        "nonce": 231000012,
+        "requested": 29144,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8320,
+          16640,
+          24
+        ],
+        "output_lengths": [
+          8448
+        ]
+      },
+      {
+        "nonce": 231000032,
+        "requested": 29144,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8320,
+          16640,
+          24
+        ],
+        "output_lengths": [
+          8448
+        ]
+      },
+      {
+        "nonce": 231000052,
+        "requested": 29144,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8320,
+          16640,
+          24
+        ],
+        "output_lengths": [
+          8448
+        ]
+      },
+      {
+        "nonce": 231000072,
+        "requested": 29144,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8320,
+          16640,
+          24
+        ],
+        "output_lengths": [
+          8448
+        ]
+      },
+      {
+        "nonce": 231000092,
+        "requested": 29144,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8320,
+          16640,
+          24
+        ],
+        "output_lengths": [
+          8448
+        ]
+      }
+    ],
+    "first8192-128": [
+      {
+        "nonce": 231000013,
+        "requested": 28760,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          24
+        ],
+        "output_lengths": [
+          8320
+        ]
+      },
+      {
+        "nonce": 231000033,
+        "requested": 28760,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          24
+        ],
+        "output_lengths": [
+          8320
+        ]
+      },
+      {
+        "nonce": 231000053,
+        "requested": 28760,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          24
+        ],
+        "output_lengths": [
+          8320
+        ]
+      },
+      {
+        "nonce": 231000073,
+        "requested": 28760,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          24
+        ],
+        "output_lengths": [
+          8320
+        ]
+      },
+      {
+        "nonce": 231000093,
+        "requested": 28760,
+        "allocs": 3,
+        "reallocs": 2,
+        "requests": [
+          64,
+          4096,
+          8192,
+          16384,
+          24
+        ],
+        "output_lengths": [
+          8320
+        ]
+      }
+    ],
+    "oversize65537": [
+      {
+        "nonce": 231000014,
+        "requested": 88,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          1
+        ]
+      },
+      {
+        "nonce": 231000034,
+        "requested": 88,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          1
+        ]
+      },
+      {
+        "nonce": 231000054,
+        "requested": 88,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          1
+        ]
+      },
+      {
+        "nonce": 231000074,
+        "requested": 88,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          1
+        ]
+      },
+      {
+        "nonce": 231000094,
+        "requested": 88,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          1
+        ]
+      }
+    ],
+    "split150-300-cap200": [
+      {
+        "nonce": 231000015,
+        "requested": 288,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24,
+          200
+        ],
+        "output_lengths": [
+          200,
+          200,
+          50
+        ]
+      },
+      {
+        "nonce": 231000035,
+        "requested": 288,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24,
+          200
+        ],
+        "output_lengths": [
+          200,
+          200,
+          50
+        ]
+      },
+      {
+        "nonce": 231000055,
+        "requested": 288,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24,
+          200
+        ],
+        "output_lengths": [
+          200,
+          200,
+          50
+        ]
+      },
+      {
+        "nonce": 231000075,
+        "requested": 288,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24,
+          200
+        ],
+        "output_lengths": [
+          200,
+          200,
+          50
+        ]
+      },
+      {
+        "nonce": 231000095,
+        "requested": 288,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          24,
+          200
+        ],
+        "output_lengths": [
+          200,
+          200,
+          50
+        ]
+      }
+    ],
+    "exact256": [
+      {
+        "nonce": 231000016,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000036,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000056,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000076,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000096,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256
+        ]
+      }
+    ],
+    "tail256": [
+      {
+        "nonce": 231000017,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256,
+          128
+        ]
+      },
+      {
+        "nonce": 231000037,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256,
+          128
+        ]
+      },
+      {
+        "nonce": 231000057,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256,
+          128
+        ]
+      },
+      {
+        "nonce": 231000077,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256,
+          128
+        ]
+      },
+      {
+        "nonce": 231000097,
+        "requested": 320,
+        "allocs": 2,
+        "reallocs": 0,
+        "requests": [
+          64,
+          256
+        ],
+        "output_lengths": [
+          256,
+          128
+        ]
+      }
+    ],
+    "empty-pieces": [
+      {
+        "nonce": 231000018,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000038,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000058,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000078,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      },
+      {
+        "nonce": 231000098,
+        "requested": 4184,
+        "allocs": 3,
+        "reallocs": 0,
+        "requests": [
+          64,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          256
+        ]
+      }
+    ],
+    "empty-disconnected": [
+      {
+        "nonce": 231000019,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      },
+      {
+        "nonce": 231000039,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      },
+      {
+        "nonce": 231000059,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      },
+      {
+        "nonce": 231000079,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      },
+      {
+        "nonce": 231000099,
+        "requested": 0,
+        "allocs": 0,
+        "reallocs": 0,
+        "requests": [],
+        "output_lengths": []
+      }
+    ],
+    "drain-disconnected": [
+      {
+        "nonce": 231000020,
+        "requested": 73840,
+        "allocs": 5,
+        "reallocs": 1,
+        "requests": [
+          64,
+          24,
+          4096,
+          65536,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          257
+        ]
+      },
+      {
+        "nonce": 231000040,
+        "requested": 73840,
+        "allocs": 5,
+        "reallocs": 1,
+        "requests": [
+          64,
+          24,
+          4096,
+          65536,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          257
+        ]
+      },
+      {
+        "nonce": 231000060,
+        "requested": 73840,
+        "allocs": 5,
+        "reallocs": 1,
+        "requests": [
+          64,
+          24,
+          4096,
+          65536,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          257
+        ]
+      },
+      {
+        "nonce": 231000080,
+        "requested": 73840,
+        "allocs": 5,
+        "reallocs": 1,
+        "requests": [
+          64,
+          24,
+          4096,
+          65536,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          257
+        ]
+      },
+      {
+        "nonce": 231000100,
+        "requested": 73840,
+        "allocs": 5,
+        "reallocs": 1,
+        "requests": [
+          64,
+          24,
+          4096,
+          65536,
+          4096,
+          24
+        ],
+        "output_lengths": [
+          65536,
+          257
+        ]
+      }
+    ]
+  },
+  "scope": "Requestedalloc/realloc sizes of freshqueue actualprivate MqttInbound on Darwin, Systemforwarded unchanged. Unitprobe only; ownbaselineFFI native separatewitness notmeasured. No physicalheap/live/RSS/timing/copybyte/transport/EPYC7763/precision acceptance. Actualproductionqueue capacity64;512/513chunk cases stress largerprivatequeues. Singlecallpendingtail naturalcontinuation notbenchmarkbodyreuse. Originalv1/v2fixturefailures retained; directfreshqueue+Mutex64calibrations keepcoldcost, notwarmedaway. Productionconsumer unchanged.",
+  "audited_utc": "2026-11-02T11:25:24.076884+00:00",
+  "root_review_summary": {
+    "completed": true,
+    "final_companion_no_confirmed_blocker": true,
+    "incorrect_async_path_claim_rejected": "Actual try_recv_limited uses the same synchronous receiver.try_recv as direct freshqueue calibration. No poll_with_wake_reset is measured.",
+    "fixture_failures_retained": "Original zero-allocation assumptions failed twice before any census. v3 independent freshqueue and mutex controls both request64bytes; retain this cold cost.",
+    "guard_checks": 17,
+    "preflight_shapes": 20
+  }
+}
