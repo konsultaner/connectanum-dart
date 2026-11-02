@@ -2,8 +2,9 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: retain the original failed601 payload shard and audit its new
-artifact13158311612 after the official machine lease permits downloading it.
+Current step: preserve the complete failed601 payload audit and finish the
+remaining primary/protocol/encrypted campaigns naturally. All12payload cases /
+360rows verify:16measured misses incl6RSS,2unmeasured allocations,30evidence.
 Preserve primary48/run41463482638 and supplemental50/run41463489396 naturally;
 independently audit all1,440+1,500rows,
 allshards/source/scenarios/policy/locks/actualnative+driver bytes. Owncanonical,
@@ -23,17 +24,30 @@ ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
 results changed. [Cross-artifact byte audit](../research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
 
 
-## Current payload shard failed; raw audit pending (2026-11-02)
+## Current payload shard fails strict acceptance; complete audit retained (2026-11-02)
 
-The original exact601 supplemental `payload_sizes` job125338207444 completed
-with failure in its paired step; evidence upload succeeded. Artifact13158311612
-has metadata digest `42f1a148…`. Its ZIP and raw measurements have not yet been
-downloaded or independently audited, so no failure counts or RAM conclusion
-are claimed. The official shared resource lease refused the download before
-API/cache/data because another workload holds its reservation. That reservation
-is honored. No numerical job reran. Primary48, protocol and encrypted/progressive
-continue naturally; all rows and shards remain required. PR132 remains draft,
-with no candidate adoption. [Retained metadata](../research/2026-11-02-mqtt-complete-pair-payload-pending-audit.json).
+Original exact601 supplemental payload job125338207444 is complete failed.
+All12cases /360rawrows independently reproduce the hosted comparison on
+EPYC7763 /Dart3.13.5: **16 measured misses, including6 RSS**, plus2 unmeasured
+allocation metrics and30 evidence findings. Misses comprise3 throughput,
+1 p95,1 p99,3 CPU,2 GC and6 RSS. Null allocation ratios remain unmeasured.
+The original policy, full inventory/order/scenarios/raw streams, all3 hosted
+locks and actual native/driver ELF bytes verify. Artifact13158311612 /ZIP
+`42f1a148…` was downloaded once after the official shared lease became available;
+the earlier reservation refusal remains retained. No observations or numerical
+jobs reran. [Complete payload audit](../research/2026-11-02-mqtt-complete-pair-payload-audit.json).
+
+The same payload retains actual production0B23native /D3F6driver bytes. Both
+rehash exactly to the original copy input receipt and all3 copy manifests, with
+matching source and3 hosted locks. This closes the copy production byte-witness
+limitation; the original copy artifact itself still omits the bytes. No ffi-test,
+sharedCI or other-runtime substitution. [Cross-artifact byte audit](../research/2026-11-02-mqtt-complete-pair-production-bytes-audit.json).
+
+Primary48, protocol and encrypted/progressive continue naturally; all1,440+
+1,500rows /allshards remain required. This is one failed shard, not complete
+50-case acceptance or a causal repair claim. PR132 stays40ddcb3f OPEN DRAFT/#130,
+no adoption. RAM/broadWAMP parity and separate1%allocationprecision remain
+unresolved. The prior pending-audit metadata is retained as historical evidence.
 
 ## Fresh native-source control complete; strict campaigns active (2026-11-02)
 
@@ -84,8 +98,8 @@ All3,314inputs /120live /300inventory /32zeroavoidablecopy includingE2EE,
 transcode andnativecrypto verify. All3,311native-view inputs/exactarchive/fixture,
 4non-ephemeral-port phases,3positivephases /expectednegative /cleanup verify.
 Actual2D9Dnative-view bytes rehash from its OWN current601profile13139189994.
-Production0B23native /D3F6driver have stable receipts but bytes omitted fromcopy
-artifact; no ffi-test/sharedCI substitution. [Complete copy scope](../research/2026-11-02-mqtt-complete-pair-capacity-copy-audit.json).
+Production0B23native /D3F6driver were omitted from the copy artifact; later exact601
+payload bytes now rehash to those original receipts as recorded above. [Complete copy scope](../research/2026-11-02-mqtt-complete-pair-capacity-copy-audit.json).
 
 Build cohorts are **distinct**:localfrozen transportlock`0cb8ef90…` /bench`ea60fd1c…`
 usecc1.10.0; hostedtransport`ba5154f3…` /bench`7c215c58…` usecc1.11.0. Allother

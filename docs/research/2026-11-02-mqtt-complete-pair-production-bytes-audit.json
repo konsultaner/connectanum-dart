@@ -1,0 +1,31 @@
+{
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "audit": "PASS",
+  "copy_run": 41441964331,
+  "copy_artifact": 13142400890,
+  "later_original_payload_run": 41463489396,
+  "payload_artifact": 13158311612,
+  "copy_source_input_count": 3314,
+  "original_copy_input_receipt_sha256": "a70f23e51f8b894b7570676386e164b5ca5e2c3842a50ac1deed10e492ef7026",
+  "all_three_copy_manifest_sha256": {
+    "protocol": "9a2d889e87741f04ff8da31445ff434191e47611af6411123af207ff79e28025",
+    "payload_sizes": "022ef730dde89e249288d42932ad6abb83ce3be56d8c9b2733c320d360e41dd4",
+    "encrypted_progressive_results": "ee114702d34951486669befcff855220ff3dbd6b8e2b91b0194b30dae69db9fd"
+  },
+  "retained_payload_manifest_sha256": "d8a89a6f73dcc0e809b18900e7525c42e94f6a8046f0ee8976f6327e0a93b3f7",
+  "payload_independent_audit_sha256": "990738ff928f116c465ffaac119ecfcb4b42dc332cc6f4a1dc4a5b644fdd4bff",
+  "actual_retained_production_binary_sha256": {
+    "native_library": "0b238fc61a3b9c256db0d57385a3ae01f85285a970941260b22150608265fdb4",
+    "driver": "d3f65b9ff08f067dc66c8797ddefd904efcd1539b8880c79fdb251c350c23337"
+  },
+  "actual_hosted_locks": {
+    "native/bench/Cargo.lock": "7c215c5878e264810759a4886e5d060cb0c04ab16c3db02fe69b42f156339187",
+    "native/transport/Cargo.lock": "ba5154f3ceb9172cd65cc1a85e04bb1bd6d426ce89f1e3bb6a9afaf06b8762e3",
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8"
+  },
+  "copy_recorded_hashes_and_all_three_copy_manifests_match_actual_bytes": true,
+  "all_source_revisions_and_three_locks_match": true,
+  "prior_full_copy_audit_log_sha256": "a39f56229eabe8e7e8709df7acf365d31c8395fa50bdb34ca40b004b99b8b8ae",
+  "scope": "Original copy artifact omitted production binaries. Later original exact601 payload artifact retains actual production0B23 native/D3F6 driver bytes; both rehash exactly to original copy input receipt and all3copy manifests, with matching source and three hosted locks. This closes the local production byte-witness limitation using the same actual binary digests. The copy artifact itself still omits bytes. No ffi-test/sharedCI/other-runtime substitution; no observations, failed payload result or acceptance status change. Frozen LOCAL locks remain a distinct cohort.",
+  "audited_utc": "2026-11-02T16:23:38.324178+00:00"
+}
