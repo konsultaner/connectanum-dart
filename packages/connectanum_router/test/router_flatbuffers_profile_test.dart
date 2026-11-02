@@ -406,6 +406,45 @@ void main() {
       },
     );
   }
+  test(
+    'ordinary native EVENT posts without retaining profile transition state',
+    () async {
+      final h = Harness(method: 'anonymous');
+      final port = ReceivePort();
+      final pool = NativeWorkerFrameHandoff(
+        NativeMessageHandleDecoder().nativeBuffers,
+      );
+      try {
+        final (hello, _) = offered('anonymous');
+        await h.hello(hello);
+        await turn();
+        final first = port.first;
+        await sendMessage(
+          port.sendPort,
+          10,
+          NativeMessageSerializer.flatbuffers,
+          Event(1, 2, EventDetails(), arguments: [Uint8List(65536)]),
+          state: h.state as WorkerConnectionState,
+          frameHandoff: pool,
+        ).timeout(const Duration(seconds: 1));
+        final frame = await first as Map;
+        expect(pool.metrics['frames'], 1);
+        h.state.phase = HandshakePhase.aborted;
+        h.state.flatBuffersProfile =
+            const fb.FlatBuffersSessionProfile.router();
+        (frame['borrowedFrameReply'] as SendPort).send(
+          frame['borrowedFrameId'],
+        );
+        await pool.close();
+        expect(h.state.phase, HandshakePhase.aborted);
+        expect(h.state.flatBuffersProfile.isEstablished, isFalse);
+      } finally {
+        await pool.close();
+        port.close();
+        h.close();
+      }
+    },
+  );
   test('failed GOODBYE still releases the open session', () async {
     final h = Harness(method: 'anonymous');
     try {

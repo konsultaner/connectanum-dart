@@ -600,6 +600,39 @@ final class NativeBufferAllocator {
     );
   }
 
+  /// Retain and consume a borrowed frame in one synchronous native submission.
+  /// No temporary Dart owner or finalizer is created for the receiving isolate.
+  void sendBorrowedBuffer(
+    int connectionId,
+    ({int handle, int library}) token, {
+    required int length,
+  }) {
+    _require();
+    RangeError.checkValueInInterval(
+      connectionId,
+      1,
+      0x7fffffff,
+      'connectionId',
+    );
+    if (token.library != _identity) {
+      throw ArgumentError('Borrowed buffer belongs to another native library');
+    }
+    RangeError.checkValueInInterval(
+      token.handle,
+      1,
+      0x7fffffff,
+      'token.handle',
+    );
+    final info = _getInfoId(token.handle);
+    if (info.writable != 0 || info.length != length) {
+      throw StateError('Borrowed frame must be frozen with matching length');
+    }
+    final retained = _slice(token.handle, 0, length);
+    _check(retained);
+    // The native call consumes this retained ID on every submission outcome.
+    _check(_send(connectionId, retained));
+  }
+
   /// Queue acceptance only. A transferred buffer is consumed on success or
   /// native rejection; retained sends preserve the caller's immutable handle.
   void send(

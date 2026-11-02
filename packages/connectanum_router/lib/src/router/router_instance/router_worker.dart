@@ -184,7 +184,7 @@ Future<void> sendMessage(
   NativeMessageSerializer serializer,
   AbstractMessage message, {
   WorkerConnectionState? state,
-  NativeBufferAllocator? nativeBuffers,
+  NativeWorkerFrameHandoff? frameHandoff,
 }) async {
   flatbuffers.FlatBuffersSessionProfile? nextProfile;
   final previousProfile = state?.flatBuffersProfile;
@@ -200,11 +200,11 @@ Future<void> sendMessage(
       nextProfile != null && !identical(nextProfile, state?.flatBuffersProfile);
   final acceptedReply = changesProfile ? ReceivePort() : null;
   try {
-    await sendWorkerMessagePayload(bossPort, serializer, message, {
+    sendWorkerMessagePayload(bossPort, serializer, message, {
       'type': 'worker_send',
       'connectionId': connectionId,
       if (acceptedReply != null) 'acceptedReply': acceptedReply.sendPort,
-    }, nativeBuffers: nativeBuffers);
+    }, frameHandoff: frameHandoff);
     if (acceptedReply != null) {
       final result = await acceptedReply.first.timeout(
         const Duration(seconds: 5),
@@ -227,16 +227,128 @@ Future<void> sendMessage(
   }
 }
 
-Future<void> sendWorkerMessagePayload(
+/// Owns native frames until the boss acknowledges its independent enqueue.
+/// One reply port and expiry timer serve a worker, including concurrent frames.
+class NativeWorkerFrameHandoff {
+  NativeWorkerFrameHandoff(
+    this.allocator, {
+    this.maxPendingFrames = 256,
+    this.maxPendingBytes = 32 * 1024 * 1024,
+    this.enqueueTimeout = const Duration(seconds: 5),
+    Duration expiryInterval = const Duration(seconds: 1),
+  }) {
+    if (maxPendingFrames < 1 ||
+        maxPendingBytes < 1 ||
+        enqueueTimeout <= Duration.zero ||
+        expiryInterval <= Duration.zero) {
+      throw ArgumentError('Native frame handoff limits must be positive');
+    }
+    _replies = ReceivePort();
+    _replySubscription = _replies.listen((raw) {
+      if (raw is int) _release(raw);
+    });
+    _expiryTimer = Timer.periodic(expiryInterval, (_) {
+      final now = _clock.elapsedMicroseconds;
+      final expired = _pending.entries
+          .where((e) => e.value.expires <= now)
+          .map((e) => e.key)
+          .toList(growable: false);
+      for (final id in expired) {
+        _release(id);
+      }
+    });
+  }
+  final NativeBufferAllocator allocator;
+  final int maxPendingFrames, maxPendingBytes;
+  final Duration enqueueTimeout;
+  final _clock = Stopwatch()..start();
+  late final ReceivePort _replies;
+  late final StreamSubscription<dynamic> _replySubscription;
+  late final Timer _expiryTimer;
+  final _pending = <int, ({NativeOwnedBuffer owner, int expires})>{};
+  int _nextId = 0, _pendingBytes = 0;
+  bool _closing = false;
+  Completer<void>? _drained;
+  Future<void>? _closeFuture;
+
+  Map<String, int> get metrics => {
+    'frames': _pending.length,
+    'bytes': _pendingBytes,
+  };
+
+  bool trySend(
+    SendPort target,
+    List<Uint8List> fragments,
+    Map<String, Object?> envelope,
+  ) {
+    final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
+    if (_closing ||
+        !allocator.isSupported ||
+        _pending.length >= maxPendingFrames ||
+        length > maxPendingBytes - _pendingBytes)
+      return false;
+    final builder = allocator.allocate(length);
+    NativeOwnedBuffer? owner;
+    final id = ++_nextId;
+    try {
+      var offset = 0;
+      for (final fragment in fragments) {
+        builder.writeBytes(offset, fragment);
+        offset += fragment.length;
+      }
+      owner = builder.freeze();
+      _pending[id] = (
+        owner: owner,
+        expires: _clock.elapsedMicroseconds + enqueueTimeout.inMicroseconds,
+      );
+      _pendingBytes += length;
+      target.send({
+        ...envelope,
+        'payloadHandle': owner.borrowedToken.handle,
+        'payloadLibrary': owner.borrowedToken.library,
+        'payloadLength': length,
+        'borrowedFrameReply': _replies.sendPort,
+        'borrowedFrameId': id,
+      });
+      return true;
+    } catch (_) {
+      if (_pending.remove(id) != null) _pendingBytes -= length;
+      owner?.dispose();
+      rethrow;
+    } finally {
+      builder.dispose();
+    }
+  }
+
+  void _release(int id) {
+    final entry = _pending.remove(id);
+    if (entry == null) return;
+    _pendingBytes -= entry.owner.length;
+    entry.owner.dispose();
+    if (_pending.isEmpty) _drained?.complete();
+  }
+
+  Future<void> close() => _closeFuture ??= _close();
+  Future<void> _close() async {
+    _closing = true;
+    if (_pending.isNotEmpty) {
+      _drained = Completer<void>();
+      await _drained!.future;
+    }
+    _expiryTimer.cancel();
+    await _replySubscription.cancel();
+    _replies.close();
+  }
+}
+
+void sendWorkerMessagePayload(
   SendPort target,
   NativeMessageSerializer serializer,
   AbstractMessage message,
   Map<String, Object?> envelope, {
-  NativeBufferAllocator? nativeBuffers,
-  Duration enqueueTimeout = const Duration(seconds: 5),
-}) async {
-  if (nativeBuffers != null &&
-      nativeBuffers.isSupported &&
+  NativeWorkerFrameHandoff? frameHandoff,
+}) {
+  if (frameHandoff != null &&
       message is event_msg.Event &&
       message.details.pptScheme == null &&
       !message.hasLazyArguments &&
@@ -261,31 +373,8 @@ Future<void> sendWorkerMessagePayload(
           _flatBuffersSerializer.serializeTransportFragments(message),
         _ => null,
       };
-      if (fragments != null) {
-        final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
-        final builder = nativeBuffers.allocate(length);
-        NativeOwnedBuffer? buffer;
-        final reply = ReceivePort();
-        try {
-          var offset = 0;
-          for (final fragment in fragments) {
-            builder.writeBytes(offset, fragment);
-            offset += fragment.length;
-          }
-          buffer = builder.freeze();
-          target.send({
-            ...envelope,
-            'payloadHandle': buffer.borrowedToken.handle,
-            'payloadLibrary': buffer.borrowedToken.library,
-            'payloadLength': length,
-            'borrowedFrameReply': reply.sendPort,
-          });
-          await reply.first.timeout(enqueueTimeout);
-        } finally {
-          reply.close();
-          buffer?.dispose();
-          builder.dispose();
-        }
+      if (fragments != null &&
+          frameHandoff.trySend(target, fragments, envelope)) {
         return;
       }
     }
@@ -372,8 +461,8 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
   unawaited(RemoteWampDelegateRegistry.warmUpForSettings(settings));
 
   final decoder = NativeMessageHandleDecoder(libraryPath: libraryPath);
-  final nativeBuffers = init['borrowedFrames'] == true
-      ? decoder.nativeBuffers
+  final frameHandoff = init['borrowedFrames'] == true
+      ? NativeWorkerFrameHandoff(decoder.nativeBuffers)
       : null;
   final commandPort = ReceivePort();
   final Map<int, int> connections = initialConnectionId > 0
@@ -618,7 +707,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
         serializer,
         message,
         state: state,
-        nativeBuffers: nativeBuffers,
+        frameHandoff: frameHandoff,
       );
     } else if (command == _workerCmdDrainConnections) {
       final reason = raw.length > 1 && raw[1] is String
@@ -657,6 +746,7 @@ void _routerWorkerEntryPoint(Map<String, Object?> init) {
       }
       bossPort.send({'type': _workerEventDrained, 'workerHash': workerId});
     } else if (command == _workerCmdShutdown) {
+      await frameHandoff?.close();
       if (shuttingDown) {
         return;
       }

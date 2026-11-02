@@ -4012,15 +4012,12 @@ class NativeTransportRuntime
     ({int handle, int library}) token,
     int length,
   ) {
-    NativeOwnedBuffer? buffer;
     try {
-      buffer = _workerBuffers.retainBorrowedBuffer(token, length: length);
+      _workerBuffers.sendBorrowedBuffer(connectionId, token, length: length);
       _dartToNativeCopiedBytesTotal += length;
-      _workerBuffers.send(connectionId, buffer, transfer: true);
     } on NativeBufferException catch (error) {
+      _dartToNativeCopiedBytesTotal += length;
       _throwForError(error.code, 'Failed to send worker frame');
-    } finally {
-      buffer?.dispose();
     }
   }
 

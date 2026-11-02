@@ -1946,7 +1946,9 @@ class _RouterBoss {
           ..['error'] = error.toString();
       } finally {
         acceptedReply?.send({'accepted': accepted});
-        (message['borrowedFrameReply'] as SendPort?)?.send(accepted);
+        (message['borrowedFrameReply'] as SendPort?)?.send(
+          message['borrowedFrameId'] as int,
+        );
       }
     } else if (type == 'worker_forward_message') {
       final connectionId = message['connectionId'] as int;

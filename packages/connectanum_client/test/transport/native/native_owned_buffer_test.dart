@@ -51,6 +51,35 @@ void main() {
       () => allocator.retainBorrowedBuffer(token, length: 3),
       throwsStateError,
     );
+    for (final connection in [0, -1, 0x80000000]) {
+      expect(
+        () => allocator.sendBorrowedBuffer(connection, token, length: 4),
+        throwsRangeError,
+      );
+    }
+    expect(
+      () => allocator.sendBorrowedBuffer(0x7ffffffe, (
+        handle: token.handle,
+        library: token.library + 1,
+      ), length: 4),
+      throwsArgumentError,
+    );
+    expect(
+      () => allocator.sendBorrowedBuffer(0x7ffffffe, (
+        handle: token.handle + 0x100000000,
+        library: token.library,
+      ), length: 4),
+      throwsRangeError,
+    );
+    expect(
+      () => allocator.sendBorrowedBuffer(0x7ffffffe, token, length: 3),
+      throwsStateError,
+    );
+    expect(
+      () => allocator.sendBorrowedBuffer(0x7ffffffe, token, length: 4),
+      throwsA(isA<NativeBufferException>()),
+    );
+    expect(original.bytes, [1, 2, 3, 4]);
     final retained = allocator.retainBorrowedBuffer(token, length: 4);
     original.dispose();
     expect(() => original.borrowedToken, throwsStateError);

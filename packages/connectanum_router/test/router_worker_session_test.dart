@@ -10,6 +10,8 @@ import 'dart:typed_data';
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_client/native_buffers.dart';
+import 'dart:ffi' as ffi;
+import 'dart:io';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
@@ -49,29 +51,27 @@ final String? _nativePublishSkipReason = _forwardNativePublishEventsEnabled
     : 'CONNECTANUM_FORWARD_NATIVE_PUBLISH not enabled (zero-copy publish forwarding disabled).';
 const _zeroCopyPublishTag = 'zero_copy_publish';
 
-void _sendBorrowedEvents(List<Object> arguments) async {
+void _sendPooledEvents(List<Object> arguments) async {
   final target = arguments[0] as SendPort;
   final serializer = NativeMessageSerializer.values[arguments[1] as int];
-  final allocator = NativeMessageHandleDecoder().nativeBuffers;
-  try {
-    for (var i = 0; i < 3; i++) {
-      final payload = Uint8List.fromList(
-        List.generate(65536, (j) => (j + i) % 251),
-      );
-      final pending = sendWorkerMessagePayload(
-        target,
-        serializer,
-        event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [payload]),
-        {'index': i},
-        nativeBuffers: allocator,
-      );
-      payload.fillRange(0, payload.length, 0);
-      await pending;
-    }
-    target.send({'done': true});
-  } catch (error) {
-    target.send({'error': error.toString()});
+  final handoff = NativeWorkerFrameHandoff(
+    NativeMessageHandleDecoder().nativeBuffers,
+  );
+  for (var i = 0; i < 3; i++) {
+    final payload = Uint8List.fromList(
+      List.generate(65536, (j) => (j + i) % 251),
+    );
+    sendWorkerMessagePayload(
+      target,
+      serializer,
+      event_msg.Event(1, 2, event_msg.EventDetails(), arguments: [payload]),
+      {'index': i},
+      frameHandoff: handoff,
+    );
+    payload.fillRange(0, payload.length, 0);
   }
+  await handoff.close();
+  target.send({'done': true});
 }
 
 void main() {
@@ -82,18 +82,15 @@ void main() {
     NativeMessageSerializer.flatbuffers,
   ]) {
     test(
-      '${serializer.name} borrowed worker handoff across real isolates',
+      '${serializer.name} shared native handoff keeps cross-isolate frames',
       () async {
         final port = ReceivePort();
         final allocator = NativeMessageHandleDecoder().nativeBuffers;
         final done = Completer<void>();
         var received = 0;
+        SendPort? sharedReply;
         final listener = port.listen((value) {
           final frame = value as Map;
-          if (frame['error'] != null) {
-            done.completeError(StateError('${frame['error']}'));
-            return;
-          }
           if (frame['done'] == true) {
             done.complete();
             return;
@@ -120,13 +117,16 @@ void main() {
                 ),
               ),
             );
+            final reply = frame['borrowedFrameReply'] as SendPort;
+            sharedReply ??= reply;
+            expect(reply, sharedReply);
             received++;
+            reply.send(frame['borrowedFrameId']);
           } finally {
             owner.dispose();
           }
-          (frame['borrowedFrameReply'] as SendPort).send(true);
         });
-        final isolate = await Isolate.spawn(_sendBorrowedEvents, <Object>[
+        final isolate = await Isolate.spawn(_sendPooledEvents, <Object>[
           port.sendPort,
           serializer.index,
         ]);
@@ -140,17 +140,10 @@ void main() {
         }
       },
     );
-  }
-
-  for (final serializer in [
-    NativeMessageSerializer.json,
-    NativeMessageSerializer.cbor,
-    NativeMessageSerializer.messagePack,
-    NativeMessageSerializer.flatbuffers,
-  ]) {
     for (final size in [128, 16383, 16384, 65536]) {
-      test('${serializer.name} borrowed worker frame boundary $size', () async {
+      test('${serializer.name} pooled native frame boundary $size', () async {
         final allocator = NativeMessageHandleDecoder().nativeBuffers;
+        final handoff = NativeWorkerFrameHandoff(allocator);
         final port = ReceivePort();
         final payload = Uint8List.fromList(List.generate(size, (i) => i % 251));
         final message = event_msg.Event(
@@ -161,19 +154,17 @@ void main() {
         );
         final expected = encodeMessage(serializer, message);
         final first = port.first;
-        final pending = sendWorkerMessagePayload(
+        sendWorkerMessagePayload(
           port.sendPort,
           serializer,
           message,
-          {'connectionId': 7},
-          nativeBuffers: allocator,
+          {},
+          frameHandoff: handoff,
         );
-        final frame = await first as Map;
         payload.fillRange(0, payload.length, 0);
+        final frame = await first as Map;
         if (size < 16384) {
           expect(frame['payload'], expected);
-          expect(frame.containsKey('payloadHandle'), isFalse);
-          await pending;
         } else {
           final token = (
             handle: frame['payloadHandle'] as int,
@@ -185,8 +176,16 @@ void main() {
           );
           try {
             expect(owner.bytes, expected);
-            (frame['borrowedFrameReply'] as SendPort).send(true);
-            await pending;
+            (frame['borrowedFrameReply'] as SendPort).send('ignore');
+            (frame['borrowedFrameReply'] as SendPort).send(-1);
+            (frame['borrowedFrameReply'] as SendPort).send(
+              frame['borrowedFrameId'],
+            );
+            (frame['borrowedFrameReply'] as SendPort).send(
+              frame['borrowedFrameId'],
+            );
+            await handoff.close();
+            expect(owner.bytes, expected);
             expect(
               () => allocator.retainBorrowedBuffer(
                 token,
@@ -194,52 +193,150 @@ void main() {
               ),
               throwsA(isA<NativeBufferException>()),
             );
-            expect(owner.bytes, expected);
           } finally {
             owner.dispose();
           }
         }
+        await handoff.close();
+        expect(handoff.metrics, {'frames': 0, 'bytes': 0});
         port.close();
       });
     }
   }
-  for (final acknowledge in [false, true]) {
+  for (final countBound in [true, false]) {
     test(
-      'borrowed worker frame releases on rejection or timeout $acknowledge',
+      'native handoff count/byte bound falls back in FIFO order $countBound',
       () async {
-        final allocator = NativeMessageHandleDecoder().nativeBuffers;
+        final pool = NativeWorkerFrameHandoff(
+          NativeMessageHandleDecoder().nativeBuffers,
+          maxPendingFrames: countBound ? 1 : 10,
+          maxPendingBytes: countBound ? 1048576 : 20000,
+        );
         final port = ReceivePort();
-        final first = port.first;
-        final pending = sendWorkerMessagePayload(
-          port.sendPort,
-          NativeMessageSerializer.cbor,
-          event_msg.Event(
-            1,
-            2,
-            event_msg.EventDetails(),
-            arguments: [Uint8List(16384)],
-          ),
-          {},
-          nativeBuffers: allocator,
-          enqueueTimeout: const Duration(milliseconds: 100),
+        final frames = port.take(2).toList();
+        final event = event_msg.Event(
+          1,
+          2,
+          event_msg.EventDetails(),
+          arguments: [Uint8List(16384)],
         );
-        final result = acknowledge
-            ? expectLater(pending, completes)
-            : expectLater(pending, throwsA(isA<TimeoutException>()));
-        final frame = await first as Map;
-        if (acknowledge) (frame['borrowedFrameReply'] as SendPort).send(false);
-        await result;
+        for (var i = 0; i < 2; i++) {
+          sendWorkerMessagePayload(
+            port.sendPort,
+            NativeMessageSerializer.cbor,
+            event,
+            {'index': i},
+            frameHandoff: pool,
+          );
+        }
+        final values = await frames;
+        final native = values[0] as Map;
+        final fallback = values[1] as Map;
+        expect(native['index'], 0);
+        expect(fallback['index'], 1);
         expect(
-          () => allocator.retainBorrowedBuffer((
-            handle: frame['payloadHandle'] as int,
-            library: frame['payloadLibrary'] as int,
-          ), length: frame['payloadLength'] as int),
-          throwsA(isA<NativeBufferException>()),
+          fallback['payload'],
+          encodeMessage(NativeMessageSerializer.cbor, event),
         );
+        expect(pool.metrics['frames'], 1);
+        (native['borrowedFrameReply'] as SendPort).send(
+          native['borrowedFrameId'],
+        );
+        await pool.close();
+        expect(pool.metrics['bytes'], 0);
+        final legacy = ReceivePort();
+        final first = legacy.first;
+        sendWorkerMessagePayload(
+          legacy.sendPort,
+          NativeMessageSerializer.cbor,
+          event,
+          {},
+          frameHandoff: pool,
+        );
+        expect(
+          (await first as Map)['payload'],
+          encodeMessage(NativeMessageSerializer.cbor, event),
+        );
+        legacy.close();
         port.close();
       },
     );
   }
+  test(
+    'native handoff expiry releases owners and lets shutdown finish',
+    () async {
+      final allocator = NativeMessageHandleDecoder().nativeBuffers;
+      final pool = NativeWorkerFrameHandoff(
+        allocator,
+        enqueueTimeout: const Duration(milliseconds: 30),
+        expiryInterval: const Duration(milliseconds: 5),
+      );
+      final port = ReceivePort();
+      final first = port.first;
+      expect(pool.trySend(port.sendPort, [Uint8List(16384)], {}), isTrue);
+      final frame = await first as Map;
+      await pool.close();
+      expect(pool.metrics, {'frames': 0, 'bytes': 0});
+      expect(
+        () => allocator.retainBorrowedBuffer((
+          handle: frame['payloadHandle'] as int,
+          library: frame['payloadLibrary'] as int,
+        ), length: 16384),
+        throwsA(isA<NativeBufferException>()),
+      );
+      port.close();
+    },
+  );
+  test('native handoff releases failed port submissions', () async {
+    final pool = NativeWorkerFrameHandoff(
+      NativeMessageHandleDecoder().nativeBuffers,
+    );
+    final port = ReceivePort();
+    final invalid = ReceivePort();
+    expect(
+      () => pool.trySend(port.sendPort, [Uint8List(8)], {'invalid': invalid}),
+      throwsArgumentError,
+    );
+    expect(pool.metrics, {'frames': 0, 'bytes': 0});
+    await pool.close();
+    invalid.close();
+    port.close();
+  });
+  test('native handoff validates limits before opening resources', () {
+    final allocator = NativeMessageHandleDecoder().nativeBuffers;
+    expect(
+      () => NativeWorkerFrameHandoff(allocator, maxPendingFrames: 0),
+      throwsArgumentError,
+    );
+    expect(
+      () => NativeWorkerFrameHandoff(allocator, maxPendingBytes: 0),
+      throwsArgumentError,
+    );
+    expect(
+      () => NativeWorkerFrameHandoff(allocator, enqueueTimeout: Duration.zero),
+      throwsArgumentError,
+    );
+    expect(
+      () => NativeWorkerFrameHandoff(allocator, expiryInterval: Duration.zero),
+      throwsArgumentError,
+    );
+  });
+  test('native handoff keeps older libraries on the existing path', () async {
+    final allocator = NativeBufferAllocator(
+      ffi.DynamicLibrary.open(
+        Platform.isMacOS
+            ? '/usr/lib/libSystem.B.dylib'
+            : Platform.isWindows
+            ? 'kernel32.dll'
+            : 'libc.so.6',
+      ),
+    );
+    final pool = NativeWorkerFrameHandoff(allocator);
+    final port = ReceivePort();
+    expect(pool.trySend(port.sendPort, [Uint8List(8)], {}), isFalse);
+    await pool.close();
+    port.close();
+  });
 
   test(
     'FlatBuffers worker owns binary frames and supports control fallback',

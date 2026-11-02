@@ -198,10 +198,13 @@ Live buffers retain their owners; Dart VM settings stay at their defaults.
 Manual gateway campaigns use unique [concurrency groups](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), so a newer dispatch cannot replace queued or running benchmark evidence.
 
 Large ordinary binary worker events use checked native-owned storage for the
-worker-to-boss handoff. The boss retains a native reference before acknowledging
-the worker and enqueues through the same FIFO. Rejection and timeout tests verify
-that the producer releases its reference; expired or foreign-library tokens fail
-through checked handles. Explicit disposal is the normal path, with
+worker-to-boss handoff. One acknowledgment port per worker preserves the boss
+FIFO without allocating a reply stream per event. At most 256 native frames or
+32 MiB can await acknowledgment; excess frames use the existing owned-byte
+transport path. The producer releases its reference after enqueue acknowledgment
+or the expiry check. Shutdown drains these references before closing the port.
+Expired and foreign-library tokens fail through checked handles. Explicit
+disposal is the normal path, with
 [NativeFinalizer](https://api.dart.dev/dart-ffi/NativeFinalizer-class.html) as the
 ownership fallback. Ordinary PPT, lazy payloads and small frames keep their
 existing transport path.
