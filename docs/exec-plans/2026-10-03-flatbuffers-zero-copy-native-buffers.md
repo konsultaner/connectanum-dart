@@ -86,6 +86,33 @@ data stayed intact. Full final-runtime strict 48/50 and clean CI remain required
 [Change and focused proof](../research/2026-11-02-router-busy-wake-consumption.md),
 [current frozen verification scope](../research/2026-11-02-router-busy-wake-validation-checkpoint.json).
 
+## Fresh native codec allocation diagnosis (2026-11-02)
+
+After clean final CI, one read-only census links the actual public Rust encoder
+from frozen `600e82f5`'s locked, standard ffi-test/release graph. All **370 fresh
+operations / 74 cases** pass independent audit; all 230 nonempty full bodies,
+unique wire hashes, schema/metadata roundtrips and input-storage aliases verify.
+Every operation constructs a fresh message/body/pattern before its encoder-only
+counter. Allocation positive/zero controls and all 74 full-size preflight cases
+pass first, in a disjoint nonce domain. Actual binary/rlib/source/archive/three
+lock hashes are retained; source/HEAD/tree and own native `bf607a9b…` remain
+unchanged. Initial compilation-helper setup and advisory limitations are retained;
+no measured observations reran. Counts are requested allocations, including full
+replacement sizes for realloc; they are not live/RSS, timing, copy or acceptance.
+
+PPT CALL requests 20 allocations / 2,180 bytes; progressive CALL requests 23 /
+2,388. Existing direct PPT INVOCATION requests 6 / 336 and progressive 7 / 416;
+RESULT requests 6 / 304 and progressive 6 / 312. All five observations per case
+are preserved. These expose generic-header costs without proving a RAM cause.
+Source tracing also shows canonical native-client PPT uses Dart prefix projection
+and `sendSegments` before the native compose fallback. Therefore the Rust CALL
+encoder count alone does **not** establish the primary client hot path or justify
+a CALL optimization as benchmark repair. A separate fresh-input actual decoder
+census is being prepared before choosing any runtime change.
+[Complete census/input hashes](../research/2026-11-02-flatbuffers-fresh-encoder-census-audit.json),
+[all 370 rows](../research/2026-11-02-flatbuffers-fresh-encoder-census.jsonl),
+[compiled counter source](../research/2026-11-02-flatbuffers-fresh-encoder-census.rs).
+
 ## Current failed-path census (2026-11-01)
 
 An isolated tools-only child `7fc4c5d8` on `codex/mqtt-native-ffi-census`
