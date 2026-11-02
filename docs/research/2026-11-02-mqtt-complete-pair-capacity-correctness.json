@@ -1,0 +1,75 @@
+{
+  "complete_pass": true,
+  "base": "ad48d679b24a371cca37ad9397a64b261008f57c",
+  "before_expected_one_failure_plus_control_pass": true,
+  "actual_before_log_sha256": "d71e88862c0dc4a95e9e49c48900b36411f7d35c9496f40af0c7b527cbc55772",
+  "after_four_regressions_pass_including_forced_post_choice_arrival": true,
+  "complete_pair_requested_counts_before": {
+    "allocations": 3,
+    "bytes": 4184,
+    "request_sizes": [
+      64,
+      4096,
+      24
+    ]
+  },
+  "complete_pair_requested_counts_after": {
+    "allocations": 2,
+    "bytes": 320,
+    "request_sizes": [
+      64,
+      256
+    ]
+  },
+  "cold_fresh_queue64_request_included_both": true,
+  "actual_rust_core_passed": 480,
+  "historical_capture_ignored": 1,
+  "alias_tests": 2,
+  "small_index_allocation_tests": 2,
+  "codec_tests": 3,
+  "actual_FFI_tests": 319,
+  "actual_Dart_cases": {
+    "client-fragmented-websocket": 22,
+    "client-flatbuffer-lifetime": 7,
+    "router-runtime": 615,
+    "router-mqtt-paho": 115
+  },
+  "actual_Paho_cases": 7,
+  "Paho_names": [
+    "00:00 +10: test/mqtt/mqtt_native_router_integration_test.dart: native MQTT listener exchanges exact binary bytes with Paho 5 and 3.1.1",
+    "00:00 +18: test/mqtt/mqtt_native_router_integration_test.dart: native TLS MQTT exchanges exact binary bytes with Paho 5 and 3.1.1",
+    "00:00 +19: test/mqtt/mqtt_native_router_integration_test.dart: native WS MQTT 5 exchanges exact binary bytes with Paho",
+    "00:00 +20: test/mqtt/mqtt_native_router_integration_test.dart: native WS MQTT 3.1.1 exchanges exact binary bytes with Paho",
+    "00:00 +21: test/mqtt/mqtt_native_router_integration_test.dart: native WSS MQTT 5 exchanges exact binary bytes with Paho",
+    "00:00 +22: test/mqtt/mqtt_native_router_integration_test.dart: native WSS MQTT 3.1.1 exchanges exact binary bytes with Paho",
+    "00:01 +114: test/mqtt/mqtt_qos0_integration_test.dart: Paho MQTT 5 and 3.1.1 exchange binary payloads with a Connectanum client"
+  ],
+  "own_native_before_sha256": "351ccf09e39460e85a057977376cdabcb14547fca854a6c2e6c3d4bebcba657d",
+  "own_native_after_sha256": "5cfe237b5e656cf860235c104b02b879e9da581a31768e7b734428c67fac3dad",
+  "production_lib_sha256": "67014119585c9a011f4494178bfdb5c67714a484f46a268f1cbde6fee5aefef4",
+  "tested_module_sha256": "b1080a83cfd721c87dcd17545b81c27ac021a334efede15a7dacf2c6b2e8d5b1",
+  "all_log_hashes": {
+    "capacity-and-deterministic-arrival": "56b9c5864edfb6b395a8f2273f6da819ccd0b302ae6909fa6550743fd996330a",
+    "all-rust-core-and-codecs": "b8b4db5e67734c27537020f1f87b233e6f0c3b2b156ae79a5a5f984e6f6a36eb",
+    "all-rust-ffi": "ddfc48925980e7be46b6e5e71314c459fcb6aea75b65dc9234ee984e6dba1406",
+    "own-native-build": "5fae218f1fc5e5457160ea179fbc64b574bcb5a2d0504c0584ea74eb2d7d67ba",
+    "client-fragmented-websocket": "a009d6ef849402e71d685eb471f23d122e0a65926e0b5bd0ab90e945f91a43a7",
+    "client-flatbuffer-lifetime": "74095e5f620bb83a6a6f6086cfc21498da0140f96495bc8300d7fb79fd7a2039",
+    "router-runtime": "084a351cfe2b5915ce4bb9a4911231106b7200f17c1c6db046e49d797dc0956d",
+    "router-mqtt-paho": "30bebd4e7c100472ee50ea9c2d630c0b23ac4339c0ba11373f3ba5a4ba45ac9d"
+  },
+  "all_original3locks_and_unrelated_sources_unchanged": true,
+  "root_review_sha256": "806af3db13a531bbb3be427f09b20d11dd195b9bc6d268bf774db64b759b9d42",
+  "scope": "Actualunitbeforefailure/afterrequestedalloc/regression/lifetime and OWNrebuiltFFI/Dart/Paho correctness. Minimalinitialcapacityonly. No perf/RSS/transport/EPYC7763/heapprecision/adoption claim. All100originalcomponentrows/source/exe/140RLIBs/beforenative retained, neverrerun. Finalruntime requiresowncanonical/copy/CI/propernative sourcecomparison/finalstrict48/50.",
+  "audited_utc": "2026-11-02T11:56:14.576446+00:00",
+  "final_test_only_cleanup": {
+    "only_ignored_consumed_capture_entry_removed": true,
+    "old_test_module_sha256": "b1080a83cfd721c87dcd17545b81c27ac021a334efede15a7dacf2c6b2e8d5b1",
+    "new_test_module_sha256": "d4ed2827d222375aa53cccc72035bdd1e9c5b6c73d7e24c0334a5aa98a0d2a95",
+    "removed_source_sha256": "1d6d363a7a31506bff1996c887217bdcceb0e9a97301539bd37483516bab9880",
+    "all_6_executed_native_probe_regressions_and_20shape_coverage_unchanged": true,
+    "production_lib_and_own_native_unchanged": true,
+    "canonical_must_run_final_test_module": true
+  },
+  "readonly_auditor_reporter_correction": "First auditor expected contiguous name ... ok under serial --nocapture; actual observation interleaves before standalone ok. Corrected parser only; complete captured core run binds every named pass, raw/source/data unchanged and no tests rerun."
+}

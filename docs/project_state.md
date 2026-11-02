@@ -4,8 +4,38 @@ Last updated: 2026-11-02.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
-Isolated candidate: `codex/flatbuffers-segmented-decode-views`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
+Isolated candidate: `codex/mqtt-small-burst-coalescing`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
+
+## Current isolated MQTT capacity correction (2026-11-02)
+
+`codex/mqtt-small-burst-coalescing` starts at frozen `ad48d679` and changes only
+the first native MQTT coalescing allocation for a complete observed pair.
+Fresh bootstrap/fullfast, actual test-only before-failure, four after capacity/
+pending/forced-arrival regressions and all focused Rust/FFI/own-native/Dart/
+WebSocket/lifetime/router/MQTT-Paho checks pass and are independently audited.
+Own native is `5cfe237b…`, all three locks are unchanged. The requested complete-
+pair allocation changes from 4184 bytes/three requests to 320/two here, including
+identical fresh-queue cost. This is no RSS, transport or causal CI acceptance.
+[Exact change and focused evidence](research/2026-11-02-mqtt-complete-pair-capacity.md).
+
+Own frozen canonical/copy/CI and correctly bound native-source control with a
+fresh producer are next. Complete final-runtime strict48/50 and cleanCI remain
+mandatory before adoption. PR132 stays40ddcb3f OPEN DRAFT based on #130. The
+parent AD48 original CI failed only its measured MQTT gate/dependentFullVerify;
+original numerical jobs/results stay untouched. D9CB strict48 and50 are complete
+failed (145primary measured misses including38RSS;202supplemental measured plus
+two unmeasured allocation metrics). RAM/broadWAMP parity remains unresolved.
+The original MQTT3020 client reused buffers/patterns; old fresh-body claims are
+withdrawn while original results remain. Standard-SDK copy scope does not waive
+the unanswered1% allocation-precision decision. No gate/window/sample/body/
+ownership/SDK/GC/allocator/worker policy changes or lucky numerical retries.
+[Authoritative complete retained campaign state](https://github.com/konsultaner/connectanum-dart/blob/c0f9bbbc/docs/project_state.md).
+
+## Historical source checkpoints retained below
+
+The following dated checkpoints record earlier source states. Their pending
+phases are historical; use the current status above for continuation.
 
 ## Segmented receive views: focused verification complete (2026-11-02)
 
@@ -22,7 +52,7 @@ CI, controlled measurements and final strict 48/50 are pending. No adoption or
 RSS/transport acceptance is claimed. Parent and historical results stay intact.
 [Change, retained failures and verification](research/2026-11-02-flatbuffers-segmented-receive-correctness.md).
 
-## Current work
+## Historical D9CB work at source freeze
 
 Freeze and validate the segmented FlatBuffers receive correction after the
 actual contained-vector alias failure and passing focused checks. Parent

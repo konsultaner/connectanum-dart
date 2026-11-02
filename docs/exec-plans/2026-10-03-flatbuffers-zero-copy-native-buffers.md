@@ -2,14 +2,44 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
-Current step: freeze and verify the reviewed segmented FlatBuffers receive
-view correction after actual before-failing alias reproduction and focused
-core/FFI/native WebSocket/router/MQTT/Paho checks pass. The published parent
-`600e82f5` already passes its own canonical/copy/all39CI; its source control is
-mixed and near unity. Candidate own canonical/copy/CI, controlled measurements
-and complete strict final-runtime48/50 remain required before adoption.
-Preserve original numerical observations and all validation/lifetime/body/gate
-policies. Do not mutate source/HEAD/native during active canonical verification.
+Current step: publish and freeze the reviewed native MQTT complete-pair initial-
+capacity correction after actual before-failure and passing focused Rust/FFI/
+own-native/WebSocket/lifetime/router/MQTT-Paho checks. Own final-source canonical,
+copy/lifetime, current CI and a properly guarded native-source/fresh-client
+comparison remain next; no performance/RAM acceptance or adoption is claimed.
+Final-runtime complete strict48/50 and cleanCI are mandatory. Preserve every
+original numerical result and all body/ownership/validation/gate policies.
+Do not mutate source/HEAD/native during active canonical verification.
+
+## Current isolated MQTT capacity correction (2026-11-02)
+
+`codex/mqtt-small-burst-coalescing` starts at frozen `ad48d679` and changes only
+the first native MQTT coalescing allocation for a complete observed pair.
+Fresh bootstrap/fullfast, actual test-only before-failure, four after capacity/
+pending/forced-arrival regressions and all focused Rust/FFI/own-native/Dart/
+WebSocket/lifetime/router/MQTT-Paho checks pass and are independently audited.
+Own native is `5cfe237b…`, all three locks are unchanged. The requested complete-
+pair allocation changes from 4184 bytes/three requests to 320/two here, including
+identical fresh-queue cost. This is no RSS, transport or causal CI acceptance.
+[Exact change and focused evidence](../research/2026-11-02-mqtt-complete-pair-capacity.md).
+
+Own frozen canonical/copy/CI and correctly bound native-source control with a
+fresh producer are next. Complete final-runtime strict48/50 and cleanCI remain
+mandatory before adoption. PR132 stays40ddcb3f OPEN DRAFT based on #130. The
+parent AD48 original CI failed only its measured MQTT gate/dependentFullVerify;
+original numerical jobs/results stay untouched. D9CB strict48 and50 are complete
+failed (145primary measured misses including38RSS;202supplemental measured plus
+two unmeasured allocation metrics). RAM/broadWAMP parity remains unresolved.
+The original MQTT3020 client reused buffers/patterns; old fresh-body claims are
+withdrawn while original results remain. Standard-SDK copy scope does not waive
+the unanswered1% allocation-precision decision. No gate/window/sample/body/
+ownership/SDK/GC/allocator/worker policy changes or lucky numerical retries.
+[Authoritative complete retained campaign state](https://github.com/konsultaner/connectanum-dart/blob/c0f9bbbc/docs/project_state.md).
+
+## Historical source checkpoints retained below
+
+The following dated checkpoints record earlier source states. Their pending
+phases are historical; use the current status above for continuation.
 
 ## Segmented receive views: focused verification complete (2026-11-02)
 

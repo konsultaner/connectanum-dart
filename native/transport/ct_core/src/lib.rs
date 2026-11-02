@@ -61,6 +61,8 @@ mod http_stream;
 mod io_stream;
 mod ktls;
 mod message_ready;
+#[cfg(test)]
+mod mqtt_inbound_allocation_probe;
 pub use message_ready::{arm_message_ready_callback, set_message_ready_callback};
 mod platform;
 mod protocol;
@@ -1890,7 +1892,14 @@ impl MqttInbound {
                 self.pending = Some(next.split_off(remaining));
             }
             let buffer = combined.get_or_insert_with(|| {
-                let mut buffer = BytesMut::with_capacity(max_bytes.min(4096));
+                // Size a complete pair exactly; amortize longer queued bursts.
+                // Later arrivals still drain below and grow the buffer normally.
+                let capacity = if self.pending.is_some() || self.receiver.is_empty() {
+                    total + next.len()
+                } else {
+                    max_bytes.min(4096)
+                };
+                let mut buffer = BytesMut::with_capacity(capacity);
                 buffer.extend_from_slice(&bytes);
                 buffer
             });
