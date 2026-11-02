@@ -146,8 +146,16 @@ leaving the checked-out runtime frozen. All11portable guards,12original and
 12instrumented realDart decoder controls and own-native no-data/TCP3.1.1/WS5
 full-body/cleanup/atomic-output controls pass. Bounded reviews are complete and
 root-qualified against the actual source and controls; no confirmed defect.
-Development control failures are retained. The new capture driver and isolated workflow mode are provisional and under
-final review; readiness remains false, with no25-row capture or production patch.
+Development control failures are retained. The tooling is now frozen/published at `8341d3fd737a55d877b3db1d8f3c6bceb5e937d6`.
+Bounded companion/root review completes with no confirmed defect. Its OWN full
+canonical is ACTIVE, not a pass yet, with clean tree`1c16d59f…`, own native`1ed515b7…`,
+18source guards/three locks held constant and actual localChrome/Wasm enabled.
+A read-only independent auditor waits. Source/HEAD/native remain frozen; no
+competing local models/tests or duplicate verification. The new client differs
+from the original3020 witness only as described in the freshness qualification.
+Capture readiness remains false; no25-row data or production patch.
+[Frozen tooling declaration](research/2026-11-02-mqtt-dart-copy-census-frozen.json),
+[Root-qualified reviews](research/2026-11-02-mqtt-dart-copy-census-root-review.json).
 [Controls and scope](research/2026-11-02-mqtt-dart-copy-request-controls.json).
 
 The proposed complete tools-only diagnostic would count explicit logical copy and

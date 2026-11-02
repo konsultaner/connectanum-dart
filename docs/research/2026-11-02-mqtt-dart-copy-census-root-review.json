@@ -1,0 +1,51 @@
+{
+  "review_complete": true,
+  "no_confirmed_defect_remaining": true,
+  "scope": "TOOLS-ONLY diagnostic source/generator/forwarder/fresh client/input/readiness/mode controls. No runtime edit, capture, numerical retry, allocation precision waiver or performance acceptance.",
+  "source_sha256": {
+    "tool/test_mqtt_dart_copy_probe.py": "64e734606e27a98c9bb36b16008bd6a6cf7ad7df385c56d5db79e76db9d1c2e4",
+    "tool/check_mqtt_dart_copy_native.py": "289264b784c4e41f03c47eb3be191c24c6c54a03a8240fb5a3d36c5373488bc9",
+    "tool/mqtt_copy_census_support.py": "f5b54676b7f46e64065e515641bb11f502fc143013dfe71850010e0a87b6d031",
+    "tool/run_mqtt_dart_copy_census.py": "fd0fa426736eae98a459ebe6ff8853e5a392c5d03520a3659658acb0f2566940",
+    "tool/mqtt_copy_census_client.py": "fcc19f94f23b86e70da52c45b14806ef0df7293aa769a4d9977d6473e2a7e54a",
+    "tool/mqtt_dart_copy_probe.py": "0098d7ffb5e061eac5d8129e84f83f5f4fd2e7b6c3f1861a6013b84614dec35a",
+    "tool/test_mqtt_dart_copy_census.py": "6cf84915dfb8a5e41c5c408204ca36ae06511b521c9fc28c8302796c07c043f6",
+    "tool/fetch_mqtt_dart_copy_inputs.py": "b4051d4bf0d63bbce9dc8ada0e765042a98a804245fc92d334d9c8e17ccde3c9",
+    "tool/check_mqtt_dart_copy_probe.py": "308cd8b92a99da9ddf5d08936d8985bdc8a4caf4c8ddf9e696d96d855b7e2bcc",
+    "tool/mqtt_ffi_census.c": "96c2ccb6a967aa4a06b4eee0d5db2431cc2db3529bd5bf8ab54f5679a416071b",
+    ".github/workflows/mqtt-profile.yml": "b19cd923b07fe34d5b3297670cbc4c7cc350ca4ec5596779f88fc4366cbbec28"
+  },
+  "full_driver_review_sha256": "4f683061c42c411d1d4cd46b4133fa51fbcd0f3f80eea53805eeabb58e30607c",
+  "delta_review_sha256": "220e60c354f994a81af64bf474d008391f5c533898d2ccd8759e2967491dc010",
+  "actual_final_controls_receipt_sha256": "1646527b0391e5da347365ea93b2b20e1ec9b1cae9a9cac7daa1dd41b2e8aee4",
+  "findings_assessment": [
+    {
+      "review": "full F1",
+      "assessment": "No nonce off-by-one: freshnonce=base+len(rows)+1 then append once in exact25iteration order. Final explicitprofile/run/nonce inventory additionally checked. Actual exact-client source has const warmup=100, all unchangedprofiles use thatclient; deriving from nonexistent budgetfield would change policy."
+    },
+    {
+      "review": "full F2",
+      "assessment": "replace_once checks text.count==1 before replace; source itself fixedSHA. Actual generatedsource and compiledfreshbody/nativecontrols pass. No ambiguous replacement."
+    },
+    {
+      "review": "full F3",
+      "assessment": "Actual code verifies ldd nativepath before writing linked-libraries receipt. Failure cannot produce completion; originalshim actuallinkedforwarding controls pass."
+    },
+    {
+      "review": "delta P1",
+      "assessment": "No false pass or masked primary: actual primary failure is retained/re-raised, cleanup-error separately retained; missing/partial JSON fails closed with actual JSON/File error and no completion. Partial files preserved, not accepted. Extra parse-error receipt would be optional diagnostics."
+    },
+    {
+      "review": "delta P2",
+      "assessment": "No body/nonce in zero fixture because no client runs, verified allDartcopy counters0 and actualCpollpositive/bytes0. TCP/WS consumed nonces204000001/2 distinct; hypothetical futureclientinzero is not present."
+    }
+  ],
+  "retained_failure_assessment": [
+    "Original fixed-pattern MQTT client source qualification retained; new client compiled with fresh permessage arrays/patterns. Prior delivery totals intact but perbodyfreshness claims withdrawn.",
+    "External adversarial fixture selected alreadyfailedjob (no mutation), now selects successfuljob and all8actualinputguard cases pass.",
+    "Combined actualC/Dart control found2negativepoll returns with completefresh100/100 bodies and cleanup0. ExistingBoss close handler inspected. Removed only an inventedzero-negative-lifetime constraint; originalforwardingcounterpolicy and allbody/cleanup/workload checks unchanged. Originalmeasurement neverreran."
+  ],
+  "residuals": "Controlled standard SDK and before/after source/binary hashes, not adversarial host attestation. Counter timings uncalibrated; terminal errors and allpartialresults retained. One futurecapture only after ownfrozencanonical; capture_readyfalse.",
+  "reviewed_utc": "2026-11-02T09:04:56.827316+00:00",
+  "EOF_format_only_AST_unchanged": true
+}
