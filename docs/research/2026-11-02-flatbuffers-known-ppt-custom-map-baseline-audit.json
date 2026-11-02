@@ -1,0 +1,51 @@
+{
+  "scope": "Independent readonly completed NEW-own-worktree before-edit baseline readback, not old frozen601 verification rerun or numerical acceptance.",
+  "source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "complete_pass": true,
+  "all_command_exit_and_log_hashes_verify": true,
+  "commands": [
+    {
+      "command": "bin/bootstrap",
+      "started_utc": "2026-11-02T20:13:13.024361+00:00",
+      "free_bytes_before": 19670433792,
+      "pid": 65161,
+      "exit_code": 0,
+      "finished_utc": "2026-11-02T20:13:14.241588+00:00",
+      "log_sha256": "c103ef096e596899825e70eac137429f3d824f0641e22c443c0acddbfa83da54",
+      "free_bytes_after": 19670056960
+    },
+    {
+      "command": "bin/test-fast",
+      "started_utc": "2026-11-02T20:13:14.277665+00:00",
+      "free_bytes_before": 19670048768,
+      "pid": 65246,
+      "exit_code": 0,
+      "finished_utc": "2026-11-02T20:29:19.520077+00:00",
+      "log_sha256": "e799262338243a2e89817cc7eb65a1b5ffd01d2833899f11695b9c4e621f9b0c",
+      "free_bytes_after": 18642579456
+    },
+    {
+      "command": "bin/verify",
+      "started_utc": "2026-11-02T20:29:19.579162+00:00",
+      "free_bytes_before": 18642534400,
+      "pid": 26478,
+      "exit_code": 0,
+      "finished_utc": "2026-11-02T20:55:08.383783+00:00",
+      "log_sha256": "1e377aa4a99755759df6d2460bba4334aa60a5ffd7f53aa137741aedf8cf9f07",
+      "free_bytes_after": 10346909696
+    }
+  ],
+  "all3_actual_LOCALlocks_unchanged": {
+    "pubspec.lock": "4c719ebf08ce4d65571d5c4b25f9ec16567405ab99c8ee298143acadfa2691b8",
+    "native/transport/Cargo.lock": "0cb8ef90485ccae06b2981d023ea44d46c6309ba46a1186dffab581169f9f0c3",
+    "native/bench/Cargo.lock": "ea60fd1c65bd64f04a65ff9c1410348ef2d22450c7d63e4556149f7b6f1c0189"
+  },
+  "own_actual_canonical_ffi_test_native_sha256": {
+    "native/transport/target/ffi-test/release/libct_ffi.dylib": "600c83887ef4c78261aa5255b79aa378655893724e0768f1f252b656041706de"
+  },
+  "own_source_archive_sha256": "816a2106432f999ff20e90899035406b670b74ceab28381092a8b8c8b2f72c85",
+  "actual_Chrome_Dart2Wasm_observed": true,
+  "JS_or_transport_RAM_acceptance_claimed": false,
+  "receipt_sha256": "9ece797f74c2d4b86d0855dc72e85576488c96b2eb8976ef6c2a879730315663",
+  "checked_utc": "2026-11-02T21:09:10.557245+00:00"
+}

@@ -12,16 +12,21 @@ Initial native-buffer RPC source tracing finds explicit producer/lease/result
 cleanup and existing externalSize accounting; no ownership defect is confirmed.
 Next inspect receive/control decoding and per-message metadata allocations,
 retaining both roles/allcontrols; no patch/control/capture is ready.
-Source tracing identifies a candidate redundant custom-dictionary loader for
-exact known-only PPT metadata. The isolated clean601 worktree is unedited;
-fresh baseline preparation is active under the official exclusive lease:
-bootstrap PASS/all3 original LOCAL locks unchanged, then test-fast/full verify.
+The known-only PPT empty-map shortcut was tested and rejected: later raw-byte
+metadata mutation fails with the shortcut and passes with original601. Its
+zero-pending decoder budget is withdrawn despite six initial budget failures,
+21passing controls and1,977initial focused passes. Both files are restored
+exact601; no candidate committed/published/adopted, no active local workload.
+The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
+its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
 Declared inactive OWN predecessor compiler-cache cleanup preserved every
 protected source/HEAD/native/RLIB/executable hash and all evidence. Retain the
 first missing-generated-lock preflight failure, which preceded all commands;
-exact original LOCAL locks initialize the corrected preparation. No source edit,
-before-failing reproduction, candidate capture or RAM repair is established.
-[Hypothesis and required controls](../research/2026-11-02-flatbuffers-known-ppt-custom-map-plan.md).
+exact original LOCAL locks initialized the corrected preparation. No candidate
+source change, production defect or RAM repair is retained/established.
+Next inventory retained report/profile allocation/heap/GC and class/stack
+evidence before another optimization; no new capture or patch is ready.
+[Rejection, exact counterexample and preserved evidence](../research/2026-11-02-flatbuffers-known-ppt-custom-map-rejection.md).
 Owncanonical/copy/MQTT20/hostedJS/fullCI39 and proper fresh50row native control
 are complete/audited within their distinct scopes; they do not accept RAM or
 broadWAMP parity. Keep localcc1.10 and hostedcc1.11 build cohorts distinct.

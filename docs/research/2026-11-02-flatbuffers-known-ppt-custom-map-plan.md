@@ -1,5 +1,10 @@
 # Known-only PPT custom-map hypothesis
 
+Status: **rejected**, with no source change retained. The executed metadata-byte
+alias counterexample invalidates the zero-pending budget. See the [rejection
+and preserved evidence](2026-11-02-flatbuffers-known-ppt-custom-map-rejection.md).
+The following records the original hypothesis and preparation history.
+
 Receive/control source tracing identifies a narrow allocation hypothesis,
 without establishing a production defect or RAM cause. `NativeSessionMessage`
 creates a mutable lazy custom-details map and a deferred dictionary loader even
@@ -19,15 +24,17 @@ This is a plan, not a patch or verified allocation/RSS reduction. A meaningful
 before-failing witness must establish the unnecessary pending decoder work;
 an assertion of an exact implementation class alone is insufficient. Full
 mutation/identity/validation and lazy fallback controls remain necessary.
-No candidate-source reproduction, capture or numerical campaign has run for
-this hypothesis. Local model advice was qualified against the actual source: the
+At planning time, no candidate-source reproduction, capture or numerical
+campaign had run. Subsequent unit reproduction and alias falsification are
+retained in the rejection above; no numerical campaign ran. Local model advice
+was qualified against the actual source: the
 no-bytes/null case is already a passing control, and key order alone does not
 make an otherwise valid dictionary malformed.
 
-The new isolated `codex/flatbuffers-ppt-custom-detail-map` worktree starts at
-unchanged601. Its source is clean and unedited. Fresh baseline preparation is
-active under the official exclusive lease: bootstrap passes, followed by
-`bin/test-fast` and full `bin/verify` before source edits. All three original
+The isolated `codex/flatbuffers-ppt-custom-detail-map` worktree started at
+unchanged601 and is restored clean after rejecting the shortcut. Fresh baseline
+preparation completed under the official exclusive lease: bootstrap,
+`bin/test-fast` and full `bin/verify` passed before source edits. All three original
 LOCAL locks remain unchanged; none is equated with the distinct hosted cohort.
 The first runner incorrectly assumed ignored generated locks existed in the
 fresh checkout. Its preflight failure preceded all commands and remains
@@ -41,7 +48,8 @@ query/workproduct cache files were removed only from inactive OWN predecessor
 worktrees (11,507,457,811 logical bytes). Before/after protected source/HEAD/
 native/RLIB/executable hashes match. Evidence, archives, frozen601 and other
 tasks remain untouched. Observed free space after cleanup was19.69GB. No
-model/test/source/native/HEAD mutation may compete with the active baseline.
+model/test/source/native/HEAD mutation competed with the baseline. All sessions
+are now reaped; no local workload is active.
 
 Frozen601 and both completed failed campaigns remain unchanged. Any eventual
 Dart change still needs actual two-Dart-broker fresh50-row controlled source

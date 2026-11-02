@@ -33,14 +33,20 @@ Next inspect receive/control decoding and per-message metadata allocations,
 retaining both roles/allcontrols. No production defect is confirmed; no patch
 or capture is ready. Both strict campaigns stay failed, source601 frozen/unadopted.
 
-Receive/control tracing has identified a narrower source-only hypothesis:
-avoid a redundant custom-dictionary loader when the existing exact PPT matcher
-proves no custom fields. Preserve a fresh mutable nonnull map and every fallback.
-The isolated worktree remains clean601, with no source edit or candidate
-reproduction/capture. Fresh baseline preparation is now active: bootstrap
-passes with all three original LOCAL locks unchanged; `bin/test-fast`, then
-`bin/verify`, run sequentially under the official exclusive lease. No competing
-local model/test or source/native/HEAD mutation is allowed during this work.
+The known-only PPT empty-map shortcut is now **rejected**. Its initial six
+pending-decoder budget failures and21passing controls did not cover later raw
+metadata-byte mutation. A new alias counterexample fails with the shortcut
+and passes with original601. The zero-pending budget is withdrawn: pending
+decoding preserves that behavior. All1,977initial focused tests/analysis passed,
+but that was insufficient. Both files are restored byte-for-byte and the
+isolated worktree is clean; no candidate was committed/published/adopted.
+[Executed rejection and preserved patch/logs](research/2026-11-02-flatbuffers-known-ppt-custom-map-rejection.md).
+
+Its distinct mandatory before-edit baseline completed bootstrap, fast tests
+and full verification; all logs, original3LOCALlocks, own source archive and
+own600C **ffi-test** native independently verify. All sessions are reaped; no
+local workload is active. This is not RAM/transport acceptance or a substitute
+for Linux production0B23/frozen601's own5CFE witness.
 Before preparation,829 declared compiler-cache files in inactive OWN predecessor
 worktrees were removed (11,507,457,811 logical bytes); all protected source/
 HEAD/native/RLIB/executable hashes remain unchanged. Observed free space then
@@ -48,8 +54,11 @@ reached19.69GB. Evidence, frozen601 and other tasks were untouched. The first
 runner's missing-generated-lock preflight failure preceded every command and
 is retained; the corrected preparation initializes exact frozen LOCAL lock
 bytes, without hand-editing inputs, borrowing binaries or waiving cohort drift.
-No before-failing witness or repair is established.
-[Hypothesis and required controls](research/2026-11-02-flatbuffers-known-ppt-custom-map-plan.md).
+No production defect or RAM repair is established. Next inventory retained
+original report/profile fields for source-relevant allocation/heap/GC or class/
+stack evidence before another optimization. The first field-schema check
+covers only one repetition/all3codecs of the initially focused case; it is not
+whole-artifact coverage or a causal result. No new capture/patch is ready.
 
 ## Both exact601 strict campaigns complete failed; no adoption (2026-11-02)
 

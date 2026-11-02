@@ -1,0 +1,85 @@
+{
+  "scope": "Rejected source-only custom-map shortcut; actual NEW unit counterexample and restored original, not RAM/performance acceptance.",
+  "original_source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "before_pending_decoder_witness": {
+    "expected_budget": 0,
+    "actual_per_two_message_case": 2,
+    "failed_cases": 6,
+    "passing_controls": 21,
+    "budget_withdrawn_due_to_alias_semantics": true
+  },
+  "after_initial_focused_checks": {
+    "binding_tests_passed": 1977,
+    "targeted_analysis_passed": true,
+    "scope": "Did not cover the later-found raw metadata byte alias boundary."
+  },
+  "alias_counterexample": {
+    "operation": "Obtain customDetails, replace encoded ppt_scheme key with same-length valid _trace_key, then read the custom key.",
+    "candidate_expected": "x_known",
+    "candidate_actual": null,
+    "candidate_exit": 1,
+    "restored_original_exit": 0,
+    "official_exclusive_lease_verified": true
+  },
+  "root_decision": "Reject early empty-map shortcut; pending decoder preserves later mutable metadata input. Withdraw zero-pending budget. Do not freeze bytes, weaken alias contract or infer RAM cause.",
+  "model_review_qualified": {
+    "complete_reaped_session": 90621,
+    "F1": "Confirmed only the concrete raw-byte mutation divergence with executed counterexample. No blanket public-API guarantee or physical-memory claim.",
+    "F2": "Model self-retracted duplicate/order concern; existing matcher rejects duplicate fields and trailing data.",
+    "F3": "Non-ASCII fallback is a relevant test suggestion; candidate rejected before adoption.",
+    "R1_R2": "Speculative forged-metadata/future-loader claims are not established defects of the patch."
+  },
+  "candidate_source_sha256": {
+    "packages/connectanum_client/lib/src/transport/native/message_binding.dart": "e61c22e157a03a55b75b7fb67f39368a65100921cfffad11bcc15ded269c5f4d",
+    "packages/connectanum_client/test/transport/native/message_binding_test.dart": "f474e59b83a19875b68e42d9e3a3b0e1df6fb69255bf9bbe04aeb8fdbb704cb2"
+  },
+  "restored_production_sha256": "ec00507ec96a4057179ef4fde9653b40cf533ee91eac4a1b2b22893c8139c104",
+  "restored_test_sha256": "b2424b057b56319fc9e913bd5df3ff6a699853164c930ac29bd510dea430e994",
+  "worktree_restored_clean": true,
+  "candidate_published_adopted_or_used_for_strict": false,
+  "production_defect_or_RAM_cause_confirmed": false,
+  "artifacts": {
+    "candidate.patch": {
+      "path": "docs/research/2026-11-02-flatbuffers-known-ppt-custom-map-candidate.patch.gz",
+      "raw_sha256": "eef13f8c6699cd24d1d0ea0e99602ef88c3b57de26f61f2561761680793a4547",
+      "sha256": "0c2c7c0f199d8b634d4a336a97e8c244412ae63269fefa245f2115ef502faf06",
+      "encoding": "gzip; decompression reproduces exact original raw bytes"
+    },
+    "before.log": {
+      "path": "docs/research/2026-11-02-flatbuffers-known-ppt-custom-map-before.log.gz",
+      "raw_sha256": "eb073a5105b0c3585c00dd356044015e8b1e0120ed1c2886509e583a5ddac31d",
+      "sha256": "eb2ffd2b82a821aa3db18fbda561a85d265ecba8ed97551181309911e88e2bb9",
+      "encoding": "gzip; decompression reproduces exact original raw bytes"
+    },
+    "focused-after.log": {
+      "path": "docs/research/2026-11-02-flatbuffers-known-ppt-custom-map-focused-after.log.gz",
+      "raw_sha256": "86ab6e5f8b44ae3cdb87fbe0ff2dc2475fbd1124f05d46dba06af373a99ad715",
+      "sha256": "c833abdd49b64e970f2627629f76545609da954bda6f5812108b9183652798d2",
+      "encoding": "gzip; decompression reproduces exact original raw bytes"
+    },
+    "analysis.log": {
+      "path": "docs/research/2026-11-02-flatbuffers-known-ppt-custom-map-analysis.log.gz",
+      "raw_sha256": "fa6053d3194efe4ee576f5b0fc0ee728f98fdb6e4c2bc2835ae4efb1c345b090",
+      "sha256": "495a82fb8cf535e27f88169b155caeacf5a83720182fbdaa298d6c4f6d67f089",
+      "encoding": "gzip; decompression reproduces exact original raw bytes"
+    },
+    "candidate-alias.log": {
+      "path": "docs/research/2026-11-02-flatbuffers-known-ppt-custom-map-candidate-alias.log.gz",
+      "raw_sha256": "12f9a241c102215a3681c7740897c76688e6d7b6febe2f51b58f34ac3655c3a0",
+      "sha256": "b35f90efe6a0c9e15251ca8fec6a1023fc0742f4859f2e5b012497ecb9cdbeb5",
+      "encoding": "gzip; decompression reproduces exact original raw bytes"
+    },
+    "baseline-alias.log": {
+      "path": "docs/research/2026-11-02-flatbuffers-known-ppt-custom-map-baseline-alias.log.gz",
+      "raw_sha256": "ad6e9f3a22e72147e106caf3eca965c919837a29a53e77e03baedfbf4a4350cc",
+      "sha256": "6cabf08f83bff5a00044e3a7814c4876fb0349ad4a95c2e2f49c8f70351d42be",
+      "encoding": "gzip; decompression reproduces exact original raw bytes"
+    },
+    "retained-field-inventory.json": {
+      "path": "docs/research/2026-11-02-flatbuffers-known-ppt-custom-map-retained-field-inventory.json",
+      "sha256": "127db37920a86bf98d722dd366cfae35f7211658e4b4563e998978327e3e54c6"
+    }
+  },
+  "checked_utc": "2026-11-02T21:19:17.940798+00:00",
+  "final_source_HEAD_native_policy_or_gates_changed": false
+}
