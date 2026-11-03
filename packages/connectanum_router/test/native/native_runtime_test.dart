@@ -252,6 +252,10 @@ void main() {
           NativeTransportErrorCode.connectionNotFound,
           (r) => r.closeConnection(absent),
         ),
+        'MQTT wake registration': (
+          NativeTransportErrorCode.connectionNotFound,
+          (r) => r.setMqttWake(absent, (_) => fail('absent connection woke')),
+        ),
         'connection exponent': (
           NativeTransportErrorCode.connectionNotFound,
           (r) => r.connectionMaxRawSocketExponent(absent),

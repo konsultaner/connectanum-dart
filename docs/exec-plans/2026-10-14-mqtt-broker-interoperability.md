@@ -31,13 +31,23 @@ verification passed at 14:40 UTC without source drift.
 - [x] Add a regression for automatic PR jobs registering only applicable checks.
 - [x] Keep CPU profiling automatic, route manual gateway runs through their existing workflow, and move the Intel probe to its own manual workflow.
 - [x] Preserve hardware qualification, recovery/comparison modes, coverage and every numeric/required gate.
-- [ ] Run local verification and publish the CI routing follow-up for fresh PR checks.
+- [x] Run local verification and publish the CI routing follow-up for fresh PR checks.
+- [x] Compare base/head LCOV artifacts and deterministically exercise all six lost MQTT/WebSocket error-path hits.
+- [ ] Verify the coverage stability correction and pass fresh Actions plus Codecov checks.
 
 The routing reproducer fails against the merged workflow and passes after the
 split. All 19 CI-contract tests and 12 native comparison/Intel hardware tests pass;
 Actionlint 1.7.12 accepts the three diagnostic workflows. `bin/test-fast` passes.
 Profiler steps and Intel comparison/artifact steps match the merged source, and
 main CI, gateway recorder, coverage validators and all MQTT budgets are unchanged.
+
+Clean-source `bin/verify` passes on `84e597e7`, including Chrome/Wasm. PR #136's
+first CI run `41612900291` and CPU diagnostic `41612900303` pass all 56 Actions
+jobs, with zero skips. The external Codecov project check detects three net lost
+hits against merged `ef1479d6`. Raw LCOV comparison proves the six lost and three
+gained hits are in unchanged transport error paths. Three focused regressions
+exercise all six lost lines, with real native error checks and controlled boss
+MQTT/WebSocket failures; no runtime, coverage policy or numeric budget changes.
 
 Use [project state](../project_state.md) for current verification status. The
 [README](../../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway) contains

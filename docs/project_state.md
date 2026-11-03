@@ -5,7 +5,7 @@ Current priority: [MQTT milestone 2](https://github.com/konsultaner/connectanum-
 Active plan: [MQTT interoperability](exec-plans/2026-10-14-mqtt-broker-interoperability.md).
 Branch: `codex/mqtt-ci-skipped-checks`, based on merged `ef1479d6`.
 [PR #135](https://github.com/konsultaner/connectanum-dart/pull/135) merged on 2026-11-03.
-Current work: keep optional manual diagnostics out of automatic PR check runs.
+Current work: finish PR #136's CI routing fix and make transport error coverage deterministic.
 
 The opt-in QoS 0 gateway implements #116/#117: realm authorization, trusted WAMP
 caller identity, binary publications, bounded queues, cancellation and teardown.
@@ -50,6 +50,16 @@ Main CI's required gateway smoke, all sixteen numeric shards, coverage and stric
 Full Verify dependencies remain unchanged. Normal PR CPU profiling continues to
 execute a real diagnostic; manual-only jobs will not register as skipped checks.
 
+[PR #136](https://github.com/konsultaner/connectanum-dart/pull/136)'s first run
+passes all 56 Actions jobs with zero skipped jobs. Its separate `codecov/project`
+check fails: identical production source has 47,027 / 49,957 hits versus the
+merged base's 47,030 / 49,957. Artifact comparison identifies six lost hits in
+MQTT wake-registration rejection and WebSocket poll-error handling, plus three
+gained worker error hits. Deterministic native/fake-runtime regressions now hit
+all six lost lines and assert native error codes, healthy-peer dispatch and
+WebSocket error reporting/detachment. Coverage thresholds, exclusions, runtime
+code and benchmark gates are unchanged. Full verification and fresh CI are pending.
+
 [Complete source qualification](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501)
 measures both translation directions, direct MQTT/WAMP controls, CPU, latency,
 per-process peak/drained RSS and separate retained-memory growth. Default-runtime
@@ -68,8 +78,9 @@ or discarded during recovery.
 
 ## Remaining readiness work
 
-The gateway is merged. The CI routing follow-up requires local verification
-and its own PR checks. The broader milestone remains open
+The gateway is merged. The CI routing follow-up passed local `bin/verify` and
+Actions; its coverage stability correction requires verification and fresh PR
+checks. The broader milestone remains open
 for QoS 1/2, retained messages/wills, persistence, credential authentication,
 complete MQTT properties and release conformance.
 
