@@ -7,6 +7,23 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Canonical output path aligned; actual build admission remains closed (2026-11-03)
+
+The canonical producer now follows the selected verification recipe's own
+ffi-test output path and refuses undeclared CI artifact reuse. Six new guards
+initially yield four failures, one error and one pass; after correction fourteen
+selected guards/callers pass. An introduced intermediate RLIB escaping error is
+retained and corrected to the original pattern.
+[Exact source, fixtures and limits](research/2026-11-03-flatbuffers-native-perf-canonical-output-preparation.md).
+
+This phase changes the producer/test pair only; all twenty tools remain
+uncommitted, uncanonical and unadmitted. Production601 and the fixed verification
+scripts stay unchanged. No actual canonical/build/receipt, kernel control,
+benchmark/capture or strict dispatch ran. Free about8.7GB<12GiB buildfloor;
+no cleanup and space-change cause unmeasured. Full independent orchestration
+and current-source provenance remain incomplete; live admission/controller
+stay closed. No RAM repair or acceptance.
+
 ## Historical method receipts linked; live preflight remains closed (2026-11-03)
 
 A new OWN five-JSON intake preserves reported method context/status links and

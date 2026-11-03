@@ -1,0 +1,105 @@
+{
+  "kind": "own-canonical-output-source-integration-root-assessment-v1",
+  "source_commit": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "source_only_problem": [
+    "Factory selected standard release native while selected bin/verify ->bin/test-all ->build_native_ffi_test_release selects target/ffi-test/release",
+    "Nonempty CONNECTANUM_CI_NATIVE_DIR permits a separate artifact-reuse branch that this recipe did not declare"
+  ],
+  "change": [
+    "Share own ffi-test canonical path between factory and live-emitter location predicate",
+    "Reject nonempty undeclared CI reuse before CommandProducer constructor; retain empty/unset behavior",
+    "Retain exact production factory, output locations and original RLIB regex value"
+  ],
+  "before": {
+    "tests": 6,
+    "failures": 4,
+    "errors": 1,
+    "passes": 1,
+    "scope": "Five source integration expectations fail; factory mocked, not actual build or production performance failures"
+  },
+  "intermediate": {
+    "tests": 14,
+    "errors": 1,
+    "passes": 13,
+    "scope": "Introduced escaping mistake rejected valid pure RLIB location; corrected to exact original regex; raw failure retained"
+  },
+  "fixed": {
+    "tests": 14,
+    "passes": 14,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "composition": "6 factory/path guards +5 pure output-location predicates +3 existing required factory callers; NOT old78/fullcanonical"
+  },
+  "source_sha256": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "3785658e4d5c04c035f10902962dc351b07b8456aad9777ac0d4f40934307e6c",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "01bb863689e084343e3b0b709e1b3de10fb4ae649f49510bc447db3445e65886",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0"
+  },
+  "all_other18_source_files_byteidentical_to_this_phase_before": true,
+  "all_existing_test_classes_and_functions_byteexact": true,
+  "all20_uncommitted_uncanonical": true,
+  "helper_bundle_count": 20,
+  "production_packages_native_and_selected_bin_files_unchanged": true,
+  "exact_shell_fixture_scope": "Only two verbatim functions extracted from own common.sh under explicit fixture ROOT_DIR and SYNTHETIC uname Darwin/Linux; never source whole common.sh or run build functions",
+  "test_fixture_commands": "Finite OWN Bash path queries capture stdout/stderr/status after communicate; existing three callers create finite OWN Git fixtures; Git setup API returns not all separately serialized",
+  "actual_kernel_or_native_build_or_live_receipt": false,
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "review": {
+    "session1062_exit": 0,
+    "complete_reaped": true,
+    "advisory": true,
+    "selected_diff_only": true,
+    "rejected_findings": [
+      "P1 traversal: identical production location restriction already existed; constructor requires canonical repo/run parent before creating own directory, _finish and _emit apply _regular_hash which refuses path.resolve(strict=True)!=path. Bounded checks do not prove atomic global write prevention.",
+      "P2 normalize repo: actual constructor already rejects noncanonical repo. Silently resolving would change that contract; no new bug demonstrated.",
+      "P3 environment: every new factory invocation clears ambient env. Pure location helper reads no env; hypothetical future changes are not a present leak. Bash extraction intentionally follows selected source functions, with exact bytes/hash in fixture evidence.",
+      "Windows fallback existed before; no Windows support claim added.",
+      "Hashing no-chunk claim false: _regular_hash streams chunks. No hashing CPU/RAM cost measured; caching could weaken fresh-byte checks and is not adopted."
+    ]
+  },
+  "tests_advice": {
+    "complete_saved": true,
+    "outer_exec_session1895_status_not_retained": true,
+    "qualification": "Helper stdout/stderr report complete stop; no new outer signed exit-status attestation"
+  },
+  "resources": {
+    "latest_free_bytes": 8723087360,
+    "build_floor_bytes": 12884901888,
+    "scoped_floor_bytes": 1073741824,
+    "build_floor_closed": true,
+    "cleanup_attempts": 0,
+    "space_change_cause": "UNMEASURED"
+  },
+  "next_required": "Full independently owned orchestration, retained actual command ownership and current own canonical/source archive/production native/driver/RLIB/locks/configs/SDK/compiler/tool/kernel provenance plus original-host controls and immutable complete admission; live provider absent/controller closed",
+  "no_source_commit_push_adoption_or_strict_dispatch": true,
+  "no_old_proof_suite_review_or_numerical_campaign_repeated": true,
+  "publication": {
+    "archive_sha256": "9700dad6bd529a8433c223d55e0b29c0e856b98d16909fd60c2cc74d88888264",
+    "regular_members": 338,
+    "all_regular_members_byteexact": true,
+    "excluded_private_files": [
+      "checkpoint-before-source-epoch.json"
+    ],
+    "special_nodes_metadata_only": []
+  }
+}
