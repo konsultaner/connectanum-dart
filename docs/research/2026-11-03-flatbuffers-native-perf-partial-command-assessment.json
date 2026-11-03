@@ -1,0 +1,150 @@
+{
+  "kind": "owned-known-command-wait-only-source-component-v1",
+  "utc": "2026-11-03T22:58:09.332861+00:00",
+  "source_sha256": "149dd1b71821ff56ce90a0f3c96eeb143a0968ec8b7c6b2331ce296f1b34fee3",
+  "test_sha256": "7d70afda0c5485f62a9a038c0dd50a86f1afb51e3f6257ec5598cc99e3338a75",
+  "changed_files": [
+    "tool/native_perf_build_producer.py",
+    "tool/test_native_perf_build_producer.py"
+  ],
+  "original_module_functions_factories_emitters_gates_byteexact": true,
+  "original_CommandProducer_and_AuxiliaryCommand_classes_byteexact": true,
+  "changed_original_owner_methods": [
+    "__init__",
+    "_schedule",
+    "_work"
+  ],
+  "other_original_owner_methods_and_original_test_classes_byteexact": true,
+  "other18tools_and_selected3bins_byteexact": true,
+  "production_source_601_unchanged": true,
+  "all20helpers_uncommitted_uncanonical_unadmitted": true,
+  "helper_bundle20_private_method_controllers_separate": true,
+  "new_API": "continue_command_wait(timeout), command_observation()",
+  "semantics": "failed/uninitialized owner, worker-only retained exact pending command/Popen/record/log/aux handles; same drain and same Popen boundedwait only; no pipeline/audit/spawn/end/finish/logclose/publication",
+  "raw_producer_pending_and_finished_flags_UNCHANGED": true,
+  "log_remains_OPEN": true,
+  "immutable_scalar_cache_and_TYPEONLY_public_errors_exact_private_errors": true,
+  "cached_terminal_only_refuses_future_wait_not_actor_or_lease_closure": true,
+  "callback_recheck_before_IO_and_strict_kind_and_copied_scalar_type_guards": true,
+  "identity_checks_bounded_not_atomic_global_ABA_auth_or_write_prevention": true,
+  "method_stage_results": {
+    "before-v2": {
+      "tests": 8,
+      "failures": 0,
+      "errors": 13,
+      "new_command_actor_records": 8,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    },
+    "implemented": {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "new_command_actor_records": 8,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    },
+    "callback-before": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "new_command_actor_records": 1,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    },
+    "fixed": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "new_command_actor_records": 2,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    },
+    "kind-before": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "new_command_actor_records": 1,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    },
+    "final": {
+      "tests": 13,
+      "failures": 0,
+      "errors": 0,
+      "new_command_actor_records": 10,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    },
+    "scalar-before": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "new_command_actor_records": 1,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    },
+    "sealed": {
+      "tests": 14,
+      "failures": 0,
+      "errors": 1,
+      "new_command_actor_records": 11,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    },
+    "final-current": {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "new_command_actor_records": 11,
+      "all_recorded_new_command_actors_natural0_mergedEOF_stream_matches_file": true
+    }
+  },
+  "before13errors_missing_API_only_not13production_defects": true,
+  "new_callback_guard_FAIL_fixed_separate2PASS": true,
+  "new_kind_equality_guard_FAIL_corrected": true,
+  "new_scalar_cache_guard_FAIL_raw_object_marker_observed_corrected": true,
+  "first_sealing14_has_one_introduced_existing_auxiliary_caller_IndexError": true,
+  "sealing_wrong_method_text_replacement_original_auxiliary_method_restored_byteexact": true,
+  "final14PASS_scope": "11newcommand guards +3required existingcallers, separate from earlier11/2/13/failed14; NOTcombined/fullcanonical",
+  "first_coordinator_main_marker_assert_direct1_BEFORE_source_write_or_tests_terminal_retained": true,
+  "actual_fixtures": "real finite OWN Python recipe with mocked source/archive/input guards; factory raises AFTER actual fixture ctor returns pending. NOT observed original ctor failure or canonical/build/SDK",
+  "actual_producer_provenance_FIXTURE_only": true,
+  "no_versions_native_build_kernel_broker_benchmark_capture_or_strict_dispatch": true,
+  "root_actual_EX_through_known_fixture_workers_children": true,
+  "unit_lease_callbacks_SYNTHETIC": true,
+  "fixture_teardown": "same known child/drain and parentlog/journal closes + malformed/synthetic field restores for isolated fixtures only; NEVERlive workaround",
+  "new_observer_views_and_legacy_Git_setup_API_returns_NOT_all_systematically_serialized": true,
+  "no_reconstruction_or_rerun_to_fill_serialization_limits": true,
+  "no_originalhost_kernel_pidfd_FDexec_root_access_SDK_compiler_loadedrole_clock_coverage_or_instructionclosure": true,
+  "full_bridge_provider_ownership_or_physical_release_complete": false,
+  "actor_ownership_complete": null,
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "no_RAM_cause_repair_or_acceptance": true,
+  "models": {
+    "GLM62227_complete_direct0_reaped": true,
+    "ROOT_selects_A_no_end_finish_or_producer_terminal_retag": true,
+    "GLM_reject": [
+      "deferred error never finalized: original wait does end then failed finish AFTER EOF",
+      "IO under owner lock: original worker actions outside lock",
+      "uncertain flag not quarantined: source flag set before raise; laterdrain shortcircuits",
+      "bounded resource cost not measured CPU or RSS bound"
+    ],
+    "Qwen6974_tests_complete_direct0_reaped": true,
+    "tests_reject": [
+      "invented ID/BusyError/IdentityMismatch/ValueError APIs",
+      "end/finish contradicts chosen A"
+    ],
+    "Qwen23980_review_complete_direct0_reaped": true,
+    "review_epoch": "6448cfdcf33fa026c67e572f78b7fa527b4d06b645ddc8bb56ab240a1527b7de / 1f47a0fdfe8dcc51274c41a183eec893ca85ad57f80f73e2798706b65f6252e7 before scalar sealing/current final hunks",
+    "review_reject": [
+      "owner lock does not govern foreign raw mutators; cannot create global atomicity",
+      "fileno/fstat allocate NO new FD; existing handles intentionally retained, no quarantine close authority",
+      "minimum positive wait would exceed remaining caller budget; timeout means no invented natural status"
+    ],
+    "ROOT_final_whole_affected_methods_and_test_hunks_checked": true,
+    "no_model_final_current_full_source_approval": true
+  },
+  "next": "Full command/log finalization, recipe/auxiliary/unknown actor orchestration and actual physical EX lifetime remain incomplete; do not retag producer terminal or bypass aux eligibility. Bind original PATH/SDK/bootstrap inputs and declare firstgeneration runtime locks/configs/current20canonical before actual build. No diagnosticdata until immutable complete admission.",
+  "free_after": 15218847744,
+  "new_public_evidence": {
+    "archive_sha256": "468b49b3f0edca0e41e063e9b11385abd8beaf34ca11105e48f90196685431ed",
+    "regular_members": 1446,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}

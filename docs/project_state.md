@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-03 — Worker-only known command wait; pipeline stays failed
+
+A failed/uninitialized owner can wait on the same retained command and merged output pipe through the serialized worker. No next command, audit, producer end/finish, log close or publication occurs. Raw producer pending/log-open state remains; cached terminal data grants no actor/lease closure. Final14guards pass (11new+3requiredcallers), after retained API absence and three new validation failures plus an introduced legacy edit error corrected. These are finite FIXTURE/source-component controls, not canonical or RAM evidence. Current20helpers remain uncommitted/uncanonical/unadmitted; production601 unchanged. Full physical orchestration, original SDK/lock/config preflight and live provenance remain incomplete; admission/controller stay closed.
+
+[Preparation](research/2026-11-03-flatbuffers-native-perf-partial-command-preparation.md), [assessment](research/2026-11-03-flatbuffers-native-perf-partial-command-assessment.json), [evidence](research/2026-11-03-flatbuffers-native-perf-partial-command-evidence.tar.gz).
+
 ## 2026-11-03 — Runtime toolchain file inputs recorded; bootstrap pending
 
 All three runtime locks and root package_config are absent in the new file observations. PATH points to Flutter Dart and Rustup proxies. Three equal41byte engine/stamp buffers do not bind the original wrapper's complete bootstrap/update predicates; selected source also writes SDK cache metadata before cached Dart execution. Root Cargo flags and stable toolchain are file data, not effective compiler/runtime proof. No SDK/project CLI, bootstrap, test/build/capture or source mutation occurs. Python/rg/companions execute for administration. Current20 helpers remain unchanged/uncommitted/uncanonical; live admission remains closed. About15.8GB>12GiB floor at observation, no cleanup/cause unmeasured; recheck before build.
