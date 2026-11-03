@@ -7,6 +7,21 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Git source-command guards verified; actual source intake refused (2026-11-03)
+
+Changed producer integration passes 78 cases (13 new and 65 existing callers). Before
+failures exposed early dual-output completion and consumed metadata differing
+from its earlier snapshot; both are fixed with every original OWN byte retained.
+A NEW actual HEAD/status control exits0 but rejects the real20uncommitted tools;
+source_admitted=false. [Scope, failures and actual control](research/2026-11-03-flatbuffers-native-perf-git-output-preparation.md).
+
+The helper bundle has 20 files; production remains at 601; no actual canonical/native/Linux/perf/kernel/
+VM/benchmark/capture or strict dispatch. Independent live preflight remains
+unresolved; live SessionController stays closed. All own actors/sessions reaped.
+Free 7.43 GB is below unchanged 12 GiB build floor, cause unmeasured; no build
+or cleanup starts. Source/guard work still needs its own resource admission.
+Both strict campaigns remain failed; no production RAM repair/acceptance.
+
 ## Command output completion verified; live preflight unresolved (2026-11-03)
 
 Changed producer guards pass64 cases plus1 separate new partial-failure control.

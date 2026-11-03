@@ -214,6 +214,15 @@ dispatch. [Qualified scope](../research/2026-11-03-flatbuffers-native-perf-comma
 Actual independent preflight/command/Linux-control producers and full own source/
 SDK/compiler/config/native receipts remain required; live controller stays closed.
 
+Git auxiliary dual-output/consumed-byte guards now pass 78 changed module cases
+(13 new and 65 existing callers). Actual owned HEAD/status control rejects current
+uncommitted20tool source; no archive/build/production receipt or live permission.
+[All new evidence and limits](../research/2026-11-03-flatbuffers-native-perf-git-output-preparation.md).
+Independent live preflight, own fullcanonical/source/SDK/compiler/config/native
+receipts and actual bounded Linux controls remain pending; controller CLOSED.
+Free 7.43 GB is below unchanged 12 GiB build floor (cause unmeasured), so no
+build starts or protected/other-task cleanup. Production601/helper20 unchanged.
+
 ## Read-only original RSS role attribution complete (2026-11-02)
 
 All48primary cases /336original pairs, including43failed RSS cases /301pairs
