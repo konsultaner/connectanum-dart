@@ -9,9 +9,9 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## Linux method source setup refused before primitive controls (2026-11-03)
 
-A NEW pinned-image Docker setup actually starts one unprivileged namespaced
-Python coordinator, which naturally exits1 at its source-file owner/mode guard
-before any child/pidfd/FDexec/credential-wire/perf/benchmark case. The failing
+A NEW pinned-image Docker setup starts one namespaced Python coordinator
+configured for UID/GID1000, which naturally exits1 at its source owner/mode guard
+before runtime credential/context assertions or any child/pidfd/FDexec/wire case. The failing
 stat was not serialized; no specific UID mapping or ownership waiver is inferred.
 All raw evidence and the stopped OWN container remain; no restart or cleanup.
 [Setup, exact statuses and limits](research/2026-11-03-flatbuffers-native-perf-linux-method-preparation.md).

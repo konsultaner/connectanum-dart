@@ -88,7 +88,9 @@
     "completed_primitive_cases": 0,
     "policy": "UID/GID1000; cap-dropALL; no-new-privileges; networknone; readonlyroot; exact OWN source bundle readonly bind; no other-task data mounts; original WAMP not invoked",
     "failure": "guest checked_modules regular-file/exact-declared-owner/non-group-writable combined predicate failed before first actual module import, child/pidfd/FDexec/wire case",
-    "limit": "first failure has no serialized failing source-file stat; cannot identify which predicate or infer actual guest UID translation. No reconstruction or chown/owner waiver."
+    "limit": "first failure has no serialized failing source-file stat; cannot identify which predicate or infer actual guest UID translation. No reconstruction or chown/owner waiver.",
+    "runtime_credential_context_assertions_reached": false,
+    "policy_is_retained_Docker_configuration_not_runtime_credential_attestation": true
   },
   "resource_refusals": "Several official EX/SH admissions refused BEFORE source/test/child work. First proposed v1 self-hash patch did not apply; original ff47 harness executed. V2 preparation initially unstarted/refused, then separately admitted. Never bypassed another native/model reservation.",
   "model_qualification": {

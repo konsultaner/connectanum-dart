@@ -23,6 +23,10 @@ OWN source bundle as a read-only bind; rootfs stays read-only, UID/GID1000,
 cap-dropALL, no-new-privileges, networknone, bounded tmpfs/memory/pids. No other
 worktree or data was mounted; no capability or security relaxation occurred.
 
+UID/GID1000 and the security settings above are retained Docker configuration.
+The runtime UID/capability/NoNewPrivs/context assertions were not reached and
+are not independent actual credential or kernel-policy observations.
+
 The actual guest exits1 at the combined regular-file/exact-declared-owner/
 non-group-writable source predicate, before the first tool-module import or
 any declared child/pidfd/FDexec/credential-wire case. The failing file stat was
