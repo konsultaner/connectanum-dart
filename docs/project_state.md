@@ -7,6 +7,21 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Command output completion verified; live preflight unresolved (2026-11-03)
+
+Changed producer guards pass64 cases plus1 separate new partial-failure control.
+Actual before failures advanced while an OWN finite output writer was still alive;
+new source waits for direct status AND pipe EOF, preserves late bytes and first
+errors, and keeps partial publications terminal. EOF is not whole-descendant
+proof. [Exact scope, failures and evidence](research/2026-11-03-flatbuffers-native-perf-command-output-preparation.md).
+
+Twenty tools uncommitted, helper20, production601 unchanged. No actual canonical/
+native build/Linux/perf/kernel/VM/benchmark/capture or strict dispatch. Actual
+independent preflight provider remains unresolved; live SessionController stays
+closed. All known OWN finite actors naturally waited; uncertain output uses only
+explicit fixture cleanup, never live recovery. Last free14.23GB, no cleanup.
+Original strict campaigns remain failed; no production RAM repair/acceptance.
+
 ## Prelaunch contract verified; live admission remains closed (2026-11-03)
 
 New immutable declaration/reservation and changed context/Session guards pass109

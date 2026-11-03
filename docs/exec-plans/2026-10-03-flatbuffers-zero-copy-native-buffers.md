@@ -205,6 +205,15 @@ real bounded Linux controls still required before any diagnostic data. No origin
 runtime/body/SDK/GC/worker/window change or numerical rerun;20tools uncommitted,
 production601 unchanged, no source adoption or strict dispatch.
 
+Command producer output completion now passes64changed cases plus1separate new
+partial-failure guard. Before-failing late-writer ordering and primary-error
+masking are fixed, with every phase retained. EOF/direct status is supporting
+command evidence, never whole-descendant or live preflight proof. Bundle20 and
+production601 unchanged; no canonical/native/kernel/benchmark/capture or strict
+dispatch. [Qualified scope](../research/2026-11-03-flatbuffers-native-perf-command-output-preparation.md).
+Actual independent preflight/command/Linux-control producers and full own source/
+SDK/compiler/config/native receipts remain required; live controller stays closed.
+
 ## Read-only original RSS role attribution complete (2026-11-02)
 
 All48primary cases /336original pairs, including43failed RSS cases /301pairs
