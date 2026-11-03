@@ -1,0 +1,159 @@
+{
+  "kind": "own-new-source-archive-data-assessment-v1",
+  "utc": "2026-11-03T22:08:54.121290+00:00",
+  "actual_once": true,
+  "summary": {
+    "scope": "new OWN tracked runtime source/opaque source archive and separate20helper source DATA only",
+    "runtime_HEAD": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+    "runtime_reported_clean_before_after": true,
+    "tracked_entries": 3310,
+    "regular_entries": 3310,
+    "symlink_entries": 0,
+    "logical_blob_bytes": 45456885,
+    "source_archive_sha256": "816a2106432f999ff20e90899035406b670b74ceab28381092a8b8c8b2f72c85",
+    "source_archive_bytes": 48261120,
+    "helper20_source_package_sha256": "1b3ed7806acaeb6201bd7a1f0c7fe4242b01f901d29a54d5ef225152b68769db",
+    "helper20_unchanged": true,
+    "actual_direct_statuses": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "both_output_EOF_all": true,
+    "new_source_observations_not_atomic_or_executable_or_loaded_image_proof": true,
+    "no_current20_helper_canonical_or_build_or_SDK_or_native_or_benchmark_or_capture": true,
+    "no_ignored_hidden_files_absence_or_full_compiled_closure_claim": true,
+    "no_source_edit_commit_push_adoption_cleanup_or_strict_dispatch": true,
+    "capture_ready": false,
+    "source_admitted": false,
+    "live_admission": false,
+    "free_before": 16261173248,
+    "free_after": 16179216384,
+    "space_change_cause": "UNMEASURED"
+  },
+  "actual_direct_finalization": {
+    "primary": null,
+    "secondary": [],
+    "direct_final": [
+      {
+        "name": "runtime-head-before",
+        "pid": 82351,
+        "returncode": 0,
+        "result_present": true,
+        "both_EOF": true
+      },
+      {
+        "name": "runtime-status-before",
+        "pid": 82352,
+        "returncode": 0,
+        "result_present": true,
+        "both_EOF": true
+      },
+      {
+        "name": "source-tree",
+        "pid": 82353,
+        "returncode": 0,
+        "result_present": true,
+        "both_EOF": true
+      },
+      {
+        "name": "source-archive",
+        "pid": 82354,
+        "returncode": 0,
+        "result_present": true,
+        "both_EOF": true
+      },
+      {
+        "name": "runtime-head-after",
+        "pid": 82356,
+        "returncode": 0,
+        "result_present": true,
+        "both_EOF": true
+      },
+      {
+        "name": "runtime-status-after",
+        "pid": 82357,
+        "returncode": 0,
+        "result_present": true,
+        "both_EOF": true
+      }
+    ],
+    "known_commands": 6,
+    "all_returned": 6,
+    "actor_ownership_complete": null,
+    "capture_ready": false,
+    "source_admitted": false,
+    "live_admission": false
+  },
+  "controller_sha256": "7a66fd98cbcd9b131ed622bf5b361b00eca946720c249f96da4aa85b129da7be",
+  "actual_directory": "/private/tmp/connectanum-native-perf-source-archive-preparation-v1",
+  "candidate_versions_1_2_unexecuted": true,
+  "new_source_file_data_observation": true,
+  "current20_tools_unchanged_uncommitted_uncanonical_unadmitted": true,
+  "production_source_still_601": true,
+  "helper_bundle_count": 20,
+  "private_controller_not_helper_bundle_member": true,
+  "source_archive_and_helper_package_are_data_not_canonical_receipts": true,
+  "retained20_consumed_module_buffers": true,
+  "only_producer_compiled_from_consumed_bytes": true,
+  "all3310_new_archive_regular_members_match_Git_blob_and_same_held_checkout_FD_bytes": true,
+  "modes_and_input_UID501_GID20_before_after_observed": true,
+  "symlink_branch_not_exercised": true,
+  "ignored_hidden_configuration_inventory_not_done": true,
+  "no_tests_build_SDK_Rust_Dart_projectnative_broker_benchmark_or_capture_recipes_invoked_by_controller": true,
+  "full_Git_delegates_helper_bootstrap_interpreter_instruction_closure_not_proven": true,
+  "no_original_host_root_perf_kernel_credential_pidfd_FDexec_roles_clock_or_coverage_proof": true,
+  "no_atomic_global_ABA_all_descendant_all_writer_private_COW_or_physical_whole_closure_claim": true,
+  "no_RAM_cause_repair_acceptance": true,
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "models": {
+    "qwen_v1": {
+      "direct_exit": 1,
+      "token_limit": true,
+      "reachable": true,
+      "full_partial_and_final_not_saved": true
+    },
+    "qwen_v2": {
+      "direct_exit": 0,
+      "complete": true,
+      "reaped": true,
+      "selected_v2_only": true,
+      "final_v3_after_model": true
+    }
+  },
+  "root_review_qualifications": {
+    "v1_token_limit_no_final_no_saved_full_partial": true,
+    "v1_direct_exit": 1,
+    "v2_direct_exit": 0,
+    "v2_selected_only": true,
+    "root_rejects": [
+      "P0 undefined shared offset: synchronous hash context closes, explicit lseek0 precedes tar read; no concurrent reader",
+      "P1 mutation/short EOF mismatch is intended refusal, partial reads already loop; O_NONBLOCK regular inputs/any error fail closed",
+      "symlink lstat/readlink is explicitly bounded observation, not held FD/atomic proof",
+      "file_fd always under immediate try/finally"
+    ],
+    "root_accepts": "stream duplicate allocated before hash can leak if hash context raises before stream with; defer allocation into tar context AFTER hash close and seek",
+    "root_additional_fixes_v2": [
+      "bind every consumed Git stdout digest to actual captured stream",
+      "explicit natural wait same retained Popen for each known direct actor"
+    ],
+    "no_model_final_current_full_source_approval": true,
+    "final_controller_sha256": "7a66fd98cbcd9b131ed622bf5b361b00eca946720c249f96da4aa85b129da7be",
+    "candidate_v1_v2_unexecuted": true,
+    "no_tests_build_or_control_executed_yet": true
+  },
+  "build_floor_currently_open_at_recorded_observation": true,
+  "no_cleanup_space_cause_unmeasured": true,
+  "next": "Recheck12GiB before any build. Prepare explicit OWN runtime SDK/tool/environment, actual3locks and hidden-config provenance declarations before bootstrap/canonical; do not transplant prior configs/locks/native outputs. Current20-helper canonical validation and physical recipe/unknown-actor orchestration, original-host controls and immutable complete live admission still required.",
+  "new_public_evidence": {
+    "archive_sha256": "be29ea31a0a8498df226742b5cf57d1d9b4dea0b53dc9990c6ead507df429c41",
+    "regular_members": 6799,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}

@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-03 — New source archive bytes observed; canonical admission pending
+
+A new OWN601 archive matches all3310 tracked regular checkout files through held-FD byte observations. The separate current20-helper source package and consumed buffers are retained; the helper checkout remains dirty, uncommitted, uncanonical and unadmitted. Six direct Git commands return0 with both output EOFs. No source change, test/build/SDK/native/benchmark/capture recipe, cleanup or source adoption occurs. The latest recorded16.18GB exceeds the12GiB build floor; cause unmeasured. Recheck space and declare SDK/tools/environment, actual3locks and hidden configs before bootstrap/canonical. Physical orchestration, current-helper validation, original-host controls and immutable complete admission remain incomplete; all admission flags stayfalse.
+
+[Preparation](../research/2026-11-03-flatbuffers-native-perf-source-archive-preparation.md), [assessment](../research/2026-11-03-flatbuffers-native-perf-source-archive-assessment.json), [evidence](../research/2026-11-03-flatbuffers-native-perf-source-archive-evidence.tar.gz).
+
 ## Frozen runtime checkout prepared; helpers remain unadmitted (2026-11-03)
 
 A separate owned source checkout reports detached601 and an empty Git status.
