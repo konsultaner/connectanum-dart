@@ -123,7 +123,7 @@ class NativeMqttComparisonTest(unittest.TestCase):
 
 
     def intel_probe_script(self):
-        workflow = (ROOT / '.github/workflows/mqtt-profile.yml').read_text()
+        workflow = (ROOT / '.github/workflows/mqtt-intel-profile.yml').read_text()
         block = workflow.split('- name: Identify the requested Intel hardware', 1)[1].split('run: |\n', 1)[1]
         lines = []
         for line in block.splitlines():
@@ -157,18 +157,16 @@ class NativeMqttComparisonTest(unittest.TestCase):
                 self.assertEqual(output.read_text(), f'matches={str(wanted).lower()}\n')
                 self.assertEqual((proof / 'cpu-model.txt').read_text().strip(), model)
 
-    def test_intel_probe_rejects_mode_mixing_before_any_evidence(self):
-        for recovery, workers in [('123', ''), ('', '1')]:
-            with self.subTest(recovery=recovery, workers=workers), tempfile.TemporaryDirectory() as tmp:
-                proof = Path(tmp) / 'proof'
-                result = subprocess.run(['bash'], input=self.intel_probe_script(), text=True,
-                    capture_output=True, env={**os.environ, 'INTEL_PROBE_OUTPUT': str(proof),
-                        'RECOVER_RUN': recovery, 'COMPARE_WORKERS': workers})
-                self.assertEqual(result.returncode, 2)
-                self.assertFalse(proof.exists())
+    def test_intel_entry_has_no_recovery_or_worker_comparison_modes(self):
+        workflow = (ROOT / '.github/workflows/mqtt-intel-profile.yml').read_text()
+        dispatch = workflow.split('  workflow_dispatch:', 1)[1].split('permissions:', 1)[0]
+        self.assertNotIn('inputs:', dispatch)
+        self.assertNotIn('inputs.', workflow)
+        self.assertNotIn('RECOVER_RUN', workflow)
+        self.assertNotIn('COMPARE_WORKERS', workflow)
 
     def test_intel_comparison_keeps_userland_reference_and_measurement_guards(self):
-        workflow = (ROOT / '.github/workflows/mqtt-profile.yml').read_text()
+        workflow = (ROOT / '.github/workflows/mqtt-intel-profile.yml').read_text()
         intel = workflow.split('  intel:\n', 1)[1]
         self.assertIn('runs-on: ubuntu-22.04', intel)
         self.assertIn('ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d', intel)
@@ -181,7 +179,7 @@ class NativeMqttComparisonTest(unittest.TestCase):
         self.assertIn('benchmark_executed":true', intel)
 
     def test_intel_container_trusts_only_its_checkout_before_git_operations(self):
-        workflow = (ROOT / '.github/workflows/mqtt-profile.yml').read_text()
+        workflow = (ROOT / '.github/workflows/mqtt-intel-profile.yml').read_text()
         block = workflow.split('- name: Compare baseline and candidate on the matching CPU', 1)[1]
         setup = block.split('run: |\n', 1)[1].split('          bin/bootstrap', 1)[0]
         script = '\n'.join(line[10:] for line in setup.splitlines())

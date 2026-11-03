@@ -1,0 +1,102 @@
+name: MQTT Intel hardware diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  intel:
+    name: Intel 8370C MQTT availability and comparison
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    container:
+      image: ubuntu:24.04@sha256:78d4744ead1f5b19b04d0df558ab182a5300903900755e515b2ca4d10eb2044d
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    steps:
+      - name: Identify the requested Intel hardware
+        id: cpu
+        env:
+          INTEL_PROBE_OUTPUT: ${{ runner.temp }}/mqtt-intel-proof
+          MQTT_CPU_INFO_PATH: /proc/cpuinfo
+        run: |
+          set -euo pipefail
+          mkdir -p "$INTEL_PROBE_OUTPUT"
+          cpu_model=''
+          while IFS=: read -r key value; do
+            if [[ "$key" == 'model name'* ]]; then
+              cpu_model="${value# }"
+              break
+            fi
+          done < "${MQTT_CPU_INFO_PATH:-/proc/cpuinfo}"
+          printf '%s\n' "$cpu_model" > "$INTEL_PROBE_OUTPUT/cpu-model.txt"
+          uname -a > "$INTEL_PROBE_OUTPUT/kernel.txt"
+          matched=false
+          if [[ "$cpu_model" == *Intel* && "$cpu_model" == *8370C* ]]; then matched=true; fi
+          printf 'matches=%s\n' "$matched" >> "$GITHUB_OUTPUT"
+          printf '{"matched_intel_8370c":%s,"benchmark_executed":false}\n' "$matched" \
+            > "$INTEL_PROBE_OUTPUT/status.json"
+          echo "Requested Intel 8370C matched: $matched ($cpu_model)"
+      - name: Install pinned-userland benchmark dependencies
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        run: |
+          set -euo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            ca-certificates curl git unzip build-essential pkg-config libssl-dev \
+            python3 procps mosquitto
+          version="$(mosquitto -h 2>&1 || true)"
+          [[ "$version" == *'mosquitto version 2.0.18'* ]]
+      - uses: actions/checkout@v5
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+      - uses: dart-lang/setup-dart@v1
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        with:
+          sdk: 3.13.1
+          problem-matcher: 'false'
+      - uses: dtolnay/rust-toolchain@stable
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        with:
+          toolchain: 1.99.0
+      - name: Compare baseline and candidate on the matching CPU
+        if: ${{ steps.cpu.outputs.matches == 'true' }}
+        env:
+          INTEL_PROBE_OUTPUT: ${{ runner.temp }}/mqtt-intel-proof
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          bin/bootstrap
+          baseline_ref=e7e9585dce0d366d62706ed602356af08581083c
+          git fetch --no-tags origin "$baseline_ref"
+          git worktree add --detach "$RUNNER_TEMP/mqtt-intel-baseline" "$baseline_ref"
+          cp native/transport/Cargo.lock "$RUNNER_TEMP/mqtt-intel-baseline/native/transport/Cargo.lock"
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-intel-candidate-target" \
+            cargo build --manifest-path native/transport/Cargo.toml -p ct_ffi --release --features ffi-test --locked
+          CARGO_TARGET_DIR="$RUNNER_TEMP/mqtt-intel-baseline-target" \
+            cargo build --manifest-path "$RUNNER_TEMP/mqtt-intel-baseline/native/transport/Cargo.toml" \
+            -p ct_ffi --release --features ffi-test --locked
+          printf '%s\n' "$baseline_ref" > "$INTEL_PROBE_OUTPUT/baseline-ref.txt"
+          git rev-parse HEAD > "$INTEL_PROBE_OUTPUT/candidate-ref.txt"
+          result=0
+          bash tool/compare_mqtt_native.sh \
+            "$RUNNER_TEMP/mqtt-intel-baseline-target/release/libct_ffi.so" \
+            "$RUNNER_TEMP/mqtt-intel-candidate-target/release/libct_ffi.so" \
+            "$INTEL_PROBE_OUTPUT/comparison" || result=$?
+          passed=false
+          if [[ "$result" -eq 0 ]]; then passed=true; fi
+          printf '{"matched_intel_8370c":true,"benchmark_executed":true,"passed":%s}\n' "$passed" \
+            > "$INTEL_PROBE_OUTPUT/status.json"
+          exit "$result"
+      - name: Upload hardware identity and comparison evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-intel-proof
+          path: ${{ runner.temp }}/mqtt-intel-proof
+          if-no-files-found: error
