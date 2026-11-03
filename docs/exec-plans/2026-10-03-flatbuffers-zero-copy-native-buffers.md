@@ -17,7 +17,7 @@ metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
 exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
-guard preparation reuses this owned worktree, now with eighteen uncommitted tool
+guard preparation reuses this owned worktree, now with twenty uncommitted tool
 files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
@@ -190,6 +190,20 @@ command/SDK/compiler/native receipts and role discovery/instance/timing/metadata
 associations. Own18tool fullcanonical/archive/native/driver/RLIB/locks/hidden
 configs/tool/kernel provenance and real bounded Linux controls precede any data.
 Production601 unchanged,18tools uncommitted/unadopted. No strict dispatch/cleanup.
+
+Immutable prelaunch contract/reservation now passes109changed integration cases
+(21admission/66Session/22census); bundle20. Actual independent live preflight is
+NOTimplemented, so live SessionController is intentionally closed. No JSON or
+fixture provider can mint readiness. Before-failing terminality/file-instance/
+constructor/context/closed-binding controls and fixture-only env/path corrections
+are retained. [Full source/guard scope](../research/2026-11-03-flatbuffers-native-perf-admission-preparation.md).
+Next implement actual independently owned preflight/command and nonbenchmark
+Linux-control evidence producers; retain the split between prelaunch expectations
+and post-GO role/metadata outcomes. Own20tool fullcanonical/source/archive/native/
+driver/RLIB/3actual locks/hiddenconfigs/SDK/compiler/tool/kernel provenance and
+real bounded Linux controls still required before any diagnostic data. No original
+runtime/body/SDK/GC/worker/window change or numerical rerun;20tools uncommitted,
+production601 unchanged, no source adoption or strict dispatch.
 
 ## Read-only original RSS role attribution complete (2026-11-02)
 

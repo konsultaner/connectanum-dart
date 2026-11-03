@@ -7,6 +7,24 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Prelaunch contract verified; live admission remains closed (2026-11-03)
+
+New immutable declaration/reservation and changed context/Session guards pass109
+cases (21admission/66Session/22census). They bind original-order10invocations /
+330PROPOSED reports, exact file instances and context, and make refusal/partial
+writes permanently terminal. **Actual independent preflight is unresolved;
+live SessionController intentionally refuses authorization.** No JSON or fixture
+permission is live readiness. [Every failure, correction and source scope](research/2026-11-03-flatbuffers-native-perf-admission-preparation.md).
+
+Twenty tools uncommitted, helper bundle20, production601 unchanged; no fullnewtool
+canonical/build/source adoption, Linux/perf/kernel/VM/benchmark/capture or strict
+dispatch. Fresh OWN callback fixtures preserve complete declared parent env;
+short private socket paths obey the existing bound. All evidence retained; all
+own sessions reaped, last free14.35GB, no cleanup/numerical rerun.
+Actual own source/command/SDK/compiler/native/config and kernel-control producers
+remain next; future role/timing/metadata outcomes belong after GO. Both strict
+campaigns remain failed; no production RAM cause/repair/acceptance established.
+
 ## Scoped role transport verified; live capture admission pending (2026-11-03)
 
 New private mapped-role transport and bounded positive-parent source pass85
