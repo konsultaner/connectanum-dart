@@ -1,0 +1,2099 @@
+{
+  "utc": "2026-11-03T02:37:15.635786+00:00",
+  "scope": "NEW completion source plus OWN unprivileged POSIX callbacks/files/synthetic identity fixtures ONLY",
+  "head": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "production_tracked_source_unchanged": true,
+  "uncommitted_tools": 10,
+  "combined_source_versions": 3,
+  "new_completion_cases": 9,
+  "changed_source_integrated_cases_PASS": 31,
+  "executed_runs": {
+    "before": {
+      "tests": 6,
+      "exit": 1,
+      "log_sha256": "38626a39bc756b5f6d26d9082c53a431158c1a97096cd6be8c8be154fc4596cd",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "09e12799ba4ed5210c09cd589af1a86026c886d06d86ca4780e9a2cf92344bc8",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "fc9dc5cb4ae9db8a314313d264b911f40f25ca3e7624762f19c562639515038c"
+      }
+    },
+    "implemented": {
+      "tests": 6,
+      "exit": 0,
+      "log_sha256": "b0e0cfa0c5f61317d44f830ab179181b451164948ee5d4ff953f3f449116f8bb",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "75f41b9beb346b5667914cdeca07a5137bd91e93bde268dc956d9743999a48bb",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "fc9dc5cb4ae9db8a314313d264b911f40f25ca3e7624762f19c562639515038c"
+      }
+    },
+    "integrated": {
+      "tests": 31,
+      "exit": 0,
+      "log_sha256": "3489dcdf4128b5192a8b977901aacbf506121b7c3ed7eeb30c4b9664ae66de7f",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "75f41b9beb346b5667914cdeca07a5137bd91e93bde268dc956d9743999a48bb",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "199ccc6e996cbb5acbcb512e3f4c3e7a97f81d70758010966185bbab7b5708b4"
+      }
+    }
+  },
+  "final_source_sha256": {
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "75f41b9beb346b5667914cdeca07a5137bd91e93bde268dc956d9743999a48bb",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "199ccc6e996cbb5acbcb512e3f4c3e7a97f81d70758010966185bbab7b5708b4"
+  },
+  "last_free_bytes": 16981684224,
+  "official_exclusive_test_and_readback_lease": true,
+  "admission_refusal_before_source_or_tests": true,
+  "reservation_bypassed": false,
+  "prior_distinct_28_26_35_26_suites_reran": false,
+  "new_Linux_root_pidfd_ELFexec_perf_VM_native_benchmark_or_capture": false,
+  "new_actual_production_defect_RAM_cause_or_performance_result": false,
+  "full_newtool_canonical_started": false,
+  "before_result": "6new tests:1FAIL metadata closure allowed before sampler natural exit,5ERROR due missing newly specified completion/artifact APIs; not six production defects",
+  "after_result": "6NEW completion fixtures PASS; then3review controls plus adapted old Session callers/cleanup yield31PASS on changed source. This is required integration verification of new lifecycle states, not a rerun of the unchanged historical22 proof.",
+  "source_behaviors": [
+    "require natural driver wait before sampler endpoint closure",
+    "close controller endpoints at most once, relinquish numeric FD ownership before close",
+    "retain pending state through bounded waits, no relaunch/rearm/cancel/FD reuse close",
+    "wait owned launcher and separately authenticated actual sampler pidfd; sudo PID/status is not actual sampler proof",
+    "retain signed status/nonzero/partial/error data; no parity or completeness inference",
+    "bounded NONBLOCK NOFOLLOW regular-file raw artifact retention with owner/mode/inode/size/SHA checks",
+    "terminal partial report: no overwrite/retry/re-read; actual process completion permits metadata closure"
+  ],
+  "model_qualifications": {
+    "80754_tests": "COMPLETE/REAPED reachableGLM TOKENLIMIT exit1, no saved final advice, no unavailability/approval claim",
+    "92043_review": "COMPLETE/REAPED GLM selected excerpts; advisory, not whole-source or capture approval",
+    "F1_signed_status": "Source already preserves signed int; review itself acknowledges this. Accept test gap only: actual OWN callback writes synthetic raw file then deliberately self-SIGTERMs; real os.waitstatus_to_exitcode preserves -SIGTERM in report/error. No benchmark/campaign cancelled.",
+    "F2_retry_after_partial_report": "REJECTED: selected excerpt omitted preexisting sampler_finished entry guard. Root source plus NEW actual partial-write/ENOSPC fixture proves subsequent call immediately refuses, no second artifact read, original partial bytes retained. No report_written workaround or source rewrite adopted."
+  },
+  "fixture_correction": "Initial six-test harness did not account for the newly added sampler_finished state when cleanup checked whether to re-wait driver. Final harness checks recorded driver_exit and closes metadata after finish. Initial logs/sources retained; test process exit closed those residual fixture metadata FDs. Final explicit metadata-FD closure control passes.",
+  "fixture_retention": "Regular files exact; symlink text/targets and special socket/FIFO nodes described by retained metadata rather than cloned capabilities. No claim of live Linux credential/pidfd proof.",
+  "archive": "docs/research/2026-11-03-flatbuffers-native-perf-completion-evidence.tar.gz",
+  "archive_sha256": "688f0405a256d939de03736578227486f516084db40ad742e681e34e494dd826",
+  "archive_members": {
+    "advice-and-admission/connectanum-native-perf-completion-first-lease-refusal.json": {
+      "size": 153,
+      "sha256": "94794174272c9db75a880ff8dbf0f6abbb59b738b0857ac4a59e9ff447739137"
+    },
+    "advice-and-admission/connectanum-native-perf-completion-preparation-lease-refusal.json": {
+      "size": 684,
+      "sha256": "ae55d563d6be4d905bbacc4c4921abe64472880fe328545df7218f6bf82ff4f7"
+    },
+    "advice-and-admission/connectanum-native-perf-completion-source-review-wrapper.log": {
+      "size": 3536,
+      "sha256": "cf5e0380fd312382bd4e4a0c724a5f642b2d29b5119eb8b49a3bba4cdcc5d357"
+    },
+    "advice-and-admission/connectanum-native-perf-completion-source-review.txt": {
+      "size": 2830,
+      "sha256": "ab920e616d3aaae03c257a66d29664632b5cbbecaf22e9cf3e9b5536f601c5c0"
+    },
+    "advice-and-admission/connectanum-native-perf-completion-test-advice-wrapper.log": {
+      "size": 628,
+      "sha256": "5b37b57763da0b589886e964fda0aabea32a14d6c594304099a0420ee0a96320"
+    },
+    "before-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "before-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/fixture-node-inventory.json": {
+      "size": 361,
+      "sha256": "383b50b1d3ec3725c2c1f532eadecc963da58421f6888ed82b102dcfbaf43674"
+    },
+    "before-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "before-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "f291e69b56c4e94201d3cb46d4e917a0c4c6e6c2163798638e98f1e6bb93a36b"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "d80952f78a06f988507514741ff1e46057bf3ce0dabd0072fd762b0eac3abf56"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "6bb233005c832f4293b8d5fca36b902ab9cec4bfbea23ac456f30ad631283ccd"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-before-go.json": {
+      "size": 3242,
+      "sha256": "4f42e513e022f1667727ce4014132fdb60d7151bfb009409cd130d9635a934d3"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-helper.json": {
+      "size": 3356,
+      "sha256": "a50ad72f9255d7eb89b835078cfae2e44aa6d505055c1bb9d0e932f9b4571958"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "e14b33927c2a4e4d6fdd460fc17a1a3a7147c6dc384363f1228bdc51c5ef0f09"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "9b42aa503677922022f6c12649e1447b763c1a7ed54fb05a62f7cbc32b38d059"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/exec-fixture.json": {
+      "size": 442,
+      "sha256": "0bdd78f413c49c3f0befb03fed15217522cf60ea3de47e0652ab6abd29caa2ee"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/fixture-node-inventory.json": {
+      "size": 1351,
+      "sha256": "1bc3be1700dd36abd4cab59345d9d546755e9861ece4976c76ee4fe03e8f1a6d"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "before-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "22e7d97f67acebe94fe5ce8c30af533e2eedb6ed1c0f6c422d109ac94639dcc9"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "91dc2d41af52d69d9aec7b9c5a3d2fb9d1ab2db55d53a70bcbdcc6d8fe81c207"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "ab3243b9456eb771fa4407611343cdea974e45dd15fca846d14d523430e1c253"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-before-go.json": {
+      "size": 3242,
+      "sha256": "59f48b27e59c597db77fc8dfa37717b3489058358591796ff2fbbd7be7a145b8"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-helper.json": {
+      "size": 3356,
+      "sha256": "e952081a486a6e2e1a8b64578b474d29268aa8da73b80af1a098af20c5a02d11"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "b01d3ee32416a39d736ea1ef8636a1214f9d2dcfc00aa3aa9bd785e616d12e81"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "9b42aa503677922022f6c12649e1447b763c1a7ed54fb05a62f7cbc32b38d059"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/exec-fixture.json": {
+      "size": 442,
+      "sha256": "c08ebfa34e23203674a5edaf04353a45f3bedbbf78a6a27196c59a7884102668"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/fixture-node-inventory.json": {
+      "size": 1351,
+      "sha256": "0a6e1b97398cf4099876ff799055eb21546de00642ec7a13d021ad357f2ab4f9"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/perf.data": {
+      "size": 26,
+      "sha256": "15db58b2e68e7fe848a1a561313fc0aa283bb07e9c8266ee8d605b2357617291"
+    },
+    "before-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/audit-before-enable.json": {
+      "size": 1815,
+      "sha256": "8a7006c890fef0ac1f59fe748358a0b6d598274d9129aa307b6b50b99a82b193"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/audit-before-go.json": {
+      "size": 1807,
+      "sha256": "50f9d990b0fec70e7f99d6e93ff7ec5f3fdf65ce2b953c37b2f47c17b58a190f"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-before-enable.json": {
+      "size": 3278,
+      "sha256": "f2fe6df947e5b18e0d3674536622b867ba79f23f5dd3509bc37db950100fcf95"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "5ffea71ec13983e111a70458d23fd03e206c9d6bf3325dc2b17648ff05671250"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-helper.json": {
+      "size": 3360,
+      "sha256": "7c07d6b12693c1b3e695c6f589d320d1ff01cf80c2a715cdf9b970208f8c0bd5"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "19ff8b8e75454fd25993e10c9daf32d367a2f164400912163f5aef06c5fa0c25"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "9b42aa503677922022f6c12649e1447b763c1a7ed54fb05a62f7cbc32b38d059"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/exec-fixture.json": {
+      "size": 443,
+      "sha256": "6d5f12e93bfe923d2883a307172d6e6462d47794626268f5a9ee993831422c78"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/fixture-node-inventory.json": {
+      "size": 1351,
+      "sha256": "bc7ada74bf9df152183698b8637529bed30f8b3e5b5eac6b3c11f779af59579f"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "before-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "1bdebf18b60230f4eb8d0e9984f709dec0c2f7f655fe8667e06b1b2788c10bae"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/audit-before-go.json": {
+      "size": 1805,
+      "sha256": "e3b4d3a2a71ad06117726ca1aa54fc176d72c314341b14cd797eec8f9395a305"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "34551ff87b37d492433ae1ed87eb66f3b8bef4e5e96cea80b2c5d5fca0d625f9"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "a3f6a80d3aa88da154b4e8361c44474838d26611cbf281ea587c6f5a440f9fdc"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-helper.json": {
+      "size": 3360,
+      "sha256": "1de62081a9b3e3ca577796b931461f95ea205b1be183d79881819d9d83a3c1db"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-executed.json": {
+      "size": 103,
+      "sha256": "bdda7b82cf8e910834e01b2a569fdad54fa7cd2d29af79956299b661476bae19"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-exit.json": {
+      "size": 290,
+      "sha256": "9b42aa503677922022f6c12649e1447b763c1a7ed54fb05a62f7cbc32b38d059"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/exec-fixture.json": {
+      "size": 441,
+      "sha256": "821b8b4c76396aebe64f4b64aca3593d748a2f6b5b8188e5069aef0bd40c7574"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/fixture-node-inventory.json": {
+      "size": 1351,
+      "sha256": "bf483e5da210dac4350cd548454353b4ff272680d60c4b909a939597f0255949"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "before-fixtures/test_completion_requires_driver_exit_before_closing_channels/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/audit-before-enable.json": {
+      "size": 1812,
+      "sha256": "542f08b05f0d590ba340b7565e15bd501520f6e46bd9f881f94fc819a8379847"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/audit-before-go.json": {
+      "size": 1804,
+      "sha256": "62086161ee4218410ed94f9ac10d43fb0d76b02ebe3fa646a8b63073ba1619dd"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-before-enable.json": {
+      "size": 3270,
+      "sha256": "919342b76a89280a1493b19d62182da1b552d4d68a61573a2f6559cdf815cd9c"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-before-go.json": {
+      "size": 3242,
+      "sha256": "98be46f132dabdebbac128dbbbe047b752235edf1720b2cfac2d1520307ba205"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-helper.json": {
+      "size": 3356,
+      "sha256": "2735c8bcdb913f702e2280af3b0cf9c40fe5a825f08ae61a19a96913edcec4dd"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-executed.json": {
+      "size": 103,
+      "sha256": "9f93129de244bc4b23bee83bfd8613586951330460a75199a264f68b46476559"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-exit.json": {
+      "size": 290,
+      "sha256": "9b42aa503677922022f6c12649e1447b763c1a7ed54fb05a62f7cbc32b38d059"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/exec-fixture.json": {
+      "size": 440,
+      "sha256": "797ec0423a07b86e79a3185a68507e29e0664bdb082cf9cb74df671701fafd3b"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/fixture-node-inventory.json": {
+      "size": 1351,
+      "sha256": "edb0442762906da6147dda77b2f1e558e2c97963c8967a819a043b321916be5e"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "before-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "before-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "before-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "before-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "before-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "before-source/native_perf_session.py": {
+      "size": 45253,
+      "sha256": "09e12799ba4ed5210c09cd589af1a86026c886d06d86ca4780e9a2cf92344bc8"
+    },
+    "before-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "before-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "before-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "before-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "before-source/test_native_perf_session.py": {
+      "size": 33147,
+      "sha256": "fc9dc5cb4ae9db8a314313d264b911f40f25ca3e7624762f19c562639515038c"
+    },
+    "before/connectanum-native-perf-completion-before-tests.json": {
+      "size": 1872,
+      "sha256": "9fd677e0432ecff132c4f19e8abb3d0e3dbf1d72a113decfcbb20a3ff8b458f2"
+    },
+    "before/connectanum-native-perf-completion-before-tests.log": {
+      "size": 5587,
+      "sha256": "38626a39bc756b5f6d26d9082c53a431158c1a97096cd6be8c8be154fc4596cd"
+    },
+    "implemented-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "implemented-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/fixture-node-inventory.json": {
+      "size": 581,
+      "sha256": "1ff0420f2fa1b3c438d987bd3346a376994f97ebd43d8fc4a1af8762dfcf7ab7"
+    },
+    "implemented-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/owned-target.json": {
+      "size": 19,
+      "sha256": "5bb6dcd445b0f207ca0c7629f17cd18decf63041a4dcd6ec2082353768f48845"
+    },
+    "implemented-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "implemented-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/perf.data": {
+      "size": 40,
+      "sha256": "028eb554a0aa1a455bbc3aa6cc17a7b04dbc6ebc7d49f5f14a800498a6c84537"
+    },
+    "implemented-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "2053ebf394d8e2500a8277298254d5b9af9027ab97e7bc9fc655494c6e2d1175"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/audit-before-go.json": {
+      "size": 1805,
+      "sha256": "32754ebee3c0fe1a0474a8d6996832ae115b080919bd3e12bd693cade6aec7a3"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "7198db3747d431c83aa12c984416a8296c5538e977468b758c05f36fa2af1d19"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-before-go.json": {
+      "size": 3242,
+      "sha256": "303bf63b1d611e1cf2362cd91244664bdef045c6d363c76d56d2317f239fe954"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-helper.json": {
+      "size": 3356,
+      "sha256": "eba3b3a4c6b8b2128c578e15882ab44668e3ad69be0e0c3fb3feaf74dbcc083c"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "52ca4100ec8f0d4b57ba34207e1f2431ab8085c0f2398f11615b7de421899534"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "902807c5bdd8de0534dbf2257f8d99a0c3264d2ffc592ece680b31905b3a14ea"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/exec-fixture.json": {
+      "size": 441,
+      "sha256": "75b237c115f62a32cf7426c1c3b9b592b7c724e821f810df737a1bcdb9f951c6"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "8cafb0496148ae98b412c66b2ab2e75df0c903a247f4cf14c93ef875b7ce3b27"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/sampler-exit.json": {
+      "size": 523,
+      "sha256": "5b8fe1031e6b5cadc00ecc9f92d75f0a43470690f761d29eb9b66e17f136ec56"
+    },
+    "implemented-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "50b3ebf919a9ddcab3aac9d34c48167be0eded78b25b16cecd6d16c6175b40d6"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/audit-before-go.json": {
+      "size": 1805,
+      "sha256": "84430d177c79148939fa1a7cd216e348cc7942b793f5a79da4595d06820616a2"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "2135f217f5cf154d05a8d75ae386172a25ee097961dc7a6186831d52dbbe146c"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "29a6afb5cddd9f541d5437285ba7c0bd4dfd95eba5b5bf66ac831c30e9829154"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-helper.json": {
+      "size": 3360,
+      "sha256": "75c04569353a8b0e253dc31c4b89e2be68f2dcd1e7f43256941aaded3b23f5aa"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "e95b575177f03f3bfee06a31f3c5b498d5d4e6b85ffc9338b03cf716d428fa09"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "902807c5bdd8de0534dbf2257f8d99a0c3264d2ffc592ece680b31905b3a14ea"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/exec-fixture.json": {
+      "size": 441,
+      "sha256": "10b679e094ae4576b177b64174fc61027992b58184eb082f58b288035a57a1ce"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "5a675fdfb053011c783f6a7cd86cee1d4d73f2fb96c43f1ba2f2c4e6331c4912"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/perf.data": {
+      "size": 26,
+      "sha256": "15db58b2e68e7fe848a1a561313fc0aa283bb07e9c8266ee8d605b2357617291"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/sampler-exit.json": {
+      "size": 555,
+      "sha256": "7f5e09ffa5be9fabebbb3ea51a6f0e33fa32663a642db11291934181649987e0"
+    },
+    "implemented-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/audit-before-enable.json": {
+      "size": 1815,
+      "sha256": "17b171432ce4821c1b76df20ca80232a1fa6cc3b9fe58b5da2b4d26ccec1de9c"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/audit-before-go.json": {
+      "size": 1807,
+      "sha256": "c57a2258d9a6a8e61cb889bd881a0369c4417495128c0fb702e7dc3b37398981"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "6b2cfcd74abf288f69a0a6ed3570d9a8f62604c51a0eab374693dca5d343541c"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "ee12dc5e6f812351f25bed707868e9c5eac92a5614ce9a68a8616e04a8a89f7d"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-helper.json": {
+      "size": 3360,
+      "sha256": "3d86d9760a24b8d439c03312b0487b244657869d9c7183f2036fc7aca079edb5"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "0c61ebc5dc91883b99f37c0dbe9c0858aba3f1836a86f07cb1c96acbe41e7b4e"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "902807c5bdd8de0534dbf2257f8d99a0c3264d2ffc592ece680b31905b3a14ea"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/exec-fixture.json": {
+      "size": 443,
+      "sha256": "ce40ee590da1118be50fb4d24cc30aac51e9dab1d2c6cb630820b2191a4b4fff"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "ba0b7c9bbf86db8a1097887a90f00c9f69382cf9ddc01fa58c8c8ff93aa65af2"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/sampler-exit.json": {
+      "size": 523,
+      "sha256": "09c1308ad635960d3cb1e317baef50ba7eec6dcb323e31c402454c0819489688"
+    },
+    "implemented-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "f16958c19f43e70c4344665ea87f680d002bbb33e89279b7e60ce89776f9032b"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "4dfb3265c2b963cfea318851d210c9cd7e80b55c2d2ce9e4f3509679a0589f67"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-before-enable.json": {
+      "size": 3278,
+      "sha256": "d6ea940e33c8480425fbebb0f7124281660bde895dada800c038bba748c49d65"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "7ea4795276e87d04c9c84706475c29c7693c4358cc0534313a0d9160fdba1971"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-helper.json": {
+      "size": 3360,
+      "sha256": "2a9e9ff055b3fd49ac464a0508d59b75c6538dbf60287f403f7244d1244fda23"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-executed.json": {
+      "size": 103,
+      "sha256": "196e1eadad808360119934c1ed5f1ede53e7c3aebe246ffb2c27611ddfef5906"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-exit.json": {
+      "size": 290,
+      "sha256": "902807c5bdd8de0534dbf2257f8d99a0c3264d2ffc592ece680b31905b3a14ea"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/exec-fixture.json": {
+      "size": 442,
+      "sha256": "c2f4bc65dc862f4fdd35ce754dd3c3df80593bf3962353ba547b569142db3356"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "c7e61fe2750d21a95a995a269fb92b507961f6e3d933f47289d01a0ba97ce637"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/sampler-exit.json": {
+      "size": 523,
+      "sha256": "eabb460c23752c1514deb8838ba43e75925aacf9199e59b9f3ba18db79c0597d"
+    },
+    "implemented-fixtures/test_completion_requires_driver_exit_before_closing_channels/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "088f0c89527feb51c5b738815c7c9be95ce30e11786df0a0b2759172f9a9cf5c"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "d11b33aee8eec25ab9f920a4aed9fca77bac72e441212d9fb5cecf167885f532"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "1039a704aa03583dc36ae7f92804d442051246ca6ded8732cef2e6d1653d4f78"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "235471b14a944853165001d621582e988c57ed66b983b46e25fe81240268093b"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-helper.json": {
+      "size": 3360,
+      "sha256": "128e7cdb6323b9a1d102e78490c71f6e8ea2a9001ef016936baba2a2cc5e9101"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-executed.json": {
+      "size": 103,
+      "sha256": "a537971caa50a8b5653e19819366171c8312ab5be4ecaf5b908f2bace73067e5"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-exit.json": {
+      "size": 290,
+      "sha256": "902807c5bdd8de0534dbf2257f8d99a0c3264d2ffc592ece680b31905b3a14ea"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/exec-fixture.json": {
+      "size": 442,
+      "sha256": "dcb653eb27985aced4e8269ffe48f92263c71dec141eae29c3267e7182a015e6"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/fixture-node-inventory.json": {
+      "size": 1510,
+      "sha256": "f09f3797035aee1195533a6e9d3f3afba4f23d46cb4eba7279464a60a839f70b"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/owned-reused-fd.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/sampler-exit.json": {
+      "size": 523,
+      "sha256": "6ed4798a9c0900710678662669cf1496e2595e897285453356b83f867edf18e1"
+    },
+    "implemented-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "implemented-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "implemented-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "implemented-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "implemented-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "implemented-source/native_perf_session.py": {
+      "size": 50948,
+      "sha256": "75f41b9beb346b5667914cdeca07a5137bd91e93bde268dc956d9743999a48bb"
+    },
+    "implemented-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "implemented-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "implemented-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "implemented-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "implemented-source/test_native_perf_session.py": {
+      "size": 33147,
+      "sha256": "fc9dc5cb4ae9db8a314313d264b911f40f25ca3e7624762f19c562639515038c"
+    },
+    "implemented/connectanum-native-perf-completion-implemented-tests.json": {
+      "size": 1877,
+      "sha256": "0426f2cba994b7e76ba4f0ea496e51ebd4e0ca9bb88bbdca8e4e71d088b4294c"
+    },
+    "implemented/connectanum-native-perf-completion-implemented-tests.log": {
+      "size": 1190,
+      "sha256": "b0e0cfa0c5f61317d44f830ab179181b451164948ee5d4ff953f3f449116f8bb"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "ae0d8cc860bbffc4fbba4a9f93c59513fbdb43d1d231aaed4addd1d5ea81d4e9"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "01c96bdb471dfe4b158937140fd7cbd0f03a73e9a66a40c07c6ef06ac6a72838"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/controller-helper.json": {
+      "size": 3360,
+      "sha256": "19312ab0ad61135a5c15798a73a69321b91885d4799103a60232907aa674184d"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/exec-fixture.json": {
+      "size": 441,
+      "sha256": "cfce85285630a2733708a52ba5215814e6283e592b21935da23e47f46284e05a"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/fixture-node-inventory.json": {
+      "size": 856,
+      "sha256": "003242c047885a4670797c3c19a4008957ffbf004a73e90cf1ca7864c4ed542d"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_actual_sampler_wrong_log_fd_refuses_before_marker/sampler-log.json": {
+      "size": 98,
+      "sha256": "d35503b17c47a2cc74fe818490fe148ca8454b4f997f4fe90eb3a4654200ec15"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/audit-before-enable.json": {
+      "size": 1812,
+      "sha256": "da8db361794f67095c75a4e65c38dc3d0051842e7ba2adcc8c89ab5dfbabbf88"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/audit-before-go.json": {
+      "size": 1824,
+      "sha256": "64ad2884970a5d7405ce5b893cddaf3649aa0eae231c9af7efc0e138d77b47d2"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/controller-before-enable.json": {
+      "size": 3270,
+      "sha256": "e63db0b73e2d3bb207f1bf0fd45c7ef986c4ab4db2ff6cee98921b273be058d7"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/controller-before-go.json": {
+      "size": 3242,
+      "sha256": "3808c78f72bdf93555ccc71e964d1aa96602bf1212d23be00bb06b846d5653a1"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/controller-helper.json": {
+      "size": 3356,
+      "sha256": "440ed60ceae6d371c3e78ffa1f1ad9fc081415656a992c493aaea41edffdfe88"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/exec-fixture.json": {
+      "size": 440,
+      "sha256": "fef9b4f0b49882c976704302904f6fdbe95ada37f76837f1f7fd25be7fadc0b3"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/fixture-node-inventory.json": {
+      "size": 1104,
+      "sha256": "907a9158215da94ca2c46f26242ce8970f37612a18e0c838268c229233525f47"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_bad_second_audit_never_writes_marker_or_go/sampler-log.json": {
+      "size": 98,
+      "sha256": "d35503b17c47a2cc74fe818490fe148ca8454b4f997f4fe90eb3a4654200ec15"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/native_perf_blocked_exec.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/native_perf_guard.py": {
+      "size": 14,
+      "sha256": "0b07de62d81d8cd6203eaf31acb4f06429f057b59e9c2f88eae2ff59a47b250d"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/native_perf_handoff.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/native_perf_proc_witness.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/native_perf_session.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/test_native_perf_blocked_exec.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/test_native_perf_guard.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/test_native_perf_handoff.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/test_native_perf_proc_witness.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/bundle/tool/test_native_perf_session.py": {
+      "size": 31,
+      "sha256": "88aa17268b2530d447af1457c3bb4bce54007b4cb9aef0bdf1847e229ba28ebf"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/fixture-node-inventory.json": {
+      "size": 1496,
+      "sha256": "a84965ef102f0f49c235e5ef88452da2855cfd381b99ccb4b43ab25f49d89492"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/manifest.json": {
+      "size": 1022,
+      "sha256": "d7331460ab04221d9aed6b033fa9f47acbd3d0830a27d4fca7f5c1e81fb102bc"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_bundle_hash_drift_is_refused_before_own_module_import/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/fixture-node-inventory.json": {
+      "size": 581,
+      "sha256": "95c785cd7db09288050808409c07c4e90a32fe8dfd6d2b8a0f575e3c9055dd57"
+    },
+    "integrated-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/owned-target.json": {
+      "size": 19,
+      "sha256": "5bb6dcd445b0f207ca0c7629f17cd18decf63041a4dcd6ec2082353768f48845"
+    },
+    "integrated-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/perf.data": {
+      "size": 40,
+      "sha256": "028eb554a0aa1a455bbc3aa6cc17a7b04dbc6ebc7d49f5f14a800498a6c84537"
+    },
+    "integrated-fixtures/test_completion_artifact_fifo_symlink_and_small_limit_are_retained_refusals/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "69c8974562dc5990e9c9f1f00ba2fcb09b05d5e652c54d7b1e6223f477b07087"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "8dfd2734903951c3483e5de411c4ba92a6fd02a66de3d99e7a457c61311a9ecd"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "baccc7360d0f32f6908908db0636704a567b270f88e20833274e4fd7cccef5b0"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "a7f78e3b6bf82aae3b53f34da19e1d8fbac9f61664ac44aa6fc65bca1d220f29"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/controller-helper.json": {
+      "size": 3360,
+      "sha256": "60ff943e5016e5f972ff976d0734da5282e202ef9f16bfa7507ae0f17c629394"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "0379fafda8b684cd01daa61d37352b5a7ec3e6138ef414fd12991f1edd565c78"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/exec-fixture.json": {
+      "size": 442,
+      "sha256": "811d2ac751b4a62626783e07bcec092750e6b58a5cb954569cefc6ccbadc21d8"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "5ce3563a14df3b47fa687a9d012b42a39f5f60a2792bb22f7057ca21a4d4b765"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/sampler-exit.json": {
+      "size": 523,
+      "sha256": "ed2b64aa097a907699469d14efdbd9c792733a1e5e969c13290d205a4a09cd69"
+    },
+    "integrated-fixtures/test_completion_metadata_cannot_close_before_sampler_natural_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "709f68fcbb0555e6c7594b901f7c68913feb552b31a55cbc5dd9746de162738c"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "fd372ff7530f15fe4623ae29ed299408c81a52d35ff0a31cee8f45c68429dba1"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "92b6e54607dd3dee13748e1235fea292fb0c24a9ef813428310d6aff0a3bf3d0"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "453f638d9c6ef9363ac6e606713347905375da6b8f0978c1edd4ba719405a188"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/controller-helper.json": {
+      "size": 3360,
+      "sha256": "9e3d118276e5c1032457582ba30909c76eed4a38b4aa16bf63069a26067fea6d"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/driver-executed.json": {
+      "size": 103,
+      "sha256": "7c5fe95a0d620863510b393230585f5f462cae19d9bbab43f481e49a73c130dd"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/exec-fixture.json": {
+      "size": 442,
+      "sha256": "b3c6c2e6a75b6db4a5c1e7b2ec6023e69d62eca91da40ccbff815194d673f7b0"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "2b33120755793a5996e51a8b5038d33c012f6a9afe610a36e8eb6a3095e1530e"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/sampler-exit.json": {
+      "size": 523,
+      "sha256": "9bf17d47e5dcda365c52bfa8ea23509ad45a1c019e75f33414c028f2858fc8bf"
+    },
+    "integrated-fixtures/test_completion_metadata_closes_only_after_both_processes_finished/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "1a49566e6dd9f9e1064e4df91e5fdebbd0a9ee90d052f404893813eea9736899"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/audit-before-go.json": {
+      "size": 1805,
+      "sha256": "9a41b3c318cca0125fcc65af085fcb04e239f78f375ff2d93a7265c4b0dbaafc"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "c76b652cb70b5011e6d2c736fccaeb12879fea61be345b86ba7dbfeed1b0bd22"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "723cbfbce9fdf7b6d11c92d049192163b749a6ec5478e378cd5861b7aa5f3259"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/controller-helper.json": {
+      "size": 3360,
+      "sha256": "da764f82d00795df22ea1b22e2977b28f49bbe21b56d80cbf976ded5ff9f0245"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "5a4efcf557971c4107b30de3e0ba30b9a36525f992c2c74ddb745f6337e6dd7f"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/exec-fixture.json": {
+      "size": 441,
+      "sha256": "15c1ed10042e71f37e42cd8fc674d67663af423f27cf18a664e33b9569fb2741"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "dacafaa32ca9aab15b0089e3ac8f7fbaa122eacd61f502098d0e8b168f338c9a"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/perf.data": {
+      "size": 26,
+      "sha256": "15db58b2e68e7fe848a1a561313fc0aa283bb07e9c8266ee8d605b2357617291"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/sampler-exit.json": {
+      "size": 555,
+      "sha256": "f1b2b84bd33a028395fc9f3a5bec0060d7ac9128fe8b4c615c62717c56c2bd5e"
+    },
+    "integrated-fixtures/test_completion_nonzero_sampler_keeps_all_raw_bytes_and_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "56d01fad0c009d1b12c68723bea956282e626cb735dc224a5d4c9648f079304a"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "0915cd8b3f129138c5933915fd13bf0b74dc7ebe550fc660ad70f440e32ce0a7"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "ee809dd943cce5a4c26a036df8c7377a4acef8d389886ab4118076452eec70f6"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/controller-before-go.json": {
+      "size": 3242,
+      "sha256": "b42b64fe1eea27d5cfd72dcfbb0af2a92cdaec9df0c5d12ed4ff7539b70deb4f"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/controller-helper.json": {
+      "size": 3356,
+      "sha256": "8adf01be1adff128df64eef39eaf8d2c59301904fa5a3c78d0f3133a24f22b69"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/driver-executed.json": {
+      "size": 103,
+      "sha256": "d049bb99e53bde3e0c3dd78900edcdfae6b305af2c7eb6b423f290628f7e8825"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/exec-fixture.json": {
+      "size": 442,
+      "sha256": "a248f3cba1875227622cc964324cf8a84375ad82ef201ee378c846b9f65a93d4"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "a95384169b2ef18cb940795c8ec7aa29d92079f6e2366bab1abeecacfcc20586"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/sampler-exit.json": {
+      "size": 1,
+      "sha256": "021fb596db81e6d02bf3d2586ee3981fe519f275c0ac9ca76bbcf2ebb4097d96"
+    },
+    "integrated-fixtures/test_completion_partial_report_failure_is_terminal_without_second_read/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/audit-before-enable.json": {
+      "size": 1815,
+      "sha256": "008a3e5bc979ffe37c5e15bad7890d8f80147585a72b20e0aff65b224b114bcb"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/audit-before-go.json": {
+      "size": 1807,
+      "sha256": "3fc9eb32a8075ddbfa9723cca8362a7530f5c1deb8c1e0b2cabb4dc886cc357a"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-before-enable.json": {
+      "size": 3278,
+      "sha256": "aace6d8fd57c0f3e1d2b43726160fcceca5ddadcb8d1dba3af9ed15919284c64"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "b960fd01e1e6fc3f734d13e2fb87262278ddc6f8460dd09db29eec9e7168122e"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/controller-helper.json": {
+      "size": 3360,
+      "sha256": "35b36dc0b2e658f991899d4aab9fff7984c8a1954d117e383cb090031c85cbc9"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "7207c7c02dc2b237bfe2b7b26cb43787387e9b9335f7bd529406cbc4c4b16ff5"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/exec-fixture.json": {
+      "size": 443,
+      "sha256": "c4a1c1e1bfaaab73e9518334b4103004b0c5f12f0e803bc754163586af9b8c58"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "e36a33944c81ae01b3c057885ea5d3ed9fce767070bdcefab0e60a2a6010650d"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/sampler-exit.json": {
+      "size": 523,
+      "sha256": "d835cf2c568bd66ec064551b8e1f6b1b393e74c273c3d2e937071bd83f25ee99"
+    },
+    "integrated-fixtures/test_completion_rejects_a_launcher_exit_without_actual_sampler_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "079d844a319c29d2f8f14d2a376f6b4cabf50100fadb387c1abf2169ddfc34c7"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/audit-before-go.json": {
+      "size": 1805,
+      "sha256": "26f1e680a6f952a8f01701318f301387374c1476424a2a3501c3edf4a2f4a960"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "2d9787927e4306f1f03f8a2af6e7eb7f51f0fe3f5aa4b3ddb6793ee5557b38e1"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "2f557f70cb997260fa2ddc1b604d2b1c7b78a8a6c6de93514bfc11160202f0cb"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/controller-helper.json": {
+      "size": 3360,
+      "sha256": "2aac5e7235dfa2e0612a29beced72c9eb5d7361da8ce6de43f529793f959a654"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-executed.json": {
+      "size": 103,
+      "sha256": "d9beb5bd9f98f21239bc2815ad610cf36cc03c140f2a9bd6b92427f4518f818d"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/exec-fixture.json": {
+      "size": 441,
+      "sha256": "f8072bbcc9656bee878cfc7c8c94b5da00dafe1020b53caba10fd6568f2c9983"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "672d410ddf7c516d9546d80d489d8200a60d254bb00d6ce54e0786aeb0323cb4"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/sampler-exit.json": {
+      "size": 523,
+      "sha256": "a7e328730975f03de83f57d0d047898c9e515f7a0f8904d8a03c5e6905fe3bf2"
+    },
+    "integrated-fixtures/test_completion_requires_driver_exit_before_closing_channels/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "f88cf365c2f79237358dd7807a9edbbf034aafebf6604353dad2c12ecc4e253a"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/audit-before-go.json": {
+      "size": 1805,
+      "sha256": "e1becedc41902960f8c49853a05b91f794ee0a6f96143f8b72557e471d31913a"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "b8861c71697569b6d6f46d28ca37e9292634b36c30dfa6b2a342212e46ad74d7"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/controller-before-go.json": {
+      "size": 3242,
+      "sha256": "c4e03cb1309a5823d63deee1b66172db45dae5ba20cbb5ab0f486d9d7a8b677c"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/controller-helper.json": {
+      "size": 3356,
+      "sha256": "c5536a2f14a6312f4510ae76b8f02edcbfe7c426732ec769308189b7b0eb1699"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/driver-executed.json": {
+      "size": 103,
+      "sha256": "22591b71ecb7ca8a4853f1109dd8e75ca29e06d81125e1981f079cd49e3ffe1f"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/exec-fixture.json": {
+      "size": 441,
+      "sha256": "db4c32ce5eae28aa2cee297499e37874f44a854a05e35c0168913d42e5c7a0cb"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "2d1bc7042e6d893b7ab689d2940a00ebfdc24dc36f771b8121949a0b3aac9386"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/perf.data": {
+      "size": 24,
+      "sha256": "5ce6d36988902fab1360bf98c68cec0b63d2a0473cfa8db480f185f706d9f0c0"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/sampler-exit.json": {
+      "size": 559,
+      "sha256": "5ce6113d587a65a41ca518f9898a4cea828197231fc7e78ec346e32ec2fe4516"
+    },
+    "integrated-fixtures/test_completion_signed_actual_own_signal_exit_remains_negative/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "27fad8cd2d99da72c093d5ae25287f1eba10fcc4d699869376f61279fd7fa91b"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/audit-before-go.json": {
+      "size": 1805,
+      "sha256": "a59baa620080a6fdd2b45882f164430499d034f6147cfff1b7ba2dfa929bfe31"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "ace78dbe7e79cd04405c61ad92bfd6ef1ec81513b15f40d1e05d49e071262cf0"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "8e50791d3d3dd57eb489344f17a065e003e2d57de3bc79821ef5cdfb878be810"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/controller-helper.json": {
+      "size": 3360,
+      "sha256": "a1919c4fc7386234bbf9458f88d43a388dc1420080602e07a0ee8d2d2498b7d9"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-executed.json": {
+      "size": 103,
+      "sha256": "bed8575e43afe55fd77687dc10d2fc9f5c003bafe01aa4139b10df6810b19d03"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/exec-fixture.json": {
+      "size": 441,
+      "sha256": "bed1da1698e45eafbb4c62b4181724ca8c5ea84723b3fe984caf5f1944d0f512"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/fixture-node-inventory.json": {
+      "size": 1510,
+      "sha256": "8de7c25476701337bc2af9c14b181f284bd6d37ff4b7d9980f43095859b23148"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/owned-reused-fd.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/sampler-exit.json": {
+      "size": 523,
+      "sha256": "f466fd8db5a2e0825cc8c8036c4b0752d7965a04cfb6e8002c8159d0d283b3a4"
+    },
+    "integrated-fixtures/test_completion_timeout_preserves_pending_and_does_not_reclose_reused_fd/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "dea8f65248a1c75075fd25a4f55824829db46d921cc160ba4babdc8af83f6d90"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "c82010fd31c4d0667abb669ac2360475468a6992d79f4762916f23e2736c16ba"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "b75c02defd3721dee2ff230902111543f19416fca81b5b2f63942ea5b0635db4"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "8b1e8469570bdc53f229ca10e2e5ce8375706747050ff58d30ea68b7625d1275"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/controller-helper.json": {
+      "size": 3360,
+      "sha256": "77bbc6342cb46cd401039685dade6587dc64184db51538aec3c3634fd99d4475"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/driver-executed.json": {
+      "size": 103,
+      "sha256": "c0d75adbcac983c32d85735cb6762ff7493c96b9119120148f01d9de630f8620"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/exec-fixture.json": {
+      "size": 442,
+      "sha256": "87e975448e075835a2a077104019ab7a10aca76fb47f9fd1a0e087a6d6a89040"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "d7d930208dd104f6d5a7db1dca1b07af5eb37d641331da44ac95bc09ab6d9e08"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/sampler-exit.json": {
+      "size": 523,
+      "sha256": "d367bc3b74d302f8e450750f4bf3f034cc0767012cda76a83266bab8d193d1d8"
+    },
+    "integrated-fixtures/test_driver_wait_timeout_retains_sampler_and_terminal_marker/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_exclusive_report_authentication_and_terminal_partial/audit.json": {
+      "size": 7,
+      "sha256": "7e030e2d23c5e83ffb8c73d440e409f65857c79a69c1a1de3433b0aaf10999b6"
+    },
+    "integrated-fixtures/test_exclusive_report_authentication_and_terminal_partial/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_exclusive_report_authentication_and_terminal_partial/fixture-node-inventory.json": {
+      "size": 363,
+      "sha256": "6d65bbd0c29a591167116661fcde8746db9320dc1473ee74b6823452c2b7d24d"
+    },
+    "integrated-fixtures/test_exclusive_report_authentication_and_terminal_partial/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_exclusive_report_authentication_and_terminal_partial/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/audit-before-enable.json": {
+      "size": 1811,
+      "sha256": "716e5158676d4706f2ed515949f37111a50adf9fa6c569cf8e5329e9b13e5f5b"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/audit-before-go.json": {
+      "size": 1803,
+      "sha256": "42f23a8a0af5089c7d2bc92c4d180c96322e99a4bf637b01b427f59a8010aceb"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "a419ccdb10ba2b945346e0ac77845d474b57260ec506b2f56998d466b6edc275"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/controller-before-go.json": {
+      "size": 3242,
+      "sha256": "54a95e6fd3806e2f009e9aaf78b67c46843c3e63d2bc8d832777cc53fb639761"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/controller-helper.json": {
+      "size": 3356,
+      "sha256": "e06da124e259ec531eb09b2cdcf7d1f1d4ee98af53b9fb04e1e4c25c54e27016"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/exec-fixture.json": {
+      "size": 439,
+      "sha256": "0afbd194011999b8e6b9875b716842e4e7dbafdbeb6bfa875c846869a462724d"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/fixture-node-inventory.json": {
+      "size": 1193,
+      "sha256": "adaed8ca0013fbfe4ae1563043aacc86ff97bad9248dfe50f0b00e452dc7c1c7"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/marker/capture-consumed.json": {
+      "size": 31,
+      "sha256": "74b07fc7960633bf5811bd0f42cec0edfe13ce78167569c6dede50419ae041cb"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_existing_consumed_marker_never_releases_or_retries/sampler-log.json": {
+      "size": 98,
+      "sha256": "d35503b17c47a2cc74fe818490fe148ca8454b4f997f4fe90eb3a4654200ec15"
+    },
+    "integrated-fixtures/test_existing_node_or_insecure_directory_refuses/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_existing_node_or_insecure_directory_refuses/existing.sock": {
+      "size": 17,
+      "sha256": "a9d981b2d13787a3c396659bcc8f93845b8d1c0bc5def1ca6f53a849904b8811"
+    },
+    "integrated-fixtures/test_existing_node_or_insecure_directory_refuses/fixture-node-inventory.json": {
+      "size": 366,
+      "sha256": "da169179d20601a1057b8521bf17fdf12b5029b849fff2c747071ee81b3edc11"
+    },
+    "integrated-fixtures/test_existing_node_or_insecure_directory_refuses/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_existing_node_or_insecure_directory_refuses/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_fixed_perf_argv_is_attach_only_flat_unfiltered_clock/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_fixed_perf_argv_is_attach_only_flat_unfiltered_clock/fixture-node-inventory.json": {
+      "size": 292,
+      "sha256": "4138f0b66089f106b58a18c23001fd33a910df16dcf620f0c7783ae70dc0d754"
+    },
+    "integrated-fixtures/test_fixed_perf_argv_is_attach_only_flat_unfiltered_clock/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_fixed_perf_argv_is_attach_only_flat_unfiltered_clock/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/audit-before-enable.json": {
+      "size": 1813,
+      "sha256": "b5cc3d7d0818ac66de836009d9ebd87ee5f633fef7b5b4753f3d0bf4caa19cb5"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "1c28ae0a1d7d51fe1df941d68bf036d0471e5fe2989759585261cd0a8a9d0e09"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/controller-helper.json": {
+      "size": 3360,
+      "sha256": "67dca81b00ed21bec409495be798d3c60f9db4de073f14a42b4157a351b93cd0"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/exec-fixture.json": {
+      "size": 441,
+      "sha256": "f246784f17249e5db86a2077f02b382a7409d9e7f777724b071243bc911c5c20"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/fixture-node-inventory.json": {
+      "size": 856,
+      "sha256": "205b1fec54d5b333869db3a4a975b0c90918901806405c6bbf3cfda829268f84"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_fixture_report_cannot_be_admitted_as_live/sampler-log.json": {
+      "size": 98,
+      "sha256": "d35503b17c47a2cc74fe818490fe148ca8454b4f997f4fe90eb3a4654200ec15"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "71619ce24ed1b98790dd004f3a4b3fbd03a243c7a8a92cdfd77e953f606f2348"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "f74720c1ef93c038942ccb5f448be07f2139bef56f0797a1238ce8d502053c14"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "27fe3381d7b8dcee9b518ab3445abbe77d35d9fa138d15f421d08bd662ec5f39"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "592982ca9f55646e2e21e6906360bdcc194f760db7851a55b9c6643d4ea9f8d1"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/controller-helper.json": {
+      "size": 3360,
+      "sha256": "2241b2612672cb8b0c00e08f9c265bcd5dc6b6c683facfa8e0a85ff5ab4600f7"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/driver-executed.json": {
+      "size": 103,
+      "sha256": "082dd332802423b0dbd58717834e773f29dbec7e9255f0cd3ced1bfc479f74a2"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/exec-fixture.json": {
+      "size": 442,
+      "sha256": "c2780217101298ce186a0efcbe324a0c5fa4bf88ad9769c0ee57f9deb297b7bf"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "72130fa1a3e8a4b14fe77345183f09dccb02935ed108a5158e9ef269a66b28d9"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/sampler-exit.json": {
+      "size": 523,
+      "sha256": "ae2f1f4b98b2c3a45346730b03f7d63618b609bc64f409e5fede11f56e8f7b0e"
+    },
+    "integrated-fixtures/test_full_two_audits_ack_marker_go_and_same_pid_callback/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "656d727253b1036cfde38444a09e9fe9ef1851f7e95f390042a9eb9d3a55accb"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/audit-before-go.json": {
+      "size": 1806,
+      "sha256": "e8a95d54f078ffff2b644f41015fb96fc67dc4923f6847080ef4924409027800"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "59cd9abfb5579e2144b61e057f55d3e5f3130f95b39d3a0f6a4fe9dd4358ba53"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/controller-before-go.json": {
+      "size": 3246,
+      "sha256": "594f227d95e97b99bd1f98b4e3ef58c02904098cd5873b0b4a8ef88136a6b3bf"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/controller-helper.json": {
+      "size": 3360,
+      "sha256": "e89fce8fb10c02bd16cc46660c039cb104be52469e53fa7f68eba757e4cc3019"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/driver-executed.json": {
+      "size": 103,
+      "sha256": "04d8f451de2ca65aee043434979d0840d371856667e5dcebb933a24f127ffe4e"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/driver-exit.json": {
+      "size": 290,
+      "sha256": "be6b787081e1074e8874b9196743c88cfb05afb825df8b92d2c1514c4c09936e"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/exec-fixture.json": {
+      "size": 442,
+      "sha256": "05fb98ccdc9b817039226b8bd11b5980d2a2bdb8bb496783bbc0990fda18762b"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/fixture-node-inventory.json": {
+      "size": 1429,
+      "sha256": "e3484c417b356c799de735ce5d589235dc525ce05d8c9ac8b5ef717b24822f1c"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/marker/capture-consumed.json": {
+      "size": 136,
+      "sha256": "10de588bcfb6a595e3fd3e63b82d5344381e25689800408f2494632f611176e5"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/sampler-exit.json": {
+      "size": 523,
+      "sha256": "6e19c63575f8546526f13d2a8767377b59530501da6e864a5780a9122f316a4e"
+    },
+    "integrated-fixtures/test_go_eof_failure_preserves_sampler_until_driver_natural_exit/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_live_cli_never_chooses_darwin_or_fixture_fallback/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_live_cli_never_chooses_darwin_or_fixture_fallback/fixture-node-inventory.json": {
+      "size": 292,
+      "sha256": "42be174fc9b309d2f8015b0772d5a5c5546303ecf9749e3cf33d7e943e1637bd"
+    },
+    "integrated-fixtures/test_live_cli_never_chooses_darwin_or_fixture_fallback/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_live_cli_never_chooses_darwin_or_fixture_fallback/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_low_numbered_pinned_image_refuses_before_stdio_mapping/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_low_numbered_pinned_image_refuses_before_stdio_mapping/fixture-node-inventory.json": {
+      "size": 372,
+      "sha256": "972376757e7d602f40d0b3b7079a2bfa52b60c8f511a7e9e0c57ae7b5c8b1053"
+    },
+    "integrated-fixtures/test_low_numbered_pinned_image_refuses_before_stdio_mapping/low-fd-refusal.json": {
+      "size": 63,
+      "sha256": "e1b3352d7561e0026542f29140a2ed2f432f070f795b81e9c65450673625f3af"
+    },
+    "integrated-fixtures/test_low_numbered_pinned_image_refuses_before_stdio_mapping/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_low_numbered_pinned_image_refuses_before_stdio_mapping/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_pinned_image_bytes_and_named_path_drift_refuse/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_pinned_image_bytes_and_named_path_drift_refuse/fixture-node-inventory.json": {
+      "size": 361,
+      "sha256": "cba15113d54c98c8ea78201ef58442dfc78a05d31a0d182008d1b2ca733474cc"
+    },
+    "integrated-fixtures/test_pinned_image_bytes_and_named_path_drift_refuse/old-perf": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_pinned_image_bytes_and_named_path_drift_refuse/perf-fixture": {
+      "size": 32,
+      "sha256": "a74ba7fdb7048a7b4f4042ef437bc6a5bcbcc898a9cb32ac9e3ce0793b37747c"
+    },
+    "integrated-fixtures/test_pinned_image_bytes_and_named_path_drift_refuse/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_private_node_and_directory_identity_and_retention/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_private_node_and_directory_identity_and_retention/fixture-node-inventory.json": {
+      "size": 363,
+      "sha256": "865421c71903ce1fc03e5d4e34128fbe7067d7a94a690d463f90744caa58fae6"
+    },
+    "integrated-fixtures/test_private_node_and_directory_identity_and_retention/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_private_node_and_directory_identity_and_retention/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_protocol_save_error_preserves_primary_refusal/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_protocol_save_error_preserves_primary_refusal/fixture-node-inventory.json": {
+      "size": 365,
+      "sha256": "c2ade6c682dd96c0667ad3c4273c1090964e596f6752e31caa7eedeec7699c9e"
+    },
+    "integrated-fixtures/test_protocol_save_error_preserves_primary_refusal/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_protocol_save_error_preserves_primary_refusal/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_report_boolean_receipt_and_schema_are_refused/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_report_boolean_receipt_and_schema_are_refused/fixture-node-inventory.json": {
+      "size": 364,
+      "sha256": "21c4d73a08f1d3d3cad1106f67472a5fcbcada07b7f29feda44f3c3b82e765ac"
+    },
+    "integrated-fixtures/test_report_boolean_receipt_and_schema_are_refused/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_report_boolean_receipt_and_schema_are_refused/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_report_boolean_receipt_and_schema_are_refused/schema.json": {
+      "size": 21,
+      "sha256": "9faa7268ff278529a4017632fa0f742fe70a94a2ffd703e7a9bee533fa0e3636"
+    },
+    "integrated-fixtures/test_socket_node_replacement_is_not_deleted/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_socket_node_replacement_is_not_deleted/fixture-node-inventory.json": {
+      "size": 435,
+      "sha256": "a0ad3b533038327bd40c84a5680ec7c9f5696b055d3b9ab3ee90aa8c87fe1a7b"
+    },
+    "integrated-fixtures/test_socket_node_replacement_is_not_deleted/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_socket_node_replacement_is_not_deleted/replaced.sock": {
+      "size": 18,
+      "sha256": "0c9ff4fd110588b9e901128a17202952686409f1204dadf6e70d547ce8ee2b81"
+    },
+    "integrated-fixtures/test_socket_node_replacement_is_not_deleted/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_spec_scalar_types_and_unknown_report_fields_refuse/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_spec_scalar_types_and_unknown_report_fields_refuse/fixture-node-inventory.json": {
+      "size": 292,
+      "sha256": "bd08416f8418284f1a640199509695e26a8c09a19d9b2a10b91a21fedba48c4c"
+    },
+    "integrated-fixtures/test_spec_scalar_types_and_unknown_report_fields_refuse/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_spec_scalar_types_and_unknown_report_fields_refuse/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/audit-before-enable.json": {
+      "size": 1814,
+      "sha256": "fa6c8caf605a46aad5062bbab84bff95ea3f3ff0377fa235b965b66d96353f0e"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/controller-before-enable.json": {
+      "size": 3274,
+      "sha256": "ea228bfabd802bdcefc00a15ab573fa95eb1a32226f549024add9ec78c43fa97"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/controller-helper.json": {
+      "size": 3360,
+      "sha256": "f78810a055bdf02fde7e4bb9573cc4aaa69ee053de5e2453edeb0cfb261b2f53"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/exec-fixture.json": {
+      "size": 442,
+      "sha256": "f2fa4802c5ba169f0bb0fc5f7bba9a9d307f405594693877270f98a14d860403"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/fixture-node-inventory.json": {
+      "size": 856,
+      "sha256": "c358aa0e7583c6c44fd81eaee6573553b6baba9a8e6c5658896cf7386e4499bc"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_spoofed_ack_never_writes_marker_or_go/sampler-log.json": {
+      "size": 98,
+      "sha256": "d35503b17c47a2cc74fe818490fe148ca8454b4f997f4fe90eb3a4654200ec15"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/audit-before-enable.json": {
+      "size": 1815,
+      "sha256": "a219e252e856cb66179b570bc8e9683f989007cfb18e420ed86f3066724eb035"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/controller-before-enable.json": {
+      "size": 3278,
+      "sha256": "0771d5f2bbeea8b2c13a5a9d29d8f505916c69adc62aebe53e37abbcfef99dd9"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/controller-helper.json": {
+      "size": 3360,
+      "sha256": "f5fe853f430cd90a16181c2c95a94c5a688a55eb22ff018d3d3274260f71c980"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/exec-fixture.json": {
+      "size": 443,
+      "sha256": "09a16ab38340af8cde07a9526639ae5c3735d758cd5d0b5000a8b0510eb61035"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/fixture-node-inventory.json": {
+      "size": 856,
+      "sha256": "5945ec6c5d07aaa8cff26725956ed4921f65c7e6ed079fb1fd3c23c7ec8f29bd"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/perf.data": {
+      "size": 22,
+      "sha256": "bcee6adced2266b9348ce7ef4323a94690012467be80a40a96896936a695cda7"
+    },
+    "integrated-fixtures/test_stale_controller_ack_fd_refuses_before_enable_or_read/sampler-log.json": {
+      "size": 98,
+      "sha256": "d35503b17c47a2cc74fe818490fe148ca8454b4f997f4fe90eb3a4654200ec15"
+    },
+    "integrated-fixtures/test_verified_byte_loader_ignores_preexisting_module_cache/driver-fixture": {
+      "size": 34,
+      "sha256": "f4fe695bfadaf848d2fb687f40cb262d22bf29b14dbd7d17527eb1ee147d7d6c"
+    },
+    "integrated-fixtures/test_verified_byte_loader_ignores_preexisting_module_cache/fixture-node-inventory.json": {
+      "size": 364,
+      "sha256": "1e4276aa82e539eec00c05d80570d99630a4793250dcb721806b52f2107bdf62"
+    },
+    "integrated-fixtures/test_verified_byte_loader_ignores_preexisting_module_cache/loader.json": {
+      "size": 12,
+      "sha256": "02b6deebe10f247a39a1f40c6e045af149df9c96491adce129613e8b30480780"
+    },
+    "integrated-fixtures/test_verified_byte_loader_ignores_preexisting_module_cache/perf-fixture": {
+      "size": 35,
+      "sha256": "9282f34da4a66b1f080dcd961e8f0f2f27ae3b374e8057f5c405c29adf3eb303"
+    },
+    "integrated-fixtures/test_verified_byte_loader_ignores_preexisting_module_cache/sampler-log.json": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "integrated-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "integrated-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "integrated-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "integrated-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "integrated-source/native_perf_session.py": {
+      "size": 50948,
+      "sha256": "75f41b9beb346b5667914cdeca07a5137bd91e93bde268dc956d9743999a48bb"
+    },
+    "integrated-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "integrated-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "integrated-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "integrated-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "integrated-source/test_native_perf_session.py": {
+      "size": 35880,
+      "sha256": "199ccc6e996cbb5acbcb512e3f4c3e7a97f81d70758010966185bbab7b5708b4"
+    },
+    "integrated/connectanum-native-perf-completion-integrated-tests.json": {
+      "size": 1843,
+      "sha256": "9bdba954be4c6176ba710fd36f7b65fb2c7546bc8a32fee7b686edb004875fcd"
+    },
+    "integrated/connectanum-native-perf-completion-integrated-tests.log": {
+      "size": 5162,
+      "sha256": "3489dcdf4128b5192a8b977901aacbf506121b7c3ed7eeb30c4b9664ae66de7f"
+    }
+  },
+  "next": "Complete capture admission/provenance and actual loaded role/native-image records; account for pre-GO refusal owned-process reaping without retry. Then own new-tool full canonical/source/archive/actual3locks/generated hidden configs/native/staticRLIB/tool/kernel provenance, immutable declaration/root review and real bounded OWN NONBENCHMARK Linux credential/access/pidfd/FDexec/inheritance/arming controls before ANY data. No production edit/capture/new strict dispatch/user input."
+}

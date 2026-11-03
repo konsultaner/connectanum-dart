@@ -72,18 +72,23 @@ fixtures pass after retained actual lifecycle counterexamples and distinguished
 fixture/state corrections. No actual Linux/root/pidfd/ELFexec/perf/kernel/VMAPI/
 native benchmark/capture ran; no new strict dispatch or source adoption.
 [Every executed version and qualified assessment](../research/2026-11-03-flatbuffers-native-perf-session-preparation.md).
+Natural sampler completion now requires the driver, owned launcher and separately
+authenticated actual sampler to exit before raw artifact/status retention.
+Nine new completion cases plus adapted session callers yield31 passes on changed
+source. Before-failing metadata closure, missing APIs, signed/nonzero statuses,
+timeouts/FD reuse and terminal partial-file evidence are retained. No actual
+Linux/root/pidfd/ELFexec/perf/kernel/VM/native benchmark/capture ran.
+[Completion source, full evidence and qualified review](../research/2026-11-03-flatbuffers-native-perf-completion-preparation.md).
 Next complete capture admission/provenance, loaded role/native-image records and
-natural sampler completion, then own new-tool canonical/source/archive/locks/
-generated configs/native/staticRLIB provenance, immutable declaration and bounded
-actual owned non-benchmark Linux credential/access/pidfd/FDexec/inheritance/arming
-controls before any data. The original driver UID/GID/env and all original
-workload/control/SDK/GC/allocator/worker/window/body policies stay fixed. Helper
-connects after privilege exec; no monitor inheritance or child-enumeration-only
-authenticity proof. Existing/partial markers/reports remain terminal, no retry/
-reclaim/reset. All own sessions are complete/reaped, ten tools uncommitted.
-Last free17.56GB exceeds12GiB floor; no cleanup or new-tool full canonical yet.
-The prior exact601 baseline does not verify these tools. Whole-life native
-samples cannot establish allocation/RSS cause or strict acceptance.
+pre-GO refusal process ownership, then own new-tool canonical/source/archive/
+locks/generated configs/native/staticRLIB provenance, immutable declaration and
+bounded actual owned non-benchmark Linux credential/access/pidfd/FDexec/inheritance/
+arming controls before data. Original driver UID/GID/env and all workload/control/
+SDK/GC/allocator/worker/window/body policies stay fixed. Existing/partial markers
+and reports are terminal; no retry/reclaim/reset. All own sessions reaped, ten
+tools uncommitted, production unchanged601. Last free16.98GB exceeds12GiB floor;
+no cleanup or new-tool full canonical. The prior exact601 baseline does not verify
+these tools. Whole-life samples cannot prove allocation/RSS cause or acceptance.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.
