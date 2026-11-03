@@ -56,6 +56,9 @@ private endpoints, retaining raw partial/malformed data. No live Linux procfs,
 privileged image or perf/kernel/benchmark/capture ran. Source mode requires a
 privileged reader; fixtures never establish live provenance.
 [Collector source, executed cases and qualified review](../research/2026-11-03-flatbuffers-native-perf-proc-witness-preparation.md).
+Kernel child-list completeness limits require a direct sampler/endpoint handoff,
+independent of the supporting scans; no worker freezing or capability assumption.
+[Primary-source constraint](../research/2026-11-03-flatbuffers-native-perf-procfs-method-constraint.json).
 Next implement trusted privileged auditor transport, actual loaded role/image
 witnesses and the external attach controller, integrating live admission with
 blocked-child enable/ACK/marker/GO. Reject fixture inputs and extra endpoints;

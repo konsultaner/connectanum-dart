@@ -83,6 +83,17 @@ limit first. The review only saw a fixture excerpt; it cannot approve complete
 test coverage. A compromised procfs mount or privileged adversary is outside
 the guarantees of a regex or repeated snapshot.
 
+## Primary-source limit on tree discovery
+
+Kernel documentation warns that task child lists can omit exiting processes.
+Repeated scans therefore cannot prove complete descendants or exclusive writer
+ownership. The collector remains supporting evidence; direct declared sampler
+identity and private-endpoint creation need an independent handoff. Do not
+freeze workers to compensate. Other-process access also depends on capabilities,
+not UID alone. [Official kernel procfs documentation](https://docs.kernel.org/filesystems/proc.html#proc-pid-task-tid-children-information-about-task-children)
+and [root method constraint](2026-11-03-flatbuffers-native-perf-procfs-method-constraint.json).
+No live probe ran and no new user input is needed.
+
 ## Next integration boundary
 
 Implement the trusted scoped privileged auditor transport and external attach

@@ -32,6 +32,9 @@ capability controls remain pending. Last observed free space19.48GB is above
 the12GiB full-build floor; no cleanup occurred. Privileged perf must attach to
 the original-UID blocked driver, never launch it as root. Candidate uniqueness,
 private-FD guards and fixture rejection must remain fail-closed in integration.
+Primary-source checking confirms child enumeration can miss descendants;
+[direct sampler/endpoint handoff must carry the stronger identity guarantee](research/2026-11-03-flatbuffers-native-perf-procfs-method-constraint.json).
+No worker freezing or capability assumption is allowed as a workaround.
 Both strict campaigns remain failed; PR132 stays draft, without adoption or a
 new dispatch. [Earlier blocked launcher evidence](research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
 

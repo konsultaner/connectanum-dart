@@ -1,0 +1,19 @@
+{
+  "scope": "NEW primary-source check of procfs witness limits after synthetic collector verification; no workload or collector/test/audit rerun.",
+  "checked_utc": "2026-11-03T00:20:22.323929+00:00",
+  "source": "https://docs.kernel.org/filesystems/proc.html",
+  "sections": [
+    "1.1 Process-Specific Subdirectories",
+    "3.7 task children",
+    "3.8 fdinfo"
+  ],
+  "source_constraints": [
+    "Task child lists can omit processes during exit; repeated enumeration cannot prove complete descendants.",
+    "Other-process reads require appropriate capabilities; effective UID alone does not prove access.",
+    "fdinfo flags are octal; file position is separate metadata."
+  ],
+  "root_decision": "The current collector remains supporting bounded observation, not a closed-world lineage/private-writer proof. Next privileged transport must establish direct declared sampler identity and exclusive endpoint creation independently of child enumeration. Do not stop/freeze workers, relax policy or claim capability from fixtures. Own actual nonbenchmark Linux controls and provenance remain required before data.",
+  "live_probe_or_new_capture": false,
+  "production_or_tool_source_changed_for_this_check": false,
+  "new_user_input_needed": false
+}
