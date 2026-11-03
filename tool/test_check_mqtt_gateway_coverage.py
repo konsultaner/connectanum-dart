@@ -60,6 +60,7 @@ class GatewayCoverageTest(unittest.TestCase):
         self.assertTrue(gate.check(sources, patch)['files'][name]['missing'])
 
     def test_every_new_source_requires_real_compiler_coverage_and_no_unexecuted_lines(self):
+        self.assertIn('packages/connectanum_client/lib/src/mqtt/qos0_client.dart', gate.WHOLE)
         sources = {name: {1: 1, 2: 1} for name in gate.WHOLE}
         self.assertTrue(gate.check(sources, '')['passed'])
         for name in gate.WHOLE:

@@ -1,14 +1,15 @@
 # MQTT broker interoperability
 
-Status: active CI follow-up. PR #135 merged on 2026-11-03 as `ef1479d6`.
+Status: active MQTT client memory qualification. PR #135 merged on 2026-11-03 as `ef1479d6`.
 Gateway functionality, both-direction performance/memory qualification and the
 downloaded history/CI archives are complete. Final publication CI `41493246321`
 passes 59 checks. The current task separates two manual diagnostic entry points
-from PR-triggered profiling, preserving every mandatory gate.
+from PR-triggered profiling and corrects a reproduced client backlog memory peak,
+preserving every mandatory gate.
 
-The working branch contains runtime `839bbf6e`. Runtime and benchmark gate inputs
-match its frozen source; the non-benchmark macOS ownership lane now explicitly
-selects Intel. Coverage is 1,016/1,016 Dart, 979/979 added native
+The gateway/broker/native implementation retains qualified source `839bbf6e`
+and its frozen numeric policies. The client receive follow-up below requires its
+own complete qualification. The macOS ownership lane explicitly selects Intel. Coverage is 1,016/1,016 Dart, 979/979 added native
 lines and 1,084/1,084 gateway tooling statements with zero exclusions. Payload
 lifetime, shared isolate snapshots, bounds, ordering, profile acceptance and
 per-recipient failures have fail-first/live regressions and local review.
@@ -33,7 +34,12 @@ verification passed at 14:40 UTC without source drift.
 - [x] Preserve hardware qualification, recovery/comparison modes, coverage and every numeric/required gate.
 - [x] Run local verification and publish the CI routing follow-up for fresh PR checks.
 - [x] Compare base/head LCOV artifacts and deterministically exercise all six lost MQTT/WebSocket error-path hits.
-- [ ] Verify the coverage stability correction and pass fresh Actions plus Codecov checks.
+- [x] Verify coverage stability with clean-source `bin/verify`, `bin/test-fast`, both Codecov checks and hosted hits on all six previously missed lines.
+- [x] Preserve and inspect gateway shard 0's 56.3 MiB slow-subscriber failure against the unchanged 50 MiB cap.
+- [x] Reproduce the receive peak independently and compare all eight original/candidate samples on Linux ARM64 with default VM options.
+- [x] Add bounded asynchronous receive batches, ten protocol/transport regressions and full-client coverage enforcement.
+- [x] Pass all 150 MQTT cases, including Paho with zero skips, complete client coverage (160/160) and gateway tooling coverage (1,084/1,084, zero exclusions).
+- [ ] Pass clean-source canonical verification and every fresh hosted CI/benchmark gate.
 
 The routing reproducer fails against the merged workflow and passes after the
 split. All 19 CI-contract tests and 12 native comparison/Intel hardware tests pass;
@@ -48,6 +54,27 @@ hits against merged `ef1479d6`. Raw LCOV comparison proves the six lost and thre
 gained hits are in unchanged transport error paths. Three focused regressions
 exercise all six lost lines, with real native error checks and controlled boss
 MQTT/WebSocket failures; no runtime, coverage policy or numeric budget changes.
+
+The coverage correction `3b3cadd3` passes both Codecov checks; fresh hosted LCOV
+hits all six previously missed lines. Its clean-source full verification and
+baseline fast suite pass. CI `41651852479` passes 57 checks, but gateway shard 0
+and its required Full Verify summary fail on an unchanged 50 MiB subscriber peak
+RSS cap (56.3 MiB observed). All other fifteen numeric shards pass.
+
+The failed sample delivers 207 queued 64 KiB MQTT packets after a 20-second
+subscriber stall. The old reader materializes all coalesced frames before
+listeners consume them. A fixed ABBA reproduction measures four original peaks
+at 51.8–57.3 MiB and four asynchronous-batch peaks at 39.6–44.5 MiB, with exact
+payload validation and default VM settings. All samples, including rejected
+allocation experiments, are retained under ignored local evidence. These local
+diagnostics do not replace hosted gateway qualification.
+
+The correction pauses the input stream while listeners consume each 64 KiB
+decode batch. MQTT packet limits and owned payloads retain their existing
+contract. Ten tests cover both versions over TCP/WebSocket, large owned payloads,
+callback closure and pending control operations; all four closure and two malformed-tail tests fail on
+the original implementation. Coverage now requires the complete MQTT client in
+addition to the existing gateway/shared/native scopes. No numeric cap changes.
 
 Use [project state](../project_state.md) for current verification status. The
 [README](../../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway) contains

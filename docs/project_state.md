@@ -5,7 +5,7 @@ Current priority: [MQTT milestone 2](https://github.com/konsultaner/connectanum-
 Active plan: [MQTT interoperability](exec-plans/2026-10-14-mqtt-broker-interoperability.md).
 Branch: `codex/mqtt-ci-skipped-checks`, based on merged `ef1479d6`.
 [PR #135](https://github.com/konsultaner/connectanum-dart/pull/135) merged on 2026-11-03.
-Current work: finish PR #136's CI routing fix and make transport error coverage deterministic.
+Current work: qualify PR #136's MQTT client backlog memory fix after repairing CI routing and coverage stability.
 
 The opt-in QoS 0 gateway implements #116/#117: realm authorization, trusted WAMP
 caller identity, binary publications, bounded queues, cancellation and teardown.
@@ -50,15 +50,22 @@ Main CI's required gateway smoke, all sixteen numeric shards, coverage and stric
 Full Verify dependencies remain unchanged. Normal PR CPU profiling continues to
 execute a real diagnostic; manual-only jobs will not register as skipped checks.
 
-[PR #136](https://github.com/konsultaner/connectanum-dart/pull/136)'s first run
-passes all 56 Actions jobs with zero skipped jobs. Its separate `codecov/project`
-check fails: identical production source has 47,027 / 49,957 hits versus the
-merged base's 47,030 / 49,957. Artifact comparison identifies six lost hits in
-MQTT wake-registration rejection and WebSocket poll-error handling, plus three
-gained worker error hits. Deterministic native/fake-runtime regressions now hit
-all six lost lines and assert native error codes, healthy-peer dispatch and
-WebSocket error reporting/detachment. Coverage thresholds, exclusions, runtime
-code and benchmark gates are unchanged. Full verification and fresh CI are pending.
+[PR #136](https://github.com/konsultaner/connectanum-dart/pull/136) removes the
+skipped manual jobs. Deterministic MQTT/WebSocket error regressions restore all
+six previously missed hosted coverage lines; both Codecov checks pass on
+`3b3cadd3`. Its clean-source `bin/verify` and `bin/test-fast` pass.
+
+[CI 41651852479](https://github.com/konsultaner/connectanum-dart/actions/runs/41651852479)
+passes 57 checks. Gateway shard 0 rejects a 56.3 MiB stalled-subscriber peak
+against the unchanged 50 MiB cap; Full Verify correctly propagates the failure.
+All other fifteen gateway shards pass. The [active plan](exec-plans/2026-10-14-mqtt-broker-interoperability.md)
+records the reproduction and source-matched paired memory diagnostic.
+
+The working client fix consumes coalesced reads in asynchronous 64 KiB batches.
+All 150 MQTT cases pass with Paho and zero skips, including ten new regressions;
+six of those fail on the original client. Full client coverage is 160/160;
+gateway tooling is 1,084/1,084 with zero exclusions. Clean-source canonical
+verification and all fresh hosted numeric gates are required before handoff.
 
 [Complete source qualification](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501)
 measures both translation directions, direct MQTT/WAMP controls, CPU, latency,
@@ -78,9 +85,8 @@ or discarded during recovery.
 
 ## Remaining readiness work
 
-The gateway is merged. The CI routing follow-up passed local `bin/verify` and
-Actions; its coverage stability correction requires verification and fresh PR
-checks. The broader milestone remains open
+The gateway is merged. CI routing and coverage stability are verified; the client
+backlog memory correction is in qualification. The broader milestone remains open
 for QoS 1/2, retained messages/wills, persistence, credential authentication,
 complete MQTT properties and release conformance.
 
