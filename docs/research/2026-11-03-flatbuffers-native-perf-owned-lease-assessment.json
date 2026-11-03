@@ -1,0 +1,932 @@
+{
+  "kind": "own-current-darwin-retained-preflight-lease-method-root-assessment-v1",
+  "actual_controller_v3": {
+    "exit": 1,
+    "scope": "Input setup failed before helper compile, API lease admission, source20 imports, attempt directory or cases",
+    "actual_cache_gid": 0,
+    "fixed_expected_gid": 20,
+    "failing_stat_actual_retained": true,
+    "all_other_guard_stat_fields_pass": true,
+    "no_input_byte_read_or_case_actor": true,
+    "terminal": true
+  },
+  "actual_controller_v4": {
+    "exit": 0,
+    "source_sha256": "94d9269492e3d96417e6cf5c16851afe37bb8c3052eca323fc802a573d995abd",
+    "scope": "OWN current Darwin/unprivileged UID501/GID20 finite method ONLY",
+    "helper_input": "ORIGINAL official helper path selected in preparation before data; same pinned SHA and fixed UID/GID policy",
+    "helper_source_sha256": "d9dab4fa22040d987a25239e0d767683a4647d9b4ecee25d46379979d73b15a8",
+    "private_copy_full_source_local_only": true,
+    "no_chown_mode_owner_policy_or_credential_change": true,
+    "no_dynamic_path_fallback_or_host_reselection": true,
+    "distinct_terminal_attempt": "/private/tmp/connectanum-native-perf-owned-lease-control-v4"
+  },
+  "actual_cases": {
+    "positive": {
+      "pid": 62798,
+      "natural_status": 0,
+      "merged_output_eof": true,
+      "actual_real_lease_verify_in_initial_worker_barrier": true,
+      "partial_public_view_retained": true,
+      "zero_wait_returned_with_same_producer_pending": true,
+      "private_ready_release_directory_protocol_only": true
+    },
+    "negative": {
+      "natural_status": 78,
+      "merged_output_eof": true,
+      "official_API_LOCK_NB_refusal": true,
+      "cause_errno": 35,
+      "cause_errno_name": "EAGAIN",
+      "admitted_with_body_executed": false,
+      "python_probe_did_execute": true,
+      "no_original_GO_or_workload": true
+    }
+  },
+  "actual_setup_parents": {
+    "count": 14,
+    "all_direct_returncode0": true,
+    "both_separate_output_eof": true
+  },
+  "actual_producer_auxiliary": {
+    "count": 13,
+    "all_direct_returncode0": true,
+    "both_separate_output_eof": true,
+    "observations": [
+      {
+        "path": "negative/run/git-000-result.json",
+        "pid": 62811,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "negative/run/git-001-result.json",
+        "pid": 62812,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "negative/run/git-002-result.json",
+        "pid": 62813,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "negative/run/git-003-result.json",
+        "pid": 62814,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "negative/run/git-004-result.json",
+        "pid": 62815,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "positive/run/git-000-result.json",
+        "pid": 62793,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "positive/run/git-001-result.json",
+        "pid": 62794,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "positive/run/git-002-result.json",
+        "pid": 62795,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "positive/run/git-003-result.json",
+        "pid": 62796,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "positive/run/git-004-result.json",
+        "pid": 62797,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "positive/run/git-005-result.json",
+        "pid": 62799,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "positive/run/git-006-result.json",
+        "pid": 62800,
+        "returncode": 0,
+        "both_output_eof": true
+      },
+      {
+        "path": "positive/run/git-007-result.json",
+        "pid": 62801,
+        "returncode": 0,
+        "both_output_eof": true
+      }
+    ]
+  },
+  "actual_callbacks": {
+    "count": 52,
+    "parent_pid_values": [
+      62783
+    ],
+    "fd_values": [
+      3
+    ],
+    "all_same_held_file_identity": true,
+    "all_exclusive_open_noninheritable": true,
+    "reported_unique_thread_ident_values": 1,
+    "qualification": "Reported thread-ident values are reusable; not52distinctworkers or one stable physical thread, no per-phase credential/role authentication"
+  },
+  "actual_lease": {
+    "before": {
+      "fd": 3,
+      "path": "/Users/konsultaner/.codex/runlocks/native-mutation-resources/machine.lock",
+      "identity": [
+        16777234,
+        291065469,
+        33152,
+        501,
+        20,
+        1,
+        0,
+        1791330290871894505,
+        1791330290871911755
+      ],
+      "exclusive": true,
+      "closed": false,
+      "inheritable": false
+    },
+    "after": {
+      "fd": 3,
+      "path": "/Users/konsultaner/.codex/runlocks/native-mutation-resources/machine.lock",
+      "identity": [
+        16777234,
+        291065469,
+        33152,
+        501,
+        20,
+        1,
+        0,
+        1791330290871894505,
+        1791330290871911755
+      ],
+      "exclusive": true,
+      "closed": false,
+      "inheritable": false
+    },
+    "root_context_spans_known_finite_case_child_completion": true,
+    "official_helper_closed_after_context": true,
+    "scope": "Actual own current-host caller and observed callback/probe points only; not complete original-host/live physical lease authority or atomic global ABA protection"
+  },
+  "limitations": [
+    "Child helper FD/stat checks executed but individual child input stat returns not serialized; parent helper metadata and exact child source/argv are retained, no reconstruction",
+    "Final printed all-known-workers check covers last retained worker per owner. Earlier observe calls perform bounded joins, but per-worker join outcomes not all separately serialized. Parent interpreter naturally exits0; no global thread/process census claimed.",
+    "Original helper error text says local companion request active; errno35 refusal while OWN parentEXheld does NOT establish another model active/backend unavailable.",
+    "Each case has one merged stdout/stderr output pipe; BOTH separate EOF applies to14setup+13auxiliary parents, not invented two case pipes.",
+    "Source20/input hashes and FD snapshots are supporting data, not current canonical/source closure/SDK/native/instruction/COW/role/clock proof.",
+    "Parent FD noninheritability and current producer close_fds source are supporting evidence; child FD tables were not censused, no all-inherited-FD proof.",
+    "The fixed501/20 policy applies to selected library inputs (source20 and original official helper). Private controller/evidence artifacts have their actual temporary GID0; no retagging or whole bootstrap/interpreter closure claim."
+  ],
+  "input_source20_before_after_count": [
+    20,
+    20
+  ],
+  "source20_sha256": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "7b808c4ee6bdf4a81cecf92418810472dcec3e767d483b947b2aba2760b40485",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "3764ce61225b2e2c8d3c025d07eabd6a896df7ca0f59214ac14cc9b98e9a9379",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0"
+  },
+  "source20_and_production601_unchanged": true,
+  "helper_bundle_count": 20,
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "positive_fixture_source_heads_only": true,
+  "no_source_branch_commit_push_adoption_or_strict_dispatch": true,
+  "new_method_resource_file_lock_kernel_observation_only": true,
+  "no_original_Linux_pidfd_FDexec_wire_or_perf_controls": true,
+  "OWN_error_fallback_executed": false,
+  "all_known_actual_case_and_setup_command_parents_naturally_waited": true,
+  "no_cancel_reset_retry_recovery_or_old_container_action": true,
+  "model_advice": {
+    "Qwen37298_complete_reaped_exit0": true,
+    "GLM14394_complete_reaped_exit0": true,
+    "advisory_only": true,
+    "root_qualifications": [
+      "Never release parent EX to admit probe; no unofficial acquire()/os._exit/no-join advice",
+      "GLM undefined probe-data allegation false: initialized before loop and exceptions propagate through finally",
+      "Root verifies actual component field semantics; setup Popen ownership is separate from producer fields",
+      "Use repeated bounded SAMEchild waits on OWN error paths, no total timeout/cancel. No fallback actually runs."
+    ],
+    "review_epoch": "Unexecuted v2; root verifies v3 metadata/bounded-wait additions and explicit v4 input/namespace-only changes"
+  },
+  "source_and_artifact_limits": "All selected regular new plan/control files retained; full official helper source LOCALONLY with hash receipt. Empty/special nodes metadata-only. No old archives/controls/reviews/tests rerun unchanged.",
+  "resources": {
+    "latest_free_bytes": 8684384256,
+    "build_floor": 12884901888,
+    "scoped_floor": 1073741824,
+    "build_floor_closed": true,
+    "cleanup_attempts": 0,
+    "cause": "UNMEASURED"
+  },
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "full_orchestration_complete": false,
+  "live_provider_absent": true,
+  "controller_closed": true,
+  "next_action": "Integrate scoped own method receipts without original-host authority; full current own canonical/build/source/archive/native/driver/RLIB/actual locks/hiddenconfigs/SDK/compiler/tool/kernel provenance, original-host controls and immutable complete admission remain required.",
+  "no_real_canonical_production_recipe_live_receipt_SDK_compiler_original_target_kernel_perf_broker_or_benchmark": true,
+  "publication": {
+    "archive_sha256": "4cb283c0fc361f0cfee9efe3726520fcd5622e6c91bd09dff05777fb9b2e683d",
+    "regular_members": 235,
+    "all_regular_members_byteexact": true,
+    "excluded_local_only": [
+      {
+        "path": "plan/official-helper-source.local.py",
+        "reason": "Full official helper source LOCALONLY; hash receipt included",
+        "identity": [
+          16777234,
+          357804332,
+          33188,
+          501,
+          0,
+          1,
+          35983,
+          1793729928941540762,
+          1793729928941540762
+        ]
+      }
+    ],
+    "directories_special_metadata_only": [
+      {
+        "path": "control/negative",
+        "identity": [
+          16777234,
+          357804991,
+          16877,
+          501,
+          0,
+          4,
+          128,
+          1793730656103402130,
+          1793730656103402130
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo",
+        "identity": [
+          16777234,
+          357804992,
+          16877,
+          501,
+          0,
+          6,
+          192,
+          1793730656102879457,
+          1793730656102879457
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git",
+        "identity": [
+          16777234,
+          357804995,
+          16877,
+          501,
+          0,
+          12,
+          384,
+          1793730656130356559,
+          1793730656130356559
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/hooks",
+        "identity": [
+          16777234,
+          357804999,
+          16877,
+          501,
+          0,
+          16,
+          512,
+          1793730656017828830,
+          1793730656017828830
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/info",
+        "identity": [
+          16777234,
+          357804996,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656016491190,
+          1793730656016491190
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/logs",
+        "identity": [
+          16777234,
+          357805061,
+          16877,
+          501,
+          0,
+          4,
+          128,
+          1793730656072947411,
+          1793730656072947411
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/logs/refs",
+        "identity": [
+          16777234,
+          357805063,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656072983411,
+          1793730656072983411
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/logs/refs/heads",
+        "identity": [
+          16777234,
+          357805064,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656073022870,
+          1793730656073022870
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/objects",
+        "identity": [
+          16777234,
+          357805027,
+          16877,
+          501,
+          0,
+          8,
+          256,
+          1793730656077692131,
+          1793730656077692131
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/objects/49",
+        "identity": [
+          16777234,
+          357805043,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656058348996,
+          1793730656058348996
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/objects/69",
+        "identity": [
+          16777234,
+          357805050,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656071580562,
+          1793730656071580562
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/objects/6b",
+        "identity": [
+          16777234,
+          357805039,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656057870115,
+          1793730656057870115
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/objects/cb",
+        "identity": [
+          16777234,
+          357805055,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656072588907,
+          1793730656072588907
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/objects/info",
+        "identity": [
+          16777234,
+          357805029,
+          16877,
+          501,
+          0,
+          2,
+          64,
+          1793730656020225148,
+          1793730656020237815
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/objects/pack",
+        "identity": [
+          16777234,
+          357805028,
+          16877,
+          501,
+          0,
+          2,
+          64,
+          1793730656020186648,
+          1793730656020199440
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/refs",
+        "identity": [
+          16777234,
+          357805023,
+          16877,
+          501,
+          0,
+          4,
+          128,
+          1793730656019979021,
+          1793730656019979021
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/refs/heads",
+        "identity": [
+          16777234,
+          357805024,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656073100579,
+          1793730656073100579
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/.git/refs/tags",
+        "identity": [
+          16777234,
+          357805025,
+          16877,
+          501,
+          0,
+          2,
+          64,
+          1793730656019977812,
+          1793730656019990562
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/repo/inputs",
+        "identity": [
+          16777234,
+          357805075,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730656102925874,
+          1793730656102925874
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/negative/run",
+        "identity": [
+          16777234,
+          357805077,
+          16832,
+          501,
+          0,
+          38,
+          1216,
+          1793730656219110061,
+          1793730656219110061
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive",
+        "identity": [
+          16777234,
+          357804843,
+          16877,
+          501,
+          0,
+          4,
+          128,
+          1793730655754789859,
+          1793730655754789859
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo",
+        "identity": [
+          16777234,
+          357804844,
+          16877,
+          501,
+          0,
+          6,
+          192,
+          1793730655754021059,
+          1793730655754021059
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git",
+        "identity": [
+          16777234,
+          357804847,
+          16877,
+          501,
+          0,
+          12,
+          384,
+          1793730655985424964,
+          1793730655985424964
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/hooks",
+        "identity": [
+          16777234,
+          357804851,
+          16877,
+          501,
+          0,
+          16,
+          512,
+          1793730655667470331,
+          1793730655667470331
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/info",
+        "identity": [
+          16777234,
+          357804848,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655666184441,
+          1793730655666184441
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/logs",
+        "identity": [
+          16777234,
+          357804913,
+          16877,
+          501,
+          0,
+          4,
+          128,
+          1793730655723223794,
+          1793730655723223794
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/logs/refs",
+        "identity": [
+          16777234,
+          357804915,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655723259544,
+          1793730655723259544
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/logs/refs/heads",
+        "identity": [
+          16777234,
+          357804916,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655723297087,
+          1793730655723297087
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/objects",
+        "identity": [
+          16777234,
+          357804879,
+          16877,
+          501,
+          0,
+          8,
+          256,
+          1793730655728104182,
+          1793730655728104182
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/objects/6b",
+        "identity": [
+          16777234,
+          357804891,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655707661368,
+          1793730655707661368
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/objects/8e",
+        "identity": [
+          16777234,
+          357804902,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655721819403,
+          1793730655721819403
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/objects/bb",
+        "identity": [
+          16777234,
+          357804895,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655708125457,
+          1793730655708125457
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/objects/cb",
+        "identity": [
+          16777234,
+          357804907,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655722862998,
+          1793730655722862998
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/objects/info",
+        "identity": [
+          16777234,
+          357804881,
+          16877,
+          501,
+          0,
+          2,
+          64,
+          1793730655669709981,
+          1793730655669720856
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/objects/pack",
+        "identity": [
+          16777234,
+          357804880,
+          16877,
+          501,
+          0,
+          2,
+          64,
+          1793730655669673397,
+          1793730655669684606
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/refs",
+        "identity": [
+          16777234,
+          357804875,
+          16877,
+          501,
+          0,
+          4,
+          128,
+          1793730655669473770,
+          1793730655669473770
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/refs/heads",
+        "identity": [
+          16777234,
+          357804876,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655723368629,
+          1793730655723368629
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/.git/refs/tags",
+        "identity": [
+          16777234,
+          357804877,
+          16877,
+          501,
+          0,
+          2,
+          64,
+          1793730655669472687,
+          1793730655669483604
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/repo/inputs",
+        "identity": [
+          16777234,
+          357804927,
+          16877,
+          501,
+          0,
+          3,
+          96,
+          1793730655754061017,
+          1793730655754061017
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive/run",
+        "identity": [
+          16777234,
+          357804930,
+          16832,
+          501,
+          0,
+          56,
+          1792,
+          1793730656002395489,
+          1793730656002395489
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive-ready.json.committed",
+        "identity": [
+          16777234,
+          357804969,
+          16877,
+          501,
+          0,
+          2,
+          64,
+          1793730655841140251,
+          1793730655841152959
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/positive-release",
+        "identity": [
+          16777234,
+          357804970,
+          16832,
+          501,
+          0,
+          2,
+          64,
+          1793730655940902086,
+          1793730655940930170
+        ],
+        "metadata_only": true
+      },
+      {
+        "path": "control/source20",
+        "identity": [
+          16777234,
+          357804822,
+          16877,
+          501,
+          0,
+          22,
+          704,
+          1793730655641045741,
+          1793730655641045741
+        ],
+        "metadata_only": true
+      }
+    ]
+  }
+}

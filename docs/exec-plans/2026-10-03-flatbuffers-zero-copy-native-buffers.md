@@ -2,6 +2,22 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## OWN Darwin lease method complete; original-host admission stays closed (2026-11-03)
+
+Two fresh finite cases return0/78 under the actual official exclusive lease.
+Worker callbacks verify the held FD/file identity; an independent child
+naturally refuses nonblocking admission. The earlier helper-copy setup fails
+before cases at a retained GID0-versus20 guard; explicit v4 uses the originally
+selected official helper with unchanged policy.
+[Actual sources, outcomes and limits](../research/2026-11-03-flatbuffers-native-perf-owned-lease-preparation.md).
+
+This is current-Darwin OWN method evidence only. It does not establish
+original-host/Linux/root/perf/SDK authority or complete orchestration.
+All20tool bytes/production601 stay unchanged, uncommitted and uncanonical;
+no real build/live receipt, original benchmark/capture or strict dispatch.
+Free about8.7GB<12GiB buildfloor; no cleanup, cause unmeasured. Live provider,
+admission and controller stay closed; no RAM repair or acceptance.
+
 ## Retained preflight phase component; full admission remains closed (2026-11-03)
 
 A new retained owner registers the actual producer before constructor I/O and
