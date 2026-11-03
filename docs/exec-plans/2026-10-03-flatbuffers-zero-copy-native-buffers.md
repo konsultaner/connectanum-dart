@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Parent writer objects sealed; physical orchestration pending
+
+After a failed command's signed wait/merged EOF, a serialized worker can seal the two exact retained parent writer objects. A failed explicit flush quarantines without close; successful flush permits fsync and one revalidated close. Object facts do not retag the producer, bypass the auxiliary predicate or authorize physical EX release. Final17 selected tests pass (14new+3required callers), separate from earlier16 and a new failing normal-return/open-object guard corrected. These finite FIXTURE source controls are not canonical or RAM evidence. Current20 helpers stay uncommitted/uncanonical/unadmitted, production601 unchanged; full orchestration, SDK/lock/config preflight and live provenance/admission remain incomplete.
+
+[Preparation](../research/2026-11-04-flatbuffers-native-perf-parent-writers-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-parent-writers-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-parent-writers-evidence.tar.gz).
+
 ## 2026-11-03 — Worker-only known command wait; pipeline stays failed
 
 A failed/uninitialized owner can wait on the same retained command and merged output pipe through the serialized worker. No next command, audit, producer end/finish, log close or publication occurs. Raw producer pending/log-open state remains; cached terminal data grants no actor/lease closure. Final14guards pass (11new+3requiredcallers), after retained API absence and three new validation failures plus an introduced legacy edit error corrected. These are finite FIXTURE/source-component controls, not canonical or RAM evidence. Current20helpers remain uncommitted/uncanonical/unadmitted; production601 unchanged. Full physical orchestration, original SDK/lock/config preflight and live provenance remain incomplete; admission/controller stay closed.

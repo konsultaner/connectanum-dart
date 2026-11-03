@@ -1,11 +1,17 @@
 # Project State
 
-Last updated: 2026-11-03.
+Last updated: 2026-11-04.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
+
+## 2026-11-04 — Parent writer objects sealed; physical orchestration pending
+
+After a failed command's signed wait/merged EOF, a serialized worker can seal the two exact retained parent writer objects. A failed explicit flush quarantines without close; successful flush permits fsync and one revalidated close. Object facts do not retag the producer, bypass the auxiliary predicate or authorize physical EX release. Final17 selected tests pass (14new+3required callers), separate from earlier16 and a new failing normal-return/open-object guard corrected. These finite FIXTURE source controls are not canonical or RAM evidence. Current20 helpers stay uncommitted/uncanonical/unadmitted, production601 unchanged; full orchestration, SDK/lock/config preflight and live provenance/admission remain incomplete.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-parent-writers-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-parent-writers-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-parent-writers-evidence.tar.gz).
 
 ## 2026-11-03 — Worker-only known command wait; pipeline stays failed
 

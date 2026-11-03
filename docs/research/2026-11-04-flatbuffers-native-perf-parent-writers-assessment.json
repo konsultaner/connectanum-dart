@@ -1,0 +1,350 @@
+{
+  "kind": "owned_parent_writer_object_seal_source_component_v1",
+  "utc": "2026-11-03T23:49:29.314312+00:00",
+  "source_sha256": "dc491908a26d7b9c44e190acacb8ae197a3ad51833d1c6b2fd75680f21081c73",
+  "test_sha256": "19ad9d7880bc63b796b0525606c7cd0eb4f49289e9080ef72426b2da8891e027",
+  "changed_files": [
+    "tool/native_perf_build_producer.py",
+    "tool/test_native_perf_build_producer.py"
+  ],
+  "changed_original_owner_methods": [
+    "__init__",
+    "_schedule",
+    "_work"
+  ],
+  "original_module_functions_factories_emitters_gates_CommandProducer_AuxiliaryCommand_other_owner_methods_original_testclasses_byteexact": true,
+  "other18tools_and_selected3bins_byteexact": true,
+  "production_source_601_unchanged": true,
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "helper_bundle20_private_controllers_separate": true,
+  "APIs": "seal_parent_writers(), parent_writer_observations()",
+  "semantics": "failed-uninitialized owner after actual A wait+mergedEOF/emptybuffer; one attempt marked beforeThreadsetup/fixed exclusive namespace before writer artifact metadata; retain exact TWO existing writer objects BEFOREIO; static native IO descriptors, closefdTrue/no per-instance shadows/alias or FDpath drift",
+  "io_rules": "explicit flush once; on failed flush quarantine/NO fsync or close/no implicit replay. After successful flush, fsync; even on fsync error ONE close only after current mutable lease/object/FDpath revalidation. Native close may implicitly flush. Normal return/closed-property independent; closedFalse quarantines; no retry/reclose.",
+  "no_parent_log_content_read_or_hash_by_sealer": true,
+  "no_event_end_finish_spawn_audit_receipt_or_producer_terminal_retag": true,
+  "original_auxiliary_predicate_unchanged_no_waiver": true,
+  "all_same_scheduler_busy_actualjoin_settledstart_guards_preserved": true,
+  "immutable_typed_primitive_leaf_rows_only_no_raw_IO_handles_or_errors": true,
+  "first_existing_and_new_errors_exact_private_TYPEONLY_public_no_repr_str_add_note": true,
+  "namespace_existing_partial_refused_terminal_forever": true,
+  "bounded_identity_not_atomic_globalABA_auth_writeprevention_or_all_writer_proof": true,
+  "stage_results": {
+    "before": {
+      "tests": 13,
+      "failures": 0,
+      "errors": 13,
+      "recorded_same_command_actor_rows": 13,
+      "all_recorded_new_actors_natural0_mergedEOF_stream_matches_file": true,
+      "pre_fixture_cleanup_parent_rows": []
+    },
+    "implemented": {
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "recorded_same_command_actor_rows": 14,
+      "all_recorded_new_actors_natural0_mergedEOF_stream_matches_file": true,
+      "pre_fixture_cleanup_parent_rows": [
+        {
+          "pid": 90614,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 90602,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 90606,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 90599,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 90612,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 90605,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 90611,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 90613,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 90600,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 90601,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 90604,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 90603,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 90598,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        }
+      ]
+    },
+    "normal-close-before": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "recorded_same_command_actor_rows": 1,
+      "all_recorded_new_actors_natural0_mergedEOF_stream_matches_file": true,
+      "pre_fixture_cleanup_parent_rows": [
+        {
+          "pid": 91110,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        }
+      ]
+    },
+    "final": {
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "recorded_same_command_actor_rows": 15,
+      "all_recorded_new_actors_natural0_mergedEOF_stream_matches_file": true,
+      "pre_fixture_cleanup_parent_rows": [
+        {
+          "pid": 91189,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 91188,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 91191,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 91187,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 91185,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 91196,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 91192,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 91193,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 91186,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 91197,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 91194,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 91190,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        },
+        {
+          "pid": 91195,
+          "log_closed_before_fixture_cleanup": true,
+          "journal_closed_before_fixture_cleanup": true
+        },
+        {
+          "pid": 91198,
+          "log_closed_before_fixture_cleanup": false,
+          "journal_closed_before_fixture_cleanup": false
+        }
+      ]
+    }
+  },
+  "before13errors_missingAPI_only_NOT13production_defects": true,
+  "initial16PASS_scope": "13new+3required callers, not canonical",
+  "new_normal_return_open_object_mock_guard_FAIL": true,
+  "final17PASS_scope": "14newparent-writer guards+3required existingcallers; separate from earlier16, NOTcombined33/canonical",
+  "actual_fixtures": "finite OWN Python recipe/FIXTURE; source/archive/input mocked; factory raises AFTER actual constructor returns pending; private release dirs NOTGO; one merged stdoutstderr pipe",
+  "successful_source_API_closes_actual_log_and_journal_before_fixture_cleanup": true,
+  "failure_only_fixture_teardown_or_malformed_shadow_borrowedFD_cleanup_NEVER_live_workaround": true,
+  "inherited_fixture_only_log_close_field_is_policy_tag_not_actual_close_journal": true,
+  "before_stage_parent_pre_cleanup_observations_NOT_serialized_no_reconstruction": true,
+  "returned_views_and_legacy_Git_setup_returns_NOT_all_systematically_serialized": true,
+  "raw_producer_pending_finished_process_and_writer_refs_not_retagged": true,
+  "close_method_return_and_closed_property_NOT_kernel_syscall_count_or_globalFD_release_authority": true,
+  "fsync_return_NOT_absolute_durability_proof": true,
+  "ROOT_actual_official_EX_through_known_fixture_workers_children": true,
+  "unit_lease_callbacks_SYNTHETIC": true,
+  "process_lifetime_retention_counts_NOT_heap_RSS_bounds": true,
+  "no_SDK_native_build_canonical_originalhost_kernel_broker_benchmark_capture_or_strict_dispatch": true,
+  "no_RAM_cause_repair_or_acceptance": true,
+  "actor_ownership_complete": null,
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "primary_references": [
+    {
+      "url": "https://docs.python.org/3.14/library/io.html",
+      "final_url": "https://docs.python.org/3.14/library/io.html",
+      "status": 200,
+      "size": 181761,
+      "sha256": "e4448699636c75a5e74fd2d83a601905b67a91f8dd7151c5586889372d029d6e",
+      "content_type": "text/html",
+      "date": "Tue, 03 Nov 2026 23:27:43 GMT",
+      "body_LOCALONLY": true,
+      "reference_only_not_installed_binary_or_loaded_instruction_proof": true
+    },
+    {
+      "url": "https://raw.githubusercontent.com/python/cpython/v3.14.4/Modules/_io/bufferedio.c",
+      "final_url": "https://raw.githubusercontent.com/python/cpython/v3.14.4/Modules/_io/bufferedio.c",
+      "status": 200,
+      "size": 78933,
+      "sha256": "5b32d8bd3b669456202e66b086a828763255516d45354899c095f12b69cf267b",
+      "content_type": "text/plain; charset=utf-8",
+      "date": "Tue, 03 Nov 2026 23:27:43 GMT",
+      "body_LOCALONLY": true,
+      "reference_only_not_installed_binary_or_loaded_instruction_proof": true
+    }
+  ],
+  "primary_full_bodies_and_selected_C_excerpt_LOCALONLY": true,
+  "primary_references_NOT_installed_interpreter_or_loaded_instruction_attestation": true,
+  "no_primary_refetch_no_reentrant_crash_or_version_probe": true,
+  "models": {
+    "GLM94684_complete_direct0_reaped": true,
+    "root_accepts_explicit_journal_binding": true,
+    "root_rejects": [
+      "Thread.start exception proves no worker: may start then raise",
+      "must null producer refs or call end_command: public failed owner cannot advance pipeline; keep raw flags unchanged"
+    ],
+    "root_primary_driven_change": "initial plan close-after-any-flush-error was unimplemented and unsafe for buffered retry; no close after explicit flush failure. Native close may implicitly flush after successful explicit flush.",
+    "Qwen42083_tests_complete_direct0_reaped": true,
+    "tests_reject": [
+      "mocked successful close proves actual positive close",
+      "repeat may no-op instead of refuse",
+      "pytest/strace probes"
+    ],
+    "Qwen27697_full_diff_review_direct1_token_limit": true,
+    "full_review_full_partial_final_absent": true,
+    "full_review_last_reported_visible_chars": 5600,
+    "backend_reachable_not_approval_or_unavailable": true,
+    "Qwen64151_final_selected_review_complete_direct0_reaped": true,
+    "final_selected_source_epoch": "dc491908a26d7b9c44e190acacb8ae197a3ad51833d1c6b2fd75680f21081c73",
+    "root_rejects_final_selected": [
+      "fsync-to-close lacks revalidation: loop TOP calls verify on EVERY step",
+      "observer lock should guard foreign raw mutation: no global atomicity claimed/only worker touches private resources",
+      "referenced retained raw object could be GC-collected before verification",
+      "primary exception lost: exact first appended before cache, raised from errors[0]"
+    ],
+    "ROOT_whole_final_affected_methods_tests_and_AST_invariants_checked": true,
+    "no_model_final_full_source_approval": true
+  },
+  "next": "Independent recipe/auxiliary/unknown-actor inventory and full physical EX orchestration still incomplete. Do not bypass old aux predicate or infer lease release from writer-object facts. Bind original PATH/SDK/bootstrap inputs, firstgeneration locks/configs/current20canonical and original-host provenance/controls before immutable complete admission/any diagnosticdata.",
+  "free_after": 17949757440,
+  "new_public_evidence": {
+    "archive_sha256": "ed76b4eae16255a5cbe82b2da8d224cfb1ffbf7922570a57fe15b4aaf5ff3d47",
+    "regular_members": 772,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": [],
+    "excluded_LOCALONLY": [
+      {
+        "path": "design/primary-close-selected-LOCALONLY.txt",
+        "size": 1496,
+        "sha256": "7bcf59ddc6c99018d93824252c25d12aa907af9a489b64e30bbcc6e5edf136c2",
+        "source_identity": [
+          16777234,
+          357843266,
+          33188,
+          501,
+          0,
+          1,
+          1496,
+          1793748499823409890,
+          1793748499823409890,
+          0
+        ],
+        "body_LOCALONLY": true
+      },
+      {
+        "path": "primary/LOCAL-ONLY/cpython3144-bufferedio.body",
+        "size": 78933,
+        "sha256": "5b32d8bd3b669456202e66b086a828763255516d45354899c095f12b69cf267b",
+        "source_identity": [
+          16777234,
+          357843250,
+          33188,
+          501,
+          0,
+          1,
+          78933,
+          1793748463601627075,
+          1793748463601627075,
+          0
+        ],
+        "body_LOCALONLY": true
+      },
+      {
+        "path": "primary/LOCAL-ONLY/python314-io.body",
+        "size": 181761,
+        "sha256": "e4448699636c75a5e74fd2d83a601905b67a91f8dd7151c5586889372d029d6e",
+        "source_identity": [
+          16777234,
+          357843248,
+          33188,
+          501,
+          0,
+          1,
+          181761,
+          1793748463223308026,
+          1793748463223308026,
+          0
+        ],
+        "body_LOCALONLY": true
+      }
+    ]
+  }
+}
