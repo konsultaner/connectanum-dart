@@ -7,6 +7,22 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Current source UID context observed; live admission closed (2026-11-03)
+
+A NEW metadata-only observer records all20exact source files and actual
+UID/EUID/GID/EGID1000. All files are regular0644 with UID/GID1000, while
+host source UID data501 differs. Current raw status has CapEff0/NoNewPrivs1/
+Seccomp2 and OWN read-only fakeowner mount. This is current input context,
+not the old unrecorded stat or original-host trust.
+[Actual context, guards and limits](research/2026-11-03-flatbuffers-native-perf-linux-input-preparation.md).
+
+Eight command parents and the new observer naturally exit0; no tool import,
+test child/primitive/perf/VM/benchmark or old-container restart. One changed
+context guard and five separate NEW protocol guards pass. Source20/production
+601 unchanged/uncommitted/uncanonical, live provider closed. No owner waiver,
+RAM repair/strict dispatch. Free 10.56GB; unchanged12GiB build floor closed,
+cause unmeasured/no cleanup. Both strict campaigns remain failed.
+
 ## Linux method source setup refused before primitive controls (2026-11-03)
 
 A NEW pinned-image Docker setup starts one namespaced Python coordinator

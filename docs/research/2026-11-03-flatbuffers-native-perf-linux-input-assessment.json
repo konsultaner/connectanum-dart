@@ -1,0 +1,112 @@
+{
+  "scope": "NEW current-instance source-input metadata ONLY; not historical stat reconstruction or admission",
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "source20_unchanged": true,
+  "production_packages_native_source_unchanged": true,
+  "source_head": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "all20source_sha256": {
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_build_producer.py": "fc1e8eb183e4d3c80a2d092123db2c3f4d34463d51d6bad7bb3d36920287a0c6",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_admission.py": "1dfb23ca6dc16295f1d1862ee8c9845577e5ed7dee819c37ae0eaccd3a32d446",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/native_perf_build_producer.py": "1493191e84d92a5e57215f99a95b3b80a7824d788f5b7e0ea4c4c3708b0112a2",
+    "tool/test_native_perf_admission.py": "2360773c8e0ae77a4bdf985fcb9741ba8aea546746e23540182a150da3611fe0",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+  },
+  "actual_command_statuses": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "all_command_stream_EOF": true,
+  "actual_container_exit": 0,
+  "OOMKilled": false,
+  "declared_input_count": 20,
+  "all20_exact_hash_stable_path_FD_stat_and_observed_close": true,
+  "actual_current_namespace_UID_EUID_GID_EGID": {
+    "uid": "1000",
+    "euid": "1000",
+    "gid": "1000",
+    "egid": "1000"
+  },
+  "host_source_UID_data": 501,
+  "all20_actual_file_UID_GID": "1000:1000",
+  "all20_actual_file_mode": "0100644",
+  "NEW_instance_predicate_components": {
+    "regular": true,
+    "not_group_or_other_writable": true,
+    "owner_equals_host_UID501": false
+  },
+  "actual_current_proc_status": {
+    "CapEff": "0000000000000000",
+    "NoNewPrivs": "1",
+    "Seccomp": "2"
+  },
+  "actual_current_OWN_mount": "ro,nosuid,nodev /opt/control, filesystem reported fakeowner; complete raw retained",
+  "test_children_spawned": 0,
+  "tool_modules_imported": 0,
+  "input_chain": {
+    "image_manifest_digest": "sha256:29434a59c93070e470f84663e4289026e04644ea44b5220ef7e07d653318ca1f",
+    "config_digest": "sha256:fe83005fb105be014095e304ce578212522449ec2ad47649ef4833ef9a84abda",
+    "expected_method_ELF_sha256": "c73c526e9bfa0d217b548ce27c576f1628a55fa0f4b65b1f6f0a142e2cd530a1",
+    "host_source_sha256": "6b933811d47bd2534586a0642a81f77a43ef10ddd61e4f504616377ab8dcd0de",
+    "observer_sha256": "36d18b06d11cf14c68d28d18ae08c0199b5a50942f7a26cd9ad21529bc105950",
+    "protocol_sha256": "551af5352a73c5fcbde2c038defad53d9cefb717caa505f60a3583597a2326b1"
+  },
+  "declaration_sha256": "5d5b9d38a84c4712f155bf2b8f8f985edfaab4ecd76657dec062fb05aed6632d",
+  "manifest_sha256": "f79a7c3476f51c9a0f01fa46991875856c6b91e6f927ed540bcbc80d3ae9447c",
+  "roundtrip_before_sole_new_start": true,
+  "image_pull_inspect_save_not_rerun": true,
+  "old_containers_not_restarted": true,
+  "chown_owner_expansion_source_guard_bypass": false,
+  "context_regression": "ONE actual private-observer beforeFAIL:393216byte full read of384KiB OWN synthetic proc fixture; changed-source guardPASS retains max262145byte prefix/truncation/error/unobserved tail, no reread. Logical IO only, not heap/RSS magnitude.",
+  "protocol_guards": "FIVE separate NEW synthetic guardsPASS: data-only authority, scalar types, pre-decode encoded length, order/footer, nested predicate/mode. Never combined6/canonical/old78 rerun.",
+  "models": {
+    "tests93670": "Qwen complete/reaped advisory. Reject BaseException/finally allegation, arbitrary mode string conversion and hypothetical SIGINT/CLI test; raw small mode is exact and u64 fields are strings. Root independently identifies unbounded context read and retains before FAIL/fix.",
+    "review22524": "Qwen complete/reaped advisory. Reject cancellation deadline:45s only unstarted admission; bounded5s waits retain same owned command until natural signed status+bothEOF. Reject rm/cleanup, fabricated CID, exist_ok/chmod reset; unknown staysNULL, stopped evidence protected, mkdir default already exclusive0700. Daemon/host authenticity and exhaustion remain limitations, never live admission."
+  },
+  "all_own_command_model_parents_complete_reaped": true,
+  "archive": {
+    "path": "docs/research/2026-11-03-flatbuffers-native-perf-linux-input-evidence.tar.gz",
+    "sha256": "b0401047a70e650faf0267f85bb21d76c21a873faf244900b88286abf581a0d4",
+    "members": 157,
+    "all_regular_members_byte_exact": true,
+    "special_nodes_metadata_only": true,
+    "third_party_ELF_image_LOCAL_ONLY": true,
+    "old194member_archive_not_reread": true
+  },
+  "free_bytes": 10555707392,
+  "build_floor_bytes": 12884901888,
+  "build_admission_open": false,
+  "disk_change_cause_unmeasured": true,
+  "no_cleanup": true,
+  "limits": [
+    "Old failing stat was not serialized; NEW observations do not identify its exact failing predicate or retroactively prove old runtime context.",
+    "Namespace UID1000 differs from host UID501 data in this instance; no general translation rule, accepted owner expansion or original credential change inferred.",
+    "Current context only; not original diagnostic host/kernel/root/map_files/pidfd/FDexec/wire/perf/inheritance/arming/metadata/loss/role/clock/COW/compiled-source proof.",
+    "Bounded hash/path/FD/stat and readonly mount are not global atomic/ABA/write prevention or malicious-daemon authenticity.",
+    "Independent live provider absent; require_live_admission ALWAYSraises/liveSessionController CLOSED. Source20 uncommitted/uncanonical; no own fullcanonical/production/source archive/native/driver/RLIB/SDK/compiler/WAMP/VM/benchmark/capture/strict dispatch.",
+    "All original benchmark UID/GID/env/argv/--dart dart/SDK/GC/allocator/workers/controls/fresh bodies/windows/samples/gates unchanged. Original strict evidence consumed; no RAM repair/acceptance."
+  ],
+  "next": "Bind host-source UID data and namespace-controller/artifact UID in separate immutable method contexts; require exact selected namespaceUID1000 and hashes/owner/mode without expanding allowed owners or deriving authority from observations. Meaningful context regression/root review before fresh nonbenchmark primitive controls. Never restart/refill terminal containers. Full own canonical/provenance/original-host Linux/root/perf controls and live provider still unresolved before diagnostic data."
+}
