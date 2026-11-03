@@ -17,7 +17,7 @@ metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
 exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
-guard preparation reuses this owned worktree, now with eight uncommitted tool
+guard preparation reuses this owned worktree, now with ten uncommitted tool
 files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
@@ -47,7 +47,7 @@ the new blocked-exec consumer passes26 POSIX exec-callback fixtures after four
 retained actual counterexamples (refusal log, FIFO marker blocking, set-ID mode
 and declared-path drift). These fixtures simulate exec; no actual FD exec,
 privileged executable, perf/kernel probe, VM API, benchmark or capture ran.
-Eight uncommitted tool files leave production package/native sources unchanged.
+Ten uncommitted tool files leave production package/native sources unchanged.
 [Consumer evidence, qualified review and root readback](../research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
 The new read-only procfs witness source passes35 labelled synthetic/POSIX
 fixtures after retained first33 failures and two further actual review cases.
@@ -65,17 +65,25 @@ received-FD cleanup, primary-error retention and unknown-send-count cases are
 fixed; fixture publication/message-expectation corrections remain distinguished.
 No live Linux/root/FDexec/perf/kernel/VMAPI/nativebenchmark/capture ran.
 [Handoff evidence and qualified review](../research/2026-11-03-flatbuffers-native-perf-handoff-preparation.md).
-Next implement actual private listener/trusted privileged helper lifecycle,
-same-PID pinned perf ELF exec, independent live sampler image/access/FD audit
-and loaded role/native-image witnesses, then complete external attach control.
-The helper creates channels after privilege exec; no sudo monitor inheritance.
-Use live peer/current-sender evidence and reject synthetic provenance before
-arming/ACK/marker/GO. Keep driver original UID/GID/env; never sudo-perf driver.
-Own full canonical/provenance/declaration/review and bounded actual owned Linux
-non-benchmark credential/access/inheritance/arming controls remain required
-before data. All own sessions are reaped. Last free18.76GB exceeds12GiB build
-floor; no cleanup or full canonical while integration is incomplete. Whole-life
-native samples cannot establish allocation/RSS cause or strict acceptance.
+The session source now implements the named private listener, post-privilege
+helper handoff, pinned same-PID perf exec, independent audit transport and
+before-enable/before-GO controller APIs. All22 owned unprivileged POSIX/synthetic
+fixtures pass after retained actual lifecycle counterexamples and distinguished
+fixture/state corrections. No actual Linux/root/pidfd/ELFexec/perf/kernel/VMAPI/
+native benchmark/capture ran; no new strict dispatch or source adoption.
+[Every executed version and qualified assessment](../research/2026-11-03-flatbuffers-native-perf-session-preparation.md).
+Next complete capture admission/provenance, loaded role/native-image records and
+natural sampler completion, then own new-tool canonical/source/archive/locks/
+generated configs/native/staticRLIB provenance, immutable declaration and bounded
+actual owned non-benchmark Linux credential/access/pidfd/FDexec/inheritance/arming
+controls before any data. The original driver UID/GID/env and all original
+workload/control/SDK/GC/allocator/worker/window/body policies stay fixed. Helper
+connects after privilege exec; no monitor inheritance or child-enumeration-only
+authenticity proof. Existing/partial markers/reports remain terminal, no retry/
+reclaim/reset. All own sessions are complete/reaped, ten tools uncommitted.
+Last free17.56GB exceeds12GiB floor; no cleanup or new-tool full canonical yet.
+The prior exact601 baseline does not verify these tools. Whole-life native
+samples cannot establish allocation/RSS cause or strict acceptance.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.

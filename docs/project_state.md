@@ -7,32 +7,26 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
-## Direct handoff wire passes26 fixtures; live helper pending (2026-11-03)
+## Session lifecycle passes22 fixtures; actual Linux capability pending (2026-11-03)
 
-The new wire-only component passes26 owned unprivileged POSIX fork/socketpair/
-pipe/descriptor-transfer fixtures with explicitly synthetic credential claims.
-It creates private channels after a bound request, transfers only controller
-ends, closes producer copies and validates context, types, directions and
-partial/error ownership before adoption. Actual before-failing cases for bool
-aliasing, malformed-credential FD leaks, cleanup masking and unconfirmed send
-counts are corrected. A fixture publication race and over-specific error
-expectation are retained and corrected separately.
-[All source versions, executed cases and qualified root readback](research/2026-11-03-flatbuffers-native-perf-handoff-preparation.md).
+New source implements the private listener, trusted helper/auditor wire, pinned
+same-PID perf exec and two-phase attach arming APIs. All22 owned unprivileged
+POSIX/synthetic fixtures pass after retained counterexamples for wrong log FD,
+post-GO premature sampler closure, primary-error masking and enable before ACK
+identity refusal. Fixture publication/retention and state-transition corrections
+are distinguished in the full evidence. No live Linux/root/pidfd/ELFexec/perf/
+kernel/VMAPI/native benchmark/capture or new strict dispatch ran.
+[All executed versions, limits and qualified root assessment](research/2026-11-03-flatbuffers-native-perf-session-preparation.md).
 
-No live Linux credentials, privileged helper, FD exec, perf/kernel probe, VM API,
-native benchmark or capture ran. The earlier28/26/35 distinct guard proofs remain
-retained without reruns. The real private listener/helper lifecycle, same-PID
-pinned perf exec, independent actual sampler audit, loaded role/image evidence
-and complete attach controller remain pending. Procfs child scans cannot be
-the sole stronger identity guarantee; no worker freezing or permission waiver.
-
-Owned `codex/flatbuffers-native-perf-guard` stays at HEAD601 with eight uncommitted
-Python tools; production packages/native sources are unchanged. New tool full
-canonical/provenance/declaration and real Linux non-benchmark capability controls
-remain required before data. All own model/test sessions are complete/reaped.
-Last free18.76GB is above12GiB full-build floor; no cleanup. Both strict campaigns
-remain failed; PR132 stays draft without adoption or a new strict dispatch.
-[Earlier procfs supporting evidence](research/2026-11-03-flatbuffers-native-perf-proc-witness-preparation.md).
+Owned `codex/flatbuffers-native-perf-guard` stays HEAD601 with ten uncommitted
+Python tools; production packages/native sources are unchanged. Capture admission,
+loaded role/native-image records, natural sampler completion, own new-tool full
+canonical/provenance/declaration and actual bounded Linux non-benchmark capability
+controls remain pending. All own sessions are reaped. Last free17.56GB exceeds
+the12GiB full-build floor; no cleanup/full canonical yet. The prior exact601
+before-edit canonical does not verify these tools. Both strict campaigns remain
+failed; PR132 stays draft/unadopted. Earlier distinct guard suites were not rerun.
+[Prior handoff wire evidence](research/2026-11-03-flatbuffers-native-perf-handoff-preparation.md).
 
 ## CPU service method rejected; external native diagnostic remains a draft (2026-11-02)
 
