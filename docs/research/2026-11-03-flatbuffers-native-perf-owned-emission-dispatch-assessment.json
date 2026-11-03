@@ -1,0 +1,97 @@
+{
+  "kind": "own-retained-emitter-interface-root-assessment-v1",
+  "problem": "Owned worker passed phase as second argument to one-argument real emitter; wrong canonical/production caller phases also consumed owner attempt instead of synchronous rejection.",
+  "scope": "Source interface integration only; no observed actual canonical/build/performance failure",
+  "actual_before": {
+    "tests": 5,
+    "failures": 4,
+    "errors": 0,
+    "passes": 1,
+    "details": "Two correct nonfixture interfaces fail with actual Python TypeError in mocked one-arg emitter; two wrongphase public calls fail expected synchronous refusal. Fixture two-arg boundary passes."
+  },
+  "actual_fixed": {
+    "tests": 8,
+    "passes": 8,
+    "composition": "5new mocked boundaryguards+3required existing owner lifecycle/emission callers"
+  },
+  "actual_final": {
+    "tests": 8,
+    "passes": 8,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "scope": "Same selected suite after mocks gain actual-signature autospec and source explanation; notcombined16/fullcanonical"
+  },
+  "signatures": {
+    "emit_receipt": "run",
+    "emit_fixture_receipt": "run, phase"
+  },
+  "minimal_change": [
+    "Own emitter gets exact producer only and derives phase from its provenance; fixture emitter keeps explicit phase",
+    "Reject canonical/execution mismatch against fixed ownerkind before scheduling/consuming terminalattempt"
+  ],
+  "unchanged": "All original module-level functions, real synchronous factories, real/fixture emit wrappers, _emit/source audit/gates, other owner methods, original test classes/functions, other18sourcefiles and production601/bin scripts byteexact",
+  "fixture_boundary_scope": "Selected canonical/production FACTORY INTERFACES are MOCKED to delegate to OWN finite fixture constructor; actual producer provenance remainsfixture, neverretagged. EMITTERS MOCKED with actual one/two-arg autospec and fixture-interface-only result; no realownemission/input-receiptfile/validLIVEreceipt/native/build/SDK/control/benchmark.",
+  "source_sha256": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "de2d072a940f0dc0bcdc595d2498435fb693aa330e7464de88e389c31aa60996",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "f7703f8647802e4e2cd0fc9fbece4521648811ee6addae0176b8b50756069ce4",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0"
+  },
+  "helper_bundle_count": 20,
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "advice": {
+    "Gemma41256_complete_reaped_exit0": true,
+    "summary_scope": "Current census/declaration data-only bridge API; root verified exact16..64roles/bothSDKcohorts/configbindings/fixedpolicy20tools/threeextrafiles; these do NOT prove actual command/SDK/compiler/loadedrole execution",
+    "Qwen76652_tests_complete_reaped_exit0": true,
+    "tests_root_rejects": "Proposedfixtureprovenance retag/unifiedowner kind/private_work mismatch/pytestcommands; use actualfixtureprov+publicAPI+selectedunittest only",
+    "Qwen1261_review_complete_reaped_exit0": true,
+    "review_epoch": "Fixed behavioral source1abced/test9d6cca before final comment and actual-signature autospec; ROOTchecksfinalhunks+complete changed methods/tests",
+    "review_root_qualifications": [
+      "P1 retracts itself; actualBEFOREwrongphasefailures prove guards catch permissive behavior. Public emit not mocked, only downstream boundary.",
+      "One-arg actual wrapper confirmed from source; no optional/unified API rewrite. Autospec ties mocks to actual headers for future drift.",
+      "Kind strictlyvalidated at owner construction; hypothetical newkind/privacy/performance suggestions not observed defects, no overhead magnitude measured."
+    ]
+  },
+  "no_old_actual_method_case_suite_review_or_numerical_rerun": true,
+  "all_known_own_current_test_model_sessions_terminal": true,
+  "historical_Darwin_lease_controls": "Remain bound to older source7b808/test3764epoch; not current emitter coverage or current-source admission",
+  "resources": {
+    "latest_free_bytes": 8650977280,
+    "scoped_floor": 1073741824,
+    "build_floor": 12884901888,
+    "build_floor_closed": true,
+    "cleanup_attempts": 0,
+    "cause": "UNMEASURED"
+  },
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "live_provider_absent": true,
+  "controller_closed": true,
+  "full_orchestration_complete": false,
+  "next_action": "Independent complete orchestration/current-source canonical/archive/productionnative-driver-RLIB/locks/configs/SDK/compiler/tool/kernel/originalhost controls+immutable complete admission still required; no builds below12GiB/sourceadoption/numerical dispatch.",
+  "publication": {
+    "archive_sha256": "ad845b0fe3edb46f5c71663c52ac01252bb7b1c651d48734e1de78cd82906299",
+    "regular_members": 1922,
+    "all_regular_members_byteexact": true,
+    "excluded_private_files": [],
+    "special_nodes_metadata_only": []
+  }
+}

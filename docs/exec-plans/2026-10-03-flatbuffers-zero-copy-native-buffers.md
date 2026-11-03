@@ -2,6 +2,23 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## Owned emitter interface repaired; build admission stays closed (2026-11-03)
+
+The retained worker now calls the real one-argument emitter and preserves the
+fixture two-argument interface. Wrong real phases refuse before a terminal
+attempt is consumed. Five new guards initially yield four failures and one
+pass; eight selected guards/callers pass after correction and signature-linked
+mock strengthening.
+[Actual source, failures and limits](../research/2026-11-03-flatbuffers-native-perf-owned-emission-dispatch-preparation.md).
+
+Factories/emitter bodies and production601 remain unchanged; only the
+producer/test pair changes. All20tools stay uncommitted/uncanonical/unadmitted.
+Positive boundaries are mocked and keep actual fixture provenance; no valid
+own receipt, actual build, original-host control, benchmark/capture or strict
+dispatch runs. Earlier method epochs are not current-source execution proof.
+Free about8.7GB<12GiB buildfloor; no cleanup, cause unmeasured. Full orchestration
+and provenance remain incomplete; live provider/controller/admission stay closed.
+
 ## OWN Darwin lease method complete; original-host admission stays closed (2026-11-03)
 
 Two fresh finite cases return0/78 under the actual official exclusive lease.
