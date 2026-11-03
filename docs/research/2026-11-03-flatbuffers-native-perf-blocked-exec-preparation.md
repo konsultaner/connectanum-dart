@@ -1,5 +1,7 @@
 # Blocked launcher preparation for native perf diagnostics
 
+The later [procfs witness preparation](2026-11-03-flatbuffers-native-perf-proc-witness-preparation.md) records35 synthetic fixtures and current integration status. This note retains the preceding26-callback phase.
+
 The new blocked-exec component passes26 focused POSIX fork/pipe/exec-callback
 fixtures. Four actual before-failing counterexamples are retained and corrected.
 This adds a token consumer to the earlier28 guard primitives. The real external

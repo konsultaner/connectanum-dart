@@ -1,0 +1,249 @@
+{
+  "scope": "NEW read-only procfs witness collector source and labelled synthetic procfs/owned POSIX pipe fixtures only. No original numerical evidence or acceptance re-audit/workload rerun.",
+  "checked_utc": "2026-11-03T00:12:41.062829+00:00",
+  "runtime_source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "branch": "codex/flatbuffers-native-perf-guard",
+  "HEAD_still_parent": true,
+  "uncommitted_tool_files": 6,
+  "production_packages_native_unchanged": true,
+  "verification": {
+    "first_tests": 33,
+    "first_failures": 4,
+    "first_errors": 8,
+    "fixed_tests_PASS": 33,
+    "new_review_before_counterexamples": 2,
+    "new_review_before_failures": 1,
+    "new_review_before_errors": 1,
+    "final_tests_PASS": 35,
+    "all_original_logs_source_versions_receipts_exact": true,
+    "official_exclusive_lease_each_test": true,
+    "first_admission_refusal_before_any_test_snapshot_log_retained": true,
+    "final_source_sha256": {
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "final_log_sha256": "a5eabdc9d518b027ce7345d9fd8cb4c3d512e6ae4a2d9572e3e15843137e0abb"
+  },
+  "first_failures_qualified": [
+    "Darwin fixture used pathname stat through /dev/fd rather than actual creator-owned pipe fstat. Corrected explicit labelled fixture adapter uses only declared OWN pipe FDs. Live Linux procfs identity checks were not relaxed; no actual Linux proof follows from fixture success.",
+    "Three root positive counterexamples established false refusals for unchanged descriptor log size/timestamps, unchanged FD flags with advancing log position, and valid empty noninitial exec argv. Corrected descriptor identity to dev/inode/type/flags while retaining raw metadata; allow valid argv semantics. No workload or source policy changed."
+  ],
+  "review_counterexamples_qualified": [
+    "An earlier FD reused late during a single snapshot with unchanged numeric FD set escaped the initial per-FD checks. Actual negative test failed before correction; a second bounded sweep of every descriptor plus name set now catches this observable change. Still not atomic/ABA proof.",
+    "Invalid image GuardError left incomplete evidence without explicit error metadata. Actual negative test produced KeyError before correction; now the refusal reason/error class is explicit while original prefix/metadata remain. Short nonempty pread chunks were already accumulated correctly; no truncated-digest acceptance defect is claimed."
+  ],
+  "collector_contract": [
+    "Live factory requires privileged Linux /proc reader; fixture mode is explicitly labelled in ProcessWitness. No environ reads, process execution, control writes, global PID scan or capture entrypoint.",
+    "Only finite declared owned-anchor tree is traversed through each task children list, with PID/start/parent continuity, bounded depth/process/thread/fd/read sizes and retained partial/malformed raw evidence.",
+    "Read actual image through opened procfs exe FD, hash with before/after identity and ELF checks; compare status credentials, exact argv, image and descriptors across bounded observations.",
+    "Exactly one expected-image sampler must exist with exact declared argv/effective credentials and controlREAD fd0/ACKWRITE fd1. It may be anchor after sudo exec or descendant of persistent monitor; never assume sudoPID equals recorderPID.",
+    "Other private-channel endpoints in observed owned launcher tree refuse, including trusted launcher monitors. Unknown FD types remain retained. This is not a global owner census or guarantee against privileged/temporal ABA.",
+    "Future trusted privileged-auditor/controller transport and strict external-schema validation are not implemented. Fixtures are not admissible as live capture provenance; live access/arming/inheritance/loaded-role images still need actual capability controls."
+  ],
+  "advice": {
+    "test_advice": {
+      "exec_session_complete_reaped": 22105,
+      "backend": "GLM-5.3 Flash",
+      "root": "Six scenarios grounded in actual class/stack-neutral procfs design, all advisory. Actual tests cover image change at same starttime, octal flags, task lineage/cycles/duplicates, extra writers and anchor/descendant uniqueness. Privileged reader requirement is load-bearing; permission failure is terminal and retained, never skipped as healthy."
+    },
+    "debug_attempt": {
+      "exec_session_complete_reaped": 7326,
+      "exit_code": 1,
+      "finish": "TOKENLIMIT",
+      "reachable": true,
+      "completed_advice_saved": false,
+      "root": "Long-log advisory attempt produced no completed final assessment. Raw wrapper remains; no approval or backend unavailability claim."
+    },
+    "source_review": {
+      "exec_session_complete_reaped": 2801,
+      "backend": "GLM-5.3 Flash",
+      "root_qualifications": [
+        "P1 narrow observable late-descriptor gap accepted and reproduced before correction. Additional sweep does not establish atomicity or all ABA immunity.",
+        "P2 short-read allegation is wrong/self-retracted in its explanation: loop consumes every nonempty chunk and checks total size. Only explicit image-refusal metadata concern accepted and reproduced.",
+        "P3 unbounded-queue/refuse-before-observation allegation rejected: processes visited <=32, children per node <=32 and depth <=8 bound the frontier. Partial observations are intentionally retained; no contract promises pre-observation refusal. Suggested33-node chain would hit depth first.",
+        "Credential parser explicitly requires four decimal fields; a compromised procfs mount or privileged attacker is not authenticated by regex. No extra guarantee claimed.",
+        "Review saw only first61fixture lines, not all tests. Root verifies actual full logs/hashes and counterexamples; model cannot approve test completeness or capture.",
+        "Malformed external tree input currently fails closed; future external auditor JSON/schema admission is still required, not claimed implemented."
+      ]
+    }
+  },
+  "archive": {
+    "source_file": "2026-11-03-flatbuffers-native-perf-proc-witness-evidence.tar.gz",
+    "sha256": "3c19f7ff7a2c9bedc4976a5a9ad697417151d052effc1278649e9bd9c75b259a",
+    "members_decompress_byte_exact": true,
+    "members": [
+      {
+        "member": "logs/first.log",
+        "bytes": 17452,
+        "sha256": "1f4f0c55eac79a8ec73cf38a2f49b798144e583dc533ef441f8360c75f8d1fde"
+      },
+      {
+        "member": "receipts/first.json",
+        "bytes": 982,
+        "sha256": "c581911c50e80a1f687de5ecf594279575039c6090cde0a3e2c579e4cf37fc15"
+      },
+      {
+        "member": "first/tool/native_perf_guard.py",
+        "bytes": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "first/tool/native_perf_blocked_exec.py",
+        "bytes": 13407,
+        "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+      },
+      {
+        "member": "first/tool/native_perf_proc_witness.py",
+        "bytes": 14859,
+        "sha256": "96cf670549af6dd8a0ceba6bce33aaaaa4779ae6df9ecc1f1498b73b0f8ead71"
+      },
+      {
+        "member": "first/tool/test_native_perf_proc_witness.py",
+        "bytes": 16472,
+        "sha256": "ad441a45beca8da82e97f670c7fa45fb6e1200746c6bcbf3bc6b05e10c810d63"
+      },
+      {
+        "member": "logs/fixed.log",
+        "bytes": 4985,
+        "sha256": "9f51f767063c15d9f8c655765680ea50a4e46aa118b7131c8efdc25412a632f5"
+      },
+      {
+        "member": "receipts/fixed.json",
+        "bytes": 1057,
+        "sha256": "ac7d5a593b37d41a459c880344d5a02520cd597db04781159b479b6dd40cd5bd"
+      },
+      {
+        "member": "fixed/tool/native_perf_guard.py",
+        "bytes": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "fixed/tool/native_perf_blocked_exec.py",
+        "bytes": 13407,
+        "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+      },
+      {
+        "member": "fixed/tool/native_perf_proc_witness.py",
+        "bytes": 15098,
+        "sha256": "fbad62579d6ae4b1631731eb32c746d1fd3ed58130ecdc58e8f75a44d60b760f"
+      },
+      {
+        "member": "fixed/tool/test_native_perf_proc_witness.py",
+        "bytes": 17476,
+        "sha256": "cea6d19fa40c38b21b21b7ae65fb1aef1cf89eea5bc4163e0a9a2d89d65fbb99"
+      },
+      {
+        "member": "logs/review-before.log",
+        "bytes": 1837,
+        "sha256": "9d4b7b4fe422c9f5fb26329c6b57c2e3eb3b3cff024e74e37348c237986b6bd1"
+      },
+      {
+        "member": "receipts/review-before.json",
+        "bytes": 996,
+        "sha256": "9d343a1ffead2be81ea353fae36ed864e4b68c6beef0c932641d55e52920a7de"
+      },
+      {
+        "member": "review-before/tool/native_perf_guard.py",
+        "bytes": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "review-before/tool/native_perf_blocked_exec.py",
+        "bytes": 13407,
+        "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+      },
+      {
+        "member": "review-before/tool/native_perf_proc_witness.py",
+        "bytes": 15098,
+        "sha256": "fbad62579d6ae4b1631731eb32c746d1fd3ed58130ecdc58e8f75a44d60b760f"
+      },
+      {
+        "member": "review-before/tool/test_native_perf_proc_witness.py",
+        "bytes": 18455,
+        "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+      },
+      {
+        "member": "logs/final.log",
+        "bytes": 5325,
+        "sha256": "a5eabdc9d518b027ce7345d9fd8cb4c3d512e6ae4a2d9572e3e15843137e0abb"
+      },
+      {
+        "member": "receipts/final.json",
+        "bytes": 1023,
+        "sha256": "5ace58216ffc93ade9297a465da72c6f6a47a52a71575831687653428f35ce19"
+      },
+      {
+        "member": "final/tool/native_perf_guard.py",
+        "bytes": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "final/tool/native_perf_blocked_exec.py",
+        "bytes": 13407,
+        "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+      },
+      {
+        "member": "final/tool/native_perf_proc_witness.py",
+        "bytes": 16074,
+        "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+      },
+      {
+        "member": "final/tool/test_native_perf_proc_witness.py",
+        "bytes": 18455,
+        "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+      },
+      {
+        "member": "advice-and-admission/design.txt",
+        "bytes": 3012,
+        "sha256": "4bfba9f20d229ad273acb1b78afdc3a4527233e290c5504b641b88dfbd432f2e"
+      },
+      {
+        "member": "advice-and-admission/test-advice.txt",
+        "bytes": 4858,
+        "sha256": "cc9ef97e5e91f6f301b1669d38b18f183d269bf0980980f5338b098803c620d9"
+      },
+      {
+        "member": "advice-and-admission/test-advice-wrapper.log",
+        "bytes": 5565,
+        "sha256": "84beb2066d19366a15925ac60b0c53b447e61769d46475facd0f5be7a8e5ce66"
+      },
+      {
+        "member": "advice-and-admission/first-debug-wrapper.log",
+        "bytes": 796,
+        "sha256": "3f512d0a3f123a571b41143a1cc6a0ec0f818c034813224308f568f1291d4869"
+      },
+      {
+        "member": "advice-and-admission/source-review.txt",
+        "bytes": 6052,
+        "sha256": "3a46b19d837d443cf35f6a0db965e422ac23497d5a90c442888cb082b9d9042e"
+      },
+      {
+        "member": "advice-and-admission/source-review-wrapper.log",
+        "bytes": 7104,
+        "sha256": "b727fce8fb078601568f65ed252511b59f0792e043ccdc58a57458480afd343c"
+      },
+      {
+        "member": "advice-and-admission/first-lease-refusal.json",
+        "bytes": 243,
+        "sha256": "555309db6c2a02dfa8d70a8fef7e6a9c5b77fa3ad314a15213938c0bab280637"
+      }
+    ]
+  },
+  "resources": {
+    "last_final_test_free_bytes": 19479527424,
+    "small_test_floor_bytes": 1073741824,
+    "full_build_floor_bytes": 12884901888,
+    "new_cleanup": false,
+    "full_canonical_started": false
+  },
+  "actual_live_procfs_or_privileged_sampler_verified": false,
+  "real_fd_exec_executed": false,
+  "actual_perf_or_kernel_capability_probe_executed": false,
+  "VM_API_or_benchmark_or_capture_executed": false,
+  "capture_controller_implemented": false,
+  "production_defect_or_RAM_repair_confirmed": false,
+  "capture_ready": false,
+  "next": "Implement trusted scoped privileged auditor transport and external attach controller integrating live sampler/blocked-wrapper/role-image witnesses with control/ACK/marker/GO. Strictly reject fixture provenance and undeclared endpoints. Complete own source/native/driver/archive/actual locks/generated-config/staticRLIB/tool/kernel verification and full canonical, meaningful guards, qualified review, immutable declaration and real owned nonbenchmark Linux capability controls before any new diagnostic data. Original strict failures remain retained."
+}

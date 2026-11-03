@@ -17,7 +17,7 @@ metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
 exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
-guard preparation reuses this owned worktree, now with four uncommitted tool
+guard preparation reuses this owned worktree, now with six uncommitted tool
 files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
@@ -47,17 +47,25 @@ the new blocked-exec consumer passes26 POSIX exec-callback fixtures after four
 retained actual counterexamples (refusal log, FIFO marker blocking, set-ID mode
 and declared-path drift). These fixtures simulate exec; no actual FD exec,
 privileged executable, perf/kernel probe, VM API, benchmark or capture ran.
-Four uncommitted tool files leave production package/native sources unchanged.
+Six uncommitted tool files leave production package/native sources unchanged.
 [Consumer evidence, qualified review and root readback](../research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
-Next implement the actual attach controller and sampler/role/image/lineage/
-private-FD witnesses, then own full verification/provenance/declaration and
-bounded real Linux non-benchmark capability controls. Privileged perf attaches
-to the original-UID blocked PID; never launch the driver as a sudo perf child.
-Observed free space recovered to20.23GB without own cleanup, cause unmeasured.
-Full canonical has not started while the controller is incomplete. Official
-lease refusal and readback preflight corrections are retained; no tests/data
-reran to repair those reads. All own sessions are complete/reaped; whole-life
-native samples cannot establish allocation/RSS cause or gate-interior parity.
+The new read-only procfs witness source passes35 labelled synthetic/POSIX
+fixtures after retained first33 failures and two further actual review cases.
+It binds a bounded owned launcher tree and sampler image/argv/credentials/
+private endpoints, retaining raw partial/malformed data. No live Linux procfs,
+privileged image or perf/kernel/benchmark/capture ran. Source mode requires a
+privileged reader; fixtures never establish live provenance.
+[Collector source, executed cases and qualified review](../research/2026-11-03-flatbuffers-native-perf-proc-witness-preparation.md).
+Next implement trusted privileged auditor transport, actual loaded role/image
+witnesses and the external attach controller, integrating live admission with
+blocked-child enable/ACK/marker/GO. Reject fixture inputs and extra endpoints;
+never infer perf's PID from sudo or launch the driver as a sudo perf child.
+Own full verification/provenance/declaration, qualified review and bounded real
+Linux non-benchmark capability controls remain required before data. Last free
+space19.48GB is above12GiB full-build floor; no new cleanup. Full canonical has
+not started while integration is incomplete. All own sessions are reaped;
+the debug token-limit failure remains, with no approval/unavailability claim.
+Whole-life native samples cannot establish allocation/RSS cause or acceptance.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.

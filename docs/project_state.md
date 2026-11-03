@@ -7,31 +7,33 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
-## Blocked launcher passes26 fixtures; real perf controller pending (2026-11-03)
+## Procfs witness source passes35 fixtures; live integration pending (2026-11-03)
 
-The new tool-only blocked-exec consumer passes26 POSIX callback fixtures after
-four retained actual counterexamples: lost refusal log, FIFO marker blocking,
-set-ID mode admission and declared-path drift. These fixtures simulate exec;
-no actual FD exec, privileged image, perf/kernel probe, VM API, benchmark or
-capture ran. The earlier28 guard primitives remain retained without rerunning.
-The real attach controller and actual sampler/role/image/lineage/private-FD
-witnesses are still missing; no performance result or production fix exists.
-[Source versions, executed failures, qualified review and root readback](research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
+A new read-only collector passes35 labelled synthetic procfs/owned POSIX pipe
+fixtures. It binds bounded launcher-tree process instances, actual-image reads,
+credentials/argv and private endpoints, retaining malformed/partial evidence.
+The first33 produced4failures/8errors; corrected fixture metadata and valid
+log-growth/position/argv controls then passed33. Two further actual review
+counterexamples (late FD replacement and missing image-refusal metadata) failed
+before correction and now pass in35. All sources/logs/advice remain retained.
+[Root assessment, exact source versions and limits](research/2026-11-03-flatbuffers-native-perf-proc-witness-preparation.md).
 
-The owned worktree now has four uncommitted Python tools, branch
-`codex/flatbuffers-native-perf-guard`, HEAD601; production package/native sources
-are unchanged. The original published601 runtime remains frozen/unadopted.
-The original full48 schedule/scenarios still bind the filtered11-case diagnostic
-order and proposed330reports. New tool full canonical/provenance/declaration
-and real Linux non-benchmark capability controls remain pending. Privileged
-perf must attach to the original-UID blocked driver, never launch it as root.
+This is source plus synthetic proof only. No live Linux procfs, privileged image,
+actual FD exec, perf/kernel probe, VM API, benchmark or capture ran. The trusted
+privileged auditor transport, actual loaded role/image evidence and real attach
+controller are still missing. The earlier28 primitive and26 launcher fixtures
+remain retained without reruns. All own model/test sessions are complete/reaped;
+a debug token-limit failure is retained without an approval/unavailability claim.
 
-All own test/advice sessions are complete/reaped. An official lease refusal
-preceded post-fix tests; work waited. Free space later recovered to20.23GB,
-above the12GiB full-build floor, without own cleanup; cause unmeasured. Full
-canonical has not started while the controller remains incomplete. Both strict
-campaigns stay failed; PR132 stays draft, without adoption or a new dispatch.
-[Earlier guard/source-policy preparation](research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
+The owned branch `codex/flatbuffers-native-perf-guard` remains at HEAD601 with
+six uncommitted Python tools; production packages/native sources are unchanged.
+New tool full canonical/provenance/declaration and real Linux non-benchmark
+capability controls remain pending. Last observed free space19.48GB is above
+the12GiB full-build floor; no cleanup occurred. Privileged perf must attach to
+the original-UID blocked driver, never launch it as root. Candidate uniqueness,
+private-FD guards and fixture rejection must remain fail-closed in integration.
+Both strict campaigns remain failed; PR132 stays draft, without adoption or a
+new dispatch. [Earlier blocked launcher evidence](research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
 
 ## CPU service method rejected; external native diagnostic remains a draft (2026-11-02)
 
