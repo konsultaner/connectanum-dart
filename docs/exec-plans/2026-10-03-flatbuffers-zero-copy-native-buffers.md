@@ -116,15 +116,22 @@ no actual canonical/build/live receipt or capture ran. Pre-child nonce/SDK/confi
 binding, sealed evidence checks and terminal log/receipt/hash sidecars are source
 APIs; separate receipt source audit preserves the sealed original journal.
 [All executed versions, failure corrections and limits](../research/2026-11-03-flatbuffers-native-perf-receipt-conversion-preparation.md).
-Next integrate actual source/config/compiled-input and loaded role/native-image
-provenance with complete immutable capture admission and real receipt orchestration.
-Actual SDK/compiler/log-writer/descendant/native-mode evidence and appropriate
-own fullcanonical/source/archive/locks/config/native/driver/RLIB/tool/kernel
-provenance plus bounded real Linux non-benchmark controls remain mandatory before
-data. Previous CLI/proof/strict evidence not rerun or reused as new-source proof.
+A new helper-only SDK package-mapping observer now passes11 new protocol guards
+and two actual contexts: outside null config and all75 workspace mappings, with
+null absent-package controls and all raw/nonce/source/config/3LOCALlock evidence.
+It does not prove original WAMP-worker config/source/compiled/native images.
+[Exact controls and qualified source method](../research/2026-11-03-flatbuffers-native-perf-package-resolution-preparation.md).
+CachedSDK3.13.1 was explicitly selected only for non-benchmark method controls,
+avoiding Flutter launcher updater/bootstrap; original WAMP flags/launcher unchanged.
+The prior45 producer prefix is byte-identical/not rerun; no combined54/canonical
+claim. Next bind observations to actual original launch/source/config receipts,
+role/native-image lineage/metadata and complete immutable admission/real orchestration.
+Own fullcanonical/source/archive/native/driver/RLIB/locks/config/tool/kernel
+provenance and bounded actual Linux controls still required before diagnostic data.
 Fourteen tools uncommitted, production unchanged601/helper12 unchanged. All own
-parent sessions reaped, no cleanup/new-tool canonical/strict dispatch/adoption.
-Both strict campaigns remain failed; no production RAM cause or parity established.
+parent sessions reaped; no cleanup/new-tool canonical/build/Linux/perf/kernel/
+capture/strict dispatch/adoption. Both strict campaigns remain failed; RAM cause
+and parity unresolved.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.

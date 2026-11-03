@@ -7,24 +7,25 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
-## Receipt conversion passes45 OWN cases; live admission pending (2026-11-03)
+## Helper package mapping observed; WAMP image provenance pending (2026-11-03)
 
-Twelve new receipt/context cases plus33 required changed producer callers pass45.
-Source APIs bind nonce/SDK/config before children, recheck sealed artifacts and
-write terminal receipt/log/hash bindings. Executed positive receipts are fixture
-kinds only; no actual canonical/build/live input receipt or capture ran.
-The closed-journal error and a mutable retagging boundary are fixed; one fixture
-now continues bounded waits on its same actors. All original failures retained.
-[Every executed version and qualified limits](research/2026-11-03-flatbuffers-native-perf-receipt-conversion-preparation.md).
+Eleven new protocol guards and two actual non-benchmark SDK helper contexts pass:
+outside null config and exact workspace config/all75 mappings in original order,
+with nonce-specific absent-package null controls. Complete raw bytes and selected
+SDK/config/source/3LOCALlock checks are retained. These helper observations do
+not prove WAMP-worker config, source existence, compiled closure or loaded images.
+[Exact controls, guards, source trace and qualified scope](research/2026-11-03-flatbuffers-native-perf-package-resolution-preparation.md).
 
-Actual config/source resolution, SDK/compiler/descendant/log-writer and effective
-native-mode provenance, full live orchestration, immutable admission and loaded
-role/native-image association remain pending. Prior CLI/proof/strict data were
-not rerun. All own parent command/model sessions are reaped. Fourteen tools stay
-uncommitted, production unchanged601/helper12 unchanged. Last free
-19.01GB exceeds12GiB; no cleanup/new-tool canonical/strict dispatch.
-Both original campaigns remain failed and PR132 stays draft/unadopted.
-[Previous actual CLI evidence stays bound to its original source](research/2026-11-03-flatbuffers-native-perf-tool-identity-preparation.md).
+The explicit cached3.13.1 SDK path was used only for these method controls to
+avoid Flutter-launcher update/bootstrap paths; original WAMP launch/flags remain
+unchanged. Existing45 producer prefix is byte-identical/not rerun; no new-tool
+canonical or combined54-pass claim. Fourteen tools uncommitted, production
+unchanged601/helper12 unchanged. All own parent sessions reaped. Last free
+19.04GB exceeds12GiB; no cleanup/build/Linux/perf/kernel/capture/strict dispatch.
+Original launch/source/config, role/native-image provenance and immutable capture
+admission/real orchestration plus appropriate own verification and real Linux
+controls remain pending. Both strict campaigns stay failed; PR132 draft.
+[Prior receipt45 source/evidence scope](research/2026-11-03-flatbuffers-native-perf-receipt-conversion-preparation.md).
 
 ## CPU service method rejected; external native diagnostic remains a draft (2026-11-02)
 
