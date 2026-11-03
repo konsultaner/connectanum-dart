@@ -17,7 +17,7 @@ metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
 exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
-guard preparation reuses this owned worktree, now with sixteen uncommitted tool
+guard preparation reuses this owned worktree, now with eighteen uncommitted tool
 files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
@@ -163,6 +163,19 @@ Next integrate actual role-instance/loaded native-image association and original
 source/config/command receipts with immutable capture admission. Appropriate own
 verification/source/archive/native/driver/RLIB/locks/hidden configs/tool/kernel
 provenance and actual bounded Linux controls still required before any data.
+
+The new direct mapped backing-file source and decoder candidate join pass25
+OWN POSIX/synthetic cases after retained actual cleanup/schema/map/path/precision
+counterexamples. All nine executed source combinations remain. It does not prove
+private/COW pages, role labels/lineage, clocks, transport or real Linux access;
+UID0 is not map_files capability proof. Always capture_ready=false.
+[New source, primary access requirements and qualified limits](../research/2026-11-03-flatbuffers-native-perf-mapped-images-preparation.md).
+Next integrate trusted transport/actual role timing and original source/config/
+command receipts with immutable capture admission. Own18tool verification and
+actual source/native/driver/RLIB/locks/hiddenconfigs/tool/kernel evidence plus
+bounded real nonbenchmark Linux controls still required before any data.
+Prior16 unchanged; old suites not rerun, existing decoder used only NEW synthetic
+integration. Production601/helper12 unchanged; no canonical/build/capture/adoption.
 
 ## Read-only original RSS role attribution complete (2026-11-02)
 

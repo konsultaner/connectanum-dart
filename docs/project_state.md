@@ -7,6 +7,25 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Mapped backing-file guards pass25; live role provenance pending (2026-11-03)
+
+A new scoped PID/start/argv/credential and mapped backing-file source passes25
+OWN file/synthetic-proc/pidhandle guards, including NEW decoder MMAP2 candidate
+integration. Actual before-failing read cleanup, stand-in pidfd cleanup, candidate
+schema, overlapping VMA, path bytes and JSON precision cases are fixed. Unknown
+mappings and raw errors remain; full saved return records start in later phases.
+[Every executed version, primary access constraints and limits](research/2026-11-03-flatbuffers-native-perf-mapped-images-preparation.md).
+
+This is backing-file observation/candidate matching, always capture_ready=false,
+not private/COW pages, role lineage, trusted transport or live Linux proof. UID0
+is not map_files permission proof; actual access controls remain mandatory.
+Eighteen tools uncommitted, production601/helper12 unchanged. Prior16 unchanged,
+old suites not rerun; no canonical/build/Linux/kernel/capture/strict dispatch or
+source adoption. All own parent sessions reaped; last free18.98GB, no cleanup.
+Trusted integration, actual role timing/lineage and immutable admission/original
+source/config/command provenance plus own verification/real controls remain.
+Both strict campaigns stay failed; no production RAM cause or repair established.
+
 ## Binary metadata reader passes27; live image association pending (2026-11-03)
 
 A new streaming PERFILE2 reader passes27 synthetic/OWN file cases. It retains
