@@ -1,0 +1,264 @@
+{
+  "scope": "NEW endpoint handoff primitives and OWN unprivileged POSIX fork/socketpair/pipe/SCM_RIGHTS tests. Credential/parser context is EXPLICITLY synthetic; no actual Linux live credentials, root launcher, FD exec, perf/VMAPI/native benchmark/capture. No old guard suite or completed numerical evidence rerun.",
+  "checked_utc": "2026-11-03T01:01:19.131411+00:00",
+  "runtime_source": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "branch": "codex/flatbuffers-native-perf-guard",
+  "HEAD_still_parent": true,
+  "uncommitted_tool_files": 8,
+  "production_packages_native_unchanged": true,
+  "verification": {
+    "first_tests": 21,
+    "first_passes": 18,
+    "first_failures": 3,
+    "fixed_tests": 23,
+    "fixed_fixture_publication_errors": 2,
+    "publication_fixed_tests_PASS": 23,
+    "review_counterexamples_and_IO_control_tests": 3,
+    "review_before_failures": 1,
+    "review_before_errors": 1,
+    "review_before_IO_control_passes": 1,
+    "final_tests_PASS": 26,
+    "all_source_log_receipt_hashes_exact": true,
+    "official_exclusive_lease_each_test": true,
+    "final_source_sha256": {
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "final_log_sha256": "c16cd92cceffef4f293a974534737b9f717481405a5946a0f1bd81ed72683174"
+  },
+  "actual_changes_qualified": [
+    "Completion dictionary equality admitted False as rootUID0 in a labelled synthetic identity case. All completion fields now require exact types and values; no root credential transition occurred.",
+    "Malformed credential data before a later valid RIGHTS entry raised before delivered FD copies were registered. Parse/register ALL delivered rights before credential decoding or other fallible descriptor work, then close all on refusal. Actual before-failing leak test now passes.",
+    "Short-rights receiver was already terminal/no-resend; only its test over-specified EOF instead of ancillary refusal. Corrected expectation retains terminal state and actual single send attempt, not a weakened protocol or benchmark gate.",
+    "Two fixed-suite errors read an existing fixture JSON file before its write completed. Fixture producer now publishes by atomic replace. No retry-until-valid-JSON or rewriting capture/consumed markers; original error logs retained.",
+    "Cleanup socket-close error masked primary GuardError. Actual before-failing control reproduced it; cleanup errno is now retained without replacing the primary refusal.",
+    "A sendmsg exception had an invented zero return-count in evidence. Actual before-failing control reproduced it; absent return is now null/unconfirmed with errno, while real returned0/1 remain recorded. Return count never means receiver adoption."
+  ],
+  "protocol_contract": [
+    "Helper creates its two new pipes only after exact request context, in a single-threaded process. Transfer only controller controlWRITE/ACKREAD copies; close producer copies before completion, return only producer controlREAD/ACKWRITE.",
+    "All receives use bounded recvmsg, reject extra/truncated/unknown ancillary data, and retain raw/partial evidence. Exactly two rights travel with the H byte; unexpected rights in metadata refuse and close all delivered copies. Received FDs are noninheritable before adoption.",
+    "Exact declaration/nonce/peer/fixture/schema fields bind both directions; immutable channel identities/access directions validate received copies. One-shot wire failures are terminal, with private socket teardown and no rights resend.",
+    "Linux live factory requires connected UNIX stream credential facilities and receive CLOEXEC, caller real/effective identity agreement, kernel peer credentials and current per-message credentials. Tests use explicit synthetic contexts and fake decoder constants, not real Linux authentication.",
+    "Listener pathname/permissions, trusted privileged helper/source launch, actual same-PID perf fdexec, independent live sampler image/access verification, strict capture-side fixture rejection, loaded role images, kernel controls and complete controller still absent."
+  ],
+  "qualified_advice": {
+    "test_advice_session_complete_reaped": 64395,
+    "debug_session_complete_reaped": 97420,
+    "source_review_session_complete_reaped": 13703,
+    "backend": "GLM-5.3 Flash",
+    "root_qualifications": [
+      "Test advice D1 post-send close race not accepted: caller owns source FDs and closes after send; rights queues/receiver own transferred references. Completion is a source claim, not independent root ownership proof; live audit remains required.",
+      "D2 JSON-frame and ancillary capacities are different buffers. Exactly2FDs is valid; defensive bounded256-right receive buffer exists to reject and close extras, not admit256FD handoffs.",
+      "Debug correctly clusters bool alias and over-specific EOF expectation; it misstates leak ordering. Cleanup was reached with an EMPTY tracked set because decode failed BEFORE later RIGHTS registration.",
+      "Review P1 receiver/source FD leak allegation rejected: producer finally closes its OWN created FDs; receiver cannot adopt without completion and closes delivered copies on failure. Do not double-close borrowed FDs inside send_rights. Only unconfirmed exception return-count evidence gap accepted/reproduced.",
+      "Review descriptor-flag failure allegation rejected: original OSError already propagates with errno while all registered copies close. New actual IO control passes before changes and after; no GuardError wrapping needed.",
+      "Metadata-rights smuggling allegation self-retracted; rights_count defaults0 and mismatch already refuses. Existing actual test passes.",
+      "Socket cleanup masking concern accepted and reproduced before correction. Claim of missing zero-send and complete-state replay tests is limited by selected excerpt: both already executed.",
+      "PipeIdentity constructor rejects invalid integer/device/inode values. Future capture MUST use actual live factory/kernel/source/image receipts and reject fixture provenance; Python fixture labels alone are not an authenticity proof. No model capture approval."
+    ]
+  },
+  "primary_source_method": {
+    "source": "https://man7.org/linux/man-pages/man7/unix.7.html",
+    "note": "Protocol API design context only; no actual future-host capability inferred. Detailed source requirements retained as archive member advice-and-method/primary-source-method.json."
+  },
+  "archive": {
+    "source_file": "2026-11-03-flatbuffers-native-perf-handoff-evidence.tar.gz",
+    "sha256": "9b9dfb92a2aab98ad669061cb77dbe4265a9099dcf5b5b068151cc6caf94e082",
+    "members_decompress_byte_exact": true,
+    "members": [
+      {
+        "member": "logs/first.log",
+        "bytes": 5616,
+        "sha256": "d90c9dc3d4fb723f97bc9ebfb7ebf2bfa1d2f4f15b2bf378503ba8712e2898c9"
+      },
+      {
+        "member": "receipts/first.json",
+        "bytes": 1454,
+        "sha256": "73188dc2adfd87fc59d619a61aef51a6f5b07f97b10a6fb7bca552ecc558bb0d"
+      },
+      {
+        "member": "first/tool/native_perf_handoff.py",
+        "bytes": 13977,
+        "sha256": "82b58976f2f2bdfaa007d928e33d9dc80feb633047937a3019c13100e66f23cc"
+      },
+      {
+        "member": "first/tool/test_native_perf_handoff.py",
+        "bytes": 18807,
+        "sha256": "943e40b4ee731e3be9f3ac82cb34445c11916ac692b5001b5eace9c5b8b5357a"
+      },
+      {
+        "member": "logs/fixed.log",
+        "bytes": 6666,
+        "sha256": "baee4c6ee2bc6c52f2c09e906806ea697097f337d11ce78eeab60e47cc4cbddb"
+      },
+      {
+        "member": "receipts/fixed.json",
+        "bytes": 1503,
+        "sha256": "480290fc83a0bb014e6b952eadf2d8d608eabfc4cd2742ee9769cb56fbca7c68"
+      },
+      {
+        "member": "fixed/tool/native_perf_handoff.py",
+        "bytes": 14368,
+        "sha256": "248a4b6e68f2f881483e1f01f3520c8637a24d9d573c5045479dfa142f5bd5a8"
+      },
+      {
+        "member": "fixed/tool/test_native_perf_handoff.py",
+        "bytes": 20786,
+        "sha256": "dc90bec54cea6f5499d79dad92479e5c4e5626c26266a23fc1b8dc508e0449da"
+      },
+      {
+        "member": "logs/published-fixed.log",
+        "bytes": 3474,
+        "sha256": "028e0fd3c9b4d7475aa69ba8ba72918d6f4d865a8c4675b06287a6b2aa0c9d37"
+      },
+      {
+        "member": "receipts/published-fixed.json",
+        "bytes": 1573,
+        "sha256": "674f8b44c26ecd11c84e78ab79cfa2bac2c157ad5329fc5a4f266244c3afbf92"
+      },
+      {
+        "member": "published-fixed/tool/native_perf_handoff.py",
+        "bytes": 14368,
+        "sha256": "248a4b6e68f2f881483e1f01f3520c8637a24d9d573c5045479dfa142f5bd5a8"
+      },
+      {
+        "member": "published-fixed/tool/test_native_perf_handoff.py",
+        "bytes": 20973,
+        "sha256": "7a70b88fe224d6a6486cedb95733449bbea7731139599bcd3d4b389c3d7fbf7b"
+      },
+      {
+        "member": "logs/review-before.log",
+        "bytes": 3596,
+        "sha256": "33520eab5f5929ec4e9ecd5b685301e4c44ceb21497221476625387c1a3b9321"
+      },
+      {
+        "member": "receipts/review-before.json",
+        "bytes": 1485,
+        "sha256": "958c9862d8bc9db6b47df8e11532bd27925a1273f9b3255376f0fd03fce36a06"
+      },
+      {
+        "member": "review-before/tool/native_perf_handoff.py",
+        "bytes": 14368,
+        "sha256": "248a4b6e68f2f881483e1f01f3520c8637a24d9d573c5045479dfa142f5bd5a8"
+      },
+      {
+        "member": "review-before/tool/test_native_perf_handoff.py",
+        "bytes": 23538,
+        "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+      },
+      {
+        "member": "logs/final.log",
+        "bytes": 3941,
+        "sha256": "c16cd92cceffef4f293a974534737b9f717481405a5946a0f1bd81ed72683174"
+      },
+      {
+        "member": "receipts/final.json",
+        "bytes": 1538,
+        "sha256": "532207aadf6ef1f645512d28c9a75d79ae5d18fe0587a2413ef881b2e07a74b7"
+      },
+      {
+        "member": "unchanged-dependencies/tool/native_perf_blocked_exec.py",
+        "bytes": 13407,
+        "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+      },
+      {
+        "member": "unchanged-dependencies/tool/native_perf_guard.py",
+        "bytes": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "final/tool/native_perf_handoff.py",
+        "bytes": 14899,
+        "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+      },
+      {
+        "member": "unchanged-dependencies/tool/native_perf_proc_witness.py",
+        "bytes": 16074,
+        "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+      },
+      {
+        "member": "unchanged-dependencies/tool/test_native_perf_blocked_exec.py",
+        "bytes": 15027,
+        "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+      },
+      {
+        "member": "unchanged-dependencies/tool/test_native_perf_guard.py",
+        "bytes": 13171,
+        "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+      },
+      {
+        "member": "final/tool/test_native_perf_handoff.py",
+        "bytes": 23538,
+        "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+      },
+      {
+        "member": "unchanged-dependencies/tool/test_native_perf_proc_witness.py",
+        "bytes": 18455,
+        "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+      },
+      {
+        "member": "advice-and-method/design.txt",
+        "bytes": 3885,
+        "sha256": "bf8456212dcf3f409f4400bb48bcc6cc5a9fcbf22cc104c5e8ac04b19515ec05"
+      },
+      {
+        "member": "advice-and-method/test-advice.txt",
+        "bytes": 3331,
+        "sha256": "9ade91f7750f0ba0b278fa735caa395043c95175b33fb1998aa9228505ed198d"
+      },
+      {
+        "member": "advice-and-method/test-advice-wrapper.log",
+        "bytes": 3947,
+        "sha256": "c789fc0cc42eafd6dbaf7b3882398ff4884729c2b363d2715ca76c34536c1418"
+      },
+      {
+        "member": "advice-and-method/first-debug-advice.txt",
+        "bytes": 2202,
+        "sha256": "bb8c216d1fd5428a7b6e0d115ce32bb94c897d45235cd361d7199a29ba977acc"
+      },
+      {
+        "member": "advice-and-method/first-debug-wrapper.log",
+        "bytes": 2741,
+        "sha256": "37e4642cd4046ee94f6943fe6b5085e91027d48ec92232e33d0db8af36a3bc12"
+      },
+      {
+        "member": "advice-and-method/source-review.txt",
+        "bytes": 5006,
+        "sha256": "bfa7f54ab75be054582cd873729b97774c352ad8059d5c0c0feff971a5942457"
+      },
+      {
+        "member": "advice-and-method/source-review-wrapper.log",
+        "bytes": 6296,
+        "sha256": "0d7eea08031d6bc3a1492acbda7e35398177e780910e7584d07bd6db80b87e56"
+      },
+      {
+        "member": "advice-and-method/primary-source-method.json",
+        "bytes": 1045,
+        "sha256": "ee620c384c213dfa6cde66f611ff4ffc912345f666c28d40e05207a01a44c128"
+      }
+    ],
+    "scope_note": "Preserves raw test logs/receipts/source versions/advice; temporary per-test protocol objects are assertion fixtures, not retained benchmark transcripts or live Linux identity evidence."
+  },
+  "resources": {
+    "last_final_test_free_bytes": 18756096000,
+    "small_test_floor_bytes": 1073741824,
+    "full_build_floor_bytes": 12884901888,
+    "new_cleanup": false,
+    "full_canonical_started": false
+  },
+  "live_Linux_credential_probe_executed": false,
+  "privileged_helper_launcher_implemented": false,
+  "same_PID_perf_fdexec_executed": false,
+  "independent_live_sampler_auditor_executed": false,
+  "actual_perf_kernel_probe_or_workload_capture_executed": false,
+  "capture_controller_implemented": false,
+  "production_defect_or_RAM_repair_confirmed": false,
+  "capture_ready": false,
+  "next": "Implement the private listener and actual trusted privileged helper lifecycle using live handoff; connect only after privilege exec, create pipes there, same-PID pinned perf ELF exec and independent actual image/start/argv/FD audit before enable/ACK/marker/GO. Integrate original-UID blocked driver. Complete own canonical/provenance/schema/fixture rejection/declaration and actual bounded owned NONBENCHMARK Linux credential/access/inheritance/arming controls before diagnostic data. No unchanged strict rerun."
+}

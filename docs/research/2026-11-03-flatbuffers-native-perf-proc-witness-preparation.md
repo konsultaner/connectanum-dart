@@ -1,5 +1,7 @@
 # Procfs witness preparation for external native perf
 
+The subsequent [direct endpoint handoff preparation](2026-11-03-flatbuffers-native-perf-handoff-preparation.md) records the next26-fixture phase. This note retains the supporting35-procfs stage and its limits.
+
 The new read-only sampler witness collector passes **35 labelled synthetic
 procfs/owned POSIX pipe fixtures**. It traverses a bounded owned launcher tree,
 checks process instances, image bytes, credentials, argv and private pipe

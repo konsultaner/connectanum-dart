@@ -17,7 +17,7 @@ metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
 exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
-guard preparation reuses this owned worktree, now with six uncommitted tool
+guard preparation reuses this owned worktree, now with eight uncommitted tool
 files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
@@ -47,7 +47,7 @@ the new blocked-exec consumer passes26 POSIX exec-callback fixtures after four
 retained actual counterexamples (refusal log, FIFO marker blocking, set-ID mode
 and declared-path drift). These fixtures simulate exec; no actual FD exec,
 privileged executable, perf/kernel probe, VM API, benchmark or capture ran.
-Six uncommitted tool files leave production package/native sources unchanged.
+Eight uncommitted tool files leave production package/native sources unchanged.
 [Consumer evidence, qualified review and root readback](../research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
 The new read-only procfs witness source passes35 labelled synthetic/POSIX
 fixtures after retained first33 failures and two further actual review cases.
@@ -59,16 +59,23 @@ privileged reader; fixtures never establish live provenance.
 Kernel child-list completeness limits require a direct sampler/endpoint handoff,
 independent of the supporting scans; no worker freezing or capability assumption.
 [Primary-source constraint](../research/2026-11-03-flatbuffers-native-perf-procfs-method-constraint.json).
-Next implement trusted privileged auditor transport, actual loaded role/image
-witnesses and the external attach controller, integrating live admission with
-blocked-child enable/ACK/marker/GO. Reject fixture inputs and extra endpoints;
-never infer perf's PID from sudo or launch the driver as a sudo perf child.
-Own full verification/provenance/declaration, qualified review and bounded real
-Linux non-benchmark capability controls remain required before data. Last free
-space19.48GB is above12GiB full-build floor; no new cleanup. Full canonical has
-not started while integration is incomplete. All own sessions are reaped;
-the debug token-limit failure remains, with no approval/unavailability claim.
-Whole-life native samples cannot establish allocation/RSS cause or acceptance.
+The new direct handoff wire passes26 owned POSIX fork/socketpair/descriptor
+fixtures with synthetic credential contexts. Actual before-failing schema,
+received-FD cleanup, primary-error retention and unknown-send-count cases are
+fixed; fixture publication/message-expectation corrections remain distinguished.
+No live Linux/root/FDexec/perf/kernel/VMAPI/nativebenchmark/capture ran.
+[Handoff evidence and qualified review](../research/2026-11-03-flatbuffers-native-perf-handoff-preparation.md).
+Next implement actual private listener/trusted privileged helper lifecycle,
+same-PID pinned perf ELF exec, independent live sampler image/access/FD audit
+and loaded role/native-image witnesses, then complete external attach control.
+The helper creates channels after privilege exec; no sudo monitor inheritance.
+Use live peer/current-sender evidence and reject synthetic provenance before
+arming/ACK/marker/GO. Keep driver original UID/GID/env; never sudo-perf driver.
+Own full canonical/provenance/declaration/review and bounded actual owned Linux
+non-benchmark credential/access/inheritance/arming controls remain required
+before data. All own sessions are reaped. Last free18.76GB exceeds12GiB build
+floor; no cleanup or full canonical while integration is incomplete. Whole-life
+native samples cannot establish allocation/RSS cause or strict acceptance.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.
