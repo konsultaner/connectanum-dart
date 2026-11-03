@@ -79,16 +79,25 @@ source. Before-failing metadata closure, missing APIs, signed/nonzero statuses,
 timeouts/FD reuse and terminal partial-file evidence are retained. No actual
 Linux/root/pidfd/ELFexec/perf/kernel/VM/native benchmark/capture ran.
 [Completion source, full evidence and qualified review](../research/2026-11-03-flatbuffers-native-perf-completion-preparation.md).
-Next complete capture admission/provenance, loaded role/native-image records and
-pre-GO refusal process ownership, then own new-tool canonical/source/archive/
-locks/generated configs/native/staticRLIB provenance, immutable declaration and
-bounded actual owned non-benchmark Linux credential/access/pidfd/FDexec/inheritance/
-arming controls before data. Original driver UID/GID/env and all workload/control/
-SDK/GC/allocator/worker/window/body policies stay fixed. Existing/partial markers
-and reports are terminal; no retry/reclaim/reset. All own sessions reaped, ten
-tools uncommitted, production unchanged601. Last free16.98GB exceeds12GiB floor;
-no cleanup or new-tool full canonical. The prior exact601 baseline does not verify
-these tools. Whole-life samples cannot prove allocation/RSS cause or acceptance.
+Pre-GO refusal now binds the original owned driver object, closes only its
+verified GO writer without a token, naturally reaps known actors and quarantines
+incomplete direct helper identity or uncertain closure. Thirteen new controls
+plus changed caller/startup integration pass44 OWN POSIX/synthetic cases. Actual
+before failures, fixture inheritance/error-expectation corrections and the first
+unknown-case incomplete raw/reaping evidence are retained without reconstruction.
+[Source, executed cases and qualified assessment](../research/2026-11-03-flatbuffers-native-perf-refusal-preparation.md).
+No actual Linux/root/pidfd/ELFexec/perf/kernel/VM/native benchmark/capture ran.
+Next complete capture admission/provenance and actual loaded role/native-image
+records, then own new-tool canonical/source/archive/locks/generated configs/
+native/staticRLIB/tool/kernel provenance, immutable declaration and bounded actual
+owned non-benchmark credential/access/pidfd/FDexec/inheritance/arming controls
+before data. Original driver UID/GID/env/workload/control/SDK/GC/allocator/worker/
+window/body policies stay fixed. Existing/partial reports/markers remain terminal,
+no retry/reclaim/reset. Command/model sessions reaped; first failed fixture's
+individual-reaping gap explicit. Ten tools uncommitted, production unchanged601.
+Last free22.46GB exceeds12GiB floor, recovered without own cleanup; cause unmeasured.
+No new-tool canonical; old601 baseline does not verify these tools. Whole-life
+samples cannot prove allocation/RSS cause or acceptance.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.
