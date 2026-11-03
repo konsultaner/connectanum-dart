@@ -110,15 +110,21 @@ are corrected. A bounded actual local six-tool CLI control plus finite Python
 message passes, retaining the first noncanonical-path preflight refusal and a
 distinct corrected canonical-path control. No actual build/canonical/WAMP/VMAPI/
 Linux/perf/kernel/benchmark/capture ran. [Exact evidence and qualified tool-stamp scope](../research/2026-11-03-flatbuffers-native-perf-tool-identity-preparation.md).
-Next complete trusted SDK/source/config/command/artifact receipt conversion,
-immutable capture admission and actual loaded-role/native-image association.
-Bounded tool snapshots/version output do not establish delegated/loaded images
-or atomic execution. Own fullcanonical/source/archive/actual locks/generated
-hidden configs/native/driver/RLIB/tool/kernel provenance and bounded actual Linux
-non-benchmark controls remain mandatory before data. Fourteen tools uncommitted,
-production unchanged601/helper12 unchanged. No prior proof rerun, cleanup/new-tool
-canonical/strict dispatch or source adoption; all own sessions reaped. Both strict
-campaigns remain failed; no allocation/RSS cause or parity established.
+The new receipt conversion APIs now pass45 OWN cases:12new context/receipt
+cases plus33 required changed callers. All executed receipts have fixture kinds;
+no actual canonical/build/live receipt or capture ran. Pre-child nonce/SDK/config
+binding, sealed evidence checks and terminal log/receipt/hash sidecars are source
+APIs; separate receipt source audit preserves the sealed original journal.
+[All executed versions, failure corrections and limits](../research/2026-11-03-flatbuffers-native-perf-receipt-conversion-preparation.md).
+Next integrate actual source/config/compiled-input and loaded role/native-image
+provenance with complete immutable capture admission and real receipt orchestration.
+Actual SDK/compiler/log-writer/descendant/native-mode evidence and appropriate
+own fullcanonical/source/archive/locks/config/native/driver/RLIB/tool/kernel
+provenance plus bounded real Linux non-benchmark controls remain mandatory before
+data. Previous CLI/proof/strict evidence not rerun or reused as new-source proof.
+Fourteen tools uncommitted, production unchanged601/helper12 unchanged. All own
+parent sessions reaped, no cleanup/new-tool canonical/strict dispatch/adoption.
+Both strict campaigns remain failed; no production RAM cause or parity established.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.
