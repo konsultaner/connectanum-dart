@@ -2,6 +2,22 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## Linux method source setup refused before primitive controls (2026-11-03)
+
+A NEW pinned-image Docker setup actually starts one unprivileged namespaced
+Python coordinator, which naturally exits1 at its source-file owner/mode guard
+before any child/pidfd/FDexec/credential-wire/perf/benchmark case. The failing
+stat was not serialized; no specific UID mapping or ownership waiver is inferred.
+All raw evidence and the stopped OWN container remain; no restart or cleanup.
+[Setup, exact statuses and limits](../research/2026-11-03-flatbuffers-native-perf-linux-method-preparation.md).
+
+Three separate image-identity guards pass; actual prior intake is consumed once,
+not rerun. Docker29.4 containerd manifest ID and config digest are bound separately.
+Source20/production601 unchanged and uncommitted; live preflight/controller remain
+closed. No successful actual Linux primitive/root/perf control, canonical/build,
+original WAMP/native benchmark/capture or strict dispatch. Build floor12GiB closed,
+free 6.13GB, no cleanup. Both strict campaigns still fail; no RAM repair.
+
 Current step: both exact601 primary48 and supplemental50 are complete failed /
 independently audited. Preserve all48/1440 and50/1500rows, original executions,
 artifacts and exact reports. Primary150measured incl43RSS,0unmeasured/0integrity;
