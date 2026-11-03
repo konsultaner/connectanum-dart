@@ -2,6 +2,22 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## Scoped Linux method controls complete; capture remains closed (2026-11-03)
+
+Three fresh OWN unprivileged namespace controls complete: actual FD-based
+Python ELF execution with same PID/start and backing hash, no-GO natural78,
+and actual named-socket credentials/two descriptor rights. Real pidfds are
+held before release and report exit readiness after natural child waits.
+[Exact source, statuses, before regressions and limits](../research/2026-11-03-flatbuffers-native-perf-linux-context-preparation.md).
+
+These are Linuxkit/arm64 method controls, not original-host/root/perf/broker
+verification or admission. Two old-private-context unit failures are fixed;
+six guards plus four separately added guards pass, never combined10/canonical.
+All20tool sources/production601 unchanged/uncommitted/uncanonical. No actual
+production build, WAMP/VMservice/perf/benchmark/capture/strict dispatch, source
+adoption, ownership waiver or cleanup. Live provider/controller stay closed;
+both strict campaigns still fail. Free 9.09GB<12GiB buildfloor, cause unmeasured.
+
 ## Current source UID context observed; live admission closed (2026-11-03)
 
 A NEW metadata-only observer records all20exact source files and actual

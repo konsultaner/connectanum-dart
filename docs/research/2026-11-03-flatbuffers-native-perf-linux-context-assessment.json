@@ -1,0 +1,162 @@
+{
+  "scope": "OWN unprivileged namespaced Linux component controls ONLY; no live capture admission",
+  "capture_ready": false,
+  "live_admission": false,
+  "source_admitted": false,
+  "production_packages_native_source_unchanged": true,
+  "source20_unchanged": true,
+  "source_head": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "all20source_sha256": {
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_build_producer.py": "fc1e8eb183e4d3c80a2d092123db2c3f4d34463d51d6bad7bb3d36920287a0c6",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_admission.py": "1dfb23ca6dc16295f1d1862ee8c9845577e5ed7dee819c37ae0eaccd3a32d446",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/native_perf_build_producer.py": "1493191e84d92a5e57215f99a95b3b80a7824d788f5b7e0ea4c4c3708b0112a2",
+    "tool/test_native_perf_admission.py": "2360773c8e0ae77a4bdf985fcb9741ba8aea546746e23540182a150da3611fe0",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+  },
+  "private_method_source_sha256": "d5ad8f92c6b5074a429afc59229c25cf48e5d3b9dee6a1697d5005295ec5b270",
+  "private_host_source_sha256": "e24c2c13009c2fd8e805543fe85136bd615a9a3903235b01626aa8cac927c5fa",
+  "method_context": "Exact own-unprivileged-linux-method-v3/guest_controller, fixed actual UID/EUID/GID/EGID1000 beforetoolIO; hostUID501 DATAONLY. No legacy scalar/bool/tag/authority ambiguity/owner expansion. Fixed20source names/SHA and regularUID/GID1000/non-group-writable, bounded sameFD bytes+identity recheck compile/cache rollback.",
+  "unit_before": "TWO actual FAILs on old private v2: host-owner501/wrongnamespace and sameUID1000/wrongnamespace got through and compiled. OWN files/SYNTHETIC namespace stats/UIDs, no production defect/validforgedlive/GO.",
+  "unit_fixed": "SIX new private-method guardsPASS",
+  "unit_extra": "FOUR separately appended guardsPASS; source and six-test codeprefix unchanged. Foreign owner/postreadretag/module rollback/readerrno13 beforeONEcloseerrno5. Fixture realclosesknownOWNfd theninjects uncertainty, notlivecleanup.",
+  "not_combined10_or_canonical": true,
+  "actual_kernel_cases": [
+    {
+      "case": "fdexec-positive",
+      "direct_status": 0,
+      "pid": 7,
+      "start_ticks": "7797732",
+      "same_pid_start_before_after_exec": true,
+      "actual_os_execve_FD_no_callback": true,
+      "no_path_fallback_in_our_source": true,
+      "syscall_implementation_NOT_traced": true,
+      "proc_self_exe_backing_SHA_matches_method_ELF": true,
+      "postexec_open_fds": [
+        0,
+        1,
+        2
+      ],
+      "actual_pidfd_before": [],
+      "actual_pidfd_after": [
+        [
+          4,
+          17
+        ]
+      ]
+    },
+    {
+      "case": "pre-go-eof-negative",
+      "direct_status": 78,
+      "pid": 8,
+      "GO_attempted": false,
+      "target_and_marker_absent": true,
+      "natural_refusal_not_campaign_cancellation": true,
+      "actual_pidfd_before": [],
+      "actual_pidfd_after": [
+        [
+          4,
+          17
+        ]
+      ]
+    },
+    {
+      "case": "credential_descriptor_handoff",
+      "direct_status": 0,
+      "pid": 9,
+      "actual_peer": {
+        "gid": 1000,
+        "pid": 9,
+        "uid": 1000
+      },
+      "named_socket_client_connects_AFTER_own_exec": true,
+      "actual_SO_PEERCRED_and_each_SCM_CREDENTIALS": true,
+      "MSG_CMSG_CLOEXEC_and_noninheritable_rights": true,
+      "received_distinct_pipe_inodes": [
+        "38202175",
+        "38202176"
+      ],
+      "source_transferred_copies_closed_before_completion_frame": true,
+      "tiny_ping_ack_completed": true,
+      "actual_pidfd_after": [
+        [
+          5,
+          17
+        ]
+      ],
+      "not_live_root_offer_endpoints_or_perf_handoff": true
+    }
+  ],
+  "actual_Docker_command_statuses": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "all_command_streams_EOF": true,
+  "container_natural_exit": 0,
+  "OOMKilled": false,
+  "method_ELF_sha256": "c73c526e9bfa0d217b548ce27c576f1628a55fa0f4b65b1f6f0a142e2cd530a1",
+  "same_selected_cli_path_SHA_socketstamp": {
+    "docker_entry": true,
+    "docker_sha256": true,
+    "docker_target": true,
+    "host_controller_uid_data": true,
+    "local_endpoint": true,
+    "socket_stamp": true
+  },
+  "same_selected_image_manifest": "sha256:29434a59c93070e470f84663e4289026e04644ea44b5220ef7e07d653318ca1f",
+  "same_config_digest": "sha256:fe83005fb105be014095e304ce578212522449ec2ad47649ef4833ef9a84abda",
+  "same_fixed_UID1000_policy_readonly_OWN_input_no_chown": true,
+  "no_image_pull_inspect_save_or_old_guard_control_repeat": true,
+  "prior_terminal_containers_not_restarted": true,
+  "all_own_known_actor_model_command_statuses_naturally_retained": true,
+  "models": {
+    "GLM_design": "Complete/reaped advisory. Requested same-FD bytes, symmetric sameUID/wrongnamespace regression, GID pin and owned module-cache rollback; implemented/tested. Namespace separation only fixed1000/hostUIDdata. Oldmode022 already blockedgroupwrite; GID pin stricter context, not proofoldgroupwritehole. Not globalatomicity/authentication.",
+    "Qwen_tests83472": "Complete/reaped advisory; post-read retag, partial module rollback, first read error versus close error controls implemented plus foreign-owner rejection.",
+    "Qwen_current_review75988": "Complete/reaped advisory; sourceguest selected1-163, root separately fullsource/callers. Reject PIDreuse allegation: self/known direct unreaped single-threaded child, SIGCHLD_DFL, no other reaper, pidfd held beforeGO/across naturalexit. Reject extraction traversal: absolute/up rejected, fresh0700 private parent, only regular xb files, no guest-created symlinks; no global sameUID malicious-host/atomicity claim. Reject unbounded cumulative2MiB artifacts: rawstdout8MiB bound caps total base64 content below that. Schema drift failsclosed, no reprobe/version selection;755bundle inside0700 parent, umask cannotaddpermissions.",
+    "resource_refusals": "Two current-review admissions refused BEFOREbackend; later final-current-code request admitted, complete/reaped. Other checkpoint/read/publication preparations refused BEFOREIO/source/test; no bypass, no backendunavailability/approval or executed-data retry."
+  },
+  "limits": [
+    "These are current Docker Linuxkit/arm64 unprivileged method cases, not original diagnostic host/kernel/root/perf/SDK/driver/broker controls or authentication.",
+    "FDexec proof is actual os.execve(fd) API and same PID/start/backing ELF hash, no callback/path fallback in our source; no syscall implementation trace, every delegated image/COW/actual instructions/compiled closure proof.",
+    "Actual PIDfd readiness is for known OWN finite children; not all descendant completion/global privileged ownership/ABA/atomic observations.",
+    "Actual wire credentials belong to this named private unprivileged context. Root-only offer_endpoints/private sampler/source bootstrap/access/inheritance/arming/coverage/loss/role/timing remain unproved.",
+    "Old failed source stat missing, never reconstructed or precise old predicate inferred. New explicit namespace binding never accepts arbitrary observed owner or relaxes original ownership.",
+    "Source20 uncommitted/uncanonical, liveprovider absent/require_live_admission ALWAYSraises/liveSessionController CLOSED. No ownfullcanonical/sourcearchive/productionrecipe/native/driver/RLIB/SDKcompiler/originalhost/WAMP/VMservice/perf/benchmark/capture/strict dispatch.",
+    "Original UID/GID/env/argv/--dart dart/SDK/GC/allocator/workers/controls/fullfresh bodies/windows/samples/gates unchanged. No RAM cause/repair/heap/RSS magnitude/strict acceptance."
+  ],
+  "archive": {
+    "path": "docs/research/2026-11-03-flatbuffers-native-perf-linux-context-evidence.tar.gz",
+    "sha256": "22f86ec0f141ad5717350d0d238617bc21b2575b5be607b514a9ac8f730c1b48",
+    "members": 520,
+    "all_regular_members_byte_exact": true,
+    "special_nodes_metadata_only": true,
+    "methodELF_and_old_image_LOCAL_ONLY": true,
+    "prior194_and157_archives_unchanged_not_reread": true
+  },
+  "free_bytes": 9085476864,
+  "build_floor_bytes": 12884901888,
+  "build_admission_open": false,
+  "cause_of_disk_change_unmeasured": true,
+  "no_cleanup": true,
+  "next": "Integrate scoped actual OWN method receipts into independent preflight orchestration without promoting them to original-host/root/perf/live authority. Full own20tool canonical/source archive/native/driver/staticRLIB/locks/configs/SDKcompiler provenance plus actual original-host credential/access/pidfd/FDexec/inheritance/arming/metadata/role controls and immutable admission stillrequired before anydiagnosticdata. Live gate CLOSED, no unchanged numerical campaign retry."
+}
