@@ -7,28 +7,27 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
-## Pre-GO ownership passes44 changed-source fixtures; capture admission pending (2026-11-03)
+## Input census checks pass66 integration cases; live admission pending (2026-11-03)
 
-Refusal now closes the verified GO writer with no token, naturally reaps known
-owned actors and quarantines incomplete direct identity or uncertain closure.
-Post-GO/ambiguous release keeps normal completion. Thirteen new refusal/error
-cases plus changed startup/caller integration pass44 OWN unprivileged POSIX/
-synthetic fixtures. Actual metadata/uncertain-close/primary-error failures,
-fixture inheritance corrections and the first unknown-case raw/reaping limit
-are preserved and qualified.
-[Exact source, cases, limits and root assessment](research/2026-11-03-flatbuffers-native-perf-refusal-preparation.md).
+A new mandatory file/receipt guard checks input identity/hash, source/census/
+cohort/config links and contradictory command declarations. Four before-failing
+schema/build/version cases are corrected;22 input cases plus changed12-file
+bootstrap/interpreter/session integration pass66 OWN synthetic/Posix cases.
+It returns file checks only, without live admission/readiness. No actual build,
+Linux/root/perf/kernel/VM/native benchmark/capture or new strict dispatch ran.
+[Exact source, cases, scope and qualified assessment](research/2026-11-03-flatbuffers-native-perf-input-census-preparation.md).
 
-No actual Linux/root/pidfd/ELFexec/perf/kernel/VM/native benchmark/capture ran.
-Owned HEAD601 still has ten uncommitted tools and unchanged production packages/
-native. Capture admission/provenance and loaded role/native-image records remain
-pending, followed by own new-tool canonical/provenance/declaration and actual
-bounded Linux non-benchmark capability controls before data. Own command/model
-sessions are complete/reaped; the first failed fixture's direct-reaping gap is
-explicit in its evidence. Last free22.46GB exceeds12GiB, recovered without own
-cleanup; recovery cause unmeasured. No new-tool canonical yet. Both strict
-campaigns remain failed; PR132 stays draft/unadopted. Distinct old guard proofs
-were not rerun.
-[Prior completion31 evidence](research/2026-11-03-flatbuffers-native-perf-completion-preparation.md).
+The new exact601 role trace finds internally available launch PIDs and post-work
+PID metrics, not actual mapped-image proof or a demonstrated early public PID
+channel. Kernel task/map metadata is a primary-source lead only; a real decoder,
+association and host capability proof remain pending. Original policies/requests
+remain fixed. Owned HEAD601 has twelve uncommitted tools and unchanged production
+packages/native. Trusted own receipt producers, complete admission, new-tool
+canonical/provenance/declaration and bounded actual Linux non-benchmark controls
+are required before data. All own command/model sessions are complete/reaped.
+Last free21.32GB exceeds12GiB; no cleanup/new-tool canonical. Both strict campaigns
+remain failed and PR132 stays draft/unadopted.
+[Prior pre-GO44 evidence and first-fixture limits](research/2026-11-03-flatbuffers-native-perf-refusal-preparation.md).
 
 ## CPU service method rejected; external native diagnostic remains a draft (2026-11-02)
 

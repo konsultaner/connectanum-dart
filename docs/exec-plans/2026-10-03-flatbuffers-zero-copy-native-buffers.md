@@ -17,7 +17,7 @@ metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
 exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
-guard preparation reuses this owned worktree, now with ten uncommitted tool
+guard preparation reuses this owned worktree, now with twelve uncommitted tool
 files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
@@ -47,7 +47,7 @@ the new blocked-exec consumer passes26 POSIX exec-callback fixtures after four
 retained actual counterexamples (refusal log, FIFO marker blocking, set-ID mode
 and declared-path drift). These fixtures simulate exec; no actual FD exec,
 privileged executable, perf/kernel probe, VM API, benchmark or capture ran.
-Ten uncommitted tool files leave production package/native sources unchanged.
+Twelve uncommitted tool files leave production package/native sources unchanged.
 [Consumer evidence, qualified review and root readback](../research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
 The new read-only procfs witness source passes35 labelled synthetic/POSIX
 fixtures after retained first33 failures and two further actual review cases.
@@ -87,17 +87,25 @@ before failures, fixture inheritance/error-expectation corrections and the first
 unknown-case incomplete raw/reaping evidence are retained without reconstruction.
 [Source, executed cases and qualified assessment](../research/2026-11-03-flatbuffers-native-perf-refusal-preparation.md).
 No actual Linux/root/pidfd/ELFexec/perf/kernel/VM/native benchmark/capture ran.
-Next complete capture admission/provenance and actual loaded role/native-image
-records, then own new-tool canonical/source/archive/locks/generated configs/
-native/staticRLIB/tool/kernel provenance, immutable declaration and bounded actual
-owned non-benchmark credential/access/pidfd/FDexec/inheritance/arming controls
-before data. Original driver UID/GID/env/workload/control/SDK/GC/allocator/worker/
-window/body policies stay fixed. Existing/partial reports/markers remain terminal,
-no retry/reclaim/reset. Command/model sessions reaped; first failed fixture's
-individual-reaping gap explicit. Ten tools uncommitted, production unchanged601.
-Last free22.46GB exceeds12GiB floor, recovered without own cleanup; cause unmeasured.
-No new-tool canonical; old601 baseline does not verify these tools. Whole-life
-samples cannot prove allocation/RSS cause or acceptance.
+The new input file/receipt guard now checks identity/hash, context/cohorts/config
+and build-command contradictions. Four before cases3FAIL/1ERROR are fixed;
+22input cases plus changed12-file bootstrap/interpreter/session integration pass66.
+It is file checks only, not a live admission token or proof of executed builds.
+New exact601 role-source tracing establishes internal launch PIDs and post-work
+PID reports; path/metrics do not establish actual loaded-image identity. Kernel
+metadata is a version-specific primary-source lead, not validated tool/kernel
+coverage or a decoder. No flags/requests/workload/SDK/GC/worker policies changed.
+[Complete input cases and new role-source/method assessment](../research/2026-11-03-flatbuffers-native-perf-input-census-preparation.md).
+Next implement trusted own census/build/verification receipt producers and
+complete immutable capture admission, plus actual role/native-image record
+production/association with guards. Own new-tool canonical/source/archive/actual
+locks/configs/native/driver/RLIB/tool/host provenance and bounded actual owned
+non-benchmark Linux credential/access/pidfd/FDexec/inheritance/arming/metadata
+controls remain mandatory before data. No unchanged numerical retry or runtime
+adoption is authorized by tool-only edits. Twelve tools uncommitted, production
+unchanged601. Last free21.32GB exceeds12GiB floor, no cleanup/build/canonical.
+All own command/model sessions reaped; old601 baseline does not verify new tools.
+Both original strict campaigns remain failed; no allocation/RSS cause or parity.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.
