@@ -7,6 +7,25 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Scoped role transport verified; live capture admission pending (2026-11-03)
+
+New private mapped-role transport and bounded positive-parent source pass85
+changed Session/mapped-owner integration cases plus3 separate NEW ownership
+controls. Schema/credential-caller and original artifact-owner before failures
+are retained/fixed. No combined88 or canonical claim. The helper bundle now binds
+all18 tools; production601 unchanged, source branch uncommitted/unadopted.
+[Every snapshot, failure, explicit reaping and limits](research/2026-11-03-flatbuffers-native-perf-role-transport-preparation.md).
+
+The source retains failed-start actors, requires independent peer exit and
+quarantines unknown bootstrap/launch; partial/existing reports stay terminal.
+This is supporting transport/lineage/backing-file evidence, capture_ready=false,
+with synthetic credentials/procfs/pidhandles. No actual Linux/root/perf/kernel/
+FDexec/native build/VM/benchmark/capture or strict dispatch. Actual role discovery/
+timing, original source/config/command/SDK/native receipts, immutable admission,
+own full verification/provenance and real bounded Linux controls remain pending.
+All own parent sessions reaped, last free18.85GB; no cleanup or numerical rerun.
+Both original strict campaigns remain failed; no production RAM cause or repair.
+
 ## Mapped backing-file guards pass25; live role provenance pending (2026-11-03)
 
 A new scoped PID/start/argv/credential and mapped backing-file source passes25

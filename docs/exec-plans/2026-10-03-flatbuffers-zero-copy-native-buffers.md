@@ -177,6 +177,20 @@ bounded real nonbenchmark Linux controls still required before any data.
 Prior16 unchanged; old suites not rerun, existing decoder used only NEW synthetic
 integration. Production601/helper12 unchanged; no canonical/build/capture/adoption.
 
+Scoped mapped-role transport now has85changed caller/bootstrap/owner integration
+passes plus3separate NEW ownership controls (no combined88/canonical claim).
+The verified helper bundle expands12->18; private request context, positive-parent
+observations and independent peer/launcher natural waits are source-implemented.
+Actual caller/schema/owner counterexamples retained/fixed; all receipts remain
+supporting/capture_ready=false. No actual Linux/root/pidfd/FDexec/perf/kernel/
+benchmark/capture or original role/source/SDK/native proof.
+[Full role-transport scope and evidence](../research/2026-11-03-flatbuffers-native-perf-role-transport-preparation.md).
+Next complete whole-capture immutable admission, actual original source/config/
+command/SDK/compiler/native receipts and role discovery/instance/timing/metadata
+associations. Own18tool fullcanonical/archive/native/driver/RLIB/locks/hidden
+configs/tool/kernel provenance and real bounded Linux controls precede any data.
+Production601 unchanged,18tools uncommitted/unadopted. No strict dispatch/cleanup.
+
 ## Read-only original RSS role attribution complete (2026-11-02)
 
 All48primary cases /336original pairs, including43failed RSS cases /301pairs
