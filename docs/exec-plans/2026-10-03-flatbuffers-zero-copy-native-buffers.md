@@ -17,7 +17,7 @@ metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
 exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
-guard preparation reuses this owned worktree, now with twelve uncommitted tool
+guard preparation reuses this owned worktree, now with fourteen uncommitted tool
 files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
@@ -47,7 +47,7 @@ the new blocked-exec consumer passes26 POSIX exec-callback fixtures after four
 retained actual counterexamples (refusal log, FIFO marker blocking, set-ID mode
 and declared-path drift). These fixtures simulate exec; no actual FD exec,
 privileged executable, perf/kernel probe, VM API, benchmark or capture ran.
-Twelve uncommitted tool files leave production package/native sources unchanged.
+Fourteen uncommitted tool files leave production package/native sources unchanged.
 [Consumer evidence, qualified review and root readback](../research/2026-11-03-flatbuffers-native-perf-blocked-exec-preparation.md).
 The new read-only procfs witness source passes35 labelled synthetic/POSIX
 fixtures after retained first33 failures and two further actual review cases.
@@ -96,15 +96,21 @@ PID reports; path/metrics do not establish actual loaded-image identity. Kernel
 metadata is a version-specific primary-source lead, not validated tool/kernel
 coverage or a decoder. No flags/requests/workload/SDK/GC/worker policies changed.
 [Complete input cases and new role-source/method assessment](../research/2026-11-03-flatbuffers-native-perf-input-census-preparation.md).
-Next implement trusted own census/build/verification receipt producers and
-complete immutable capture admission, plus actual role/native-image record
-production/association with guards. Own new-tool canonical/source/archive/actual
-locks/configs/native/driver/RLIB/tool/host provenance and bounded actual owned
-non-benchmark Linux credential/access/pidfd/FDexec/inheritance/arming/metadata
-controls remain mandatory before data. No unchanged numerical retry or runtime
-adoption is authorized by tool-only edits. Twelve tools uncommitted, production
-unchanged601. Last free21.32GB exceeds12GiB floor, no cleanup/build/canonical.
-All own command/model sessions reaped; old601 baseline does not verify new tools.
+The new source-frozen command evidence producer now passes23 OWN tiny committed
+Git/non-benchmark Python cases after four retained actual tool counterexamples.
+It keeps a waitable owned child after publication faults, carries a remaining
+per-call budget, streams hashes and records natural exit before uncertain close.
+Live recipe factory positives are mocked argv observations, not real canonical/
+native builds. [Executed versions and qualified limits](../research/2026-11-03-flatbuffers-native-perf-build-producer-preparation.md).
+Results are command evidence only, not completed canonical/production admission.
+Next complete trusted SDK/tool/source/command/artifact receipt production and
+immutable capture admission, plus actual loaded role/native-image association.
+Own new-tool fullcanonical/source/archive/actual locks/generated hidden configs/
+native/driver/RLIB/tool/kernel provenance and bounded actual owned non-benchmark
+Linux credential/access/pidfd/FDexec/inheritance/arming/metadata controls remain
+mandatory before data. Fourteen tools uncommitted, production unchanged601;
+helper bundle12 unchanged. No prior proof rerun, cleanup/build/capture or strict
+dispatch. All own sessions reaped; old601 baseline does not verify new tools.
 Both original strict campaigns remain failed; no allocation/RSS cause or parity.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
