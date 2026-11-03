@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-03 — Runtime toolchain file inputs recorded; bootstrap pending
+
+All three runtime locks and root package_config are absent in the new file observations. PATH points to Flutter Dart and Rustup proxies. Three equal41byte engine/stamp buffers do not bind the original wrapper's complete bootstrap/update predicates; selected source also writes SDK cache metadata before cached Dart execution. Root Cargo flags and stable toolchain are file data, not effective compiler/runtime proof. No SDK/project CLI, bootstrap, test/build/capture or source mutation occurs. Python/rg/companions execute for administration. Current20 helpers remain unchanged/uncommitted/uncanonical; live admission remains closed. About15.8GB>12GiB floor at observation, no cleanup/cause unmeasured; recheck before build.
+
+[Preparation](../research/2026-11-03-flatbuffers-native-perf-runtime-toolchain-inputs-preparation.md), [assessment](../research/2026-11-03-flatbuffers-native-perf-runtime-toolchain-inputs-assessment.json), [evidence](../research/2026-11-03-flatbuffers-native-perf-runtime-toolchain-inputs-evidence.tar.gz).
+
 ## 2026-11-03 — New source archive bytes observed; canonical admission pending
 
 A new OWN601 archive matches all3310 tracked regular checkout files through held-FD byte observations. The separate current20-helper source package and consumed buffers are retained; the helper checkout remains dirty, uncommitted, uncanonical and unadmitted. Six direct Git commands return0 with both output EOFs. No source change, test/build/SDK/native/benchmark/capture recipe, cleanup or source adoption occurs. The latest recorded16.18GB exceeds the12GiB build floor; cause unmeasured. Recheck space and declare SDK/tools/environment, actual3locks and hidden configs before bootstrap/canonical. Physical orchestration, current-helper validation, original-host controls and immutable complete admission remain incomplete; all admission flags stayfalse.

@@ -1,0 +1,196 @@
+{
+  "kind": "own-runtime-toolchain-file-input-assessment-v1",
+  "utc": "2026-11-03T22:22:48.648805+00:00",
+  "actual_namespaces": [
+    "/private/tmp/connectanum-native-perf-runtime-toolchain-inputs-v1",
+    "/private/tmp/connectanum-native-perf-runtime-toolchain-external-inputs-v1"
+  ],
+  "read_only": true,
+  "actual3_runtime_locks_and_root_package_config_absent": true,
+  "initial_selected_metadata": {
+    "scope": "runtime source/config/PATH FILEDATA only",
+    "runtime_selected_present": [
+      "bin/bootstrap",
+      "bin/verify",
+      "bin/test-all",
+      "bin/test-fast",
+      ".cargo/config.toml",
+      "rust-toolchain.toml",
+      "bin/common.sh"
+    ],
+    "runtime_selected_absent": [
+      "bin/_common.sh",
+      "pubspec.lock",
+      "native/transport/Cargo.lock",
+      "native/bench/Cargo.lock",
+      ".dart_tool/package_config.json",
+      ".cargo/config",
+      "rust-toolchain",
+      ".fvmrc"
+    ],
+    "root_hidden_names": [
+      ".tool-versions",
+      ".cargo",
+      ".dockerignore",
+      ".gitignore",
+      ".github",
+      ".gitattributes",
+      ".git"
+    ],
+    "no_TOOL_CLI_bootstrap_test_build_or_source_mutation": true,
+    "no_original_host_or_compiled_execution_proof": true,
+    "all_admission_flags": false,
+    "free": 15935283200
+  },
+  "actual_resolved_PATH_dart_is_Flutter_wrapper": true,
+  "actual_resolved_PATH_cargo_rustc_are_rustup_proxy": true,
+  "root_rust_toolchain_channel": "stable",
+  "root_cargo_config_sha256": "94c71b87c3d295de62ce93d31557a9b15718475c2fc8861bef162ae50d56e771",
+  "root_cargo_config_is_arch_specific_rustflags_not_compiler_effective_mode": true,
+  "current3_selected_stamp_buffers_literal_equal": true,
+  "stamp_size": 41,
+  "stamp_sha256": "144ae524ef0de952422aee9d9745f72e0c4551fdfe4b77620ca7e1d40932d3d0",
+  "stamp_equality_not_no_SDK_update_or_execution_admission": true,
+  "ROOT_source_findings": [
+    "original bin/bootstrap invokes PATH dart/cargo version commands, pub get, Cargo metadata; not executed",
+    "require_command dart uses existing PATH first; no alternate SDK selected",
+    "shared::execute sources optional internal/bootstrap.sh before upgrade_flutter",
+    "upgrade_flutter calls update_engine_version.sh before SDK exec, regardless selected stamp equality",
+    "update_engine_version source writes engine.stamp and engine.realm; equal data is not no-mutation proof",
+    "snapshot presence, nonempty stamp, Git HEAD:FLUTTER_TOOL_ARGS compilekey and pubspec yaml/lock timestamp predicates are not all bound by3stamp equality",
+    "engine version selection also depends on FLUTTER_PREBUILT_ENGINE_VERSION, Git tracked engine.version or content_aware_hash; no complete input closure",
+    "original retry/timeout functions can launch additional processes, terminate timeout actors and retry setup commands; launcher exit/EOF does not prove full actor closure",
+    "Cargo stable/rustup proxies and metadata may require resolution/download/install; no invocation/installed compiler proof",
+    "Selected bootstrap Cargo metadata names native/transport only; absent native/bench lock generation is not established by that selected function. No replacement or extra recipe executed."
+  ],
+  "ROOT_model_qualifications": {
+    "gemma_bootstrap_summary_direct0_complete_reaped": true,
+    "gemma_current_stamp_summary_direct0_complete_reaped": true,
+    "reject_SHA1_label": "all observed listed digests are SHA256",
+    "reject_no_necessary_update_and_opaque_logic_claims": true,
+    "no_model_full_closure_or_execution_approval": true
+  },
+  "raw_limits": {
+    "initial_runtime_PATH_inventory_coordinator_not_separately_serialized_as_regular_file": true,
+    "initial_rg_stdout_not_separately_retained": true,
+    "source_in_chat_only_no_reconstruction_or_rerun": true,
+    "external_controller_saved_before_execution_sha256": "986ab00f2b43870643601fa10d28fd57b63b72cc941ec0c5b4dc2857f5a91119",
+    "root_hidden_names_and_selected_subtrees_only_not_all_hidden_configs": true,
+    "full_external_SDK_config_source_bodies_LOCALONLY_excluded_public": true,
+    "no_actual_process_build_loaded_image_or_global_ABA_identity_proof": true
+  },
+  "no_source_project_toolchain_config_lock_or_native_transplant_mutation": true,
+  "all20_helpers_still_f49d_epoch_uncommitted_uncanonical_unadmitted": true,
+  "no_canonical_or_original_host_kernel_controls_or_RAM_cause_repair_acceptance": true,
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "next": "Keep bootstrap/canonical undispatched until explicit original-PATH SDK/bootstrap inputs and known recipe/unknown actor ownership are accounted for under actual EX. Declare first generation of absent locks/configs without transplantation or favorable-cohort redo. Recheck12GiB before build; current snapshot/stamp hashes are file data only.",
+  "free_after": 15826358272,
+  "no_SDK_project_tool_CLI_or_bootstrap_test_build": true,
+  "Python_rg_and_companion_CLI_do_execute_for_readonly_administration": true,
+  "new_public_evidence": {
+    "archive_sha256": "87eb00e0694438cb36a87118e90217d1a931cd79970e7fb7882262d0fc8fe91b",
+    "regular_members": 72,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": [],
+    "excluded_LOCALONLY": [
+      {
+        "path": "plan/root-current-wrapper-selected-lines.txt",
+        "size": 10832,
+        "sha256": "5ba6fc1b252bd51d94fe635fda1208772fea3f9b68f0c3c58ac2a15f4b0a2809",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "plan/selected-current-wrapper-context.txt",
+        "size": 17463,
+        "sha256": "4a0dd2ac0c69d6d61e6f4e7869885ad2ff3ed352826fe1beab291eb626c15107",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/00-.tool-versions",
+        "size": 23,
+        "sha256": "ff8bcb8dd454ed2fe3793ca217dd3357705e2880deafaa62bff3930bfc68e660",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/01-dart",
+        "size": 2160,
+        "sha256": "446e63e382b331c327cd17b001b025c2cb11c18ceddd2b34bfcd65cfb8cdecc2",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/02-flutter",
+        "size": 2385,
+        "sha256": "7d486c33b30a0cf1ea5146231c68bb8f966cdb4e087c5cd8b37e14513f536e7d",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/03-shared.sh",
+        "size": 11776,
+        "sha256": "7029bb28e9f60927807f2119d2afe388742db41d34c26f5e263bf15568911fa2",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/04-update_dart_sdk.sh",
+        "size": 5941,
+        "sha256": "730d3f3145d0c652147043fa914ac54679ab2b4ac94f8f983e4d44f1e17cb6f7",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/05-update_engine_version.sh",
+        "size": 3112,
+        "sha256": "6d71ef5d911243afdc83a4238b65159aad7905d7b19cb2464db40e347536ebb4",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/06-engine.version",
+        "size": 41,
+        "sha256": "144ae524ef0de952422aee9d9745f72e0c4551fdfe4b77620ca7e1d40932d3d0",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/07-engine-dart-sdk.stamp",
+        "size": 41,
+        "sha256": "144ae524ef0de952422aee9d9745f72e0c4551fdfe4b77620ca7e1d40932d3d0",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/08-engine.stamp",
+        "size": 41,
+        "sha256": "144ae524ef0de952422aee9d9745f72e0c4551fdfe4b77620ca7e1d40932d3d0",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/09-version",
+        "size": 7,
+        "sha256": "775b7eb1f0c63876a8e68d85bf955a2738b0ef9e1b1d5c46278f506bd1fc04ca",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/10-revision",
+        "size": 41,
+        "sha256": "8f14b48a577a65e95cd7c20a0b2cec8ab876db007722a16face382b7d5c76bb7",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/11-flutter_tools.stamp",
+        "size": 42,
+        "sha256": "12ce983d8c974c7bff28237910fd8e501ca19a6f43e1998ace0d0ac7def586f0",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/12-env",
+        "size": 300,
+        "sha256": "8566c299618b2cd21dd0c2bf98b416819a05bc484418691b72635cca342f7343",
+        "reason": "SDK/config source context LOCALONLY"
+      },
+      {
+        "path": "external-inputs/LOCAL-ONLY/15-settings.toml",
+        "size": 98,
+        "sha256": "6e498e531090a72487d943bb075e69d820fa144bd6ee858e92b34950901c87ea",
+        "reason": "SDK/config source context LOCALONLY"
+      }
+    ]
+  }
+}
