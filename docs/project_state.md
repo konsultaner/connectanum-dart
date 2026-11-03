@@ -7,6 +7,26 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Frozen runtime checkout prepared; helpers remain unadmitted (2026-11-03)
+
+A separate owned source checkout reports detached601 and an empty Git status.
+The existing twenty-helper checkout remains dirty/uncommitted/uncanonical.
+Seven retained administrative Git commands return0 with separate output EOF.
+[Declaration, exact metadata and limits](research/2026-11-03-flatbuffers-native-perf-runtime-source-preparation.md).
+
+Producer repo checks and helper source_root are independent parameters in the
+current data contracts. This does not prove complete two-root provenance or
+make helper code canonical. No gate, source branch, lock cohort or generated
+configuration is changed; no compiled output is transplanted. The new root
+package config and two native target directories report absent. Git metadata
+does not prove all checkout bytes/source archive/runtime execution.
+
+Current helper/source bytes and production601 remain unchanged. No canonical/
+build/test/SDK/project-native/benchmark/capture recipe or strict dispatch.
+Full controller/provenance/original-host controls remain incomplete; live
+provider/controller/admission stay closed. About10.4GB<12GiB buildfloor; no
+cleanup, overall space-change cause unmeasured. No RAM cause/repair/acceptance.
+
 ## Worker-only indexed partial auxiliary wait component (2026-11-03)
 
 A failed/uninitialized owner can schedule a bounded wait on one retained
