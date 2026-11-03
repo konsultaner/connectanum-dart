@@ -7,6 +7,23 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Binary metadata reader passes27; live image association pending (2026-11-03)
+
+A new streaming PERFILE2 reader passes27 synthetic/OWN file cases. It retains
+unknown/lost/malformed/partial bytes in original order, separates body and
+sample-context identity, handles explicit MMAP2 unions and preserves64-bit
+values as decimal strings. A before-failing unknown-tail count is fixed;
+fixture path/empty-overlap corrections remain distinguished. This is format
+only, always capture_ready=false: no actual Linux/perf/kernel file or capture.
+[All executed versions, source constraints and qualified scope](research/2026-11-03-flatbuffers-native-perf-metadata-preparation.md).
+
+Sixteen tools uncommitted, production601/helper12 unchanged; prior14 tools
+byte-identical/not rerun. No new-tool canonical/build/source commit/push/adoption
+or strict dispatch. All own parent sessions reaped; last free19.03GB, no cleanup.
+Actual role/native-image lineage, original source/config/command receipts and
+immutable capture admission plus own verification/real bounded Linux controls
+remain pending. Both strict campaigns remain failed; RAM cause unresolved.
+
 ## Helper package mapping observed; WAMP image provenance pending (2026-11-03)
 
 Eleven new protocol guards and two actual non-benchmark SDK helper contexts pass:

@@ -1,0 +1,1450 @@
+{
+  "utc": "2026-11-03T06:45:52.378834+00:00",
+  "scope": "NEW streaming read-only PERFILE2 metadata decoder; synthetic ABI files and OWN filesystem controls only",
+  "head": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "production_source_unchanged": true,
+  "uncommitted_python_tools": 16,
+  "helper_bundle_files": 12,
+  "source_sha256": {
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+  },
+  "prior14_tools_byte_identical_not_rerun": true,
+  "new_guard_PASS": 27,
+  "phases": {
+    "before": {
+      "executed_tests": 1,
+      "exit": 1,
+      "log_sha256": "7317af0ab1e5f5a934166e8a4937fc241046a8a8030c7504a56c59be2b211d72",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_metadata.py": "11317b15bacfc971e335d6d595b63c283f513d5d807f3f7de91c1af156526348",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+      }
+    },
+    "implemented": {
+      "executed_tests": 22,
+      "exit": 1,
+      "log_sha256": "63fc109a6539af3e1134e67a1cbbb33ba90ba7cf53d83a9cab10f7b8129f887c",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c",
+        "tool/native_perf_metadata.py": "bee6e844eee26e2b6e991f5c0397e8ee42edbf72b42fca3f7335d7960c0466dc",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_metadata.py": "ea5f56296a281c67478593d7e994ec928b96fe68170879be7b0efbd9077a1cef",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+      }
+    },
+    "fixture-fixed": {
+      "executed_tests": 22,
+      "exit": 1,
+      "log_sha256": "3cf535f1a24ac0250dc601383ba7e09a56670fa94f5c5f800af48a3930ac1db0",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c",
+        "tool/native_perf_metadata.py": "bee6e844eee26e2b6e991f5c0397e8ee42edbf72b42fca3f7335d7960c0466dc",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_metadata.py": "d7040d58b20333e529bb5027b882683f544e4be378d5896d5a3dbda28a022921",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+      }
+    },
+    "count-before": {
+      "executed_tests": 23,
+      "exit": 1,
+      "log_sha256": "b8964556eb925ccee72dac21e5e82ddec3e319f7fe8d9c0d80e84dd85acdecfc",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c",
+        "tool/native_perf_metadata.py": "bee6e844eee26e2b6e991f5c0397e8ee42edbf72b42fca3f7335d7960c0466dc",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_metadata.py": "a5b8acb97d1b6fa6239893eab5eeac1ab19d6bfd63a9e180205378aa93e67bb2",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+      }
+    },
+    "count-counterexample": {
+      "executed_tests": 2,
+      "exit": 1,
+      "log_sha256": "ae36f74bb03cdf08b854f06095210bcbd1ca12d21bef005051b0395c96fe9ecc",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c",
+        "tool/native_perf_metadata.py": "bee6e844eee26e2b6e991f5c0397e8ee42edbf72b42fca3f7335d7960c0466dc",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_metadata.py": "afb49f652cac158ba2506aec0e894e43cbb51975ba32e589cdae501616ec75c6",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+      }
+    },
+    "count-fixed": {
+      "executed_tests": 23,
+      "exit": 0,
+      "log_sha256": "03629d97db152560bcaec1fd6428b4be5b4f88827e704bf61cecd665a2408a2a",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_metadata.py": "afb49f652cac158ba2506aec0e894e43cbb51975ba32e589cdae501616ec75c6",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+      }
+    },
+    "final": {
+      "executed_tests": 27,
+      "exit": 0,
+      "log_sha256": "0af617a56ae629e26bde1d789997f29f296a5bf84c0b622e49c64d5a3a854af2",
+      "source_sha256": {
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+      }
+    }
+  },
+  "executed_failures": [
+    "Initial one missing-module import ERROR is feature absence, not27production defects.",
+    "First implemented22:19ERROR from fixture noncanonical Darwin /tmp paths,3negative passes reached same early guard. Canonical fixture setup corrected; live guard unchanged.",
+    "Canonical22:21PASS1FAIL because zero-length data cannot overlap an attribute section. Fixture now uses nonempty data; no parser relaxation.",
+    "New count-before23:22PASS1ERROR missing desired field; corrected counterexample inspects actual old count:2cases1PASS1FAIL (invalid-size remainder counted as one record).",
+    "Count source fix counts only fully framed records and marks unknown tail count explicitly;23PASS. Four additional controls PASS final27: all9attribute versions incl136+16stride, primary-error close, strict integer pre-IO, invalid mapping/buildid retention."
+  ],
+  "method": {
+    "primary_sources": {
+      "linux-v6.8-perf_event.h": {
+        "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/include/uapi/linux/perf_event.h",
+        "sha256": "e15da87dca9268dfca5e2c0942a7f2b689a5f0ad4ebbbd70b9974661726129ac",
+        "size": 43313,
+        "complete": true
+      },
+      "linux-v6.8-perf-header.h": {
+        "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/tools/perf/util/header.h",
+        "sha256": "af1cfeb89adbb0a834b10f99f5e862885bbd5017512371d56f1383c3edc10a6c",
+        "size": 4901,
+        "complete": true
+      },
+      "linux-v6.8-perf-header.c": {
+        "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/tools/perf/util/header.c",
+        "size": 100263,
+        "sha256": "65d6e620bf77af4a925e57a2bb2ff7caf507ffe9bcfe5bd9a9f44417bf99ed9d",
+        "scope": "NEW source for file attr stride/ID section layout only"
+      }
+    },
+    "file_format": "little-endian regular PERFILE2 only; attr sizes64,72,80,96,104,112,120,128,136 with16-byte ID-section stride suffix",
+    "record_types": [
+      "SAMPLE",
+      "FORK",
+      "EXIT",
+      "COMM",
+      "MMAP",
+      "MMAP2",
+      "LOST",
+      "LOST_SAMPLES"
+    ],
+    "all_u64_decoded_values": "decimal strings; no JavaScript precision truncation",
+    "raw_retention": "original full-file SHA plus per-record offset/length/SHA references; every available data byte accounted in original order, opaque tails unknown count",
+    "sample_layout": "single flat software cpu-clock attribute, IP/TID/TIME+sample_id_all; unsupported attributes retained opaque, no favorable attr selection",
+    "union": "MMAP2 buildid chosen ONLY explicit per-record MISC_MMAP_BUILD_ID bit14; inode union otherwise",
+    "scope": "metadata_decode_only; capture_ready=false always"
+  },
+  "models": {
+    "orientation35119": "Gemma complete/reaped, advisory. Root rejects union size/context guessing; explicit UAPI bit14 controls it. sample_id trailer conditional on sample_id_all, not unconditional.",
+    "test_advice": "GLM complete/reaped54s, advisory. Root rejects proposed attr stride>136 refusal: attr136 has stride152. FORK body and sample context PIDs/times stay separate.",
+    "debug97255": "GLM complete/reaped; correct primary Darwin /tmp fixture alias cause. Qualify its passing-negative speculation: first3negative passes reached early path guard too.",
+    "review48064": "GLM reachable tokenlimit exit1, no saved final assessment; complete/reaped, not unavailability or approval. No unchanged review retry. Root independently reviewed full module/tests against exact primary sources and actual fixtures."
+  },
+  "scope_limits": [
+    "No actual Linux/perf/kernel/root/pidfd/ELFexec/VM/native build/benchmark/capture or numerical evidence. All binary records are explicitly synthetic; real tool/kernel compatibility and recording coverage remain unproved.",
+    "Raw-accounting completeness is not metadata coverage, role-instance lineage, loaded mapped-byte authenticity, admission, physical RSS, gate-interior CPU, managed allocation stacks, cause or acceptance.",
+    "Caller must retain original file; offset/hash references do not reconstruct bytes. Unsupported/malformed/lost/partial records remain; no timestamp sorting or removal.",
+    "Bounded before/after FD/path/stat/full-hash observations are not atomic or global privileged ABA proof. Header/structural refusal retains original caller-owned file.",
+    "Prior14 tools unchanged/not rerun; helper12 unchanged; original601 baseline does not verify16new tools. Full new-tool canonical and actual source/native/driver/RLIB/locks/hidden-config/tool/kernel provenance still required."
+  ],
+  "archive": "docs/research/2026-11-03-flatbuffers-native-perf-metadata-evidence.tar.gz",
+  "archive_sha256": "c9b3df580887554c5cd9a8371de31965e4f9edb1c3a136a653def8902d3ecc33",
+  "archive_members": {
+    "before-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "before-source/native_perf_build_producer.py": {
+      "size": 45062,
+      "sha256": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02"
+    },
+    "before-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "before-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "before-source/native_perf_input_census.py": {
+      "size": 14150,
+      "sha256": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c"
+    },
+    "before-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "before-source/native_perf_session.py": {
+      "size": 58869,
+      "sha256": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6"
+    },
+    "before-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "before-source/test_native_perf_build_producer.py": {
+      "size": 35027,
+      "sha256": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d"
+    },
+    "before-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "before-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "before-source/test_native_perf_input_census.py": {
+      "size": 12557,
+      "sha256": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed"
+    },
+    "before-source/test_native_perf_metadata.py": {
+      "size": 11610,
+      "sha256": "11317b15bacfc971e335d6d595b63c283f513d5d807f3f7de91c1af156526348"
+    },
+    "before-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "before-source/test_native_perf_session.py": {
+      "size": 48914,
+      "sha256": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+    },
+    "before/connectanum-native-perf-metadata-before-tests.json": {
+      "size": 2355,
+      "sha256": "36071dd6c738563aae48ef53635fea1232673624a4cd91713117bd9646542d68"
+    },
+    "before/connectanum-native-perf-metadata-before-tests.log": {
+      "size": 1232,
+      "sha256": "7317af0ab1e5f5a934166e8a4937fc241046a8a8030c7504a56c59be2b211d72"
+    },
+    "count-before-fixtures/test_bad_magic_and_attr_size_refused/attr.data": {
+      "size": 256,
+      "sha256": "3c296c165facc732c19d5469f4835d82a00269ae8e37a3995940f012eec0e411"
+    },
+    "count-before-fixtures/test_bad_magic_and_attr_size_refused/magic.data": {
+      "size": 256,
+      "sha256": "44bb8cb135eef9cc67a8082791df4a05991a6115e1e59f64e6e6f96d50893423"
+    },
+    "count-before-fixtures/test_close_failure_relinquishes_numeric_ownership/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "count-before-fixtures/test_comm_invalid_utf8_and_padding_retained/perf.data": {
+      "size": 327,
+      "sha256": "ec9397b433168551145dfe9714a0fc09d6835ad2cf4a12a648ebd6f78016752a"
+    },
+    "count-before-fixtures/test_compression_never_guesses_framing/perf.data": {
+      "size": 274,
+      "sha256": "06b1f6f96e0a64f4497fce31f8e08d968b21b74d71b256394e4c1777c9d1a772"
+    },
+    "count-before-fixtures/test_declared_data_tail_beyond_eof_not_invented/perf.data": {
+      "size": 259,
+      "sha256": "6e4ccae070ec030a49039f9e94f94483978079b3962a4e4349514eb49b656966"
+    },
+    "count-before-fixtures/test_fd_identity_and_fullhash_stability/perf.data": {
+      "size": 268,
+      "sha256": "ad9d185fb95c828756880775d252c40cdd61de91a4741c6b85213d7bae1d9ccb"
+    },
+    "count-before-fixtures/test_fork_body_identity_separate_from_trailer/perf.data": {
+      "size": 336,
+      "sha256": "9537e1d8d01f857a155be5300f73ccdd9d39ade41a029297d537bc42862ea5d4"
+    },
+    "count-before-fixtures/test_identifier_mismatch_and_no_nul_kept/perf.data": {
+      "size": 325,
+      "sha256": "cb66ad43b9709fc10c5ef32a6c7b7842fdf0532898d4886802ed9ef6f609da22"
+    },
+    "count-before-fixtures/test_invalid_sections_and_stride_refused/idsalign.data": {
+      "size": 257,
+      "sha256": "28f92956af2009f57ccfae1458f58ba83767985232a046237d567e62f612d00e"
+    },
+    "count-before-fixtures/test_invalid_sections_and_stride_refused/overlap.data": {
+      "size": 257,
+      "sha256": "4bd73603a972eb68316c3fbdc3d0a546058844a5dc5fef69815c1b59cce0da3c"
+    },
+    "count-before-fixtures/test_invalid_sections_and_stride_refused/stride.data": {
+      "size": 257,
+      "sha256": "87ddfc76fc38e84b4bc134ac8769f51746fd5755d1974886e90d00c8640e7a73"
+    },
+    "count-before-fixtures/test_lost_unknown_and_nonmonotonic_order/perf.data": {
+      "size": 406,
+      "sha256": "f4d29662456b8d212fccc30d059884d90f4ca4515396fee807599488d8fd3318"
+    },
+    "count-before-fixtures/test_missing_sample_id_all_retains_records/perf.data": {
+      "size": 272,
+      "sha256": "69bbf0c0ae4ef78f2ec1115cffb19ca6323c3abbb0119db5e6cbf460d02afc53"
+    },
+    "count-before-fixtures/test_mmap2_explicit_buildid_union/perf.data": {
+      "size": 379,
+      "sha256": "3ba47458bfdda0c17b4a7482bd84eaaef68e0ed98325de1f4ce68cdf1554bd0c"
+    },
+    "count-before-fixtures/test_mmap2_inode_union_without_flag/perf.data": {
+      "size": 379,
+      "sha256": "46e0bd2e7ac7a0c4b63802615c2a4c1f3e9a93fedb3e0d43148a9668ef3febef"
+    },
+    "count-before-fixtures/test_multiple_attrs_never_select_favorable_layout/perf.data": {
+      "size": 417,
+      "sha256": "6fe6d890afef563bf1da4aecab6c238ebdc65e7a9df84697185e922cb77ecda0"
+    },
+    "count-before-fixtures/test_nonregular_symlink_and_writable_mode_refused/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "count-before-fixtures/test_partial_consumption_cannot_claim_summary/perf.data": {
+      "size": 274,
+      "sha256": "59de4b8129f89d74024fa94a2275e28c7cb58bccdb9dca55124e7a3aa4aa605e"
+    },
+    "count-before-fixtures/test_record_budget_retains_unframed_tail/perf.data": {
+      "size": 283,
+      "sha256": "2fc748b9c453584e004177451aa190232fd9361a8ce83e2016d241e27df2f66a"
+    },
+    "count-before-fixtures/test_sample_identifier_first_and_u64_strings/perf.data": {
+      "size": 328,
+      "sha256": "6eb6b864c1f3c403ff19134c2d8efc57735e14a9b8e245c821459478943f0bcc"
+    },
+    "count-before-fixtures/test_short_pread_chunks_accumulated/perf.data": {
+      "size": 268,
+      "sha256": "99c7b17b02b0742ad20626cf66a632422dec8d625b60bc0c5ea2c7bd592b8edf"
+    },
+    "count-before-fixtures/test_truncated_header_and_body_retained/body.data": {
+      "size": 265,
+      "sha256": "3aed414573ac2017d9b763f5663ccf42d01ee65d268faa44ef8cb96c682adaaa"
+    },
+    "count-before-fixtures/test_truncated_header_and_body_retained/header.data": {
+      "size": 260,
+      "sha256": "ffc291ca3c9a1df5954e3c23c6a95be8513dad7bdb06f7ff94a757cb7505a01c"
+    },
+    "count-before-fixtures/test_unframed_remainder_count_is_unknown/perf.data": {
+      "size": 285,
+      "sha256": "e60cf48f9eab083752cae04e390d9d3ff5f6ded9980e209a78a6c57d6f4de073"
+    },
+    "count-before-fixtures/test_unsupported_sample_mask_keeps_opaque/perf.data": {
+      "size": 273,
+      "sha256": "fd6045d9cbb4de4ab2087f8063cbdf3ccec8eb8dff315da291380f3e3afb8c3e"
+    },
+    "count-before-fixtures/test_zero_record_size_retains_remainder_once/perf.data": {
+      "size": 273,
+      "sha256": "1d2655d616a1222e24e6b36b5a315a5166c7a4b470479a824dfd5ca5ef4819a2"
+    },
+    "count-before-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "count-before-source/native_perf_build_producer.py": {
+      "size": 45062,
+      "sha256": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02"
+    },
+    "count-before-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "count-before-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "count-before-source/native_perf_input_census.py": {
+      "size": 14150,
+      "sha256": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c"
+    },
+    "count-before-source/native_perf_metadata.py": {
+      "size": 16938,
+      "sha256": "bee6e844eee26e2b6e991f5c0397e8ee42edbf72b42fca3f7335d7960c0466dc"
+    },
+    "count-before-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "count-before-source/native_perf_session.py": {
+      "size": 58869,
+      "sha256": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6"
+    },
+    "count-before-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "count-before-source/test_native_perf_build_producer.py": {
+      "size": 35027,
+      "sha256": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d"
+    },
+    "count-before-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "count-before-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "count-before-source/test_native_perf_input_census.py": {
+      "size": 12557,
+      "sha256": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed"
+    },
+    "count-before-source/test_native_perf_metadata.py": {
+      "size": 11939,
+      "sha256": "a5b8acb97d1b6fa6239893eab5eeac1ab19d6bfd63a9e180205378aa93e67bb2"
+    },
+    "count-before-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "count-before-source/test_native_perf_session.py": {
+      "size": 48914,
+      "sha256": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+    },
+    "count-before/connectanum-native-perf-metadata-count-before-tests.json": {
+      "size": 2465,
+      "sha256": "25230211d6320cfa0bcd2047d6c9df8865b55ee895ed976b0f83723f0f2eb494"
+    },
+    "count-before/connectanum-native-perf-metadata-count-before-tests.log": {
+      "size": 3830,
+      "sha256": "b8964556eb925ccee72dac21e5e82ddec3e319f7fe8d9c0d80e84dd85acdecfc"
+    },
+    "count-counterexample-fixtures/test_record_budget_retains_unframed_tail/perf.data": {
+      "size": 283,
+      "sha256": "2fc748b9c453584e004177451aa190232fd9361a8ce83e2016d241e27df2f66a"
+    },
+    "count-counterexample-fixtures/test_unframed_remainder_count_is_unknown/perf.data": {
+      "size": 285,
+      "sha256": "e60cf48f9eab083752cae04e390d9d3ff5f6ded9980e209a78a6c57d6f4de073"
+    },
+    "count-counterexample-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "count-counterexample-source/native_perf_build_producer.py": {
+      "size": 45062,
+      "sha256": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02"
+    },
+    "count-counterexample-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "count-counterexample-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "count-counterexample-source/native_perf_input_census.py": {
+      "size": 14150,
+      "sha256": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c"
+    },
+    "count-counterexample-source/native_perf_metadata.py": {
+      "size": 16938,
+      "sha256": "bee6e844eee26e2b6e991f5c0397e8ee42edbf72b42fca3f7335d7960c0466dc"
+    },
+    "count-counterexample-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "count-counterexample-source/native_perf_session.py": {
+      "size": 58869,
+      "sha256": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6"
+    },
+    "count-counterexample-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "count-counterexample-source/test_native_perf_build_producer.py": {
+      "size": 35027,
+      "sha256": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d"
+    },
+    "count-counterexample-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "count-counterexample-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "count-counterexample-source/test_native_perf_input_census.py": {
+      "size": 12557,
+      "sha256": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed"
+    },
+    "count-counterexample-source/test_native_perf_metadata.py": {
+      "size": 11972,
+      "sha256": "afb49f652cac158ba2506aec0e894e43cbb51975ba32e589cdae501616ec75c6"
+    },
+    "count-counterexample-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "count-counterexample-source/test_native_perf_session.py": {
+      "size": 48914,
+      "sha256": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+    },
+    "count-counterexample/connectanum-native-perf-metadata-count-counterexample-tests.json": {
+      "size": 2499,
+      "sha256": "9428d34f3113487981ab5d99efdf99e17621329d65b403d55f67e6ddd863de32"
+    },
+    "count-counterexample/connectanum-native-perf-metadata-count-counterexample-tests.log": {
+      "size": 1073,
+      "sha256": "ae36f74bb03cdf08b854f06095210bcbd1ca12d21bef005051b0395c96fe9ecc"
+    },
+    "count-fixed-fixtures/test_bad_magic_and_attr_size_refused/attr.data": {
+      "size": 256,
+      "sha256": "3c296c165facc732c19d5469f4835d82a00269ae8e37a3995940f012eec0e411"
+    },
+    "count-fixed-fixtures/test_bad_magic_and_attr_size_refused/magic.data": {
+      "size": 256,
+      "sha256": "44bb8cb135eef9cc67a8082791df4a05991a6115e1e59f64e6e6f96d50893423"
+    },
+    "count-fixed-fixtures/test_close_failure_relinquishes_numeric_ownership/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "count-fixed-fixtures/test_comm_invalid_utf8_and_padding_retained/perf.data": {
+      "size": 327,
+      "sha256": "ec9397b433168551145dfe9714a0fc09d6835ad2cf4a12a648ebd6f78016752a"
+    },
+    "count-fixed-fixtures/test_compression_never_guesses_framing/perf.data": {
+      "size": 274,
+      "sha256": "06b1f6f96e0a64f4497fce31f8e08d968b21b74d71b256394e4c1777c9d1a772"
+    },
+    "count-fixed-fixtures/test_declared_data_tail_beyond_eof_not_invented/perf.data": {
+      "size": 259,
+      "sha256": "6e4ccae070ec030a49039f9e94f94483978079b3962a4e4349514eb49b656966"
+    },
+    "count-fixed-fixtures/test_fd_identity_and_fullhash_stability/perf.data": {
+      "size": 268,
+      "sha256": "ad9d185fb95c828756880775d252c40cdd61de91a4741c6b85213d7bae1d9ccb"
+    },
+    "count-fixed-fixtures/test_fork_body_identity_separate_from_trailer/perf.data": {
+      "size": 336,
+      "sha256": "9537e1d8d01f857a155be5300f73ccdd9d39ade41a029297d537bc42862ea5d4"
+    },
+    "count-fixed-fixtures/test_identifier_mismatch_and_no_nul_kept/perf.data": {
+      "size": 325,
+      "sha256": "cb66ad43b9709fc10c5ef32a6c7b7842fdf0532898d4886802ed9ef6f609da22"
+    },
+    "count-fixed-fixtures/test_invalid_sections_and_stride_refused/idsalign.data": {
+      "size": 257,
+      "sha256": "28f92956af2009f57ccfae1458f58ba83767985232a046237d567e62f612d00e"
+    },
+    "count-fixed-fixtures/test_invalid_sections_and_stride_refused/overlap.data": {
+      "size": 257,
+      "sha256": "4bd73603a972eb68316c3fbdc3d0a546058844a5dc5fef69815c1b59cce0da3c"
+    },
+    "count-fixed-fixtures/test_invalid_sections_and_stride_refused/stride.data": {
+      "size": 257,
+      "sha256": "87ddfc76fc38e84b4bc134ac8769f51746fd5755d1974886e90d00c8640e7a73"
+    },
+    "count-fixed-fixtures/test_lost_unknown_and_nonmonotonic_order/perf.data": {
+      "size": 406,
+      "sha256": "f4d29662456b8d212fccc30d059884d90f4ca4515396fee807599488d8fd3318"
+    },
+    "count-fixed-fixtures/test_missing_sample_id_all_retains_records/perf.data": {
+      "size": 272,
+      "sha256": "69bbf0c0ae4ef78f2ec1115cffb19ca6323c3abbb0119db5e6cbf460d02afc53"
+    },
+    "count-fixed-fixtures/test_mmap2_explicit_buildid_union/perf.data": {
+      "size": 379,
+      "sha256": "3ba47458bfdda0c17b4a7482bd84eaaef68e0ed98325de1f4ce68cdf1554bd0c"
+    },
+    "count-fixed-fixtures/test_mmap2_inode_union_without_flag/perf.data": {
+      "size": 379,
+      "sha256": "46e0bd2e7ac7a0c4b63802615c2a4c1f3e9a93fedb3e0d43148a9668ef3febef"
+    },
+    "count-fixed-fixtures/test_multiple_attrs_never_select_favorable_layout/perf.data": {
+      "size": 417,
+      "sha256": "6fe6d890afef563bf1da4aecab6c238ebdc65e7a9df84697185e922cb77ecda0"
+    },
+    "count-fixed-fixtures/test_nonregular_symlink_and_writable_mode_refused/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "count-fixed-fixtures/test_partial_consumption_cannot_claim_summary/perf.data": {
+      "size": 274,
+      "sha256": "59de4b8129f89d74024fa94a2275e28c7cb58bccdb9dca55124e7a3aa4aa605e"
+    },
+    "count-fixed-fixtures/test_record_budget_retains_unframed_tail/perf.data": {
+      "size": 283,
+      "sha256": "2fc748b9c453584e004177451aa190232fd9361a8ce83e2016d241e27df2f66a"
+    },
+    "count-fixed-fixtures/test_sample_identifier_first_and_u64_strings/perf.data": {
+      "size": 328,
+      "sha256": "6eb6b864c1f3c403ff19134c2d8efc57735e14a9b8e245c821459478943f0bcc"
+    },
+    "count-fixed-fixtures/test_short_pread_chunks_accumulated/perf.data": {
+      "size": 268,
+      "sha256": "99c7b17b02b0742ad20626cf66a632422dec8d625b60bc0c5ea2c7bd592b8edf"
+    },
+    "count-fixed-fixtures/test_truncated_header_and_body_retained/body.data": {
+      "size": 265,
+      "sha256": "3aed414573ac2017d9b763f5663ccf42d01ee65d268faa44ef8cb96c682adaaa"
+    },
+    "count-fixed-fixtures/test_truncated_header_and_body_retained/header.data": {
+      "size": 260,
+      "sha256": "ffc291ca3c9a1df5954e3c23c6a95be8513dad7bdb06f7ff94a757cb7505a01c"
+    },
+    "count-fixed-fixtures/test_unframed_remainder_count_is_unknown/perf.data": {
+      "size": 285,
+      "sha256": "e60cf48f9eab083752cae04e390d9d3ff5f6ded9980e209a78a6c57d6f4de073"
+    },
+    "count-fixed-fixtures/test_unsupported_sample_mask_keeps_opaque/perf.data": {
+      "size": 273,
+      "sha256": "fd6045d9cbb4de4ab2087f8063cbdf3ccec8eb8dff315da291380f3e3afb8c3e"
+    },
+    "count-fixed-fixtures/test_zero_record_size_retains_remainder_once/perf.data": {
+      "size": 273,
+      "sha256": "1d2655d616a1222e24e6b36b5a315a5166c7a4b470479a824dfd5ca5ef4819a2"
+    },
+    "count-fixed-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "count-fixed-source/native_perf_build_producer.py": {
+      "size": 45062,
+      "sha256": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02"
+    },
+    "count-fixed-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "count-fixed-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "count-fixed-source/native_perf_input_census.py": {
+      "size": 14150,
+      "sha256": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c"
+    },
+    "count-fixed-source/native_perf_metadata.py": {
+      "size": 17058,
+      "sha256": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b"
+    },
+    "count-fixed-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "count-fixed-source/native_perf_session.py": {
+      "size": 58869,
+      "sha256": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6"
+    },
+    "count-fixed-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "count-fixed-source/test_native_perf_build_producer.py": {
+      "size": 35027,
+      "sha256": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d"
+    },
+    "count-fixed-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "count-fixed-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "count-fixed-source/test_native_perf_input_census.py": {
+      "size": 12557,
+      "sha256": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed"
+    },
+    "count-fixed-source/test_native_perf_metadata.py": {
+      "size": 11972,
+      "sha256": "afb49f652cac158ba2506aec0e894e43cbb51975ba32e589cdae501616ec75c6"
+    },
+    "count-fixed-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "count-fixed-source/test_native_perf_session.py": {
+      "size": 48914,
+      "sha256": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+    },
+    "count-fixed/connectanum-native-perf-metadata-count-fixed-tests.json": {
+      "size": 2464,
+      "sha256": "aafd6b6253534477ac6b6c0869b001803ab7e983657044cdfe01571cbc5c7f2a"
+    },
+    "count-fixed/connectanum-native-perf-metadata-count-fixed-tests.log": {
+      "size": 3178,
+      "sha256": "03629d97db152560bcaec1fd6428b4be5b4f88827e704bf61cecd665a2408a2a"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/104.data": {
+      "size": 232,
+      "sha256": "78501df91ed222ba0c4a47f9c4ee98c735efeb9500949cf96438eb856cdf6228"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/112.data": {
+      "size": 240,
+      "sha256": "0c00e395a1c8fd90a8de8aa9e3956a21c71b93f37623bf074ccc49d01c1ac5e6"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/120.data": {
+      "size": 248,
+      "sha256": "3fed62427b952697e951e23a5af3d301af26b228193d27438ee7c98cca53e614"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/128.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/136.data": {
+      "size": 264,
+      "sha256": "84fe9a980f1baadb8da75d91c21f3f6a17becc281a045939c4e3305fcff1ce8c"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/64.data": {
+      "size": 192,
+      "sha256": "b72b5de3e0f60d8a905dea2d2d9e93d1a31256859da194d37f3a5fef8a42d14a"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/72.data": {
+      "size": 200,
+      "sha256": "1d3634c8b2d0e3585c559aa82f7ea704dfd1715b30a32ecd931d2166eb532623"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/80.data": {
+      "size": 208,
+      "sha256": "787b35f89fb2eb0d29c093648ebad21b38eff2521b1f4716bd382269eb569ad5"
+    },
+    "final-fixtures/test_all_declared_attribute_sizes_include_ids_stride/96.data": {
+      "size": 224,
+      "sha256": "af026d48447364239b091d0b0037ece1de848cd797854b19001902bda1604549"
+    },
+    "final-fixtures/test_bad_magic_and_attr_size_refused/attr.data": {
+      "size": 256,
+      "sha256": "3c296c165facc732c19d5469f4835d82a00269ae8e37a3995940f012eec0e411"
+    },
+    "final-fixtures/test_bad_magic_and_attr_size_refused/magic.data": {
+      "size": 256,
+      "sha256": "44bb8cb135eef9cc67a8082791df4a05991a6115e1e59f64e6e6f96d50893423"
+    },
+    "final-fixtures/test_close_failure_relinquishes_numeric_ownership/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "final-fixtures/test_comm_invalid_utf8_and_padding_retained/perf.data": {
+      "size": 327,
+      "sha256": "ec9397b433168551145dfe9714a0fc09d6835ad2cf4a12a648ebd6f78016752a"
+    },
+    "final-fixtures/test_compression_never_guesses_framing/perf.data": {
+      "size": 274,
+      "sha256": "06b1f6f96e0a64f4497fce31f8e08d968b21b74d71b256394e4c1777c9d1a772"
+    },
+    "final-fixtures/test_declared_data_tail_beyond_eof_not_invented/perf.data": {
+      "size": 259,
+      "sha256": "6e4ccae070ec030a49039f9e94f94483978079b3962a4e4349514eb49b656966"
+    },
+    "final-fixtures/test_fd_identity_and_fullhash_stability/perf.data": {
+      "size": 268,
+      "sha256": "ad9d185fb95c828756880775d252c40cdd61de91a4741c6b85213d7bae1d9ccb"
+    },
+    "final-fixtures/test_fork_body_identity_separate_from_trailer/perf.data": {
+      "size": 336,
+      "sha256": "9537e1d8d01f857a155be5300f73ccdd9d39ade41a029297d537bc42862ea5d4"
+    },
+    "final-fixtures/test_identifier_mismatch_and_no_nul_kept/perf.data": {
+      "size": 325,
+      "sha256": "cb66ad43b9709fc10c5ef32a6c7b7842fdf0532898d4886802ed9ef6f609da22"
+    },
+    "final-fixtures/test_invalid_mapping_range_and_buildid_kept/perf.data": {
+      "size": 379,
+      "sha256": "8c1229686eee39a6f273199c503333c40afa12799fee787ba5f91e738eefa3cb"
+    },
+    "final-fixtures/test_invalid_sections_and_stride_refused/idsalign.data": {
+      "size": 257,
+      "sha256": "28f92956af2009f57ccfae1458f58ba83767985232a046237d567e62f612d00e"
+    },
+    "final-fixtures/test_invalid_sections_and_stride_refused/overlap.data": {
+      "size": 257,
+      "sha256": "4bd73603a972eb68316c3fbdc3d0a546058844a5dc5fef69815c1b59cce0da3c"
+    },
+    "final-fixtures/test_invalid_sections_and_stride_refused/stride.data": {
+      "size": 257,
+      "sha256": "87ddfc76fc38e84b4bc134ac8769f51746fd5755d1974886e90d00c8640e7a73"
+    },
+    "final-fixtures/test_lost_unknown_and_nonmonotonic_order/perf.data": {
+      "size": 406,
+      "sha256": "f4d29662456b8d212fccc30d059884d90f4ca4515396fee807599488d8fd3318"
+    },
+    "final-fixtures/test_missing_sample_id_all_retains_records/perf.data": {
+      "size": 272,
+      "sha256": "69bbf0c0ae4ef78f2ec1115cffb19ca6323c3abbb0119db5e6cbf460d02afc53"
+    },
+    "final-fixtures/test_mmap2_explicit_buildid_union/perf.data": {
+      "size": 379,
+      "sha256": "3ba47458bfdda0c17b4a7482bd84eaaef68e0ed98325de1f4ce68cdf1554bd0c"
+    },
+    "final-fixtures/test_mmap2_inode_union_without_flag/perf.data": {
+      "size": 379,
+      "sha256": "46e0bd2e7ac7a0c4b63802615c2a4c1f3e9a93fedb3e0d43148a9668ef3febef"
+    },
+    "final-fixtures/test_multiple_attrs_never_select_favorable_layout/perf.data": {
+      "size": 417,
+      "sha256": "6fe6d890afef563bf1da4aecab6c238ebdc65e7a9df84697185e922cb77ecda0"
+    },
+    "final-fixtures/test_nonregular_symlink_and_writable_mode_refused/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "final-fixtures/test_partial_consumption_cannot_claim_summary/perf.data": {
+      "size": 274,
+      "sha256": "59de4b8129f89d74024fa94a2275e28c7cb58bccdb9dca55124e7a3aa4aa605e"
+    },
+    "final-fixtures/test_primary_error_survives_uncertain_close/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "final-fixtures/test_record_budget_retains_unframed_tail/perf.data": {
+      "size": 283,
+      "sha256": "2fc748b9c453584e004177451aa190232fd9361a8ce83e2016d241e27df2f66a"
+    },
+    "final-fixtures/test_sample_identifier_first_and_u64_strings/perf.data": {
+      "size": 328,
+      "sha256": "6eb6b864c1f3c403ff19134c2d8efc57735e14a9b8e245c821459478943f0bcc"
+    },
+    "final-fixtures/test_short_pread_chunks_accumulated/perf.data": {
+      "size": 268,
+      "sha256": "99c7b17b02b0742ad20626cf66a632422dec8d625b60bc0c5ea2c7bd592b8edf"
+    },
+    "final-fixtures/test_truncated_header_and_body_retained/body.data": {
+      "size": 265,
+      "sha256": "3aed414573ac2017d9b763f5663ccf42d01ee65d268faa44ef8cb96c682adaaa"
+    },
+    "final-fixtures/test_truncated_header_and_body_retained/header.data": {
+      "size": 260,
+      "sha256": "ffc291ca3c9a1df5954e3c23c6a95be8513dad7bdb06f7ff94a757cb7505a01c"
+    },
+    "final-fixtures/test_unframed_remainder_count_is_unknown/perf.data": {
+      "size": 285,
+      "sha256": "e60cf48f9eab083752cae04e390d9d3ff5f6ded9980e209a78a6c57d6f4de073"
+    },
+    "final-fixtures/test_unsupported_sample_mask_keeps_opaque/perf.data": {
+      "size": 273,
+      "sha256": "fd6045d9cbb4de4ab2087f8063cbdf3ccec8eb8dff315da291380f3e3afb8c3e"
+    },
+    "final-fixtures/test_zero_record_size_retains_remainder_once/perf.data": {
+      "size": 273,
+      "sha256": "1d2655d616a1222e24e6b36b5a315a5166c7a4b470479a824dfd5ca5ef4819a2"
+    },
+    "final-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "final-source/native_perf_build_producer.py": {
+      "size": 45062,
+      "sha256": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02"
+    },
+    "final-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "final-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "final-source/native_perf_input_census.py": {
+      "size": 14150,
+      "sha256": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c"
+    },
+    "final-source/native_perf_metadata.py": {
+      "size": 17058,
+      "sha256": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b"
+    },
+    "final-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "final-source/native_perf_session.py": {
+      "size": 58869,
+      "sha256": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6"
+    },
+    "final-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "final-source/test_native_perf_build_producer.py": {
+      "size": 35027,
+      "sha256": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d"
+    },
+    "final-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "final-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "final-source/test_native_perf_input_census.py": {
+      "size": 12557,
+      "sha256": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed"
+    },
+    "final-source/test_native_perf_metadata.py": {
+      "size": 13991,
+      "sha256": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20"
+    },
+    "final-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "final-source/test_native_perf_session.py": {
+      "size": 48914,
+      "sha256": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+    },
+    "final/connectanum-native-perf-metadata-final-tests.json": {
+      "size": 2458,
+      "sha256": "d78b1bc16493df48809ecf259cd948a17e8d397e72f6edc0b690f4ade8d43ccb"
+    },
+    "final/connectanum-native-perf-metadata-final-tests.log": {
+      "size": 3746,
+      "sha256": "0af617a56ae629e26bde1d789997f29f296a5bf84c0b622e49c64d5a3a854af2"
+    },
+    "fixture-fixed-fixtures/test_bad_magic_and_attr_size_refused/attr.data": {
+      "size": 256,
+      "sha256": "3c296c165facc732c19d5469f4835d82a00269ae8e37a3995940f012eec0e411"
+    },
+    "fixture-fixed-fixtures/test_bad_magic_and_attr_size_refused/magic.data": {
+      "size": 256,
+      "sha256": "44bb8cb135eef9cc67a8082791df4a05991a6115e1e59f64e6e6f96d50893423"
+    },
+    "fixture-fixed-fixtures/test_close_failure_relinquishes_numeric_ownership/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "fixture-fixed-fixtures/test_comm_invalid_utf8_and_padding_retained/perf.data": {
+      "size": 327,
+      "sha256": "ec9397b433168551145dfe9714a0fc09d6835ad2cf4a12a648ebd6f78016752a"
+    },
+    "fixture-fixed-fixtures/test_compression_never_guesses_framing/perf.data": {
+      "size": 274,
+      "sha256": "06b1f6f96e0a64f4497fce31f8e08d968b21b74d71b256394e4c1777c9d1a772"
+    },
+    "fixture-fixed-fixtures/test_declared_data_tail_beyond_eof_not_invented/perf.data": {
+      "size": 259,
+      "sha256": "6e4ccae070ec030a49039f9e94f94483978079b3962a4e4349514eb49b656966"
+    },
+    "fixture-fixed-fixtures/test_fd_identity_and_fullhash_stability/perf.data": {
+      "size": 268,
+      "sha256": "ad9d185fb95c828756880775d252c40cdd61de91a4741c6b85213d7bae1d9ccb"
+    },
+    "fixture-fixed-fixtures/test_fork_body_identity_separate_from_trailer/perf.data": {
+      "size": 336,
+      "sha256": "9537e1d8d01f857a155be5300f73ccdd9d39ade41a029297d537bc42862ea5d4"
+    },
+    "fixture-fixed-fixtures/test_identifier_mismatch_and_no_nul_kept/perf.data": {
+      "size": 325,
+      "sha256": "cb66ad43b9709fc10c5ef32a6c7b7842fdf0532898d4886802ed9ef6f609da22"
+    },
+    "fixture-fixed-fixtures/test_invalid_sections_and_stride_refused/overlap.data": {
+      "size": 256,
+      "sha256": "7e667528bd2742edddd7c352cad44ad68f463d11d13b9319a807e521a1e49447"
+    },
+    "fixture-fixed-fixtures/test_invalid_sections_and_stride_refused/stride.data": {
+      "size": 256,
+      "sha256": "59ac64bf074a57847ed545934a21a6d111e4c5bb09376f9ec147ee9f7bf74453"
+    },
+    "fixture-fixed-fixtures/test_lost_unknown_and_nonmonotonic_order/perf.data": {
+      "size": 406,
+      "sha256": "f4d29662456b8d212fccc30d059884d90f4ca4515396fee807599488d8fd3318"
+    },
+    "fixture-fixed-fixtures/test_missing_sample_id_all_retains_records/perf.data": {
+      "size": 272,
+      "sha256": "69bbf0c0ae4ef78f2ec1115cffb19ca6323c3abbb0119db5e6cbf460d02afc53"
+    },
+    "fixture-fixed-fixtures/test_mmap2_explicit_buildid_union/perf.data": {
+      "size": 379,
+      "sha256": "3ba47458bfdda0c17b4a7482bd84eaaef68e0ed98325de1f4ce68cdf1554bd0c"
+    },
+    "fixture-fixed-fixtures/test_mmap2_inode_union_without_flag/perf.data": {
+      "size": 379,
+      "sha256": "46e0bd2e7ac7a0c4b63802615c2a4c1f3e9a93fedb3e0d43148a9668ef3febef"
+    },
+    "fixture-fixed-fixtures/test_multiple_attrs_never_select_favorable_layout/perf.data": {
+      "size": 417,
+      "sha256": "6fe6d890afef563bf1da4aecab6c238ebdc65e7a9df84697185e922cb77ecda0"
+    },
+    "fixture-fixed-fixtures/test_nonregular_symlink_and_writable_mode_refused/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "fixture-fixed-fixtures/test_partial_consumption_cannot_claim_summary/perf.data": {
+      "size": 274,
+      "sha256": "59de4b8129f89d74024fa94a2275e28c7cb58bccdb9dca55124e7a3aa4aa605e"
+    },
+    "fixture-fixed-fixtures/test_record_budget_retains_unframed_tail/perf.data": {
+      "size": 283,
+      "sha256": "2fc748b9c453584e004177451aa190232fd9361a8ce83e2016d241e27df2f66a"
+    },
+    "fixture-fixed-fixtures/test_sample_identifier_first_and_u64_strings/perf.data": {
+      "size": 328,
+      "sha256": "6eb6b864c1f3c403ff19134c2d8efc57735e14a9b8e245c821459478943f0bcc"
+    },
+    "fixture-fixed-fixtures/test_short_pread_chunks_accumulated/perf.data": {
+      "size": 268,
+      "sha256": "99c7b17b02b0742ad20626cf66a632422dec8d625b60bc0c5ea2c7bd592b8edf"
+    },
+    "fixture-fixed-fixtures/test_truncated_header_and_body_retained/body.data": {
+      "size": 265,
+      "sha256": "3aed414573ac2017d9b763f5663ccf42d01ee65d268faa44ef8cb96c682adaaa"
+    },
+    "fixture-fixed-fixtures/test_truncated_header_and_body_retained/header.data": {
+      "size": 260,
+      "sha256": "ffc291ca3c9a1df5954e3c23c6a95be8513dad7bdb06f7ff94a757cb7505a01c"
+    },
+    "fixture-fixed-fixtures/test_unsupported_sample_mask_keeps_opaque/perf.data": {
+      "size": 273,
+      "sha256": "fd6045d9cbb4de4ab2087f8063cbdf3ccec8eb8dff315da291380f3e3afb8c3e"
+    },
+    "fixture-fixed-fixtures/test_zero_record_size_retains_remainder_once/perf.data": {
+      "size": 273,
+      "sha256": "1d2655d616a1222e24e6b36b5a315a5166c7a4b470479a824dfd5ca5ef4819a2"
+    },
+    "fixture-fixed-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "fixture-fixed-source/native_perf_build_producer.py": {
+      "size": 45062,
+      "sha256": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02"
+    },
+    "fixture-fixed-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "fixture-fixed-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "fixture-fixed-source/native_perf_input_census.py": {
+      "size": 14150,
+      "sha256": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c"
+    },
+    "fixture-fixed-source/native_perf_metadata.py": {
+      "size": 16938,
+      "sha256": "bee6e844eee26e2b6e991f5c0397e8ee42edbf72b42fca3f7335d7960c0466dc"
+    },
+    "fixture-fixed-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "fixture-fixed-source/native_perf_session.py": {
+      "size": 58869,
+      "sha256": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6"
+    },
+    "fixture-fixed-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "fixture-fixed-source/test_native_perf_build_producer.py": {
+      "size": 35027,
+      "sha256": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d"
+    },
+    "fixture-fixed-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "fixture-fixed-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "fixture-fixed-source/test_native_perf_input_census.py": {
+      "size": 12557,
+      "sha256": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed"
+    },
+    "fixture-fixed-source/test_native_perf_metadata.py": {
+      "size": 11620,
+      "sha256": "d7040d58b20333e529bb5027b882683f544e4be378d5896d5a3dbda28a022921"
+    },
+    "fixture-fixed-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "fixture-fixed-source/test_native_perf_session.py": {
+      "size": 48914,
+      "sha256": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+    },
+    "fixture-fixed/connectanum-native-perf-metadata-fixture-fixed-tests.json": {
+      "size": 2466,
+      "sha256": "6b1e42f2c9212a34d03d3210ef29d7402b34c1529e46017a35a4cd94f1549e0e"
+    },
+    "fixture-fixed/connectanum-native-perf-metadata-fixture-fixed-tests.log": {
+      "size": 3685,
+      "sha256": "3cf535f1a24ac0250dc601383ba7e09a56670fa94f5c5f800af48a3930ac1db0"
+    },
+    "implemented-fixtures/test_bad_magic_and_attr_size_refused/attr.data": {
+      "size": 256,
+      "sha256": "3c296c165facc732c19d5469f4835d82a00269ae8e37a3995940f012eec0e411"
+    },
+    "implemented-fixtures/test_bad_magic_and_attr_size_refused/magic.data": {
+      "size": 256,
+      "sha256": "44bb8cb135eef9cc67a8082791df4a05991a6115e1e59f64e6e6f96d50893423"
+    },
+    "implemented-fixtures/test_close_failure_relinquishes_numeric_ownership/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "implemented-fixtures/test_comm_invalid_utf8_and_padding_retained/perf.data": {
+      "size": 327,
+      "sha256": "ec9397b433168551145dfe9714a0fc09d6835ad2cf4a12a648ebd6f78016752a"
+    },
+    "implemented-fixtures/test_compression_never_guesses_framing/perf.data": {
+      "size": 274,
+      "sha256": "06b1f6f96e0a64f4497fce31f8e08d968b21b74d71b256394e4c1777c9d1a772"
+    },
+    "implemented-fixtures/test_declared_data_tail_beyond_eof_not_invented/perf.data": {
+      "size": 259,
+      "sha256": "6e4ccae070ec030a49039f9e94f94483978079b3962a4e4349514eb49b656966"
+    },
+    "implemented-fixtures/test_fd_identity_and_fullhash_stability/perf.data": {
+      "size": 268,
+      "sha256": "99c7b17b02b0742ad20626cf66a632422dec8d625b60bc0c5ea2c7bd592b8edf"
+    },
+    "implemented-fixtures/test_fork_body_identity_separate_from_trailer/perf.data": {
+      "size": 336,
+      "sha256": "9537e1d8d01f857a155be5300f73ccdd9d39ade41a029297d537bc42862ea5d4"
+    },
+    "implemented-fixtures/test_identifier_mismatch_and_no_nul_kept/perf.data": {
+      "size": 325,
+      "sha256": "cb66ad43b9709fc10c5ef32a6c7b7842fdf0532898d4886802ed9ef6f609da22"
+    },
+    "implemented-fixtures/test_invalid_sections_and_stride_refused/idsalign.data": {
+      "size": 256,
+      "sha256": "963d2eb573b55bff57152177ae0b882dd6cc26275dabb3a3d0dff87ef99d54ea"
+    },
+    "implemented-fixtures/test_invalid_sections_and_stride_refused/overlap.data": {
+      "size": 256,
+      "sha256": "7e667528bd2742edddd7c352cad44ad68f463d11d13b9319a807e521a1e49447"
+    },
+    "implemented-fixtures/test_invalid_sections_and_stride_refused/stride.data": {
+      "size": 256,
+      "sha256": "59ac64bf074a57847ed545934a21a6d111e4c5bb09376f9ec147ee9f7bf74453"
+    },
+    "implemented-fixtures/test_lost_unknown_and_nonmonotonic_order/perf.data": {
+      "size": 406,
+      "sha256": "f4d29662456b8d212fccc30d059884d90f4ca4515396fee807599488d8fd3318"
+    },
+    "implemented-fixtures/test_missing_sample_id_all_retains_records/perf.data": {
+      "size": 272,
+      "sha256": "69bbf0c0ae4ef78f2ec1115cffb19ca6323c3abbb0119db5e6cbf460d02afc53"
+    },
+    "implemented-fixtures/test_mmap2_explicit_buildid_union/perf.data": {
+      "size": 379,
+      "sha256": "3ba47458bfdda0c17b4a7482bd84eaaef68e0ed98325de1f4ce68cdf1554bd0c"
+    },
+    "implemented-fixtures/test_mmap2_inode_union_without_flag/perf.data": {
+      "size": 379,
+      "sha256": "46e0bd2e7ac7a0c4b63802615c2a4c1f3e9a93fedb3e0d43148a9668ef3febef"
+    },
+    "implemented-fixtures/test_multiple_attrs_never_select_favorable_layout/perf.data": {
+      "size": 417,
+      "sha256": "6fe6d890afef563bf1da4aecab6c238ebdc65e7a9df84697185e922cb77ecda0"
+    },
+    "implemented-fixtures/test_nonregular_symlink_and_writable_mode_refused/perf.data": {
+      "size": 256,
+      "sha256": "e1e4509f2cc4510a01ad1b22647ab46ee033c21e91e58aecb9c2be48556aa869"
+    },
+    "implemented-fixtures/test_partial_consumption_cannot_claim_summary/perf.data": {
+      "size": 274,
+      "sha256": "59de4b8129f89d74024fa94a2275e28c7cb58bccdb9dca55124e7a3aa4aa605e"
+    },
+    "implemented-fixtures/test_record_budget_retains_unframed_tail/perf.data": {
+      "size": 283,
+      "sha256": "2fc748b9c453584e004177451aa190232fd9361a8ce83e2016d241e27df2f66a"
+    },
+    "implemented-fixtures/test_sample_identifier_first_and_u64_strings/perf.data": {
+      "size": 328,
+      "sha256": "6eb6b864c1f3c403ff19134c2d8efc57735e14a9b8e245c821459478943f0bcc"
+    },
+    "implemented-fixtures/test_short_pread_chunks_accumulated/perf.data": {
+      "size": 268,
+      "sha256": "99c7b17b02b0742ad20626cf66a632422dec8d625b60bc0c5ea2c7bd592b8edf"
+    },
+    "implemented-fixtures/test_truncated_header_and_body_retained/header.data": {
+      "size": 260,
+      "sha256": "ffc291ca3c9a1df5954e3c23c6a95be8513dad7bdb06f7ff94a757cb7505a01c"
+    },
+    "implemented-fixtures/test_unsupported_sample_mask_keeps_opaque/perf.data": {
+      "size": 273,
+      "sha256": "fd6045d9cbb4de4ab2087f8063cbdf3ccec8eb8dff315da291380f3e3afb8c3e"
+    },
+    "implemented-fixtures/test_zero_record_size_retains_remainder_once/perf.data": {
+      "size": 273,
+      "sha256": "1d2655d616a1222e24e6b36b5a315a5166c7a4b470479a824dfd5ca5ef4819a2"
+    },
+    "implemented-source/native_perf_blocked_exec.py": {
+      "size": 13407,
+      "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+    },
+    "implemented-source/native_perf_build_producer.py": {
+      "size": 45062,
+      "sha256": "918b212d383477c3d46e61a451554dd12ed1c14122d9be6742ce8b1b4f145d02"
+    },
+    "implemented-source/native_perf_guard.py": {
+      "size": 11403,
+      "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+    },
+    "implemented-source/native_perf_handoff.py": {
+      "size": 14899,
+      "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+    },
+    "implemented-source/native_perf_input_census.py": {
+      "size": 14150,
+      "sha256": "c63210963a916db6c029640bf028f5cb2fd4b156c8132eafde8b9deadf80af3c"
+    },
+    "implemented-source/native_perf_metadata.py": {
+      "size": 16938,
+      "sha256": "bee6e844eee26e2b6e991f5c0397e8ee42edbf72b42fca3f7335d7960c0466dc"
+    },
+    "implemented-source/native_perf_proc_witness.py": {
+      "size": 16074,
+      "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+    },
+    "implemented-source/native_perf_session.py": {
+      "size": 58869,
+      "sha256": "b668c8263e9df30f859d507255ccb88c4f1ec16ee79d25ca46b05ba7e433fee6"
+    },
+    "implemented-source/test_native_perf_blocked_exec.py": {
+      "size": 15027,
+      "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+    },
+    "implemented-source/test_native_perf_build_producer.py": {
+      "size": 35027,
+      "sha256": "8df717033b480a2f5d8201dda732ce8050e95ffe173c65d194b2ebef84c7cc2d"
+    },
+    "implemented-source/test_native_perf_guard.py": {
+      "size": 13171,
+      "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+    },
+    "implemented-source/test_native_perf_handoff.py": {
+      "size": 23538,
+      "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+    },
+    "implemented-source/test_native_perf_input_census.py": {
+      "size": 12557,
+      "sha256": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed"
+    },
+    "implemented-source/test_native_perf_metadata.py": {
+      "size": 11610,
+      "sha256": "ea5f56296a281c67478593d7e994ec928b96fe68170879be7b0efbd9077a1cef"
+    },
+    "implemented-source/test_native_perf_proc_witness.py": {
+      "size": 18455,
+      "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+    },
+    "implemented-source/test_native_perf_session.py": {
+      "size": 48914,
+      "sha256": "49a892c0614466198812a8c3b95f0c888688f0306a6a226491594ea1ee1178a2"
+    },
+    "implemented/connectanum-native-perf-metadata-implemented-tests.json": {
+      "size": 2464,
+      "sha256": "49f16898e78da47471c5e02d11550d661080e322309be217b10b2d9afbae3eee"
+    },
+    "implemented/connectanum-native-perf-metadata-implemented-tests.log": {
+      "size": 24308,
+      "sha256": "63fc109a6539af3e1134e67a1cbbb33ba90ba7cf53d83a9cab10f7b8129f887c"
+    },
+    "method/connectanum-native-perf-metadata-debug-wrapper.log": {
+      "size": 1122,
+      "sha256": "29b087bc7512a3b067da3ddc52f4904aa89c6b340de137e9018c4b3432d5daf8"
+    },
+    "method/connectanum-native-perf-metadata-debug.txt": {
+      "size": 681,
+      "sha256": "f6b9eacb7450b138ce69b1e78853db5e4a1d59439eebbb380206e456ac3fd39f"
+    },
+    "method/connectanum-native-perf-metadata-design.txt": {
+      "size": 2273,
+      "sha256": "ff0cff3e151e06ae72edf0642d1ede462a43f4e5fed6c4032567cac11146f6d6"
+    },
+    "method/connectanum-native-perf-metadata-first-error-excerpt.txt": {
+      "size": 6662,
+      "sha256": "7118568fffbdf02158d93d5fbf0b421688b1884899ebc0f5932a5b60e777dcf9"
+    },
+    "method/connectanum-native-perf-metadata-orientation-wrapper.log": {
+      "size": 2226,
+      "sha256": "66613da2551b253d7d06a168814e8c4930b9f6484e1ffbcb596e1198959ae2c9"
+    },
+    "method/connectanum-native-perf-metadata-orientation.txt": {
+      "size": 1877,
+      "sha256": "f672d4120fcbc53dd051330cb2bd8ce11b02fb5c745199dd4e601995fa181678"
+    },
+    "method/connectanum-native-perf-metadata-phase-preparation.json": {
+      "size": 734,
+      "sha256": "5cedd7549f9559b07b5fbdc5b31b724103464d974e5e45d937fe047cda4b7e76"
+    },
+    "method/connectanum-native-perf-metadata-root-advisory-qualification.json": {
+      "size": 851,
+      "sha256": "541eaaada1d9c25a679445d245be00159a5882d382f934afde23c0a7c3ffdb99"
+    },
+    "method/connectanum-native-perf-metadata-run.py": {
+      "size": 2438,
+      "sha256": "d671347af87e518c8f039c9bd4cf357db3d78bf52ec4061a06aac8613cfa14e2"
+    },
+    "method/connectanum-native-perf-metadata-source-review-wrapper.log": {
+      "size": 798,
+      "sha256": "585da3c5cedd24456332a7879abbf2677d4781585f08f7ade51f5af257c9a228"
+    },
+    "method/connectanum-native-perf-metadata-test-advice-wrapper.log": {
+      "size": 2027,
+      "sha256": "d8f1449844fba7986d90b4c716aa716e7b5ecf0fe40454b1ad61a0bffab8746c"
+    },
+    "method/connectanum-native-perf-metadata-test-advice.txt": {
+      "size": 1415,
+      "sha256": "aac1e0903b9578a5bf997a39356d91864c501bcd4c844cba042e276c1d73c439"
+    },
+    "method/receipt-header-c.json": {
+      "size": 261,
+      "sha256": "93f7e7154eb75c310386fe04fea8ce50b333f22cb4b3948cd717dfdcb0647c0b"
+    },
+    "method/receipt.json": {
+      "size": 674,
+      "sha256": "64c338a8e3b27127c9b010c895d2c6874ed2163443af26358086921de10b83d5"
+    },
+    "original-special-node-metadata.json": {
+      "size": 1911,
+      "sha256": "39eb0e747300b0cc2ef0f03bd846e503f405f9796da737b87045fe91e4aa1b54"
+    }
+  },
+  "special_node_metadata": {
+    "implemented-fixtures/test_nonregular_symlink_and_writable_mode_refused/fifo": {
+      "mode": 4480,
+      "link_target": null
+    },
+    "implemented-fixtures/test_nonregular_symlink_and_writable_mode_refused/link": {
+      "mode": 41453,
+      "link_target": {
+        "transient_target_sha256": "bde3fa7d5ae14d15ef1e1937e731bae7908f74b0357e3772a4d88e64cb6a33dd",
+        "original": "original-special-node-metadata.json in archive"
+      }
+    },
+    "fixture-fixed-fixtures/test_nonregular_symlink_and_writable_mode_refused/fifo": {
+      "mode": 4480,
+      "link_target": null
+    },
+    "fixture-fixed-fixtures/test_nonregular_symlink_and_writable_mode_refused/link": {
+      "mode": 41453,
+      "link_target": {
+        "transient_target_sha256": "c0b72371d881e68f240b950b87a2a40c97963afe8ad723fb799c9a8dca7ccaae",
+        "original": "original-special-node-metadata.json in archive"
+      }
+    },
+    "count-before-fixtures/test_nonregular_symlink_and_writable_mode_refused/fifo": {
+      "mode": 4480,
+      "link_target": null
+    },
+    "count-before-fixtures/test_nonregular_symlink_and_writable_mode_refused/link": {
+      "mode": 41453,
+      "link_target": {
+        "transient_target_sha256": "5bdf3e1ad2949b29ad9bf01fc300e68ce9dc0ae91f4482af6fb5472179e2665c",
+        "original": "original-special-node-metadata.json in archive"
+      }
+    },
+    "count-fixed-fixtures/test_nonregular_symlink_and_writable_mode_refused/fifo": {
+      "mode": 4480,
+      "link_target": null
+    },
+    "count-fixed-fixtures/test_nonregular_symlink_and_writable_mode_refused/link": {
+      "mode": 41453,
+      "link_target": {
+        "transient_target_sha256": "d378b79c0b52f6bf234645ac1f2b21ad6e665859d9be34534389066f79b36170",
+        "original": "original-special-node-metadata.json in archive"
+      }
+    },
+    "final-fixtures/test_nonregular_symlink_and_writable_mode_refused/fifo": {
+      "mode": 4480,
+      "link_target": null
+    },
+    "final-fixtures/test_nonregular_symlink_and_writable_mode_refused/link": {
+      "mode": 41453,
+      "link_target": {
+        "transient_target_sha256": "2c0fd8bcfe8defb19d4bf3381f5e0ef9b09e68488665565f34cd6656a4a53cec",
+        "original": "original-special-node-metadata.json in archive"
+      }
+    }
+  },
+  "free_bytes": 19027124224,
+  "no_cleanup": true,
+  "newtool_fullcanonical_started": false,
+  "next": "Integrate actual role-instance/loaded native-image association and original source/config/command receipts with immutable capture admission. Decoder is format-only; no path/buildID-only loaded-byte claim. Own source/archive/fullcanonical/native/driver/RLIB/actual locks+hidden configs/tool/kernel evidence and actual bounded Linux nonbenchmark credential/access/pidfd/FDexec/inheritance/arming/metadata controls required before any diagnostic data.",
+  "public_projection": "Transient special-node targets hashed in this assessment only; raw archive metadata remains exact."
+}

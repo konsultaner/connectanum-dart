@@ -17,7 +17,7 @@ metadata mutation fails with the shortcut and passes with original601. Its
 zero-pending decoder budget is withdrawn despite six initial budget failures,
 21passing controls and1,977initial focused passes. Both files are restored
 exact601; no runtime candidate committed/published/adopted. Subsequent tool-only
-guard preparation reuses this owned worktree, now with fourteen uncommitted tool
+guard preparation reuses this owned worktree, now with sixteen uncommitted tool
 files on `codex/flatbuffers-native-perf-guard`, HEAD still601. Runtime unchanged.
 The distinct before-edit bootstrap/test-fast/fullverify baseline completedPASS;
 its own logs/source archive/3LOCALlocks/600Cffi-test native independently verify.
@@ -152,6 +152,17 @@ this later same-binary witness closes that byte-rehash limitation without an
 ffi-test/sharedCI/alternate-runtime substitution. No observations or numerical
 results changed. [Cross-artifact byte audit](../research/2026-11-02-flatbuffers-d9cb-production-bytes-audit.json).
 
+
+The new offline binary metadata reader passes27 synthetic/OWN file guards,
+including retained unknown/lost/malformed/partial data and an actual before-failing
+unknown-tail count. Prior14 tools unchanged/not rerun;16uncommitted tools leave
+production601/helper12 unchanged. It is format-only/capture_ready=false, not
+actual tool/kernel/role/native-image proof. No new-tool canonical/build/capture.
+[All executed metadata versions and qualified scope](../research/2026-11-03-flatbuffers-native-perf-metadata-preparation.md).
+Next integrate actual role-instance/loaded native-image association and original
+source/config/command receipts with immutable capture admission. Appropriate own
+verification/source/archive/native/driver/RLIB/locks/hidden configs/tool/kernel
+provenance and actual bounded Linux controls still required before any data.
 
 ## Read-only original RSS role attribution complete (2026-11-02)
 
