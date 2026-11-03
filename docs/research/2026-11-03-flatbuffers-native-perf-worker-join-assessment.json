@@ -1,0 +1,99 @@
+{
+  "kind": "owned-preflight-worker-join-source-regression-assessment-v1",
+  "scope": "OWN finite unit Thread/Python/Git fixtures only; no actual canonical/build/kernel/benchmark",
+  "source_bug": "call_done/event can precede actual Thread target return; next phase overwrote sole unjoined handle",
+  "before5": {
+    "tests": 5,
+    "failures": 1,
+    "errors": 4,
+    "qualification": "one actual target-tail overlap regression; four missing new lifecycle API errors, not four production defects"
+  },
+  "fixed14": {
+    "tests": 14,
+    "failures": 0,
+    "errors": 0,
+    "composition": "5new join guards+5current emitter interface callers+4required owner callers"
+  },
+  "final2_separate": {
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "composition": "NEW settled-start outcome guard+one join-error guard strengthened to assert join outside observer lock",
+    "not_combined16_or_fullcanonical": true
+  },
+  "source_preserved": {
+    "other18tools_and_selected3bins": true,
+    "original_module_level_functions_factories_emitters_gates": true,
+    "original_test_classes": true,
+    "owner_register_error_continue_wait_emit_methods": true,
+    "producer_fixed_to_final_byteexact": true
+  },
+  "implementation": [
+    "per-call actual thread record retained before start; private handle retained through uncertainty and real bounded same-handle join",
+    "no next producer phase until prior worker joined AND start outcome settled; failed/uninitialized producer eligibility remains independently enforced",
+    "observer joins outside owner lock; no raw producer/FD access; worker alone reads producer state",
+    "call_done,worker_joined,start_settled,actor_ownership_complete distinct; actor_ownership_complete staysNone and capture_ready/source_admitted/live_admission alwaysFalse",
+    "join exception object privately retained/type-only public, separate from first producer error; same actual Thread join may continue",
+    "process-life owner and scalar call history; joined thread reference in per-call record released only after actual join; latest self._thread remains held; no count/heap/RSS or physical lifetime claim",
+    "uncertain Thread setup/start retains attempt, no retry/restart/reset/cancel/GO; caller still must physically retain official EX through all known actors"
+  ],
+  "model_qualifications": {
+    "tests99227": "COMPLETE direct0/reaped; advisory; root accepts Event/same-handle ideas, rejects invented continue_wait timeout/rethrow API, pytest/termination/indefinite-fixture suggestions",
+    "judge32660": "helper response limit; no saved full partial/final assessment; signed outer status not retained/session gone, never invented0; backend reachable, not unavailable/approval",
+    "review21032": "COMPLETE direct1/reaped at token limit; no saved full partial/final assessment. Reachable, not backend unavailable/approval. No unchanged repeat.",
+    "root_review": "complete affected methods/current tests reviewed; no claim of complete model assessment or current full-source model approval"
+  },
+  "actual_data_limits": [
+    "unit callback barriers/start/join faults are synthetic, root official EX spans known finite fixture completion",
+    "actual OWN held target Thread tail demonstrates source regression; this is not original driver/sampler/kernel control",
+    "test assertions exercised public lifecycle; actual returned views for every unit call not systematically serialized; retained exact executed source/logs/regular fixtures only, no reconstruction",
+    "existing Git fixture setup API returns not all separately serialized; no all descendants/writers/atomic ABA/physical original-host/compiled closure proof",
+    "first edit coordinator assertion failed before any source write/test because multiline string indentation; recorded direct1, terminal attempt retained; not production defect"
+  ],
+  "source_sha256": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "da40b247f7401a651591cc1411c99ab9c67b196f54f8df576471867c1c397321",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "b9a11964e3024989fc22b9783bccab3b0ac3826a29147ac00ac0ae947e222724",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+    "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+    "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+  },
+  "free_bytes": 8615596032,
+  "scoped_floor_bytes": 1073741824,
+  "build_floor_bytes": 12884901888,
+  "no_cleanup": true,
+  "space_change_cause": "UNMEASURED",
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "production601_unchanged": true,
+  "full_bridge_complete": false,
+  "live_provider_present": false,
+  "require_live_admission_always_raises": true,
+  "session_controller_live_closed": true,
+  "no_source_commit_push_adoption_strict_dispatch": true,
+  "no_RAM_cause_repair_acceptance": true,
+  "next_action": "Full independently owned provenance/orchestration plus original-host controls and immutable complete admission remain required before diagnosticdata; no build below12GiB",
+  "publication": {
+    "archive_sha256": "570d8312579d8deeaa09403387cae6c049e1a0d686d43cf2b2c0bab90b0033e6",
+    "regular_members": 1625,
+    "all_regular_members_byteexact": true,
+    "excluded_private_files": [],
+    "special_nodes_metadata_only": []
+  }
+}

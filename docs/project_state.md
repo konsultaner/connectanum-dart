@@ -7,6 +7,28 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Exact preflight worker joins retained; live admission stays closed (2026-11-03)
+
+A finite target-tail fixture reproduces loss of the prior Thread handle after
+call completion. Retained per-call handles now require real bounded joins
+outside the observer lock and a settled parent start outcome before another
+producer phase. Call completion, worker join and actor ownership stay distinct.
+
+Before five guards yield one regression failure plus four missing-API errors.
+Fourteen selected guards/callers pass; two further guards pass separately,
+with the implementation unchanged. This is not combined16/fullcanonical.
+[Source, failures, model limits and fixtures](research/2026-11-03-flatbuffers-native-perf-worker-join-preparation.md).
+
+Only the producer/test pair changes; original factories/gates/test classes,
+other18tools/selected3bins and production601 remain unchanged. All20tools stay
+uncommitted/uncanonical/unadmitted. The model design/review requests reach
+response/token limits without final assessments; root qualifies the final
+methods/tests. Earlier method epochs are not current-source execution proof.
+No actual build/canonical/native/kernel/benchmark/capture/strict dispatch runs.
+Free about8.6GB<12GiB buildfloor; no cleanup, cause unmeasured. Full independent
+orchestration/provenance remains incomplete; provider/controller/admission
+stay closed. No RAM cause, repair or strict acceptance.
+
 ## Owned emitter interface repaired; build admission stays closed (2026-11-03)
 
 The retained worker now calls the real one-argument emitter and preserves the
