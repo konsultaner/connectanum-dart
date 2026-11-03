@@ -7,6 +7,30 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Worker-only indexed partial auxiliary wait component (2026-11-03)
+
+A failed/uninitialized owner can schedule a bounded wait on one retained
+auxiliary. Shared busy/join/start-settled guards remain in force. Worker-only
+field checks, retained handle identity and immutable scalar observations keep
+recipe/unknown actors unresolved; a terminal auxiliary never grants closure
+or physical lease-release authority.
+[Exact source epochs, guards and limits](research/2026-11-03-flatbuffers-native-perf-partial-continuation-preparation.md).
+
+Before eight guard tests yield15missing-API errors, including argument
+subtests. Initial16selected guards pass; a new exception-hook regression
+fails, then2targeted guards pass after correction. One new concurrent-caller
+guard passes separately with implementation unchanged. Not combined19/full
+final canonical. Actual fixtures remain finite/FIXTURE with mocked boundaries;
+unit callbacks synthetic/rootEXheld. Earlier method cases are not repeated
+or current-source execution admission.
+
+Only producer/test changes; original functions/factories/gates/test classes,
+other18tools/selected3bins and production601 stay unchanged. All20tools remain
+uncommitted/uncanonical/unadmitted. Full controller/current provenance and
+original-host controls remain incomplete; provider/controller/admission stay
+closed. No build/kernel/benchmark/capture/strict dispatch/RAM cause/repair/
+acceptance. About10.5GB<12GiB buildfloor; no cleanup, cause unmeasured.
+
 ## Partial constructor retains a child after worker join (2026-11-03)
 
 One new finite OWN fault fixture shows the constructor worker joined and
