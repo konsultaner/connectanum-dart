@@ -2,6 +2,23 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## Retained preflight phase component; full admission remains closed (2026-11-03)
+
+A new retained owner registers the actual producer before constructor I/O and
+serializes construction, same-operation waits and one emitter attempt outside
+the observer lock. Immutable call snapshots do not establish actor completion
+or admission. Fourteen selected guards/callers pass after retained missing-API,
+fixture, representation, capacity and thread-setup failures.
+[Exact source, fixtures and limits](../research/2026-11-03-flatbuffers-native-perf-owned-preflight-preparation.md).
+
+Only the producer/test pair changes; all twenty tools remain uncommitted,
+uncanonical and unadmitted. Original synchronous factories and production601
+stay unchanged. Full orchestration and physical lease retention remain caller
+work; arbitrary partial actors are not resolved by this component. No actual
+build/live receipt, kernel control, benchmark/capture or strict dispatch.
+Free about8.7GB<12GiB buildfloor; no cleanup, cause unmeasured. Live provider,
+admission and controller remain closed; no RAM repair or acceptance.
+
 ## Canonical output path aligned; actual build admission remains closed (2026-11-03)
 
 The canonical producer now follows the selected verification recipe's own

@@ -1,0 +1,126 @@
+{
+  "kind": "own-retained-preflight-phase-component-root-assessment-v1",
+  "source_commit": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "scope": "Retained phase-call component only; NOT full preflight/provider/current-source canonical/compiled/admission proof",
+  "behavior": [
+    "Register owner before non-daemon worker startup; exact producer self registered at optional private __init__ entry BEFORE lease_check/IO",
+    "Observers read immutable scalar call snapshots, never raw operation/FD or partially initialized producer attrs; no producer call holds observer lock",
+    "Serialized construct/same-operation wait/one emitter attempt; worker call completion separate from actor ownership (always None in snapshot)",
+    "Exact actual exception privately retained, typename only published; no custom repr/str during snapshot publication",
+    "Registry retains attempts for process lifetime, no discard/reset; at most64new registrations, never evict old owner or limit same-actor waits",
+    "Thread setup/start uncertainty stays quarantined/retained; no retry/restart/cancel; same actual initialized pending operation may continue waits while first error persists"
+  ],
+  "original_factories_emitter_and_location_predicates_byteexact": [
+    "start_fixture",
+    "start_canonical",
+    "start_production",
+    "_emit",
+    "_receipt_source_audit",
+    "_validate_owned_output_path",
+    "_canonical_native_path"
+  ],
+  "before": {
+    "tests": 8,
+    "errors": 8,
+    "scope": "Missing new API only; NOT8production defects"
+  },
+  "first_implemented": {
+    "tests": 11,
+    "passes": 10,
+    "failures": 1,
+    "scope": "Fixture wrongly used pre-spawn command_start; no child then. Corrected actual command_spawned after Popen/pending"
+  },
+  "separate_repr_before": {
+    "tests": 1,
+    "failures": 1,
+    "scope": "Actual custom repr side effect in new owner publication; source blocking risk, not measured hang/RAM/CPU"
+  },
+  "first_fixed": {
+    "tests": 12,
+    "passes": 12
+  },
+  "last_before": {
+    "tests": 2,
+    "failures": 2,
+    "scope": "New registry capacity and Thread object setup failure guards; actual old component ignored synthetic zero capacity and propagated setup error while owner stayed privately registered"
+  },
+  "final": {
+    "tests": 14,
+    "passes": 14,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "composition": "11new owner guards +3required existing constructor/factory callers; separate from earlier canonical-output14/Git78/fullcanonical"
+  },
+  "fixture_scope": "Actual OWN finite Python/Git/Bash fixtures only, actual non-daemon threads and one known retained Popen postspawn-error natural0+EOF. Synthetic lease callbacks/barriers/capacity/thread faults, not original-host credential/kernel controls or worker-side physical official lease proof",
+  "official_EX_held_by_root_runner_through_known_fixture_completion": true,
+  "source_sha256": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "7b808c4ee6bdf4a81cecf92418810472dcec3e767d483b947b2aba2760b40485",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "3764ce61225b2e2c8d3c025d07eabd6a896df7ca0f59214ac14cc9b98e9a9379",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0"
+  },
+  "all_other18_source_files_byteidentical_to_phase_before": true,
+  "all_original_test_classes_functions_byteexact": true,
+  "production_packages_native_bins_unchanged": true,
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "helper_bundle_count": 20,
+  "advice": {
+    "GLM24426_complete_reaped_exit": 0,
+    "GLM_selected_design_qualified": "Preallocation/constructor-boundary and lock assertions partly false; use entry hook, never infer missing pending means false or complete; no generic drain/reset gate",
+    "Qwen99893_complete_reaped_exit": 0,
+    "Qwen_tests_qualified": "No pytest/global-no-mutation/lease-ID/emit-NaN assumptions; actual finite actors naturally waited",
+    "Qwen44173_complete_reaped_exit": 0,
+    "review_epoch": "dbd03a18243b31c76cd47be79e8ab4030bd3a8e02e0ebc23a5acbcfe944d9b96 before last capacity/setup hunks; root checks final changed hunks and complete new component",
+    "root_rejects": [
+      "P0 reset busy after uncertain start would allow recovery/relaunch contrary to terminal attempt; observers still return bounded parameter snapshots. Do not hold observer lock across Thread.start.",
+      "P1 LRU/TTL/release would discard exact owned state; accepted bounded NEW registration capacity64, keep all old owners and waits. Logical count is not heap/RSS proof.",
+      "P2 frozen/stateless lease callback would break actual mutable capability.closed checks; retain same callable, caller owns official EX. No onheap capability authentication claim.",
+      "Non-daemon retention is intentional, not permission to cancel known actors. Hypothetical GIL/RAM/security costs unmeasured; public exception snapshot contains type only, actual primary retained privately."
+    ]
+  },
+  "limitations": [
+    "Caller must retain actual official EX lease through all known command/worker lifetimes; wrapper does not physically retain lease",
+    "Failure/uncertainty preserves exact raw producer but may remain quarantined without public recovery; does NOT resolve all arbitrary partial actors or descendants",
+    "Public snapshots are data-only and do not authenticate source/host/current role/runtime or replace immutable complete admission",
+    "No actual canonical/production recipe/emission/native/SDK/compiler/kernel/perf/broker/benchmark/capture executed"
+  ],
+  "resources": {
+    "latest_free_bytes": 8680267776,
+    "build_floor_bytes": 12884901888,
+    "scoped_floor_bytes": 1073741824,
+    "build_floor_closed": true,
+    "cleanup_attempts": 0,
+    "cause": "UNMEASURED"
+  },
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "live_provider_absent": true,
+  "controller_closed": true,
+  "all_known_current_own_test_model_sessions_terminal": true,
+  "next_action": "Integrate/review component in independently owned complete orchestration, retaining physical official EX and all known command handles; current own source canonical/build/closure/SDK/kernel/original-host controls/admission remain incomplete. No source commit/push/adoption/numerical dispatch.",
+  "publication": {
+    "archive_sha256": "7ab0cf79313d7b2342f55322b960ba79abfbd8042aa71c487f31c317013553ab",
+    "regular_members": 2666,
+    "all_regular_members_byteexact": true,
+    "excluded_private_files": [],
+    "special_nodes_metadata_only": []
+  }
+}
