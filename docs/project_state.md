@@ -7,6 +7,26 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Partial constructor retains a child after worker join (2026-11-03)
+
+One new finite OWN fault fixture shows the constructor worker joined and
+failed/uninitialized while a retained auxiliary child is still pending.
+Public continuation refuses without scheduling another call. The private
+fixture waits on that same child to natural zero and two separate EOFs;
+this direct-handle wait is not a live continuation API.
+[Actual inputs, serialized lifecycle, raw streams and limits](research/2026-11-03-flatbuffers-native-perf-partial-actor-preparation.md).
+
+This is an injected preparation fault with a mocked source guard/one wait
+boundary, not an observed production or canonical-build failure. Parent0,
+child0; four actual lease checks and known completion remain scoped to this
+case. No earlier method/suite is repeated; all20source files and production601
+stay unchanged/uncommitted/uncanonical/unadmitted. Full helper/interpreter/
+instruction closure and original-host authority remain unproved.
+Full controller/provenance work remains incomplete; admission/provider/live
+controller stay closed. No build/kernel/benchmark/capture/strict dispatch or
+RAM cause/repair/acceptance. Observed10.5GB<12GiB buildfloor; no cleanup,
+space-change cause unmeasured.
+
 ## Exact preflight worker joins retained; live admission stays closed (2026-11-03)
 
 A finite target-tail fixture reproduces loss of the prior Thread handle after
