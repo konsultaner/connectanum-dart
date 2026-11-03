@@ -45,7 +45,7 @@ check delivery only. All 20 profiles pass in this run. Matched comparisons and e
 | Profile results | 20 of 20 passed: 16 performance profiles and 4 delivery-only smoke profiles |
 | WebSocket throughput budget | MQTT 5 / 3.1.1 rate ratios 0.743× / 0.753× against a 0.700× floor |
 | 64 KiB CPU budget | 2.952× broker CPU ratio against a 4.000× cap on this AMD runner |
-| MQTT ↔ WAMP translation | No benchmark yet; the live gateway is pending |
+| MQTT ↔ WAMP translation | Both directions measured; [throughput, latency, CPU and per-process memory](#mqtt-and-wamp-gateway) |
 | Typed FlatBuffers PPT parity | No accepted performance result yet; outer-envelope measurements appear below |
 
 | Hosted run and CPU | WS 5 rate × | WS 3.1.1 rate × | TCP 3.1.1 rate × | 64 KiB CPU × | Gate |
@@ -317,6 +317,447 @@ Current scoped coverage is [882/882 native added lines](../../docs/benchmarks/RE
 | WS MQTT 3.1.1 | 0.654 / 0.753 | 0.659 / 0.817 | 6.01 / 5.21 | 5.98 / 4.91 | 22.0 / 22.2 |
 | TCP 64 KiB | 0.902 / 0.890 | 0.876 / 0.878 | 0.61 / 0.56 | 0.60 / 0.60 | 57.0 / 59.7 |
 
+## MQTT and WAMP gateway
+
+Measured on GitHub Actions Ubuntu 24.04, Dart 3.13.1, Paho 2.1.0 and Mosquitto 2.0.18. [X64 source `63a897a5`](https://github.com/konsultaner/connectanum-dart/actions/runs/41327609801) · [ARM64 source `839bbf6e`](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501) · [X64 archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-2026-11-01) · [ARM64 archive](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-retention-2026-11-02). Each default-runtime run has 3,850,000 exact translation deliveries. Required CI keeps the frozen hardware-qualified ARM64 budgets.
+Each profile uses 5 runs of 5,000 publications and fresh clients per cycle. Warm-up sends at least 200 messages and lasts at least 1 second.
+Profiles list link, MQTT version, WAMP codec, payload, subscribers/in-flight messages and MQTT client. SDK means Connectanum.
+7,700,000 exact translation deliveries; 23,100,000 deliveries including controls; zero duplicates.
+
+Throughput and latency use run medians; CPU uses total load CPU divided by message count.
+Rate × compares against the slower matched direct MQTT and WAMP path. WAMP → MQTT uses acknowledged WAMP publications as its control.
+
+Hosts: A/B: X64 AMD EPYC 9V74 80-Core Processor; C: X64 Intel(R) Xeon(R) 6973P-C; D: X64 AMD EPYC 7763 64-Core Processor; ARM64: Neoverse-N2 (four vCPUs).
+
+| Profile | Direction | Delivered/s | MiB/s | p50 / p95 / p99 (µs) | CPU s/M B / P / S | Rate × |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [A] | MQTT → WAMP | 2,500 | 0.31 | 295 / 366 / 439 | 268.0 / 64.0 / 140.4 | 5.000 |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [A] | WAMP → MQTT | 500 | 0.06 | 1,851 / 1,894 / 2,041 | 633.2 / 219.2 / 76.4 | 1.000 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [B] | MQTT → WAMP | 17,399 | 16.99 | 2,005 / 3,414 / 3,806 | 82.1 / 18.4 / 95.6 | 0.880 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [B] | WAMP → MQTT | 11,651 | 11.38 | 3,447 / 5,257 / 5,688 | 125.8 / 124.8 / 45.2 | 0.717 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [C] | MQTT → WAMP | 859 | 53.68 | 923 / 1,211 / 1,353 | 448.4 / 163.6 / 596.8 | 1.718 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [C] | WAMP → MQTT | 308 | 19.25 | 2,836 / 3,989 / 4,262 | 2924.8 / 673.2 / 189.2 | 0.616 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [D] | MQTT → WAMP | 5,141 | 0.63 | 489 / 625 / 786 | 151.6 / 86.4 / 196.4 | 2.570 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [D] | WAMP → MQTT | 1,999 | 0.24 | 1,712 / 1,866 / 1,965 | 238.4 / 315.6 / 101.2 | 1.000 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [A] | MQTT → WAMP | 7,290 | 7.12 | 1,234 / 1,927 / 2,085 | 221.6 / 18.0 / 130.4 | 1.367 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [A] | WAMP → MQTT | 3,184 | 3.11 | 3,138 / 4,611 / 4,915 | 473.2 / 150.8 / 45.6 | 0.708 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [B] | MQTT → WAMP | 573 | 35.84 | 4,896 / 7,054 / 7,377 | 1701.0 / 189.2 / 879.6 | 0.476 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [B] | WAMP → MQTT | 1,057 | 66.09 | 3,447 / 4,370 / 4,690 | 804.7 / 777.6 / 222.0 | 0.932 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [C] | MQTT → WAMP | 8,193 | 1.00 | 1,104 / 1,801 / 2,004 | 171.2 / 13.6 / 88.0 | 1.529 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [C] | WAMP → MQTT | 3,360 | 0.41 | 3,207 / 4,728 / 5,160 | 395.6 / 106.0 / 120.4 | 0.641 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [D] | MQTT → WAMP | 4,042 | 3.95 | 674 / 891 / 1,031 | 202.5 / 196.4 / 263.6 | 2.021 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [D] | WAMP → MQTT | 1,995 | 1.95 | 1,657 / 1,874 / 2,046 | 276.7 / 353.6 / 322.8 | 0.998 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [A] | MQTT → WAMP | 565 | 35.34 | 16,677 / 26,658 / 28,791 | 2375.2 / 639.2 / 896.0 | 0.624 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [A] | WAMP → MQTT | 390 | 24.35 | 21,872 / 32,484 / 34,463 | 3566.8 / 876.8 / 968.0 | 0.430 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [B] | MQTT → WAMP | 14,822 | 1.81 | 2,489 / 4,223 / 4,665 | 93.9 / 13.6 / 117.2 | 0.788 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [B] | WAMP → MQTT | 9,675 | 1.18 | 4,126 / 6,485 / 7,052 | 131.8 / 118.8 / 140.8 | 0.630 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [C] | MQTT → WAMP | 1,491 | 1.46 | 507 / 697 / 821 | 357.2 / 140.8 / 204.0 | 2.982 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [C] | WAMP → MQTT | 500 | 0.49 | 1,845 / 1,945 / 2,149 | 747.6 / 294.8 / 215.6 | 1.000 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [D] | MQTT → WAMP | 631 | 39.42 | 55,569 / 96,167 / 101,299 | 2505.2 / 1009.6 / 983.2 | 0.427 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [D] | WAMP → MQTT | 1,162 | 72.61 | 15,390 / 25,551 / 29,597 | 609.4 / 2668.8 / 1600.8 | 0.786 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [A] | MQTT → WAMP | 2,296 | 0.28 | 324 / 447 / 517 | 283.6 / 77.6 / 154.0 | 4.591 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [A] | WAMP → MQTT | 500 | 0.06 | 1,847 / 1,894 / 2,032 | 638.0 / 214.8 / 78.8 | 1.000 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [B] | MQTT → WAMP | 10,217 | 9.98 | 3,449 / 5,676 / 6,205 | 143.1 / 32.0 / 160.0 | 0.680 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [B] | WAMP → MQTT | 10,426 | 10.18 | 3,567 / 5,478 / 5,858 | 148.0 / 184.4 / 47.2 | 0.840 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [C] | MQTT → WAMP | 487 | 30.42 | 1,772 / 2,339 / 2,595 | 1751.6 / 201.2 / 562.0 | 0.973 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [C] | WAMP → MQTT | 300 | 18.77 | 3,670 / 3,974 / 4,313 | 1249.6 / 1601.6 / 192.8 | 0.601 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [D] | MQTT → WAMP | 3,748 | 0.46 | 753 / 990 / 1,132 | 247.3 / 106.4 / 288.4 | 1.874 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [D] | WAMP → MQTT | 1,997 | 0.24 | 1,691 / 1,870 / 2,003 | 264.9 / 377.6 / 111.2 | 0.998 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [A] | MQTT → WAMP | 7,254 | 7.08 | 1,109 / 1,756 / 1,906 | 235.2 / 30.8 / 109.6 | 1.358 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [A] | WAMP → MQTT | 3,211 | 3.14 | 3,143 / 4,453 / 4,727 | 442.4 / 156.8 / 46.4 | 0.657 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [B] | MQTT → WAMP | 4,215 | 263.44 | 582 / 870 / 1,043 | 195.4 / 188.0 / 256.0 | 2.108 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [B] | WAMP → MQTT | 1,987 | 124.16 | 1,662 / 1,982 / 2,258 | 220.3 / 329.6 / 210.4 | 0.994 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [C] | MQTT → WAMP | 7,147 | 0.87 | 1,345 / 2,084 / 2,286 | 196.4 / 14.8 / 121.6 | 1.357 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [C] | WAMP → MQTT | 3,206 | 0.39 | 3,244 / 4,723 / 5,113 | 428.0 / 143.6 / 117.6 | 0.779 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [D] | MQTT → WAMP | 3,839 | 3.75 | 741 / 931 / 1,061 | 231.1 / 266.4 / 220.4 | 1.919 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [D] | WAMP → MQTT | 1,996 | 1.95 | 1,659 / 1,869 / 2,029 | 268.6 / 332.4 / 326.0 | 0.998 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [A] | MQTT → WAMP | 1,436 | 89.75 | 5,957 / 9,691 / 10,064 | 611.2 / 627.2 / 256.4 | 1.508 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [A] | WAMP → MQTT | 1,044 | 65.24 | 9,185 / 13,390 / 14,284 | 603.2 / 284.4 / 828.4 | 1.097 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [B] | MQTT → WAMP | 16,028 | 1.96 | 2,248 / 3,797 / 4,150 | 83.7 / 16.4 / 104.8 | 0.842 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [B] | WAMP → MQTT | 9,947 | 1.21 | 4,057 / 6,333 / 6,899 | 125.1 / 104.0 / 136.8 | 0.632 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [C] | MQTT → WAMP | 1,661 | 1.62 | 453 / 577 / 683 | 302.4 / 177.6 / 132.8 | 3.322 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [C] | WAMP → MQTT | 500 | 0.49 | 1,845 / 1,953 / 2,119 | 667.6 / 232.8 / 215.2 | 1.000 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [D] | MQTT → WAMP | 1,813 | 113.29 | 20,336 / 33,313 / 36,704 | 339.5 / 922.4 / 1220.0 | 1.199 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [D] | WAMP → MQTT | 911 | 56.93 | 38,355 / 58,825 / 62,005 | 1348.1 / 1044.4 / 1708.4 | 0.602 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [A] | MQTT → WAMP | 2,269 | 0.28 | 352 / 446 / 494 | 282.4 / 127.6 / 141.6 | 4.537 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [A] | WAMP → MQTT | 500 | 0.06 | 1,875 / 1,923 / 2,041 | 610.4 / 223.6 / 134.0 | 1.001 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [B] | MQTT → WAMP | 5,737 | 5.60 | 684 / 1,129 / 1,329 | 251.6 / 114.4 / 132.8 | 1.075 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [B] | WAMP → MQTT | 3,166 | 3.09 | 3,128 / 4,643 / 4,964 | 476.0 / 150.8 / 66.0 | 0.703 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [C] | MQTT → WAMP | 4,934 | 4.82 | 565 / 730 / 861 | 139.4 / 182.0 / 186.0 | 2.467 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [C] | WAMP → MQTT | 1,999 | 1.95 | 1,725 / 1,897 / 2,032 | 199.8 / 278.0 / 147.2 | 1.000 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [D] | MQTT → WAMP | 670 | 41.87 | 47,079 / 85,023 / 90,339 | 2244.8 / 400.0 / 957.6 | 0.253 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [D] | WAMP → MQTT | 2,008 | 125.52 | 5,748 / 8,459 / 9,756 | 546.1 / 2335.6 / 250.0 | 0.773 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [A] | MQTT → WAMP | 151 | 9.43 | 6,378 / 6,849 / 7,734 | 1992.4 / 5086.4 / 615.2 | 0.763 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [A] | WAMP → MQTT | 382 | 23.86 | 1,899 / 3,904 / 4,098 | 1154.8 / 1567.6 / 212.4 | 1.931 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [B] | MQTT → WAMP | 4,841 | 0.59 | 609 / 803 / 898 | 163.9 / 164.0 / 221.6 | 2.420 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [B] | WAMP → MQTT | 1,999 | 0.24 | 1,772 / 1,901 / 2,010 | 180.1 / 270.8 / 122.4 | 1.000 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [C] | MQTT → WAMP | 5,430 | 0.66 | 637 / 1,054 / 1,307 | 242.0 / 117.6 / 134.4 | 1.020 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [C] | WAMP → MQTT | 3,227 | 0.39 | 3,148 / 4,642 / 5,019 | 420.0 / 142.0 / 102.8 | 0.787 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [D] | MQTT → WAMP | 1,390 | 1.36 | 596 / 735 / 820 | 414.4 / 309.6 / 186.4 | 2.781 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [D] | WAMP → MQTT | 500 | 0.49 | 1,824 / 1,918 / 2,051 | 892.0 / 286.0 / 189.2 | 1.000 |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [ARM64] | MQTT → WAMP | 1,581 | 0.19 | 466 / 587 / 697 | 397.6 / 106.4 / 208.8 | 3.162 |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [ARM64] | WAMP → MQTT | 500 | 0.06 | 1,797 / 1,871 / 2,012 | 801.6 / 320.0 / 99.2 | 1.000 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [ARM64] | MQTT → WAMP | 15,414 | 15.05 | 2,238 / 3,984 / 4,529 | 82.2 / 18.4 / 100.4 | 0.761 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [ARM64] | WAMP → MQTT | 10,390 | 10.15 | 3,732 / 5,865 / 6,408 | 137.3 / 139.6 / 51.6 | 0.662 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [ARM64] | MQTT → WAMP | 712 | 44.52 | 1,097 / 1,343 / 1,479 | 564.4 / 244.0 / 769.2 | 1.424 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [ARM64] | WAMP → MQTT | 266 | 16.62 | 3,542 / 4,414 / 4,913 | 3514.8 / 492.4 / 241.6 | 0.532 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [ARM64] | MQTT → WAMP | 4,429 | 0.54 | 556 / 762 / 880 | 160.5 / 117.6 / 208.4 | 2.214 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [ARM64] | WAMP → MQTT | 2,000 | 0.24 | 1,678 / 1,830 / 1,946 | 231.3 / 360.0 / 113.2 | 1.000 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [ARM64] | MQTT → WAMP | 5,707 | 5.57 | 1,539 / 2,499 / 2,845 | 251.2 / 20.0 / 138.8 | 1.082 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [ARM64] | WAMP → MQTT | 2,720 | 2.66 | 3,660 / 5,533 / 5,968 | 559.2 / 167.6 / 57.2 | 0.672 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [ARM64] | MQTT → WAMP | 1,840 | 114.99 | 1,426 / 2,192 / 2,405 | 259.7 / 259.6 / 816.4 | 1.661 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [ARM64] | WAMP → MQTT | 916 | 57.26 | 3,690 / 4,788 / 5,032 | 1002.5 / 961.2 / 257.2 | 0.862 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [ARM64] | MQTT → WAMP | 6,759 | 0.83 | 1,384 / 2,241 / 2,489 | 209.2 / 18.8 / 110.8 | 1.254 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [ARM64] | WAMP → MQTT | 2,948 | 0.36 | 3,526 / 5,330 / 5,799 | 480.4 / 138.0 / 142.4 | 0.684 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [ARM64] | MQTT → WAMP | 3,984 | 3.89 | 667 / 860 / 996 | 171.7 / 209.2 / 238.4 | 1.992 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [ARM64] | WAMP → MQTT | 1,999 | 1.95 | 1,680 / 1,857 / 1,977 | 246.0 / 363.6 / 271.2 | 1.000 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [ARM64] | MQTT → WAMP | 808 | 50.51 | 10,699 / 18,021 / 19,475 | 1115.2 / 854.0 / 829.2 | 1.178 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [ARM64] | WAMP → MQTT | 419 | 26.16 | 20,261 / 31,179 / 33,171 | 3398.8 / 791.6 / 1001.6 | 0.610 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [ARM64] | MQTT → WAMP | 12,759 | 1.56 | 2,878 / 4,935 / 5,521 | 96.1 / 19.2 / 129.2 | 0.678 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [ARM64] | WAMP → MQTT | 8,655 | 1.06 | 4,530 / 7,247 / 7,988 | 141.0 / 135.2 / 143.2 | 0.610 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [ARM64] | MQTT → WAMP | 1,238 | 1.21 | 617 / 810 / 887 | 480.0 / 208.0 / 265.2 | 2.475 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [ARM64] | WAMP → MQTT | 500 | 0.49 | 1,818 / 1,936 / 2,073 | 952.4 / 434.0 / 270.8 | 1.000 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [ARM64] | MQTT → WAMP | 881 | 55.05 | 38,640 / 68,179 / 71,477 | 1805.7 / 922.4 / 774.4 | 0.534 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [ARM64] | WAMP → MQTT | 1,402 | 87.61 | 15,467 / 24,668 / 27,372 | 463.3 / 1767.6 / 1214.4 | 0.850 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [ARM64] | MQTT → WAMP | 1,456 | 0.18 | 507 / 679 / 752 | 425.2 / 122.8 / 225.2 | 2.912 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [ARM64] | WAMP → MQTT | 500 | 0.06 | 1,788 / 1,872 / 2,043 | 865.2 / 325.2 / 106.4 | 1.000 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [ARM64] | MQTT → WAMP | 10,634 | 10.38 | 3,350 / 5,613 / 6,322 | 112.3 / 27.6 / 160.0 | 0.761 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [ARM64] | WAMP → MQTT | 8,793 | 8.59 | 4,129 / 6,587 / 7,139 | 168.9 / 204.0 / 58.0 | 0.801 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [ARM64] | MQTT → WAMP | 391 | 24.44 | 2,198 / 2,605 / 3,227 | 2178.0 / 301.6 / 778.4 | 0.783 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [ARM64] | WAMP → MQTT | 295 | 18.46 | 2,731 / 4,662 / 4,846 | 1746.0 / 2048.0 / 256.4 | 0.592 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [ARM64] | MQTT → WAMP | 3,717 | 0.45 | 697 / 975 / 1,129 | 206.1 / 138.0 / 257.2 | 1.859 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [ARM64] | WAMP → MQTT | 1,998 | 0.24 | 1,682 / 1,841 / 1,983 | 242.3 / 390.4 / 108.0 | 0.999 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [ARM64] | MQTT → WAMP | 5,831 | 5.69 | 1,397 / 2,257 / 2,528 | 255.2 / 32.4 / 119.2 | 1.095 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [ARM64] | WAMP → MQTT | 2,932 | 2.86 | 3,301 / 4,942 / 5,330 | 504.4 / 170.0 / 55.2 | 0.703 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [ARM64] | MQTT → WAMP | 3,279 | 204.94 | 790 / 1,100 / 1,291 | 231.2 / 259.6 / 284.8 | 1.640 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [ARM64] | WAMP → MQTT | 1,976 | 123.51 | 1,609 / 1,982 / 2,231 | 266.2 / 452.8 / 209.2 | 0.988 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [ARM64] | MQTT → WAMP | 5,613 | 0.69 | 1,739 / 2,676 / 2,912 | 243.2 / 20.8 / 148.8 | 1.325 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [ARM64] | WAMP → MQTT | 2,683 | 0.33 | 3,721 / 5,634 / 6,079 | 543.6 / 177.2 / 150.0 | 0.781 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [ARM64] | MQTT → WAMP | 3,832 | 3.74 | 711 / 904 / 1,021 | 194.3 / 267.2 / 202.8 | 1.916 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [ARM64] | WAMP → MQTT | 1,999 | 1.95 | 1,661 / 1,848 / 1,984 | 249.4 / 375.6 / 284.0 | 1.000 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [ARM64] | MQTT → WAMP | 1,032 | 64.52 | 8,243 / 13,659 / 14,263 | 796.4 / 806.4 / 327.2 | 1.432 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [ARM64] | WAMP → MQTT | 868 | 54.28 | 11,060 / 16,061 / 16,852 | 686.4 / 329.6 / 895.2 | 1.205 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [ARM64] | MQTT → WAMP | 13,554 | 1.65 | 2,707 / 4,630 / 5,234 | 89.4 / 23.2 / 119.2 | 0.720 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [ARM64] | WAMP → MQTT | 8,759 | 1.07 | 4,449 / 7,201 / 7,990 | 139.1 / 124.8 / 144.4 | 0.595 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [ARM64] | MQTT → WAMP | 1,223 | 1.19 | 632 / 781 / 872 | 486.8 / 279.2 / 205.6 | 2.446 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [ARM64] | WAMP → MQTT | 500 | 0.49 | 1,809 / 1,914 / 2,071 | 863.2 / 364.8 / 278.8 | 1.000 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [ARM64] | MQTT → WAMP | 2,160 | 135.02 | 15,691 / 27,419 / 29,102 | 311.5 / 881.2 / 763.2 | 1.291 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [ARM64] | WAMP → MQTT | 1,281 | 80.09 | 29,985 / 47,368 / 50,736 | 881.3 / 335.6 / 1258.4 | 0.766 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [ARM64] | MQTT → WAMP | 1,317 | 0.16 | 603 / 751 / 830 | 442.4 / 239.2 / 230.4 | 2.633 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [ARM64] | WAMP → MQTT | 500 | 0.06 | 1,792 / 1,882 / 2,024 | 862.8 / 364.0 / 178.4 | 1.000 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [ARM64] | MQTT → WAMP | 4,475 | 4.37 | 769 / 1,316 / 1,597 | 276.0 / 144.4 / 142.0 | 0.838 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [ARM64] | WAMP → MQTT | 2,871 | 2.80 | 3,487 / 5,274 / 5,760 | 510.0 / 150.4 / 70.4 | 0.696 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [ARM64] | MQTT → WAMP | 3,560 | 3.48 | 789 / 1,024 / 1,152 | 190.4 / 287.2 / 255.6 | 1.780 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [ARM64] | WAMP → MQTT | 1,994 | 1.95 | 1,638 / 1,850 / 2,015 | 270.6 / 426.0 / 204.8 | 0.997 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [ARM64] | MQTT → WAMP | 895 | 55.96 | 34,465 / 61,584 / 65,137 | 1757.1 / 348.4 / 814.4 | 0.236 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [ARM64] | WAMP → MQTT | 2,519 | 157.46 | 5,110 / 7,484 / 8,442 | 425.9 / 1791.2 / 199.6 | 0.669 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [ARM64] | MQTT → WAMP | 119 | 7.45 | 8,025 / 8,510 / 9,108 | 2470.4 / 6218.4 / 826.8 | 0.770 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [ARM64] | WAMP → MQTT | 305 | 19.09 | 2,797 / 4,730 / 4,847 | 1594.0 / 1937.2 / 250.8 | 1.971 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [ARM64] | MQTT → WAMP | 3,447 | 0.42 | 824 / 1,084 / 1,225 | 201.8 / 274.0 / 274.0 | 1.724 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [ARM64] | WAMP → MQTT | 1,996 | 0.24 | 1,665 / 1,850 / 2,024 | 245.8 / 416.0 / 166.4 | 0.998 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [ARM64] | MQTT → WAMP | 3,289 | 0.40 | 883 / 1,425 / 1,738 | 357.2 / 214.0 / 197.6 | 0.802 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [ARM64] | WAMP → MQTT | 2,557 | 0.31 | 3,664 / 5,808 / 6,394 | 571.6 / 189.6 / 125.6 | 0.775 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [ARM64] | MQTT → WAMP | 1,075 | 1.05 | 763 / 902 / 1,005 | 490.4 / 389.2 / 238.0 | 2.149 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [ARM64] | WAMP → MQTT | 499 | 0.49 | 1,786 / 1,895 / 2,069 | 894.8 / 385.6 / 202.4 | 0.999 |
+
+CPU is seconds per million broker deliveries (B), publisher messages (P), and received messages for the highest individual subscriber (S).
+Memory shows median warm / highest peak / highest drained RSS in MiB. Peaks use the OS process high-water mark; subscriber columns show the highest individual reading. All subscribers are checked by the gate.
+Allocation counters are unavailable in these release runtimes.
+
+| Profile | Direction | Broker MiB | Publisher MiB | Subscriber MiB | Raw broker RSS growth MiB / MiB per cycle |
+| --- | --- | ---: | ---: | ---: | ---: |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [A] | MQTT → WAMP | 22.8 / 34.3 / 22.8 | 15.9 / 34.3 / 16.5 | 21.7 / 34.3 / 23.7 | 0.3 / 0.1 |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [A] | WAMP → MQTT | 29.5 / 34.3 / 30.6 | 21.3 / 34.3 / 21.6 | 15.0 / 34.3 / 16.6 | 2.2 / 0.5 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [B] | MQTT → WAMP | 31.8 / 34.3 / 32.3 | 15.8 / 34.3 / 15.9 | 22.0 / 34.3 / 22.4 | 1.3 / 0.3 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [B] | WAMP → MQTT | 31.4 / 34.5 / 34.5 | 21.3 / 34.3 / 22.6 | 16.6 / 34.3 / 17.4 | 4.8 / 1.2 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [C] | MQTT → WAMP | 37.3 / 56.7 / 55.2 | 15.7 / 34.3 / 15.8 | 21.6 / 34.3 / 23.0 | 23.6 / 5.6 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [C] | WAMP → MQTT | 31.8 / 63.6 / 33.2 | 21.1 / 34.3 / 22.0 | 17.1 / 34.3 / 17.4 | 0.5 / 0.1 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [D] | MQTT → WAMP | 28.9 / 34.4 / 29.2 | 15.8 / 34.4 / 16.5 | 21.6 / 34.4 / 22.6 | 0.7 / 0.2 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [D] | WAMP → MQTT | 29.2 / 34.4 / 30.8 | 21.0 / 34.4 / 21.4 | 15.2 / 34.4 / 16.6 | 1.8 / 0.5 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [A] | MQTT → WAMP | 30.6 / 34.3 / 30.7 | 15.9 / 34.3 / 16.0 | 22.0 / 34.3 / 22.7 | 0.8 / 0.2 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [A] | WAMP → MQTT | 30.8 / 34.4 / 34.4 | 21.3 / 34.3 / 22.7 | 16.6 / 34.3 / 17.3 | 4.9 / 1.3 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [B] | MQTT → WAMP | 35.4 / 65.2 / 37.3 | 15.8 / 34.3 / 15.9 | 21.5 / 34.3 / 31.2 | 2.1 / 0.4 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [B] | WAMP → MQTT | 31.4 / 62.1 / 32.1 | 21.2 / 34.3 / 22.9 | 17.3 / 34.3 / 17.7 | 1.0 / 0.2 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [C] | MQTT → WAMP | 31.3 / 34.3 / 31.6 | 17.1 / 34.3 / 17.2 | 22.8 / 34.3 / 23.2 | 1.7 / 0.4 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [C] | WAMP → MQTT | 31.3 / 34.3 / 31.9 | 22.6 / 34.3 / 23.3 | 21.5 / 34.3 / 22.6 | 1.1 / 0.3 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [D] | MQTT → WAMP | 32.5 / 34.4 / 32.7 | 17.1 / 34.4 / 17.2 | 22.5 / 34.4 / 24.7 | 0.4 / 0.1 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [D] | WAMP → MQTT | 31.3 / 34.4 / 31.5 | 22.4 / 34.4 / 23.2 | 18.7 / 34.4 / 21.5 | 0.5 / 0.1 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [A] | MQTT → WAMP | 75.4 / 105.9 / 100.8 | 47.7 / 48.6 / 48.2 | 22.9 / 34.3 / 32.5 | 15.2 / 0.0 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [A] | WAMP → MQTT | 58.8 / 65.0 / 60.5 | 53.6 / 55.4 / 55.4 | 18.9 / 34.3 / 29.2 | 24.7 / 4.6 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [B] | MQTT → WAMP | 31.8 / 34.3 / 32.3 | 17.0 / 34.3 / 17.2 | 23.5 / 34.3 / 25.4 | 1.1 / 0.3 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [B] | WAMP → MQTT | 33.5 / 36.3 / 36.2 | 22.6 / 34.3 / 22.9 | 21.4 / 34.3 / 22.6 | 4.4 / 1.1 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [C] | MQTT → WAMP | 24.7 / 34.3 / 24.9 | 17.0 / 34.3 / 17.6 | 22.5 / 34.3 / 23.8 | 0.5 / 0.1 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [C] | WAMP → MQTT | 31.1 / 34.3 / 32.3 | 22.5 / 34.3 / 23.8 | 19.4 / 34.3 / 21.6 | 1.4 / 0.4 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [D] | MQTT → WAMP | 41.2 / 96.1 / 43.8 | 23.4 / 48.6 / 48.6 | 30.3 / 34.4 / 32.3 | 1.1 / 0.0 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [D] | WAMP → MQTT | 37.7 / 42.6 / 40.8 | 52.5 / 63.8 / 54.8 | 19.0 / 34.4 / 29.8 | 5.5 / 1.4 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [A] | MQTT → WAMP | 23.1 / 34.3 / 23.2 | 16.5 / 34.3 / 16.6 | 21.7 / 34.3 / 22.4 | 0.5 / 0.1 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [A] | WAMP → MQTT | 30.2 / 34.3 / 32.9 | 21.5 / 34.3 / 22.2 | 15.3 / 34.3 / 16.8 | 3.8 / 0.9 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [B] | MQTT → WAMP | 31.2 / 34.3 / 32.8 | 16.4 / 34.3 / 16.5 | 22.2 / 34.3 / 24.3 | 2.2 / 0.5 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [B] | WAMP → MQTT | 32.7 / 38.1 / 38.1 | 21.6 / 34.3 / 23.1 | 17.0 / 34.3 / 17.4 | 7.3 / 1.8 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [C] | MQTT → WAMP | 30.9 / 34.3 / 31.3 | 16.2 / 34.3 / 16.4 | 21.8 / 34.3 / 30.2 | 0.7 / 0.1 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [C] | WAMP → MQTT | 34.1 / 36.9 / 36.3 | 22.7 / 34.3 / 24.1 | 17.2 / 34.3 / 17.7 | 5.2 / 1.4 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [D] | MQTT → WAMP | 29.7 / 34.4 / 30.0 | 16.0 / 34.4 / 16.5 | 21.4 / 34.4 / 23.6 | 1.0 / 0.2 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [D] | WAMP → MQTT | 30.8 / 34.4 / 33.6 | 21.3 / 34.4 / 22.5 | 15.3 / 34.4 / 16.7 | 3.6 / 0.9 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [A] | MQTT → WAMP | 29.7 / 34.3 / 30.0 | 16.4 / 34.3 / 16.6 | 22.2 / 34.3 / 23.3 | 0.6 / 0.1 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [A] | WAMP → MQTT | 30.2 / 34.3 / 31.3 | 21.6 / 34.3 / 23.4 | 17.0 / 34.3 / 17.4 | 1.6 / 0.4 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [B] | MQTT → WAMP | 40.2 / 69.7 / 42.1 | 16.2 / 34.3 / 16.3 | 29.9 / 34.3 / 33.2 | 3.1 / 0.8 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [B] | WAMP → MQTT | 35.0 / 38.2 / 35.1 | 21.8 / 34.3 / 22.4 | 17.3 / 34.3 / 17.5 | 4.4 / 0.4 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [C] | MQTT → WAMP | 31.8 / 34.3 / 31.9 | 17.6 / 34.3 / 17.7 | 24.7 / 34.3 / 26.9 | 1.0 / 0.2 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [C] | WAMP → MQTT | 33.7 / 37.9 / 37.9 | 22.9 / 34.3 / 24.3 | 21.7 / 34.3 / 24.7 | 7.0 / 1.7 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [D] | MQTT → WAMP | 31.8 / 34.4 / 32.0 | 17.5 / 34.4 / 17.6 | 22.8 / 34.4 / 23.1 | 0.5 / 0.1 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [D] | WAMP → MQTT | 31.4 / 34.4 / 31.8 | 22.5 / 34.4 / 23.2 | 19.3 / 34.4 / 21.6 | 1.2 / 0.3 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [A] | MQTT → WAMP | 57.1 / 72.1 / 68.3 | 49.2 / 49.8 / 49.8 | 31.1 / 34.3 / 33.0 | 22.7 / 0.2 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [A] | WAMP → MQTT | 41.6 / 50.0 / 46.0 | 54.6 / 54.9 / 54.3 | 19.0 / 34.3 / 19.5 | 12.1 / 2.8 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [B] | MQTT → WAMP | 31.5 / 34.3 / 32.1 | 17.6 / 34.3 / 17.6 | 23.2 / 34.3 / 25.1 | 1.2 / 0.3 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [B] | WAMP → MQTT | 32.2 / 35.0 / 35.0 | 22.9 / 34.3 / 24.3 | 21.6 / 34.3 / 22.6 | 3.3 / 0.9 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [C] | MQTT → WAMP | 24.6 / 34.3 / 24.7 | 17.6 / 34.3 / 17.8 | 23.3 / 34.3 / 24.7 | 0.2 / 0.1 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [C] | WAMP → MQTT | 31.3 / 34.3 / 33.6 | 22.6 / 34.3 / 23.3 | 19.4 / 34.3 / 21.5 | 2.5 / 0.6 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [D] | MQTT → WAMP | 119.6 / 146.3 / 133.9 | 49.2 / 49.8 / 49.7 | 23.7 / 34.4 / 34.2 | 12.1 / 0.0 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [D] | WAMP → MQTT | 62.5 / 68.3 / 63.4 | 53.2 / 54.7 / 54.3 | 19.0 / 34.4 / 29.2 | 3.4 / 0.0 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [A] | MQTT → WAMP | 22.8 / 34.3 / 22.9 | 25.5 / 34.3 / 25.6 | 21.6 / 34.3 / 23.4 | 0.2 / 0.0 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [A] | WAMP → MQTT | 30.0 / 34.3 / 32.1 | 21.2 / 34.3 / 21.5 | 25.7 / 34.3 / 25.8 | 2.7 / 0.7 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [B] | MQTT → WAMP | 30.0 / 34.3 / 30.3 | 25.6 / 34.3 / 25.7 | 21.5 / 34.3 / 22.5 | 0.7 / 0.2 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [B] | WAMP → MQTT | 31.6 / 35.4 / 35.4 | 21.3 / 34.3 / 22.6 | 25.9 / 34.3 / 26.3 | 5.7 / 1.4 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [C] | MQTT → WAMP | 31.9 / 34.3 / 32.8 | 26.9 / 34.3 / 27.0 | 22.7 / 34.3 / 23.1 | 8.0 / 1.7 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [C] | WAMP → MQTT | 31.4 / 34.3 / 33.5 | 22.4 / 34.3 / 23.2 | 27.1 / 34.3 / 27.3 | 2.4 / 0.6 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [D] | MQTT → WAMP | 64.7 / 134.6 / 85.5 | 26.7 / 34.4 / 26.9 | 30.2 / 34.4 / 32.6 | 37.2 / 3.4 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [D] | WAMP → MQTT | 38.1 / 42.9 / 41.2 | 53.2 / 63.9 / 54.9 | 27.1 / 34.4 / 27.7 | 6.0 / 1.5 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [A] | MQTT → WAMP | 31.6 / 41.8 / 31.7 | 25.9 / 34.3 / 26.1 | 21.6 / 34.3 / 32.3 | 0.7 / 0.1 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [A] | WAMP → MQTT | 35.0 / 38.1 / 37.5 | 23.0 / 34.3 / 24.2 | 26.2 / 34.3 / 26.5 | 4.2 / 1.1 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [B] | MQTT → WAMP | 23.6 / 34.3 / 30.8 | 25.7 / 34.3 / 25.7 | 21.5 / 34.3 / 23.4 | 7.8 / 1.7 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [B] | WAMP → MQTT | 31.5 / 34.4 / 34.4 | 21.4 / 34.3 / 22.8 | 25.8 / 34.3 / 26.0 | 4.2 / 1.0 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [C] | MQTT → WAMP | 31.8 / 34.3 / 32.1 | 27.0 / 34.3 / 27.1 | 24.5 / 34.3 / 26.3 | 0.5 / 0.1 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [C] | WAMP → MQTT | 34.0 / 38.2 / 38.2 | 22.9 / 34.3 / 24.2 | 27.2 / 34.3 / 27.6 | 6.7 / 1.7 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [D] | MQTT → WAMP | 24.7 / 34.4 / 24.8 | 26.7 / 34.4 / 26.8 | 23.1 / 34.4 / 24.6 | 0.3 / 0.1 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [D] | WAMP → MQTT | 31.8 / 34.4 / 33.5 | 22.5 / 34.4 / 23.2 | 26.7 / 34.4 / 26.9 | 2.3 / 0.6 |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [ARM64] | MQTT → WAMP | 22.2 / 34.1 / 22.2 | 15.2 / 34.1 / 15.6 | 20.2 / 34.1 / 21.5 | 0.2 / 0.1 |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [ARM64] | WAMP → MQTT | 28.8 / 34.1 / 30.0 | 20.1 / 34.1 / 20.4 | 14.2 / 34.1 / 15.9 | 1.3 / 0.3 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [ARM64] | MQTT → WAMP | 30.3 / 37.4 / 30.2 | 15.2 / 37.5 / 15.7 | 20.9 / 37.5 / 21.4 | 1.1 / 0.3 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [ARM64] | WAMP → MQTT | 30.7 / 37.5 / 33.0 | 20.3 / 38.0 / 20.7 | 15.8 / 38.0 / 17.8 | 4.3 / 1.1 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [ARM64] | MQTT → WAMP | 43.8 / 53.1 / 42.9 | 14.9 / 34.2 / 15.1 | 20.5 / 34.2 / 21.7 | 8.0 / 1.9 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [ARM64] | WAMP → MQTT | 31.0 / 61.8 / 31.4 | 20.2 / 34.6 / 21.0 | 16.4 / 34.6 / 16.8 | 1.9 / 0.3 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [ARM64] | MQTT → WAMP | 22.5 / 34.8 / 29.2 | 14.7 / 34.9 / 15.5 | 20.5 / 34.9 / 22.0 | 7.0 / 1.5 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [ARM64] | WAMP → MQTT | 28.6 / 34.9 / 30.6 | 20.0 / 34.9 / 20.4 | 14.5 / 34.9 / 15.9 | 2.2 / 0.6 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [ARM64] | MQTT → WAMP | 29.2 / 34.7 / 29.1 | 15.1 / 34.9 / 15.4 | 20.5 / 34.9 / 21.3 | 0.6 / 0.2 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [ARM64] | WAMP → MQTT | 31.2 / 35.5 / 35.4 | 20.3 / 35.2 / 21.1 | 15.8 / 35.2 / 17.8 | 6.8 / 1.7 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [ARM64] | MQTT → WAMP | 28.6 / 36.3 / 31.1 | 15.0 / 36.4 / 15.1 | 20.5 / 36.4 / 30.1 | 6.2 / 1.6 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [ARM64] | WAMP → MQTT | 31.3 / 62.4 / 31.5 | 20.1 / 36.5 / 21.4 | 16.5 / 36.5 / 18.1 | 0.5 / 0.1 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [ARM64] | MQTT → WAMP | 29.9 / 34.6 / 30.0 | 16.1 / 34.8 / 16.1 | 21.7 / 34.8 / 22.0 | 1.0 / 0.2 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [ARM64] | WAMP → MQTT | 30.1 / 34.8 / 30.9 | 21.3 / 35.0 / 22.1 | 20.4 / 35.1 / 21.8 | 1.4 / 0.4 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [ARM64] | MQTT → WAMP | 30.5 / 34.8 / 30.4 | 16.0 / 34.8 / 16.3 | 21.4 / 34.8 / 23.0 | 0.7 / 0.2 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [ARM64] | WAMP → MQTT | 30.2 / 34.8 / 31.3 | 21.2 / 34.9 / 22.0 | 18.0 / 34.9 / 20.8 | 1.7 / 0.4 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [ARM64] | MQTT → WAMP | 45.6 / 56.5 / 49.5 | 47.0 / 47.7 / 47.5 | 21.6 / 35.4 / 31.2 | 15.5 / 3.8 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [ARM64] | WAMP → MQTT | 35.4 / 65.6 / 34.4 | 27.8 / 35.6 / 30.8 | 17.9 / 35.6 / 29.2 | 1.9 / 0.0 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [ARM64] | MQTT → WAMP | 30.6 / 37.6 / 30.7 | 16.2 / 37.9 / 16.2 | 22.1 / 37.9 / 24.8 | 0.5 / 0.1 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [ARM64] | WAMP → MQTT | 31.3 / 37.9 / 34.0 | 21.1 / 38.4 / 21.8 | 19.2 / 38.4 / 21.6 | 4.2 / 1.1 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [ARM64] | MQTT → WAMP | 23.4 / 34.1 / 23.5 | 16.2 / 34.1 / 16.2 | 20.9 / 34.1 / 22.3 | 0.4 / 0.1 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [ARM64] | WAMP → MQTT | 30.5 / 34.1 / 31.7 | 21.0 / 34.1 / 22.2 | 18.0 / 34.1 / 18.8 | 1.8 / 0.5 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [ARM64] | MQTT → WAMP | 58.1 / 61.4 / 56.1 | 36.6 / 48.5 / 48.5 | 29.1 / 40.0 / 31.6 | 22.8 / 4.5 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [ARM64] | WAMP → MQTT | 36.5 / 43.2 / 38.4 | 22.8 / 40.0 / 24.9 | 18.0 / 40.0 / 30.1 | 5.6 / 1.5 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [ARM64] | MQTT → WAMP | 22.1 / 34.0 / 22.2 | 15.6 / 34.1 / 15.8 | 20.4 / 34.1 / 20.7 | 0.2 / 0.1 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [ARM64] | WAMP → MQTT | 29.5 / 34.1 / 31.2 | 20.2 / 34.1 / 21.0 | 14.6 / 34.1 / 15.9 | 2.9 / 0.7 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [ARM64] | MQTT → WAMP | 30.5 / 38.0 / 31.5 | 15.7 / 38.3 / 15.7 | 21.0 / 38.3 / 24.1 | 2.2 / 0.5 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [ARM64] | WAMP → MQTT | 31.7 / 38.3 / 36.0 | 20.1 / 38.3 / 21.5 | 16.3 / 38.3 / 17.0 | 6.5 / 1.6 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [ARM64] | MQTT → WAMP | 30.7 / 33.9 / 30.6 | 15.5 / 34.2 / 15.5 | 20.4 / 34.2 / 30.3 | 0.1 / 0.1 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [ARM64] | WAMP → MQTT | 34.7 / 37.0 / 35.8 | 21.4 / 34.3 / 22.4 | 16.4 / 34.3 / 16.8 | 3.5 / 0.9 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [ARM64] | MQTT → WAMP | 22.5 / 34.8 / 23.1 | 15.2 / 34.8 / 15.8 | 20.2 / 34.8 / 23.1 | 1.0 / 0.3 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [ARM64] | WAMP → MQTT | 29.6 / 34.8 / 31.5 | 20.1 / 34.9 / 21.3 | 14.6 / 34.9 / 16.7 | 2.8 / 0.7 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [ARM64] | MQTT → WAMP | 29.9 / 34.9 / 30.2 | 15.5 / 34.9 / 15.7 | 20.7 / 34.9 / 21.4 | 1.2 / 0.3 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [ARM64] | WAMP → MQTT | 29.9 / 34.9 / 32.2 | 20.7 / 35.0 / 22.1 | 16.3 / 35.0 / 16.6 | 3.5 / 0.9 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [ARM64] | MQTT → WAMP | 32.0 / 64.4 / 32.0 | 15.4 / 38.3 / 15.4 | 28.4 / 38.3 / 31.8 | 0.1 / 0.0 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [ARM64] | WAMP → MQTT | 34.5 / 38.3 / 34.7 | 20.3 / 38.3 / 22.4 | 16.6 / 38.3 / 16.7 | 2.0 / 0.4 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [ARM64] | MQTT → WAMP | 30.5 / 35.1 / 30.6 | 16.7 / 35.1 / 16.7 | 22.9 / 35.1 / 24.8 | 0.9 / 0.2 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [ARM64] | WAMP → MQTT | 31.7 / 36.0 / 36.0 | 21.1 / 35.1 / 22.7 | 21.2 / 35.1 / 23.0 | 6.2 / 1.5 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [ARM64] | MQTT → WAMP | 23.9 / 35.1 / 24.6 | 16.6 / 35.1 / 18.0 | 21.5 / 35.1 / 23.0 | 1.4 / 0.3 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [ARM64] | WAMP → MQTT | 30.4 / 35.1 / 31.4 | 20.9 / 35.1 / 21.8 | 18.3 / 35.1 / 20.8 | 1.4 / 0.4 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [ARM64] | MQTT → WAMP | 44.2 / 62.0 / 55.4 | 48.6 / 50.1 / 50.1 | 29.4 / 35.7 / 31.0 | 22.0 / 5.6 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [ARM64] | WAMP → MQTT | 40.8 / 45.8 / 38.2 | 22.3 / 35.9 / 27.0 | 18.0 / 35.9 / 26.6 | 2.2 / 0.7 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [ARM64] | MQTT → WAMP | 31.1 / 37.5 / 31.1 | 16.5 / 38.1 / 16.7 | 21.6 / 38.1 / 23.1 | 0.5 / 0.1 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [ARM64] | WAMP → MQTT | 31.7 / 38.1 / 34.1 | 21.3 / 38.6 / 22.8 | 20.2 / 38.6 / 22.7 | 4.0 / 1.0 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [ARM64] | MQTT → WAMP | 23.5 / 35.1 / 23.5 | 16.6 / 35.1 / 16.8 | 21.7 / 35.1 / 23.2 | 0.3 / 0.1 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [ARM64] | WAMP → MQTT | 30.2 / 35.1 / 30.3 | 21.0 / 35.1 / 21.7 | 18.4 / 35.1 / 18.8 | 0.3 / 0.1 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [ARM64] | MQTT → WAMP | 48.5 / 71.2 / 63.5 | 48.7 / 48.9 / 48.9 | 22.0 / 40.1 / 32.3 | 21.2 / 0.0 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [ARM64] | WAMP → MQTT | 60.7 / 68.3 / 57.7 | 21.6 / 40.1 / 23.0 | 18.1 / 40.1 / 29.4 | 0.3 / 0.2 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [ARM64] | MQTT → WAMP | 22.1 / 35.6 / 22.2 | 24.3 / 35.6 / 24.3 | 20.4 / 35.6 / 21.2 | 0.2 / 0.0 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [ARM64] | WAMP → MQTT | 29.9 / 35.6 / 31.9 | 20.0 / 35.6 / 20.4 | 24.5 / 35.6 / 24.6 | 3.2 / 0.8 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [ARM64] | MQTT → WAMP | 29.5 / 38.6 / 29.4 | 24.3 / 38.6 / 24.3 | 20.4 / 38.6 / 21.3 | 0.4 / 0.1 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [ARM64] | WAMP → MQTT | 30.9 / 38.6 / 35.0 | 20.3 / 38.6 / 21.1 | 24.5 / 38.6 / 25.0 | 5.8 / 1.5 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [ARM64] | MQTT → WAMP | 24.1 / 34.9 / 31.5 | 25.4 / 35.1 / 25.4 | 21.3 / 35.1 / 21.8 | 7.9 / 2.3 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [ARM64] | WAMP → MQTT | 29.9 / 35.1 / 30.1 | 21.0 / 35.1 / 22.0 | 25.5 / 35.1 / 25.6 | 0.6 / 0.1 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [ARM64] | MQTT → WAMP | 56.8 / 63.2 / 55.9 | 25.5 / 40.3 / 25.5 | 21.6 / 40.3 / 31.7 | 23.7 / 4.7 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [ARM64] | WAMP → MQTT | 38.4 / 44.9 / 39.4 | 23.7 / 40.3 / 25.2 | 25.8 / 40.3 / 26.3 | 6.4 / 1.5 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [ARM64] | MQTT → WAMP | 29.9 / 34.4 / 29.6 | 24.6 / 34.4 / 24.6 | 20.3 / 34.4 / 29.2 | 0.6 / 0.1 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [ARM64] | WAMP → MQTT | 33.1 / 36.4 / 35.4 | 21.2 / 34.5 / 22.4 | 24.8 / 34.5 / 25.0 | 5.9 / 1.4 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [ARM64] | MQTT → WAMP | 22.6 / 38.6 / 22.9 | 24.3 / 38.6 / 24.3 | 20.2 / 38.6 / 22.9 | 0.7 / 0.2 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [ARM64] | WAMP → MQTT | 29.6 / 38.6 / 31.6 | 19.9 / 38.6 / 21.1 | 24.4 / 38.6 / 24.6 | 2.8 / 0.7 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [ARM64] | MQTT → WAMP | 30.6 / 34.9 / 30.8 | 25.4 / 35.1 / 25.4 | 21.7 / 35.1 / 23.9 | 0.5 / 0.1 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [ARM64] | WAMP → MQTT | 31.5 / 36.0 / 36.0 | 21.1 / 35.2 / 22.5 | 25.6 / 35.2 / 26.1 | 6.1 / 1.5 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [ARM64] | MQTT → WAMP | 23.4 / 34.9 / 23.5 | 25.4 / 34.9 / 25.4 | 21.6 / 34.9 / 23.2 | 0.3 / 0.1 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [ARM64] | WAMP → MQTT | 30.2 / 34.9 / 32.3 | 21.1 / 34.9 / 21.9 | 25.5 / 34.9 / 25.5 | 2.4 / 0.6 |
+
+Matched direct controls, delivered messages/s. Mosquitto measures the MQTT leg.
+
+| Profile | Direct MQTT/s | Direct WAMP/s | Ack WAMP/s | Mosquitto/s |
+| --- | ---: | ---: | ---: | ---: |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [A] | 4,928 | 500 | 500 | 6,589 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [B] | 106,162 | 19,766 | 16,259 | 1,556 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [C] | 2,086 | 500 | 500 | 2,829 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [D] | 8,476 | 2,000 | 2,000 | 9,683 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [A] | 39,534 | 5,334 | 4,497 | 391 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [B] | 6,191 | 1,205 | 1,135 | 6,641 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [C] | 28,950 | 5,360 | 5,239 | 4,713 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [D] | 5,132 | 2,000 | 2,000 | 5,357 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [A] | 906 | 1,195 | 1,164 | 993 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [B] | 92,154 | 18,800 | 15,353 | 32,149 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [C] | 2,339 | 500 | 500 | 3,109 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [D] | 1,479 | 2,642 | 2,591 | 1,461 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [A] | 4,669 | 500 | 500 | 5,970 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [B] | 77,415 | 15,015 | 12,414 | 66,790 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [C] | 2,015 | 500 | 500 | 2,114 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [D] | 8,201 | 2,000 | 2,000 | 9,233 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [A] | 25,856 | 5,343 | 4,889 | 31,233 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [B] | 5,943 | 2,000 | 1,999 | 2,736 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [C] | 30,314 | 5,265 | 4,117 | 16,335 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [D] | 4,635 | 2,000 | 2,000 | 4,871 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [A] | 952 | 4,094 | 3,749 | 943 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [B] | 92,482 | 19,037 | 15,729 | 34,486 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [C] | 2,031 | 500 | 500 | 2,605 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [D] | 1,512 | 2,570 | 2,509 | 1,175 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [A] | 4,003 | 500 | 500 | 5,156 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [B] | 10,169 | 5,339 | 4,506 | 389 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [C] | 8,473 | 2,000 | 2,000 | 10,961 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [D] | 7,505 | 2,647 | 2,600 | 3,137 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [A] | 198 | 500 | 500 | 195 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [B] | 10,007 | 2,000 | 2,000 | 11,575 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [C] | 8,190 | 5,323 | 4,100 | 10,690 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [D] | 1,966 | 500 | 500 | 2,275 |
+| TCP 5 · JSON · 128 B · 1/1 · SDK [ARM64] | 3,005 | 500 | 500 | 4,219 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK [ARM64] | 84,543 | 20,263 | 15,686 | 1,553 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK [ARM64] | 1,507 | 500 | 500 | 1,932 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK [ARM64] | 7,513 | 2,000 | 2,000 | 8,377 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK [ARM64] | 31,525 | 5,273 | 4,048 | 437 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK [ARM64] | 4,504 | 1,108 | 1,063 | 5,095 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK [ARM64] | 26,975 | 5,391 | 4,311 | 2,900 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK [ARM64] | 5,138 | 2,000 | 2,000 | 5,418 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK [ARM64] | 686 | 1,327 | 1,309 | 562 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK [ARM64] | 69,027 | 18,817 | 14,198 | 22,046 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK [ARM64] | 2,018 | 500 | 500 | 2,336 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK [ARM64] | 1,650 | 3,885 | 3,781 | 1,269 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK [ARM64] | 2,790 | 500 | 500 | 3,664 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK [ARM64] | 69,997 | 13,982 | 10,984 | 67,564 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK [ARM64] | 1,446 | 500 | 499 | 1,365 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK [ARM64] | 6,959 | 2,000 | 2,000 | 8,451 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK [ARM64] | 22,706 | 5,327 | 4,172 | 28,126 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK [ARM64] | 4,609 | 1,999 | 1,999 | 3,016 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK [ARM64] | 24,842 | 4,236 | 3,437 | 16,112 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK [ARM64] | 4,448 | 2,000 | 2,000 | 4,866 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK [ARM64] | 721 | 3,670 | 3,238 | 550 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK [ARM64] | 64,893 | 18,815 | 14,711 | 30,739 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK [ARM64] | 1,689 | 500 | 500 | 2,114 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK [ARM64] | 1,674 | 4,184 | 4,018 | 1,274 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho [ARM64] | 2,265 | 500 | 500 | 3,112 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho [ARM64] | 7,514 | 5,340 | 4,123 | 389 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho [ARM64] | 5,546 | 2,000 | 2,000 | 6,205 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho [ARM64] | 8,050 | 3,794 | 3,766 | 8,363 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho [ARM64] | 155 | 500 | 499 | 155 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho [ARM64] | 5,736 | 2,000 | 2,000 | 6,821 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho [ARM64] | 4,285 | 4,099 | 3,297 | 7,041 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho [ARM64] | 1,694 | 500 | 500 | 1,968 |
+
+The slow-consumer check stalls one subscriber for 20 seconds during 2,048 × 64 KiB publications, 3 times per case.
+Healthy subscribers receive every message; the stalled connection closes at its queue limit. Fresh clients then receive all 64 recovery messages on the same router, with queues and client state empty after disconnect.
+
+| Link / codec | Direction | Healthy delivered/s | Slow received, max | Peak MiB B / P / healthy / slow | Drained MiB B / P / healthy / slow | Recovery/cycle |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| TCP 5 · CBOR · 64 KiB · 2/16 · SDK [A] | MQTT → WAMP | 1,437 | 161 | 94.4 / 44.8 / 34.3 / 100.6 | 92.5 / 44.8 / 26.3 / 100.6 | 64/64 |
+| TCP 5 · CBOR · 64 KiB · 2/16 · SDK [A] | WAMP → MQTT | 472 | 285 | 65.6 / 52.8 / 36.4 / 58.9 | 56.7 / 52.7 / 36.4 / 40.5 | 64/64 |
+| WSS 3.1.1 · FlatBuffers · 64 KiB · 2/16 · SDK [B] | MQTT → WAMP | 404 | 97 | 72.7 / 49.8 / 34.3 / 92.5 | 50.1 / 49.8 / 24.0 / 91.6 | 64/64 |
+| WSS 3.1.1 · FlatBuffers · 64 KiB · 2/16 · SDK [B] | WAMP → MQTT | 405 | 69 | 68.1 / 55.3 / 34.3 / 34.3 | 58.9 / 54.6 / 19.1 / 19.0 | 64/64 |
+| TCP 5 · CBOR · 64 KiB · 2/16 · SDK [ARM64] | MQTT → WAMP | 1,467 | 161 | 98.4 / 44.4 / 35.3 / 100.2 | 55.3 / 44.4 / 23.9 / 31.6 | 64/64 |
+| TCP 5 · CBOR · 64 KiB · 2/16 · SDK [ARM64] | WAMP → MQTT | 472 | 23 | 64.4 / 35.4 / 37.6 / 35.4 | 56.0 / 20.8 / 37.6 / 20.2 | 64/64 |
+| WSS 3.1.1 · FlatBuffers · 64 KiB · 2/16 · SDK [ARM64] | MQTT → WAMP | 849 | 97 | 53.6 / 48.8 / 38.4 / 92.5 | 33.6 / 48.8 / 29.7 / 27.7 | 64/64 |
+| WSS 3.1.1 · FlatBuffers · 64 KiB · 2/16 · SDK [ARM64] | WAMP → MQTT | 433 | 78 | 68.0 / 38.4 / 38.4 / 38.4 | 56.8 / 29.5 / 18.3 / 18.1 | 64/64 |
+
+Retained memory after collection, measured separately on the same ARM64 host class: [source `839bbf6e`](https://github.com/konsultaner/connectanum-dart/actions/runs/41464161501) · [raw evidence](https://github.com/konsultaner/connectanum-dart/releases/tag/benchmark-history-mqtt-gateway-retention-2026-11-02).
+These readings measure retained growth after collection. The speed and live RSS tables above use the default runtime.
+B / P / S means broker / publisher / highest individual subscriber. Retained is the largest positive change from warm to drained RSS; all subscribers are checked.
+
+| Profile | Direction | Drained MiB B / P / S | Retained MiB B / P / S | Broker growth MiB / MiB per cycle |
+| --- | --- | ---: | ---: | ---: |
+| TCP 5 · JSON · 128 B · 1/1 · SDK | MQTT → WAMP | 20.5 / 15.4 / 19.5 | 1.0 / 0.6 / 0.7 | 0.6 / 0.1 |
+| TCP 5 · JSON · 128 B · 1/1 · SDK | WAMP → MQTT | 23.9 / 19.4 / 14.0 | 0.0 / 0.5 / 0.0 | 0.7 / 0.1 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK | MQTT → WAMP | 27.6 / 13.5 / 23.4 | 3.9 / 0.5 / 4.7 | 5.3 / 0.0 |
+| TCP 5 · MessagePack · 1 KiB · 4/16 · SDK | WAMP → MQTT | 24.4 / 19.1 / 14.2 | 2.0 / 1.1 / 0.0 | 0.0 / 0.0 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK | MQTT → WAMP | 25.3 / 13.4 / 19.5 | 1.7 / 0.0 / 1.1 | 5.2 / 0.6 |
+| TCP 5 · CBOR · 64 KiB · 1/1 · SDK | WAMP → MQTT | 27.3 / 19.2 / 14.7 | 3.4 / 0.7 / 1.0 | 6.7 / 0.8 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK | MQTT → WAMP | 21.0 / 15.3 / 20.7 | 0.5 / 0.5 / 1.4 | 0.6 / 0.1 |
+| TCP 3.1.1 · MessagePack · 128 B · 4/1 · SDK | WAMP → MQTT | 24.8 / 19.5 / 14.1 | 1.2 / 1.5 / 0.0 | 0.0 / 0.0 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK | MQTT → WAMP | 26.0 / 13.6 / 24.3 | 3.0 / 0.0 / 5.8 | 0.0 / 0.0 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · SDK | WAMP → MQTT | 27.7 / 19.2 / 14.2 | 5.5 / 1.1 / 0.0 | 4.1 / 1.1 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK | MQTT → WAMP | 21.4 / 13.5 / 23.5 | 0.8 / 0.0 / 3.2 | 0.7 / 0.0 |
+| TCP 3.1.1 · FlatBuffers · 64 KiB · 4/1 · SDK | WAMP → MQTT | 26.8 / 24.6 / 16.1 | 3.2 / 6.1 / 0.7 | 0.0 / 0.0 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK | MQTT → WAMP | 26.9 / 16.7 / 25.2 | 4.0 / 1.1 / 5.7 | 0.0 / 0.0 |
+| TLS 5 · MessagePack · 128 B · 1/16 · SDK | WAMP → MQTT | 25.6 / 20.4 / 17.3 | 0.0 / 1.1 / 1.9 | 3.4 / 0.0 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK | MQTT → WAMP | 27.1 / 15.5 / 21.7 | 3.0 / 0.0 / 1.5 | 0.0 / 0.0 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · SDK | WAMP → MQTT | 25.0 / 20.5 / 17.0 | 1.0 / 0.1 / 1.8 | 0.0 / 0.0 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK | MQTT → WAMP | 29.1 / 14.4 / 26.6 | 2.0 / 0.0 / 2.6 | 3.4 / 0.0 |
+| TLS 5 · FlatBuffers · 64 KiB · 1/16 · SDK | WAMP → MQTT | 29.4 / 26.3 / 21.6 | 6.8 / 5.6 / 5.5 | 5.3 / 0.1 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK | MQTT → WAMP | 28.4 / 14.5 / 27.0 | 6.4 / 0.0 / 7.9 | 0.4 / 0.0 |
+| TLS 3.1.1 · CBOR · 128 B · 4/16 · SDK | WAMP → MQTT | 28.0 / 20.1 / 18.5 | 4.3 / 0.8 / 2.7 | 4.3 / 0.0 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK | MQTT → WAMP | 21.9 / 15.5 / 20.2 | 1.1 / 0.0 / 1.2 | 0.3 / 0.0 |
+| TLS 3.1.1 · FlatBuffers · 1 KiB · 1/1 · SDK | WAMP → MQTT | 26.6 / 20.3 / 16.5 | 2.8 / 0.2 / 1.2 | 2.2 / 0.0 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK | MQTT → WAMP | 30.5 / 14.6 / 26.6 | 4.9 / 0.0 / 6.1 | 3.7 / 0.4 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · SDK | WAMP → MQTT | 29.1 / 21.0 / 22.8 | 2.9 / 0.7 / 5.1 | 1.7 / 0.0 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK | MQTT → WAMP | 20.7 / 13.6 / 19.7 | 1.0 / 0.0 / 1.5 | 0.8 / 0.1 |
+| WS 5 · CBOR · 128 B · 1/1 · SDK | WAMP → MQTT | 24.5 / 20.0 / 13.1 | 1.5 / 0.6 / 0.0 | 2.2 / 0.0 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK | MQTT → WAMP | 27.0 / 14.0 / 24.9 | 2.7 / 0.0 / 6.2 | 2.1 / 0.0 |
+| WS 5 · FlatBuffers · 1 KiB · 4/16 · SDK | WAMP → MQTT | 26.9 / 19.5 / 14.4 | 3.2 / 1.3 / 0.7 | 1.0 / 0.0 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK | MQTT → WAMP | 25.0 / 13.5 / 22.3 | 5.0 / 0.0 / 0.1 | 0.0 / 0.0 |
+| WS 5 · JSON · 64 KiB · 1/1 · SDK | WAMP → MQTT | 26.7 / 21.1 / 14.7 | 0.0 / 1.1 / 1.1 | 5.7 / 0.1 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK | MQTT → WAMP | 23.8 / 14.1 / 20.7 | 0.5 / 0.5 / 1.1 | 3.1 / 0.6 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · SDK | WAMP → MQTT | 26.5 / 19.5 / 13.6 | 4.0 / 1.2 / 0.6 | 2.0 / 0.0 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK | MQTT → WAMP | 26.4 / 13.5 / 24.8 | 5.2 / 0.0 / 6.4 | 2.4 / 0.1 |
+| WS 3.1.1 · JSON · 1 KiB · 1/16 · SDK | WAMP → MQTT | 24.7 / 19.3 / 13.8 | 0.6 / 0.6 / 0.1 | 0.0 / 0.0 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK | MQTT → WAMP | 25.8 / 13.5 / 19.9 | 5.6 / 0.0 / 0.0 | 0.0 / 0.0 |
+| WS 3.1.1 · MessagePack · 64 KiB · 4/1 · SDK | WAMP → MQTT | 27.9 / 20.9 / 14.6 | 1.2 / 0.6 / 1.1 | 4.0 / 0.8 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK | MQTT → WAMP | 28.2 / 15.4 / 20.2 | 7.9 / 1.0 / 1.1 | 7.1 / 0.7 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · SDK | WAMP → MQTT | 27.5 / 19.9 / 19.7 | 2.5 / 0.2 / 4.3 | 2.5 / 0.2 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK | MQTT → WAMP | 26.0 / 16.2 / 20.4 | 3.5 / 0.5 / 1.3 | 4.4 / 0.6 |
+| WSS 5 · JSON · 1 KiB · 4/1 · SDK | WAMP → MQTT | 28.6 / 20.4 / 15.9 | 5.4 / 0.7 / 0.0 | 7.9 / 1.7 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK | MQTT → WAMP | 28.9 / 18.0 / 22.0 | 4.9 / 0.0 / 0.0 | 4.1 / 1.3 |
+| WSS 5 · MessagePack · 64 KiB · 1/16 · SDK | WAMP → MQTT | 29.2 / 22.0 / 20.2 | 2.4 / 0.8 / 4.3 | 4.1 / 0.0 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK | MQTT → WAMP | 26.3 / 14.4 / 26.2 | 2.4 / 0.0 / 6.6 | 4.6 / 1.4 |
+| WSS 3.1.1 · JSON · 128 B · 4/16 · SDK | WAMP → MQTT | 24.9 / 19.6 / 18.0 | 0.0 / 0.3 / 2.6 | 4.5 / 0.3 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK | MQTT → WAMP | 21.6 / 15.0 / 20.7 | 0.7 / 0.5 / 0.2 | 0.3 / 0.1 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · SDK | WAMP → MQTT | 24.9 / 20.4 / 15.3 | 3.1 / 1.2 / 0.0 | 3.0 / 0.4 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK | MQTT → WAMP | 27.5 / 18.1 / 26.4 | 0.0 / 0.0 / 2.6 | 1.7 / 0.5 |
+| WSS 3.1.1 · CBOR · 64 KiB · 4/16 · SDK | WAMP → MQTT | 30.1 / 21.1 / 23.1 | 4.8 / 1.1 / 5.3 | 2.6 / 0.5 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho | MQTT → WAMP | 20.6 / 24.5 / 19.3 | 0.5 / 0.0 / 0.7 | 0.8 / 0.2 |
+| TCP 5 · JSON · 128 B · 1/1 · Paho | WAMP → MQTT | 24.7 / 19.3 / 24.7 | 3.5 / 0.9 / 0.1 | 3.0 / 0.6 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho | MQTT → WAMP | 26.9 / 24.5 / 19.6 | 4.5 / 0.0 / 1.2 | 1.5 / 0.0 |
+| TCP 3.1.1 · CBOR · 1 KiB · 1/16 · Paho | WAMP → MQTT | 27.5 / 19.5 / 25.0 | 6.0 / 1.3 / 0.0 | 6.3 / 0.9 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho | MQTT → WAMP | 27.3 / 25.6 / 21.6 | 5.4 / 0.0 / 1.0 | 5.7 / 0.5 |
+| TLS 5 · CBOR · 1 KiB · 4/1 · Paho | WAMP → MQTT | 26.7 / 19.6 / 25.8 | 3.7 / 0.0 / 0.0 | 0.0 / 0.0 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho | MQTT → WAMP | 29.2 / 25.7 / 26.2 | 5.3 / 0.0 / 5.9 | 2.1 / 0.6 |
+| TLS 3.1.1 · JSON · 64 KiB · 4/16 · Paho | WAMP → MQTT | 29.3 / 20.9 / 26.1 | 4.5 / 1.0 / 0.0 | 5.6 / 1.1 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho | MQTT → WAMP | 25.5 / 24.8 / 25.4 | 2.3 / 0.0 / 3.6 | 4.6 / 0.0 |
+| WS 5 · JSON · 64 KiB · 1/1 · Paho | WAMP → MQTT | 28.1 / 20.0 / 25.2 | 1.6 / 0.8 / 0.2 | 5.3 / 1.2 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho | MQTT → WAMP | 25.4 / 24.5 / 19.4 | 4.0 / 0.0 / 1.1 | 5.6 / 1.2 |
+| WS 3.1.1 · FlatBuffers · 128 B · 4/1 · Paho | WAMP → MQTT | 25.7 / 20.3 / 24.7 | 4.0 / 1.1 / 0.1 | 5.3 / 1.1 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho | MQTT → WAMP | 28.2 / 25.6 / 20.2 | 1.5 / 0.0 / 0.6 | 2.4 / 0.0 |
+| WSS 5 · FlatBuffers · 128 B · 1/16 · Paho | WAMP → MQTT | 27.1 / 20.6 / 26.1 | 3.2 / 0.7 / 0.0 | 2.4 / 0.8 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho | MQTT → WAMP | 22.0 / 25.6 / 20.8 | 1.0 / 0.0 / 1.3 | 1.7 / 0.2 |
+| WSS 3.1.1 · MessagePack · 1 KiB · 1/1 · Paho | WAMP → MQTT | 27.0 / 20.3 / 25.7 | 3.5 / 1.1 / 0.1 | 4.0 / 0.1 |
+
+The separate retention stress also repeats each slow-consumer case three times.
+
+| Profile | Direction | Drained MiB B / P / healthy / slow | Retained MiB B / P / healthy / slow | Broker growth MiB | Recovery/cycle |
+| --- | --- | ---: | ---: | ---: | --- |
+| TCP 5 · CBOR · 64 KiB · 2/16 · SDK | MQTT → WAMP | 27.6 / 16.0 / 20.8 / 18.8 | 6.1 / 0.0 / 3.1 / 0.8 | 4.4 | 64/64 |
+| TCP 5 · CBOR · 64 KiB · 2/16 · SDK | WAMP → MQTT | 27.1 / 19.5 / 20.3 / 18.6 | 5.7 / 1.0 / 6.4 / 1.7 | 1.3 | 64/64 |
+| WSS 3.1.1 · FlatBuffers · 64 KiB · 2/16 · SDK | MQTT → WAMP | 27.9 / 16.4 / 22.9 / 26.1 | 4.5 / 0.0 / 2.7 / 5.2 | 6.6 | 64/64 |
+| WSS 3.1.1 · FlatBuffers · 64 KiB · 2/16 · SDK | WAMP → MQTT | 28.0 / 26.2 / 15.1 / 15.2 | 5.1 / 6.3 / 0.0 / 0.4 | 0.0 | 64/64 |
+
 ## WAMP throughput
 
 Each cell shows **sustained / full-lifecycle throughput** in Gbit/s; higher is better.
@@ -390,6 +831,10 @@ dart run connectanum_bench:bench_router_service
 The [native orchestrator](https://github.com/konsultaner/connectanum-dart/tree/master/native/bench)
 and its scenarios run complete WAMP campaigns. The
 [MQTT gate script](../../tool/run_mqtt_benchmark_gate.py) and
-[CI workflow](../../.github/workflows/dart.yml) show the MQTT run setup. For
+[CI workflow](../../.github/workflows/dart.yml) show the MQTT run setup. The
+[gateway runner](../../tool/run_mqtt_gateway_benchmark.py) and
+[Linux gateway workflow](../../.github/workflows/mqtt-gateway-benchmarks.yml)
+reproduce the translation and memory measurements with pinned independent
+clients. For
 typed payload setup and test coverage, see the
 [FlatBuffers acceptance contract](../../docs/flatbuffers_performance_acceptance.md).

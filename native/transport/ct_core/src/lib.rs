@@ -58,6 +58,8 @@ mod http1_stream;
 mod http3_admission_tests;
 mod http_body;
 mod http_stream;
+#[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+mod idle_allocator;
 mod io_stream;
 mod ktls;
 mod platform;
@@ -1713,6 +1715,10 @@ struct ListenerRegistry {
     connections: Mutex<HashMap<ConnectionId, ConnectionEntry>>,
     connection_events: Mutex<VecDeque<HttpConnectionEvent>>,
     next_listener_id: AtomicU32,
+    #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+    idle_allocator: Arc<idle_allocator::IdleAllocatorRelease>,
+    #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+    shutting_down: AtomicBool,
 }
 
 impl Default for ListenerRegistry {
@@ -1723,6 +1729,10 @@ impl Default for ListenerRegistry {
             connections: Mutex::new(HashMap::new()),
             connection_events: Mutex::new(VecDeque::new()),
             next_listener_id: AtomicU32::new(0),
+            #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+            idle_allocator: idle_allocator::shared(),
+            #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+            shutting_down: AtomicBool::new(false),
         }
     }
 }
@@ -2208,6 +2218,8 @@ impl ListenerRegistry {
     }
 
     fn shutdown(&self) {
+        #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+        self.shutting_down.store(true, Ordering::Release);
         let listener_entries: Vec<ListenerEntry> = self
             .listeners
             .lock()
@@ -2275,7 +2287,18 @@ impl ListenerRegistry {
         }
     }
 
-    fn close_connection(&self, connection_id: ConnectionId) -> Result<(), Error> {
+    fn close_connection(self: &Arc<Self>, connection_id: ConnectionId) -> Result<(), Error> {
+        let result = self.remove_connection(connection_id);
+        // Peer disconnects and heartbeat failures close from Tokio tasks rather
+        // than the public FFI wrapper. They must also return idle allocator pages.
+        #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            self.schedule_idle_allocator_release(&handle, idle_allocator::release_unused_pages);
+        }
+        result
+    }
+
+    fn remove_connection(&self, connection_id: ConnectionId) -> Result<(), Error> {
         let entry = self
             .connections
             .lock()
@@ -2332,6 +2355,39 @@ impl ListenerRegistry {
             | ConnectionRecord::Http3Pending { .. } => {}
         }
         Ok(())
+    }
+
+    #[cfg(any(test, all(target_os = "linux", target_env = "gnu")))]
+    fn schedule_idle_allocator_release(
+        self: &Arc<Self>,
+        handle: &tokio::runtime::Handle,
+        release: impl FnOnce() + Send + 'static,
+    ) {
+        let idle = !self.shutting_down.load(Ordering::Acquire)
+            && self
+                .connections
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner())
+                .is_empty();
+        let Some(reservation) = self.idle_allocator.reserve(idle) else {
+            return;
+        };
+        let registry = Arc::downgrade(self);
+        handle.spawn(async move {
+            time::sleep(idle_allocator::IDLE_DELAY).await;
+            // Allocator locks and page release must not occupy an I/O worker.
+            tokio::task::spawn_blocking(move || {
+                if let Some(registry) = registry.upgrade() {
+                    let idle = !registry.shutting_down.load(Ordering::Acquire)
+                        && registry
+                            .connections
+                            .lock()
+                            .unwrap_or_else(|poison| poison.into_inner())
+                            .is_empty();
+                    reservation.release_if_due(idle, Instant::now(), release);
+                }
+            });
+        });
     }
 
     fn register_rawsocket_connection(
@@ -2493,10 +2549,10 @@ impl ListenerRegistry {
         let accept_value = websocket_accept_value(&handshake.sec_websocket_key);
         let mut stream = handshake.into_stream();
         write_websocket_handshake_response(&mut stream, &accept_value, Some("mqtt")).await?;
-        // Coalesce small cleartext MQTT WebSocket publications. TLS sockets
-        // retain TCP_NODELAY to avoid delayed ACKs on sparse TLS records.
+        // Keep sparse publications independent of delayed TCP acknowledgments.
+        // Queued frame coalescing must not rely on the Nagle timer.
         if stream.is_plain_tcp() {
-            let _ = stream.set_nodelay(false);
+            let _ = stream.set_nodelay(true);
         }
         self.register_mqtt_stream_connection(
             handle,
@@ -2530,6 +2586,24 @@ impl ListenerRegistry {
             .cloned()
             .unwrap_or(handle);
         let stream = stream.into_runtime(&handle)?;
+        // Bound unsent MQTT bytes without disabling the kernel's TCP window
+        // autotuning for high-latency links.
+        #[cfg(target_os = "linux")]
+        if let Ok(Some(fd)) = stream.try_clone_plain_fd() {
+            use std::os::fd::AsRawFd;
+            let lowat: u32 = 128 * 1024;
+            // SAFETY: fd owns a live TCP socket; lowat points to a valid u32
+            // for the duration of this synchronous socket-option call.
+            let _ = unsafe {
+                libc::setsockopt(
+                    fd.as_raw_fd(),
+                    libc::IPPROTO_TCP,
+                    libc::TCP_NOTSENT_LOWAT,
+                    (&lowat as *const u32).cast(),
+                    std::mem::size_of_val(&lowat) as libc::socklen_t,
+                )
+            };
+        }
         // Linux reactor wakeups dominate small cleartext MQTT WS traffic.
         // Other platforms and TLS retain immediate flushing.
         let coalesce_bursts = cfg!(target_os = "linux") && stream.is_plain_tcp();
@@ -6793,9 +6867,17 @@ pub fn wait_connection_message(
 /// and send Close(1000), then cancels it after one second if the peer is stalled.
 /// Await tracked write receipts or a drain barrier before close when successful
 /// local delivery is required. Independent caller-owned views remain valid.
+/// On glibc Linux, an empty registry also schedules bounded idle allocator cleanup.
 pub fn close_connection(connection_id: ConnectionId) -> Result<(), Error> {
     let manager = RuntimeManager::global();
-    manager.with_state(|state| state.registry.close_connection(connection_id))
+    manager.with_state(|state| {
+        let result = state.registry.close_connection(connection_id);
+        #[cfg(all(target_os = "linux", target_env = "gnu"))]
+        state
+            .registry
+            .schedule_idle_allocator_release(&state.handle, idle_allocator::release_unused_pages);
+        result
+    })
 }
 
 /// Opens an outbound RawSocket client connection and registers it in the runtime.
@@ -11000,6 +11082,57 @@ mod tests {
             assert!(matches!(result, Err(Error::Io(_))));
             assert!(registry.connections.lock().unwrap().is_empty());
         });
+    }
+
+    #[tokio::test]
+    async fn mqtt_websocket_upgrade_preserves_tcp_nodelay_for_sparse_publications() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let mut client = tokio::net::TcpStream::connect(listener.local_addr().unwrap())
+            .await
+            .unwrap();
+        let (server, peer_addr) = listener.accept().await.unwrap();
+        let server = server.into_std().unwrap();
+        // A duplicated descriptor observes the actual connection's options
+        // without taking ownership from the registered reader/writer tasks.
+        let observer = server.try_clone().unwrap();
+        let server = tokio::net::TcpStream::from_std(server).unwrap();
+        let mut endpoint = build_client_endpoint_config(
+            "127.0.0.1",
+            0,
+            false,
+            TransportProtocol::Mqtt,
+            config::DEFAULT_RAWSOCKET_SIZE_EXPONENT,
+            None,
+            None,
+        );
+        endpoint.protocols.push(TransportProtocol::Websocket);
+        client.write_all(b"GET /mqtt HTTP/1.1\r\nHost: localhost\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: mqtt\r\n\r\n").await.unwrap();
+        let registry = Arc::new(ListenerRegistry::default());
+        let config_state = Arc::new(ListenerConfigState::new(Arc::new(endpoint), None));
+        let (sender, mut accepted) = mpsc::channel(1);
+        time::timeout(
+            Duration::from_secs(5),
+            negotiate_accepted_connection(
+                server,
+                peer_addr,
+                ListenerId(1),
+                config_state,
+                Arc::clone(&registry),
+                tokio::runtime::Handle::current(),
+                sender,
+            ),
+        )
+        .await
+        .unwrap();
+        let id = time::timeout(Duration::from_secs(5), accepted.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            observer.nodelay().unwrap(),
+            "MQTT WS must not re-enable Nagle after upgrade"
+        );
+        registry.close_connection(id).unwrap();
     }
 
     #[test]

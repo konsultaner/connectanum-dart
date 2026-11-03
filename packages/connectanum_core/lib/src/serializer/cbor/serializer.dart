@@ -983,6 +983,15 @@ class Serializer extends AbstractSerializer {
     return result;
   }
 
+  /// Encode EVENT vectors without joining the complete transport frame.
+  List<Uint8List>? serializeEventFragments(Event message) =>
+      _serializeCborPayloadSegments(4, [
+        MessageTypes.codeEvent,
+        message.subscriptionId,
+        message.publicationId,
+        _serializeEventDetails(message.details),
+      ], message);
+
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is Call) {
@@ -1395,8 +1404,21 @@ class Serializer extends AbstractSerializer {
     AbstractMessageWithPayload message,
   ) {
     final payloadFragments = _lazyCborPayloadFragments(message);
-    final binaryArgument = payloadFragments == null
-        ? _materializedSingleBinaryArgument(message)
+    final arguments =
+        payloadFragments == null &&
+            !message.hasLazyArguments &&
+            !message.hasLazyArgumentsKeywords &&
+            message.wireArgumentsKeywords == null
+        ? message.wireArguments
+        : null;
+    // A small argument prefix keeps common binary RPCs segmented, including
+    // [topic, payload], without materializing the payload in the CBOR encoder.
+    final binaryArgument =
+        arguments != null &&
+            arguments.isNotEmpty &&
+            arguments.length < 24 &&
+            arguments.last is Uint8List
+        ? arguments.last as Uint8List
         : null;
     if (payloadFragments == null && binaryArgument == null) {
       return null;
@@ -1415,24 +1437,12 @@ class Serializer extends AbstractSerializer {
       return <Uint8List>[prefix.takeBytes(), ...payloadFragments];
     }
 
-    prefix
-      ..add(const [0x81])
-      ..add(_encodeCborByteStringHeader(binaryArgument!.length));
+    prefix.add([_fixArrayHeader(arguments!.length)]);
+    for (final argument in arguments.take(arguments.length - 1)) {
+      prefix.add(_encodeCborValue(argument));
+    }
+    prefix.add(_encodeCborByteStringHeader(binaryArgument!.length));
     return <Uint8List>[prefix.takeBytes(), binaryArgument];
-  }
-
-  Uint8List? _materializedSingleBinaryArgument(
-    AbstractMessageWithPayload message,
-  ) {
-    if (message.hasLazyArguments || message.hasLazyArgumentsKeywords) {
-      return null;
-    }
-    final arguments = message.wireArguments;
-    if (message.wireArgumentsKeywords != null || arguments?.length != 1) {
-      return null;
-    }
-    final argument = arguments!.single;
-    return argument is Uint8List ? argument : null;
   }
 
   List<Uint8List>? _lazyCborPayloadFragments(

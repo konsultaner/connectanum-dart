@@ -20,10 +20,24 @@ import 'wire_writer.dart';
 /// message is used. Native read-only buffers can retain their backing owner.
 /// Transport capability negotiation is separate from this stateless codec.
 class Serializer extends AbstractSerializer {
+  /// Encode a complete transport frame, borrowing binary application arguments.
+  /// Even an unfragmented frame is finished once; retain all fragment owners
+  /// and contents until transmission completes.
+  List<Uint8List> serializeTransportFragments(AbstractMessage message) =>
+      _serializeFragments(
+        message,
+        borrowBinaryArguments: true,
+        includeUnfragmented: true,
+      )!;
+
   @override
   Uint8List serialize(AbstractMessage message) {
     final builder = WampFlatBufferBuilder();
-    builder.finish(writeWampFlatBufferMessage(message, builder));
+    return _finishFrame(builder, writeWampFlatBufferMessage(message, builder));
+  }
+
+  static Uint8List _finishFrame(WampFlatBufferBuilder builder, int root) {
+    builder.finish(root);
     final bytes = builder.buffer;
     if (bytes.length > 64 * 1024 * 1024) {
       throw ArgumentError('FlatBuffers frame exceeds the byte limit');
@@ -34,18 +48,36 @@ class Serializer extends AbstractSerializer {
   /// Encode one WAMP frame while retaining its encoded application byte views.
   /// Concatenate the fragments in order; each fragment is part of that frame.
   /// Keep their backing owners and contents valid until transmission completes.
-  /// Ordinary Dart arguments still require CBOR encoding before composition.
+  /// Set [borrowBinaryArguments] to retain materialized binary argument bytes
+  /// inside CBOR vectors. The default keeps their detached encoded storage.
   @override
-  List<Uint8List>? serializeFragments(AbstractMessage message) {
-    if (message is! AbstractMessageWithPayload) return null;
+  List<Uint8List>? serializeFragments(
+    AbstractMessage message, {
+    bool borrowBinaryArguments = false,
+  }) => _serializeFragments(
+    message,
+    borrowBinaryArguments: borrowBinaryArguments,
+  );
+
+  List<Uint8List>? _serializeFragments(
+    AbstractMessage message, {
+    bool borrowBinaryArguments = false,
+    bool includeUnfragmented = false,
+  }) {
+    if (message is! AbstractMessageWithPayload) {
+      return includeUnfragmented ? [serialize(message)] : null;
+    }
     final builder = WampFlatBufferBuilder();
     final vectors = <DeferredFlatBufferVector>[];
     final root = writeWampFlatBufferMessage(
       message,
       builder,
       deferredVectors: vectors,
+      borrowBinaryArguments: borrowBinaryArguments,
     );
-    if (vectors.isEmpty) return null;
+    if (vectors.isEmpty) {
+      return includeUnfragmented ? [_finishFrame(builder, root)] : null;
+    }
     return finishWampFlatBufferFragments(builder, root, vectors);
   }
 

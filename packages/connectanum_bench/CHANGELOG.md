@@ -2,6 +2,9 @@
 
 ## 3.0.0-beta.8
 
+- Measure MQTT ↔ WAMP throughput, latency, CPU and per-process memory in both
+  directions, with Connectanum/Paho clients, direct controls, slow-consumer
+  recovery, numeric CI budgets and README tables.
 - Add FlatBuffers transport and typed-payload benchmark scenarios, native-owned
   construction modes and source-observed copy metrics to the benchmark package.
 - Keep the existing budgets; FlatBuffers performance parity and complete copy

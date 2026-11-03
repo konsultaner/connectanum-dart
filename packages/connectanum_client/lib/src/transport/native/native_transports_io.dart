@@ -30,14 +30,22 @@ List<int> collectNativeReceiveBatch(
   int firstHandle,
   int Function() pollHandle, {
   int maxBatchSize = _nativeReceiveBatchSize,
+  void Function(int)? releaseOnFailure,
 }) {
   final batch = <int>[firstHandle];
-  while (batch.length < maxBatchSize) {
-    final nextHandle = pollHandle();
-    if (nextHandle <= 0) {
-      break;
+  try {
+    while (batch.length < maxBatchSize) {
+      final nextHandle = pollHandle();
+      if (nextHandle <= 0) {
+        break;
+      }
+      batch.add(nextHandle);
     }
-    batch.add(nextHandle);
+  } catch (_) {
+    for (final handle in batch) {
+      releaseOnFailure?.call(handle);
+    }
+    rethrow;
   }
   return batch;
 }
@@ -1554,7 +1562,10 @@ class _NativeReceiveWorker {
   final Set<List<int>> _pendingBatches;
   final void Function(int) _releaseHandle;
 
-  void takeBatch(List<int> batch) => _pendingBatches.remove(batch);
+  void takeBatch(List<int> batch) {
+    if (_pendingBatches.remove(batch)) _controlPort.send(batch.first);
+  }
+
   final SendPort _controlPort;
   Future<void>? _closeFuture;
 
@@ -1651,39 +1662,84 @@ class _NativeReceiveWorker {
   }
 }
 
+/// One credited batch bounds the cross-isolate handoff when the receiving
+/// isolate stalls. The native socket queue then supplies normal backpressure.
+@visibleForTesting
+Future<void> runNativeReceiveWorkerLoop({
+  required Stream<Object?> commands,
+  required int Function() waitHandle,
+  required int Function() pollHandle,
+  required void Function(int) releaseHandle,
+  required void Function(Object) sendBatch,
+}) async {
+  var stopped = false;
+  Completer<void>? credit;
+  int? expectedCredit;
+  void resume() {
+    final pending = credit;
+    if (pending != null && !pending.isCompleted) pending.complete();
+  }
+
+  void stop() {
+    stopped = true;
+    resume();
+  }
+
+  final subscription = commands.listen((message) {
+    if (message == null) {
+      stop();
+    } else if (message == expectedCredit) {
+      resume();
+    }
+  }, onDone: stop);
+  try {
+    while (!stopped) {
+      final handle = waitHandle();
+      if (handle > 0) {
+        final batch = collectNativeReceiveBatch(
+          handle,
+          pollHandle,
+          releaseOnFailure: releaseHandle,
+        );
+        final consumed = credit = Completer<void>();
+        expectedCredit = handle;
+        sendBatch(batch.length == 1 ? handle : batch);
+        await consumed.future;
+        credit = null;
+        expectedCredit = null;
+      }
+      // The FFI wait is synchronous; yield so stop messages can be processed.
+      await Future<void>.delayed(Duration.zero);
+    }
+  } on NativeTransportException catch (error) {
+    if (error.code != NativeTransportErrorCode.connectionNotFound) {
+      rethrow;
+    }
+  } finally {
+    await subscription.cancel();
+  }
+}
+
 @pragma('vm:entry-point')
 Future<void> _nativeReceiveWorkerMain(Map<String, Object?> config) async {
   final sendPort = config['sendPort']! as SendPort;
   final controlPort = ReceivePort();
   sendPort.send(controlPort.sendPort);
-  var stopped = false;
-  final subscription = controlPort.listen((_) {
-    stopped = true;
-  });
   try {
     final runtime = NativeClientRuntime.instance(
       libraryPath: config['libraryPath']! as String,
     );
     final connectionId = config['connectionId']! as int;
     final timeout = Duration(milliseconds: config['timeoutMs']! as int);
-    while (!stopped) {
-      final handle = runtime.waitMessageHandle(connectionId, timeout: timeout);
-      if (handle > 0) {
-        final batch = collectNativeReceiveBatch(
-          handle,
-          () => runtime.pollMessageHandle(connectionId),
-        );
-        sendPort.send(batch.length == 1 ? handle : batch);
-      }
-      // The FFI wait is synchronous; yield so stop messages can be processed.
-      await Future<void>.delayed(Duration.zero);
-    }
-  } on NativeTransportException catch (error) {
-    if (!stopped && error.code != NativeTransportErrorCode.connectionNotFound) {
-      rethrow;
-    }
+    await runNativeReceiveWorkerLoop(
+      commands: controlPort,
+      waitHandle: () =>
+          runtime.waitMessageHandle(connectionId, timeout: timeout),
+      pollHandle: () => runtime.pollMessageHandle(connectionId),
+      releaseHandle: runtime.releaseMessageHandle,
+      sendBatch: sendPort.send,
+    );
   } finally {
-    await subscription.cancel();
     controlPort.close();
   }
 }

@@ -1,0 +1,62 @@
+name: Measure MQTT WAMP gateway
+description: Exact AOT translations, independent TLS peers, memory and slow-consumer recovery
+inputs:
+  matrix:
+    description: smoke or release profile inventory
+    default: release
+  shard:
+    description: Zero-based shard index/count
+    default: 0/1
+  record_only:
+    description: Record the initial baseline before numeric budgets are frozen
+    default: 'false'
+  budget:
+    description: Hardware-qualified numerical reference
+    default: tool/mqtt_gateway_arm64_benchmark_budgets.json
+runs:
+  using: composite
+  steps:
+    - name: Prepare independent MQTT participants
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p out/mqtt-gateway
+        lscpu --json > out/mqtt-gateway/hardware.json
+        cat /proc/cpuinfo > out/mqtt-gateway/cpuinfo.txt
+        sudo apt-get update
+        sudo apt-get install -y mosquitto
+        version="$(mosquitto -h 2>&1 || true)"
+        [[ "$version" == *'mosquitto version 2.0.18'* ]]
+        python3 -m venv "$RUNNER_TEMP/gateway-python"
+        "$RUNNER_TEMP/gateway-python/bin/pip" install paho-mqtt==2.1.0 coverage==7.16.2
+    - name: Require complete gateway tooling coverage
+      shell: bash
+      env:
+        PYTHONPATH: tool
+      run: |
+        set -euo pipefail
+        python="$RUNNER_TEMP/gateway-python/bin/python"
+        "$python" -m coverage run --data-file=out/mqtt-gateway/python.coverage \
+          --source=check_ci_needs,run_mqtt_gateway_benchmark,mqtt_gateway_paho_peer,mqtt_gateway_reference_server,check_mqtt_gateway_coverage \
+          -m unittest tool/test_run_mqtt_gateway_benchmark.py tool/test_mqtt_gateway_peers.py tool/test_check_mqtt_gateway_coverage.py
+        "$python" -m coverage json --data-file=out/mqtt-gateway/python.coverage -o out/mqtt-gateway/python-coverage.json
+        "$python" -c "from check_mqtt_gateway_coverage import require_python_coverage; require_python_coverage('out/mqtt-gateway/python-coverage.json')"
+    - name: Run exact translation and memory profiles
+      shell: bash
+      env:
+        GATEWAY_MATRIX: ${{ inputs.matrix }}
+        GATEWAY_SHARD: ${{ inputs.shard }}
+        GATEWAY_RECORD_ONLY: ${{ inputs.record_only }}
+        GATEWAY_BUDGET: ${{ inputs.budget }}
+      run: |
+        set -euo pipefail
+        arguments=(--matrix "$GATEWAY_MATRIX" --shard "$GATEWAY_SHARD" --budget "$GATEWAY_BUDGET")
+        if [[ "$GATEWAY_MATRIX" == smoke ]]; then
+          arguments+=(--record-only --retention --runs 2 --messages 300 --warmup 30 \
+            --overload-runs 1 --overload-stall-ms 8000)
+        elif [[ "$GATEWAY_RECORD_ONLY" == true ]]; then
+          arguments+=(--record-only)
+        fi
+        "$RUNNER_TEMP/gateway-python/bin/python" tool/run_mqtt_gateway_benchmark.py \
+          --output out/mqtt-gateway/baseline "${arguments[@]}" \
+          --paho-python "$RUNNER_TEMP/gateway-python/bin/python" --mosquitto "$(command -v mosquitto)"

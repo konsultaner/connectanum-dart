@@ -18,6 +18,7 @@ import 'package:connectanum_core/connectanum_core.dart'
         CallOptions,
         Details,
         Event,
+        EventDetails,
         Extra,
         LazyMessagePayload,
         LazyPayloadEncoding,
@@ -4612,7 +4613,121 @@ void _fileResponseCleanupTests() {
   }
 }
 
+class _BatchErrorRuntime extends _HandleRuntime {
+  _BatchErrorRuntime(this.failure);
+  final String failure;
+  @override
+  void sendMessage(int connectionId, Uint8List payload) {
+    if (connectionId == 72) {
+      if (failure == 'unsupported') throw UnsupportedError('controlled send');
+      throw NativeTransportException(
+        failure == 'queue'
+            ? NativeTransportErrorCode.sendQueueFull
+            : NativeTransportErrorCode.connectionNotFound,
+        'controlled send',
+      );
+    }
+    super.sendMessage(connectionId, payload);
+  }
+}
+
+class _BatchFragmentErrorRuntime extends _BatchErrorRuntime
+    implements NativeRuntimeWithMessageFragments {
+  _BatchFragmentErrorRuntime(super.failure);
+  @override
+  void sendMessageFragments(int connectionId, List<Uint8List> fragments) {
+    final joined = BytesBuilder(copy: false);
+    for (final part in fragments) {
+      joined.add(part);
+    }
+    super.sendMessage(connectionId, joined.takeBytes());
+  }
+}
+
+void _batchSendingWorkerEntryPoint(Map<String, Object?> init) {
+  final boss = init['bossPort'] as SendPort;
+  final events = ReceivePort();
+  var sent = false;
+  events.listen((dynamic event) {
+    boss.send(event);
+    if (event is Map &&
+        event['type'] == kWorkerEventReady &&
+        event['connectionId'] == 71 &&
+        !sent) {
+      sent = true;
+      final shared = Uint8List.fromList([8, 9]);
+      boss.send({
+        'type': 'worker_send_batch',
+        'messages': [
+          for (final id in [71, 72, 73])
+            {
+              'connectionId': id,
+              'fragments': [
+                shared,
+                Uint8List.fromList([id]),
+              ],
+            },
+        ],
+      });
+    }
+    if (event is Map && event['type'] == kWorkerEventShutdown) events.close();
+  });
+  _testWorkerEntryPoint({...init, 'bossPort': events.sendPort});
+}
+
 void main() {
+  for (final capability in [false, true]) {
+    for (final failure in ['queue', 'missing', 'unsupported']) {
+      test('outgoing batch isolates $failure capability=$capability', () async {
+        final runtime = capability
+            ? _BatchFragmentErrorRuntime(failure)
+            : _BatchErrorRuntime(failure);
+        final events = <Object>[];
+        final router = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                tlsMode: TlsMode.disabled,
+                maxRawSocketSizeExponent: 16,
+              ),
+            ],
+          ),
+        );
+        final binding = router.start(
+          runtime,
+          workerEntryPoint: _batchSendingWorkerEntryPoint,
+          onEvent: events.add,
+        );
+        addTearDown(binding.dispose);
+        runtime.enqueueHandle(binding.listeners.single.listenerId, 71);
+        await _waitUntil(() => runtime.sentMessages.containsKey(73));
+        expect(runtime.sentMessages[71]!.first, [8, 9, 71]);
+        expect(runtime.sentMessages[72], isNull);
+        expect(runtime.sentMessages[73]!.first, [8, 9, 73]);
+        expect(runtime.closedConnections.contains(72), failure == 'queue');
+        expect(
+          events.whereType<Map>().where(
+            (e) =>
+                e['connectionId'] == 72 &&
+                e['type'] ==
+                    (failure == 'unsupported'
+                        ? 'worker_send_unsupported'
+                        : 'worker_send_error'),
+          ),
+          hasLength(1),
+        );
+        expect(
+          events
+              .whereType<Map>()
+              .where((e) => e['type'] == 'worker_send')
+              .map((e) => e['connectionId']),
+          [71, 73],
+        );
+      });
+    }
+  }
   _flatbuffersWorkerAckTests();
   _internalPublishFilterCases();
   registerHttpAdapterOptionCases();

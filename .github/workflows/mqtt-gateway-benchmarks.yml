@@ -1,0 +1,120 @@
+name: MQTT Gateway Benchmarks
+on:
+  workflow_call:
+    inputs:
+      record_only:
+        default: false
+        type: boolean
+      matrix:
+        default: release
+        type: string
+  workflow_dispatch:
+    inputs:
+      record_only:
+        description: Record diagnostic samples without enforcing the committed numeric budgets
+        default: false
+        type: boolean
+      matrix:
+        description: Smoke validation only, or smoke followed by the release matrix
+        default: release
+        type: choice
+        options: [release, smoke]
+permissions:
+  contents: read
+  actions: read
+env:
+  CI: true
+jobs:
+  native-build:
+    name: Shared ffi-test Build
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - id: rust
+        run: echo "identity=$(rustc -Vv | sha256sum | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v5
+        with:
+          path: native/transport/target/ffi-test
+          key: ffi-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-${{ hashFiles('native/transport/**', 'bin/common.sh') }}
+          restore-keys: ffi-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-
+      - name: Build and record the same-run ffi-test library
+        run: |
+          set -euo pipefail
+          source bin/common.sh
+          build_native_ffi_test_release
+          python3 tool/ci_native_artifact.py record --directory out/ci-native \
+            --library "$CONNECTANUM_NATIVE_LIB"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-gateway-native-ffi-test
+          path: out/ci-native
+          if-no-files-found: error
+
+  smoke:
+    name: Gateway smoke with independent secure peers
+    needs: native-build
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - uses: actions/download-artifact@v8
+        with:
+          name: mqtt-gateway-native-ffi-test
+          path: out/ci-native
+      - name: Verify native sources and prepare the workspace
+        run: |
+          set -euo pipefail
+          python3 tool/ci_native_artifact.py prepare --directory out/ci-native
+          echo "CONNECTANUM_NATIVE_LIB=$PWD/out/ci-native/libct_ffi.so" >> "$GITHUB_ENV"
+          bin/bootstrap
+      - uses: ./.github/actions/profile-mqtt-gateway
+        with:
+          matrix: smoke
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mqtt-wamp-gateway-smoke
+          path: out/mqtt-gateway
+          if-no-files-found: error
+  release:
+    name: Gateway release ${{ matrix.shard }}
+    if: inputs.matrix == 'release'
+    needs: smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - uses: actions/download-artifact@v8
+        with:
+          name: mqtt-gateway-native-ffi-test
+          path: out/ci-native
+      - name: Verify native sources and prepare the workspace
+        run: |
+          set -euo pipefail
+          python3 tool/ci_native_artifact.py prepare --directory out/ci-native
+          echo "CONNECTANUM_NATIVE_LIB=$PWD/out/ci-native/libct_ffi.so" >> "$GITHUB_ENV"
+          bin/bootstrap
+      - uses: ./.github/actions/profile-mqtt-gateway
+        with:
+          shard: ${{ matrix.shard }}/16
+          record_only: ${{ inputs.record_only }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mqtt-wamp-gateway-${{ matrix.shard }}
+          path: out/mqtt-gateway
+          if-no-files-found: error

@@ -13,7 +13,7 @@ Future<void> main(List<String> args) async {
     true,
     true,
     false,
-    {'connectanum_bench'},
+    args.length > 2 ? <String>{} : {'connectanum_bench'},
     timeout: const Duration(seconds: 10),
   );
   await writeChildCoverageReport(output, report);

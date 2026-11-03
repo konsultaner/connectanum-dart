@@ -17,7 +17,10 @@ import 'package:connectanum_client/src/transport/native/message_binding.dart'
 import 'package:connectanum_client/src/transport/native/message_protocol.dart'
     show NativeMessageSerializer;
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
-    show buildNativeFileSegmentPrefix, collectNativeReceiveBatch;
+    show
+        buildNativeFileSegmentPrefix,
+        collectNativeReceiveBatch,
+        runNativeReceiveWorkerLoop;
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
@@ -342,6 +345,23 @@ void main() {
   });
 
   group('collectNativeReceiveBatch', () {
+    test('a failed poll releases every already owned handle', () {
+      final released = <int>[];
+      var polls = 0;
+      expect(
+        () => collectNativeReceiveBatch(7, () {
+          if (polls++ == 0) return 8;
+          throw StateError('poll failed');
+        }, releaseOnFailure: released.add),
+        throwsStateError,
+      );
+      expect(released, [7, 8]);
+      expect(
+        () =>
+            collectNativeReceiveBatch(7, () => throw StateError('poll failed')),
+        throwsStateError,
+      );
+    });
     test('does not poll past an empty or failed native queue', () {
       for (final sentinel in [0, -1, -0x7fffffff]) {
         var polls = 0;
@@ -393,6 +413,137 @@ void main() {
       expect(batch, [1, 2, 3]);
       expect(readyHandles, Queue<int>.from([4, 5, 0]));
     });
+  });
+
+  group('native receive credits', () {
+    test(
+      'a stalled receiving isolate admits only one batch and rejects stale credits',
+      () async {
+        final commands = StreamController<Object?>(sync: true);
+        final first = Completer<void>(), second = Completer<void>();
+        final batches = <List<int>>[];
+        var next = 1;
+        var waits = 0;
+        final work = runNativeReceiveWorkerLoop(
+          commands: commands.stream,
+          waitHandle: () {
+            waits++;
+            return next++;
+          },
+          pollHandle: () => next++,
+          releaseHandle: (_) =>
+              fail('sent handles remain owned by the receiving pump'),
+          sendBatch: (raw) {
+            batches.add((raw as List).cast<int>());
+            (batches.length == 1 ? first : second).complete();
+          },
+        );
+        await first.future;
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        expect(waits, 1);
+        expect(next, 33);
+        expect(batches.single, List.generate(32, (i) => i + 1));
+        commands.add(999);
+        await Future<void>.delayed(Duration.zero);
+        expect(waits, 1);
+        commands.add(1);
+        commands.add(1);
+        await second.future;
+        commands.add(1);
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        expect(waits, 2);
+        expect(batches.last, List.generate(32, (i) => i + 33));
+        commands.add(null);
+        await work;
+        await commands.close();
+      },
+    );
+
+    for (final closeStream in [false, true]) {
+      test(
+        'stop releases a worker waiting for consumption, closeStream=$closeStream',
+        () async {
+          final commands = StreamController<Object?>();
+          final sent = Completer<void>();
+          final work = runNativeReceiveWorkerLoop(
+            commands: commands.stream,
+            waitHandle: () => 9,
+            pollHandle: () => 0,
+            releaseHandle: (_) => fail('ownership was transferred'),
+            sendBatch: (raw) {
+              expect(raw, 9);
+              sent.complete();
+            },
+          );
+          await sent.future;
+          if (closeStream) {
+            await commands.close();
+          } else {
+            commands.add(null);
+          }
+          await work.timeout(const Duration(seconds: 1));
+          if (!closeStream) await commands.close();
+        },
+      );
+    }
+
+    test(
+      'idle waits yield to stop commands without manufacturing batches',
+      () async {
+        final commands = StreamController<Object?>();
+        var waits = 0;
+        await runNativeReceiveWorkerLoop(
+          commands: commands.stream,
+          waitHandle: () {
+            waits++;
+            commands.add(waits == 1 ? 999 : null);
+            return 0;
+          },
+          pollHandle: () => fail('idle'),
+          releaseHandle: (_) => fail('idle'),
+          sendBatch: (_) => fail('idle'),
+        );
+        await commands.close();
+        expect(waits, 2);
+      },
+    );
+
+    test(
+      'terminal EOF is clean and a failed partial poll releases its handles',
+      () async {
+        for (final code in [
+          NativeTransportErrorCode.connectionNotFound,
+          NativeTransportErrorCode.invalidArgument,
+        ]) {
+          final commands = StreamController<Object?>();
+          final released = <int>[];
+          final work = runNativeReceiveWorkerLoop(
+            commands: commands.stream,
+            waitHandle: () => 1,
+            pollHandle: () =>
+                throw NativeTransportException(code, 'read failed'),
+            releaseHandle: released.add,
+            sendBatch: (_) => fail('failed batch'),
+          );
+          if (code == NativeTransportErrorCode.connectionNotFound) {
+            await work;
+          } else {
+            await expectLater(
+              work,
+              throwsA(
+                isA<NativeTransportException>().having(
+                  (e) => e.code,
+                  'code',
+                  code,
+                ),
+              ),
+            );
+          }
+          await commands.close();
+          expect(released, [1]);
+        }
+      },
+    );
   });
 
   group('native connection failure recovery', () {

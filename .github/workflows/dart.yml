@@ -124,7 +124,7 @@ jobs:
 
   native-memory:
     name: Native Ownership GuardMalloc
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -147,9 +147,19 @@ jobs:
           if-no-files-found: error
 
   native-build:
-    name: Shared ffi-test Build
-    runs-on: ubuntu-latest
+    name: Shared ffi-test Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+            artifact: ci-native-ffi-test
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            artifact: ci-gateway-native-arm64
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci
@@ -171,7 +181,7 @@ jobs:
             --library "$CONNECTANUM_NATIVE_LIB"
       - uses: actions/upload-artifact@v7
         with:
-          name: ci-native-ffi-test
+          name: ${{ matrix.artifact }}
           path: out/ci-native
           if-no-files-found: error
 
@@ -225,8 +235,7 @@ jobs:
             --coverage-path=../../out/mqtt-qos0-gate/core-mqtt.lcov \
             --coverage-package=connectanum_core --reporter=expanded
           cd ../connectanum_router
-          dart test test/mqtt/mqtt_qos0_integration_test.dart \
-            test/mqtt/mqtt_native_router_integration_test.dart \
+          dart test test/mqtt \
             --coverage-path=../../out/mqtt-qos0-gate/router-mqtt.lcov \
             --coverage-package='connectanum_(router|core|client)' --reporter=expanded
           cd ../..
@@ -363,6 +372,73 @@ jobs:
           path: out/mqtt-native-comparison
           if-no-files-found: error
 
+  mqtt-gateway-smoke:
+    name: MQTT WAMP gateway smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    needs: native-build
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-gateway-native-arm64
+          path: out/ci-native
+      - name: Prepare the verified native library and independent MQTT peers
+        run: |
+          set -euo pipefail
+          python3 tool/ci_native_artifact.py prepare --directory out/ci-native
+          echo "CONNECTANUM_NATIVE_LIB=$PWD/out/ci-native/libct_ffi.so" >> "$GITHUB_ENV"
+          bin/bootstrap
+      - uses: ./.github/actions/profile-mqtt-gateway
+        with:
+          matrix: smoke
+      - name: Upload complete gateway performance and per-process memory evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-wamp-gateway-smoke
+          path: out/mqtt-gateway
+          if-no-files-found: error
+
+  mqtt-gateway:
+    name: MQTT WAMP gateway regression gate ${{ matrix.shard }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    needs: [native-build, mqtt-gateway-smoke]
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-gateway-native-arm64
+          path: out/ci-native
+      - name: Prepare the verified native library and independent MQTT peers
+        run: |
+          set -euo pipefail
+          python3 tool/ci_native_artifact.py prepare --directory out/ci-native
+          echo "CONNECTANUM_NATIVE_LIB=$PWD/out/ci-native/libct_ffi.so" >> "$GITHUB_ENV"
+          bin/bootstrap
+      - uses: ./.github/actions/profile-mqtt-gateway
+        with:
+          record_only: 'false'
+          shard: ${{ matrix.shard }}/16
+      - name: Upload complete gateway performance and per-process memory evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mqtt-wamp-gateway-${{ matrix.shard }}
+          path: out/mqtt-gateway
+          if-no-files-found: error
+
   wamp-app:
     name: WampApp Consumer
     runs-on: ubuntu-latest
@@ -430,7 +506,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: always()
-    needs: [fast, mqtt-qos0, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, browser-coverage]
+    needs: [fast, mqtt-qos0, mqtt-gateway-smoke, mqtt-gateway, verification, wamp-app, flatbuffers-binding, native-memory, mutation-gates, mcp-mutations, browser-coverage]
     steps:
       - uses: actions/checkout@v5
       - name: Require every validation lane to succeed
@@ -448,6 +524,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup-ci
         with:
           rust: 'true'
@@ -477,6 +555,7 @@ jobs:
           CONNECTANUM_CI_VERIFY: '1'
           CONNECTANUM_CI_NATIVE_DIR: out/ci-native
           CONNECTANUM_COVERAGE_DIR: out/coverage
+          CONNECTANUM_COVERAGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
         run: bin/verify
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
@@ -498,6 +577,7 @@ jobs:
             out/coverage/summary.json
             out/coverage/packaging-lcov.info
             out/coverage/packaging-summary.json
+            out/coverage/mqtt-gateway-summary.json
           if-no-files-found: error
 
   mutation-gates:

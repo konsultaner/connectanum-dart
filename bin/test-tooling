@@ -25,6 +25,9 @@ python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
 python3 tool/test_router_image_mcp_smoke.py
 python3 tool/test_check_coverage.py
+python3 tool/test_check_mqtt_gateway_coverage.py
+python3 tool/test_run_mqtt_gateway_benchmark.py
+python3 tool/test_mqtt_gateway_peers.py
 python3 tool/test_run_native_guardmalloc.py
 python3 tool/test_run_dart_mutations.py
 python3 tool/test_flutter_mutations.py

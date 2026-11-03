@@ -1,8 +1,16 @@
 part of '../router_runtime_test.dart';
 
 class _EnqueueAcceptanceRuntime extends _HandleRuntime {
-  _EnqueueAcceptanceRuntime(this.failure);
+  _EnqueueAcceptanceRuntime(this.failure, {this.closeFailure});
   final Object? failure;
+  final NativeTransportException? closeFailure;
+  @override
+  void closeConnection(int connectionId) {
+    super.closeConnection(connectionId);
+    final error = closeFailure;
+    if (error != null) throw error;
+  }
+
   @override
   void sendMessage(int connectionId, Uint8List payload) {
     final error = failure;
@@ -86,10 +94,26 @@ void _flatbuffersWorkerAckTests() {
       'controlled queue rejection',
     ),
     'unsupported': UnsupportedError('controlled unsupported send'),
+    'slow peer': NativeTransportException(
+      NativeTransportErrorCode.sendQueueFull,
+      'controlled full send queue',
+    ),
+    'closed slow peer': NativeTransportException(
+      NativeTransportErrorCode.sendQueueFull,
+      'controlled full send queue',
+    ),
   };
   for (final entry in failures.entries) {
     test('native worker enqueue acknowledgement: ${entry.key}', () async {
-      final runtime = _EnqueueAcceptanceRuntime(entry.value);
+      final runtime = _EnqueueAcceptanceRuntime(
+        entry.value,
+        closeFailure: entry.key == 'closed slow peer'
+            ? NativeTransportException(
+                NativeTransportErrorCode.connectionNotFound,
+                'peer closed while rejecting full queue',
+              )
+            : null,
+      );
       final router = Router(
         RouterConfig(
           endpoints: [
@@ -123,6 +147,16 @@ void _flatbuffersWorkerAckTests() {
         reason: acknowledgement.toString(),
       );
       expect(acknowledgement['result'], {'accepted': entry.value == null});
+      if (entry.key.contains('slow peer')) {
+        expect(runtime.closedConnections, contains(9001));
+        expect(
+          () => binding.forwardMessageToConnection(
+            9001,
+            Event(1, 2, EventDetails()),
+          ),
+          throwsStateError,
+        );
+      }
       expect(
         runtime.sentMessages[9001] ?? const [],
         hasLength(entry.value == null ? 1 : 0),

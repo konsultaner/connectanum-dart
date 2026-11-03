@@ -179,7 +179,11 @@
     "packages/connectanum_router/lib/src/router/state/snapshot.dart",
     "packages/connectanum_router/lib/src/router/state/store.dart",
     "packages/connectanum_router/lib/src/router/state/subscription.dart",
-    "packages/connectanum_router/lib/src/router/state/worker_connection_state.dart"
+    "packages/connectanum_router/lib/src/router/state/worker_connection_state.dart",
+    "packages/connectanum_router/lib/src/mqtt/gateway_policy.dart",
+    "packages/connectanum_router/lib/src/router/router_instance/router_mqtt.dart",
+    "packages/connectanum_bench/lib/src/mqtt_gateway_measurement.dart",
+    "packages/connectanum_bench/lib/src/mqtt_gateway_worker.dart"
   ],
   "packages": {
     "connectanum_core": 88.11,
@@ -249,6 +253,10 @@
     "packages/connectanum_router/lib/src/native_release_installer.dart": 94.5,
     "packages/connectanum_router/lib/src/router/auth/authorization.dart": 97.95,
     "packages/connectanum_router/lib/src/router/models/router_metrics.dart": 98,
-    "packages/connectanum_router/lib/src/router/config/router_settings.dart": 98
+    "packages/connectanum_router/lib/src/router/config/router_settings.dart": 98,
+    "packages/connectanum_router/lib/src/mqtt/gateway_policy.dart": 100,
+    "packages/connectanum_router/lib/src/router/router_instance/router_mqtt.dart": 100,
+    "packages/connectanum_bench/lib/src/mqtt_gateway_measurement.dart": 100,
+    "packages/connectanum_bench/lib/src/mqtt_gateway_worker.dart": 100
   }
 }

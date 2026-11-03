@@ -1591,7 +1591,10 @@ Future<void> _handleCall({
     final nativeMessage = incomingMessage;
     var usedZeroCopy = false;
     if (dispatch.calleeInternalSendPort != null) {
-      await _handleInternalInvocation(
+      // Preparation retains/copies the payload before its first await. Waiting
+      // for the service result must not hold this worker's receive slot: the
+      // same connection still needs to process CANCEL/GOODBYE and later CALLs.
+      final response = _handleInternalInvocation(
         bossPort: bossPort,
         statePort: statePort,
         realmContexts: realmContexts,
@@ -1600,6 +1603,28 @@ Future<void> _handleCall({
         dispatch: dispatch,
         connectionId: connectionId,
         incomingMessage: nativeMessage,
+      );
+      unawaited(
+        response.catchError((Object error, StackTrace stack) async {
+          try {
+            await _sendSessionError(
+              bossPort: bossPort,
+              state: state,
+              connectionId: connectionId,
+              requestType: MessageTypes.codeCall,
+              requestId: message.requestId,
+              reason: wamp_core.Error.unknown,
+              detailsMessage: error.toString(),
+            );
+          } catch (sendError) {
+            _safeSend(bossPort, {
+              'type': _workerEventError,
+              'connectionId': connectionId,
+              'error': sendError.toString(),
+              'stackTrace': stack.toString(),
+            });
+          }
+        }),
       );
       return;
     }

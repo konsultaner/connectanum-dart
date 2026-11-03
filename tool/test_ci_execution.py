@@ -45,6 +45,57 @@ class CompositeSetupTests(unittest.TestCase):
                 self.assertIn("rust: 'true'", job)
                 self.assertNotIn('dtolnay/rust-toolchain', job)
 
+    def test_gateway_recorder_uses_same_commit_native_artifacts_and_smokes_secure_peers_first(self):
+        workflow=(ROOT/'.github/workflows/mqtt-gateway-benchmarks.yml').read_text()
+        action=(ROOT/'.github/actions/profile-mqtt-gateway/action.yml').read_text()
+        wrapper=(ROOT/'.github/workflows/mqtt-profile.yml').read_text()
+        self.assertIn('workflow_call:',workflow)
+        self.assertIn('needs: native-build',workflow)
+        self.assertIn('needs: smoke',workflow)
+        self.assertIn('timeout-minutes: 30',workflow.split('  smoke:',1)[1].split('  release:',1)[0])
+        self.assertIn('timeout-minutes: 90',workflow.split('  release:',1)[1])
+        self.assertIn('shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]',workflow)
+        self.assertIn('shard: ${{ matrix.shard }}/16',workflow)
+        self.assertIn('ci_native_artifact.py record',workflow)
+        self.assertEqual(workflow.count('ci_native_artifact.py prepare'),2)
+        self.assertNotIn('run-id:',workflow)
+        self.assertIn('gateway_benchmarks == true',wrapper)
+        self.assertEqual(wrapper.count('gateway_benchmarks != true'),2)
+        concurrency=wrapper.split('concurrency:',1)[1].split('permissions:',1)[0]
+        self.assertIn("inputs.gateway_benchmarks && github.run_id || 'latest'",concurrency)
+        self.assertIn('cancel-in-progress: ${{ !inputs.gateway_benchmarks }}',concurrency)
+        self.assertIn('require_python_coverage',action)
+        self.assertIn('paho-mqtt==2.1.0',action)
+        self.assertIn('mosquitto version 2.0.18',action)
+        self.assertIn('--record-only --retention --runs 2 --messages 300',action)
+        self.assertIn('"$GATEWAY_RECORD_ONLY" == true',action)
+        self.assertIn('"${arguments[@]}"',action)
+        self.assertIn('default: tool/mqtt_gateway_arm64_benchmark_budgets.json',action)
+        self.assertIn('--record-only --retention --runs 2',action)
+        budget=json.loads((ROOT/'tool/mqtt_gateway_arm64_benchmark_budgets.json').read_text())
+        self.assertEqual(budget['retention_protocol'],'bounded_nursery_v1')
+        self.assertIn('--budget "$GATEWAY_BUDGET"',action)
+        main=(ROOT/'.github/workflows/dart.yml').read_text()
+        self.assertIn('timeout-minutes: 30',main.split('  mqtt-gateway-smoke:',1)[1].split('  mqtt-gateway:',1)[0])
+        gateway=main.split('  mqtt-gateway:',1)[1].split('  wamp-app:',1)[0]
+        self.assertIn('needs: [native-build, mqtt-gateway-smoke]',gateway)
+        self.assertIn("record_only: 'false'",gateway)
+        self.assertIn('shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]',gateway)
+        self.assertIn('shard: ${{ matrix.shard }}/16',gateway)
+        self.assertIn('runs-on: ubuntu-24.04-arm',gateway)
+        self.assertIn('name: ci-gateway-native-arm64',gateway)
+        native=main.split('  native-build:',1)[1].split('  fast:',1)[0]
+        self.assertIn('runner: ubuntu-24.04-arm',native)
+        self.assertIn('artifact: ci-gateway-native-arm64',native)
+        self.assertIn('artifact: ci-native-ffi-test',native)
+        self.assertIn('restore-keys: ffi-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.identity }}-',native)
+        release=(ROOT/'.github/workflows/mqtt-gateway-benchmarks.yml').read_text()
+        self.assertIn('record_only:\n        default: false\n        type: boolean',release)
+        dispatch=release.split('  workflow_dispatch:',1)[1].split('permissions:',1)[0]
+        self.assertIn('default: false',dispatch.split('record_only:',1)[1].split('      matrix:',1)[0])
+        wrapper=(ROOT/'.github/workflows/mqtt-profile.yml').read_text()
+        self.assertIn('default: false',wrapper.split('      gateway_record_only:',1)[1].split('      gateway_matrix:',1)[0])
+
     def test_nested_dart_setup_does_not_register_a_matcher_from_the_parent_path(self):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
         dart_step = action.split('uses: dart-lang/setup-dart@v1', 1)[1].split(
@@ -147,7 +198,7 @@ class RequiredGateTests(unittest.TestCase):
             capture_output=True, text=True, timeout=10)
 
     def test_required_gate_accepts_only_complete_success(self):
-        names = ('fast', 'mqtt-qos0', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
+        names = ('fast', 'mqtt-qos0', 'mqtt-gateway-smoke', 'mqtt-gateway', 'verification', 'wamp-app', 'flatbuffers-binding', 'native-memory',
                  'mutation-gates', 'mcp-mutations', 'browser-coverage')
         needs = {name: {'result': 'success'} for name in names}
         self.assertEqual(self.execute(needs).returncode, 0)
@@ -158,7 +209,9 @@ class RequiredGateTests(unittest.TestCase):
                 self.assertNotEqual(self.execute(broken).returncode, 0)
         for broken in ({},
                        {k: v for k, v in needs.items() if k != 'mcp-mutations'},
-                       {k: v for k, v in needs.items() if k != 'mqtt-qos0'}):
+                       {k: v for k, v in needs.items() if k != 'mqtt-qos0'},
+                       {k: v for k, v in needs.items() if k != 'mqtt-gateway'},
+                       {k: v for k, v in needs.items() if k != 'mqtt-gateway-smoke'}):
             self.assertNotEqual(self.execute(broken).returncode, 0)
 
 

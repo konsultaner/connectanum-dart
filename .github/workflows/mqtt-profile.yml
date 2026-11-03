@@ -9,6 +9,19 @@ on:
       - '.github/workflows/mqtt-profile.yml'
   workflow_dispatch:
     inputs:
+      gateway_benchmarks:
+        description: Run the MQTT WAMP gateway benchmark workflow
+        default: false
+        type: boolean
+      gateway_record_only:
+        description: Record diagnostic gateway samples without enforcing numeric limits
+        default: false
+        type: boolean
+      gateway_matrix:
+        description: Gateway profile inventory
+        default: release
+        type: choice
+        options: [release, smoke]
       recover_run:
         description: Optional run ID whose mqtt-native-profile artifact should be rendered without resampling
         required: false
@@ -26,16 +39,22 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.gateway_benchmarks && github.run_id || 'latest' }}
+  cancel-in-progress: ${{ !inputs.gateway_benchmarks }}
 
 permissions:
   contents: read
   actions: read
 
 jobs:
+  gateway:
+    if: ${{ inputs.gateway_benchmarks == true }}
+    uses: ./.github/workflows/mqtt-gateway-benchmarks.yml
+    with:
+      record_only: ${{ inputs.gateway_record_only }}
+      matrix: ${{ inputs.gateway_matrix }}
   profile:
-    if: ${{ inputs.probe_intel != true }}
+    if: ${{ inputs.probe_intel != true && inputs.gateway_benchmarks != true }}
     name: MQTT native CPU diagnostic
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -103,7 +122,7 @@ jobs:
           if-no-files-found: error
 
   intel:
-    if: ${{ inputs.probe_intel == true }}
+    if: ${{ inputs.probe_intel == true && inputs.gateway_benchmarks != true }}
     name: Intel 8370C MQTT availability and comparison
     runs-on: ubuntu-22.04
     timeout-minutes: 45

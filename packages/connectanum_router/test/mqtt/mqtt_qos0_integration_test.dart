@@ -10,6 +10,48 @@ import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final ownedFrames in [false, true]) {
+    test(
+      'native MQTT polling preserves legacy and owned-frame semantics: $ownedFrames',
+      () async {
+        final broker = MqttQos0Broker.native();
+        addTearDown(broker.close);
+        final runtime = ownedFrames ? _FrameRuntime() : _ChunkRuntime();
+        final sent = <Uint8List>[];
+        final reasons = <String>[];
+        expect(broker.pollNativeConnection(91, runtime), isFalse);
+        expect(runtime.polls, 0);
+        broker.attachNativeConnection(
+          91,
+          send: sent.add,
+          close: () => reasons.add('closed'),
+        );
+        expect(broker.pollNativeConnection(91, runtime), isFalse);
+        final connect = MqttPacketCodec.encodeConnect(
+          MqttConnect(version: MqttVersion.v5, clientId: 'poll-owned'),
+        );
+        runtime.chunks.addAll([
+          Uint8List.sublistView(connect, 0, 3),
+          Uint8List.sublistView(connect, 3),
+        ]);
+        expect(broker.pollNativeConnection(91, runtime), isTrue);
+        expect(sent, isEmpty);
+        expect(broker.pollNativeConnection(91, runtime), isTrue);
+        expect(
+          MqttFrameDecoder().add(sent.single).single.type,
+          MqttPacketType.connack,
+        );
+        runtime.chunks.add(Uint8List.fromList([0x00, 0]));
+        expect(
+          broker.pollNativeConnection(91, runtime),
+          ownedFrames ? isFalse : isTrue,
+        );
+        expect(reasons, ['closed']);
+        expect(broker.nativeConnectionIds, isEmpty);
+      },
+    );
+  }
+
   test('native MQTT forwards validated QoS 0 frames across versions', () async {
     final broker = MqttQos0Broker.native();
     addTearDown(broker.close);
@@ -1100,8 +1142,11 @@ void main() {
         .take(705)
         .toList()
         .timeout(const Duration(seconds: 5));
-    for (var id = 0; id < 700; id++) {
-      await publisher.publish('queued/publish', payload(id));
+    for (var first = 0; first < 700; first += 16) {
+      await Future.wait([
+        for (var id = first; id < first + 16 && id < 700; id++)
+          publisher.publish('queued/publish', payload(id)),
+      ]);
     }
     await publisher.publishBatch('queued/publish', [
       payload(700),
@@ -1182,6 +1227,43 @@ void main() {
     await broker.close();
     await terminal.timeout(const Duration(seconds: 3));
   });
+
+  for (final version in MqttVersion.values) {
+    test('client releases its socket after peer FIN: $version', () async {
+      final server = await ServerSocket.bind('127.0.0.1', 0);
+      addTearDown(server.close);
+      final accepted = Completer<Socket>();
+      final peerReadClosed = Completer<void>();
+      server.listen((socket) {
+        accepted.complete(socket);
+        addTearDown(socket.destroy);
+        final decoder = MqttFrameDecoder();
+        socket.listen((bytes) {
+          for (final frame in decoder.add(bytes)) {
+            expect(frame.type, MqttPacketType.connect);
+            socket.add(MqttPacketCodec.encodeConnack(version, reasonCode: 0));
+          }
+        }, onDone: peerReadClosed.complete);
+      });
+      final client = await MqttQos0Client.connect(
+        '127.0.0.1',
+        server.port,
+        clientId: 'peer-fin',
+        version: version,
+      );
+      addTearDown(client.close);
+      final terminal = expectLater(
+        client.messages,
+        emitsInOrder([emitsError(isA<MqttProtocolException>()), emitsDone]),
+      );
+      // A FIN closes only the peer's writing half. The client must release its
+      // writing half too, even when close() follows the remote stream ending.
+      await (await accepted.future).close();
+      await terminal.timeout(const Duration(seconds: 3));
+      await client.close();
+      await peerReadClosed.future.timeout(const Duration(seconds: 2));
+    });
+  }
 
   test('client rejects a nonzero CONNACK reason', () async {
     final server = await ServerSocket.bind('127.0.0.1', 0);
@@ -1288,4 +1370,29 @@ Stream<MqttFrame> _decodedFrames(Socket socket) {
     onDone: controller.close,
   );
   return controller.stream;
+}
+
+class _ChunkRuntime implements NativeRuntimeWithMqtt {
+  final chunks = <Uint8List>[];
+  var polls = 0;
+  @override
+  Uint8List? pollMqttChunk(int id) {
+    polls++;
+    return chunks.isEmpty ? null : chunks.removeAt(0);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _FrameRuntime extends _ChunkRuntime
+    implements NativeRuntimeWithMqttFrames {
+  @override
+  Uint8List? pollMqttChunk(int id) =>
+      throw StateError('Owned-frame runtime must not copy a chunk');
+  @override
+  List<MqttFrame>? pollMqttFrames(int id, MqttFrameDecoder decoder) {
+    polls++;
+    return chunks.isEmpty ? null : decoder.add(chunks.removeAt(0));
+  }
 }

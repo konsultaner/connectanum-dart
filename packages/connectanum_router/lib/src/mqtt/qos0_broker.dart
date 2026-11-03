@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:connectanum_core/mqtt.dart';
 
 import '../native/runtime.dart';
+import 'gateway_policy.dart';
 
 /// An anonymous MQTT QoS 0 broker with bounded incoming packet framing.
 ///
@@ -13,7 +14,8 @@ import '../native/runtime.dart';
 /// only numeric loopback addresses. A protocol-neutral WAMP publication
 /// boundary remains a later milestone stage.
 final class MqttQos0Broker {
-  MqttQos0Broker._(this._server, {this.onNativeClose}) {
+  MqttQos0Broker._(this._server, {this.onNativeClose, String? realm})
+    : _realm = realm {
     _server?.listen(_accept);
   }
 
@@ -21,7 +23,11 @@ final class MqttQos0Broker {
   MqttQos0Broker.native({void Function(int, String)? onNativeClose})
     : this._(null, onNativeClose: onNativeClose);
 
-  static Future<MqttQos0Broker> bind(String host, int port) async {
+  static Future<MqttQos0Broker> bind(
+    String host,
+    int port, {
+    String? realm,
+  }) async {
     final address = InternetAddress.tryParse(host);
     if (address == null || !address.isLoopback) {
       throw ArgumentError.value(
@@ -30,13 +36,69 @@ final class MqttQos0Broker {
         'the provisional anonymous broker is limited to loopback',
       );
     }
-    return MqttQos0Broker._(await ServerSocket.bind(address, port));
+    return MqttQos0Broker._(
+      await ServerSocket.bind(address, port),
+      realm: realm,
+    );
   }
 
   final ServerSocket? _server;
+  final String? _realm;
   final void Function(int connectionId, String reason)? onNativeClose;
   final Set<_Peer> _peers = {};
   final Map<int, _Peer> _nativePeers = {};
+  final Map<String, MqttBrokerGatewayPolicy> _gateways = {};
+  final Set<_Peer> _gatewayPeers = {};
+  int _gatewayQueuedBytes = 0;
+
+  /// Install a realm policy before accepting gateway traffic. A failed/closed
+  /// gateway remains deny-only until explicitly replaced.
+  void installGateway(String realm, MqttBrokerGatewayPolicy policy) {
+    if (realm.isEmpty) throw ArgumentError.value(realm, 'realm');
+    final previous = _gateways[realm];
+    if (previous != null && !previous.isClosed) {
+      throw StateError('MQTT gateway already installed for $realm');
+    }
+    _gateways[realm] = policy;
+    closeRealm(realm);
+  }
+
+  void closeRealm(String realm) {
+    for (final peer in _peers.where((peer) => peer.realm == realm).toList()) {
+      peer._close('gateway_policy_changed');
+    }
+  }
+
+  Map<String, int> get gatewayMetrics => {
+    'pending_bytes': _gatewayPeers.fold(0, (sum, p) => sum + p._gatewayBytes),
+    'pending_tasks': _gatewayPeers.fold(
+      0,
+      (sum, p) =>
+          sum + p._gatewayTasks.length + (p._gatewayActiveBytes > 0 ? 1 : 0),
+    ),
+    'outbound_bytes': _peers.fold(
+      0,
+      (sum, p) =>
+          sum +
+          p._pendingOutboundBytes +
+          p._pendingPublishChunkBytes +
+          p._pendingPublishes.length,
+    ),
+    'connected_peers': _peers.length,
+  };
+
+  /// The host-owned gateway has already authorized this publication. Identity
+  /// checking prevents a disposed or replaced gateway from injecting traffic.
+  void publishFromGateway(
+    String realm,
+    MqttBrokerGatewayPolicy policy,
+    MqttGatewayPublication publication,
+  ) {
+    if (!identical(_gateways[realm], policy) || policy.isClosed) {
+      throw StateError('MQTT gateway is not active for $realm');
+    }
+    _deliver(realm, publication.topic, publication.payload);
+  }
 
   int get port => _server?.port ?? 0;
 
@@ -44,13 +106,33 @@ final class MqttQos0Broker {
     int connectionId, {
     required void Function(Uint8List) send,
     required void Function() close,
+    String? realm,
   }) {
     if (_nativePeers.containsKey(connectionId)) {
       throw StateError('MQTT connection $connectionId already attached');
     }
-    final peer = _Peer(this, send, close, nativeConnectionId: connectionId);
+    final peer = _Peer(
+      this,
+      send,
+      close,
+      nativeConnectionId: connectionId,
+      realm: realm,
+    );
     _nativePeers[connectionId] = peer;
     _peers.add(peer);
+  }
+
+  /// Consume one native chunk, retaining owned MQTT frame bodies only.
+  bool pollNativeConnection(int connectionId, NativeRuntimeWithMqtt runtime) {
+    final peer = _nativePeers[connectionId];
+    if (peer == null) return false;
+    if (runtime is NativeRuntimeWithMqttFrames) {
+      return peer._pollNativeFrames(runtime);
+    }
+    final bytes = runtime.pollMqttChunk(connectionId);
+    if (bytes == null) return false;
+    peer._onData(bytes);
+    return true;
   }
 
   void receiveNativeChunk(int connectionId, Uint8List bytes) {
@@ -68,7 +150,12 @@ final class MqttQos0Broker {
 
   void _accept(Socket socket) {
     socket.setOption(SocketOption.tcpNoDelay, true);
-    final peer = _Peer(this, (bytes) => socket.add(bytes), socket.destroy);
+    final peer = _Peer(
+      this,
+      (bytes) => socket.add(bytes),
+      socket.destroy,
+      realm: _realm,
+    );
     _peers.add(peer);
     socket.listen(
       peer._onData,
@@ -78,25 +165,40 @@ final class MqttQos0Broker {
   }
 
   void _publish(_Peer sender, MqttPublish message) {
+    _deliver(sender.realm, message.topic, message.payload);
+  }
+
+  void _deliver(String? realm, String topic, Uint8List payload) {
     Uint8List? encoded5;
     Uint8List? encoded311;
     for (final peer in _peers) {
-      if (!peer.connected || peer == sender && peer.filters.isEmpty) continue;
-      if (!peer.filters.any((filter) => _matches(filter, message.topic))) {
+      if (!peer.connected || peer.realm != realm) continue;
+      if (!peer.filters.any((filter) => _matches(filter, topic))) {
         continue;
       }
       final encoded = peer.version == MqttVersion.v5
           ? (encoded5 ??= MqttPacketCodec.encodePublish(
               MqttVersion.v5,
-              topic: message.topic,
-              payload: message.payload,
+              topic: topic,
+              payload: payload,
             ))
           : (encoded311 ??= MqttPacketCodec.encodePublish(
               MqttVersion.v311,
-              topic: message.topic,
-              payload: message.payload,
+              topic: topic,
+              payload: payload,
             ));
-      peer._queuePublish(encoded);
+      final policy = _gateways[realm];
+      if (policy == null) {
+        peer._queuePublish(encoded);
+      } else {
+        peer._queueGatewayTask(encoded.length, () async {
+          if (!policy.isClosed &&
+              await policy.receive(peer._context, topic) &&
+              !peer.closed) {
+            peer._queuePublish(encoded);
+          }
+        });
+      }
     }
   }
 
@@ -116,6 +218,10 @@ final class MqttQos0Broker {
     for (final peer in _peers.toList()) {
       peer._close();
     }
+    await Future.wait(
+      _gatewayPeers.toList().map((p) => p._gatewayDrained!.future),
+    );
+    _gateways.clear();
     await _server?.close();
   }
 }
@@ -129,12 +235,24 @@ final class _Peer {
     this._send,
     this._destroy, {
     this.nativeConnectionId,
+    this.realm,
   });
 
   final MqttQos0Broker broker;
   final void Function(Uint8List) _send;
   final void Function() _destroy;
   final int? nativeConnectionId;
+  final String? realm;
+  String _clientId = '';
+  final MqttGatewayCancellation _gatewayClosed = MqttGatewayCancellation();
+  MqttPeerContext? _gatewayContext;
+  final Queue<({int bytes, Future<void> Function() action})> _gatewayTasks =
+      Queue();
+  int _gatewayBytes = 0;
+  int _gatewayActiveBytes = 0;
+  bool _gatewayRunning = false;
+  bool _gatewayOverflowed = false;
+  Completer<void>? _gatewayDrained;
   final MqttFrameDecoder decoder = MqttFrameDecoder();
   final Set<String> filters = {};
   final BytesBuilder _pendingPublishes = BytesBuilder(copy: false);
@@ -148,6 +266,93 @@ final class _Peer {
   bool connected = false;
   bool closed = false;
   bool _publishFlushScheduled = false;
+
+  MqttPeerContext get _context => _gatewayContext ??= MqttPeerContext(
+    realm: realm!,
+    clientId: _clientId,
+    version: version!,
+    connectionId: nativeConnectionId,
+    cancellation: _gatewayClosed,
+  );
+
+  void _queueGatewayTask(int bytes, Future<void> Function() action) {
+    if (closed || _gatewayOverflowed) return;
+    if (_gatewayBytes + bytes > _maxPendingOutboundBytes ||
+        broker._gatewayQueuedBytes + bytes > 16 * 1024 * 1024 ||
+        _gatewayTasks.length >= 256) {
+      _gatewayOverflowed = true;
+      scheduleMicrotask(() => _close('gateway_buffer_full'));
+      return;
+    }
+    _gatewayTasks.add((bytes: bytes, action: action));
+    _gatewayBytes += bytes;
+    broker._gatewayQueuedBytes += bytes;
+    if (_gatewayRunning) return;
+    _gatewayRunning = true;
+    _gatewayDrained = Completer<void>();
+    broker._gatewayPeers.add(this);
+    scheduleMicrotask(() => unawaited(_drainGatewayTasks()));
+  }
+
+  Future<void> _drainGatewayTasks() async {
+    try {
+      while (!closed && _gatewayTasks.isNotEmpty) {
+        final task = _gatewayTasks.removeFirst();
+        _gatewayActiveBytes = task.bytes;
+        try {
+          await _gatewayClosed.waitFor(task.action());
+        } catch (_) {
+          _close('gateway_policy_error');
+        } finally {
+          _gatewayBytes -= task.bytes;
+          broker._gatewayQueuedBytes -= task.bytes;
+          _gatewayActiveBytes = 0;
+        }
+      }
+    } finally {
+      _gatewayRunning = false;
+      broker._gatewayPeers.remove(this);
+      _gatewayDrained!.complete();
+    }
+  }
+
+  Future<void> _handleGatewayFrame(
+    MqttFrame frame,
+    MqttBrokerGatewayPolicy policy,
+  ) async {
+    if (policy.isClosed) {
+      _close('gateway_closed');
+      return;
+    }
+    if (frame.type == MqttPacketType.publish) {
+      final message = MqttPacketCodec.decodePublish(frame, version!);
+      if (message.retain) {
+        throw const MqttProtocolException('retain is unsupported');
+      }
+      final allowed = await policy.publish(_context, message);
+      if (closed) return;
+      if (!allowed) {
+        _close('not_authorized');
+        return;
+      }
+      broker._publish(this, message);
+    } else if (frame.type == MqttPacketType.subscribe) {
+      final subscription = MqttPacketCodec.decodeSubscribe(frame, version!);
+      final reasons = <int>[];
+      for (final filter in subscription.filters) {
+        final allowed =
+            _validFilter(filter) && await policy.subscribe(_context, filter);
+        if (closed) return;
+        if (allowed) filters.add(filter);
+        reasons.add(allowed ? 0 : 0x80);
+      }
+      _sendBytes(
+        MqttPacketCodec.encodeSuback(version!, subscription.packetId, reasons),
+      );
+    } else {
+      _handle(frame);
+    }
+  }
 
   void _queuePublish(Uint8List encoded) {
     if (_publishOverflowed) return;
@@ -259,12 +464,36 @@ final class _Peer {
 
   void _onData(Uint8List data) {
     try {
-      for (final frame in decoder.add(data)) {
-        if (closed) break;
-        _handle(frame);
-      }
+      _handleFrames(decoder.add(data));
     } on MqttProtocolException catch (error) {
       _close('protocol_error:${error.message}');
+    }
+  }
+
+  bool _pollNativeFrames(NativeRuntimeWithMqttFrames runtime) {
+    try {
+      final frames = runtime.pollMqttFrames(nativeConnectionId!, decoder);
+      if (frames == null) return false;
+      _handleFrames(frames);
+      return true;
+    } on MqttProtocolException catch (error) {
+      _close('protocol_error:${error.message}');
+      return false;
+    }
+  }
+
+  void _handleFrames(List<MqttFrame> frames) {
+    for (final frame in frames) {
+      if (closed) break;
+      final policy = connected ? broker._gateways[realm] : null;
+      if (policy == null) {
+        _handle(frame);
+      } else {
+        _queueGatewayTask(
+          frame.body.length + 5,
+          () => _handleGatewayFrame(frame, policy),
+        );
+      }
     }
   }
 
@@ -285,6 +514,7 @@ final class _Peer {
         return;
       }
       version = connect.version;
+      _clientId = connect.clientId;
       connected = true;
       _sendBytes(
         MqttPacketCodec.encodeConnack(
@@ -350,6 +580,10 @@ final class _Peer {
   void _close([Object? error]) {
     if (closed) return;
     closed = true;
+    _gatewayClosed.cancel();
+    _gatewayTasks.clear();
+    broker._gatewayQueuedBytes -= _gatewayBytes - _gatewayActiveBytes;
+    _gatewayBytes = _gatewayActiveBytes;
     _outboundRetry?.cancel();
     _pendingOutbound.clear();
     _pendingOutboundBytes = 0;

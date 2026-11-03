@@ -1070,6 +1070,8 @@ class RouterBinding {
   );
   final Set<void Function()> _nativeMessageWatchStops = {};
   final Set<RouterSession> _internalSessions = {};
+  final Map<String, MqttWampGateway> _mqttGateways = {};
+  final Map<String, _MqttPolicyBudget> _mqttPolicyBudgets = {};
   final Set<Future<void>> _internalSessionStarts = {};
   final Map<String, RouterSession> _internalSessionsByRealm = {};
   final Map<String, RouterSession> _internalSessionsByCacheKey = {};
@@ -1726,6 +1728,7 @@ class RouterBinding {
         }
         _mqttBroker.attachNativeConnection(
           connectionId,
+          realm: _mqttRealmForListener(listener, settings),
           send: (bytes) => mqttRuntime.sendMqttChunk(connectionId, bytes),
           close: () => runtime.closeConnection(connectionId),
         );
@@ -1791,9 +1794,10 @@ class RouterBinding {
     var remaining = 256;
     for (final connectionId in _mqttBroker.nativeConnectionIds.toList()) {
       while (remaining > 0) {
-        Uint8List? bytes;
         try {
-          bytes = mqttRuntime.pollMqttChunk(connectionId);
+          if (!_mqttBroker.pollNativeConnection(connectionId, mqttRuntime)) {
+            break;
+          }
         } on NativeTransportException {
           _mqttBroker.closeNativeConnection(
             connectionId,
@@ -1801,8 +1805,6 @@ class RouterBinding {
           );
           break;
         }
-        if (bytes == null) break;
-        _mqttBroker.receiveNativeChunk(connectionId, bytes);
         remaining--;
       }
       if (remaining == 0) break;
@@ -1994,6 +1996,11 @@ class RouterBinding {
     } catch (_) {}
     // Keep the state store alive until all accepted starts have either published
     // an owned session or released their ports/isolate after disposal began.
+    for (final gateway in _mqttGateways.values.toList()) {
+      await cleanup(gateway.close);
+    }
+    _mqttGateways.clear();
+    _mqttPolicyBudgets.clear();
     await cleanup(() async => await _internalBootstrap);
     await Future.wait(_internalSessionStarts.toList());
     await cleanup(() async => await _metricsService?.dispose());

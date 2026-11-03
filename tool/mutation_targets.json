@@ -492,7 +492,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_binary_arguments_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -542,7 +543,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_binary_arguments_test.dart"
     ],
     "testRoot": "packages/connectanum_core"
   },
@@ -593,7 +595,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_binary_arguments_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
@@ -646,7 +649,8 @@
       "packages/connectanum_core/test/serializer/flatbuffers_message_reader_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_roundtrip_test.dart",
       "packages/connectanum_core/test/serializer/flatbuffers_metadata_access_test.dart",
-      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart"
+      "packages/connectanum_core/test/serializer/flatbuffers_session_profile_test.dart",
+      "packages/connectanum_core/test/serializer/flatbuffers_binary_arguments_test.dart"
     ],
     "platform": "chrome",
     "testRoot": "packages/connectanum_core"
@@ -687,6 +691,7 @@
       "packages/connectanum_router/lib/src/router/state/store.dart"
     ],
     "tests": [
+      "packages/connectanum_router/test/state/invocation_caller_test.dart",
       "packages/connectanum_router/test/state/pattern_matching_test.dart",
       "packages/connectanum_router/test/state/retry_deduplication_test.dart",
       "packages/connectanum_router/test/state/store_command_recovery_test.dart",

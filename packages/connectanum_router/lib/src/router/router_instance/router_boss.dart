@@ -428,6 +428,7 @@ class _RouterBoss {
           }
           _mqttBroker.attachNativeConnection(
             connectionId,
+            realm: _mqttRealmForListener(listener, settings),
             send: (bytes) => mqttRuntime.sendMqttChunk(connectionId, bytes),
             close: () {
               mqttRuntime.setMqttWake(connectionId, null);
@@ -634,9 +635,10 @@ class _RouterBoss {
     var remaining = 256;
     for (final connectionId in _mqttBroker.nativeConnectionIds.toList()) {
       while (remaining > 0) {
-        Uint8List? bytes;
         try {
-          bytes = mqttRuntime.pollMqttChunk(connectionId);
+          if (!_mqttBroker.pollNativeConnection(connectionId, mqttRuntime)) {
+            break;
+          }
         } on NativeTransportException {
           _mqttBroker.closeNativeConnection(
             connectionId,
@@ -644,8 +646,6 @@ class _RouterBoss {
           );
           break;
         }
-        if (bytes == null) break;
-        _mqttBroker.receiveNativeChunk(connectionId, bytes);
         didWork = true;
         remaining--;
       }
@@ -1901,13 +1901,26 @@ class _RouterBoss {
       payload
         ..['type'] = 'worker_session_opened'
         ..addAll(message.cast<String, Object?>());
+    } else if (type == 'worker_send_batch') {
+      for (final frame in message['messages'] as List) {
+        _handleEvent({...frame as Map, 'type': 'worker_send'});
+      }
+      return;
     } else if (type == 'worker_send') {
       final connectionId = message['connectionId'] as int;
-      final Uint8List payloadBytes = message['payload'] as Uint8List;
+      final fragments = message['fragments'] as List?;
       final acceptedReply = message['acceptedReply'] as SendPort?;
       var accepted = false;
       try {
-        runtime.sendMessage(connectionId, payloadBytes);
+        if (fragments == null) {
+          runtime.sendMessage(connectionId, message['payload'] as Uint8List);
+        } else {
+          sendNativeMessageFragments(
+            runtime,
+            connectionId,
+            fragments.cast<Uint8List>(),
+          );
+        }
         accepted = true;
         _lastActivityByConnection[connectionId] = DateTime.now();
         payload
@@ -1918,6 +1931,16 @@ class _RouterBoss {
           ..['type'] = 'worker_send_error'
           ..['connectionId'] = connectionId
           ..['error'] = error.toString();
+        if (error.code == NativeTransportErrorCode.sendQueueFull) {
+          // A rejected WAMP frame must not silently leave a live, incomplete
+          // stream. Isolate the slow peer and release its queued state.
+          try {
+            runtime.closeConnection(connectionId);
+          } on NativeTransportException catch (closeError) {
+            _handlePollError(connectionId, closeError);
+          }
+          _detachConnection(connectionId, notifyWorker: true);
+        }
       } on UnsupportedError catch (error) {
         payload
           ..['type'] = 'worker_send_unsupported'
@@ -2451,15 +2474,46 @@ class _RouterBoss {
   }
 
   void forwardMessageToConnection(int connectionId, AbstractMessage message) {
+    if (!tryForwardMessageToConnection(connectionId, message)) {
+      throw StateError('Connection $connectionId not registered on router');
+    }
+  }
+
+  void forwardMessagesToConnections(
+    Iterable<({int connectionId, AbstractMessage message})> messages,
+  ) {
+    final grouped = <_WorkerHandle, List<List<Object?>>>{};
+    for (final message in messages) {
+      final worker = _connectionOwners[message.connectionId];
+      if (worker == null) continue;
+      (grouped[worker] ??= []).add([message.connectionId, message.message]);
+    }
+    for (final entry in grouped.entries) {
+      if (entry.key.supportsMessageBatches && entry.value.length > 1) {
+        entry.key.commandPort.send([_workerCmdSendMessages, entry.value]);
+      } else {
+        // Custom workers keep their existing single-message protocol.
+        for (final message in entry.value) {
+          entry.key.commandPort.send([_workerCmdSendMessage, ...message]);
+        }
+      }
+    }
+  }
+
+  bool tryForwardMessageToConnection(
+    int connectionId,
+    AbstractMessage message,
+  ) {
     final worker = _connectionOwners[connectionId];
     if (worker == null) {
-      throw StateError('Connection $connectionId not registered on router');
+      return false;
     }
     worker.commandPort.send(<Object?>[
       _workerCmdSendMessage,
       connectionId,
       message,
     ]);
+    return true;
   }
 
   void _handleWorkerRegister(Map<dynamic, dynamic> message) {
@@ -2480,6 +2534,7 @@ class _RouterBoss {
       commandPort: commandPort,
       statePort: statePort ?? _stateStore.commandPort,
       isolateHash: message['workerHash'] as int? ?? isolate.hashCode,
+      supportsMessageBatches: message['supportsMessageBatches'] == true,
     );
     if (connectionId > 0) {
       worker.connections.add(connectionId);
@@ -2619,6 +2674,7 @@ class _WorkerHandle {
     required this.commandPort,
     required this.statePort,
     required this.isolateHash,
+    this.supportsMessageBatches = false,
   });
 
   final int id;
@@ -2626,6 +2682,7 @@ class _WorkerHandle {
   final SendPort commandPort;
   final SendPort statePort;
   final int isolateHash;
+  final bool supportsMessageBatches;
   final List<int> connections = [];
   int connectionCursor = 0;
   bool busy = false;
