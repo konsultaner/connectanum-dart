@@ -103,15 +103,22 @@ per-call budget, streams hashes and records natural exit before uncertain close.
 Live recipe factory positives are mocked argv observations, not real canonical/
 native builds. [Executed versions and qualified limits](../research/2026-11-03-flatbuffers-native-perf-build-producer-preparation.md).
 Results are command evidence only, not completed canonical/production admission.
-Next complete trusted SDK/tool/source/command/artifact receipt production and
-immutable capture admission, plus actual loaded role/native-image association.
-Own new-tool fullcanonical/source/archive/actual locks/generated hidden configs/
-native/driver/RLIB/tool/kernel provenance and bounded actual owned non-benchmark
-Linux credential/access/pidfd/FDexec/inheritance/arming/metadata controls remain
-mandatory before data. Fourteen tools uncommitted, production unchanged601;
-helper bundle12 unchanged. No prior proof rerun, cleanup/build/capture or strict
-dispatch. All own sessions reaped; old601 baseline does not verify new tools.
-Both original strict campaigns remain failed; no allocation/RSS cause or parity.
+The producer now pins declared tool-entry/target identity and fixed version
+probes, with durable pre-child build intent and exact version-token boundaries.
+Ten new cases plus23 required changed callers pass33; two actual before failures
+are corrected. A bounded actual local six-tool CLI control plus finite Python
+message passes, retaining the first noncanonical-path preflight refusal and a
+distinct corrected canonical-path control. No actual build/canonical/WAMP/VMAPI/
+Linux/perf/kernel/benchmark/capture ran. [Exact evidence and qualified tool-stamp scope](../research/2026-11-03-flatbuffers-native-perf-tool-identity-preparation.md).
+Next complete trusted SDK/source/config/command/artifact receipt conversion,
+immutable capture admission and actual loaded-role/native-image association.
+Bounded tool snapshots/version output do not establish delegated/loaded images
+or atomic execution. Own fullcanonical/source/archive/actual locks/generated
+hidden configs/native/driver/RLIB/tool/kernel provenance and bounded actual Linux
+non-benchmark controls remain mandatory before data. Fourteen tools uncommitted,
+production unchanged601/helper12 unchanged. No prior proof rerun, cleanup/new-tool
+canonical/strict dispatch or source adoption; all own sessions reaped. Both strict
+campaigns remain failed; no allocation/RSS cause or parity established.
 [Guard preparation, actual failures and source archive](../research/2026-11-03-flatbuffers-native-perf-guard-preparation.md).
 [Method decision and draft](../research/2026-11-02-flatbuffers-601-CPU-method-and-native-perf-plan.md).
 No new capture or production patch is ready.

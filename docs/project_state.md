@@ -7,25 +7,27 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
-## Source-frozen command producer passes23 cases; admission pending (2026-11-03)
+## Tool intent/version guards pass33; actual CLI control scoped (2026-11-03)
 
-A new producer reserves terminal run evidence, checks committed source/archive
-membership and inputs, runs actual owned children and retains signed statuses/
-logs. Four actual tool errors (postspawn ownership, wait budget, whole-log load,
-status-before-close) are fixed;23 OWN tiny Git/non-benchmark Python cases pass.
-Live recipe factory positives are mocked argv observations, not actual builds.
-[All executed versions, exact evidence and qualified scope](research/2026-11-03-flatbuffers-native-perf-build-producer-preparation.md).
+Ten new tool snapshot/version/intent cases plus23 required changed producer
+callers pass33. Two actual before failures are fixed: durable intent ordering
+and numeric version-prefix collision. A bounded local control observed six
+installed-tool version outputs, with original Dart3.13.1/cargo1.95.0, then one
+finite Python message. No actual canonical/native build, WAMP/VMAPI/benchmark/
+Linux/perf/kernel/capture ran. Tool stamps are supporting observations, not
+actual delegated SDK/runtime image or atomic spawn proof.
+[All executed versions, raw control and qualified limits](research/2026-11-03-flatbuffers-native-perf-tool-identity-preparation.md).
 
-The prior file census checks remain file checks only; no new actual SDK/tool/
-canonical/native/RLIB/loaded-role/kernel/capture evidence is manufactured.
-Trusted production/verification receipts and immutable admission remain pending.
-Exact601 role tracing and the kernel task/map metadata lead remain source-only.
-Original requests/policies and all failed strict evidence are preserved.
-Owned HEAD601 now has fourteen uncommitted tools, production packages/native
-unchanged; helper bundle12 unchanged. All own sessions complete/reaped.
-Last free21.29GB exceeds12GiB, no cleanup/new-tool canonical or
-strict dispatch. Both strict campaigns remain failed; PR132 stays draft/unadopted.
-[Prior input66 and role-source/method evidence](research/2026-11-03-flatbuffers-native-perf-input-census-preparation.md).
+The first noncanonical Darwin /tmp caller refusal is retained; a distinct
+canonical-path control corrected it before any version probe/data. No guard,
+host, source, expected SDK or numerical evidence changed. All own sessions are
+reaped. Fourteen tools remain uncommitted, production unchanged601/helper12
+unchanged. Complete trusted build/canonical/config/artifact receipts, immutable
+admission and actual role/native-image association remain pending, followed by
+appropriate own canonical/provenance and real Linux non-benchmark controls.
+Last free21.25GB exceeds12GiB, no cleanup/new-tool canonical/strict
+dispatch. Both strict campaigns remain failed, PR132 draft/unadopted.
+[Prior producer23 and evidence scope](research/2026-11-03-flatbuffers-native-perf-build-producer-preparation.md).
 
 ## CPU service method rejected; external native diagnostic remains a draft (2026-11-02)
 
