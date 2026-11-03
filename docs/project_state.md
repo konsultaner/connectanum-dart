@@ -7,6 +7,20 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## Historical method receipts linked; live preflight remains closed (2026-11-03)
+
+A new OWN five-JSON intake preserves reported method context/status links and
+separate historical/receiver source epochs. Thirteen new guards pass plus one
+separate partial-publication guard; not combined14/fullcanonical. One actual
+intake reads retained receipts only, never rerunning prior kernel controls.
+[Exact source, raw data and limits](research/2026-11-03-flatbuffers-native-perf-method-intake-preparation.md).
+
+Two of20uncommitted tools change; other18/production601 stay byteidentical.
+Original declaration/fixture/session boundaries and live refusal remain closed.
+Full own canonical/build/SDK/compiler/native provenance, original-host controls
+and an independent provider remain unresolved. No RAM repair/capture/numeric
+strict dispatch. Free7.87GB<12GiB buildfloor; no cleanup, cause unmeasured.
+
 ## Scoped Linux method controls complete; capture remains closed (2026-11-03)
 
 Three fresh OWN unprivileged namespace controls complete: actual FD-based

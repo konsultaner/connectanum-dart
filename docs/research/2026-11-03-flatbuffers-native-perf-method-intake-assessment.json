@@ -1,0 +1,99 @@
+{
+  "scope": "historical_method_receipt_linkage_only",
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "source_head": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "source20_sha256": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "1493191e84d92a5e57215f99a95b3b80a7824d788f5b7e0ea4c4c3708b0112a2",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "fc1e8eb183e4d3c80a2d092123db2c3f4d34463d51d6bad7bb3d36920287a0c6",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0"
+  },
+  "changed_files": [
+    "tool/native_perf_admission.py",
+    "tool/test_native_perf_admission.py"
+  ],
+  "unchanged_other_tools": 18,
+  "helper_bundle_files": 20,
+  "tools_uncommitted_uncanonical": true,
+  "production_packages_native_unchanged": true,
+  "before": {
+    "tests": 13,
+    "errors": 13,
+    "failures": 0,
+    "cause": "new API absence, not13 production defects"
+  },
+  "implemented": {
+    "new_tests_PASS": 13
+  },
+  "separately_appended_partial_publication_PASS": 1,
+  "source_and_prior13_test_prefix_unchanged_for_last1": true,
+  "not_combined14_or_canonical": true,
+  "actual_control": {
+    "only_existing_receipt_JSON_inputs": 5,
+    "consumed_once": true,
+    "reported_prior_actor_statuses": [
+      0,
+      78,
+      0
+    ],
+    "no_prior_control_reexecuted": true,
+    "historical_vs_receiver_source_epochs_kept_separate": true,
+    "new_observation_sha256": "c16b95756a7ac37f28f618160004da6cdc290b97e7915a50dbd55400c167aae8"
+  },
+  "live_provider_absent_gate_always_raises": true,
+  "original_decl_fixture_session_live_boundaries_unchanged": true,
+  "models": {
+    "design_GLM_session13685": {
+      "status": 1,
+      "final_assessment_saved": false,
+      "qualification": "token limit; reachable, not unavailable/approval; no unchanged repeat"
+    },
+    "tests_Qwen_session47632": {
+      "status": 1,
+      "final_assessment_saved": false,
+      "qualification": "token limit; reachable, not unavailable/approval; root chose guards"
+    },
+    "new_code_review_Qwen_session16530": {
+      "status": 0,
+      "complete_reaped": true,
+      "source": "connectanum-native-perf-method-intake-review.json",
+      "qualification": "NO_FINDINGS then two residual suggestions rejected by root source reasoning; partial artifacts terminal, not atomic; no FD before mkdir succeeds"
+    },
+    "retention_limit": "First two advisory command/terminal excerpts remain in chat; no saved completed model assessment or full partial response exists. Current complete review stdout/stderr and answer retained."
+  },
+  "limitations": [
+    "Five bounded regular files checked by exact declared SHA/owner/mode/heldFD/path identity; cached consumed bytes retained. Bounded observations, not atomic/ABA/write prevention.",
+    "Only logged method declaration/context/case/status/command EOF links; no new credential/pidfd/FDexec/perf/kernel control or raw stream/executable/source closure authentication.",
+    "Receiver tool hashes are separately declared data; old method source bytes and original-host/root/SDK/compiler/role/timing proofs cannot be inferred.",
+    "Original own full canonical/source archive/production native/driver/static RLIB/locks/configs/SDK/compiler provenance and original-host controls/provider remain unresolved.",
+    "Source20 remains uncommitted/uncanonical; no production adoption/benchmark/capture/numeric/strict dispatch."
+  ],
+  "archive": {
+    "path": "2026-11-03-flatbuffers-native-perf-method-intake-evidence.tar.gz",
+    "members": 394,
+    "sha256": "fb937b2f67c0a261fb25effc456c4c44ce09eb215f638adbd64b65f2da748b14"
+  },
+  "free_bytes": 7872630784,
+  "unchanged_build_floor_bytes": 12884901888,
+  "build_admitted": false,
+  "disk_change_cause_unmeasured": true,
+  "no_cleanup": true
+}
