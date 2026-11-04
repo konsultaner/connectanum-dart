@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Known log objects sealed; physical controller pending
+
+A terminal serialized action can seal exact frozen recipe/auxiliary logs and the producer journal after private signed wait, EOF, empty-buffer and observed read-close facts. Flush failure never closes; fsync failure can permit one guarded close, then stops. Producer pending/result state and all admission flags stay unchanged. Before14 controls lack APIs; initial16 yields15pass and1test tuple-identity failure corrected by1separate pass. New stream-group drift1fail becomes2targeted passes; two new equality-hook failures become3targeted passes, never combined canonical counts. Positive actual object closes precede fixture cleanup; all20 helpers remain uncommitted/uncanonical/unadmitted, production601 unedited. Physical EX orchestration, receipt-audit/unknown-start coverage, runtime preflight/current20canonical and original-host admission remain incomplete.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-known-log-seal-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-known-log-seal-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-known-log-seal-evidence.tar.gz).
+
 ## 2026-11-04 — Frozen actor wait and stream drain; full bridge pending
 
 A separate worker action waits on one exact frozen recipe/auxiliary and drains its original streams to the same open logs. No completion, audit, next spawn, log close or producer/result retag occurs. Final19 selected tests pass (15new+4required callers); a new stale-cache/private-quarantine regression then fails and2 targeted controls pass separately after private authority checks, not combined21/canonical. Exact errors and negative prefix/buffer/suffix evidence stay retained; fixture cleanup is not a live workaround. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Known-log sealing, receipt-audit/unknown-start physical orchestration, runtime preflight/current20canonical and original-host provenance remain incomplete; admission stays closed.
