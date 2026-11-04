@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Auxiliary pre-constructor ownership reproduced; repair unimplemented
+
+Five new Auxiliary controls yield4FAIL/1PASS with no missing APIs: three actual initializer normal returns precede injected failures, leaving no source allocated reference; the old handler completes/publishes while the finite child exists. Initializer drift invokes the foreign hook; normal real two-stream construction passes. Four actual finite child method-waits return signed0 before root cleanup; no source marker backfill or SDK/kernel/RAM defect claim. Retained allocation/typed unknown DATA is selected but UNIMPLEMENTED. All23 source/bin buffers remain exact;20helpers uncommitted/uncanonical/unadmitted, production601 unedited. Public cleanup/full physical EX/original-runtime admission remain incomplete. Build floor CLOSED below12GiB; cause unmeasured/no cleanup.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-aux-allocation-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-allocation-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-allocation-evidence.tar.gz).
+
 ## 2026-11-04 — Allocated direct Popen retained; physical closure incomplete
 
 The producer retains its exact allocated Popen before initializer I/O, pins class/allocator/initializer bindings, preserves None-only construction and captures original argument references before allocation. Typed history DATA retains partial actors without wait/release authority. Private AFTER5PASS, corrected source9PASS and affected8PASS are separate. Two new binding controls fail then6selected pass at final5e88/144a;11new methods are not a full-final/canonical result. Setup parse/NameError errors and final review token limit remain retained. Other original code/gates and production601 stay exact;20helpers remain uncommitted/uncanonical/unadmitted. Original public cleanup, transitive actors/full physical EX/original-runtime admission remain incomplete. Build floor CLOSED below12GiB; cause unmeasured/no cleanup.

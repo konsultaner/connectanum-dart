@@ -1,0 +1,139 @@
+{
+  "utc": "2026-11-04T08:36:33.494217+00:00",
+  "phase": "Auxiliary_preconstructor_BEFORE_and_selected_design_COMPLETE_REPAIR_UNIMPLEMENTED",
+  "hashes": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "5e88c1d716ff01947b48154884c904e5b89c994d626e1988d6db156dd808cda6",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "144a184e2055dd3a7fd842f7a74eed52fa44bf1e05079de0b598c9908286334c",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+    "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+    "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+  },
+  "source_and_test_all23_unchanged": true,
+  "source_sha256": "5e88c1d716ff01947b48154884c904e5b89c994d626e1988d6db156dd808cda6",
+  "test_sha256": "144a184e2055dd3a7fd842f7a74eed52fa44bf1e05079de0b598c9908286334c",
+  "controls": {
+    "controls": 5,
+    "passed": 1,
+    "failed": 4,
+    "missing_API_errors": 0,
+    "all_declared_boundaries_reached": true,
+    "actual_finite_children": [
+      {
+        "mode": "oserror",
+        "status": 0
+      },
+      {
+        "mode": "runtime",
+        "status": 0
+      },
+      {
+        "mode": "false_return",
+        "status": 0
+      },
+      {
+        "mode": "normal",
+        "status": 0
+      }
+    ]
+  },
+  "new_question": "Separate AuxiliaryCommand path still blind typecall; prior direct allocation component does not cover it. Three real initializer normalreturns precede injected failures, source lacks allocated reference beforeinit/afterfailure and marks finished after its oldcleanup while actual finite child exists. Classinitrebind calls foreignhook1 before native; normal actual constructor/two-stream caller passes. Finite faultmodel/contract failures, not measured SDK/kernel/RAM/globalorphan defects.",
+  "source_normal_semantics": "Actual exact Popen/argv/cwd/DEVNULL/two distinct original creator writer FDs/close_fds and start environment dictcopy equality verified. Constructor retains tuple argv and copied MappingProxyType; start also makes its original list and dict copies. Those wrapper metadata observations alone are not proof of actualcall BEFOREallocator binding.",
+  "model_advice": [
+    {
+      "role": "judge",
+      "pid": 42299,
+      "direct_status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 1406,
+      "stderr_size": 658,
+      "stdout_sha256": "6d4c18116c68be66ef48e95aa5399cf84aa75f822f25229d926471c62a6d62c4",
+      "stderr_sha256": "7a1cb1fd80dde5b0ee9a2bbc2bf7e46a505b497a0f0ffe0f8815993388922899",
+      "reaped": true,
+      "utc": "2026-11-04T08:27:51.830201+00:00"
+    },
+    {
+      "role": "tests",
+      "pid": 42865,
+      "direct_status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 1461,
+      "stderr_size": 374,
+      "stdout_sha256": "06ae78a5feb4296ea9f282dedbd735f70c52435b3f421a301a5ffb9b490d52f5",
+      "stderr_sha256": "5bb67e11245496e7c69b2701f4a090cba6cff32e9db641e36ada28e59b0cf3d2",
+      "reaped": true,
+      "utc": "2026-11-04T08:29:29.233797+00:00"
+    }
+  ],
+  "ROOT_qualifications": {
+    "judge_pid": 42299,
+    "tests_pid": 42865,
+    "both_complete0_reaped": true,
+    "advisory_only": true,
+    "corrections": [
+      "GLM old _complete comment must be enforced is a future publiccleanup task, not a guarantee of selected allocation-only component. Partialhandle staysprivate/currentprocess-pending onlynormalreturn; DATA unknown not childexists inference.",
+      "GLM copies exactlyonce at constructor only is false: start ALSO evaluates list(self.argv) and dict(self.environment). Preserve every existing copy and BEFOREallocator evaluation; wrapper tuple/mappingproxy observations alone do not prove early actualcall binding.",
+      "Qwen self.argv stilllist at lease TypeError is false: constructor sets tuple beforelease. Unrelated leasecallbackfault does not exercise Popen allocation; do not run it.",
+      "Two stdout/stderr writer FD values/direction/pipeidentities, not Python object id or shared-fileobject claim, are relevant. Root checks exact native creator ends; not writer/descendant auth.",
+      "Qwen nochild after partialstreamsetup contradicts declared afterREALinit fault. Real original initializer normalreturn precedes injectederror, actualfinite child must SAMEwait; never infer childabsence from processNone/finished.",
+      "Qwen cwd neverassigned beforecanonicalcheck is false: self.cwd=Path(cwd) precedesresolve check. Do not run guessed pytest/grep commands or unrelated canonical control.",
+      "No model fullsource/SDK/physicalclosure/release approval."
+    ]
+  },
+  "selected_plan": {
+    "unimplemented": true,
+    "source_sha256": "5e88c1d716ff01947b48154884c904e5b89c994d626e1988d6db156dd808cda6",
+    "test_sha256": "144a184e2055dd3a7fd842f7a74eed52fa44bf1e05079de0b598c9908286334c",
+    "scope": "Exact allocated Auxiliary Popen retention only; not full publiccleanup/physicalclosure/runtime admission",
+    "selected": "Initialize private native allocation ledger and durable original reference binding, exact allocated_process and private first/staged error state BEFORE constructor lease callback/intent hash-write. Reserve one attempt BEFORE start fallibleIO. Check exact captured original class/resolved native object allocator/initializer and ledger bindings. Bind original call arguments BEFORE allocator including existing list(self.argv) and dict(self.environment) exactly once at their original start boundary, cwd, DEVNULL, distinctstdout-stderr creatorwriters/close_fds. Retain exact allocated object BEFORE capturedinitializerIO; self.process/pending onlynormalNone-return, reject nonNone preserving native semantics.",
+    "history": "Extend frozen Auxiliary DATA observation of private allocated object/stages/unknown partial init and original binding; never infer absence0/liveness/waitauthority from processNone or finished. Do not silently discard partial object or quarantine ordinary success. All old emit/auxiliary/freeze predicates unchanged, no admission/EXrelease.",
+    "public_cleanup": "Original repr/_defer/add_note/pipe-close/_complete/failed publication policy stays explicitly incomplete/outside narrow allocation component; maymask or closecopies before actualchildexit. No current fixture/synthetic cleanup/source markers retagged. No unknown-object method, GCdiscard/destructor/privateglobalbookkeeper/retry/cancel/kill/reclose/fallback/subclass/SDK change.",
+    "tests": "Matching meaningful before5 consumed: no unchanged rerun. After newsourceepoch only semanticAFTER, normal actualAux/history/real source factory callers; match selected unit regressions, explicit affected seam migration without assertionsoftening/fakepositive. Add exact retained allocated/firsterror/dataunknown and preallocator argumentref/None semantics controls. Actual unregistered capsules/finites not current20canonical/native."
+  },
+  "raw_limits": "Actual finite OWN Python with private quiet ready-release-deadline NOTGO/workload. Root holds instance BEFORErealinit onlyforunitcleanup, neverlibrarybackfill. Four actual bound samePopen waits signed0 saved BEFORErootFD/writerclose; source may closecopies/_complete-publish earlier. Negative sourcewaitFalse/null unbackfilled. NormalAux.wait afterrootwait may use cached0, no freshsyscall guarantee. ClosedreadFD neverreconstructedEOF/retiredFDnotreclosed. Original refs/errors private/savedbool-nativeclassnames; administrativefixtureAPIreturns not exhaustive. CurrentDarwinactualofficialEX/callback spansknownfinitecases, notoriginalLinux/root/perf/fullactorFD-delegate-descendant/instructionclosure or physicalrelease.",
+  "provenance": "All three original model/control controller files saved BEFORE execution; byteexact copies now retained in preparation. Separate command-before receipts and fullstdout-stderr/directsignedwaits saved for modelchildren. Beforecontroller top-level API return0 means expected observations recorded, not5semanticPASS. No Git/sourceHEAD query this read-only phase; prior post-direct-component branchHEAD orientation only. Exact held producer buffer compiled per capsule, not current20canonical/native.",
+  "unchanged_scope": "All23 selected source/bin buffers exact beforeafter/all20untracked-uncommitted-uncanonical-unadmitted/production601unedited/privatecontrollers outsideHELPERBUNDLE20. Existing owner_emit_attempted/freeze/auxpredicates unchanged. No SDK/compiler/version/bootstrap/native/canonical/kernel/broker/benchmark/capture/sourcecommitpushadoption/strictdispatch.",
+  "next": "Implement selected Auxiliary allocation retention and matching newsourceepoch regression/affected realcaller checks, then originalpubliccleanup/historicalcontinuation-logseal/transitivegenericFD/auditpartialunknownactors/sharedjournal-writers/interpreter-delegate-descendant/fullactualofficialEX/originalruntime provenance and ROOT-qualified immutable COMPLETEadmission before diagnosticdata.",
+  "live": {
+    "provider_absent": true,
+    "gate_always_raises": true,
+    "controller_closed": true,
+    "ownership": null,
+    "capture_ready": false,
+    "source_admitted": false,
+    "live_admission": false,
+    "no_RAMcause_repair_acceptance": true
+  },
+  "free_bytes": 3161669632,
+  "build_floor_bytes": 12884901888,
+  "build_floor_open": false,
+  "test_floor_bytes": 1073741824,
+  "cause_unmeasured": true,
+  "no_cleanup": true,
+  "coordinator_provenance_qualification": "All three original model/control controller files saved BEFORE execution; copies aftercalls. Root assessment/publication originals also saved BEFORE execution. Separate command-before/model stdout-stderr/direct waits retained. No execution admission inferred.",
+  "new_public_evidence": {
+    "archive_sha256": "a08d0e4d00c13e5604ffd93fefcdb981fcc0d1e67444b2e3bb4c99548b3b485d",
+    "regular_members": 137,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}
