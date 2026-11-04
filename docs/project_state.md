@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — START callbacks stop changed context before resource creation
+
+Auxiliary START callbacks retain original callback/plan/allocation/stream context and intent before calling. Raw return precedes checks; buffer/EOF drift and unknown calls retain first and stop before later startup I/O. Original ignored None/False returns and generic startup journal semantics remain intact. Completed context stays historical DATA, not authentication/physical EX/admission.
+
+NEW6 at37da16/98a5f0 yield3FAIL/3PASS/0APIerrors: two drift cases each advance18 monitored operations/process launch; the third is a stronger context receipt where old exception quarantine already works. Final5fc083/fe34de passes22selected checks (6matching new+16affected), not aggregated/current20canonical. Current official EX verification is delegated in new cases, not original-host/full-actor admission. Qwen/GLM complete0 with ROOT qualifications; ROOT independently verifies final source/tests/AST and four new Git0/BOTHstreams/601/20untracked/productiondiffempty DATA. Initial reader StopIteration and review argparse2-before-backend are retained separately. INIT/backingFDs/full physical EX/runtime admission remain incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](research/2026-11-04-flatbuffers-native-perf-aux-start-lease-progress-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-start-lease-progress-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-start-lease-progress-evidence.tar.gz).
+
 ## 2026-11-04 — Wait callbacks preserve original context and raw returns
 
 Auxiliary WAIT-site callbacks now bind original callback/process/stream-FD-log-buffer-EOF context and intent before calling. Raw returns precede postchecks; changed context retains first and permanently stops. Buffer injection no longer reaches the log. Original ignored returns (None/False), nonempty pending buffers and old gates remain intact. Known success drops duplicate buffer references only; callback identity/None/completion are DATA, not lease/physical EX/admission.
