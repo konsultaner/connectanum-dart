@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Wait callbacks preserve original context and raw returns
+
+Auxiliary WAIT-site callbacks now bind original callback/process/stream-FD-log-buffer-EOF context and intent before calling. Raw returns precede postchecks; changed context retains first and permanently stops. Buffer injection no longer reaches the log. Original ignored returns (None/False), nonempty pending buffers and old gates remain intact. Known success drops duplicate buffer references only; callback identity/None/completion are DATA, not lease/physical EX/admission.
+
+NEW7 atf39da0/299139 yield4FAIL/3PASS/0APIerrors; separate buffered control1PASS/original7 not repeated. Final37da16/98a5f0 passes22selected checks (8matching new+14affected), not aggregated/current20canonical. Actual current official EX verification is delegated in new cases; it does not establish original-host/full-actor admission. GLM token-limit1/stdout0/stderr1068/FULL partial final ABSENT gives no approval; ROOT independently qualifies whole final affected source/tests/AST. Four new Git0/BOTHstreams/601/20untracked/productiondiffempty remain DATA. Earlier init/start leases/backingFDs/full physical EX/original-runtime admission remain incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-aux-wait-lease-progress-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-aux-wait-lease-progress-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-aux-wait-lease-progress-evidence.tar.gz).
+
 ## 2026-11-04 — Select retains original readers and readiness results
 
 Auxiliary select binds original streams/read FDs/process/input lists/timeout and intent before the native call. Substituted readers refuse before lookup; raw tuple results precede format/postbinding checks. Unknown, invalid False and drift retain first and permanently stop. Original min(remaining,.05), normal helper None result, empty timeout/readiness and old gates remain intact. Descriptor/tuple fields are DATA, not kernel identity/ABA/authentication/arming/physical EX/admission.
