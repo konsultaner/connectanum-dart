@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Owner error objects retained before type labels
+
+Three owner methods retain exact first/call/join errors before native type-name publication, avoiding custom exception metaclass hooks and non-scalar observer labels. Five new controls fail before;8selected pass after (5new+3required), then a separate real-thread bounded-join control passes with unchanged producer, not combined9/canonical. Other source/gates remain byteexact. All20 helpers stay uncommitted/uncanonical/unadmitted; production601 unedited. Historical inventory/transitive ownership/full physical EX/original-runtime admission remain incomplete. Build floor remains CLOSED below12GiB; cause unmeasured/no cleanup.
+
+[Preparation](../research/2026-11-04-flatbuffers-native-perf-owner-error-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-owner-error-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-owner-error-evidence.tar.gz).
+
 ## 2026-11-04 — Direct command histories retained; build floor closed
 
 Private attempts retain process/log/pipe references before later I/O and preserve exact method-wait statuses before metadata. Poll/cache/timeout/unknown status remain distinct. Original spawn reporting/cleanup policy remains. A shared private reader/output I/O test seam is separated without changing native calls. Before16 accidentally includes8inherited controls:7failure/5error occurrences include missing APIs and harness failures, not production defect counts. Corrected22selected pass; two new review controls yield1pass/1harness error, then the blocked control1pass separately, not full-final24/canonical. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Historical continuation, transitive FD/unknown actors/full physical EX/original-runtime admission remain incomplete. Free11.66GB is below12GiB; build floor CLOSED, cause unmeasured/no cleanup.
