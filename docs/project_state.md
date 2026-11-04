@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Deferred errors retain the original exception
+
+Auxiliary error handling now retains the original exception before reporting checks and permanently refuses continuation without repr/note/failure publication or cleanup. Earlier component first errors retain precedence; bound first recovery survives scalar/flag damage. Normal wait behavior and old gates remain intact; frozen history records quarantine as DATA.
+
+NEW7 at49e30d/1063c6 yield6FAIL/1normalPASS/0APIerrors; finaldf2588/900ff5 passes13 selected checks (7matching new+6affected), not combined/current20canonical. Qwen/GLM advice completes0 and is ROOT-qualified, with no model full-current-source approval. ROOT verifies final source/tests/AST and4newGit0/BOTH streams/601/20untracked/productiondiffempty DATA. Per-native I/O progress, init/generic/enclosing paths, full physical EX and original-runtime admission remain incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](research/2026-11-04-flatbuffers-native-perf-aux-deferred-error-quarantine-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-deferred-error-quarantine-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-deferred-error-quarantine-evidence.tar.gz).
+
 ## 2026-11-04 — Log finalization stops on uncertain I/O
 
 Auxiliary finalization registers flush/fileno/fsync/close/snapshot/result operations before I/O, retains actual returns before checks and stops on unknown outcomes without finally-close/defer/report/replay. Public completion follows a known original result-publication return; its attempt marker precedes the call. Private wait/EOF/creator-close facts remain DATA preconditions, never physical EX/admission authority. Old gates remain unchanged.
