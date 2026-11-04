@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — User-requested lossless temporary output cleanup completed
+
+Temporary output footprint fell from139.49GB to46.72GB; verified allocation reduction92.78GB.657 historical JSON files retain their paths with transparent filesystem compression;37 oversized logs are retained in adjacent verified gzip archives with a path/hash index. All original logical bytes are preserved;841 protected source/binary/previous-archive files verified unchanged. No worktree, other-task data, old92/829 plan, SDK, test, build, benchmark or capture was touched.
+
+Free305263661056B reopens the1GiB test and12GiB build floors; other free-space changes are not attributed to cleanup. Current221e/89b3 source remains UNTESTED/unadmitted. Next: fresh hash/actual official EX/free-space validation, then the prepared eight affected checks. Original-runtime provenance, physical EX closure and strict acceptance remain incomplete.
+
+[Cleanup scope and limitations](../research/2026-11-04-connectanum-temporary-output-cleanup-preparation.md), [per-file receipt](../research/2026-11-04-connectanum-temporary-output-cleanup-receipt.json).
+
 ## 2026-11-04 — Read-only OWN resource preflight finds no disjoint cache cohort
 
 A new two-root metadata survey records15544 entries/14443 regular files:92 terminal-old candidates and14351 prior protected entries are excluded, leaving zero new disjoint metadata candidates. No cleanup or other-task access; old hashes/identities are exclusions, not fresh eligibility proof. The result is terminal and must not repeat unchanged. Current221e/89b3 source remains unchanged/UNTESTED below the1GiB test and12GiB build floors. A ROOT-qualified, source-only Auxiliary constructor-uncertainty quarantine design is UNIMPLEMENTED; model receiver/publication/check-order claims are corrected. Full physical EX/original-runtime admission and strict acceptance remain incomplete.

@@ -1,0 +1,11 @@
+# Lossless temporary output cleanup — 2026-11-04
+
+The user requested cleanup of Connectanum temporary test copies. The selected temporary directory footprint fell from139493609472B to46716747776B. Verified file-allocation reduction is92781326336B:657 historical JSON files retain their paths using transparent filesystem compression;37 oversized logs are retained as adjacent gzip archives. Each replacement was checked against the complete original SHA-256 and size. Original permissions, owner/group, modification times and provenance metadata were checked for transparent copies; original metadata for archived logs is retained in local journals. The public receipt lists every affected path and content hash.
+
+841 protected source files, binaries and previous archives were hashed before and after and verified unchanged. Worktrees and other tasks were untouched; the old92/829 cleanup plans were not resumed. All original result bytes remain available. No test, build, benchmark, SDK/native execution or diagnostic capture ran. The current221e/89b3 helper epoch is still UNTESTED and unadmitted.
+
+Administrative corrections are retained locally: the first controller encountered an unsupported Python extended-attribute API before replacement; a second correctly skipped files with provenance metadata; a third completed one verified replacement before an assertion rejected the expected rename ctime change. The final controller independently verified that replacement and processed the remaining files. These are filesystem-maintenance outcomes, never performance-test counts or admission evidence.
+
+The final point-in-time free-space observation was305263661056B, reopening the1GiB test and12GiB build floors. Only the verified file-allocation reduction is attributed to this cleanup; other free-space changes remain unmeasured. Recheck free space and source hashes under the official exclusive lease before the already prepared eight affected checks. The independent physical EX controller, original-runtime provenance and strict acceptance remain incomplete. PR132 stays open/draft; no source adoption or strict dispatch is authorized by storage maintenance.
+
+[Per-file receipt and protected hashes](2026-11-04-connectanum-temporary-output-cleanup-receipt.json).
