@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Direct wait retains the original process and timeout observation
+
+Auxiliary direct waits bind the original normally returned constructor/allocation handle before lookup/call; substituted public pointers refuse before witness binding. Raw returns precede validation/postchecks/publication; uncertain outcomes retain first and permanently refuse. Signed nonzero and stable actual TimeoutExpired semantics remain intact. Completed timeout DATA never means actor exit, ownership or physical EX/admission.
+
+NEW7 at1ba592/95e1fb yielded4FAIL/3normalPASS/0APIerrors; separate NEW pure full-history guard control1FAIL/0APIerrors. Finalf27909/239e6a passes16selected checks (8matching new+8affected), not combined/current20canonical. ROOT accepts GLM's missing full-history defer barrier after correcting two failed administrative assertions, and rejects _defer-fallthrough/unknown-zero claims. Model review precedes the final wrapper/eighth control; ROOT independently qualifies whole final affected source/tests/AST. Four new Git0/BOTHstreams/601/20untracked/productiondiffempty remain DATA. Read/select/lease/backingFDs/full physical EX/original-runtime admission stay incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-aux-direct-wait-progress-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-aux-direct-wait-progress-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-aux-direct-wait-progress-evidence.tar.gz).
+
 ## 2026-11-04 — Native poll retains the original process and raw return
 
 Auxiliary polling records original constructor/handle/status/lookup/attempt before native calls and retains raw returns before checks/publication. Substituted public handles refuse before polling; drift, invalid bool and unknown outcomes preserve first error and permanently stop. Normal pending None, signed integers and helper None return remain intact. These are DATA preconditions, never partial-Popen method authority or physical EX/admission.
