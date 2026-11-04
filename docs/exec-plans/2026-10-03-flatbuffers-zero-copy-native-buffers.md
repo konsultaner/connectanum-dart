@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Select retains original readers and readiness results
+
+Auxiliary select binds original streams/read FDs/process/input lists/timeout and intent before the native call. Substituted readers refuse before lookup; raw tuple results precede format/postbinding checks. Unknown, invalid False and drift retain first and permanently stop. Original min(remaining,.05), normal helper None result, empty timeout/readiness and old gates remain intact. Descriptor/tuple fields are DATA, not kernel identity/ABA/authentication/arming/physical EX/admission.
+
+NEW7 at649857/574940 yield5FAIL/2normalPASS/0APIerrors, including earlier-select and intent policies where old read/first guards already worked later. Finalf39da0/299139 passes19selected checks (7matching new+12affected), not aggregated/current20canonical. Qwen advice is ROOT-qualified. GLM response-limit1/stdout0/stderr1367/full partial final ABSENT/reaped gives no approval; no unchanged review repeat. ROOT independently qualifies whole final affected source/tests/AST. Four new Git0/BOTHstreams/601/20untracked/productiondiffempty remain DATA. Lease/backingFDs/full physical EX/original-runtime admission remain incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-aux-select-progress-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-aux-select-progress-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-aux-select-progress-evidence.tar.gz).
+
 ## 2026-11-04 — Stream reads retain original descriptors and raw results
 
 Auxiliary reads record original stream/creator read FD/log/process/buffer refs and intent before os.read. Substituted FDs refuse before lookup; actual bytes precede validation/postchecks/buffer publication. Unknown, invalid False and drift retain first/raw bytes and permanently stop. Stable EAGAIN/Interrupted semantics and original EOF close order remain intact; a pure guard before expected-error continue stops quarantined drift. These are DATA preconditions, not kernel FD identity/ABA/authentication/physical EX/admission.
