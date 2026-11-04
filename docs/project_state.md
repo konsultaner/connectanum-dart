@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Early Auxiliary startup errors quarantine known resources
+
+Startup I/O is registered before each call and known native returns are retained before later checks. Unknown pre-constructor outcomes retain the first error and refuse repr/report/close/complete; hidden ROOT-unit returns stay unknown to the source. Existing constructor first-error recovery and normal operation order/arguments remain intact.
+
+NEW5 at5ba379/e05804 are4FAIL/1normalPASS/0ERROR; a separate NEW2 selection is2FAIL/0ERROR. Finale69a9e/15ad48 passes10 selected checks (7matching new+3affected callers), not combined/current20canonical. Qwen/GLM advice completes0 but is ROOT-qualified; review precedes final v3/two controls. ROOT verifies final source/tests/AST and four new Git0/BOTH streams/601/20untracked/productiondiffempty DATA. Earlier init, generic internal resources, post-constructor errors, physical EX and original-runtime admission remain incomplete. No SDK/native build/canonical/kernel/benchmark/capture/source adoption/strict acceptance.
+
+[Exact regression, epochs and limits](research/2026-11-04-flatbuffers-native-perf-aux-early-startup-quarantine-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-early-startup-quarantine-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-early-startup-quarantine-evidence.tar.gz).
+
 ## 2026-11-04 — History snapshot avoids foreign type equality
 
 A passive retained command-history snapshot could invoke a retained opaque error's custom metaclass equality. One conditional now uses native type identity and shallow early exit. NEW4 at90178/a35e reproduce3FAIL/1normalPASS/0ERROR; final5ba379/e05804 passes6 selected checks (4matching new+2affected callers). Original source/test bytes outside this branch/new class and old gates remain unchanged; results are not combined/current20canonical.
