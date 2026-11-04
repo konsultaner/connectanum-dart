@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Receipt errors retained; physical orchestration pending
+
+Receipt/audit/copy failures now retain exact private first/secondary errors and publish TYPEONLY failure metadata without exception hooks. Explicit local error tracking avoids ambient-handler contamination, and whole output-body retention preserves errors through context close. Before7 controls fail; initial9pass (7new+2required). Two new boundary controls expose one remaining gap and one introduced bookkeeping error;4targeted controls pass separately, not combined canonical counts. Buffered-writer close policy and receipt resource inventory remain incomplete. All20 helpers stay uncommitted/uncanonical/unadmitted; production601 unedited. Physical EX orchestration, SDK/lock/config/current20canonical and original-host admission remain closed.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-receipt-error-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-receipt-error-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-receipt-error-evidence.tar.gz).
+
 ## 2026-11-04 — Known log objects sealed; physical controller pending
 
 A terminal serialized action can seal exact frozen recipe/auxiliary logs and the producer journal after private signed wait, EOF, empty-buffer and observed read-close facts. Flush failure never closes; fsync failure can permit one guarded close, then stops. Producer pending/result state and all admission flags stay unchanged. Before14 controls lack APIs; initial16 yields15pass and1test tuple-identity failure corrected by1separate pass. New stream-group drift1fail becomes2targeted passes; two new equality-hook failures become3targeted passes, never combined canonical counts. Positive actual object closes precede fixture cleanup; all20 helpers remain uncommitted/uncanonical/unadmitted, production601 unedited. Physical EX orchestration, receipt-audit/unknown-start coverage, runtime preflight/current20canonical and original-host admission remain incomplete.
