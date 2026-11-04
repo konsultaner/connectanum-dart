@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — JSON writer retains first errors before automatic close
+
+The generic JSON writer now retains original received manager/writer handles and per-operation intent/raw returns, rejects short counts and preserves first errors before metadata. Unknown or invalid body completion stops before automatic exit or another writer operation. Normal buffered xb/sorted-ASCII JSON/newline/method order/None result and ignored normal exit returns remain intact. Literal-Path process-lifetime records are DATA, not persistent namespaces, credentials, ownership, heap/RSS bounds or physical EX.
+
+NEW10 at4bac3d/4b55a5 yield7FAIL/3normalPASS/0APIerrors: five automatic-exit path failures include one first-error mask, one controlled3byte write is accepted, and one exit-error case fails stronger retention policy. Finalf599f8/3c6328 passes25selected checks (10new+15affected), not aggregated/current20canonical/admission. The prior prefix test now requires the earlier stop before flush/hash and retained known count3. ROOT verifies final source/tests/AST, 23 hashes and4newGit0/BOTHstreams/601/20untracked/productiondiffempty DATA. Gemma limit1 and GLM/Qwen/GLM advisory0 are qualified; model input precedes final v2 locals/affected-helper changes. Generic hash/internalFD/earlier construction/enclosing cleanup/transitive actors/full independent EX/runtime admission remain incomplete. No SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-json-writer-progress-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-json-writer-progress-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-json-writer-progress-evidence-v2.tar.gz).
+
 ## 2026-11-04 — Intent call progress precedes digest publication
 
 Auxiliary original writer/hash calls retain original functions/arguments/context/attempts before I/O and raw returns before checks. Unknown, drift and invalid/mismatching returns retain first and stop before digest publication. Expected-image comparison is contract/integrity DATA; the generic helpers' internal with/finally-close/add_note paths remain byte-exact and unfinished.

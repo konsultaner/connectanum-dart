@@ -1,0 +1,233 @@
+{
+  "utc": "2026-11-04T23:07:13.125153+00:00",
+  "source_sha256": "f599f86e2d50cbee89495b7268af3a6c9cd09125c94c737a6f7ce7aa8b4eba68",
+  "test_sha256": "3c6328a792d4b2de7eae2ef199b9980b07b4d859b5a6b731c318edd68f0db97c",
+  "before": {
+    "tests": 10,
+    "failures": 7,
+    "passes": 3,
+    "errors": 0,
+    "interpretation": "5 automatic-exit path failures include masking first; 1 prefix3 count integrity failure; 1 exit-error retained-attempt policy failure. NOT7 native/kernel bugs"
+  },
+  "after": {
+    "utc": "2026-11-04T23:05:27.975264+00:00",
+    "tests": 25,
+    "failures": 0,
+    "errors": 0,
+    "selection": [
+      "GenericJSONWriterProgressTests.test_actual_exit_then_fault_retains_unknown_and_originals",
+      "GenericJSONWriterProgressTests.test_actual_flush_then_fault_has_no_automatic_exit",
+      "GenericJSONWriterProgressTests.test_actual_fsync_then_fault_has_no_automatic_exit",
+      "GenericJSONWriterProgressTests.test_actual_json_error_has_no_automatic_exit",
+      "GenericJSONWriterProgressTests.test_actual_write_first_is_not_masked_by_exit_secondary",
+      "GenericJSONWriterProgressTests.test_actual_write_then_fault_has_no_automatic_exit",
+      "GenericJSONWriterProgressTests.test_controlled_actual_prefix3_stops_before_flush",
+      "GenericJSONWriterProgressTests.test_normal_full_JSON_bytes_and_operation_order",
+      "GenericJSONWriterProgressTests.test_normal_ignored_exit_False_is_preserved",
+      "GenericJSONWriterProgressTests.test_normal_ignored_exit_object_is_preserved",
+      "AuxiliaryIntentCallProgressTests.test_actual_hash_then_False_is_not_published_as_digest",
+      "AuxiliaryIntentCallProgressTests.test_actual_intent_hash_return_then_drift_refuses_public_digest",
+      "AuxiliaryIntentCallProgressTests.test_actual_intent_hash_then_fault_retains_unknown_call_first",
+      "AuxiliaryIntentCallProgressTests.test_actual_intent_writer_return_then_drift_stops_before_hash",
+      "AuxiliaryIntentCallProgressTests.test_actual_intent_writer_then_fault_retains_unknown_call_first",
+      "AuxiliaryIntentCallProgressTests.test_actual_prefix_write_then_hash_cannot_admit_truncated_intent",
+      "AuxiliaryIntentCallProgressTests.test_normal_original_intent_pair_preserves_bytes_order_and_output",
+      "ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+      "ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+      "ProducerTests.test_spawn_failure_retains_null_status_no_retry",
+      "ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+      "AuxiliaryInitLeaseProgressTests.test_normal_INIT_actual_verify_None_preserves_intent_and_output",
+      "AuxiliaryInitLeaseProgressTests.test_INIT_ignored_False_return_preserves_original_contract",
+      "AuxiliaryStartupResourceQuarantineTests.test_normal_actual_two_stream_startup_and_wait_remain_successful",
+      "AuxiliaryFinalizationQuarantineTests.test_normal_actual_natural_wait_log_finalization_and_result"
+    ],
+    "source_sha256": "f599f86e2d50cbee89495b7268af3a6c9cd09125c94c737a6f7ce7aa8b4eba68",
+    "test_sha256": "3c6328a792d4b2de7eae2ef199b9980b07b4d859b5a6b731c318edd68f0db97c",
+    "details": [],
+    "not_current20canonical_or_original_runtime_admission": true
+  },
+  "ROOT": {
+    "source_bytes_and_all_other_AST_exact": true,
+    "original_test_bytes_exact_except_declared_one_helper_and_append": true,
+    "hashes23": {
+      "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_build_producer.py": "f599f86e2d50cbee89495b7268af3a6c9cd09125c94c737a6f7ce7aa8b4eba68",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+      "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+      "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+      "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_build_producer.py": "3c6328a792d4b2de7eae2ef199b9980b07b4d859b5a6b731c318edd68f0db97c",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+      "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+      "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+      "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+      "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+      "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+      "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+    },
+    "other18_helpers_and3bins_unchanged": true,
+    "normal_JSON_and_Python_APIorder_preserved": true,
+    "ignored_normal_exit_None_False_object_preserved": true,
+    "unknown_return_None_is_not_known_None": true,
+    "pure_first_guard_no_IO_asserted": true,
+    "new_units_known_native_ROOT_cleanup_after_raws": 6,
+    "cleanup_identity_verified": true,
+    "git_commands": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 90887,
+        "status": 0,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 90888,
+        "status": 0,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--short",
+          "--untracked-files=all"
+        ],
+        "pid": 90889,
+        "status": 0,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "--name-only",
+          "HEAD",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 90890,
+        "status": 0,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "whole_final_selected_source_tests_AST_independently_qualified_NOT_model_full_current_approval": true
+  },
+  "limits": [
+    "Source tools still all20uncommitted/uncanonical/unadmitted; production601 untouched",
+    "Global generic writer registry is process-life literal native Path DATA; relative/absolute aliases, restart, credentials, ownership, durable namespace, atomic ABA not established",
+    "Unknown handles retain original received refs; partial open unknown cannot be reconstructed from ROOT hidden native return",
+    "Registry/rows/closures/values/tracebacks retain shared refs; growth unmeasured; no exact heap/RSS/timing/cause/trim-reset-evict permission",
+    "Path/open/enter/lookup/encode/fileno-invalid/metadata-damage negative branches SOURCE only, not executed coverage",
+    "New writer units are actual parent BufferedWriter/json/fsync facades, controlled prefix3 and postreturn faults; method counts not syscall counts",
+    "ROOT known native close AFTER evidence unit only; 0 precleanup output may become 3B during ROOT close, never Source publication/durability/physical EX",
+    "Earlier fixture setup/actorFD/other delegate API returns not all serialized; no complete child FD/interpreter/delegate/descendant instruction census",
+    "BEFORE unittest subprocess has signed1+BOTHEOF; AFTER executes same-process under actual officialEX + unit log, not independent full physical EX controller",
+    "No SDK/native build/canonical/kernel/broker/benchmark/capture/adoption/RAM repair/strict acceptance; provider absent/gate always raises/controller closed/ownership None/all flagsFalse"
+  ],
+  "remaining": [
+    "generic _regular_hash internal open/read/fstat/close/add_note",
+    "unexecuted earlier generic writer open/enter/fileno error seams and original factory partial-object retention",
+    "actual FileIO backing writer FDs/earlier init/internalFD errors",
+    "enclosing producer cleanup/reporting",
+    "independent frozen historical continuation/log sealing",
+    "transitive unknown actors/shared journal writers/interpreter delegates",
+    "full independent actual official EX and original-runtime immutable COMPLETE admission"
+  ],
+  "storage": {
+    "free_bytes": 305290002432,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck_required": true,
+    "no_build_capture_authority": true,
+    "outside_old_cleanup_cause": "UNMEASURED",
+    "no_deletion_authority": true
+  },
+  "publication_v1_failure": {
+    "utc": "2026-11-04T23:11:42.718596+00:00",
+    "actual_api_return": {
+      "chunk_id": "7f4aa0",
+      "wall_time_seconds": 0.106783625,
+      "exit_code": 1,
+      "original_token_count": 89,
+      "output": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-json-writer-design-v1/publish-controller.py\", line 37, in <module>\n    members=tf.getmembers();assert len(members)==len(selected) and all(x.isfile() for x in members)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+    },
+    "failed_archive_sha256": "193192a4c73b53b7702387235b266ac12d2234cc67856afb7a154103376e428a",
+    "members": 537,
+    "regular": 533,
+    "nonregular": [
+      {
+        "name": "after-selected/fixtures/producer-0ccpe4un/run/source.tar",
+        "linkname": "after-selected/fixtures/producer-0ccpe4un/run/git-003.stdout",
+        "type": "1"
+      },
+      {
+        "name": "after-selected/fixtures/producer-fjg8cmjq/run/source.tar",
+        "linkname": "after-selected/fixtures/producer-fjg8cmjq/run/git-003.stdout",
+        "type": "1"
+      },
+      {
+        "name": "after-selected/fixtures/producer-gp7aj0tg/run/source.tar",
+        "linkname": "after-selected/fixtures/producer-gp7aj0tg/run/git-003.stdout",
+        "type": "1"
+      },
+      {
+        "name": "after-selected/fixtures/producer-j8hqjvf1/run/source.tar",
+        "linkname": "after-selected/fixtures/producer-j8hqjvf1/run/git-003.stdout",
+        "type": "1"
+      }
+    ],
+    "all_selected_BYTEEXACT_NOT_established": true,
+    "failure_stage": "regular-member assertion BEFORE per-member bytes check/public assessment/preparation/state/plan/source/docs commit or push",
+    "cause": "tarfile default hardlink de-duplication despite regular lstat selection",
+    "namespace_v1_TERMINAL_preserved": true,
+    "no_source_test_model_repeat": true,
+    "new_v2_declaration": "NEW archive evidence-v2.tar.gz/manifest-v2/dereference=True; preserve exact failed v1 archive and controller/results; docs six paths intentionally includes v1 failure archive"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-04-flatbuffers-native-perf-json-writer-progress-evidence-v2.tar.gz",
+    "archive_sha256": "fedf325f5d8a9d89167b1e734683ff9e3e5cab1b28924be5e4906d5a79243c40",
+    "selected_regular_members": 541,
+    "all_selected_members_BYTEEXACT": true,
+    "excluded_local_raw_research": {
+      "sha256": "eee52b82385b0e9b7a6f3d2db67987d8f617fbb02db5c42c72aa70741c998226",
+      "full_HTML_NOT_retained": true
+    },
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-04-flatbuffers-native-perf-json-writer-progress-preparation.md",
+    "assessment": "docs/research/2026-11-04-flatbuffers-native-perf-json-writer-progress-assessment.json"
+  }
+}
