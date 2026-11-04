@@ -1,0 +1,152 @@
+{
+  "utc": "2026-11-04T09:45:07.367613+00:00",
+  "phase": "Auxiliary_allocation_implemented_STATIC_corrected_epoch_UNTESTED_TESTFLOOR_CLOSED",
+  "hashes": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "221eeb04012ffcbed10b0a2023895e852d1609121abe45f2eaf004fcefe02dfd",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "89b36b7eb786ff3e1b2496c76232ee23fb1f512863bbaa877ec6bba8f8fc49b8",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+    "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+    "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+  },
+  "baseline_hashes": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "5e88c1d716ff01947b48154884c904e5b89c994d626e1988d6db156dd808cda6",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "144a184e2055dd3a7fd842f7a74eed52fa44bf1e05079de0b598c9908286334c",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+    "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+    "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+  },
+  "source_sha256": "221eeb04012ffcbed10b0a2023895e852d1609121abe45f2eaf004fcefe02dfd",
+  "test_sha256": "89b36b7eb786ff3e1b2496c76232ee23fb1f512863bbaa877ec6bba8f8fc49b8",
+  "implementation": "Private allocation ledger/originaltuplebinding/exactallocatedref/errorstate BEFOREctor intenthash-write/lease; reservation BEFOREstartIO; pinned original class/new/init; original start argv/env copies/argumentrefs BEFOREallocator; allocated BEFOREcapturedinit; process/pending onlynormalNone-return; typed partialAuxDATA unknown/quarantine, no wait/release authority. Old publiccleanup projects back AST exact after removing scoped changes.",
+  "distinct_tests": {
+    "consumed_BEFORE5": "4FAIL1PASS, never unchangedrerun",
+    "private_AFTER5": {
+      "passed": 5,
+      "failed": 0,
+      "source_hash": "d5f0bdd0c5234f81d92276255b79aabaf4e370a9f6da3aba727600eeba3c4788",
+      "actual_four_waits": [
+        {
+          "mode": "oserror",
+          "status": 0
+        },
+        {
+          "mode": "runtime",
+          "status": 0
+        },
+        {
+          "mode": "false_return",
+          "status": 0
+        },
+        {
+          "mode": "normal",
+          "status": 0
+        }
+      ]
+    },
+    "initial_matching14": {
+      "passed": 11,
+      "failures": 0,
+      "errors": 3,
+      "source_hash": "d5f0bdd0c5234f81d92276255b79aabaf4e370a9f6da3aba727600eeba3c4788",
+      "test_hash": "8f984e68e1a702fef187ab36218860100fb94075ed0e3a59e8e26702316f4ab6"
+    },
+    "new_declared_methods": 13,
+    "final_static_epoch_UNTESTED": true,
+    "no_combined_full_final13_or_aggregate_canonical": true
+  },
+  "corrections": "Two history tests error at emptyrows[0]; ROOT static finds Aux local binding overwrites capture closure LIST with TUPLE before process()->hold()->append. Renamed allocation_binding. Original private workererror objects/text were not saved, never reconstructed. RequiredFixture fails Gitsetup BEFOREnativeGit due nativeclass __new__ mock typecall slot mutation; remove nativeclass allocator mocking from newAux fixture AND same two-line priorDirect fixture pattern, negative onlycapsule allocatorconstant, actualpositives remain real. No new Direct failure count. New helper/error diagnostics STATIC, not executed since1GiB floor closed.",
+  "initial_cleanup_qualification": "The two initial history tests IndexError at rows[0] occurs AFTER run_case saved result and completed its actual SAMEwait0 and FD/log unit-cleanup metadata. Earlier planned/unexecuted correction declaration assumed beforecleanup; no such declaration file was created before assertion failures. Actual retained reports, not rerun/reconstructed journals, establish this timing. Metadata still not full physicalFD/writer/delegate/instructionclosure proof.",
+  "models": {
+    "debug": {
+      "pid": 55766,
+      "direct_status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 1724,
+      "stderr_size": 389,
+      "stdout_sha256": "6d166aefd8fa841a3042e6c5f082884831e36ceb2798095c9a072afa83e42d26",
+      "stderr_sha256": "ad933bdff92859766c9aada6ec52af3b133ddc677739a2a016ebc6393247a6a2",
+      "reaped": true,
+      "utc": "2026-11-04T09:12:49.310613+00:00"
+    },
+    "review": {
+      "pid": 59284,
+      "direct_status": 1,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 0,
+      "stderr_size": 614,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "7c4118a05beeaea288da9a5018a1803d7b6fd35d2428d2c485fe2e79629d487e",
+      "reaped": true,
+      "utc": "2026-11-04T09:28:02.906744+00:00"
+    },
+    "qualifications": "Qwen55766 debug complete0/advisory: ROOT rejects guessed Python3.14/argv cause, Git/version repro/commands and fake row seeding; source binding shadow/nativeclass mock supported. Qwen59284 selected corrected source221e/test89c6 review direct1/tokenlimit1800/stdout0/stderr614/lastprogress6771visiblechars/FULLpartialfinalABSENT/reachable/reaped, not unavailable/approval/no repeat. Finaltest89b3 differs by explicit olderDirect two-line seam only after review. ROOT whole affected final source/tests/AST static qualified; no model fullcurrent-source approval."
+  },
+  "administration": "Initial wrong _observe_status signature assertion AFTERtwo fresh preeditGit0 receipts/originalsnapshot BEFOREsourcewrite/testactors. Corrected EX twice refused BEFOREbody with literal active companion; no bypass, not backendunavailable. Later v2 actualEX admits source edit. Initial candidateJS guard falsepositive matches release. before tools/filesystem/source/tests/fulltoolbody notregularfile. Matching14 actual, then1GiB preflight fails BEFOREsource/test changes/actors. Static-only16MiB edit guard NOT test/buildfloor waiver. Static correction sourcewritten then history-indent assertion BEFOREtestwrite; distinct AST-scoped correction completes, all originals retained/no reset.",
+  "raw_limits": "ActualfiniteOWNPython/Popen and SYNTHETIC unregisteredowners/operations/leasecallbacks with realThreads; no SDK/compiler/version/bootstrap/native/canonical/benchmark. RequiredFixture initialerror in Gitsetup before nativeGit/no new sixSHIM or fullFixture receipt success. RootofficialEX spansknownfinitecases, no originalLinux-rootperf/fullinstructionclosure. Private errors/refs/savedbool-nativeclassnames; initial private workererror notserialized. Actual existing run_case result files prove SAMEwait0 and FD/log unitcleanup metadata precede history IndexError; not full kernelclose/writer/delegate/descendant or physicalEXrelease. Negative sourcewaitFalse-null notbackfilled; normalAuxwait maycached0, no freshsyscall. No liveunitcleanup/recovery/retag/heapRSSbound. Legacy setup/APIreturns notallsaved/no reconstruction.",
+  "provenance": "Implementation/correction/test/debug/review controller originals saved BEFORE executions except failed early JS toolbody notregularfile; retained copies aftercalls remain distinct. No beforeexecution admission. All20 untracked/uncommitted/uncanonical/unadmitted; production601 unedited/privatecontrollersoutsideHELPERBUNDLE20. Other21 source/bin files and original source/test nodes except explicit scopes byteexact. FourNEWpoststaticGit0/BOTHseparateEOF/branch601/20untracked/productiondiffempty DATA only, not native-output-loadedinstructionproof.",
+  "pending": "Before any tests fresh1GiBcheck; final-targeted8 verification pending current epoch. Build12GiBfloor CLOSED. No cleanup; old92NoDeletionplan terminal. Fresh inactiveOWN/protectedhashes/receipt/EX declaration needed for any future reclaim; never protected evidence/natives/RLIBs/exes/other-taskdata. Then originalpubliccleanup/historycontinuation-logseal/transitivegenericFD/auditpartialunknownactors/sharedjournal-writers/interpreter-delegate-descendant/fullactualofficialEX and originalruntime provenance/ROOT-qualified immutableCOMPLETEadmission before diagnosticdata.",
+  "live": {
+    "provider_absent": true,
+    "gate_always_raises": true,
+    "controller_closed": true,
+    "ownership": null,
+    "capture_ready": false,
+    "source_admitted": false,
+    "live_admission": false,
+    "no_SDK_native_build_canonical_kernel_broker_benchmark_capture": true,
+    "no_RAMcause_repair_acceptance": true,
+    "no_source_commit_push_adoption_strictdispatch": true
+  },
+  "free_bytes": 580669440,
+  "test_floor_bytes": 1073741824,
+  "test_floor_open": false,
+  "build_floor_bytes": 12884901888,
+  "build_floor_open": false,
+  "cause_unmeasured": true,
+  "no_cleanup": true,
+  "coordinator_provenance_qualification": "Original executable controllers saved BEFORE execution, copies aftercalls; failed initialJS fulltoolbody notregularfile. Percommand receipts distinct; no execution admission inferred.",
+  "new_public_evidence": {
+    "archive_sha256": "6ee39d92455f4276d15c628110a5f4c1636b72f08eeb40aaac2fd70069398227",
+    "regular_members": 517,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}

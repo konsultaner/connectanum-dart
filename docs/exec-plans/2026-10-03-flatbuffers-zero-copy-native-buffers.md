@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Auxiliary allocation implemented; final verification blocked by storage
+
+Private Auxiliary allocation/first-error state precedes intent/lease I/O; exact allocated Popen precedes initializer I/O, preserving argument-copy/None semantics. Partial history remains DATA/quarantined. Initial private AFTER5PASS and matching14=11PASS/3ERROR are separate: two history errors expose an introduced capture-list shadow; the required Fixture caller fails Git setup after a test class allocator mock changes type-call slots. Static source/explicit allocator-seam corrections are retained at221e/89b3, but this final epoch is UNTESTED: free580669440B closes the1GiB test floor and12GiB build floor. Eight targeted checks await a fresh test-floor pass. No floor waiver, cleanup, source adoption or capture;20helpers remain uncommitted/uncanonical/unadmitted and production601 unedited. Full physical EX/original-runtime admission and strict acceptance remain incomplete.
+
+[Preparation](../research/2026-11-04-flatbuffers-native-perf-aux-allocation-implementation-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-aux-allocation-implementation-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-aux-allocation-implementation-evidence.tar.gz).
+
 ## 2026-11-04 — Auxiliary pre-constructor ownership reproduced; repair unimplemented
 
 Five new Auxiliary controls yield4FAIL/1PASS with no missing APIs: three actual initializer normal returns precede injected failures, leaving no source allocated reference; the old handler completes/publishes while the finite child exists. Initializer drift invokes the foreign hook; normal real two-stream construction passes. Four actual finite child method-waits return signed0 before root cleanup; no source marker backfill or SDK/kernel/RAM defect claim. Retained allocation/typed unknown DATA is selected but UNIMPLEMENTED. All23 source/bin buffers remain exact;20helpers uncommitted/uncanonical/unadmitted, production601 unedited. Public cleanup/full physical EX/original-runtime admission remain incomplete. Build floor CLOSED below12GiB; cause unmeasured/no cleanup.
