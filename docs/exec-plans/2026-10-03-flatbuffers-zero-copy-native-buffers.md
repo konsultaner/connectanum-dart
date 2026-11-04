@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Stream reads retain original descriptors and raw results
+
+Auxiliary reads record original stream/creator read FD/log/process/buffer refs and intent before os.read. Substituted FDs refuse before lookup; actual bytes precede validation/postchecks/buffer publication. Unknown, invalid False and drift retain first/raw bytes and permanently stop. Stable EAGAIN/Interrupted semantics and original EOF close order remain intact; a pure guard before expected-error continue stops quarantined drift. These are DATA preconditions, not kernel FD identity/ABA/authentication/physical EX/admission.
+
+NEW8 atf27909/239e6a yield5FAIL/3normalPASS/0APIerrors, including one stronger intent-policy failure where old first retention already worked. Separate NEW actual EAGAIN+FD drift control1FAIL/0APIerrors; original8 not repeated. Final649857/574940 passes19selected checks (9matching new+10affected), not aggregated/current20canonical. Qwen/GLM advice is ROOT-qualified; ROOT identifies the final caller barrier after review and qualifies whole final affected source/tests/AST. Four new Git0/BOTHstreams/601/20untracked/productiondiffempty remain DATA. Select/lease/backingFDs/full physical EX/original-runtime admission stay incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-aux-stream-read-progress-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-aux-stream-read-progress-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-aux-stream-read-progress-evidence.tar.gz).
+
 ## 2026-11-04 — Direct wait retains the original process and timeout observation
 
 Auxiliary direct waits bind the original normally returned constructor/allocation handle before lookup/call; substituted public pointers refuse before witness binding. Raw returns precede validation/postchecks/publication; uncertain outcomes retain first and permanently refuse. Signed nonzero and stable actual TimeoutExpired semantics remain intact. Completed timeout DATA never means actor exit, ownership or physical EX/admission.
