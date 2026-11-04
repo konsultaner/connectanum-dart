@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Direct receipt reader boundary reproduced; design unimplemented
+
+Three new finite generic sealed-JSON helper controls yield2fail/1pass. Actual native close precedes each injected negative fault: exception hooks replace the intended ambient-close or earlier digest-body error. Normal ambient-handler success passes. Exact FD/close/error-identity/hook observations are retained; these are unit fault models, not SDK/build/RAM/canonical defects. An independent purpose-keyed reader ledger is selected but UNIMPLEMENTED; generic helper coverage and the full physical EX controller remain incomplete. Source5847/test0f2 and all20 uncommitted helpers are unchanged/uncanonical/unadmitted; production601 unedited. No build, capture, adoption or strict dispatch.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-receipt-readers-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-receipt-readers-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-receipt-readers-evidence.tar.gz).
+
 ## 2026-11-04 — Receipt raw FD resources; physical orchestration pending
 
 Receipt audit/output/failure and copy-input descriptors are retained before fallible I/O. Known short writes advance only the suffix; unknown writes/closes quarantine without replay, reclose or failure publication. Raw receipt output removes implicit BufferedWriter reflush. Two new callback regressions add exact ledger/record/FD binding across callbacks. Before8 yields1FAIL7missingAPI errors; implemented9pass, migrated legacy10pass separately; callback2fail then5pass plus1coordinator loader error, corrected caller1pass separately. No combined final/canonical result. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Generic helper FDs, partial/unknown actors, full physical EX controller, SDK/lock/config/current20canonical and original-host admission remain incomplete.
