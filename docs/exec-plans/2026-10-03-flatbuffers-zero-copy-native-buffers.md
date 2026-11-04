@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Allocated direct Popen retained; physical closure incomplete
+
+The producer retains its exact allocated Popen before initializer I/O, pins class/allocator/initializer bindings, preserves None-only construction and captures original argument references before allocation. Typed history DATA retains partial actors without wait/release authority. Private AFTER5PASS, corrected source9PASS and affected8PASS are separate. Two new binding controls fail then6selected pass at final5e88/144a;11new methods are not a full-final/canonical result. Setup parse/NameError errors and final review token limit remain retained. Other original code/gates and production601 stay exact;20helpers remain uncommitted/uncanonical/unadmitted. Original public cleanup, transitive actors/full physical EX/original-runtime admission remain incomplete. Build floor CLOSED below12GiB; cause unmeasured/no cleanup.
+
+[Preparation](../research/2026-11-04-flatbuffers-native-perf-popen-allocation-implementation-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-popen-allocation-implementation-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-popen-allocation-implementation-evidence.tar.gz).
+
 ## 2026-11-04 — Pre-constructor Popen ownership reproduced; repair unimplemented
 
 Five meaningful controls yield4FAIL/1PASS: the producer lacks an allocated-object reference across three post-initializer fault boundaries and invokes a rebound initializer; normal construction passes. Four actual finite Python children return signed0 before unit FD/log cleanup. Two earlier setup attempts reach no native constructor and are excluded from ownership counts. Source/test and all20 helpers remain unchanged/uncommitted/uncanonical/unadmitted; production601 unedited. Captured allocator/initializer binding, pre-init retention and None-only return handling are selected but UNIMPLEMENTED. Existing public cleanup/full physical EX/runtime admission remain incomplete; build floor CLOSED below12GiB.
