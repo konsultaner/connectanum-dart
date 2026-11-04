@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Buffered writes retain known counts before hash failures
+
+Auxiliary writes record original references/intent and actual raw counts before validation/hash/metadata. Unknown or hash-fault paths retain first error/original buffer and permanently refuse re-entry without cleanup/replay. Known partial/full success preserves output/hash/order; completed input references follow normal consumption. Ordinary checks validate the latest row; full history validates before finalization and in passive DATA snapshots. Old gates remain unchanged.
+
+Initial NEW5 atdf2588/900ff5 yield3FAIL/2harnessERROR:2hash-quarantine failures plus1stronger intent policy failure; two normal assertions use the wrong result hash key after completion. Corrected ONLYpositive2 pass separately, without replaying negatives or combining counts. Final64e801/4f53f8 passes12 selected checks (5matching new v2+7affected), not current20canonical/admission. Qwen/GLM advice is ROOT-qualified; model review precedes final v2 guard hunks. ROOT verifies final source/tests/AST and4newGit0/BOTH streams/601/20untracked/productiondiffempty DATA. Backing writer FDs, other per-native operations, full physical EX and original-runtime admission remain incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-aux-buffer-write-progress-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-aux-buffer-write-progress-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-aux-buffer-write-progress-evidence.tar.gz).
+
 ## 2026-11-04 — Deferred errors retain the original exception
 
 Auxiliary error handling now retains the original exception before reporting checks and permanently refuses continuation without repr/note/failure publication or cleanup. Earlier component first errors retain precedence; bound first recovery survives scalar/flag damage. Normal wait behavior and old gates remain intact; frozen history records quarantine as DATA.
