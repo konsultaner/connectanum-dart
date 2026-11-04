@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Log finalization stops on uncertain I/O
+
+Auxiliary finalization registers flush/fileno/fsync/close/snapshot/result operations before I/O, retains actual returns before checks and stops on unknown outcomes without finally-close/defer/report/replay. Public completion follows a known original result-publication return; its attempt marker precedes the call. Private wait/EOF/creator-close facts remain DATA preconditions, never physical EX/admission authority. Old gates remain unchanged.
+
+NEW6 atb3c8bc/421946 yield5FAIL/1normalPASS/0APIerrors; final49e30d/1063c6 passes11 selected checks (6matching new+5affected), not combined/current20canonical. Qwen advice is ROOT-qualified; GLM review reaches token limit with full partial answer absent, reachable/reaped and no model approval. ROOT qualifies final source/tests/AST and4newGit0/BOTH streams/601/20untracked/productiondiffempty DATA. Original defer/stream/init/generic/enclosing paths, physical EX and runtime provenance remain incomplete; no SDK/build/capture/adoption/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-aux-log-finalization-quarantine-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-aux-log-finalization-quarantine-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-aux-log-finalization-quarantine-evidence.tar.gz).
+
 ## 2026-11-04 — Creator-pipe close uncertainty stops continuation
 
 Auxiliary close intent and original references precede native close; raw return precedes validation/slot update. Unknown, invalid and drift outcomes retain the first error and refuse later close/report/re-entry. Normal closes and empty-slot no-ops remain compatible; frozen Aux DATA reports close quarantine separately from constructor-return facts. Original gates remain unchanged.
