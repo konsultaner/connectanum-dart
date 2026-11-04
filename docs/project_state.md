@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Eight final-source targeted allocation checks pass
+
+The prepared affected selection at unchanged221e/89b3 passes8/0failures/0errors; actual coordinator signed0. It covers the corrected Auxiliary history/allocator paths, required actual Fixture receipt caller, explicitly migrated Direct seam and two-command frozen-history caller. Earlier separate selections were not repeated or combined; this is not full-final13/current20canonical or original-runtime admission. All23 helper/bin hashes remain unchanged; four new source Git reads return0/BOTH streams, branch601/20untracked/productiondiffempty DATA only.
+
+Storage floors are open after the separate user-authorized lossless cleanup. No SDK/native build/canonical/kernel/broker/benchmark/capture or source adoption/strict dispatch occurred. The Auxiliary constructor-uncertainty quarantine design remains unimplemented; genuinely new meaningful real BEFORE regressions and minimal fix/AFTER are next. Physical EX/original-runtime provenance/strict acceptance remain incomplete.
+
+[Selection and limits](research/2026-11-04-flatbuffers-native-perf-aux-allocation-final-targeted-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-allocation-final-targeted-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-allocation-final-targeted-evidence.tar.gz).
+
 ## 2026-11-04 — User-requested lossless temporary output cleanup completed
 
 Temporary output footprint fell from139.49GB to46.72GB; verified allocation reduction92.78GB.657 historical JSON files retain their paths with transparent filesystem compression;37 oversized logs are retained in adjacent verified gzip archives with a path/hash index. All original logical bytes are preserved;841 protected source/binary/previous-archive files verified unchanged. No worktree, other-task data, old92/829 plan, SDK, test, build, benchmark or capture was touched.
