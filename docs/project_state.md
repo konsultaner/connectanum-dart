@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Native poll retains the original process and raw return
+
+Auxiliary polling records original constructor/handle/status/lookup/attempt before native calls and retains raw returns before checks/publication. Substituted public handles refuse before polling; drift, invalid bool and unknown outcomes preserve first error and permanently stop. Normal pending None, signed integers and helper None return remain intact. These are DATA preconditions, never partial-Popen method authority or physical EX/admission.
+
+NEW7 at64e801/4f53f8 yield4FAIL/3normalPASS/0APIerrors; final1ba592/95e1fb passes14 selected checks (7matching new+7affected), not combined/current20canonical. Qwen/GLM advice is ROOT-qualified; ROOT rejects recovery/row-skipping/commit-before-assignment/bypass/unknown-zero claims and qualifies whole final affected source/tests/AST. Four new Git0/BOTH streams/601/20untracked/productiondiffempty remain DATA. Direct wait/read/select/lease/backingFDs/full physical EX/original-runtime admission stay incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](research/2026-11-04-flatbuffers-native-perf-aux-status-poll-progress-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-status-poll-progress-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-status-poll-progress-evidence.tar.gz).
+
 ## 2026-11-04 — Buffered writes retain known counts before hash failures
 
 Auxiliary writes record original references/intent and actual raw counts before validation/hash/metadata. Unknown or hash-fault paths retain first error/original buffer and permanently refuse re-entry without cleanup/replay. Known partial/full success preserves output/hash/order; completed input references follow normal consumption. Ordinary checks validate the latest row; full history validates before finalization and in passive DATA snapshots. Old gates remain unchanged.
