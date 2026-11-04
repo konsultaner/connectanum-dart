@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Auxiliary wait fact survives completion failure
+
+A private exact-process witness records an exact-int Popen.wait return before fallible auxiliary completion I/O; cached poll0 is distinct. Timeout retains the same process with false/null witness, and process drift or malformed status refuses. Before7 controls yield6missing-API errors and1mocked-bool failure; fixed11pass (7new+4required callers), not canonical. The marker grants no descendant/physical EX/admission closure. Only producer/test change, including AuxiliaryCommand init/wait; all20 helpers remain uncommitted/uncanonical/unadmitted, production601 unedited. Full independent known-actor continuation, physical bridge and live provenance remain incomplete.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-aux-wait-witness-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-wait-witness-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-wait-witness-evidence.tar.gz).
+
 ## 2026-11-04 — Known actor object inventory; physical bridge still incomplete
 
 A failed initialized or uninitialized owner can freeze current recipe/retained auxiliary object facts through its serialized worker. Private handles and typed scalar snapshots precede callback I/O; unknown fields or drift quarantine. One attempt blocks later pipeline actions. Original auxiliary predicates remain unchanged; no actor/physical EX closure or admission follows. Initial14 tests pass, two new strict guards fail and are corrected, then16 pass (12new+4required callers); one new foreign-producer guard passes separately with implementation unchanged. All20 helpers remain uncommitted/uncanonical/unadmitted, production601 unedited. Full independent continuation/orchestration, SDK/lock/config/canonical and original-host provenance remain incomplete.

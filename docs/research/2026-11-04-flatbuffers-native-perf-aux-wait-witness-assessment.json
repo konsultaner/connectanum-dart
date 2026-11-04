@@ -1,0 +1,172 @@
+{
+  "kind": "auxiliary_direct_wait_witness_source_component_v1",
+  "APIs": "Private AuxiliaryCommand._wait_natural_status(timeout), _natural_wait_process/_natural_wait_status/_natural_wait_observed",
+  "semantics": "Retain exact Popen BEFORE actual wait. Exact-int actual wait method return sets private status/observed BEFORE fallible _complete/log/metadata IO. Poll cannot set marker. Timeout leaves observedFalse/statusNone with same actual process retained. Process drift or boolean/malformed status refuses; first successful status cannot change.",
+  "scope": "Direct Popen.wait METHOD fact only; Popen may return cached returncode after earlier poll/reap. NOT fresh wait syscall, liveness/PIDfd/globalABA, descendant/writer/physicalEX-release, original-host/compiled/role-clock proof or admission.",
+  "private_fields_not_concurrent_observer_API": "Serialized owner worker (or sequential finite standalone unit). Future observer must get immutable copied scalar rows, not read these private fields concurrently; no global thread/lock atomicity claim.",
+  "full_known_actor_continuation_and_physical_bridge_unimplemented": true,
+  "ordinary_wait_recipe_aux_predicates_frozen_inventory_no_waiver": true,
+  "no_new_spawn_restart_cancel_setup_retry_audit_producer_terminal_retag_or_build_receipt": true,
+  "existing_Aux_complete_publication_flow_unchanged": true,
+  "before7_scope": "6missing marker/helper API errors +1FAIL mocked boolean wait return accepted; not6productiondefects, actual Popen did not return a boolean.",
+  "fixed11_scope": "7new witness controls+4required existing real auxiliary callers; not combined18/fullcanonical.",
+  "actual_fixture_scope": "Finite OWN Python/AuxiliaryCommand children retained BEFORE start, private release dirs NOTGO, two separate output pipes. Real positive Popen waits, pre-body _complete fault after actual wait. Negative boolean method return MOCKED only. Intentional natural78 retained.",
+  "fixture_only_completion_after_injected_or_malformed_boundary_NEVER_live_workaround": true,
+  "before_and_fixed_cleanup_status_scope": "Known same Popen final wait in unit teardown recorded separately from raw Aux result, preserving before MOCKED bool as bool; cleanup does not reconstruct missing earlier witness.",
+  "actual_official_EX_through_known_finite_children_and_required_callers": true,
+  "unit_lease_callbacks_SYNTHETIC": true,
+  "returned_API_views_and_required_legacy_Git_setup_returns_NOTall_systematically_serialized": true,
+  "no_missing_observation_reconstruction_or_unchanged_rerun": true,
+  "no_SDK_native_build_canonical_originalhost_kernel_broker_benchmark_capture_strictdispatch": true,
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "production601_no_edit": true,
+  "private_controllers_not_HELPERBUNDLE20": true,
+  "actor_ownership_complete": null,
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "no_RAM_cause_repair_or_acceptance": true,
+  "models": {
+    "Gemma21219": {
+      "direct_status": 0,
+      "helper_pid": 95366,
+      "reaped": true,
+      "source_epoch": "76597e4c3272017326b60e1060d6135a729b53a18476b59ef16aeb632f8e41c6",
+      "ROOT_qualified": "Wrong capture-of-outputFD/log and record.returncode descriptions corrected from source; cached/actual method distinction independent ROOT finding."
+    },
+    "GLM78283": {
+      "direct_status": 1,
+      "helper_pid": 95775,
+      "reaped": true,
+      "token_limit": true,
+      "last_reported_visible_chars": 6207,
+      "full_partial_final_ABSENT": true,
+      "reachable_NOTunavailable_or_approval": true,
+      "scope": "Unimplemented full-known-actor architecture, not current-source approval."
+    },
+    "Qwen76342_tests": {
+      "direct_status": 0,
+      "helper_pid": 96111,
+      "reaped": true,
+      "ROOT_qualified": "Accept real completion-error/timeout scenarios; original status0 alone does not prove method witness. Reject processNone/mockedIO as poll0 proof and indefinite fixture; use finite real gated children."
+    },
+    "Qwen19757_review": {
+      "direct_status": 0,
+      "helper_pid": 96609,
+      "reaped": true,
+      "completed_answer_saved": true,
+      "selected_diff_chars": 11763,
+      "source_epoch": "27db58a39bf2b7eba0bfb360dc6d2af95f529d9baee0ab088403d9c2aa9e8297",
+      "test_epoch": "1b8621612d1bcd2fbdfa87dfa5fe9eee4ec38e3e87049b855d6e5d2e7f1c215d",
+      "ROOT_rejects": [
+        "Atomic publication of Popen.returncode and marker is required: no concurrent raw observer API/global atomicity claimed; own serialized worker and scalar copies required.",
+        "Read process.returncode after wait instead of exact return: would weaken method-fact binding.",
+        "Retained process on timeout is false witness: observed staysFalse/statusNone, handle binding intentional.",
+        "PID reuse/reaped Popen implies current liveness proof: marker is direct method fact, not PIDfd/liveness/ownership."
+      ],
+      "review_self_qualifies_remaining_items_not_bugs": true,
+      "not_model_full_current_source_approval": true
+    }
+  },
+  "ROOT_checks_complete_affected_Auxiliary_methods_and_new_tests": true,
+  "next": "Full independent selected known-actor continuation must bind FD/log/stream identities, distinguish cached poll status from this direct wait fact, preserve firsterrors and unknown starts; complete physicalEX bridge/provenance/current20canonical/runtimeSDK-lock-config/originalhost controls and immutable complete admission still required before diagnosticdata.",
+  "utc": "2026-11-04T00:46:22.865999+00:00",
+  "source_sha256": "27db58a39bf2b7eba0bfb360dc6d2af95f529d9baee0ab088403d9c2aa9e8297",
+  "test_sha256": "1b8621612d1bcd2fbdfa87dfa5fe9eee4ec38e3e87049b855d6e5d2e7f1c215d",
+  "changed_original_methods": {
+    "AuxiliaryCommand": [
+      "__init__",
+      "wait"
+    ]
+  },
+  "original_module_functions_factories_emitters_gates_otherclasses_owner_originaltestclasses_byteexact": true,
+  "Aux_poll_complete_other_original_methods_byteexact": true,
+  "other18tools_and_selected3bins_byteexact": true,
+  "stage_results": {
+    "before": {
+      "tests": 7,
+      "failures": 1,
+      "errors": 6,
+      "new_actor_rows": 8,
+      "actual_final_wait_statuses": [
+        0,
+        0,
+        0,
+        0,
+        78,
+        0,
+        0,
+        0
+      ],
+      "malformed_raw_bool_result_rows": 1,
+      "twoEOF_snapshotstream_match_for_recorded_new_actors": true,
+      "required_legacy_actor_APIreturns_not_all_serialized": true
+    },
+    "fixed": {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "new_actor_rows": 8,
+      "actual_final_wait_statuses": [
+        0,
+        0,
+        78,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "malformed_raw_bool_result_rows": 0,
+      "twoEOF_snapshotstream_match_for_recorded_new_actors": true,
+      "required_legacy_actor_APIreturns_not_all_serialized": true
+    }
+  },
+  "completion_error_before_fixture_cleanup_witness": {
+    "before": {
+      "path": "before-fixtures/aux-wait-witness-9sv1eld7/1-after-complete-error-before-fixture-cleanup.json",
+      "size": 296,
+      "sha256": "ee81cf2241dd7788b935cda319b15d6d61e61d30d38385146d56f52a549cc56a",
+      "recorded_view": {
+        "pid": 96433,
+        "cached_Popen_returncode": 0,
+        "status": 0,
+        "pending": true,
+        "finished": false,
+        "stdout_eof": true,
+        "stderr_eof": true,
+        "wait_observed": null,
+        "wait_status": null,
+        "wait_process_bound": false,
+        "whole_actor_ownership_complete": null,
+        "capture_ready": false
+      }
+    },
+    "fixed": {
+      "path": "fixed-fixtures/aux-wait-witness-ftuh1d7g/1-after-complete-error-before-fixture-cleanup.json",
+      "size": 292,
+      "sha256": "c6912f804da8b3eb0ce016edd599d1bd4ea77ac6abdfd462a4269f834af76c73",
+      "recorded_view": {
+        "pid": 96515,
+        "cached_Popen_returncode": 0,
+        "status": 0,
+        "pending": true,
+        "finished": false,
+        "stdout_eof": true,
+        "stderr_eof": true,
+        "wait_observed": true,
+        "wait_status": 0,
+        "wait_process_bound": true,
+        "whole_actor_ownership_complete": null,
+        "capture_ready": false
+      }
+    }
+  },
+  "free_after": 16913121280,
+  "new_public_evidence": {
+    "archive_sha256": "b2696093db7f044fca90a311839652898340203b26034668775d5c85f5816a96",
+    "regular_members": 425,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}
