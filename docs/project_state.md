@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Read-only OWN resource preflight finds no disjoint cache cohort
+
+A new two-root metadata survey records15544 entries/14443 regular files:92 terminal-old candidates and14351 prior protected entries are excluded, leaving zero new disjoint metadata candidates. No cleanup or other-task access; old hashes/identities are exclusions, not fresh eligibility proof. The result is terminal and must not repeat unchanged. Current221e/89b3 source remains unchanged/UNTESTED below the1GiB test and12GiB build floors. A ROOT-qualified, source-only Auxiliary constructor-uncertainty quarantine design is UNIMPLEMENTED; model receiver/publication/check-order claims are corrected. Full physical EX/original-runtime admission and strict acceptance remain incomplete.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-test-floor-resource-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-test-floor-resource-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-test-floor-resource-evidence.tar.gz).
+
 ## 2026-11-04 — Auxiliary allocation implemented; final verification blocked by storage
 
 Private Auxiliary allocation/first-error state precedes intent/lease I/O; exact allocated Popen precedes initializer I/O, preserving argument-copy/None semantics. Partial history remains DATA/quarantined. Initial private AFTER5PASS and matching14=11PASS/3ERROR are separate: two history errors expose an introduced capture-list shadow; the required Fixture caller fails Git setup after a test class allocator mock changes type-call slots. Static source/explicit allocator-seam corrections are retained at221e/89b3, but this final epoch is UNTESTED: free580669440B closes the1GiB test floor and12GiB build floor. Eight targeted checks await a fresh test-floor pass. No floor waiver, cleanup, source adoption or capture;20helpers remain uncommitted/uncanonical/unadmitted and production601 unedited. Full physical EX/original-runtime admission and strict acceptance remain incomplete.
