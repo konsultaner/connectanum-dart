@@ -1,0 +1,1209 @@
+{
+  "kind": "receipt_raw_FD_resource_source_component_v1",
+  "utc": "2026-11-04T03:53:08.357518+00:00",
+  "source_sha256": "5847df17f0a3acac8a7d54b942c5096a52e13ffa248812cbd12cbccd53d7dfb0",
+  "test_sha256": "0f2fbb429d5471e6b56fc19dba1a167bbddb04a0be2d519d3496cc3a931e93f3",
+  "bundle20_plus3bins": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "5847df17f0a3acac8a7d54b942c5096a52e13ffa248812cbd12cbccd53d7dfb0",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "0f2fbb429d5471e6b56fc19dba1a167bbddb04a0be2d519d3496cc3a931e93f3",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+    "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+    "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+  },
+  "behavior": "Private receipt resource ledger reserves record before open and retains exact raw returned FD before callback/metadata. Receipt outputs attempt/audit/complete_log/input_receipt/binding/failure and copy-input read FDs use raw os IO, preserving JSON bytes and exclusive terminal paths. Raw FD output avoids BufferedWriter implicit userspace reflush. Known positive short writes advance only suffix; unknown write/count retains pending bytes/offset and quarantines with no fsync/close/replay/failure JSON. Any unknown open/close quarantines all later opens. Fsync error may allow one guarded close. Read error may allow one identity-checked close without re-reading. Close intent precedes nativeclose; normal return/exception remain distinct, unknownclose never recloses or treats retired numeric FD as live.",
+  "callback_fix": "NEW before2FAIL: callback ledger replacement and same-file separate borrowed-FD substitution passed old checks and reached MOCKED IO. No actual wrong-FD write established. Guard context now retains exact ledger/list-of-record identities and every current exact dict field reference before callback, then rejects any observed replacement/cardinality/record/field drift using identity and exact-string key checks before lookups. Original directory/callback references also held across callback. Bounded observations, not atomic/globalABA/auth/foreignwrite prevention.",
+  "fixtures": "Actual finite OWN Git/FIXTURE/six shell version SHIMS and finite Python/synthetic outputs, never actual SDK/compiler/version/bootstrap/native/canonical. Initial replay regression wraps native BufferedWriter over controlled RawIO/realFileIO with post-actual-os.write fault; BEFORE exhibits duplicate write on implicit close, unit fault model not measured original kernel/RAM/data-loss. AFTER one actual write/pending payload retained/no source close/report. Positive Fixture JSON sortedindent2newline and compact auditJSONL byte formats checked. Native fsync/actual-close-then-fault controls; callback controls native write mocked. ROOT actual officialEX through known finite children/threads; unit callbacks synthetic.",
+  "tests": "Before8=1FAIL7missing-helper-APIERROR, not7production defects. Implemented9PASS=8new+1required positive emitter. Explicitly migrated five old negative test seams to rawFD and stricter no-publication after unknown IO; selected10PASS separate, not unchanged blanket suite. NEWcallback2FAIL then selected6=5PASS plus1 loader ERROR from wrong coordinator required-test name. Corrected missing caller-handler control1PASS separate; no rerun of five passing controls. Ten new test cases exist, no combined full-final suite or canonical result.",
+  "legacy_policy": "Five legacy negative methods keep earliest error/secondary identities, partial bytes and terminal/no-second-read assertions. Audit/copy unknownclose and unknownopen now suppress failure JSON instead of attempting metadata IO. Same-primary pre-write failure produces existing empty file b-empty rather than absent buffered report. Test seam/policy changes explicit, not silently dropped assertions.",
+  "raw_limits": "New actual setup Git argv/signedsamePopenwait/BOTHEOF/rawfilesSHA and available LASTrecipe/Aux finalwait plus auxiliary EOF/FDpath/digest rows retained. Prior overwritten command Popen handles not reconstructed; reported0 not full waitjournal/SDK proof. Required legacy setup/APIreturns and all private FD scalars not systematically serialized. Exact errors live privately; persisted booleans/types/stages not error objects. Fixture-only exact own FD close/field restore for negative teardown is never live cleanup/controller permission; source flags never retagged. Process-life resource/error history not heap/RSS bound.",
+  "models": {
+    "judge": {
+      "pid": 12602,
+      "direct_status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 3028,
+      "stderr_size": 662,
+      "stdout_sha256": "ebb53517d8ab2a350358faf0d67cbd37e51425d4857951bbffaaf429bca8f48e",
+      "stderr_sha256": "d61546affd5f6dde7273db4103a8df92078fda6dcff7572274e9d31efa6f1d06",
+      "reaped": true,
+      "utc": "2026-11-04T03:24:58.903538+00:00"
+    },
+    "tests": {
+      "pid": 12716,
+      "direct_status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_sha256": "240d059a50a6a58b93100367a3ffb5a378fce4b8d29104db72a4ed3ffe1e6cab",
+      "stderr_sha256": "dafce4f0602774bbcc22f5d1589f48ff0bd4bc790ba1fc6c64beb6603dc3ad28",
+      "stdout_size": 1937,
+      "stderr_size": 377,
+      "reaped": true,
+      "utc": "2026-11-04T03:25:52.244718+00:00"
+    },
+    "review": {
+      "pid": 15793,
+      "direct_status": 1,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 0,
+      "stderr_size": 898,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "c36b4a4e3eca1eb2fbb42889d8fd41cbf682869bf1c73174624eed612ead3169",
+      "reaped": true,
+      "utc": "2026-11-04T03:49:10.592988+00:00"
+    },
+    "focused-review": {
+      "pid": 16581,
+      "direct_status": 2,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 0,
+      "stderr_size": 1221,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "aafe05321e84b8629c3712714d578ae99753022cb1ae7d8d18c2b8644363a101",
+      "reaped": true,
+      "utc": "2026-11-04T03:50:55.748849+00:00"
+    },
+    "focused-review-v2": {
+      "pid": 16597,
+      "direct_status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 2733,
+      "stderr_size": 475,
+      "stdout_sha256": "7756c4506cba90792168ce3c7363a3c1028f2d5dd206166e3f5de9c7635ba2f5",
+      "stderr_sha256": "1bb6ed980ebb63e6b6aa04944cc93e9bba17510f722ee619ef7f2446650a59de",
+      "reaped": true,
+      "utc": "2026-11-04T03:51:43.176417+00:00"
+    }
+  },
+  "model_qualification": "GLM architecture+Qwen tests complete0/advisory. GLM selected current052c review tokenlimit1800/direct1/stdout0/reported4483visiblechars/fullpartialfinalABSENT/reachable/reaped, not unavailable/approval. ROOT independently adds callback regressions/final5847 guard. First focusedreview command typo focused-review invalid CLI/direct2 before backend request. Distinct corrected selected FOUR-method Qwen review5847 complete0/reaped, not fullcurrent-source model approval. ROOT rejects automatic-close-on-identity-uncertainty, inferring unknown write progress/atomic Python-syscall update or relaxing original callback identity; quarantine intentionally retains unresolved handles and forbids replay. Focused review does not prove fullphysical closure.",
+  "administrative_failures": "Outer legacy exec output exceeded model context after actual retained10PASS; consumed retained results without rerun. Callback-fixed coordinator selected nonexistent required caller name =>1loaderERROR, not implementation defect; exact correction executes only previously unexecuted intended caller. First focused review invalidjob parserdirect2/fullstderr retained; no backend model request. Earlier receipt-error branch unknownPID/status/buffers remain unknown forever; NEW declared3:20 branch preflight and finalsource posttest queries are separate purposes/epochs, not reconstruction.",
+  "remaining": "Generic metadata/source hash/read helpers still own OTHER FDs outside this receipt-only ledger. Receipt audit launches auxiliary actors; partial actor/unknownstarts, historical recipe/Git/interpreter/delegate/write-end/descendant coverage and complete independent physicalofficialEX controller remain incomplete. Owner_emit_attempted freeze refusal and old auxiliary predicates unchanged. Resource closes/status/EOF/join/emptyledger/filedata do NOT grant EXrelease or admission. OriginalPATH SDK/bootstrap/first3locks-hiddenconfigs/current20validation-canonical/newsourceepoch package/OWNnative-driver-staticRLIB/compiler-tool-kernel and actualoriginalhost credential/access/pidfd/FDexec/inheritance/arming/metadata/role/time/coverage still required. No borrowed config/native/cohort/SDKchange/favorableredo/postGO aspreproof.",
+  "stages": {
+    "before": {
+      "tests": 8,
+      "failures": 1,
+      "errors": 7,
+      "sha256": "0390e4c41d44d41080e587d70b523c78fb762083bf389b986a494a6d5bb5d0d8",
+      "path": "before-tests.json"
+    },
+    "implemented": {
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "sha256": "5e8a9878b26bb8296366d7e1d34cd6cdb0de7385c708b5d99f848107a1894162",
+      "path": "implemented-tests.json"
+    },
+    "legacy-adapted": {
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "sha256": "7285ebb24aacd1f7ebc27cdec8b11bc5026cb9a8b33f16dfb199341483e9b279",
+      "path": "legacy-adapted-tests.json"
+    },
+    "callback-before": {
+      "tests": 2,
+      "failures": 2,
+      "errors": 0,
+      "sha256": "717a71c0f677a61704a6ab4d58170fbb62bc3a0a970532349986bd6ba30b1f75",
+      "path": "callback-before-tests.json"
+    },
+    "callback-fixed": {
+      "tests": 6,
+      "failures": 0,
+      "errors": 1,
+      "sha256": "b556d3820e4cc04635f4ac33169747bcd0efbfc9c7e89a0dd62289f5f2a254bf",
+      "path": "callback-fixed-tests.json"
+    },
+    "caller-handler": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "sha256": "b10f239381e0110f1cda292a65440f855f057fbeb39ded7af81cadc505c3b12b",
+      "path": "caller-handler-tests.json"
+    }
+  },
+  "retained_fixture_reports": {
+    "before": [
+      {
+        "path": "before-fixtures/producer-6tymzjbi/new-known-actors.json",
+        "sha256": "dff0c625f26529f6402488ae33f844b2beae0b222f170eef050fc1a5b2514a00",
+        "size": 37611,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-7hrkq4nt/new-known-actors.json",
+        "sha256": "50afa81ec7a7f2aa1d7711df6827fee9c56a30eb3837086661d3372b91a366a8",
+        "size": 37773,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-94j5bpgf/new-known-actors.json",
+        "sha256": "c64cce1bfa811a47fae4801fcae9a14938953eaf972de38fb5baff51608fef1e",
+        "size": 40802,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-9zuulpq4/new-known-actors.json",
+        "sha256": "5742b52589f2a96749563c1e6905a745c4a5af2ac319b3d845c7680faf337f8b",
+        "size": 37665,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-cvq1zylv/new-known-actors.json",
+        "sha256": "8fe65af489c7680a913b1c15a202d2afa92392a41a718b41ad1c06577b26f3d3",
+        "size": 37665,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-g36h1_8v/new-known-actors.json",
+        "sha256": "3d490e0a38a39bc7c67879fd74bb77cc5f48f2ea2696324cf953f0584db85438",
+        "size": 38656,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-m2wh_qvo/new-known-actors.json",
+        "sha256": "1c7f592c2487816dd85b8a9b1d76cf8c8e2906592687b71b5bde630698374b0f",
+        "size": 40856,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-mxbhksld/new-known-actors.json",
+        "sha256": "ab213f5da82dbc433259e1d9397b5176f7cf0791314b201ccfcb002d33db2ec4",
+        "size": 37719,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-g36h1_8v/resource-control-before-cleanup.json",
+        "sha256": "5e11c32830f15511470e12d65a3b6b1dd2f2901e1d822ec1c0c75a5556cc51af",
+        "size": 385,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "actual_raw_write_calls",
+          "audit_file_sha256",
+          "before_BufferedWriter_over_controlledRaw_actualFileIO",
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows",
+          "written_piece_sizes"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-m2wh_qvo/resource-control-before-cleanup.json",
+        "sha256": "ca9e2073e15045bd154781585526759478e7b9291a3a06365b9460951e13a091",
+        "size": 163,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "before-fixtures/producer-6tymzjbi/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "before-fixtures/producer-7hrkq4nt/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "before-fixtures/producer-94j5bpgf/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "before-fixtures/producer-9zuulpq4/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "before-fixtures/producer-cvq1zylv/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "before-fixtures/producer-g36h1_8v/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "before-fixtures/producer-m2wh_qvo/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "before-fixtures/producer-mxbhksld/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      }
+    ],
+    "implemented": [
+      {
+        "path": "implemented-fixtures/producer-8038h34g/new-known-actors.json",
+        "sha256": "83405b42ec3282f5cdd03904e0f511d7f0ec30a34c612d1c2998bfa735b5fca8",
+        "size": 40867,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-9zvk9f1l/new-known-actors.json",
+        "sha256": "f6a1286e67e6b93e98e21bbfd646fca52e6b3aa141eff97b10fdafdc72a46bf2",
+        "size": 40921,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-gazq88p3/new-known-actors.json",
+        "sha256": "d5f1a71f9df3391debc87e9d5e9720944c4d013ea7f50465725c169a81f318d9",
+        "size": 38777,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-jxzpz736/new-known-actors.json",
+        "sha256": "e08beae97abc3f6de1004703178a4c2ce366461d2d4766b9f104833bb3bbc59e",
+        "size": 40867,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-k7sc6zv_/new-known-actors.json",
+        "sha256": "c7f22d2fe3c3baf24aa5184ba08ec19725b27697fb6d382f8cb1c3cbff166dc6",
+        "size": 40921,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-kauw0sz6/new-known-actors.json",
+        "sha256": "94f9d1cd963965ee9246af6ef74c5d6a48ca6c732db8a2cebeee2e840c32b9fb",
+        "size": 38829,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-m1a91xsg/new-known-actors.json",
+        "sha256": "d55428bf73a17ee00972ac47db891e2897f83bf95db650a0b93a1e8454e6c500",
+        "size": 40921,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-zzbif63z/new-known-actors.json",
+        "sha256": "384d5c974f897eed87b525b56869e983c19fc761d947ac4b12b134444e43720f",
+        "size": 40921,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-9zvk9f1l/resource-control-before-cleanup.json",
+        "sha256": "475f4cc028f044c43ed83e40db8f1da08d8223f55a147c4726034424923db7ed",
+        "size": 2559,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "error_type",
+          "failure_file_exists",
+          "opened_roles",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-gazq88p3/resource-control-before-cleanup.json",
+        "sha256": "b9b16dcf9fed7145c0f24a42e938656ba58693f1466adbf1b8551fe73edb88c7",
+        "size": 1920,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "actual_same_audit_close_count",
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-jxzpz736/resource-control-before-cleanup.json",
+        "sha256": "3e070425579d6ea39eb121166214e7c9036b22ddc57c8712064c3d4f757d4b42",
+        "size": 7322,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "error_type",
+          "failure_file_exists",
+          "observed_FD_before_callback",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-k7sc6zv_/resource-control-before-cleanup.json",
+        "sha256": "b0332a010b99dd8802a01abc61041abd7d39233d9ef45b331611f75da813ad4d",
+        "size": 7105,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "error_type",
+          "failure_file_exists",
+          "piece_sizes",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows",
+          "suffix_correct"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-kauw0sz6/resource-control-before-cleanup.json",
+        "sha256": "a2f61ef259dbe2bc9b193df9eac55ad78ccc5b4cb5c704370e66e1da7ce16280",
+        "size": 1533,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "actual_raw_write_calls",
+          "audit_file_sha256",
+          "before_BufferedWriter_over_controlledRaw_actualFileIO",
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows",
+          "written_piece_sizes"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-m1a91xsg/resource-control-before-cleanup.json",
+        "sha256": "3f835c56c954b0f5dbe043a6dd35b64aee8c60056099e9ded69ea94b25090c6a",
+        "size": 1340,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "actual_close_calls",
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-zzbif63z/resource-control-before-cleanup.json",
+        "sha256": "99c1d13ba3f6fc71830fdb037ae652fa37909815131d0ae1de5aa8fa7d482fdf",
+        "size": 7038,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "implemented-fixtures/producer-8038h34g/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "implemented-fixtures/producer-9zvk9f1l/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "implemented-fixtures/producer-gazq88p3/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "implemented-fixtures/producer-jxzpz736/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "implemented-fixtures/producer-k7sc6zv_/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "implemented-fixtures/producer-kauw0sz6/fixture-only-resource-closes.json",
+        "sha256": "c27d6accfaa1a5cadd54feb42b270f872fc9442353de84cc0caae1cb2ee8a868",
+        "size": 131,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "implemented-fixtures/producer-m1a91xsg/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "implemented-fixtures/producer-zzbif63z/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      }
+    ],
+    "legacy-adapted": [
+      {
+        "path": "legacy-adapted-fixtures/producer-393194yd/new-known-actors.json",
+        "sha256": "54debd95344f5ff959f1e04cb1ec6b75ca88e24b8c3385ca9854b95e13a91684",
+        "size": 37769,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "legacy-adapted-fixtures/producer-4zveqkby/new-known-actors.json",
+        "sha256": "a2d89ac550c29e73ccfb45e6e8325eea92b2e2c53432f258bc9ba87a456fe274",
+        "size": 37715,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "legacy-adapted-fixtures/producer-kyhw6dbx/new-known-actors.json",
+        "sha256": "2b88e84a3aff4ab8f1502ef78aed3aab507bc08f58c0ef54225e046899e1d48e",
+        "size": 41014,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "legacy-adapted-fixtures/producer-md6ct9bf/new-known-actors.json",
+        "sha256": "d2b7f207ff853713425e4277e604c73c192ebdabd362156027bf5f3ce11c1d64",
+        "size": 37823,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "legacy-adapted-fixtures/producer-mjjxy7uu/new-known-actors.json",
+        "sha256": "5dcf5d17f0e0b107ba9c88f761b2aa2297733fcd6adfaf481d28a4305d89762f",
+        "size": 40960,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "legacy-adapted-fixtures/producer-njtnmn7v/new-known-actors.json",
+        "sha256": "af45e5da733cf9eb1a8d3d026675dc76b90100745f6ed6a54430b57bffef34d6",
+        "size": 37715,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "legacy-adapted-fixtures/producer-qdqicj9t/new-known-actors.json",
+        "sha256": "31e627c9c7c220a5ff877d77236b0bc72dafb09f932e6b54809ad81bd95bcd00",
+        "size": 40906,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "legacy-adapted-fixtures/producer-x3qydt69/new-known-actors.json",
+        "sha256": "3b848dbcc98437014205ace616d520afbdc8a948c54f2f21c552240fa51ace28",
+        "size": 40852,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "legacy-adapted-fixtures/producer-x8la_vjd/new-known-actors.json",
+        "sha256": "c46a9ad26481178e7a3037e118cc9da5841dba164bca45f5fd94521c935d0cab",
+        "size": 37769,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      }
+    ],
+    "callback-before": [
+      {
+        "path": "callback-before-fixtures/producer-ft55vkt7/new-known-actors.json",
+        "sha256": "738b38e4e74a932ba0b0775b1ba5414cf850ef69107183deb0ce899561fb23fc",
+        "size": 37728,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "callback-before-fixtures/producer-nv8krsho/new-known-actors.json",
+        "sha256": "99185fc2e4e79383a3aad83cba8932c24633a9d733df4227849943aec03cef4e",
+        "size": 37782,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "callback-before-fixtures/producer-ft55vkt7/resource-control-before-cleanup.json",
+        "sha256": "e9079df7b75293481199f40e4fe867c6ffbffdeebafaf27ace52410174b5a79d",
+        "size": 301,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "error_type",
+          "failure_file_exists",
+          "native_IO_attempts",
+          "native_IO_mocked_no_wrong_FD_write",
+          "original_record_still_in_retained_ledger",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "retained_original_fd",
+          "rows"
+        ]
+      },
+      {
+        "path": "callback-before-fixtures/producer-nv8krsho/resource-control-before-cleanup.json",
+        "sha256": "d625c4009f98f8153b66f594211057dd32b146e17d752e7c83f7d8743fe90b8d",
+        "size": 840,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "borrowed_fd",
+          "error_type",
+          "failure_file_exists",
+          "native_IO_attempts",
+          "native_IO_mocked_no_wrong_FD_write",
+          "original_fd",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "callback-before-fixtures/producer-ft55vkt7/fixture-only-resource-closes.json",
+        "sha256": "80776244df70f214531dcbddc8a1d7e1ccc4cba12d3ee6397c75a9eb183733ce",
+        "size": 135,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "callback-before-fixtures/producer-nv8krsho/fixture-only-resource-closes.json",
+        "sha256": "80776244df70f214531dcbddc8a1d7e1ccc4cba12d3ee6397c75a9eb183733ce",
+        "size": 135,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      }
+    ],
+    "callback-fixed": [
+      {
+        "path": "callback-fixed-fixtures/producer-05p5qezr/new-known-actors.json",
+        "sha256": "a76909426452d26a247152ce6d4e9f0ed9c87268a2770f96c729c19fd23736ab",
+        "size": 38870,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-0ir3cmvl/new-known-actors.json",
+        "sha256": "78f6fc2d9452bc903e4d1d9d762b8a5b0d146a11f5e50bda9a08347a1863b7d1",
+        "size": 38814,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-aczsizcp/new-known-actors.json",
+        "sha256": "973131c2c8e0049f8b60cca37c0c3132831d3a0c5a3ba1c264ac81a19e792de0",
+        "size": 37877,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-h29aah3y/new-known-actors.json",
+        "sha256": "e26092801b4143027745aa19d450519fe517b8c4917a177b29bed66ebba48e9c",
+        "size": 37823,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-h9_4u_cs/new-known-actors.json",
+        "sha256": "f2515c10d8a66a49eff3762fbc6c2638d5897e8f7cb5a66ba4def91dd246a502",
+        "size": 41014,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-05p5qezr/resource-control-before-cleanup.json",
+        "sha256": "4f65d3e29468aa892b0f936a5009afd9741a226c98874f1d02f48a6a37304e73",
+        "size": 1920,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "actual_same_audit_close_count",
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-0ir3cmvl/resource-control-before-cleanup.json",
+        "sha256": "c78771aeed43bf65183144d26840ca1685dc0d67d70cbdaafd3ebcdda49955a3",
+        "size": 1533,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "actual_raw_write_calls",
+          "audit_file_sha256",
+          "before_BufferedWriter_over_controlledRaw_actualFileIO",
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows",
+          "written_piece_sizes"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-aczsizcp/resource-control-before-cleanup.json",
+        "sha256": "251ec1a73b474f75eb99562762f8fe1eb4b6c10539843e3c74c9bcdef98efe00",
+        "size": 311,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "error_type",
+          "failure_file_exists",
+          "native_IO_attempts",
+          "native_IO_mocked_no_wrong_FD_write",
+          "original_record_still_in_retained_ledger",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "retained_original_fd",
+          "rows"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-h29aah3y/resource-control-before-cleanup.json",
+        "sha256": "a01187e72203829a20bcc3bc541bb803beba300afe7d1fa9a6cf3b34a77d270f",
+        "size": 856,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "borrowed_fd",
+          "error_type",
+          "failure_file_exists",
+          "native_IO_attempts",
+          "native_IO_mocked_no_wrong_FD_write",
+          "original_fd",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-h9_4u_cs/resource-control-before-cleanup.json",
+        "sha256": "730f920ee7dcbf185803cdea5f4b4c4a7419a69beca161a07646c54300cb1386",
+        "size": 7038,
+        "record_kind": "resource-control-before-cleanup.json",
+        "top_keys": [
+          "error_type",
+          "failure_file_exists",
+          "quarantined",
+          "receipt_attempted",
+          "result_kind",
+          "rows"
+        ]
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-05p5qezr/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-0ir3cmvl/fixture-only-resource-closes.json",
+        "sha256": "c27d6accfaa1a5cadd54feb42b270f872fc9442353de84cc0caae1cb2ee8a868",
+        "size": 131,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-aczsizcp/fixture-only-resource-closes.json",
+        "sha256": "80776244df70f214531dcbddc8a1d7e1ccc4cba12d3ee6397c75a9eb183733ce",
+        "size": 135,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-h29aah3y/fixture-only-resource-closes.json",
+        "sha256": "80776244df70f214531dcbddc8a1d7e1ccc4cba12d3ee6397c75a9eb183733ce",
+        "size": 135,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      },
+      {
+        "path": "callback-fixed-fixtures/producer-h9_4u_cs/fixture-only-resource-closes.json",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "size": 2,
+        "record_kind": "fixture-only-resource-closes.json",
+        "top_keys": null
+      }
+    ],
+    "caller-handler": [
+      {
+        "path": "caller-handler-fixtures/producer-rn5jxd1a/new-known-actors.json",
+        "sha256": "8cbb76619527736c5a714607deaf14373bb304c1ea69a40d1e951cbdb4e686ce",
+        "size": 40852,
+        "record_kind": "new-known-actors.json",
+        "top_keys": [
+          "actors",
+          "all_recorded_final_wait_statuses_zero",
+          "no_live_workaround",
+          "not_complete_descendant_instruction_or_FDclosure",
+          "previous_command_Popen_handles_NOT_retained_or_reconstructed",
+          "reported_command_records",
+          "setup_Git",
+          "streams"
+        ]
+      }
+    ]
+  },
+  "posttest_own_Git": [
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart",
+        "branch",
+        "--show-current"
+      ],
+      "pid": 16740,
+      "status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+      "stdout_size": 36,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 16741,
+      "status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+      "stdout_size": 41,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart",
+        "status",
+        "--porcelain"
+      ],
+      "pid": 16742,
+      "status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+      "stdout_size": 728,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart",
+        "diff",
+        "HEAD",
+        "--",
+        "packages",
+        "native",
+        "bin/bootstrap",
+        "bin/test-all",
+        "bin/verify"
+      ],
+      "pid": 16743,
+      "status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_size": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_size": 0
+    }
+  ],
+  "posttest_branch": "codex/flatbuffers-native-perf-guard",
+  "posttest_HEAD": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "source_only": true,
+  "other18and3bins_byteexact": true,
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "production_tracked_diff_empty": true,
+  "actual_native_outputs_instructionclosure_not_proved": true,
+  "privatecontrollers_outside_HELPERBUNDLE20": true,
+  "provider_absent": true,
+  "live_gate_always_raises": true,
+  "live_controller_closed": true,
+  "ownership_complete": null,
+  "all3admission_flags": false,
+  "no_actual_SDK_build_canonical_kernel_broker_benchmark_capture": true,
+  "no_RAMcause_repair_or_acceptance": true,
+  "no_source_commit_push_adoption_strictdispatch": true,
+  "free_after": 13871857664,
+  "no_cleanup": true,
+  "space_cause_unmeasured": true,
+  "new_public_evidence": {
+    "archive_sha256": "e6eeabb7dc2b01cba42a6add77fef1eb2e1a7708dd8a59c7e0190d6d4d2458e2",
+    "regular_members": 8995,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}

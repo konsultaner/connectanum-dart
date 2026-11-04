@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Receipt raw FD resources; physical orchestration pending
+
+Receipt audit/output/failure and copy-input descriptors are retained before fallible I/O. Known short writes advance only the suffix; unknown writes/closes quarantine without replay, reclose or failure publication. Raw receipt output removes implicit BufferedWriter reflush. Two new callback regressions add exact ledger/record/FD binding across callbacks. Before8 yields1FAIL7missingAPI errors; implemented9pass, migrated legacy10pass separately; callback2fail then5pass plus1coordinator loader error, corrected caller1pass separately. No combined final/canonical result. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Generic helper FDs, partial/unknown actors, full physical EX controller, SDK/lock/config/current20canonical and original-host admission remain incomplete.
+
+[Preparation](../research/2026-11-04-flatbuffers-native-perf-receipt-resources-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-receipt-resources-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-receipt-resources-evidence.tar.gz).
+
 ## 2026-11-04 — Receipt errors retained; physical orchestration pending
 
 Receipt/audit/copy failures now retain exact private first/secondary errors and publish TYPEONLY failure metadata without exception hooks. Explicit local error tracking avoids ambient-handler contamination, and whole output-body retention preserves errors through context close. Before7 controls fail; initial9pass (7new+2required). Two new boundary controls expose one remaining gap and one introduced bookkeeping error;4targeted controls pass separately, not combined canonical counts. Buffered-writer close policy and receipt resource inventory remain incomplete. All20 helpers stay uncommitted/uncanonical/unadmitted; production601 unedited. Physical EX orchestration, SDK/lock/config/current20canonical and original-host admission remain closed.
