@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Creator-pipe close uncertainty stops continuation
+
+Auxiliary close intent and original references precede native close; raw return precedes validation/slot update. Unknown, invalid and drift outcomes retain the first error and refuse later close/report/re-entry. Normal closes and empty-slot no-ops remain compatible; frozen Aux DATA reports close quarantine separately from constructor-return facts. Original gates remain unchanged.
+
+Initial NEW4 have4intent-policy failures/0APIerrors, including a stronger normal-intent predicate; this is not4native defects or normal functional breakage. Raw negatives show continued close/spawn publication. A separate NEW normal functional control passes1. Finalb3c8bc/421946 passes11 selected checks (5matching new+2added positive+4affected), not combined/current20canonical. Model advice is ROOT-qualified and precedes final v3/control hunks. Four new Git0/BOTH streams/601/20untracked/productiondiffempty and AST checks complete before collector errors; corrected artifact-only assessment repeats no source/tests. Broader reporting/completion, physical EX and runtime admission remain incomplete; no SDK/build/capture/adoption/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-aux-creator-close-quarantine-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-aux-creator-close-quarantine-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-aux-creator-close-quarantine-evidence.tar.gz).
+
 ## 2026-11-04 — Early Auxiliary startup errors quarantine known resources
 
 Startup I/O is registered before each call and known native returns are retained before later checks. Unknown pre-constructor outcomes retain the first error and refuse repr/report/close/complete; hidden ROOT-unit returns stay unknown to the source. Existing constructor first-error recovery and normal operation order/arguments remain intact.
