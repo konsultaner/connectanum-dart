@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Narrow Auxiliary constructor quarantine implemented
+
+Unknown constructor outcomes now retain the earliest error/original actor-log-FD bindings and refuse reporting, closure, polling/waiting or pipeline re-entry. Typed error guards avoid constructing exception classes stored in damaged fields and recover the bound original first object. Normal argument-copy/None semantics and old emit/freeze/auxiliary gates remain intact.
+
+NEW5 behavioral controls are4FAIL/1normalPASS at221e/89b3; initial37db/7abc selection11PASS. Separate new review controls expose first-error scalar loss and foreign exception-class construction; final90178/a35e selection6PASS. Counts are not combined/full-final8/current20canonical. Qwen planning token-limit and GLM selected review are retained/ROOT-qualified; model review precedes the final hunk and omits the fixture helper. ROOT whole-final source/tests/AST checks and four new Git0/BOTH streams/branch601/20untracked/productiondiffempty qualify this narrow component only.
+
+No SDK/native build/canonical/kernel/benchmark/capture/source adoption or strict acceptance. Generic preconstructor resource/nonconstructor cleanup, enclosing producer, historical continuation/log sealing, transitive unknown actors/writers/delegates and independent physical EX/original-runtime admission remain incomplete. Storage floors are open after the separate lossless cleanup; recheck before operations.
+
+[Implementation, exact epochs and limits](research/2026-11-04-flatbuffers-native-perf-aux-constructor-quarantine-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-constructor-quarantine-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-constructor-quarantine-evidence.tar.gz).
+
 ## 2026-11-04 — Eight final-source targeted allocation checks pass
 
 The prepared affected selection at unchanged221e/89b3 passes8/0failures/0errors; actual coordinator signed0. It covers the corrected Auxiliary history/allocator paths, required actual Fixture receipt caller, explicitly migrated Direct seam and two-command frozen-history caller. Earlier separate selections were not repeated or combined; this is not full-final13/current20canonical or original-runtime admission. All23 helper/bin hashes remain unchanged; four new source Git reads return0/BOTH streams, branch601/20untracked/productiondiffempty DATA only.
