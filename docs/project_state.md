@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Frozen actor wait and stream drain; full bridge pending
+
+A separate worker action waits on one exact frozen recipe/auxiliary and drains its original streams to the same open logs. No completion, audit, next spawn, log close or producer/result retag occurs. Final19 selected tests pass (15new+4required callers); a new stale-cache/private-quarantine regression then fails and2 targeted controls pass separately after private authority checks, not combined21/canonical. Exact errors and negative prefix/buffer/suffix evidence stay retained; fixture cleanup is not a live workaround. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Known-log sealing, receipt-audit/unknown-start physical orchestration, runtime preflight/current20canonical and original-host provenance remain incomplete; admission stays closed.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-known-stream-wait-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-known-stream-wait-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-known-stream-wait-evidence.tar.gz).
+
 ## 2026-11-04 — Auxiliary wait fact survives completion failure
 
 A private exact-process witness records an exact-int Popen.wait return before fallible auxiliary completion I/O; cached poll0 is distinct. Timeout retains the same process with false/null witness, and process drift or malformed status refuses. Before7 controls yield6missing-API errors and1mocked-bool failure; fixed11pass (7new+4required callers), not canonical. The marker grants no descendant/physical EX/admission closure. Only producer/test change, including AuxiliaryCommand init/wait; all20 helpers remain uncommitted/uncanonical/unadmitted, production601 unedited. Full independent known-actor continuation, physical bridge and live provenance remain incomplete.

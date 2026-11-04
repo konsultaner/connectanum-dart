@@ -1,0 +1,318 @@
+{
+  "kind": "selected_known_actor_stream_wait_source_component_v1",
+  "APIs": "continue_known_actor_wait(role,index,timeout), known_actor_wait_observations()",
+  "semantics": "Separate serialized action after successful checked inventory freeze, failed initialized OR uninitialized owner. Exact recipe0 or auxiliary index, exact nonnegative int rejectingbool/existing bounded timeout. Ordinary pipeline actions/freeze repeat remain refused; previous exact Thread join+settled start required.",
+  "ownership": "Current frozen actor/Popen/record/list/aux dict/stream/log/hash/path/FD references retained BEFORE callback or metadata IO. Actual original owner callback, full known-actor identity and expected mutable progress/FD-path/direction checks before read/write/select/close/wait, outside observer lock. Bounded observations not atomic/globalABA/auth/writeprevention or all-actor closure.",
+  "wait_only": "Generic original recipe merged pipe or auxiliary stdout/stderr drain to SAME open logs/hash/buffers. No end/finish/_complete/log close/audit/nextspawn/aux result/build receipt publication or pending/finished/result retag.",
+  "progress": "Fixed pointers plus private expected buffer/bytes/hash digest/EOF/FD state advanced only after known coordinator IO. Native write intent before call/strict count then known progress. Unknown read/write/count/close quarantines without replay/reclose/rebind; raw unknown values and exact primary/secondary errors retained privately, no repr/str/add_note hooks.",
+  "status": "Recipe exact-int Popen.wait with max(0,remaining) retained before cache IO. Auxiliary uses current exact-process direct-method witness, with explicit historical origin if already observed. Popen may return cached codes; not fresh wait syscall/PIDfd/liveness/descendant/writer/role-clock/physicalEX/admission proof.",
+  "close": "Our EOF close attempt retained BEFORE raw slotNone/close; confirmation only normal return. Initial EOF+FDNone has historical close confirmation UNKNOWN. Methodstatus+EOF terminal cache only refuses more wait, not FD/actor/physical closure permission.",
+  "cache_safety": "Frozen inventory/earlier owner producer cache stay historical. Public wait rows may stay before_wait when error-cache publication fails; per-call lifecycle errors remain and PRIVATE sticky quarantine/primary-error records now authorize eligibility, never stale public row. Guard also refuses privately quarantined actor before IO.",
+  "before_scope": "12newtests17ERROR solely missing API/private hooks including6argument subtests, NOT17productiondefects.",
+  "implemented16PASS_scope": "12new+4required callers",
+  "newguards3FAIL": "Aux path/writer-confirmation callback mutations ignored before os.read attempts; unknown recipe record key invoked custom equality. Real UNITprep regressions, no observed wrong-FD data transfer/hang/canonical/RAMdefect.",
+  "fixed19PASS_scope": "15new+4requiredcallers, separate from earlier16",
+  "new_private_quarantine1FAIL": "Injected select primary + secondary cache error retained correctly, but stale before_wait public cache let another worker/read attempt run despite PRIVATE quarantine. Real unit authorization regression, not lost primary or production/canonical/RAMfailure.",
+  "final_private_quarantine2PASS_scope": "NEW regression +one real initialized capacity caller; separate from19, NOTcombined21/37/fullcanonical.",
+  "fixture_scope": "Actual finite OWN Python recipe+auxiliary, >pipe-capacity fullcontent checks; source/archive/input mocked/FIXTURE. PrivateDirreleaseNOTGO, recipeONEmergedpipe/auxTWOseparatepipes. Initialized later-failure/parentstart/uninitialized faults synthetic, not observed original build/SDKfailure.",
+  "fixture_teardown": "Remaining known FD output drained to SEPARATE suffix files, original buffers separately retained; original source buffers/logs NOTreplayed/reset to fill error gaps. Natural same known Popen waits, private known FD/log closes ONLYunit teardown/NEVERliveworkaround.",
+  "first_errors": "Original constructor/parent/call first error remains exact/private; selected first IO error and observation secondaries exact/private/typeonly. No error conversion to ProducerError that would lose exact primary.",
+  "limits": "Not every returned API view/required legacy Git setup return serialized; exact sources/logs/regular fixtures retained, no reconstruction or unchanged method/numerical rerun. Negative uncertain output has prefix/buffer/suffix evidence, not claimed complete original log/hash integrity.",
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "production601_no_edit": true,
+  "private_controllers_not_HELPERBUNDLE20": true,
+  "actual_official_EX_through_known_fixture_workers_children": true,
+  "unit_lease_callbacks_SYNTHETIC": true,
+  "process_life_handle_history_counts_NOT_heap_RSSbound": true,
+  "no_SDK_native_build_canonical_originalhost_kernel_broker_benchmark_capture_source_commit_push_adoption_strictdispatch": true,
+  "no_RAM_cause_repair_acceptance": true,
+  "actor_ownership_complete": null,
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "models": {
+    "GLM26456": {
+      "direct_status": 0,
+      "helper_pid": 98406,
+      "reaped": true,
+      "selected_source_chars": 11052,
+      "advisory": true,
+      "ROOT_accepts": "Aux witness prevalidation/private expected mutable progress/primary before cache",
+      "ROOT_qualifies": "Plan already bounded recipe wait; explicit remaining-budget expression. Witness helper pure checks+actualwait, not generic observation IO.",
+      "not_fullsource_approval": true
+    },
+    "Qwen75454_tests": {
+      "direct_status": 0,
+      "helper_pid": 98819,
+      "reaped": true,
+      "ROOT_qualified": "Use unittest not pytest, firstauxiliaryindex0; exact positive partial writes supported. Frozen historical inventory distinct from advancing wait rows."
+    },
+    "Qwen22975_review": {
+      "direct_status": 0,
+      "helper_pid": 1311,
+      "reaped": true,
+      "selected_diff_chars": 43630,
+      "source_epoch": "e58ff7da6476bf9644f2918072c8111903a13df977f897a1720d1ebcedb9be15",
+      "test_epoch": "6f4aa0945bfc0f3c558f5593cda3de74fb26ba4d4753e7b7ebab34f5a7ec293b",
+      "ROOT_accepts": "Quarantine-persistence concern motivates NEW select+secondary-cache guard; ROOT identifies stale public cache eligibility bug and fixes private authority.",
+      "ROOT_rejects": [
+        "Original primary lost: already retained before cache and bare-rethrown; keep exact exception rather than convert",
+        "Global atomicity/foreign mutators controlled by observer lock: not claimed; guard is immediately before each IO",
+        "Global fcntl import or skipping POSIX checks: local deferred import keeps module importable, unsupported new action failsclosed; no crossplatform action proof",
+        "MappingProxy aliases mutable row: fresh dict/primitive-only then never mutated, maps replace sealed proxies under lock"
+      ],
+      "review_BEFORE_last_new_regression_and_fix": true,
+      "ROOT_final_affected_methods_newtest_checked_not_model_final_current_fullsource_approval": true
+    }
+  },
+  "remaining": "Independent known actor log sealing, complete physical officialEX lifetime/controller including receipt-audit failures/unknown starts, current20canonical/runtime originalPATH-SDK-bootstrap/firstgeneration locks-hiddenconfigs/own native-driver-RLIB/originalhost credential-access-pidfd-FDexec-inheritance-arming-metadata-role-time-coverage provenance and immutableCOMPLETEadmission remain absent. Live provider/controller/admission stay closed before any diagnosticdata.",
+  "utc": "2026-11-04T01:42:16.829847+00:00",
+  "source_sha256": "d87e260384340f1233facd00e0a71c81dd9ef993ad7f2ae0037213c43a5c5a3b",
+  "test_sha256": "2fd478e81ff8f66212c8dd79280742048dd61a907a62fab07d286f7056f5155d",
+  "changed_original_methods": {
+    "_RetainedPreflightOwner": [
+      "__init__",
+      "_schedule",
+      "_work"
+    ]
+  },
+  "final_private_guard_methods_only": [
+    "_schedule",
+    "_bind_known_wait",
+    "_known_wait_guard"
+  ],
+  "original_module_functions_factories_emitters_gates_otherclasses_original_owner_methods_testclasses_byteexact_except3": true,
+  "AuxiliaryCommand_including_current_wait_witness_and_CommandProducer_classes_byteexact": true,
+  "other18tools_selected3bins_byteexact": true,
+  "stage_results": {
+    "before": {
+      "tests": 12,
+      "failures": 0,
+      "errors": 17,
+      "recorded_new_unit_teardown_actor_rows": 18,
+      "signed_teardown_statuses": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        78,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "separate_suffix_stream_rows": 24,
+      "scope": "Recorded NEW fixture teardown ONLY; not original stream integrity on negative cases or required legacy API-return serialization"
+    },
+    "implemented": {
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "recorded_new_unit_teardown_actor_rows": 18,
+      "signed_teardown_statuses": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        78,
+        0,
+        0
+      ],
+      "separate_suffix_stream_rows": 24,
+      "scope": "Recorded NEW fixture teardown ONLY; not original stream integrity on negative cases or required legacy API-return serialization"
+    },
+    "newguards-before": {
+      "tests": 3,
+      "failures": 3,
+      "errors": 0,
+      "recorded_new_unit_teardown_actor_rows": 5,
+      "signed_teardown_statuses": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "separate_suffix_stream_rows": 7,
+      "scope": "Recorded NEW fixture teardown ONLY; not original stream integrity on negative cases or required legacy API-return serialization"
+    },
+    "fixed": {
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "recorded_new_unit_teardown_actor_rows": 23,
+      "signed_teardown_statuses": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        78,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "separate_suffix_stream_rows": 31,
+      "scope": "Recorded NEW fixture teardown ONLY; not original stream integrity on negative cases or required legacy API-return serialization"
+    },
+    "private-quarantine-before": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "recorded_new_unit_teardown_actor_rows": 1,
+      "signed_teardown_statuses": [
+        0
+      ],
+      "separate_suffix_stream_rows": 1,
+      "scope": "Recorded NEW fixture teardown ONLY; not original stream integrity on negative cases or required legacy API-return serialization"
+    },
+    "private-quarantine-fixed": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "recorded_new_unit_teardown_actor_rows": 3,
+      "signed_teardown_statuses": [
+        0,
+        0,
+        0
+      ],
+      "separate_suffix_stream_rows": 4,
+      "scope": "Recorded NEW fixture teardown ONLY; not original stream integrity on negative cases or required legacy API-return serialization"
+    }
+  },
+  "serialized_new_regression_controls": {
+    "newguards-before": [
+      {
+        "path": "newguards-before-fixtures/partial-command-j9oaek24/path-drift-control.json",
+        "size": 58,
+        "sha256": "069f2e2fd783a4e90f21427dd78067975f630d6bbfa24c322f0e58ebaf90ef63",
+        "observed": {
+          "read_calls": [
+            "stdout",
+            "stderr"
+          ],
+          "quarantined": false
+        }
+      },
+      {
+        "path": "newguards-before-fixtures/partial-command-4gj28_7e/writer-confirmation-drift-control.json",
+        "size": 58,
+        "sha256": "069f2e2fd783a4e90f21427dd78067975f630d6bbfa24c322f0e58ebaf90ef63",
+        "observed": {
+          "read_calls": [
+            "stdout",
+            "stderr"
+          ],
+          "quarantined": false
+        }
+      },
+      {
+        "path": "newguards-before-fixtures/partial-command-rosdgaab/unknown-key-control.json",
+        "size": 38,
+        "sha256": "0f67351cb37af1b2649bc29632fe7358ab3aa3afddb4dde102830c5011d8c418",
+        "observed": {
+          "hooks": [
+            "eq"
+          ],
+          "quarantined": true
+        }
+      }
+    ],
+    "fixed": [
+      {
+        "path": "fixed-fixtures/partial-command-hxeorjsk/path-drift-control.json",
+        "size": 39,
+        "sha256": "fd48353c75b613b4efe3b3de68b7ab291f461711d065aaaf337d29db13593f7b",
+        "observed": {
+          "read_calls": [],
+          "quarantined": true
+        }
+      },
+      {
+        "path": "fixed-fixtures/partial-command-xozv3n0r/writer-confirmation-drift-control.json",
+        "size": 39,
+        "sha256": "fd48353c75b613b4efe3b3de68b7ab291f461711d065aaaf337d29db13593f7b",
+        "observed": {
+          "read_calls": [],
+          "quarantined": true
+        }
+      },
+      {
+        "path": "fixed-fixtures/partial-command-3ikqsaoq/unknown-key-control.json",
+        "size": 34,
+        "sha256": "f779a629a0fd5dbaf837e36acf496340e5d294f07e016b1ac96276b47a4cb11a",
+        "observed": {
+          "hooks": [],
+          "quarantined": true
+        }
+      }
+    ],
+    "private-quarantine-before": [
+      {
+        "path": "private-quarantine-before-fixtures/partial-command-y4pf9gam/private-quarantine-control.json",
+        "size": 98,
+        "sha256": "901077b1b8f6abc092adf5b76e5a3273b35c581262eead1261adef9661ffd7d1",
+        "observed": {
+          "refused": false,
+          "new_workers": 1,
+          "reads_after_private_quarantine": [
+            "merged"
+          ]
+        }
+      }
+    ],
+    "private-quarantine-fixed": [
+      {
+        "path": "private-quarantine-fixed-fixtures/partial-command-7re1jpqg/private-quarantine-control.json",
+        "size": 81,
+        "sha256": "c501426e5828b506c25ae27578a03f20dec3ecebc778829248f0c41c461dc2ab",
+        "observed": {
+          "refused": true,
+          "new_workers": 0,
+          "reads_after_private_quarantine": []
+        }
+      }
+    ]
+  },
+  "free_after": 15961939968,
+  "new_public_evidence": {
+    "archive_sha256": "a249f7d2c45cfc63ac4920706acf1847fca3076b22ce7e42d2979b8330143d6b",
+    "regular_members": 1125,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}
