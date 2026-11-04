@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Intent call progress precedes digest publication
+
+Auxiliary original writer/hash calls retain original functions/arguments/context/attempts before I/O and raw returns before checks. Unknown, drift and invalid/mismatching returns retain first and stop before digest publication. Expected-image comparison is contract/integrity DATA; the generic helpers' internal with/finally-close/add_note paths remain byte-exact and unfinished.
+
+NEW7v2 at1b3e08/21b6fd yield6FAIL/1PASS/0APIerrors, including a controlled3byte file digest and injected False. Two cases already propagate the caller's first and fail stronger retention/context policies, not six native bugs. Final4bac3d/4b55a5 passes28selected checks (7new+21affected), not aggregated/current20canonical. Qwen/GLM complete0 with ROOT qualifications; ROOT independently qualifies final v4 source/tests/AST after deeper context/prefix additions beyond selected model v2. Four new Git0/BOTHstreams/601/20untracked/productiondiffempty remain DATA. Internal FD errors, earlier init/enclosing retention/full physical EX/runtime admission remain incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](research/2026-11-04-flatbuffers-native-perf-aux-intent-call-progress-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-intent-call-progress-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-intent-call-progress-evidence.tar.gz).
+
 ## 2026-11-04 — INIT callbacks stop declaration drift before intent publication
 
 Auxiliary INIT callbacks retain original object/callback/intent/stream context before calling, then retain raw return before checks. Changed declarations stop before intent publication; received first precedes metadata and survives scalar CLASS/flag damage without construction. None/False ignored returns and original writer/hash/Popen facts remain intact. Snapshots and current Darwin verification remain DATA, not original-host/physical EX/admission.
