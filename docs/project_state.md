@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Known actor object inventory; physical bridge still incomplete
+
+A failed initialized or uninitialized owner can freeze current recipe/retained auxiliary object facts through its serialized worker. Private handles and typed scalar snapshots precede callback I/O; unknown fields or drift quarantine. One attempt blocks later pipeline actions. Original auxiliary predicates remain unchanged; no actor/physical EX closure or admission follows. Initial14 tests pass, two new strict guards fail and are corrected, then16 pass (12new+4required callers); one new foreign-producer guard passes separately with implementation unchanged. All20 helpers remain uncommitted/uncanonical/unadmitted, production601 unedited. Full independent continuation/orchestration, SDK/lock/config/canonical and original-host provenance remain incomplete.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-actor-inventory-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-actor-inventory-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-actor-inventory-evidence.tar.gz).
+
 ## 2026-11-04 — Parent writer objects sealed; physical orchestration pending
 
 After a failed command's signed wait/merged EOF, a serialized worker can seal the two exact retained parent writer objects. A failed explicit flush quarantines without close; successful flush permits fsync and one revalidated close. Object facts do not retag the producer, bypass the auxiliary predicate or authorize physical EX release. Final17 selected tests pass (14new+3required callers), separate from earlier16 and a new failing normal-return/open-object guard corrected. These finite FIXTURE source controls are not canonical or RAM evidence. Current20 helpers stay uncommitted/uncanonical/unadmitted, production601 unchanged; full orchestration, SDK/lock/config preflight and live provenance/admission remain incomplete.

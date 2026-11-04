@@ -1,0 +1,226 @@
+{
+  "kind": "worker_only_known_actor_object_inventory_source_component_v1",
+  "utc": "2026-11-04T00:23:12.725416+00:00",
+  "source_sha256": "76597e4c3272017326b60e1060d6135a729b53a18476b59ef16aeb632f8e41c6",
+  "test_sha256": "5b38a5429015e6bade7bd3e4beed8bfae3135c395283f15dd0edc1078bc5f41d",
+  "APIs": "freeze_known_actors(), known_actor_observations()",
+  "changed_files": [
+    "tool/native_perf_build_producer.py",
+    "tool/test_native_perf_build_producer.py"
+  ],
+  "original_module_functions_factories_emitters_gates_CommandProducer_AuxiliaryCommand_other_owner_methods_original_testclasses_byteexact": true,
+  "original_owner_init_schedule_work_extended_only": true,
+  "other18tools_and_selected3bins_byteexact": true,
+  "implementation_final_to_finalcurrent_byteexact": true,
+  "prior_KnownActorInventoryTests_methods_byteexact_last_test_added_only": true,
+  "invariant_evidence_qualification": "ROOT exact AST/file assertions in component-root-V2 complete before later NameError; exact original/final snapshots retained. Per-assertion API returns not separately serialized; no rerun to fill.",
+  "production601_no_edit_by_this_phase": true,
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "private_controllers_not_HELPERBUNDLE20": true,
+  "semantics": "Failed initialized OR uninitialized owner; previous exactThreadjoin+settledstart/busyguard. ONEattempt beforeThreadsetup; all later producer actions refuse. Worker retains current producer/Popen/record-list-currentrecord/auxlist-tuple-dicts/Popen/originalcallback BEFORE callback. Immutable typed primitive cached objectfacts; no poll/wait/FDIO.",
+  "strict_fields": "pid+returncode key presence/types; original owner callback identity bound to producer+aux and retained before invoking; missing/unknown fields or drift quarantine exact available pre-callback references; no false0 or empty-ledger success.",
+  "observation_limits": "CURRENT recipe and retained auxiliary object snapshot ONLY. Popen.returncode cached, not fresh wait/poll/liveness/credential/role/compiled/descendant/allwriter/wholeinventory or physicalEX release authority. No atomic/globalABA/auth/writeprevention claim.",
+  "original_auxiliary_predicate_unchanged_no_waiver": true,
+  "new_inventory_only_skips_raw_pending_finished_postcatch_refresh_ownercache_historical": true,
+  "raw_producer_state_not_retagged_no_end_finish_audit_spawn_FDclose_publication": true,
+  "no_repr_str_custom_equality_add_note_newhooks": true,
+  "stage_results": {
+    "before": {
+      "tests": 10,
+      "failures": 0,
+      "errors": 10,
+      "scope": "NEW finite OWN unit fixtures only, not canonical/admission/runtime"
+    },
+    "implemented": {
+      "tests": 14,
+      "failures": 0,
+      "errors": 0,
+      "scope": "NEW finite OWN unit fixtures only, not canonical/admission/runtime"
+    },
+    "strict-before": {
+      "tests": 2,
+      "failures": 2,
+      "errors": 0,
+      "scope": "NEW finite OWN unit fixtures only, not canonical/admission/runtime"
+    },
+    "final": {
+      "tests": 16,
+      "failures": 0,
+      "errors": 0,
+      "scope": "NEW finite OWN unit fixtures only, not canonical/admission/runtime"
+    },
+    "final-current": {
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "scope": "NEW finite OWN unit fixtures only, not canonical/admission/runtime"
+    }
+  },
+  "before10_errors_missing_API_only_NOT10productiondefects": true,
+  "initial14PASS_scope": "10new+4requiredcallers",
+  "new_strict2FAIL": "Missing cached returncode incorrectly accepted as valid unknown; foreign producer lease field accepted. Real UNITprep regressions, not canonical/RAMdefects.",
+  "fixed16PASS_scope": "12new+4requiredcallers, separate from earlier14",
+  "final_current1PASS_scope": "ONE NEW foreign-producer callback guard; implementation byteexact/testsource changed, NOTcombined17/31/fullcanonical",
+  "fixture_scope": "Finite actual OWN Python/FIXTURE; source/archive/input MOCKED. Factory escapes after actual ctor returns pending OR injected later wait after actual auxiliary launch. No observed original ctor/build/SDKfailure. PrivateDirreleaseNOTGO, recipeONEmergedpipe/auxTWOseparatepipes; nextsentinelsunlaunched.",
+  "new_recipe_and_auxiliary_natural_status_EOF_digest_claim_scope": "Selected tests assert retained known same actors natural0 and recipe mergedEOF/streamfile digests; new Aux fullresult JSONs assert natural0/twoEOF/snapshot-stream matches. Required legacy aux scalar rows have status/twoEOF ONLY, no reconstructed digest.",
+  "fixture_only_private_same_actor_drain_close_field_restore_NEVER_live_workaround": true,
+  "ROOT_actual_official_EX_through_known_fixture_workers_children": true,
+  "unit_lease_callbacks_SYNTHETIC": true,
+  "returned_views_and_legacy_Git_setup_APIreturns_NOTall_systematically_serialized": true,
+  "root_Git_observation": "Four administrative Git subprocesses and both stream files per process observed through actual officialEX source path. The later report NameError occurs after waits/assertions. PID/status/API-return array not serialized: NULL here, no reconstruction/rerun or whole-actor closure claim.",
+  "root_Git_retained_FILEDATA": [
+    {
+      "index": 0,
+      "direct_status": null,
+      "pid": null,
+      "API_return_array_NOT_serialized": true,
+      "kind": "retained_stream_FILEDATA_only",
+      "streams": {
+        "stdout": {
+          "size": 41,
+          "sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e"
+        },
+        "stderr": {
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "index": 1,
+      "direct_status": null,
+      "pid": null,
+      "API_return_array_NOT_serialized": true,
+      "kind": "retained_stream_FILEDATA_only",
+      "streams": {
+        "stdout": {
+          "size": 36,
+          "sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa"
+        },
+        "stderr": {
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "index": 2,
+      "direct_status": null,
+      "pid": null,
+      "API_return_array_NOT_serialized": true,
+      "kind": "retained_stream_FILEDATA_only",
+      "streams": {
+        "stdout": {
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stderr": {
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "index": 3,
+      "direct_status": null,
+      "pid": null,
+      "API_return_array_NOT_serialized": true,
+      "kind": "retained_stream_FILEDATA_only",
+      "streams": {
+        "stdout": {
+          "size": 728,
+          "sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba"
+        },
+        "stderr": {
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    }
+  ],
+  "controller_failures": [
+    "First functions JSparse before nestedtool/filesystem, failed body not separately retained/no reconstruction",
+    "First final coordinator Pythonparse unmatchedparenthesis beforebody/sourcewrite/tests, savedexactterminalcoordinator",
+    "Initial posttest audit KeyError merged_output_eof on REQUIRED legacy aux scalar schema; source unchanged, no publication; no merged/digest reconstruction",
+    "Component root controller SAVE refused existing old design controller path before newbody; old file preserved; explicit distinct component path declared",
+    "Component root V2 NameError R notdefined after AST/file assertions and4Git/streamwrites, before assessment publication; terminal retained, NO unchanged Git/AST/test rerun. This finalizer consumes existing retained reports/streams only."
+  ],
+  "models": {
+    "Gemma_summary": {
+      "tool_session": 39218,
+      "helper_pid": 92375,
+      "direct_status": 0,
+      "reaped": true,
+      "completed_answer_saved": true,
+      "advisory": true,
+      "root_rejects": [
+        "owner operation may be AuxiliaryCommand",
+        "constructor failure always pendingFalse",
+        "EOF/write-close flags prove uncertain start/ownership"
+      ]
+    },
+    "GLM_design": {
+      "tool_session": 87500,
+      "helper_pid": 92603,
+      "direct_status": 0,
+      "reaped": true,
+      "completed_answer_saved": true,
+      "advisory": true,
+      "root_rejects": [
+        "freeze must be inside constructor catch to avoid cleanup after synchronous unwind",
+        "constructor failure auxiliaries all prestart",
+        "inverted original aux predicate",
+        "private handle retention conflicts with scalar-only observer",
+        "omit typed pending facts entirely",
+        "initializedTrue alone proves later wait failure"
+      ],
+      "root_accepts": "distinct initialization/parent-start/worker-call/partial actor facts; no predicate waiver or physical closure"
+    },
+    "Qwen_test_planning": {
+      "tool_session": 53251,
+      "helper_pid": 93270,
+      "direct_status": 1,
+      "reaped": true,
+      "token_limit": true,
+      "last_reported_visible_chars": 6874,
+      "full_partial_final_absent": true,
+      "backend_reachable_not_unavailable_or_approval": true
+    },
+    "Qwen_final_selected_review": {
+      "tool_session": 40514,
+      "helper_pid": 94191,
+      "direct_status": 0,
+      "reaped": true,
+      "completed_answer_saved": true,
+      "selected_chars": 27917,
+      "review_source_epoch": "76597e4c3272017326b60e1060d6135a729b53a18476b59ef16aeb632f8e41c6",
+      "review_test_epoch": "1aecffdf842c0f001340051fea4c868ccb316c68d7edc99735c1085f2b276c39",
+      "root_rejects": [
+        "callback drift is false-error/lost state: exact refs AND primitive rows captured before callback, changed identity deliberately quarantines",
+        "missing returncode accepted: explicit key-presence check sets fields invalid, and new BEFORE regression now passes",
+        "no op identity check: op is first binding element compared by identity",
+        "global GIL/observer lock atomicity or callback descendant closure not claimed"
+      ],
+      "root_accepts": "ONE new deterministic foreign-producer swap guard, PASS separately with implementation byteexact; review before last test addition, ROOT checks it",
+      "not_model_final_current_full_source_approval": true
+    }
+  },
+  "ROOT_complete_affected_final_methods_and_last_new_test_checked": true,
+  "no_model_final_current_full_source_approval": true,
+  "current20canonical_or_compiled_instructionclosure": false,
+  "no_SDK_native_build_originalhost_kernel_broker_benchmark_capture_strictdispatch": true,
+  "no_RAM_cause_repair_acceptance": true,
+  "actor_ownership_complete": null,
+  "capture_ready": false,
+  "source_admitted": false,
+  "live_admission": false,
+  "process_life_retention_counts_NOT_heap_RSSbound": true,
+  "next": "Independent exact known-actor continuation/full physicalEX bridge absent; freeze blocks ordinary pipeline. Original PATH/bootstrap/SDK/firstgeneration locks/configs/current20canonical/native-driver-RLIB/originalhost controls/provenance and immutableCOMPLETEadmission required before diagnosticdata.",
+  "free_after": 17313079296,
+  "new_public_evidence": {
+    "archive_sha256": "acf7ac32f0870d27bb7b45ff276af1ef09615b0eeb7bd8048b6401f34f19afd0",
+    "regular_members": 961,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}
