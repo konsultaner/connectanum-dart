@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Historical command inventory frozen as data
+
+A separate terminal owner action retains command/auxiliary history before callback I/O and exposes immutable primitive observations. Unknown starts and record/process/binding drift quarantine; no actor/FD I/O, pipeline advancement, producer retag, release or admission. Before10 yields1fixture failure+9missingAPI errors; the corrected blocked fixture yields1missingAPI error. Initial12selected pass;3new guards fail then4targeted pass separately, not a full-final13/canonical result. Selected review hits a token limit; ROOT verifies final methods/tests/invariants. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Physical continuation/closure/runtime admission remain incomplete; build floor CLOSED below12GiB. Prior coordinator-before-execution wording is corrected: full controllers were retained after calls.
+
+[Preparation](../research/2026-11-04-flatbuffers-native-perf-history-freeze-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-history-freeze-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-history-freeze-evidence.tar.gz).
+
 ## 2026-11-04 — Owner error objects retained before type labels
 
 Three owner methods retain exact first/call/join errors before native type-name publication, avoiding custom exception metaclass hooks and non-scalar observer labels. Five new controls fail before;8selected pass after (5new+3required), then a separate real-thread bounded-join control passes with unchanged producer, not combined9/canonical. Other source/gates remain byteexact. All20 helpers stay uncommitted/uncanonical/unadmitted; production601 unedited. Historical inventory/transitive ownership/full physical EX/original-runtime admission remain incomplete. Build floor remains CLOSED below12GiB; cause unmeasured/no cleanup.
