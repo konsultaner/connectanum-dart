@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Pre-constructor Popen ownership reproduced; repair unimplemented
+
+Five meaningful controls yield4FAIL/1PASS: the producer lacks an allocated-object reference across three post-initializer fault boundaries and invokes a rebound initializer; normal construction passes. Four actual finite Python children return signed0 before unit FD/log cleanup. Two earlier setup attempts reach no native constructor and are excluded from ownership counts. Source/test and all20 helpers remain unchanged/uncommitted/uncanonical/unadmitted; production601 unedited. Captured allocator/initializer binding, pre-init retention and None-only return handling are selected but UNIMPLEMENTED. Existing public cleanup/full physical EX/runtime admission remain incomplete; build floor CLOSED below12GiB.
+
+[Preparation](../research/2026-11-04-flatbuffers-native-perf-popen-allocation-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-popen-allocation-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-popen-allocation-evidence.tar.gz).
+
 ## 2026-11-04 — Historical command inventory frozen as data
 
 A separate terminal owner action retains command/auxiliary history before callback I/O and exposes immutable primitive observations. Unknown starts and record/process/binding drift quarantine; no actor/FD I/O, pipeline advancement, producer retag, release or admission. Before10 yields1fixture failure+9missingAPI errors; the corrected blocked fixture yields1missingAPI error. Initial12selected pass;3new guards fail then4targeted pass separately, not a full-final13/canonical result. Selected review hits a token limit; ROOT verifies final methods/tests/invariants. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Physical continuation/closure/runtime admission remain incomplete; build floor CLOSED below12GiB. Prior coordinator-before-execution wording is corrected: full controllers were retained after calls.
