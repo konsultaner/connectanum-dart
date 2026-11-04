@@ -7,6 +7,12 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — Direct command histories retained; build floor closed
+
+Private attempts retain process/log/pipe references before later I/O and preserve exact method-wait statuses before metadata. Poll/cache/timeout/unknown status remain distinct. Original spawn reporting/cleanup policy remains. A shared private reader/output I/O test seam is separated without changing native calls. Before16 accidentally includes8inherited controls:7failure/5error occurrences include missing APIs and harness failures, not production defect counts. Corrected22selected pass; two new review controls yield1pass/1harness error, then the blocked control1pass separately, not full-final24/canonical. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Historical continuation, transitive FD/unknown actors/full physical EX/original-runtime admission remain incomplete. Free11.66GB is below12GiB; build floor CLOSED, cause unmeasured/no cleanup.
+
+[Preparation](research/2026-11-04-flatbuffers-native-perf-command-history-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-command-history-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-command-history-evidence.tar.gz).
+
 ## 2026-11-04 — Direct receipt readers retained; physical controller pending
 
 Direct receipt JSON/hash/snapshot/metadata reads now retain purpose/FD/progress and exact first/secondary errors, with no exception hooks. Unknown reads refuse another read but allow one identity-checked close; unknown close quarantines without reclose/new publication. An introduced single-link restriction is corrected to preserve existing archive hardlink publication. Initial7=6pass/1required-caller error; hardlink1fail becomes2pass; strict3fail becomes11selected passes; NEWunknown-read1fail becomes2targeted passes separately, not full-final13/canonical. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Transitive FDs/partial or unknown actors/full physical EX controller and original-runtime admission remain incomplete.
