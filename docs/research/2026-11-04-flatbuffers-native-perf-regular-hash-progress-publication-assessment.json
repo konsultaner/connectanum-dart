@@ -1,0 +1,27 @@
+{
+  "actual_tool_return": {
+    "chunk_id": "200e31",
+    "wall_time_seconds": 0.182321125,
+    "exit_code": 1,
+    "original_token_count": 80,
+    "output": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-regular-hash-progress-v1/publish-controller.py\", line 52, in <module>\n    assert 'JSON writer retains first errors before automatic close' not in old\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+  },
+  "stage": "stale historical JSON-writer-heading absence assertion AFTER regular archive BYTEEXACT verification and preparation/assessment writes, BEFORE state/plan/commit/push",
+  "source_test_model_archive_NOT_repeated": true,
+  "archive_PROOF_already_complete": {
+    "evidence": "docs/research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-evidence.tar.gz",
+    "archive_sha256": "ae2619ed895d94721d9ff88fe896a07daa3c5708b07b26071f8cfbf3a61d9c3e",
+    "selected_regular_members": 1093,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-preparation.md",
+    "assessment": "docs/research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-assessment.json"
+  },
+  "immutable_three_docs": {
+    "preparation": "a0d98baa88ab5deb2e4997d45b59129c23e71c7c13ea9c495172d36b76c51ec1",
+    "assessment": "3172cf5764fb5dc6b94b50b1a574d311eca1ba4f2e544fcf755b60c936661ab4",
+    "archive": "ae2619ed895d94721d9ff88fe896a07daa3c5708b07b26071f8cfbf3a61d9c3e"
+  },
+  "v1_namespace_TERMINAL_preserved": true,
+  "v2_declaration": "NEW artifact-only docs bookkeeping; preserve valid archive/preparation/assessment bytes, add separate publication-assessment JSON, update only previously-unwritten state/plan and commit six docs files. No archive recreation or completed Source/tests/model repeat."
+}

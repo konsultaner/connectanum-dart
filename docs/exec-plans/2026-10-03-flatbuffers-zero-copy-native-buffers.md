@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Hash reads retain first errors without automatic close
+
+The regular-file hash helper retains original received FD references and intent/raw returns, stops unknown or invalid operations without finally close/add_note and keeps its first error before metadata. False EOF is rejected. Normal path/flags/owner-mode-size/identity/chunk/hash/digest-before-close/close-before-return order remains intact. Shared pure observation machinery is reused without running or changing the JSON writer. FD/EOF/close/hash/source records are DATA, not credentials, ownership, physical EX or admission.
+
+NEW8 atf599f8/3c6328 yield6FAIL/2normalPASS/0APIerrors, including a masked read first and accepted False EOF; open/close error cases also fail stronger retained-intent policy, not six native defects. Finala90dca/877638 passes23selected checks (8new+15affected), not aggregated/current20canonical/admission. All old tests remain byte-prefix exact; ROOT qualifies final source/tests/AST,23hashes/other18helpers3bins and4newGit0/BOTHstreams/601/20untracked/productiondiffempty DATA. Qwen advisory0 is qualified; GLM tokenlimit1/fullpartialfinalABSENT is not approval or unavailability. Unexecuted earlier API seams, backingFD/factory/enclosing/transitive actors/full independent EX/runtime admission remain incomplete. No actual SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+Initial publication stops on a stale historical-heading assertion after the archive is fully verified and the preparation/assessment are written, before state/plan/commit. New artifact-only bookkeeping preserves those three files exactly; no Source/test/model/archive operation is repeated. [Publication qualification](../research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-publication-assessment.json).
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-evidence.tar.gz).
+
 ## 2026-11-04 — JSON writer retains first errors before automatic close
 
 The generic JSON writer now retains original received manager/writer handles and per-operation intent/raw returns, rejects short counts and preserves first errors before metadata. Unknown or invalid body completion stops before automatic exit or another writer operation. Normal buffered xb/sorted-ASCII JSON/newline/method order/None result and ignored normal exit returns remain intact. Literal-Path process-lifetime records are DATA, not persistent namespaces, credentials, ownership, heap/RSS bounds or physical EX.

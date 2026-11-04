@@ -1,0 +1,202 @@
+{
+  "utc": "2026-11-04T23:30:09.613900+00:00",
+  "source_sha256": "a90dca8f36d9cd429de79886b4060e0c84cef132199eda092f7e18a6530cd84c",
+  "test_sha256": "877638977b57443c902f7de22c98624b006a97e5422b9fd33b7d2858d1ee7cd1",
+  "before": {
+    "tests": 8,
+    "failures": 6,
+    "normal_passes": 2,
+    "errors": 0,
+    "interpretation": "read/post-read-fstat unwanted-close, readfirst-close-add_note mask, FalseEOF completion, open/close postreturn retention policies; NOT6 kernel/native defects"
+  },
+  "after": {
+    "utc": "2026-11-04T23:29:13.777260+00:00",
+    "tests": 23,
+    "failures": 0,
+    "errors": 0,
+    "selection": [
+      "RegularHashProgressTests.test_actual_EOF_then_False_is_not_digest_completion",
+      "RegularHashProgressTests.test_actual_close_then_fault_retains_unknown_and_first",
+      "RegularHashProgressTests.test_actual_open_then_fault_never_adopts_hidden_ROOT_fd",
+      "RegularHashProgressTests.test_actual_post_read_fstat_then_fault_has_no_source_close",
+      "RegularHashProgressTests.test_actual_read_first_survives_close_and_hostile_add_note",
+      "RegularHashProgressTests.test_actual_read_then_fault_has_no_source_close",
+      "RegularHashProgressTests.test_normal_actual_bytes_flags_digest_and_close_order",
+      "RegularHashProgressTests.test_normal_explicit_owner_and_exact_maximum_preserved",
+      "AuxiliaryIntentCallProgressTests.test_actual_hash_then_False_is_not_published_as_digest",
+      "AuxiliaryIntentCallProgressTests.test_actual_intent_hash_return_then_drift_refuses_public_digest",
+      "AuxiliaryIntentCallProgressTests.test_actual_intent_hash_then_fault_retains_unknown_call_first",
+      "AuxiliaryIntentCallProgressTests.test_actual_intent_writer_return_then_drift_stops_before_hash",
+      "AuxiliaryIntentCallProgressTests.test_actual_intent_writer_then_fault_retains_unknown_call_first",
+      "AuxiliaryIntentCallProgressTests.test_actual_prefix_write_then_hash_cannot_admit_truncated_intent",
+      "AuxiliaryIntentCallProgressTests.test_normal_original_intent_pair_preserves_bytes_order_and_output",
+      "ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+      "ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+      "ProducerTests.test_spawn_failure_retains_null_status_no_retry",
+      "ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+      "ProducerTests.test_input_symlink_refused",
+      "ProducerTests.test_tool_wrong_version_preserves_raw_and_blocks_recipe",
+      "ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+      "ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links"
+    ],
+    "source_sha256": "a90dca8f36d9cd429de79886b4060e0c84cef132199eda092f7e18a6530cd84c",
+    "test_sha256": "877638977b57443c902f7de22c98624b006a97e5422b9fd33b7d2858d1ee7cd1",
+    "details": [],
+    "not_current20canonical_or_original_runtime_admission": true
+  },
+  "ROOT": {
+    "whole_final_source_tests_AST_qualified": true,
+    "other_source_AST_and_JSON_writer_body_exact": true,
+    "all_old_test_BYTES_PREFIX_exact": true,
+    "other18_helpers3bins_unchanged": true,
+    "hashes23": {
+      "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_build_producer.py": "a90dca8f36d9cd429de79886b4060e0c84cef132199eda092f7e18a6530cd84c",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+      "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+      "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+      "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_build_producer.py": "877638977b57443c902f7de22c98624b006a97e5422b9fd33b7d2858d1ee7cd1",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+      "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+      "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+      "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+      "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+      "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+      "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+    },
+    "git_commands": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 94245,
+        "status": 0,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 94246,
+        "status": 0,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--short",
+          "--untracked-files=all"
+        ],
+        "pid": 94247,
+        "status": 0,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "--name-only",
+          "HEAD",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 94248,
+        "status": 0,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "new_unit_views": 16,
+    "known_original_FD_ROOT_cleanup_AFTER_evidence": 5,
+    "hidden_open_fd_never_Source_adopted": true,
+    "normal_flags_owner_mode_size_identity_chunk_update_digest_close_order_preserved": true
+  },
+  "models": {
+    "Qwen": {
+      "pid": 93157,
+      "status": 0,
+      "stdout_size": 2062,
+      "stderr_size": 477,
+      "advisory_ROOTqualified": true
+    },
+    "GLM": {
+      "pid": 93451,
+      "status": 1,
+      "stdout_size": 0,
+      "stderr_size": 1079,
+      "reason": "token limit",
+      "FULL_partial_final": "ABSENT",
+      "not_reconstructed": true,
+      "reachable_reaped_NOT_unavailable_or_approval": true
+    }
+  },
+  "scope": "Regular hash selected read/post-fstat/FalseEOF/open-close postreturn retention only; not aggregate/current20canonical/runtimeadmission",
+  "limits": [
+    "Shared pure step/error machinery reused via subclass; parent JSON writer not run and remains byte exact. Read same input can be independent observations; no resumable owner/recovery API",
+    "Native FD numbers/stat/path/count/hash/digest/None/close/EOF/source facts DATA not auth/kernelidentity/atomicABA/originalLinux credentials/ownership/physicalEX/admission",
+    "Unknown Source open or close remains UNKNOWN despite ROOT actual return; no adoption/reclose/reconstruction",
+    "Registry/rawbytes/closure/traceback growth UNMEASURED, no exactheapRSSbound/leak/timing/cause/evict-reset waiver",
+    "Initial canonical/resolve/stat/open invalidFD/stat-type/hash-update/digest/close-invalid/metadata-damage branches SOURCE only, not executed closure",
+    "Direct14callsite inventory+captured Auxhash is source data; selected FIXTURE receipts/tool-version actors are not actualSDK/build/canonical/native admission",
+    "Before8child signed1+BOTHseparateEOF; after23same-process currentofficialEX, not independent full physicalEX controller",
+    "ROOT known original FD cleanup after raw evidence UNITonly; legacy setup/actorFD/interpreter/delegate/descendant APIs not all serialized; no full closure/reap claim",
+    "Candidate v1 unexecuted; v2 assembly places subclass after parent before actual Source edit; syntax/order correction not invented runtime failure",
+    "No old selected tests/models/archives/numerical data repeat; source tools all20uncommitted-uncanonical-unadmitted; production601 exact; provider absent/gate raises/controller closed/ownershipNone/all3flagsFalse"
+  ],
+  "storage": {
+    "free_bytes": 305251278848,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_old_cleanup": "UNMEASURED"
+  },
+  "remaining": [
+    "unexecuted writer/hash earlierAPI-negative seams",
+    "earlier init/originalfactorypartialobject retention/backing FileIO writers",
+    "enclosingproducer cleanup/reporting",
+    "frozenhistorical independent continuation/logsealing",
+    "transitive unknown actors/sharedjournal writers/interpreterdelegates",
+    "fullindependent actualofficialEX + originalruntime immutableCOMPLETE admission before diagnostics"
+  ],
+  "publication": {
+    "evidence": "docs/research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-evidence.tar.gz",
+    "archive_sha256": "ae2619ed895d94721d9ff88fe896a07daa3c5708b07b26071f8cfbf3a61d9c3e",
+    "selected_regular_members": 1093,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-preparation.md",
+    "assessment": "docs/research/2026-11-04-flatbuffers-native-perf-regular-hash-progress-assessment.json"
+  }
+}
