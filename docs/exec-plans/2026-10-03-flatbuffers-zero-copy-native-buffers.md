@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — History snapshot avoids foreign type equality
+
+A passive retained command-history snapshot could invoke a retained opaque error's custom metaclass equality. One conditional now uses native type identity and shallow early exit. NEW4 at90178/a35e reproduce3FAIL/1normalPASS/0ERROR; final5ba379/e05804 passes6 selected checks (4matching new+2affected callers). Original source/test bytes outside this branch/new class and old gates remain unchanged; results are not combined/current20canonical.
+
+Qwen planning and GLM selected review reach token limits; full partial finals are absent, with reachable/reaped actors and no model approval. ROOT verifies affected source/tests/AST and new raw journals. Four new Git0/BOTH streams/601/20untracked/productiondiffempty are DATA only. No SDK/native build/canonical/kernel/benchmark/capture/adoption/strict acceptance. Original cleanup, physical EX and runtime provenance remain incomplete.
+
+[Exact regression, epochs and limits](../research/2026-11-04-flatbuffers-native-perf-history-native-type-identity-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-history-native-type-identity-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-history-native-type-identity-evidence.tar.gz).
+
 ## 2026-11-04 — Narrow Auxiliary constructor quarantine implemented
 
 Unknown constructor outcomes now retain the earliest error/original actor-log-FD bindings and refuse reporting, closure, polling/waiting or pipeline re-entry. Typed error guards avoid constructing exception classes stored in damaged fields and recover the bound original first object. Normal argument-copy/None semantics and old emit/freeze/auxiliary gates remain intact.
