@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-04 — INIT callbacks stop declaration drift before intent publication
+
+Auxiliary INIT callbacks retain original object/callback/intent/stream context before calling, then retain raw return before checks. Changed declarations stop before intent publication; received first precedes metadata and survives scalar CLASS/flag damage without construction. None/False ignored returns and original writer/hash/Popen facts remain intact. Snapshots and current Darwin verification remain DATA, not original-host/physical EX/admission.
+
+NEW7v2 at5fc083/fe34de yield5FAIL/2PASS/0APIerrors, including actual nested-intent publication and two stronger first/context policies where old callback errors already escape. Final1b3e08/21b6fd passes25selected checks (7new+18affected), not aggregated/current20canonical. Qwen/GLM complete0 with ROOT qualifications; ROOT independently verifies final source/tests/AST and4newGit0/BOTHstreams/601/20untracked/productiondiffempty DATA. A setup-only controller AttributeError precedes all test bodies; unexecuted preparation corrections remain separate. The controlled preallocated-object initializer seam does not prove original enclosing factory retention. Earlier/later init I/O, backingFDs/full physical EX/runtime admission remain incomplete; no SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](research/2026-11-04-flatbuffers-native-perf-aux-init-lease-progress-preparation.md), [assessment](research/2026-11-04-flatbuffers-native-perf-aux-init-lease-progress-assessment.json), [evidence](research/2026-11-04-flatbuffers-native-perf-aux-init-lease-progress-evidence.tar.gz).
+
 ## 2026-11-04 — START callbacks stop changed context before resource creation
 
 Auxiliary START callbacks retain original callback/plan/allocation/stream context and intent before calling. Raw return precedes checks; buffer/EOF drift and unknown calls retain first and stop before later startup I/O. Original ignored None/False returns and generic startup journal semantics remain intact. Completed context stays historical DATA, not authentication/physical EX/admission.
