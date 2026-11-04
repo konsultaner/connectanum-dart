@@ -2,6 +2,12 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-04 — Direct receipt readers retained; physical controller pending
+
+Direct receipt JSON/hash/snapshot/metadata reads now retain purpose/FD/progress and exact first/secondary errors, with no exception hooks. Unknown reads refuse another read but allow one identity-checked close; unknown close quarantines without reclose/new publication. An introduced single-link restriction is corrected to preserve existing archive hardlink publication. Initial7=6pass/1required-caller error; hardlink1fail becomes2pass; strict3fail becomes11selected passes; NEWunknown-read1fail becomes2targeted passes separately, not full-final13/canonical. All20 helpers remain uncommitted/uncanonical/unadmitted; production601 unedited. Transitive FDs/partial or unknown actors/full physical EX controller and original-runtime admission remain incomplete.
+
+[Preparation](../research/2026-11-04-flatbuffers-native-perf-receipt-reader-implementation-preparation.md), [assessment](../research/2026-11-04-flatbuffers-native-perf-receipt-reader-implementation-assessment.json), [evidence](../research/2026-11-04-flatbuffers-native-perf-receipt-reader-implementation-evidence.tar.gz).
+
 ## 2026-11-04 — Direct receipt reader boundary reproduced; design unimplemented
 
 Three new finite generic sealed-JSON helper controls yield2fail/1pass. Actual native close precedes each injected negative fault: exception hooks replace the intended ambient-close or earlier digest-body error. Normal ambient-handler success passes. Exact FD/close/error-identity/hook observations are retained; these are unit fault models, not SDK/build/RAM/canonical defects. An independent purpose-keyed reader ledger is selected but UNIMPLEMENTED; generic helper coverage and the full physical EX controller remain incomplete. Source5847/test0f2 and all20 uncommitted helpers are unchanged/uncanonical/unadmitted; production601 unedited. No build, capture, adoption or strict dispatch.

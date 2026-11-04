@@ -1,0 +1,828 @@
+{
+  "kind": "receipt_direct_reader_ownership_source_component",
+  "utc": "2026-11-04T04:29:45.048589+00:00",
+  "source_sha256": "9c771de5d79774bcb7980a364e34099f1b15c036891e9af538749de6fd49544a",
+  "test_sha256": "29a959e71e741be826ede475abe64192f9e3359329b5f12c465f76b07a8f1c5e",
+  "bundle20_plus3bins": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "9c771de5d79774bcb7980a364e34099f1b15c036891e9af538749de6fd49544a",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "29a959e71e741be826ede475abe64192f9e3359329b5f12c465f76b07a8f1c5e",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+    "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+    "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+  },
+  "original_hashes": {
+    "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+    "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+    "tool/native_perf_build_producer.py": "5847df17f0a3acac8a7d54b942c5096a52e13ffa248812cbd12cbccd53d7dfb0",
+    "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+    "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+    "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+    "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+    "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+    "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+    "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+    "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+    "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+    "tool/test_native_perf_build_producer.py": "0f2fbb429d5471e6b56fc19dba1a167bbddb04a0be2d519d3496cc3a931e93f3",
+    "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+    "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+    "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+    "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+    "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+    "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+    "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+    "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+    "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+    "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+  },
+  "source_branch": "codex/flatbuffers-native-perf-guard",
+  "source_HEAD": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "posttest_Git": [
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart",
+        "branch",
+        "--show-current"
+      ],
+      "pid": 20294,
+      "status": 0,
+      "stdout_eof": true,
+      "stdout_size": 36,
+      "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+      "stderr_eof": true,
+      "stderr_size": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 20295,
+      "status": 0,
+      "stdout_eof": true,
+      "stdout_size": 41,
+      "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+      "stderr_eof": true,
+      "stderr_size": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart",
+        "status",
+        "--porcelain"
+      ],
+      "pid": 20296,
+      "status": 0,
+      "stdout_eof": true,
+      "stdout_size": 728,
+      "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+      "stderr_eof": true,
+      "stderr_size": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "-C",
+        "/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart",
+        "diff",
+        "HEAD",
+        "--",
+        "packages",
+        "native",
+        "bin/bootstrap",
+        "bin/test-all",
+        "bin/verify"
+      ],
+      "pid": 20297,
+      "status": 0,
+      "stdout_eof": true,
+      "stdout_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_eof": true,
+      "stderr_size": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "behavior": "Independent private reader ledger reserved before open; exact raw FD retained before metadata/callback/read. Original ledger/ordered-record/field/callback/directory bindings checked around callback. _emit/_receipt_source_audit direct JSON/hash/snapshot/metadata calls use explicit purpose roles; every purpose terminal, distinct pre-existing purposes may share path without failed-purpose retry. Generic helpers outside direct sites remain byteexact. Reader shares durable run receipt quarantine; one native close intent/unknownclose no reclose/newopen/report, original first/staged secondary no hooks. Owner first error retained BEFORE per-reader mutable dict updates. Unknown binding/field types checked before custom iteration/concatenation; native error stage labels. Unknown read refuses further read, permits one identity-checked close without position inference. Raw output/write policy unchanged.",
+  "read_semantics": "JSON receipt wrapper deliberately adds regular owner/mode/canonical/path/beforeafter identity checks. Hash nonempty/ownership/mode/canonical limits retained; snapshots allow empty16GiB streaming, metadata exactsize-fullSHA/max32MiB, JSON2MiB/SHA/object/duplicate/nonfinite checks. Full file identity includes stable linkcount; pre-existing exclusive hardlink publication of source.tar is preserved, no copy/unlink/retag. Reader does NOT require singlelink; output writer rules unchanged. Hash/snapshot do not collect whole body. JSON/metadata collected bytes/last chunk/history process-life, NOT exact heap/RSS bound or causal RAM evidence.",
+  "prior_before": "Consumed direct genericJSON preparation c1100806:3controls2FAIL1PASS at5847; no repeat. Current wrapper after controls cover nativeclose OSError/ambient, body first+actualclose BaseException, no hooks/unknownclose no subsequent IO.",
+  "results": "Initial7=6newunitPASS+1existing required actualFixture ERROR from introduced singlelink-only reader guard. NEW hardlink1FAIL ->corrected2PASS (hardlink+NEW actualFixture integration). NEW strict3FAIL (custom binding iterator/error-stage radd/missingfirst field masks exact callback) ->selected11PASS at706d/6e27. NEW uncertainread1FAIL (second MOCKED read attempted after first readerror at unchanged position) ->final2PASS separately (no reread + one sameFD identityclose).13new declared methods exist; NOT combined13/full-final13/canonical. Last pair9c771/29a959 differs from selected11 epoch only unknownread gate/test additions; ROOT final hunk qualified, no modelfinalfullsource approval.",
+  "fixtures": "Ten initial new unit-owner cases use explicit SYNTHETIC SimpleNamespace owner fields/original callbacks, actual finite owned files/raw FD/nativeclose then faults; unit callback/read seams mocked. Three subsequent cases include synthetic unknownread controls and actual Fixture integration. Actual one owned Fixture producer tinyGit/six shell version SHIMS/finitePython/syntheticoutputs/Fixture receipt is NOT actual SDK/compiler/version/bootstrap/native/canonical. New integration source APIs close all direct reader FDs with EOF before fixturecleanup and snapshot row assertions. Stable hardlinks read without copy/ownership retag. Root actual officialEX through known finite commands/children/FD controls; no worker/broker/benchmark/capture.",
+  "raw_limits": "Initial existing required actualFixture failure leaves a known reader FD not systematically serialized or explicitly closed before coordinator natural exit; no reconstruction/fullclosure claim. Traceback/source and later selected poststat nlink2 FILEDATA retained; source _make_archive uses os.link. Individual original predicate returns not serialized, not reconstructed. Later new integration saves reader rows/nativeclose+EOF before cleanup and available LASTrecipe/Aux naturalwait+EOF-FDpathdigest reports via inherited fixture. Earlier overwritten command handles and legacy setup/APIreturns not all saved. Synthetic error identities persisted as booleans/types, exact objects private. Fixture-only knownFD close/field restoration never live cleanup/controller authority, no source flag retag. Negative IO hooks/reread controls MOCKED, no actual wrongFD read.",
+  "model": {
+    "review": {
+      "pid": 19696,
+      "direct_status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_size": 7597,
+      "stderr_size": 818,
+      "stdout_sha256": "1bd03b11a424df6a0d1fa1940c76c6ea3819bd322a38f830b1c8043264724b24",
+      "stderr_sha256": "92073fd472ded1c22295a175e6d67bae748eb8f97abddf09032062a752d27aab",
+      "reaped": true,
+      "utc": "2026-11-04T04:23:54.749340+00:00"
+    },
+    "source_epoch": "ece58515ebd36e9a3305332c3fa1b13c9dd56ba4a74e8d9a5bc9b4eec0bc90cd",
+    "test_epoch": "19e0c6ddfb6ed83862787d9601b88cb7c4fb52c60eecc97b10076a0733a1aa57",
+    "qualification": "Qwen selected seven-method review complete0/reaped; ROOT rejects automatic close on unconfirmed identity and wrong None/False postopen reading (retainedFD/openTrue remains after later guardfail). Model retracts its offset/type/bound/None/suppressed-secondary alternatives; no actionable P2 established. No uid change/ABA protection claimed. ROOT independently adds strict-field and unknownread regressions after review, checks all final affected source/tests+AST/file invariants; not model full-current-source approval. No unchanged model/control reruns. Prior GLM design/Qwen tests advice already consumed c110 not repeated."
+  },
+  "stages": {
+    "implemented": {
+      "tests": 7,
+      "failures": 0,
+      "errors": 1,
+      "source_hashes": {
+        "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "cd94212f525a8b1c217317dd30a6ad52f7f7d267219621e81e9936184e5f3e27",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+        "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+        "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "fbd36eaf761030d95a3cab4d6ce8a5f2c365ed3dd1523ce1b0f690f869151725",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+        "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+        "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+        "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+        "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+      },
+      "report_path": "implemented-tests.json",
+      "report_sha256": "9810ac442cd9de139f60cebecbc9bbcec9709b608eef5a1e047f40f7013d71cb"
+    },
+    "hardlink-before": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "source_hashes": {
+        "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "cd94212f525a8b1c217317dd30a6ad52f7f7d267219621e81e9936184e5f3e27",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+        "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+        "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "19e0c6ddfb6ed83862787d9601b88cb7c4fb52c60eecc97b10076a0733a1aa57",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+        "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+        "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+        "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+        "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+      },
+      "report_path": "hardlink-before-tests.json",
+      "report_sha256": "842666a9e90c4fb38f9cd4dc7a7043546c02c8144430b9f1df53870c1d32c07d"
+    },
+    "hardlink-fixed": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "source_hashes": {
+        "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "ece58515ebd36e9a3305332c3fa1b13c9dd56ba4a74e8d9a5bc9b4eec0bc90cd",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+        "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+        "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "19e0c6ddfb6ed83862787d9601b88cb7c4fb52c60eecc97b10076a0733a1aa57",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+        "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+        "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+        "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+        "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+      },
+      "report_path": "hardlink-fixed-tests.json",
+      "report_sha256": "b756177860715b042878947c6e1b3c9d3338900a62470f44733d2744393f8f72"
+    },
+    "strict-before": {
+      "tests": 3,
+      "failures": 3,
+      "errors": 0,
+      "source_hashes": {
+        "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "ece58515ebd36e9a3305332c3fa1b13c9dd56ba4a74e8d9a5bc9b4eec0bc90cd",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+        "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+        "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "6e27f3062be1507b2e3129bea480dadb2d09024bb42eacb26471a6f8485e7158",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+        "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+        "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+        "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+        "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+      },
+      "report_path": "strict-before-tests.json",
+      "report_sha256": "d8b3fe41153897071cd54f734c655f28320d491404955ae1515444163628e15c"
+    },
+    "strict-fixed": {
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "source_hashes": {
+        "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "706d36aa13625f66eb9b35f30deea4c7e304ecfdca27b4097226724f85ca9b21",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+        "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+        "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "6e27f3062be1507b2e3129bea480dadb2d09024bb42eacb26471a6f8485e7158",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+        "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+        "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+        "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+        "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+      },
+      "report_path": "strict-fixed-tests.json",
+      "report_sha256": "7c28426db20bbfc6537636505efd5d7a95364a0d36ac03c5c056e77d81c9f5d4"
+    },
+    "uncertain-before": {
+      "tests": 1,
+      "failures": 1,
+      "errors": 0,
+      "source_hashes": {
+        "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "706d36aa13625f66eb9b35f30deea4c7e304ecfdca27b4097226724f85ca9b21",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+        "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+        "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "29a959e71e741be826ede475abe64192f9e3359329b5f12c465f76b07a8f1c5e",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+        "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+        "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+        "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+        "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+      },
+      "report_path": "uncertain-before-tests.json",
+      "report_sha256": "7de58efc8a5111022c78ecd22bc81e4f528be292dd3a68737cc22827daa755fd"
+    },
+    "uncertain-fixed": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "source_hashes": {
+        "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+        "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+        "tool/native_perf_build_producer.py": "9c771de5d79774bcb7980a364e34099f1b15c036891e9af538749de6fd49544a",
+        "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+        "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+        "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+        "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+        "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+        "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+        "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+        "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+        "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+        "tool/test_native_perf_build_producer.py": "29a959e71e741be826ede475abe64192f9e3359329b5f12c465f76b07a8f1c5e",
+        "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+        "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+        "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+        "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+        "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+        "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+        "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+        "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+        "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+        "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+      },
+      "report_path": "uncertain-fixed-tests.json",
+      "report_sha256": "69daf767eb2b516b352e3058aa20a64a59bc2273c4b4d3d5f5ede6d54cf482b8"
+    }
+  },
+  "retained_fixture_report_index": [
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-0kfmpbw4/control-0.json",
+      "sha256": "7c2bfc8bd611ef97b0cee205d1c47c54cb72fabf3af2e3788bf650b70beb77c9",
+      "size": 571,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-k16iyfgv/control-0.json",
+      "sha256": "787de8a50c1998affa47eb8b21606d95eb1f2226ce5d25d81f62c69d44011745",
+      "size": 1515,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-q3tbutv2/control-0.json",
+      "sha256": "757616bed8fbbc4462e641bc2f5e9bc4cb059eca76a2e03b073cbe57ef6eaab1",
+      "size": 558,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-ra90zd3q/control-0.json",
+      "sha256": "04784240572d160b593da88f653bf251b476498c11b094f57bf090779345192f",
+      "size": 547,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-rg2gncii/control-0.json",
+      "sha256": "588a9a6cec2a2bb91870a10b188cb87a9b8def37e92df6f8adc5fffeac57b5b2",
+      "size": 496,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-rg2gncii/control-1.json",
+      "sha256": "798816b178f800d687cc631972016d9109ab4413911831d298096eb5fa4df703",
+      "size": 495,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-rg2gncii/control-2.json",
+      "sha256": "06ba223e4e7e1eabc37039e1752a159c26c6ac7ba3c9c2e8596e3620be731e69",
+      "size": 495,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-rg2gncii/control-3.json",
+      "sha256": "f0e3868316d6424eeb848677a9d306c7486025f7c5614b8520a2267ab39fc3fb",
+      "size": 506,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-v3cf0xfu/control-0.json",
+      "sha256": "2a5615b10edb911097fc135273264922c48db7bd87d8b6ab4d72b5dcde4e8da1",
+      "size": 541,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-0kfmpbw4/fixture-only-known-reader-FD-closes.json",
+      "sha256": "6c839abf8604b1b5cb45ebae175eb8afd16417854646163c1534a29d056b0069",
+      "size": 118,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-k16iyfgv/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-q3tbutv2/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-ra90zd3q/fixture-only-known-reader-FD-closes.json",
+      "sha256": "ec8bfdfe5f8c524133d7cd663084f0dcfea256af19f1e1764479704b1e5173de",
+      "size": 121,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-rg2gncii/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "implemented",
+      "path": "implemented-fixtures/receipt-reader-v3cf0xfu/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "hardlink-before",
+      "path": "hardlink-before-fixtures/receipt-reader-z9ksn087/control-0.json",
+      "sha256": "be0160777ea00d551166666dd019dfb2df83fc4f6203894991e81006b29302e8",
+      "size": 770,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "hardlink-before",
+      "path": "hardlink-before-fixtures/receipt-reader-z9ksn087/fixture-only-known-reader-FD-closes.json",
+      "sha256": "f36605e7d14568448e1a67bcdfc3cc85d1225b89ce7446b33d33fb3795193bf4",
+      "size": 125,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "hardlink-fixed",
+      "path": "hardlink-fixed-fixtures/receipt-reader-5ovur35d/control-0.json",
+      "sha256": "2c4090dc32bdbbfa9c1e86ee652a2a4c432bbe3a1bc174348dfaea5ab19de8b8",
+      "size": 748,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "hardlink-fixed",
+      "path": "hardlink-fixed-fixtures/producer-v2fvu_dx/resource-control-before-cleanup.json",
+      "sha256": "566f7c7f47aa76b464d8a4db1c03fa4317dd7e9492b9efbd0f201f7dceaeb955",
+      "size": 12630,
+      "kind": "resource-control-before-cleanup.json"
+    },
+    {
+      "stage": "hardlink-fixed",
+      "path": "hardlink-fixed-fixtures/producer-v2fvu_dx/new-known-actors.json",
+      "sha256": "352aafecfdbcb2fbe13a93c9d247bd29a1376aa3cda90c43f6f0bcfa1463c993",
+      "size": 41170,
+      "kind": "new-known-actors.json"
+    },
+    {
+      "stage": "hardlink-fixed",
+      "path": "hardlink-fixed-fixtures/producer-v2fvu_dx/fixture-only-known-reader-integration-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "hardlink-fixed",
+      "path": "hardlink-fixed-fixtures/receipt-reader-5ovur35d/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-before",
+      "path": "strict-before-fixtures/receipt-reader-erktewkx/strict-before-cleanup.json",
+      "sha256": "3b71f256280da9a62e757410d8bd3fbacdb2c88881aa148ba12ba4af48bbc862",
+      "size": 221,
+      "kind": "strict-before-cleanup.json"
+    },
+    {
+      "stage": "strict-before",
+      "path": "strict-before-fixtures/receipt-reader-jvt1x091/strict-before-cleanup.json",
+      "sha256": "9466777086512ada1851e2ec26dd6f9c28b331cc56e83b97e7f0cc6fc3a8fb12",
+      "size": 203,
+      "kind": "strict-before-cleanup.json"
+    },
+    {
+      "stage": "strict-before",
+      "path": "strict-before-fixtures/receipt-reader-zl_95bgy/strict-before-cleanup.json",
+      "sha256": "d8a68ead951eb0d60ceb29161a1b2d3b82f3255e0927809e7faeeb01837c3449",
+      "size": 220,
+      "kind": "strict-before-cleanup.json"
+    },
+    {
+      "stage": "strict-before",
+      "path": "strict-before-fixtures/receipt-reader-erktewkx/fixture-only-known-reader-FD-closes.json",
+      "sha256": "5b61d3efa3e4a9f142047c91f67f7455c911794e87c638e532034501efa45dce",
+      "size": 120,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-before",
+      "path": "strict-before-fixtures/receipt-reader-jvt1x091/fixture-only-known-reader-FD-closes.json",
+      "sha256": "33d50c124e893398d89556828525169e99ec9d3555c5c9cc0190be739bbe8826",
+      "size": 118,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-before",
+      "path": "strict-before-fixtures/receipt-reader-zl_95bgy/fixture-only-known-reader-FD-closes.json",
+      "sha256": "d14ce7c0c89a8329b31682c54694f226297384399b742ac84891800df4947087",
+      "size": 120,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-1ns1b281/control-0.json",
+      "sha256": "588a9a6cec2a2bb91870a10b188cb87a9b8def37e92df6f8adc5fffeac57b5b2",
+      "size": 496,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-1ns1b281/control-1.json",
+      "sha256": "798816b178f800d687cc631972016d9109ab4413911831d298096eb5fa4df703",
+      "size": 495,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-1ns1b281/control-2.json",
+      "sha256": "06ba223e4e7e1eabc37039e1752a159c26c6ac7ba3c9c2e8596e3620be731e69",
+      "size": 495,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-1ns1b281/control-3.json",
+      "sha256": "f0e3868316d6424eeb848677a9d306c7486025f7c5614b8520a2267ab39fc3fb",
+      "size": 506,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-5wjeblw2/control-0.json",
+      "sha256": "04784240572d160b593da88f653bf251b476498c11b094f57bf090779345192f",
+      "size": 547,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-l0u5li3_/control-0.json",
+      "sha256": "7c2bfc8bd611ef97b0cee205d1c47c54cb72fabf3af2e3788bf650b70beb77c9",
+      "size": 571,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-llx0l3cf/control-0.json",
+      "sha256": "787de8a50c1998affa47eb8b21606d95eb1f2226ce5d25d81f62c69d44011745",
+      "size": 1515,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-lyvsd9bo/control-0.json",
+      "sha256": "2a5615b10edb911097fc135273264922c48db7bd87d8b6ab4d72b5dcde4e8da1",
+      "size": 541,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-t6d7rtar/control-0.json",
+      "sha256": "757616bed8fbbc4462e641bc2f5e9bc4cb059eca76a2e03b073cbe57ef6eaab1",
+      "size": 558,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-utxtqzo9/control-0.json",
+      "sha256": "523d1f9a2dab2e03ee87493d3bcb9f2e5b063c70c0de69dc24f5b3d7904452d8",
+      "size": 746,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-d10hm8mc/strict-before-cleanup.json",
+      "sha256": "9158750f9cdd78f2c47eef03e8820a0f0200c7d23447428ad5d2ef340c7ea912",
+      "size": 201,
+      "kind": "strict-before-cleanup.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-f7ky_y7b/strict-before-cleanup.json",
+      "sha256": "075d8d75376f2618a30375505fe9897e1573b0257314de51d23c72b4eecf8742",
+      "size": 207,
+      "kind": "strict-before-cleanup.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-u_05an3n/strict-before-cleanup.json",
+      "sha256": "075d8d75376f2618a30375505fe9897e1573b0257314de51d23c72b4eecf8742",
+      "size": 207,
+      "kind": "strict-before-cleanup.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/producer-0d_xfd2k/resource-control-before-cleanup.json",
+      "sha256": "1ebb3a415ab430574f5cd9c0660c21f57fac1c660b5f20593a5e6dd275dee4c7",
+      "size": 12630,
+      "kind": "resource-control-before-cleanup.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/producer-0d_xfd2k/new-known-actors.json",
+      "sha256": "8d2e04113d04236bb10f948640f9c5d21e244d7586bdca5309764dffe3821391",
+      "size": 41090,
+      "kind": "new-known-actors.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/producer-0d_xfd2k/fixture-only-known-reader-integration-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-1ns1b281/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-5wjeblw2/fixture-only-known-reader-FD-closes.json",
+      "sha256": "ec8bfdfe5f8c524133d7cd663084f0dcfea256af19f1e1764479704b1e5173de",
+      "size": 121,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-d10hm8mc/fixture-only-known-reader-FD-closes.json",
+      "sha256": "33d50c124e893398d89556828525169e99ec9d3555c5c9cc0190be739bbe8826",
+      "size": 118,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-f7ky_y7b/fixture-only-known-reader-FD-closes.json",
+      "sha256": "5b61d3efa3e4a9f142047c91f67f7455c911794e87c638e532034501efa45dce",
+      "size": 120,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-l0u5li3_/fixture-only-known-reader-FD-closes.json",
+      "sha256": "6c839abf8604b1b5cb45ebae175eb8afd16417854646163c1534a29d056b0069",
+      "size": 118,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-llx0l3cf/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-lyvsd9bo/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-t6d7rtar/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-u_05an3n/fixture-only-known-reader-FD-closes.json",
+      "sha256": "d14ce7c0c89a8329b31682c54694f226297384399b742ac84891800df4947087",
+      "size": 120,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "strict-fixed",
+      "path": "strict-fixed-fixtures/receipt-reader-utxtqzo9/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "uncertain-before",
+      "path": "uncertain-before-fixtures/receipt-reader-783kmes0/control-0.json",
+      "sha256": "bb6bf13456d139618eec71952f5659cb434e20ba0d2a409f2b7b585cdc17aaff",
+      "size": 572,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "uncertain-before",
+      "path": "uncertain-before-fixtures/receipt-reader-783kmes0/fixture-only-known-reader-FD-closes.json",
+      "sha256": "e4231b13e58b7f958e163e65bc8b69a678eb3f596957faf37ac92d44eeda77a4",
+      "size": 122,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "uncertain-fixed",
+      "path": "uncertain-fixed-fixtures/receipt-reader-48poqp17/control-0.json",
+      "sha256": "c101405a64c340f099969bd7cbee5494c38346f3e1516acce7dee3b3dea138c6",
+      "size": 564,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "uncertain-fixed",
+      "path": "uncertain-fixed-fixtures/receipt-reader-7dkcj4at/control-0.json",
+      "sha256": "f8d3cde239cfe446f42ab1f70c3500290c1f19e51daa5a30fdb909e0ee140053",
+      "size": 581,
+      "kind": "control-*.json"
+    },
+    {
+      "stage": "uncertain-fixed",
+      "path": "uncertain-fixed-fixtures/receipt-reader-48poqp17/fixture-only-known-reader-FD-closes.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size": 2,
+      "kind": "fixture-only-known-reader*.json"
+    },
+    {
+      "stage": "uncertain-fixed",
+      "path": "uncertain-fixed-fixtures/receipt-reader-7dkcj4at/fixture-only-known-reader-FD-closes.json",
+      "sha256": "e4231b13e58b7f958e163e65bc8b69a678eb3f596957faf37ac92d44eeda77a4",
+      "size": 122,
+      "kind": "fixture-only-known-reader*.json"
+    }
+  ],
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "production_tracked_diff_empty": true,
+  "native_outputs_instructionclosure_not_newly_proved": true,
+  "other18tools_and3bins_byteexact": true,
+  "privatecontrollers_outside_HELPERBUNDLE20": true,
+  "no_source_commit_push_adoption_or_strictdispatch": true,
+  "wholephysical_controller_incomplete": true,
+  "remaining": "Transitive generic helper FDs/receipt audit partialactors/unknownstarts/historical recipe-Git-interpreter-delegate/write-end-descendant coverage and independent actualofficialEX orchestration remain incomplete. Freezeowner_emit_attempted/oldauxpredicates unchanged. No FDclose/status/EOF/join/emptyledger/sourcefile grantsEXrelease/admission. Need originalPATH SDK/bootstrap/first3locks-hiddenconfigs/current20validation-canonical/newsourceepoch package/OWNnative-driver-staticRLIB/compiler-tool-kernel+actualoriginalhost credentials/access/pidfd/FDexec/inheritance/arming/metadata/role/time/coverage, qualifiedROOTreview+immutableCOMPLETEadmission beforediagnosticdata. No transplant/borrowedcohort/favorableredo/SDKchange/oldhash-futurepostGOaspreproof.",
+  "provider_absent": true,
+  "live_gate_always_raises": true,
+  "controller_closed": true,
+  "ownership_complete": null,
+  "all_admission_flags": false,
+  "no_actual_SDK_nativebuild_canonical_kernel_broker_benchmark_capture_RAMcause_repair_acceptance": true,
+  "free_after": 13831806976,
+  "no_cleanup": true,
+  "space_cause_unmeasured": true,
+  "new_public_evidence": {
+    "archive_sha256": "4c2dbbf545ceed58e4f6831e0c03765e3c488f11cb39bbde7854398168453034",
+    "regular_members": 1100,
+    "all_regular_members_byteexact": true,
+    "special_nodes_metadata_only": []
+  }
+}
