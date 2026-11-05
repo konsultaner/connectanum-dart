@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Retain wait-entry attempts before context getters
+
+The wait-entry record was registered after its context attributes were read. Three controlled native attribute returns followed by a ROOT error therefore escaped before a record or permanent first-error guard existed. The helper now registers the owner and guard first, then records each attempted capture and raw return. Unknown process, journal or command-attempt returns remain unknown despite ROOT knowing the native objects. The original getter order and counts, including both records lookups, and the inner wait body are preserved.
+
+NEW4 privatev1 before986f7d/d9baa1 yields3FAIL/1normalPASS/0ERROR: stronger first-retention/witness policies, not three spontaneous kernel bugs or a RAM cause. Finalae71b6/0226dc passes23selected=4matchingNEW+19affected(4context5entry10actualwaitcallers). Two existing metadata stage-prefix assertions change; behavior assertions remain exact, and reversing those edits plus the append restores all previous test bytes. Privatev2 adds normal capture-reference/ten-stage assertions after model review and the original BEFORE controls, before edit/first AFTER; no completed BEFORE control is replayed. Eight new views plus9affected views/8BEFORE46AFTER DarwinEX observations and original-bound ROOT waits are UNIT facts, not full independent EX/originalLinuxcredentials/allactorclosure. Qwen60265 and GLM60963 complete0/fullanswers/reaped, ROOTqualified; corrections and limits are in the assessment.
+
+A preparation script failed before the new declaration/tests/models/source edit after its Source census and first checkpoint write. That namespace remains terminal and protected. A fresh namespace used retained snapshots without repeating the Source census. Source remains uncommitted, uncanonical and unadmitted; runtime admission, RAM repair and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-producer-wait-capture-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-producer-wait-capture-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-producer-wait-capture-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Refuse changed wait-entry context before draining
 
 A lease or native-clock callback could return normally after changing the producer's journal, process or reader reference. The wait body then continued with changed context: one case reached natural status and later failed reporting, another returned None after a foreign-process lookup, and a False reader reached a ROOT barrier before native FD0. The wait prefix now checks private original references after each returned entry sub-operation and before the next operation. Known callback returns remain known; changed caller fields remain changed, without restoration or copying away.
