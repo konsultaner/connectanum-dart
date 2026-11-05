@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Specify finite bootstrap cases without authorizing execution
+
+A new non-SDK specification expands native ABI/bootstrap, signal and implicit-call, shared-atomic, per-copy FD-journal, finite termination, physical EX and evidence obligations. It names four prospective finite-case candidates and two static exclusion obligations. Zero tests ran and zero native cases are ready: helper/toolchain binding, mapping layout, scheduling witness and finite refusal/collection mechanisms remain absent.
+
+ROOT added a logical WAIT/RUN_FINITE/REFUSE_FINITE decision table, separate from any original driver GO. It supplies no binary layout, helper implementation or instruction proof. Unknown creation, close, atomic or context-exit outcomes remain quarantine; a final field, EOF or native exit is not complete ownership or lease-release authority.
+
+Qwen's complete case-planning answer agrees that no case is runnable and is ROOT-qualified. Its suggested compiler/disassembly commands would launch native work and were not executed. An isolated instruction/prologue inspection cannot prove the full signal-free, interprocess or actor-lifetime contract. No current twenty-helper/runtime source operation, SDK/bootstrap/build/native experiment or capture occurred. Provider remains absent, all admission flags false, and RAM repair, original-runtime qualification, final strict 48/50 and clean final CI remain incomplete.
+
+[Declaration and limits](research/2026-11-05-flatbuffers-native-perf-native-bootstrap-spec-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-native-bootstrap-spec-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-native-bootstrap-spec-evidence.tar.gz).
+
 ## 2026-11-05 — Bound a native actor-creation and generated-input contract
 
 A new static candidate specifies direct child creation with an original kernel pidfd and a preallocated actor/pipe registry. A later ROOT refinement proposes a shared atomic registration barrier and gives a conditional ordering argument. Both remain unimplemented: ABI, signal paths, child close journals, error handling and physical lease lifetime have no native execution proof.

@@ -1,0 +1,71 @@
+{
+  "utc": "2026-11-05T19:03:56.607912+00:00",
+  "scope": "NEW finite NON-SDK bootstrap specification and logical decision contract only",
+  "status": "UNIMPLEMENTED_UNCOMPILED_UNADMITTED",
+  "specification_sha256": "f116c6e271dba0784d3167a453eafb6455df57ed280e2eaf347fea21286e87b3",
+  "logical_refinement_sha256": "834a44e3c8513cd123db5388fa1bcfc6a8dcd749778d292cdd27204baa4247e7",
+  "prospective_finite_case_candidates": 4,
+  "static_exclusion_obligations": 2,
+  "new_executed_tests": 0,
+  "runnable_native_cases": 0,
+  "new_Source20_runtime_edits_imports_HEAD_SDK_census": 0,
+  "new_SDK_recipe_build_native_syscall_cgroup_capture_adoption_Sourcepush_dispatch": 0,
+  "new_primary": {
+    "url": "https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html",
+    "question": "Native child atomic-lowering/runtime-call boundary",
+    "selected_sections": [
+      "runtime lowering fallback",
+      "acquire/release",
+      "always_lock_free/is_lock_free"
+    ],
+    "actual_tool_return_size": 16462,
+    "actual_tool_return_sha256": "91aba20d808ed061b2bb60a90392964c953aefe147199c39bdce3166238c0c54",
+    "hash_is_saved_tool_return_not_full_page_body": true,
+    "full_tool_return_LOCAL_ONLY": true,
+    "actual_compiler_or_kernel_probe": false,
+    "no_old_v1_clone_cgroup_ptrace_UAPI_research_replayed": true
+  },
+  "model": {
+    "model_pid": 67833,
+    "status": 0,
+    "stdout_size": 6167,
+    "stderr_size": 734,
+    "full_answer": true,
+    "both_EOF_natural_reaped": true,
+    "ROOT_qualified_NOT_approval": true,
+    "reviewed_initial_specification_ONLY": true,
+    "agreed": "C0-C3 unimplemented and not ready to execute; X1-X2 are exclusions, not tests; exact helper/mapping/refusal mechanisms absent.",
+    "corrections": [
+      "Compiler invocation, assembly generation and objdump launch native actors; the suggested activity is not process-free static reading and receives no build/run authority from a model. Fresh explicit preflight/officialEX/12GiB remain required.",
+      "Illustrative compiler flags, target/ABI and guessed instruction families are unverified examples, not the actual original cohort or an instruction oracle. No example command was executed.",
+      "Suggested -S output and later test.o disassembly are not a retained matching object proof. Neither artifact exists in this scope; never reconstruct outputs.",
+      "No PLT call or handler setup in an isolated prologue cannot prove absence of inherited asynchronous handlers, implicit runtime paths or cross-process mapping/lifetime errors.",
+      "A manual lock-free claim or runtime is_lock_free query is not a signal-free/native-prefix proof; a child-side query may itself be a runtime call.",
+      "A native exit routine cannot by itself guarantee absence of unknown FD writers/descendants or authorize physicalEX release. Exact original native collection and independent full ownership remain separate.",
+      "ROOT logical decision refinement was written later and was not reviewed by this model; no atomic_binding_proof, generated code or positive result is created."
+    ]
+  },
+  "startup_checkpoint_status_plan_full_frozen_policy_reads_under_official_SH": true,
+  "full_old_policy_binding_preserved": true,
+  "generated_code_disassembly_or_atomic_prefix_proof": false,
+  "signal_free_prefix_or_physicalEX_crash_proof": false,
+  "original_transitive_actor_mechanism": "ABSENT",
+  "independent_output_cohort_authority": "ABSENT",
+  "next": "Specify actual byte layout/initialization/ownership and signal/implicit-call obligations with a finite refusal/collection protocol; any helper/toolchain candidate must be bound in a NEW explicit preflight before compile/disassembly/run. Do not treat a manual or model command as authority. No original SDK call.",
+  "provider": "ABSENT",
+  "controller": "CLOSED",
+  "ownership": null,
+  "capture_ready": false,
+  "evidence_complete": false,
+  "readiness": false,
+  "admission": false,
+  "RAM_cause_repair_FINAL48_50_cleanCI_complete": false,
+  "public_evidence": {
+    "archive": "docs/research/2026-11-05-flatbuffers-native-perf-native-bootstrap-spec-evidence.tar.gz",
+    "sha256": "fd0472048920821845ce043ae25313b211eb1f6fe0a85788a7438afc865ef0db",
+    "selected_regular_members": 19,
+    "all_selected_BYTEEXACT": true,
+    "scope": "NEW finite NON-SDK bootstrap specification/case planning only; 4 prospective candidates, 2 static exclusions, ZERO tests/native cases ready",
+    "full_primary_tool_return_LOCAL_ONLY": true
+  }
+}
