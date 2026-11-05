@@ -1,0 +1,661 @@
+{
+  "utc": "2026-11-05T12:15:25.388333+00:00",
+  "Source_test_UNCHANGED": {
+    "tool/native_perf_build_producer.py": "ae1d1affd969a94137b886b20f3aefd231dd2fd4f3d7d95b2fbe382db31f7d79",
+    "tool/test_native_perf_build_producer.py": "0265f84d36016deb2c163c8af09cf0a5578a8f4367462fbca26fb22bda406e7d"
+  },
+  "private_NEW2_only": {
+    "utc": "2026-11-05T12:01:55.277599+00:00",
+    "tests": 2,
+    "failures": 0,
+    "errors": 0,
+    "passes": 2,
+    "leases": [
+      {
+        "test": "test_new_pendingTrue_native_get_then_secondary_retains_First (pending_true_scope.PendingTrueScopeTests.test_new_pendingTrue_native_get_then_secondary_retains_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pendingTrue_native_get_then_secondary_retains_First (pending_true_scope.PendingTrueScopeTests.test_new_pendingTrue_native_get_then_secondary_retains_First)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pendingTrue_normal_deferral_after_whole_spawn_return (pending_true_scope.PendingTrueScopeTests.test_new_pendingTrue_normal_deferral_after_whole_spawn_return)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pendingTrue_normal_deferral_after_whole_spawn_return (pending_true_scope.PendingTrueScopeTests.test_new_pendingTrue_normal_deferral_after_whole_spawn_return)",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "Source_test_fresh2_unchanged": {
+      "tool/native_perf_build_producer.py": "ae1d1affd969a94137b886b20f3aefd231dd2fd4f3d7d95b2fbe382db31f7d79",
+      "tool/test_native_perf_build_producer.py": "0265f84d36016deb2c163c8af09cf0a5578a8f4367462fbca26fb22bda406e7d"
+    },
+    "Source_test_edits": false,
+    "private_NEW2_only": true,
+    "prior6_old27_completed25_old2bodies_old7suite_replayed": false,
+    "SourceHEAD_current20recensus_or_compiledcanonical_admission": false,
+    "details": []
+  },
+  "views": [
+    {
+      "view": {
+        "pending_true_scope": "defer",
+        "spawn_returned_inside_ROOT": true,
+        "spawn_raw_None": true,
+        "spawn_stage": "spawned",
+        "pending_native_true_values": true,
+        "pending_native_count": 9,
+        "pending_fault": false,
+        "Source_returned_owner": true,
+        "received_First": false,
+        "received_Secondary": false,
+        "received_type": null,
+        "captured_private_guard_First": false,
+        "Source_pending_DATA": false,
+        "Source_finished_DATA": true,
+        "result_status": "failed",
+        "result_error": "PendingTrueFirst('pending-true-root-first')",
+        "result_recipe_status": 0,
+        "Source_failure_attempted_DATA": true,
+        "actor_rows": [
+          {
+            "pid": 4298,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4299,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4300,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4301,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4302,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4303,
+            "kind": "recipe"
+          }
+        ],
+        "no_live_ownership_or_runtime_admission": true
+      },
+      "original_waits": [
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4298,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4299,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4300,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4301,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4302,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 4303,
+          "status": 0,
+          "signed_native_int": true
+        }
+      ],
+      "setup_statuses": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "root_cleanup": {
+        "evidence_ready": true,
+        "rows": [
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4298,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4299,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4300,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4301,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4302,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "recipe",
+            "pid": 4303,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          }
+        ],
+        "unit_not_live_ownership_fullFD_descendant_closure": true
+      },
+      "journal_sha256": "82f6286a24986499ab9fb8bab1705227c8c8fa1e95062e6e8a8bfda5ab3ff747"
+    },
+    {
+      "view": {
+        "pending_true_scope": "secondary",
+        "spawn_returned_inside_ROOT": true,
+        "spawn_raw_None": true,
+        "spawn_stage": "spawned",
+        "pending_native_true_values": true,
+        "pending_native_count": 1,
+        "pending_fault": true,
+        "Source_returned_owner": false,
+        "received_First": true,
+        "received_Secondary": false,
+        "received_type": "PendingTrueFirst",
+        "captured_private_guard_First": true,
+        "Source_pending_DATA": true,
+        "Source_finished_DATA": false,
+        "result_status": null,
+        "result_error": null,
+        "result_recipe_status": null,
+        "Source_failure_attempted_DATA": false,
+        "actor_rows": [
+          {
+            "pid": 4282,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4283,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4284,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4285,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4286,
+            "kind": "Auxiliary"
+          },
+          {
+            "pid": 4288,
+            "kind": "recipe"
+          }
+        ],
+        "no_live_ownership_or_runtime_admission": true
+      },
+      "original_waits": [
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4282,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4283,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4284,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4285,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 4286,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 4288,
+          "status": 0,
+          "signed_native_int": true
+        }
+      ],
+      "setup_statuses": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "root_cleanup": {
+        "evidence_ready": true,
+        "rows": [
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4282,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4283,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4284,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4285,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "Auxiliary",
+            "pid": 4286,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "same_original_bound_wait",
+            "actor_kind": "recipe",
+            "pid": 4288,
+            "status": 0,
+            "signed_native_int": true
+          },
+          {
+            "kind": "recipe_raw_pipe",
+            "record": {
+              "fd": 6,
+              "same_devino": true,
+              "existing_nonblocking": true,
+              "size": 40,
+              "sha256": "628d41471e028ee735a40ca2e2d79dcd5b083beb4904eb5af00d11c83151b4fb",
+              "tail_size": 0,
+              "EOF": true,
+              "not_Source_log_reconstruction": true
+            }
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "same_devino": false,
+            "closed_by_ROOT": false
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "same_devino": false,
+            "closed_by_ROOT": false
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "same_devino": false,
+            "closed_by_ROOT": false
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "same_devino": true,
+            "closed_by_ROOT": true
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 9,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 10,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 6,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "creatorFD",
+            "fd": 7,
+            "already_closed_errno": 9
+          },
+          {
+            "kind": "file",
+            "path": "/private/tmp/connectanum-native-perf-constructor-pending-true-scope-v1/private-NEW2/fixtures/secondary-lfadqhdm/run/journal.jsonl",
+            "fd": 4,
+            "same_devino": true,
+            "closed_by_ROOT": true
+          },
+          {
+            "kind": "file",
+            "path": "/private/tmp/connectanum-native-perf-constructor-pending-true-scope-v1/private-NEW2/fixtures/secondary-lfadqhdm/run/command-000.log",
+            "fd": 5,
+            "same_devino": true,
+            "closed_by_ROOT": true
+          }
+        ],
+        "unit_not_live_ownership_fullFD_descendant_closure": true
+      },
+      "journal_sha256": "d6595e02b1323256c339dbac9378b8b75f393d7238f996a815ff28bcb8c938a5"
+    }
+  ],
+  "Source_test_harness_edits": false,
+  "private_harness_not_appended_or_adopted": true,
+  "prior6_old27_old25_old2bodies_old7suite_replayed": false,
+  "SourceHEAD_current20_recensus": false,
+  "older_HEAD601_helpers20_production_native_epoch_DATA_only": true,
+  "SourceRuntime_compiledcanonical_originalLinux_EX_admission": false,
+  "models": {
+    "planning": {
+      "pid": 3563,
+      "status": 0,
+      "stdout_size": 696,
+      "stderr_size": 312,
+      "stdout_sha256": "c6ecf7f2a92bc0a6e1b205e211e3d70aaa2683abd1092634f47cebcee8d98b22",
+      "stderr_sha256": "d8ffd9cb855bb5c3db38efd113d68000cfb27d0379967f8448b9650af6afbcec",
+      "both_separate_EOF": true
+    },
+    "review": {
+      "pid": 5570,
+      "status": 0,
+      "stdout_size": 4474,
+      "stderr_size": 1030,
+      "stdout_sha256": "02d193a021ca66286ef3c397eb379ce825b9f0f854fb6c1e9f119d71f5d80e70",
+      "stderr_sha256": "30e1eacd39b017c5bfe5fbc1178cde9210bcb7de2de4740ca15b788cfcbe5acf",
+      "both_separate_EOF": true
+    }
+  },
+  "ROOT_model_corrections": {
+    "Qwen": "Original _spawn returns None inside ROOT; ROOT then raises First. First does not return None. Fault hooks restore before the actual Source.wait; native capture delegates remain through that wait.",
+    "GLM": [
+      "Actual secondary pending_native_count is exactly1; ROOT checks saved count without unit replay. Do not stop recording later accesses, which would conceal evidence.",
+      "Actual original whole_spawn returned None at stage spawned, both asserted. Root-local unique First is raised only after that actual return. The hypothetical producer-own First is not an executed counterexample; runtime aliases/interiors remain outside proof.",
+      "Recipe status is not synthetic: known Source-returned owner.wait(10) executes; full40-byte Source log and actual ROOT original recipe wait signed0 independently agree with result returncode0. Cached possible/this is not physicalEX or original Linux admission.",
+      "Missing groups cannot silently pass: captured_private_guard_First would be false and existing assertion fails. Actual guard raises the same First.",
+      "View write and evidence_ready=True precede behavioral assertions. Claimed pre-view assertion ordering is wrong. Unexpected failures before view or during ROOT wait/read can still mask errors or prevent later cleanup; no general all-error cleanup or actor/FD closure is claimed.",
+      "Monkeypatch/interpreter/delegate/descendant/concurrentABA and original Linux limits remain explicit. No source/test/harness change or unit/model replay justified by these review claims."
+    ],
+    "review_input_count_correction": "GLM context incorrectly said38B; actual literal payload, saved Source log and ROOT raw are40B. Original model input is frozen, not changed/replayed.",
+    "interruption": "No tool call was in flight when interrupted after model completion. Exact final tool API objects are not all retained across the tools update; use saved actual unit/model journals and never reconstruct omitted API returns."
+  },
+  "unit_only": true,
+  "source_groups_rawchunks_processlife_NOT_fixedmemory_RSSgrowth_timing_cause_UNMEASURED": true,
+  "no_build_capture_dispatch_adoption_RAMrepair_acceptance": true,
+  "unexpected_beforeview_wait_read_failure_cleanup_not_proved": true,
+  "available_API_only_no_omission_reconstruction": true,
+  "storage": {
+    "free_bytes": 281580171264,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-pending-true-scope-evidence.tar.gz",
+    "archive_sha256": "d108300c25ca2aa39903cdc80f31794049de8529739d47f5df2b451acd29c41e",
+    "selected_regular_members": 230,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-pending-true-scope-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-pending-true-scope-assessment.json"
+  }
+}

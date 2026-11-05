@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Check pendingTrue deferral without changing Source
+
+Two new private integration cases pass on unchanged producer ae1d1a and tests0265f8. A wrapper invokes the whole original spawn body, including actual fixture Git/archive operations, a returned native recipe Popen, parent-writer close and the durable spawned event. Only after that body returns None does ROOT raise First. This differs from the earlier command_spawned-event fault test, which is not replayed.
+
+Normal pendingTrue metadata returns the deferred producer; its actual wait returns a failed result preserving First, signed recipe status0 and the full40-byte log. When the native pending getter returns True inside ROOT and then raises Secondary, the constructor raises First and supplies no returned owner. The captured private guard raises that same First; ROOT uses separately retained original actor/pipe handles. PendingTrue remains metadata, with no liveness or ownership implication.
+
+Only these two private cases execute. No Source/test edit or append, Source HEAD/current20 recensus, build, capture or adoption occurs. The earlier six selected tests and frozen25PASS/2ERROR epoch remain separate. Both bounded model calls finish; ROOT qualifies their claims and corrects an input byte count from38 to the actual40 without rerunning anything. Original Linux credentials, full independent EX, transitive actor/FD closure, immutable runtime admission and RAM repair remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-constructor-pending-true-scope-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-constructor-pending-true-scope-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-constructor-pending-true-scope-evidence.tar.gz).
+
 ## 2026-11-05 — Retain archive constructor errors before the catch reads metadata
 
 A new controlled regression completes an actual fixture Git archive, then raises First after the snapshot constructor returns only to ROOT. A subsequent producer pending getter raises Secondary. The original constructor catch allowed Secondary to replace First. Three new cases before the fix produce 1FAIL/2PASS/0ERROR; the normal metadata and distinct finite recipe controls already pass.
