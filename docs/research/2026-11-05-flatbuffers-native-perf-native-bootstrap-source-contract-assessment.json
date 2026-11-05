@@ -1,0 +1,86 @@
+{
+  "utc": "2026-11-05T19:20:25.590563+00:00",
+  "scope": "NEW initial private C source/layout/initializer/refusing-entry and finite-refusal contract artifacts only",
+  "status": "UNCOMPILED_SOURCE_CONTRACT_NO_NATIVE_HELPER_IMPLEMENTATION",
+  "files": {
+    "native_bootstrap_draft.h": {
+      "size": 3204,
+      "sha256": "315328fcf25ddf8c30dcf8cf2057b1e60ab905e87728737b93e24c20435913e6"
+    },
+    "native_bootstrap_draft.c": {
+      "size": 1491,
+      "sha256": "dbf19fd4a947124bdd93ab450a6d07e98d5806afd017a617ac14358954de33e4"
+    },
+    "source-contract.md": {
+      "size": 6060,
+      "sha256": "94fd7bf020723247a66948bceca68c130c99d1e9ff15351c49cd58bd31f25f4e"
+    }
+  },
+  "source_artifacts_created_under_official_EX": true,
+  "no_existing_Source20_runtime_old_fixture_edits": true,
+  "layout": "512 requested bytes/64-byte alignment/decision64/parent128/child256/reserved384; uncompiled assertions only, not heap/RSS/ABI or native memory proof",
+  "C_entry": "ct_draft_start SOURCE returns UNIMPLEMENTED; no main/creator/decision publisher/child prefix/refusal/wait/lease implementation",
+  "initializer": "Pre-creation DATA only with valid owned writable storage/no concurrency precondition; not mapping/actor/lease/readiness authority; never executed",
+  "candidate_source_unchanged_after_review": true,
+  "model": {
+    "model_pid": 69538,
+    "status": 0,
+    "stdout_size": 5145,
+    "stderr_size": 661,
+    "full_answer": true,
+    "both_EOF_natural_reaped": true,
+    "ROOT_qualified_NOT_approval": true,
+    "no_source_edit_from_advice": true,
+    "corrections": [
+      "P0 is a conditional invalid-caller/precondition case, not an executed failure or current exposed flow. The API explicitly requires valid owned writable storage/no concurrency; pointer/size/alignment checks do not claim that proof. No callable creator or live admission exists. Proposed capability-token/MAP_SHARED/PROT_WRITE labels would not provide actual ownership authority.",
+      "The model misses the existing caller 64-byte-alignment requirement, modulo alignment check and exact _Alignof/offsetof/size static assertions. C11 supports stronger valid member alignment; actual support/layout remains uncompiled/unproved. uint8 arrays do not establish a compiler-observed alignof1 result for this over-aligned candidate.",
+      "decision_native is explicitly target-native and nonconcurrent initialization only. No atomic reader/publisher exists; do not infer lock-free/process-shared behavior. Pasting the suggested C++ std:: type into this C contract is not a verified C implementation or permission to add concurrent use.",
+      "Manual byte-shift LE header writes and a separately documented target-native decision word are not a demonstrated big-endian UB. Current direct decision assignment is zero. The model conflates the two format contracts and hypothetical future nonzero stores.",
+      "Initializer shape checks and DATA result do not validate a foreign pointer, mapping identity, lease or actor auth; these remain caller/native-creator obligations. Source-only assertions, compiler opinions and future natural exit cannot fill physical ownership.",
+      "Primary C11 draft review adds a target-binding obligation for the uint8_t representation-walk alias: character-type access is the general object-byte rule, while exact-width typedefs are not a universal character-type identity proof. No actual target typedef/ABI was measured, no runtime counterexample or Source fix is claimed, and original artifacts remain unchanged."
+    ]
+  },
+  "primary": {
+    "url": "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf",
+    "kind": "C11 committee draft language clauses; not actual compiler/ABI",
+    "selected_clauses": [
+      "6.2.8 alignment/extended alignment",
+      "6.7.2.1 member representation",
+      "6.7.5 alignment specifier",
+      "6.5p6-7 effective type/character access",
+      "7.20.1.1 exact-width unsigned typedef"
+    ],
+    "actual_saved_tool_return_size": 84059,
+    "actual_saved_tool_return_sha256": "f17d89ac7b2d23187e0c9fff4d37d2521bbc66f598f244e8416a00055dce03c6",
+    "hash_is_tool_return_not_full_PDF_body": true,
+    "full_actual_returns_LOCAL_ONLY": true,
+    "no_old_primary_replay": true,
+    "no_compiler_kernel_or_SDK_probe": true
+  },
+  "remaining_binding": "Actual compiler/linker/header/ABI/runtime/uint8 character-alias/mapping/atomic/signal/creator/collector/EX-crash/transitive/original-cohort authority absent",
+  "new_tests": 0,
+  "runnable_native_cases": 0,
+  "prospective_C0_C3_only": true,
+  "X1_X2_static_exclusions_only": true,
+  "C_compilation_disassembly_helper_run_or_SDK": false,
+  "current_Source20_import_HEAD_SDK_census_adoption_Sourcepush_strictdispatch": false,
+  "raw_limits": "Initial source-generation outer tool return objects were not separately serialized; actual per-file O_EXCL/open/write/close journals and file/receipt bytes retained. Never reconstruct missing outer API objects. New review tool returns and raw streams retained. No full physical/transitive actor closure claim.",
+  "startup_checkpoint_status_plan_full_policy_read_under_official_SH": true,
+  "next": "Bind native creator/collector and finite refusal operation interfaces plus actual compiler/target/header/runtime/lease preflight; resolve character-byte alias/alignment/atomic/signal conditions before any compile/disassembly/run. No live SDK authority or Source20 fix from static advice.",
+  "provider": "ABSENT",
+  "controller": "CLOSED",
+  "ownership": null,
+  "capture_ready": false,
+  "evidence_complete": false,
+  "readiness": false,
+  "admission": false,
+  "RAM_cause_repair_FINAL48_50_cleanCI_complete": false,
+  "public_evidence": {
+    "archive": "docs/research/2026-11-05-flatbuffers-native-perf-native-bootstrap-source-contract-evidence.tar.gz",
+    "sha256": "dfbff1a5844d5950bbe008a9ee3705ff757c174101b86cb90d48748fb8d35b26",
+    "selected_regular_members": 37,
+    "all_selected_BYTEEXACT": true,
+    "scope": "NEW uncompiled initial private C header/data initializer/refusing entry/source contract; no native helper implementation or runtime proof",
+    "full_primary_tool_returns_LOCAL_ONLY": true
+  }
+}

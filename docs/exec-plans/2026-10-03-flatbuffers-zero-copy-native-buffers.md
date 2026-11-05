@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Record an uncompiled native source contract
+
+Three new private specification artifacts now define a draft C header, data initializer and source contract. The candidate requests a 512-byte layout with 64-byte alignment and separate decision/parent/child regions. Its assertions have not been compiled. The initializer requires valid owned writable storage and no concurrent access; its shape checks and data result supply no mapping, actor, lease or admission authority.
+
+The draft start function returns UNIMPLEMENTED in source. There is no main, creator, decision publisher, child prefix, finite refusal, wait/collector or lease implementation. No compiler, disassembler, C helper or test ran. The files were generated under official EX and match their declared bytes; that readback is data, not original-runtime or atomic identity proof. Current twenty-helper and runtime source remain untouched and unimported.
+
+Qwen's complete source review is ROOT-qualified. It missed existing alignment checks/assertions, conflated the explicitly native decision word with little-endian header bytes, and treated a documented caller precondition as an executed failure. No code was changed from that advice. New C11 draft research also leaves the byte-walk character-type alias as an actual-target binding obligation. Compiler/ABI, mapping, atomics, signal prefix, native ownership and physical EX remain unproved. Provider is absent, flags false, and RAM repair, original-runtime admission, final strict 48/50 and clean final CI remain incomplete.
+
+[Declaration and limits](../research/2026-11-05-flatbuffers-native-perf-native-bootstrap-source-contract-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-native-bootstrap-source-contract-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-native-bootstrap-source-contract-evidence.tar.gz).
+
 ## 2026-11-05 — Specify finite bootstrap cases without authorizing execution
 
 A new non-SDK specification expands native ABI/bootstrap, signal and implicit-call, shared-atomic, per-copy FD-journal, finite termination, physical EX and evidence obligations. It names four prospective finite-case candidates and two static exclusion obligations. Zero tests ran and zero native cases are ready: helper/toolchain binding, mapping layout, scheduling witness and finite refusal/collection mechanisms remain absent.
