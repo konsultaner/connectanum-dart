@@ -19,3 +19,5 @@ No Source/test file in the twenty-helper bundle was edited or imported, and no c
 A useful next regression would guard the real release attempt before native close, so an injected publication failure can be tested without dropping the global reservation while a fixture child remains pending. It must retain known creator handles, let the same child finish naturally, and distinguish an attempted release from an actual kernel release. No such regression or Source fix has run here; it is prospective and supplies no new launch authority.
 
 The evidence archive has 71 selected regular members, all verified byte-exact. SHA256: 739ad9f60567d684239e574872fcc34dc0b18ba46a223a824419ed52b7b88337. Later publication/admin bookkeeping is outside this snapshot.
+
+The archive's selected-member manifest has stale formatter/protocol scope text inherited from the publication template. The actual 71 selected regular members are this new keeper fixture and were verified byte-exact. No formatter file was read or old protocol/model work replayed. This annotation is qualified here; the raw archive and its manifest remain unchanged.

@@ -182,6 +182,17 @@
     "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-independent-lease-keeper-evidence.tar.gz",
     "archive_sha256": "739ad9f60567d684239e574872fcc34dc0b18ba46a223a824419ed52b7b88337",
     "selected_regular_members": 71,
-    "all_selected_BYTEEXACT": true
+    "all_selected_BYTEEXACT": true,
+    "scope_label_correction": {
+      "stale_field": "selected-member-manifest.json:scope",
+      "stale_text": "NEW selected runtime formatter input and unimplemented protocol declarations only; no old archive/model replay; later bookkeeping excluded",
+      "actual_scope": "One NEW finite private Darwin independent-EX-keeper client-failure fixture;71 selected regular members verified byte-exact at first publication.",
+      "archive_sha256": "739ad9f60567d684239e574872fcc34dc0b18ba46a223a824419ed52b7b88337",
+      "archive_regular_members": 71,
+      "manifest_annotation_stale_from_publisher_template": true,
+      "no_formatter_file_read_or_old_protocol_model_replay": true,
+      "raw_archive_and_member_manifest_unchanged": true,
+      "no_Source_unit_model_sourcepackage_archive_reaudit_or_repack": true
+    }
   }
 }

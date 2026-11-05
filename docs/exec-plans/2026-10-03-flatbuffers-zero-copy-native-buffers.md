@@ -10,6 +10,8 @@ The result supports the selected process-separation mechanism for a known client
 
 No twenty-helper Source/test edit/import, SDK/original recipe call, current Source/HEAD/SDK census, build or capture occurred. Fixture flags remain false. RAM cause/repair, complete immutable original-runtime admission, final strict 48/50 and clean final CI remain incomplete.
 
+The archive's selected-member manifest has stale formatter/protocol scope text inherited from the publication template. The actual 71 selected regular members are this new keeper fixture and were verified byte-exact. No formatter file was read or old protocol/model work replayed. This annotation is qualified here; the raw archive and its manifest remain unchanged.
+
 [Declaration and limits](../research/2026-11-05-flatbuffers-native-perf-independent-lease-keeper-preparation.md), [frontier assessment](../research/2026-11-05-flatbuffers-native-perf-independent-lease-keeper-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-independent-lease-keeper-evidence.tar.gz).
 
 ## 2026-11-05 — Keep the external generation-owner protocol unimplemented
