@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Validate snapshot hash returns before continuing
+
+The snapshot helper ignored an invalid hash-update return and continued reading. It also accepted False or uppercase digest returns into a result and closed the FD. It now requires the native None update contract before the next read and an exact lowercase 64-character SHA before constructing the result or closing. Known invalid proxy returns remain recorded as returned; ROOT-known native None/SHA values are never substituted. Unknown hash completion still preserves the original first error and refuses further I/O.
+
+NEW6 beforeb2488d/f12e8f yields3FAIL/3PASS/0ERROR: three known-return refusal policies, not three spontaneous kernel bugs or a RAM cause. Two distinct unknown-completion controls and the new normal1,048,577-byte/two-chunk file already passed. Final958c4b/e9cc2a passes34selected=6matchingNEW+28affected(10previoussnapshot8end10actualwaitcallers). Native size/SHA, flags, default maximum, read/update/stat/digest/close order and all other Source bytes remain exact; old test prefix is exact. Twelve new direct views use zero child actors; affected finite waits and currentDarwinEX observations remain UNIT facts, not full independent EX/originalLinuxcredentials/allactorclosure. Qwen72468 completes0/fullanswer; GLM73037 reaches tokenlimit1 with full partial final ABSENT, not approval or global unavailability. ROOT independently qualifies final source/tests/results without repeating that review.
+
+Read-chunk retention is unchanged and establishes no heap/RSS or fixed-memory bound. Source remains uncommitted, uncanonical and unadmitted; runtime admission, RAM repair and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-snapshot-hash-returns-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-snapshot-hash-returns-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-snapshot-hash-returns-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Reject invalid snapshot open and stat returns before use
 
 The snapshot helper accepted an interposed False open return as an FD and attempted fstat(False). A ROOT barrier prevented native FD0 access. A known None fstat return reached attribute access and produced AttributeError. Two checks now reject non-native/negative FD returns before storing or using them, and non-native stat returns before interpreting fields. Known invalid returns remain known in the attempt rows; ROOT-known native FD/stat values are never substituted.
