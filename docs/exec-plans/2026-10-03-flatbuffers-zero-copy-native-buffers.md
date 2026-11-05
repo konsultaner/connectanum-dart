@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Cover writer early API refusal paths
+
+Nine new controls pass on unchanged producerb84c8e:8negative early open/lookup/enter/encode/fileno/metadata cases and1new distinct manager/enteredwriter normal case. No writer behavior fix or new production defect is established. The private class ran once before append; final test22e506 retains the exact old prefix and AST-equivalent appended class without a replay. Historical factory21 and earlier selections remain separate, not an aggregate/current20canonical/admission.
+
+ROOT qualifies final source/tests/AST/23hashes/other19helpers3bins and4newGit0/BOTHstreams/601/20untracked/productiondiffempty DATA. Nine views/8knownparentFD ROOTcloses AFTERevidence and18currentDarwinEXverifyNone are UNIT facts, not Sourcepublication/durability/independentphysicalEX/originalLinuxcredentials. Qwen6967/GLM7167advisory0/fullanswers are ROOTqualified. Pathconversion/otherAPI/backingFD/enclosing-historical-transitive/fullindependentEX/runtime immutableCOMPLETE admission remain incomplete. All20helpers uncommitteduncanonicalunadmitted/production601. No SDK/build/capture/adoption/RAMrepair/strictacceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-json-writer-early-seams-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-json-writer-early-seams-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-json-writer-early-seams-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Guard original Auxiliary factory returns and owner context
 
 The original public constructor call and owner append now retain intent, actual raw return and original context before later checks or child launch. Unknown constructor returns remain separate from allocation/initializer facts; invalid None/False and owner-list/environment drift stop before append/start. Original Auxiliary/Popen code, frozen predicates and start/result/wait60/status suffix remain exact. Strong owner references, snapshots and completion flags are DATA, never method authority, physical EX or runtime admission.
