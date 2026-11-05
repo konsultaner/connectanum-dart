@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Preserve snapshot read failures before cleanup or formatting
+
+The legacy log-snapshot helper closed its FD after an unknown read return. If that close also failed and formatting the secondary error raised, it replaced the original read error. Snapshot attempts now retain the first error, FD and per-call observations before I/O. Unknown reads or closes and known invalid None reads refuse further cleanup or reporting. Native close completion stays unknown when only ROOT observed its return; the retained FD number is data, not ownership or release authority.
+
+NEW5 beforeae71b6/0226dc yields4FAIL/1normalPASS/0ERROR: one actual first replacement plus stronger retention/refusal/witness policies, not four spontaneous kernel bugs or a RAM cause. Finald42980/0c3ddf passes23selected=5matchingNEW+18affected(8endcommand10actualwaitcallers). Normal bytes, size/SHA, flags, read sizes, short-circuit order and digest-before-close remain exact. Ten direct views use no child actors; the eight affected end-command views retain finite original-bound ROOT waits. CurrentDarwinEX observations/known-FD cleanup are UNIT facts, not full independent EX/originalLinuxcredentials/allactorclosure. Qwen64696/GLM65624 complete0/fullanswers/reaped, ROOTqualified. The collector's first discriminator failed; new collector/assessment files correct readback without replaying tests/models.
+
+Read rows and hash-update arguments retain chunk objects in process-lifetime attempts. The original read size/order is preserved, but fixed-memory streaming is not established. Heap/RSS magnitude and timing are unmeasured; this is not a RAM repair. Source remains uncommitted, uncanonical and unadmitted, and strict acceptance remains incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-file-snapshot-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-file-snapshot-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-file-snapshot-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Retain wait-entry attempts before context getters
 
 The wait-entry record was registered after its context attributes were read. Three controlled native attribute returns followed by a ROOT error therefore escaped before a record or permanent first-error guard existed. The helper now registers the owner and guard first, then records each attempted capture and raw return. Unknown process, journal or command-attempt returns remain unknown despite ROOT knowing the native objects. The original getter order and counts, including both records lookups, and the inner wait body are preserved.

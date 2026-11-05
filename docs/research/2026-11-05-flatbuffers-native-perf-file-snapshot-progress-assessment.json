@@ -1,0 +1,568 @@
+{
+  "utc": "2026-11-05T07:56:01.908391+00:00",
+  "source_sha256": "d42980b45345125141b415d6b7549f4bd24f558867a380b4fb994b3be1ad91d6",
+  "test_sha256": "0c3ddfa66a915957fb934da9bf84d7920448842e01e9c16065b4ca26e2a1117a",
+  "before": {
+    "tests": 5,
+    "failures": 4,
+    "passes": 1,
+    "errors": 0,
+    "actual_originalfirst_replacement": 1,
+    "scope": "firstreplacement+3retention-refusalwitnesspolicies NOT4nativekernelbugs/RAMcause"
+  },
+  "after": {
+    "tests": 23,
+    "failures": 0,
+    "errors": 0,
+    "selection": [
+      "FileSnapshotBoundaryTests.test_actual_native_close_then_first_keeps_unknown_close_without_reclose",
+      "FileSnapshotBoundaryTests.test_actual_native_read_then_None_refuses_known_invalid_read_before_close",
+      "FileSnapshotBoundaryTests.test_actual_native_read_then_first_preserves_first_before_secondary_formatting",
+      "FileSnapshotBoundaryTests.test_actual_native_read_then_first_stops_before_close",
+      "FileSnapshotBoundaryTests.test_new_normal_file_stream_bytes_size_sha_flags_and_close",
+      "ProducerEndCommandTests.test_actual_command_end_event_then_error_stops_before_finish",
+      "ProducerEndCommandTests.test_actual_log_close_then_error_stops_before_snapshot",
+      "ProducerEndCommandTests.test_actual_log_fileno_then_False_stops_before_fsync",
+      "ProducerEndCommandTests.test_actual_log_flush_then_error_stops_enclosing_reporting",
+      "ProducerEndCommandTests.test_actual_log_fsync_then_error_stops_before_close",
+      "ProducerEndCommandTests.test_actual_log_snapshot_then_error_stops_before_event",
+      "ProducerEndCommandTests.test_new_normal_failed_exit3_ignored_closeFalse",
+      "ProducerEndCommandTests.test_new_normal_success_fullbytes_and_hash",
+      "ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+      "ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+      "ProducerTests.test_negative_signal_status_is_not_success",
+      "ProducerTests.test_timeout_only_waits_same_owned_process",
+      "ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+      "ProducerTests.test_input_drift_waits_for_natural_child_exit",
+      "ProducerTests.test_single_wait_budget_decreases_across_commands",
+      "ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+      "ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+      "ProducerTests.test_wait_status_retained_before_uncertain_log_close"
+    ],
+    "leases": [
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_close_then_first_keeps_unknown_close_without_reclose",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_close_then_first_keeps_unknown_close_without_reclose",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_None_refuses_known_invalid_read_before_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_None_refuses_known_invalid_read_before_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_first_preserves_first_before_secondary_formatting",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_first_preserves_first_before_secondary_formatting",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_first_stops_before_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_first_stops_before_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_new_normal_file_stream_bytes_size_sha_flags_and_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_new_normal_file_stream_bytes_size_sha_flags_and_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_command_end_event_then_error_stops_before_finish",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_command_end_event_then_error_stops_before_finish",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_close_then_error_stops_before_snapshot",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_close_then_error_stops_before_snapshot",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_fileno_then_False_stops_before_fsync",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_fileno_then_False_stops_before_fsync",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_flush_then_error_stops_enclosing_reporting",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_flush_then_error_stops_enclosing_reporting",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_fsync_then_error_stops_before_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_fsync_then_error_stops_before_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_snapshot_then_error_stops_before_event",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_snapshot_then_error_stops_before_event",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_new_normal_failed_exit3_ignored_closeFalse",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_new_normal_failed_exit3_ignored_closeFalse",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_new_normal_success_fullbytes_and_hash",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_new_normal_success_fullbytes_and_hash",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_negative_signal_status_is_not_success",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_negative_signal_status_is_not_success",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_timeout_only_waits_same_owned_process",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_timeout_only_waits_same_owned_process",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_input_drift_waits_for_natural_child_exit",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_input_drift_waits_for_natural_child_exit",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_single_wait_budget_decreases_across_commands",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_single_wait_budget_decreases_across_commands",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wait_status_retained_before_uncertain_log_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wait_status_retained_before_uncertain_log_close",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "source_sha256": "d42980b45345125141b415d6b7549f4bd24f558867a380b4fb994b3be1ad91d6",
+    "test_sha256": "0c3ddfa66a915957fb934da9bf84d7920448842e01e9c16065b4ca26e2a1117a",
+    "details": [],
+    "not_fullcanonical_admission": true
+  },
+  "ROOT": {
+    "wholeSource_BYTE_projectsback": true,
+    "all_existing_classes_methods_helpers_frozenpredicates_except_file_snapshot_exact": true,
+    "oldtest_PREFIX_exact": true,
+    "originalhealthy_read_size_flags_stat_hash_digest_close_order_preserved": true,
+    "candidate_unexecuted": true,
+    "raw_chunk_retention_grows_with_successful_filebytes_NOTmemorybounded_streaming": true,
+    "other18helpers3bins_unchanged": true,
+    "hashes23": {
+      "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_build_producer.py": "d42980b45345125141b415d6b7549f4bd24f558867a380b4fb994b3be1ad91d6",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+      "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+      "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+      "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_build_producer.py": "0c3ddfa66a915957fb934da9bf84d7920448842e01e9c16065b4ca26e2a1117a",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+      "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+      "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+      "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+      "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+      "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+      "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+    },
+    "git_commands": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 67262,
+        "status": 0,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 67263,
+        "status": 0,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--short",
+          "--untracked-files=all"
+        ],
+        "pid": 67264,
+        "status": 0,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "--name-only",
+          "HEAD",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 67265,
+        "status": 0,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "direct_unit_views": 10,
+    "new_child_actors": 0,
+    "affected_end_views": 8,
+    "affected_same_originalboundwaits": [
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 66200,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 66245,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 66185,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 66170,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 66140,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 66230,
+        "status": 3,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 66215,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 66155,
+        "status": 0,
+        "cached_possible": true
+      }
+    ],
+    "parent_BEFORE_EXverify_None": 10,
+    "parent_AFTER_EXverify_None": 46,
+    "known_directFD_cleanup": {
+      "before": [
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        }
+      ],
+      "after": [
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        }
+      ]
+    }
+  },
+  "root_collector_v1_failure": {
+    "exit_code": 1,
+    "reason": "incorrect affected-view discriminator; actualall8 record_original_command views retained; no Source-test-model rerun",
+    "original_controller": "/tmp/connectanum-native-perf-file-snapshot-progress-v1/ROOT-controller.py",
+    "corrected_controller": "/tmp/connectanum-native-perf-file-snapshot-progress-v1/ROOT-controller-v2.py",
+    "original_namespace_no_overwrite": true
+  },
+  "models": {
+    "Qwen": {
+      "pid": 64696,
+      "status": 0,
+      "stdout_size": 1104,
+      "stderr_size": 393,
+      "stdout_sha256": "4e457e68b39383a99d075a3f23aeb228a27f3fd14fca0be1f0db25be99e6b045",
+      "stderr_sha256": "423c822edd806e11536687009797df6a59eed7969cc3250723ada44653f0e4bd",
+      "both_separate_EOF": true
+    },
+    "GLM": {
+      "pid": 65624,
+      "status": 0,
+      "stdout_size": 2939,
+      "stderr_size": 765,
+      "stdout_sha256": "8df782df2bdd0585bd129ce6bd3b504688c423a7ed4a43f633cd1e9d2b598846",
+      "stderr_sha256": "ef290f8e7c5df6852375e95694fc4af1594fced44c90f243fe5e37ffc564e821",
+      "both_separate_EOF": true
+    },
+    "ROOT_qualified_NOTwholecurrentapproval": true,
+    "corrections": {
+      "Qwen": [
+        "Legacy close/add_note expectations are not the required unknown-read/close quarantine. Actual native wrappers run, rather than scripted fake byte sequences; known invalid None read is distinct from unknown call completion.",
+        "Exactly one close applies to healthy success/actual unknown-close control; unknown/invalid read refuses before Source close. ROOT cleanup is separate, known-own-FD/devino/after-evidence, not Source close replay."
+      ],
+      "GLM": [
+        "The inherited original guard is a pure closure: no first returns None; a refused step raises the same private first. run captures this binding before IO. Its outer-except guard intentionally prevents a second metadata fail after unknown completion. Suppressing it or always re-running fail would weaken quarantine; mutable global/constructor bindings remain outside completed scope.",
+        "A retained fd integer is original observation DATA, not a live capability or ownership/EXrelease signal. New helper has no post-return FD consumer; ROOT cleanup uses its independently retained actual native fd/devino, never Source.fd. Clearing the original fd would erase data and still would not prove closure/admission. No reset/ABA waiver.",
+        "Raw read rows and hash-update args retain chunk objects in process-lifetime attempts. Read sizes/order remain streamed, but fixed-memory streaming is NOT established; logical references grow with successful reads/files. Heap/RSS magnitude/timing/leak cause unmeasured, no Source-adoption/build/capture or trim/pop/eviction authority. This selected helper repair is not a RAM repair."
+      ],
+      "qualified": "Full answers/statuses/raws retained; important Source claims independently inspected/selectedtests. No model whole-current approval; no unchanged model repeat."
+    }
+  },
+  "limits": [
+    "ONLY_file_snapshot replaced by retained _FileSnapshotAttempt; reuse unchanged _JSONWriteAttempt pure step/privatefirst/guard only, no writer runs. All existing classes/producer methods/helpers exceptthatfunction/factories/frozenpredicates exact. Healthy Pathonce/defaultmaximum16GiB/nativeopen flags/fstat-UIDcondition shortcircuit/hash/readsize1MiB/countthenhashupdate/growth/fstat-pathstat shortcircuit/digestBEFOREclose/resultsize-SHA/ignoredclose return order preserved. No SourceSDK/GC/workload/gate/cohort changes.",
+    "NEW5 BEFOREae71b6/test0226dc=4FAIL1normalPASS0ERROR. Actualreadbytes thenROOTFirst oldfinallycloses; actualreadFirst+actualcloseNone thenSecondary.__repr__raisesFormatting replacesoriginalFirst (ONEactualfirstreplacement); actualcloseNone thenROOTFirst lacksretainedunknownclose witness; actualreadbytes thenknownNone treatedEOF/laterProducerError-finallyclose. Strongerretention/refusal/return-witness policies plusfirstreplacement NOT4spontaneousnativekernelbugs/RAMcause. Final23PASS=5matchingNEW+18affected(8endcommand10actualwaitcallers); no oldwriter-regularhash-end BEFORE/model-numericalreplay/aggregate-current20canonical/admission.",
+    "Sourceunknownread/close rows rawNone-returnedFalse NEVERROOTknownbytes-nativeNone-closed filled. KnownNone read rowreturnedTrue/rawNone refusedBEFOREEOF-furtherIO/close. Firstprivate latch originalerror beforesecondarymetadata. Aftersteprefusal outerexcept pureguard blockssecondfailmetadata; no Sourceclose-repr-note-nextIO-retry-replay-reset afterunknown/invalid. NormalonlyoneSourceclose; closed-fd number retainedasDATA/close_returnedflag NOTlivecapability/ownership-EXrelease/admission, no fdreset or fieldderivedcleanup.",
+    "DirectNEW5 use newOWN22B files, nochild/SDK/benchmark. MODULELOCALproducer.os facade delegatesnativeopen-read-close; ROOTregisteractualFD/devino/flags/inheritable BEFOREfault. NativeO_RDONLY|NOFOLLOW|NONBLOCK|CLOEXEC unchanged/ROOTobservedinheritableFalse DATAnotactualFDexec-inheritance proof. ROOTknownFDdevino cleanup AFTERevidence onlyifsame/stillopen; BEFOREall5alreadyclosed/noRootclose; AFTER3unknown-invalidreadFDs ROOTclosed3, unknownclose+normal alreadyclosed/no reclose. ROOTknownclose NEVERSourceadopted; no borrowedFD/Sourcecleanup/fullFD-interpreter-delegate-descendantclosure.",
+    "10directviews=5BEFORE5AFTER plus8affectedendcommandviews separate.10BEFORE46AFTER parentCURRENT officialDarwinEXverifyNone UNITnotfullindependentEX-originalLinuxcredentials/ownership. NEWdirectunit hasZEROchild actors;8affectedSAMEoriginalboundROOTwait10 signed7zero1three/cachedpossible separate finiteUNIT. Source/legacyfixture/internalFD/APIreturns notallserialized/no reconstruction-globalPIDscan-kill-globalabsence-fullreap; Sourceunit/controller0 notSDK-canonical-admission.",
+    "Qwen64696planning0/full1104stdout393stderr;GLM65624review0/full2939stdout765stderr/BOTH EOF-naturalstatuses/fullanswers/reaped/ROOTqualified NOTwholecurrentapproval. Rejectlegacyclose/add_note forunknownread/requirecloseonceeverynegative/fakebyte-script assumptions; actualnativewrappersused. Rejectsuppresspureguard/alwayssecondfail andfdNone-reset cure: inheritedguard sourceknownpure closure raisesactualsameprivatefirst, retainedfdintegeronlyobservation/no postreturnSourceconsumer. Earlierconstructor-metadata-globalbindings-returnshapes-ABA/calleeinternals remainincomplete/no unchangedreviewrepeat.",
+    "IMPORTANT: rawreadrows and hash-update args retain chunkobjects inprocess-lifetime attempts. Healthy read sizes/order remain streamed, but fixed-memory streaming is NOTestablished; logical references grow withsuccessfulreads/files. Heap/RSS magnitude/timing/leakcause UNMEASURED/no memorybound/RAMrepair/trim-pop-reset-evict-deleteauthority. Default16GiB is logicalfilelimit, notheapRSSbound. Onlynormal22B directfile plusaffectedfixturelogs tested, no largefilememory/timing claim or Sourceadoption.",
+    "Candidatev1/privatev1 UNEXECUTEDbeforeedit/firstBEFORE respectively; modelseesfinalcandidate/privatev1; ROOTwholeSource-tests-AST/reverseprojection/oldtestPREFIXexact/other18helpers3bins/23hashes/fourNEWGit0-BOTH/601ownbranch20untrackedproductionempty DATA. Historicalartifacts untouched/privateartifactsoutsideHELPERBUNDLE20. RetainedbeforeSourceartifact orientation DATAonly/actualSourcehashescheckedbeforetests; no SourceHEAD scan before rootproof.",
+    "All20uncommitteduncanonicalunadmitted/production601exact. EarlierSnapshotconstructor-registration/globalbindings-open-fstat-returnshapes-calleeinterior/otherAPIs/enclosing-publicunknownCtor/historical-transitive/fullindependentactualofficialEX+originalruntimeimmutableCOMPLETEadmission INCOMPLETE. UnknownCtorPERMANENTrefusal/no partialPopenmethods-fieldderivedsettlement. ProviderABSENT/gatealwaysraises/controllerCLOSED/ownershipNone/all3flagsFalse/no Sourcecommit-push-adoption/SDK-nativebuild-current20canonical-kernel-broker-benchmarkcapture-RAMrepair-strictacceptance; PR132OPENdraft#130/issue103milestoneOPEN. Storagefloors/recheck DATA notbuild-capture-deletionauthority/causeoutsideoldcleanupUNMEASURED."
+  ],
+  "storage": {
+    "free_bytes": 296189853696,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-file-snapshot-progress-evidence.tar.gz",
+    "archive_sha256": "d0d8c6851a8cb6f364700c9e6c6ca2d9b3d4bb756b5738fefe8cd742783019a4",
+    "selected_regular_members": 2052,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-file-snapshot-progress-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-file-snapshot-progress-assessment.json"
+  }
+}
