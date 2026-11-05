@@ -7,6 +7,18 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Locate original compiler context in retained setup text
+
+A new acquisition reads only three retained original601 setup texts, totaling 30,956 bytes. The host text reports runner image ubuntu24/20261026.354.1, Linux 7.0.0-1017-azure, Dart 3.13.5 and rustc 1.99.0 (b940084d7 2026-09-28). Native and driver logs record their release compilations. Full text copies and model input remain local; sizes, hashes and qualifications are published.
+
+These historical labels do not bind actual compiler/linker images, target ABI, headers/sysroots, runtime/loader, full argv/env/credentials, current access or transitive actor/FD ownership. Apple LLVM 21 in earlier symbol metadata was an administrative inspector; the older D9CB frozen-runtime pointer and predecessor ffi-test notes cannot replace the production601 cohort.
+
+Gemma's full natural-zero summary is ROOT-qualified against exact host/build lines. Its deprecation suggestions supply no Source fix authority. A narrow checkpoint digest search and an ANSI-sensitive line selector establish no global absence or complete compiler census.
+
+No current20/runtime source, SDK census, compiler, disassembler, SDK/bootstrap recipe, build, native helper, test or numerical campaign ran. All admission flags stay false. Exact original-cohort input provenance/access, native actor/collector/writer mechanisms, continuous physical EX and independent generated-output authority remain unresolved. RAM repair, own final strict48/50 and clean final CI are incomplete.
+
+See the [preparation](research/2026-11-05-flatbuffers-native-perf-original-compiler-boundary-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-original-compiler-boundary-assessment.json) and [evidence](research/2026-11-05-flatbuffers-native-perf-original-compiler-boundary-evidence.tar.gz). The next step must bind a permitted original-cohort input source before any compiler/disassembly/run; it must not select a replacement host or treat historical text as execution authority. Publisher v1 failed JavaScript parsing before any nested tool call; v2 is the first actual publication.
+
 ## 2026-11-05 — Define native operation interfaces with unbound build inputs
 
 A new uncompiled header declares preparation, native creation, a single finite decision, same-actor collection and raw export interfaces. It supplies no definitions or native factory. Opaque types, enum names and observations are not native identity, ownership, admission or lease-release credentials. The C API deliberately has no official lease acquire/release/duplication interface.

@@ -1,0 +1,110 @@
+{
+  "scope": "NEW retained original601 compiler/build context boundary; FILEDATA only",
+  "source_reference": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+  "reported_original_context": {
+    "runner_image": "ubuntu24/20261026.354.1",
+    "uname_kernel": "7.0.0-1017-azure",
+    "uname_machine": "x86_64",
+    "dart": "3.13.5 stable linux_x64",
+    "rustc": "1.99.0 (b940084d7 2026-09-28)",
+    "evidence": "host-info.txt lines 1-5; reported historical text, not actual current images or target ABI"
+  },
+  "new_acquisition": {
+    "selected_retained_text_files": 3,
+    "total_bytes": 30956,
+    "files": [
+      {
+        "name": "host-info.txt",
+        "bytes": 6309,
+        "lines": 117,
+        "sha256": "c3335d4aef3322f6274c19fbb8907ed801a732743c2f465822cce21193fba728"
+      },
+      {
+        "name": "native-build.log",
+        "bytes": 13285,
+        "lines": 250,
+        "sha256": "0cd256ce77980c97db40bfce539636a956663dfa1b7fe980a4c53a02b30676c7"
+      },
+      {
+        "name": "driver-build.log",
+        "bytes": 11362,
+        "lines": 256,
+        "sha256": "b46586251f576e2ed132a77f18f11f99dc2611e7684bfea64c93f617113e253c"
+      }
+    ],
+    "regular_nofollow_fd_registered_before_read": true,
+    "full_bytes_EOF_and_copy_readback": true,
+    "same_observed_before_after_path_identity": true,
+    "not_atomic_ABA_origin_auth_immutable_runtime": true,
+    "original_local_cache_uid_gid": [
+      501,
+      0
+    ],
+    "cache_owner_not_original_driver_credential_proof": true,
+    "full_retained_texts_and_model_input": "LOCAL_ONLY_excluded_public_archive"
+  },
+  "build_clues": {
+    "native": "Native log ct_core line128, ct_ffi line175 and release-finished line250; historical output only.",
+    "driver": "Driver log connectanum_bench_orchestrator line255 and release-finished line256; historical output only.",
+    "not_complete_command_or_actor_witness": true
+  },
+  "reference_corrections": {
+    "Apple_LLVM_21": "Administrative static-symbol inspector only; NOT original Linux build compiler.",
+    "top_latest_frozen_runtime": "Historical D9CB predecessor; NOT current601 or active run.",
+    "legacy_native_canonical_note": "Predecessor ffi-test references; NOT own production0B23 binding.",
+    "narrow_exact_digest_locator_matches": 0,
+    "zero_locator_limit": "Two exact digest strings only, in one selected checkpoint subtree excluding recent drafts and next; NOT global absence.",
+    "cc_selector_limit": "Regex over raw ANSI-colored lines is not exhaustive for compiler/cc matches. No absence or complete compiler census is claimed."
+  },
+  "model": {
+    "role": "local-summarize",
+    "backend": "ollama/gemma4:latest",
+    "pid": 75809,
+    "signed_status": 0,
+    "stdout_bytes": 1334,
+    "stderr_bytes": 423,
+    "both_EOF": true,
+    "natural_same_original_wait": true,
+    "wait_may_be_cached": true,
+    "full_answer": true,
+    "ROOT_qualified": true,
+    "approval": false,
+    "corrections": [
+      "Use actual uname line3 and complete rustc output including revision from host-info line5.",
+      "Ordinary multiple processor entries are not a failure or compiler binding.",
+      "Deprecation edit suggestions are outside this acquisition question and supply no actual BEFORE failure or Source edit authority.",
+      "No next acquisition boundary was supplied by the model."
+    ]
+  },
+  "unbound": [
+    "Actual original compiler and linker executable bytes, source provenance, resolved PATH and delegate executables",
+    "Exact target ABI, character-byte typedef, headers/sysroot, runtime/loader and actual atomic lowering/signal prefix",
+    "Full original build argv/env/cwd/credentials/access and ownership of every compiler/interpreter/delegate/descendant/FD",
+    "Continuous original official physical EX through all actors, collection and actual context exit/crash uncertainty",
+    "Independent actual generated-output/configuration/original-cohort validation authority",
+    "Current20 canonical validation, complete immutable original-runtime admission, production RAM repair and own FINAL strict48/50 plus clean CI"
+  ],
+  "actual_effects": {
+    "new_tests": 0,
+    "source20_edits": false,
+    "source20_imports": false,
+    "source_HEAD_20_SDK_refresh": false,
+    "runtime_checkout_operations": false,
+    "old_SDK_wrapper_stamp_body_replay": false,
+    "old_binary_symbol_digest_archive_audit": false,
+    "bootstrap_log_or_locks_or_digestfile_opened": false,
+    "campaign_or_metrics_read": false,
+    "completed_run_poll_download_retry": false,
+    "C_compiler_or_disassembler": false,
+    "SDK_or_build_or_native_helper_or_syscall_or_perf_or_broker_or_benchmark": false,
+    "production_Source_commit_push_adoption_strict_dispatch": false,
+    "cleanup_deletion": false
+  },
+  "provider": "ABSENT",
+  "controller": "CLOSED",
+  "ownership": null,
+  "capture_ready": false,
+  "evidence_complete": false,
+  "admission": false,
+  "next": "Specify the exact read-only acquisition/provenance boundary for original build inputs using these retained601 references. Bind an actual permitted original-cohort source of compiler/linker/header/runtime and argv/env/credentials/access before acquiring execution authority; do not select a replacement host, borrow administrative tools, infer target ABI from uname, or compile/run to discover missing qualification. Native factory/collector/writer, transitive original SDK actors and independent output authority remain separate unsolved obligations."
+}
