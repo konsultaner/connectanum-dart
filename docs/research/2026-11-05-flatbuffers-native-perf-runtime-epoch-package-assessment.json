@@ -1,0 +1,359 @@
+{
+  "utc": "2026-11-05T16:25:24.819634+00:00",
+  "scope": "Current20 new input candidate and frozen prior continuation only",
+  "package_receipt": {
+    "utc": "2026-11-05T16:24:17.324450+00:00",
+    "archive": {
+      "path": "/tmp/connectanum-native-perf-runtime-epoch-package-v1/current20-continuation-input-candidate.tar.gz",
+      "sha256": "717a1cc26d8c2d10528b360155621b524343348c56c2c99030fd0259100deb8f",
+      "size": 814067,
+      "identity": {
+        "dev": 16777234,
+        "ino": 358753712,
+        "mode": 33188,
+        "uid": 501,
+        "gid": 0,
+        "nlink": 1,
+        "size": 814067,
+        "mtime_ns": 1793895857314400659,
+        "ctime_ns": 1793895857314400659,
+        "flags": 0
+      },
+      "regular_members": 28,
+      "all28_readback_BYTEEXACT": true
+    },
+    "member_hashes": [
+      {
+        "member": "continuation/active-plan-before-scope.md",
+        "size": 674942,
+        "sha256": "ed841258cb67347d7d1f48d8ea8a9fdc17a27cb6597d2ccda071778f024a316f"
+      },
+      {
+        "member": "continuation/checkpoint-before-scope.json",
+        "size": 1502483,
+        "sha256": "403b4b1875c097b31bf6a8177c7af0acc8899a9e4b7184f13dd62fdc7f30ec61"
+      },
+      {
+        "member": "continuation/last-phase-admin-final-receipt.json",
+        "size": 12361,
+        "sha256": "808580d99e4c5a2b50f901461175840b35873ef6f4832fe0a8d1b45e1cddf5bf"
+      },
+      {
+        "member": "continuation/last-phase-description-receipt.json",
+        "size": 3420,
+        "sha256": "d62eb7b37901bca9a21f2d7453b2c4d1f7273382f073eca791dd0ff074f25bce"
+      },
+      {
+        "member": "continuation/last-phase-publication-readback.json",
+        "size": 5348,
+        "sha256": "0cde8e8e7332f7967e7c6a42db92a11605cef166bd0ce53742ebabea87debdab"
+      },
+      {
+        "member": "continuation/project-state-before-scope.md",
+        "size": 345141,
+        "sha256": "448f115fc96820cd20aa1e8288979c97eb7e3b310e692d44480bb1f331077bb7"
+      },
+      {
+        "member": "declaration.json",
+        "size": 3512,
+        "sha256": "ae978cd0fc65d8ef54550bde465b9479c92640800ebeb85d7b8a448380d4c6c8"
+      },
+      {
+        "member": "helpers/tool/native_perf_admission.py",
+        "size": 34253,
+        "sha256": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7"
+      },
+      {
+        "member": "helpers/tool/native_perf_blocked_exec.py",
+        "size": 13407,
+        "sha256": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0"
+      },
+      {
+        "member": "helpers/tool/native_perf_build_producer.py",
+        "size": 427428,
+        "sha256": "2b74548180b01feb2c7684c52ba63dca578b7c40ed8badc60f9c6ded373fe70a"
+      },
+      {
+        "member": "helpers/tool/native_perf_guard.py",
+        "size": 11403,
+        "sha256": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9"
+      },
+      {
+        "member": "helpers/tool/native_perf_handoff.py",
+        "size": 14899,
+        "sha256": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f"
+      },
+      {
+        "member": "helpers/tool/native_perf_input_census.py",
+        "size": 14665,
+        "sha256": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c"
+      },
+      {
+        "member": "helpers/tool/native_perf_mapped_images.py",
+        "size": 18447,
+        "sha256": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728"
+      },
+      {
+        "member": "helpers/tool/native_perf_metadata.py",
+        "size": 17058,
+        "sha256": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b"
+      },
+      {
+        "member": "helpers/tool/native_perf_proc_witness.py",
+        "size": 16074,
+        "sha256": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e"
+      },
+      {
+        "member": "helpers/tool/native_perf_session.py",
+        "size": 81536,
+        "sha256": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_admission.py",
+        "size": 23087,
+        "sha256": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_blocked_exec.py",
+        "size": 15027,
+        "sha256": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_build_producer.py",
+        "size": 908629,
+        "sha256": "6594f3964f06a32fb7ac6bf880eb510642ac9b73e10e2cc4f19bfd9323270636"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_guard.py",
+        "size": 13171,
+        "sha256": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_handoff.py",
+        "size": 23538,
+        "sha256": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_input_census.py",
+        "size": 12557,
+        "sha256": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_mapped_images.py",
+        "size": 13376,
+        "sha256": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_metadata.py",
+        "size": 13991,
+        "sha256": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_proc_witness.py",
+        "size": 18455,
+        "sha256": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba"
+      },
+      {
+        "member": "helpers/tool/test_native_perf_session.py",
+        "size": 64523,
+        "sha256": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0"
+      },
+      {
+        "member": "manifest.json",
+        "size": 22645,
+        "sha256": "2249d6155e578bbbd890fd567486614cf029202b1a0cd1ed8c158a8dde922d66"
+      }
+    ],
+    "current20_two_reads_same_bytes_and_observed_identity": true,
+    "point_observations_NOT_atomic_ABA_or_immutable_runtime": true,
+    "SourceGit4": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 51896,
+        "status": 0,
+        "both_separate_EOF": true,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 51897,
+        "status": 0,
+        "both_separate_EOF": true,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--porcelain",
+          "--untracked-files=all"
+        ],
+        "pid": 51898,
+        "status": 0,
+        "both_separate_EOF": true,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+          "--stat",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 51899,
+        "status": 0,
+        "both_separate_EOF": true,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "Source_HEAD": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+    "Source_branch": "codex/flatbuffers-native-perf-guard",
+    "Source_status_exact20_untracked": true,
+    "production_packages_native_diff_empty_DATA": true,
+    "Source_test_edits": false,
+    "SDK_tests_build_capture_adoption_dispatch": false,
+    "compiled_canonical": false,
+    "ownership_complete": false,
+    "admission": false,
+    "free_bytes_DATA": 266480467968
+  },
+  "manifest_sha256": "2249d6155e578bbbd890fd567486614cf029202b1a0cd1ed8c158a8dde922d66",
+  "all20_sha_match_prior_checkpoint_expected_map": true,
+  "twenty_helper_six_continuation_two_metadata_members": true,
+  "prior_continuation_actual_files_not_current_state_or_reconstructed_omissions": true,
+  "historical_source_archive_reference_opaque_NOT_current20_compiledcanonical": true,
+  "ROOT_qualified_model": {
+    "pid": 51717,
+    "status": 0,
+    "both_separate_EOF": true,
+    "stdout_size": 5098,
+    "stderr_size": 652,
+    "stdout_sha256": "207242d0592158e859f721c2f24b865d809698996fe3115b618cd313d40ff1c5",
+    "stderr_sha256": "8bd44dce9a87321066c65f5b2afce7bbefaf372f734d43d302e908a8dc6e3ba0"
+  },
+  "model_qualification": {
+    "model": "Qwen",
+    "full_answer_retained": true,
+    "whole_current_approval": false,
+    "ROOT_verified": [
+      "Git HEAD and branch are explicitly checked, and status exact set not count alone; no Git origin or adversarial-host authenticity claim. Four commands remain data checks.",
+      "read checks path lstat before/after and descriptor fstat before/after; model claim no during-read check is incorrect. This still does not prove atomic ABA/runtime immutability. No freeze/lock workaround.",
+      "Archive members exact unique expected names and regular only, extractfile read only/no extract; generated paths now explicit20 literal names, and local copied sources lstat regular/no symlink checked.",
+      "Scratch packaging v2 adds explicit per-file16MiB/aggregate128MiB/archive128MiB caps and CLOEXEC; these are artifact controls, not production memory/RSS bounds or a performance repair.",
+      "Candidate false admission risk addressed by explicit unadmitted kind/false flags. Historical references and continuation snapshots are file DATA, no origin/authentication or recreated omissions.",
+      "All model findings advisory; no Source/tests changed and no runtime test/model replay. v1 remained unexecuted; v2 is first acquisition controller."
+    ],
+    "new_controller_v2_only_before_first_acquisition": true
+  },
+  "pending_original_runtime_preflight": {
+    "kind": "PENDING_ORIGINAL_RUNTIME_PREFLIGHT_NOT_ADMISSION",
+    "candidate_archive_sha256": "717a1cc26d8c2d10528b360155621b524343348c56c2c99030fd0259100deb8f",
+    "tracked_source_archive_historical_reference": {
+      "source_archive_sha256": "816a2106432f999ff20e90899035406b670b74ceab28381092a8b8c8b2f72c85",
+      "old_helper20_package_sha256_NOT_current": "1b3ed7806acaeb6201bd7a1f0c7fe4242b01f901d29a54d5ef225152b68769db",
+      "docs_commit": "9dba57ca95704a216f10b9c19d4de2d58a660a91",
+      "historical_only_not_opened_rehashed_reaudited_or_rebuilt": true
+    },
+    "items": [
+      {
+        "obligation": "Freeze original PATH wrapper/bootstrap/updater and actual original SDK inputs without replacement or hidden updates; current stamps are DATA only.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Declare actual first3 locks and hidden configs, generation boundaries and exact original cohort; no transplant or favorable redo.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Validate current20 through required own canonical/copy flow in an authorized new source epoch; no old test aggregation.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Build own production native, driver and static RLIB only after explicit runtime preflight and fresh12GiB floor; retain compiler/tool/kernel provenance.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Establish actual original host credentials, access, pidfd, FD-exec/inheritance and physical EX actor/interpreter/delegate/descendant closure.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Provide actual sampler image/start/argv/private handoff before arming, root perf attach to original blocked driver, separate kernel pipes and actual credential checks.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Prove complete immutable admission including roles/time/metadata/loss/coverage; no future postGO evidence as preproof.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Implement qualified live provider/closed controller bridge without weakening always-refusing admission until all obligations are met.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Measure real RAM/performance cause and repair with preserved workload and ownership; no groups/rawchunk bound inference.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      },
+      {
+        "obligation": "Complete own FINAL runtime strict48/50 and clean final CI before PR adoption/ready/merge/closure.",
+        "status": "PENDING",
+        "execution_authorized_by_this_artifact": false
+      }
+    ],
+    "provider": "ABSENT",
+    "controller": "CLOSED",
+    "ownership": null,
+    "flags": {
+      "capture_ready": false,
+      "evidence_complete": false,
+      "admitted": false
+    }
+  },
+  "Source_test_edits": false,
+  "new_tests_run": 0,
+  "old_tests_models_campaigns_archives_replayed": false,
+  "SDK_build_native_kernel_broker_benchmark_capture_adoption_Sourcecommit_push_strictdispatch": false,
+  "physical_EX_originalLinux_actorFDclosure_immutable_admission": false,
+  "RAM_repair_final_strict48_50_cleanCI_complete": false,
+  "storage": {
+    "free_bytes": 266480467968,
+    "artifact_DATA_only": true,
+    "no_test_build_capture_deletion_authority": true,
+    "outside_prior_cleanup_cause": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-runtime-epoch-package-evidence.tar.gz",
+    "archive_sha256": "3303962e514144290f41a55c6cafa0eddb863479d0b5df82e446aa251db15003",
+    "selected_regular_members": 70,
+    "all_selected_BYTEEXACT": true
+  }
+}

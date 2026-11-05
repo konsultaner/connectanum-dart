@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Bind the current helper candidate and freeze the prior continuation
+
+A new input candidate contains the latest twenty helper files, six actual prior continuation snapshots and two metadata files. All twenty-eight regular members read back byte-exact. It explicitly distinguishes the older helper package and leaves the retained tracked-source archive opaque. No Source/test code was edited or executed, and the runtime checkout was untouched.
+
+Fresh helper observations and four Source Git results bind this candidate to HEAD 601 and the expected branch with twenty untracked helpers. These point checks establish copied bytes, not immutable original runtime, atomic ABA protection, compiled canonical validation or ownership. The frozen checkpoint and receipts precede this scope and fill no missing historical records. Qwen's prospective controller review is complete and ROOT-qualified.
+
+The candidate grants no adoption, bootstrap, build or capture authority. Original PATH SDK/bootstrap inputs, first locks/configurations, current-helper canonical validation, own production artifacts and complete original-host actor/FD/sampler admission remain pending. RAM repair, final strict 48/50 and clean final CI remain incomplete.
+
+[Declaration and limits](../research/2026-11-05-flatbuffers-native-perf-runtime-epoch-package-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-runtime-epoch-package-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-runtime-epoch-package-evidence.tar.gz).
+
 ## 2026-11-05 — Check finish primary kind before replacing First
 
 Four new actual-wait cases give 2FAIL/2PASS/0ERROR before: returned primary fields None and False overwrite the finish helper's captured First, causing TypeError in both the wait path and pure publication guard. Native valid-primary and unknown-completion controls already preserve First. The real result writer has completed inside ROOT, but Source has not received its return. The written success result remains data with capture_ready and evidence_complete False, never an accepted receipt.
