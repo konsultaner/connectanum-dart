@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Preserve First when failure-group acquisition has an unknown return
+
+Three new regressions produce2FAIL/1PASS/0ERROR before the change. The actual whole spawn body returns inside ROOT and ROOT raises First; the native failure-group function then returns a tuple only inside ROOT, which raises a later RuntimeError or SystemExit before Source receives that tuple. Acquisition outside the inner catch allowed the later error to replace First. The separate actual pre-spawn input-digest refusal control already passes.
+
+The constructor now catches acquisition failure and raises its already-known original error. It does not adopt the ROOT-only tuple, call its methods, read pending or enter defer/preserve/format/close work after that unknown return. Both after cases retain the later error in First's exception context. Five selected after tests pass: matchingNEW3 plus symlink-input refusal and caller-input-dictionary mutation controls. Source projection changes only this constructor acquisition boundary; the old test prefix and other18 helper/three bin hashes remain exact.
+
+These are controlled error-priority regressions, not spontaneous kernel bugs or a RAM cause. Known finite actors/FD closes and current Darwin lease observations remain unit data. No earlier tests or reviews are replayed, no Source commit/build/capture/adoption occurs, and full original-runtime admission and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-constructor-group-acquisition-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-constructor-group-acquisition-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-constructor-group-acquisition-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Check pendingTrue deferral without changing Source
 
 Two new private integration cases pass on unchanged producer ae1d1a and tests0265f8. A wrapper invokes the whole original spawn body, including actual fixture Git/archive operations, a returned native recipe Popen, parent-writer close and the durable spawned event. Only after that body returns None does ROOT raise First. This differs from the earlier command_spawned-event fault test, which is not replayed.

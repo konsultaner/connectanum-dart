@@ -1,0 +1,1025 @@
+{
+  "utc": "2026-11-05T12:53:57.268659+00:00",
+  "source_sha256": "711478e0cb719a7673b1272a5a383a627b2e01ffe9d9310d0dfb66b2358a18c9",
+  "test_sha256": "f094b9072feb8248c6d612dce9f42cf8d9f4d08e5722e537e881623fd02788e3",
+  "before_NEW3": {
+    "utc": "2026-11-05T12:45:02.141037+00:00",
+    "tests": 3,
+    "failures": 2,
+    "errors": 0,
+    "passes": 1,
+    "leases": [
+      {
+        "test": "test_new_native_group_known_input_digest_refusal_control (group_acquisition_scope.GroupAcquisitionTests.test_new_native_group_known_input_digest_refusal_control)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_native_group_known_input_digest_refusal_control (group_acquisition_scope.GroupAcquisitionTests.test_new_native_group_known_input_digest_refusal_control)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_unknown_group_RuntimeError_preserves_original_First (group_acquisition_scope.GroupAcquisitionTests.test_new_unknown_group_RuntimeError_preserves_original_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_unknown_group_RuntimeError_preserves_original_First (group_acquisition_scope.GroupAcquisitionTests.test_new_unknown_group_RuntimeError_preserves_original_First)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_unknown_group_SystemExit_preserves_original_First (group_acquisition_scope.GroupAcquisitionTests.test_new_unknown_group_SystemExit_preserves_original_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_unknown_group_SystemExit_preserves_original_First (group_acquisition_scope.GroupAcquisitionTests.test_new_unknown_group_SystemExit_preserves_original_First)",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "Source_test_fresh2_unchanged": {
+      "tool/native_perf_build_producer.py": "ae1d1affd969a94137b886b20f3aefd231dd2fd4f3d7d95b2fbe382db31f7d79",
+      "tool/test_native_perf_build_producer.py": "0265f84d36016deb2c163c8af09cf0a5578a8f4367462fbca26fb22bda406e7d"
+    },
+    "Source_test_edits": false,
+    "new_BEFORE3_only": true,
+    "prior6_old27_completed25_old2bodies_old7suite_private2_replayed": false,
+    "SourceHEAD_current20recensus_or_compiledcanonical_admission": false,
+    "details": [
+      {
+        "test": "test_new_unknown_group_RuntimeError_preserves_original_First (group_acquisition_scope.GroupAcquisitionTests.test_new_unknown_group_RuntimeError_preserves_original_First)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-constructor-group-acquisition-progress-v1/group_acquisition_regressions-v1.py\", line 125, in test_new_unknown_group_RuntimeError_preserves_original_First\n    def test_new_unknown_group_RuntimeError_preserves_original_First(self):self._case('runtime')\n                                                                           ~~~~~~~~~~^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-constructor-group-acquisition-progress-v1/group_acquisition_regressions-v1.py\", line 88, in _case\n    self.assertTrue(received is first);self.assertIsNone(returned)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      },
+      {
+        "test": "test_new_unknown_group_SystemExit_preserves_original_First (group_acquisition_scope.GroupAcquisitionTests.test_new_unknown_group_SystemExit_preserves_original_First)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-constructor-group-acquisition-progress-v1/group_acquisition_regressions-v1.py\", line 126, in test_new_unknown_group_SystemExit_preserves_original_First\n    def test_new_unknown_group_SystemExit_preserves_original_First(self):self._case('exit')\n                                                                         ~~~~~~~~~~^^^^^^^^\n  File \"/tmp/connectanum-native-perf-constructor-group-acquisition-progress-v1/group_acquisition_regressions-v1.py\", line 88, in _case\n    self.assertTrue(received is first);self.assertIsNone(returned)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      }
+    ]
+  },
+  "after_selected5": {
+    "tests": 5,
+    "failures": 0,
+    "errors": 0,
+    "passes": 5,
+    "leases": [
+      {
+        "test": "test_new_native_group_known_input_digest_refusal_control (test_native_perf_build_producer.GroupAcquisitionTests.test_new_native_group_known_input_digest_refusal_control)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_native_group_known_input_digest_refusal_control (test_native_perf_build_producer.GroupAcquisitionTests.test_new_native_group_known_input_digest_refusal_control)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_unknown_group_RuntimeError_preserves_original_First (test_native_perf_build_producer.GroupAcquisitionTests.test_new_unknown_group_RuntimeError_preserves_original_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_unknown_group_RuntimeError_preserves_original_First (test_native_perf_build_producer.GroupAcquisitionTests.test_new_unknown_group_RuntimeError_preserves_original_First)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_unknown_group_SystemExit_preserves_original_First (test_native_perf_build_producer.GroupAcquisitionTests.test_new_unknown_group_SystemExit_preserves_original_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_unknown_group_SystemExit_preserves_original_First (test_native_perf_build_producer.GroupAcquisitionTests.test_new_unknown_group_SystemExit_preserves_original_First)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_input_symlink_refused (test_native_perf_build_producer.ProducerTests.test_input_symlink_refused)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_input_symlink_refused (test_native_perf_build_producer.ProducerTests.test_input_symlink_refused)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_mutating_caller_input_dictionary_does_not_change_snapshot (test_native_perf_build_producer.ProducerTests.test_mutating_caller_input_dictionary_does_not_change_snapshot)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_mutating_caller_input_dictionary_does_not_change_snapshot (test_native_perf_build_producer.ProducerTests.test_mutating_caller_input_dictionary_does_not_change_snapshot)",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "root_original_waits": [
+      {
+        "test": "test_new_native_group_known_input_digest_refusal_control (test_native_perf_build_producer.GroupAcquisitionTests.test_new_native_group_known_input_digest_refusal_control)",
+        "rows": [
+          {
+            "pid": 13834,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13835,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13837,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13838,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13839,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_new_unknown_group_RuntimeError_preserves_original_First (test_native_perf_build_producer.GroupAcquisitionTests.test_new_unknown_group_RuntimeError_preserves_original_First)",
+        "rows": [
+          {
+            "pid": 13849,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13850,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13851,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13852,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13853,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13854,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_new_unknown_group_SystemExit_preserves_original_First (test_native_perf_build_producer.GroupAcquisitionTests.test_new_unknown_group_SystemExit_preserves_original_First)",
+        "rows": [
+          {
+            "pid": 13866,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13867,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13868,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13869,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13870,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13871,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_input_symlink_refused (test_native_perf_build_producer.ProducerTests.test_input_symlink_refused)",
+        "rows": [
+          {
+            "pid": 13882,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13883,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13885,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13886,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13887,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_mutating_caller_input_dictionary_does_not_change_snapshot (test_native_perf_build_producer.ProducerTests.test_mutating_caller_input_dictionary_does_not_change_snapshot)",
+        "rows": [
+          {
+            "pid": 13899,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13900,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13901,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13902,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13903,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13904,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13907,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13908,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 13909,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      }
+    ],
+    "source_sha256": "711478e0cb719a7673b1272a5a383a627b2e01ffe9d9310d0dfb66b2358a18c9",
+    "test_sha256": "f094b9072feb8248c6d612dce9f42cf8d9f4d08e5722e537e881623fd02788e3",
+    "details": [],
+    "selected": [
+      "test_new_native_group_known_input_digest_refusal_control (test_native_perf_build_producer.GroupAcquisitionTests.test_new_native_group_known_input_digest_refusal_control)",
+      "test_new_unknown_group_RuntimeError_preserves_original_First (test_native_perf_build_producer.GroupAcquisitionTests.test_new_unknown_group_RuntimeError_preserves_original_First)",
+      "test_new_unknown_group_SystemExit_preserves_original_First (test_native_perf_build_producer.GroupAcquisitionTests.test_new_unknown_group_SystemExit_preserves_original_First)",
+      "test_input_symlink_refused (test_native_perf_build_producer.ProducerTests.test_input_symlink_refused)",
+      "test_mutating_caller_input_dictionary_does_not_change_snapshot (test_native_perf_build_producer.ProducerTests.test_mutating_caller_input_dictionary_does_not_change_snapshot)"
+    ],
+    "no_old27_replay_or_currentcanonical_admission": true
+  },
+  "controls": {
+    "BEFORE": {
+      "views": [
+        {
+          "group_acquisition": "exit",
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "group_calls": 1,
+          "factory_unknown": true,
+          "ROOT_tuple_never_called_or_adopted": true,
+          "post_unknown_gets": [],
+          "Source_returned_owner": false,
+          "received_First": false,
+          "received_Secondary": true,
+          "received_type": "SystemExit",
+          "first_context_is_secondary": false,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "actor_rows": [
+            {
+              "pid": 12921,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12922,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12923,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12924,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12925,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12926,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_ownership_admission": true
+        },
+        {
+          "group_acquisition": "input",
+          "spawn_returned_inside_ROOT": false,
+          "spawn_raw_None": null,
+          "spawn_stage": null,
+          "group_calls": 2,
+          "factory_unknown": false,
+          "ROOT_tuple_never_called_or_adopted": true,
+          "post_unknown_gets": [],
+          "Source_returned_owner": false,
+          "received_First": true,
+          "received_Secondary": false,
+          "received_type": "ProducerError",
+          "first_context_is_secondary": false,
+          "Source_pending_DATA": false,
+          "Source_finished_DATA": true,
+          "Source_failure_attempted_DATA": true,
+          "actor_rows": [
+            {
+              "pid": 12890,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12891,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12892,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12893,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12894,
+              "kind": "Auxiliary"
+            }
+          ],
+          "unit_only_not_ownership_admission": true
+        },
+        {
+          "group_acquisition": "runtime",
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "group_calls": 1,
+          "factory_unknown": true,
+          "ROOT_tuple_never_called_or_adopted": true,
+          "post_unknown_gets": [],
+          "Source_returned_owner": false,
+          "received_First": false,
+          "received_Secondary": true,
+          "received_type": "GroupAcquisitionSecond",
+          "first_context_is_secondary": false,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "actor_rows": [
+            {
+              "pid": 12904,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12905,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12906,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12907,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12908,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 12909,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_ownership_admission": true
+        }
+      ],
+      "original_bound_wait_rows": [
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12921,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12922,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12923,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12924,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12925,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 12926,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12890,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12891,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12892,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12893,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12894,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12904,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12905,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12906,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12907,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 12908,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 12909,
+          "status": 0,
+          "signed_native_int": true
+        }
+      ],
+      "Root_pipe_closes_afterevidence": 2,
+      "Root_file_closes_afterevidence": 4,
+      "setup_Git_rows21_separate": true
+    },
+    "AFTER": {
+      "views": [
+        {
+          "group_acquisition": "exit",
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "group_calls": 1,
+          "factory_unknown": true,
+          "ROOT_tuple_never_called_or_adopted": true,
+          "post_unknown_gets": [],
+          "Source_returned_owner": false,
+          "received_First": true,
+          "received_Secondary": false,
+          "received_type": "GroupAcquisitionFirst",
+          "first_context_is_secondary": true,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "actor_rows": [
+            {
+              "pid": 13866,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13867,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13868,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13869,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13870,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13871,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_ownership_admission": true
+        },
+        {
+          "group_acquisition": "input",
+          "spawn_returned_inside_ROOT": false,
+          "spawn_raw_None": null,
+          "spawn_stage": null,
+          "group_calls": 2,
+          "factory_unknown": false,
+          "ROOT_tuple_never_called_or_adopted": true,
+          "post_unknown_gets": [],
+          "Source_returned_owner": false,
+          "received_First": true,
+          "received_Secondary": false,
+          "received_type": "ProducerError",
+          "first_context_is_secondary": false,
+          "Source_pending_DATA": false,
+          "Source_finished_DATA": true,
+          "Source_failure_attempted_DATA": true,
+          "actor_rows": [
+            {
+              "pid": 13834,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13835,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13837,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13838,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13839,
+              "kind": "Auxiliary"
+            }
+          ],
+          "unit_only_not_ownership_admission": true
+        },
+        {
+          "group_acquisition": "runtime",
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "group_calls": 1,
+          "factory_unknown": true,
+          "ROOT_tuple_never_called_or_adopted": true,
+          "post_unknown_gets": [],
+          "Source_returned_owner": false,
+          "received_First": true,
+          "received_Secondary": false,
+          "received_type": "GroupAcquisitionFirst",
+          "first_context_is_secondary": true,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "actor_rows": [
+            {
+              "pid": 13849,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13850,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13851,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13852,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13853,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 13854,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_ownership_admission": true
+        }
+      ],
+      "original_bound_wait_rows": [
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13866,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13867,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13868,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13869,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13870,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 13871,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13834,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13835,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13837,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13838,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13839,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13849,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13850,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13851,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13852,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 13853,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 13854,
+          "status": 0,
+          "signed_native_int": true
+        }
+      ],
+      "Root_pipe_closes_afterevidence": 2,
+      "Root_file_closes_afterevidence": 4,
+      "setup_Git_rows21_separate": true
+    }
+  },
+  "parent_after31_rows_include_same_NEW17_plus14affected_do_not_add_duplicates": true,
+  "models": {
+    "planning": {
+      "pid": 12075,
+      "status": 0,
+      "stdout_size": 524,
+      "stderr_size": 320,
+      "stdout_sha256": "4659bedafbf983d508b968dcd445eeae7371d2b9b50ce2ff5fba04d02c826c63",
+      "stderr_sha256": "d76158b6275c4daac8f793ebd9aa2039f949a1cb168663c9fa3c9c3c4232503a",
+      "both_separate_EOF": true
+    },
+    "review": {
+      "pid": 13388,
+      "status": 0,
+      "stdout_size": 4814,
+      "stderr_size": 859,
+      "stdout_sha256": "ab4c8069e04a16952440267c9967f47a52c02ba2bf1c013ae8118a5fb27bbf78",
+      "stderr_sha256": "e2298279d4c1f86f92bb38537b4cc34afb09e2c41efd19c7c4ca2433a91da638",
+      "both_separate_EOF": true
+    }
+  },
+  "ROOT_model_qualification": {
+    "GLM13388_natural0_fullanswer": true,
+    "advisory_not_Source_approval": true,
+    "rejected_claims": [
+      "P0 id-reuse while registry strongly retains owner is contradictory; clearing entry removes it, not a stale collision. Arbitrary concurrent mutation remains unproved/outside scope.",
+      "Do not write owner secondary fields after unknown helper acquisition; that reintroduces fallible metadata and may adopt unknown state.",
+      "First priority over later BaseException is explicit policy. Standard raise error preserves original exception/traceback and normally chains secondary; actual AFTER context will be checked, no fromNone suppression.",
+      "Input factory_unknown condition is explicit mode!=input, independent of spawn ordering. Native capture still runs for all Aux/pipe/FileIO in input; actual zero recipe rows will be checked.",
+      "No general all-error cleanup/fullFD-interpreter-descendant closure/originalLinux admission claimed."
+    ],
+    "no_model_retry_or_prior_controls_replay": true,
+    "actual_AFTER_primary_context_is_original_secondary_BOTH": true,
+    "actual_input_recipe_rows0_Aux5_and_knowncleanup": true
+  },
+  "wholeSource_BYTEprojectback": true,
+  "oldtest_PREFIX_exact": true,
+  "only_existing_method_changed": "CommandProducer.__init__",
+  "other18helpers3bins_unchanged": true,
+  "current23hashes_SourceGit4_0_BOTH": true,
+  "SourceGit": [
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 14160,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 41,
+      "stderr_size": 0,
+      "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "branch",
+        "--show-current"
+      ],
+      "pid": 14161,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 36,
+      "stderr_size": 0,
+      "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain",
+        "--untracked-files=all"
+      ],
+      "pid": 14162,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 728,
+      "stderr_size": 0,
+      "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+        "--stat",
+        "--",
+        "packages",
+        "native"
+      ],
+      "pid": 14163,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 0,
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "no_prior6_old27_old25_old2bodies_old7suite_private2_replay": true,
+  "Source_unknown_group_ROOTtuple_never_adopted_called": true,
+  "no_Source_pending_defer_preserve_repr_close_after_unknown": true,
+  "Source_fields_not_liveness_ownership_EXrelease": true,
+  "unit_not_fullphysicalEX_originalLinux_FD_interpreter_delegate_descendant_closure_or_runtime_admission": true,
+  "unexpected_beforeview_wait_read_cleanup_not_proved": true,
+  "stronggroups_rawchunks_processlife_NOTfixedmemory_RSSgrowth_timing_leakcause_UNMEASURED": true,
+  "no_Source_commit_push_adoption_SDKbuild_kernel_broker_benchmarkcapture_strictdispatch_RAMrepair_acceptance": true,
+  "before_builder_bad_marker_before_files_units_SourceIO_corrected_firstactual_run": true,
+  "available_API_only_no_omission_reconstruction": true,
+  "storage": {
+    "free_bytes": 281547837440,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-group-acquisition-progress-evidence.tar.gz",
+    "archive_sha256": "46a51dd65f1355d43f7e4b8bf53733068b5a9fa66ff6b9f39c70cbb515bffa68",
+    "selected_regular_members": 821,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-group-acquisition-progress-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-group-acquisition-progress-assessment.json"
+  }
+}
