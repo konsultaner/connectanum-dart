@@ -1,0 +1,87 @@
+{
+  "utc": "2026-11-05T18:46:59.903420+00:00",
+  "scope": "NEW static native direct-creation/FD and independent generated-output contract",
+  "candidate_sha256": "93f7720da902c099a75b4fe6cca5ad6503562cb5babdbe4b93d91c82e746d13d",
+  "refinement_sha256": "7f4572a54e0e1b27f6a8f971edab8fc63a87288c47b2a044de1701ccf8ff2c67",
+  "status": "UNIMPLEMENTED_UNADMITTED_NO_EXECUTION_AUTHORITY",
+  "new_native_tests": 0,
+  "current20_Source_test_edits_imports_census": 0,
+  "runtime_checkout_operations": 0,
+  "SDK_original_recipe_native_build_syscall_cgroup_perf_broker_benchmark_capture_adoption_Sourcepush_strictdispatch": 0,
+  "direct_creation": "Specified only: clone3 CLONE_PIDFD/native original pipe registry; later ROOT proposes shared-atomic registration barrier with conditional paper argument. ABI/signals/FD/error/lifetime unproved.",
+  "transitive": "ABSENT; cgroup workaround rejected and no universal impossibility theorem established",
+  "independent_output_validation": "Contract-only; actual validator, original-cohort authority, exact path/search slots and bench schedule absent",
+  "physical_EX_unknown_or_crash": "UNPROVED",
+  "model": {
+    "model_pid": 65808,
+    "natural_status": 0,
+    "stdout_size": 7242,
+    "stderr_size": 1026,
+    "both_EOF": true,
+    "full_answer": true,
+    "reviewed_candidate_v1_ONLY": true,
+    "recommendation": "CHANGE/bounded specification only",
+    "ROOT_qualified_NOT_approval": true,
+    "corrections": [
+      "The parent/child ordering gap is real and unimplemented. Child close cannot invalidate a parent FD-table entry when CLONE_FILES is absent; the model conflates distinct copies, but separate child-side close journals are still missing.",
+      "API composition/documentation does not establish actual original-host clone3 ABI/access or wait semantics. Static reading cannot measure host support; no availability probe is authorized by this contract.",
+      "The model claim that only its listed kernel mechanisms exist and constraints may imply a proven impossibility is unsupported by an exhaustive analysis. Transitive closure stays ABSENT, not proved impossible or available.",
+      "An authority absence statement/schema cannot create policy authority. Candidate v1 already forbids generator-self-authenticated outputs; refinement makes non-bootstrapping explicit.",
+      "The model calls a future finite experiment authorized by the contract. Prose is not execution authority: original SDK/live invocation remains refused, and any new finite experiment requires its own declaration/preflight.",
+      "GLM did not review the subsequent shared-atomic paper barrier. Its conditional ordering argument is ROOT reasoning only, not a runtime/native/whole-cohort qualification."
+    ]
+  },
+  "primary_sources": {
+    "scope": "NEW direct creation versus transitive registration question only",
+    "sources": [
+      {
+        "url": "https://man7.org/linux/man-pages/man2/clone.2.html",
+        "selected_sections": [
+          "clone3 return and struct",
+          "CLONE_PIDFD",
+          "CLONE_FILES",
+          "CLONE_INTO_CGROUP"
+        ],
+        "facts": "clone3 returns in parent and child; CLONE_PIDFD supplies a close-on-exec child reference in parent storage. Descriptor-table sharing is controlled separately; cross-cgroup creation retains placement restrictions.",
+        "not_proved": "Actual original-host syscall support/access/ABI, executable bytes, delegated children, FD writers or immutable admission"
+      },
+      {
+        "url": "https://docs.kernel.org/admin-guide/cgroup-v2.html",
+        "selected_sections": [
+          "Organizing processes",
+          "Unpopulated notification"
+        ],
+        "facts": "Children inherit parent membership, processes can migrate, and PID enumeration may repeat recycled/moved PIDs. Populated reflects live group/subtree processes, while zombies are excluded from cgroup.procs.",
+        "not_proved": "Exclusivity/no migration, actor identity/exit journals, signed wait/reaping, FD/exec closure, unchanged cohort or access authority"
+      }
+    ],
+    "actual_saved_tool_return_file": "actual-primary-web-tool-returns.json",
+    "actual_saved_tool_return_size": 71953,
+    "actual_saved_tool_return_sha256": "4afbee2cee8389603d42e85f55351a35042e99c3af11645af87d7a7377067831",
+    "hash_is_tool_return_not_full_webpage_body": true,
+    "full_web_tool_return_LOCAL_ONLY_not_public_archive": true,
+    "no_originalLinux_runtime_or_cgroup_probe": true,
+    "no_old_ptrace_UAPI_or_completed_primary_page_research_replayed": true
+  },
+  "initial_checkpoint_read_without_lease_DATA_only": true,
+  "web_returns_saved_AFTER_calls": true,
+  "no_missing_API_or_partial_output_reconstruction": true,
+  "full_frozen_policy_read_complete_after_initial_combined_output_truncation": true,
+  "next": "Expand direct native registration-barrier ABI/signal/FD-close/error/physical-EX obligations into a finite non-SDK specification with a fresh preflight before any execution. Original transitive actor mechanism and independent output/cohort authority remain required, no SDK call.",
+  "provider": "ABSENT",
+  "controller": "CLOSED",
+  "ownership": null,
+  "capture_ready": false,
+  "evidence_complete": false,
+  "readiness": false,
+  "admission": false,
+  "RAM_cause_repair_final48_50_cleanCI_complete": false,
+  "public_evidence": {
+    "archive": "docs/research/2026-11-05-flatbuffers-native-perf-native-actor-contract-evidence.tar.gz",
+    "sha256": "28badd149bc7eecc2480c13a4bf8f79b61ad29c1761ee7db1f1baf16fe8fa66e",
+    "selected_regular_members": 18,
+    "all_selected_BYTEEXACT": true,
+    "scope": "NEW static native direct-actor/FD and independent generated-input contract; UNIMPLEMENTED, zero new tests/SDK/syscalls",
+    "full_primary_tool_returns_LOCAL_ONLY": true
+  }
+}

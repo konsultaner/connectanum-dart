@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Bound a native actor-creation and generated-input contract
+
+A new static candidate specifies direct child creation with an original kernel pidfd and a preallocated actor/pipe registry. A later ROOT refinement proposes a shared atomic registration barrier and gives a conditional ordering argument. Both remain unimplemented: ABI, signal paths, child close journals, error handling and physical lease lifetime have no native execution proof.
+
+The direct reference does not register descendants created inside an unchanged shell, Dart/pub or Cargo/compiler tree. Cgroup population and PID lists cannot supply the required actor/FD/exec/exit evidence; a new group, migration, freeze or privilege grant is not proposed. No original-host access or syscall was probed. Independent output validation is also contract-only: policy provenance, exact slot/search closure, bench first-writer schedule and validator implementation remain absent.
+
+GLM's complete judgment recommends changes and is ROOT-qualified. Its claim about exhaustive kernel mechanisms is unsupported, and its proposed experiment is not authorized by this prose. GLM reviewed the first candidate, not ROOT's later paper barrier. No current twenty-helper/runtime source operation, new test, SDK/recipe/build/native syscall or capture occurred. Provider remains absent and all admission flags false; original-runtime qualification, RAM repair, final strict 48/50 and clean final CI remain incomplete.
+
+[Declaration and limits](../research/2026-11-05-flatbuffers-native-perf-native-actor-contract-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-native-actor-contract-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-native-actor-contract-evidence.tar.gz).
+
 ## 2026-11-05 — Preserve the keeper lease through a publication failure
 
 Two new private Darwin cases expose one premature context-exit attempt before a known finite child was collected. BEFORE records one failure and one passing EOF caller. A TEST backstop intercepts the exit before native close, retains the original context, confirms an actual official EX conflict, then collects the same child and releases once. No unsafe kernel unlock occurred.
