@@ -1,0 +1,325 @@
+{
+  "utc": "2026-11-05T03:31:05.539124+00:00",
+  "source_sha256": "337ef3ac04255ad9ec23db91e1df794c6ea72da5a55c3fff7b0ea561d21f8263",
+  "test_sha256": "9c2ab75ca5d14960ef1d80c336704840ffeed5fd3f437ae3cb307b1b6f56ae5f",
+  "producer_UNCHANGED": true,
+  "initial": {
+    "tests": 5,
+    "passes": 4,
+    "harness_failure": 1,
+    "errors": 0,
+    "reason": "20k buffered byinstalledPython, FileIOprefixerror inflush notwrite;1rawcall, NOTmodeltwo-callpremise/Sourcebug"
+  },
+  "separate_new_larger_case": {
+    "tests": 1,
+    "failures": 0,
+    "errors": 0,
+    "passes": 1,
+    "selection": [
+      "test_actual_FileIO_prefix3_then_buffered_write_error_stops_before_flush"
+    ],
+    "leases": [
+      {
+        "test": "backing_fd_coverage.JSONWriterBackingFDTests.test_actual_FileIO_prefix3_then_buffered_write_error_stops_before_flush",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "backing_fd_coverage.JSONWriterBackingFDTests.test_actual_FileIO_prefix3_then_buffered_write_error_stops_before_flush",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "source_UNCHANGED": true,
+    "not_canonical_runtime_admission": true,
+    "details": []
+  },
+  "coverage": "4privatev3PASS plusseparateNEWlarger-v4case1PASS. No unchanged4/original5 replay. NOTcombinedcurrent5PASS/fullcurrent20canonical/Sourcefix/BEFOREfailingrepairregression.",
+  "ROOT": {
+    "final_Source_tests_AST_qualified": true,
+    "producer_BYTES_UNCHANGED": true,
+    "oldtests_BYTES_PREFIX_exact": true,
+    "appended_class_ASTequivalent_privatev4": true,
+    "exclusive_write_prefix_input_branch_changes_only": true,
+    "other19helpers3bins_unchanged": true,
+    "hashes23": {
+      "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_build_producer.py": "337ef3ac04255ad9ec23db91e1df794c6ea72da5a55c3fff7b0ea561d21f8263",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+      "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+      "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+      "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_build_producer.py": "9c2ab75ca5d14960ef1d80c336704840ffeed5fd3f437ae3cb307b1b6f56ae5f",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+      "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+      "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+      "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+      "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+      "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+      "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+    },
+    "git_commands": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 27417,
+        "status": 0,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 27418,
+        "status": 0,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--short",
+          "--untracked-files=all"
+        ],
+        "pid": 27419,
+        "status": 0,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "--name-only",
+          "HEAD",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 27420,
+        "status": 0,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "new_unit_views": 6,
+    "initial_parent_EXverify_None": 10,
+    "separate_case_parent_EXverify_None": 2,
+    "unit_cleanup": [
+      {
+        "phase": "initial",
+        "mode": "close_fault",
+        "receipt": {
+          "rows": [
+            {
+              "raw_already_closed": true,
+              "original_raw_close_attempted": false,
+              "original_raw_close_None": null,
+              "buffered_close_attempted": true,
+              "buffered_close_return_None": true,
+              "after_size": 53,
+              "after_sha256": "cffc874a27a2e9436e863de2cc8763770a48e99b1cb03512ed46b5bba5fd8cd2",
+              "after_equals_view": true,
+              "raw_closed_after": true,
+              "buffer_closed_after": true
+            }
+          ],
+          "events_after_evidence": [],
+          "limits": "ROOTknownnativeRawclose BEFOREBufferedclose UNITonly/no Source recovery/EXrelease/borrowedFDdoubleclose; omitted setup/internalFD-delegate facts notreconstructed"
+        }
+      },
+      {
+        "phase": "initial",
+        "mode": "flush_full",
+        "receipt": {
+          "rows": [
+            {
+              "raw_already_closed": false,
+              "original_raw_close_attempted": true,
+              "original_raw_close_None": true,
+              "buffered_close_attempted": true,
+              "buffered_close_return_None": true,
+              "FD_path_original_identity_match": true,
+              "after_size": 52,
+              "after_sha256": "6f5dd311efd621eb3b75a30980157b64e2cbd49e9a1a59d9cd43df89200b8041",
+              "after_equals_view": true,
+              "raw_closed_after": true,
+              "buffer_closed_after": true
+            }
+          ],
+          "events_after_evidence": [],
+          "limits": "ROOTknownnativeRawclose BEFOREBufferedclose UNITonly/no Source recovery/EXrelease/borrowedFDdoubleclose; omitted setup/internalFD-delegate facts notreconstructed"
+        }
+      },
+      {
+        "phase": "initial",
+        "mode": "flush_prefix",
+        "receipt": {
+          "rows": [
+            {
+              "raw_already_closed": false,
+              "original_raw_close_attempted": true,
+              "original_raw_close_None": true,
+              "buffered_close_attempted": true,
+              "buffered_close_return_None": true,
+              "FD_path_original_identity_match": true,
+              "after_size": 3,
+              "after_sha256": "55505b6f8c3dc34a3b804086a88d4beae35b69af0dbc471d8cd780d37569a50b",
+              "after_equals_view": true,
+              "raw_closed_after": true,
+              "buffer_closed_after": true
+            }
+          ],
+          "events_after_evidence": [],
+          "limits": "ROOTknownnativeRawclose BEFOREBufferedclose UNITonly/no Source recovery/EXrelease/borrowedFDdoubleclose; omitted setup/internalFD-delegate facts notreconstructed"
+        }
+      },
+      {
+        "phase": "initial",
+        "mode": "normal",
+        "receipt": {
+          "rows": [
+            {
+              "raw_already_closed": true,
+              "original_raw_close_attempted": false,
+              "original_raw_close_None": null,
+              "buffered_close_attempted": true,
+              "buffered_close_return_None": true,
+              "after_size": 48,
+              "after_sha256": "85a0ddb90a6e2d3622250707cae28c133c25bc5cd39b3fb22ac29ccaf6c71eb5",
+              "after_equals_view": true,
+              "raw_closed_after": true,
+              "buffer_closed_after": true
+            }
+          ],
+          "events_after_evidence": [],
+          "limits": "ROOTknownnativeRawclose BEFOREBufferedclose UNITonly/no Source recovery/EXrelease/borrowedFDdoubleclose; omitted setup/internalFD-delegate facts notreconstructed"
+        }
+      },
+      {
+        "phase": "initial",
+        "mode": "write_prefix",
+        "receipt": {
+          "rows": [
+            {
+              "raw_already_closed": false,
+              "original_raw_close_attempted": true,
+              "original_raw_close_None": true,
+              "buffered_close_attempted": true,
+              "buffered_close_return_None": true,
+              "FD_path_original_identity_match": true,
+              "after_size": 3,
+              "after_sha256": "55505b6f8c3dc34a3b804086a88d4beae35b69af0dbc471d8cd780d37569a50b",
+              "after_equals_view": true,
+              "raw_closed_after": true,
+              "buffer_closed_after": true
+            }
+          ],
+          "events_after_evidence": [],
+          "limits": "ROOTknownnativeRawclose BEFOREBufferedclose UNITonly/no Source recovery/EXrelease/borrowedFDdoubleclose; omitted setup/internalFD-delegate facts notreconstructed"
+        }
+      },
+      {
+        "phase": "separate_larger",
+        "mode": "write_prefix",
+        "receipt": {
+          "rows": [
+            {
+              "raw_already_closed": false,
+              "original_raw_close_attempted": true,
+              "original_raw_close_None": true,
+              "buffered_close_attempted": true,
+              "buffered_close_return_None": true,
+              "FD_path_original_identity_match": true,
+              "after_size": 3,
+              "after_sha256": "55505b6f8c3dc34a3b804086a88d4beae35b69af0dbc471d8cd780d37569a50b",
+              "after_equals_view": true,
+              "raw_closed_after": true,
+              "buffer_closed_after": true
+            }
+          ],
+          "events_after_evidence": [],
+          "limits": "ROOTknownnativeRawclose BEFOREBufferedclose UNITonly/no Source recovery/EXrelease/borrowedFDdoubleclose; omitted setup/internalFD-delegate facts notreconstructed"
+        }
+      }
+    ],
+    "normal_original_publicwriter_methodorder_exact": true
+  },
+  "models": {
+    "Qwen": {
+      "pid": 26067,
+      "status": 0,
+      "stdout_size": 3031,
+      "stderr_size": 487,
+      "stdout_sha256": "1d2a90999cc7b56c3a777b7090c4abff7a88df713aed9b5aa49a01e7512ebc31",
+      "stderr_sha256": "1492701abc9bd395bf002f56ff0f513d3b4ef427bca53fe66afe23f1ce57c0bc",
+      "both_separate_EOF": true
+    },
+    "GLM": {
+      "pid": 26678,
+      "status": 0,
+      "stdout_size": 3597,
+      "stderr_size": 778,
+      "stdout_sha256": "2511898bce5fdb6b7fd418fff9494db3288b5ada66fc13f341914bb12e0c88f7",
+      "stderr_sha256": "173ebc871053fe658823e07150a366a0627a2c92b37b175d90d45e51d7e6841d",
+      "both_separate_EOF": true
+    },
+    "ROOT_qualified_NOTwholecurrentapproval": true,
+    "review_before_v3_postguard_assert_and_v4_exclusive_payload_change": true
+  },
+  "limits": [
+    "OnlyselectedFileIO-backing coverage, notSourcebehaviorfix/productiondefect/RAMcause/aggregate/fullcurrentcanonical/admission. Initial4PASS1harnessFAIL preserved plusseparatepredeclaredlargercase1PASS; unchanged4 notrerun/failure notrewritten. Installedio.DEFAULT_BUFFER_SIZE131072 isDATA notactualbuffer/heapRSSallocationproof.",
+    "ActualFileIO prefix3 writes intentionallydelegateonly3bytes, thenROOTfault; notspontaneouskernelshortwrite. Fullwrite/close actualreturns ROOTknown whileSourceouterwrite-flush-exit rawUNKNOWN. Manager/writer actualraw relation retained; noSourceadopt-infer fromRootbytes/closedfields.",
+    "KnownoriginalnativeRawclose BEFOREBufferedclose AFTERevidence/devino/assertions UNITonly; bytepre/postsame. No Sourcecleanup/restore-retry-replay/EXrelease/borrowedFDclose. Cclosedobject cleanupresults actualrecorded, notstrongerallinternalFD-instruction/delegate proof.",
+    "Sixnewviews(initial5+separate1), parent10+2CURRENT officialDarwinEXverifyNone notindependentfullEX-originalLinuxcredentials/immutableCOMPLETEadmission. No Sourcechildlaunch intheseunits; namedmodels/Git separatelyrecorded/notglobalabsence-fullreap. Some setup/internalFD/APIreturns notallserialized/no reconstruction.",
+    "Source-independent5B nativeFileIOhook probe isseparateDATA/Sourceunit0/notSDK-build-canonical-runtimeadmission. Currentproduction/path-open xb buffering/methodorder unchanged. Rootfixture callbacks interpose onlydeclarednativebackingmethods, notSourceproductionobservers.",
+    "Qwenreset/namespace/intducktype/oldouter-controls advice rejected. GLMtwo-callcount, unsafeFDmismatchclose andsilentguarddivergence claims rejected; v3safeidentity/postguardrenderassert BEFOREfirst5. Initial20kbadpremise discoveredAFTERmodel, v4exclusivepayloadbranch AFTERmodel; ROOTfinalASTqualified notmodelwholecurrentapproval. Allprivatev1-v2UNEXECUTED; first5v3; onlynewlargercasev4.",
+    "All20helpersuncommitteduncanonicalunadmitted/privateartifactsoutsideHELPERBUNDLE20/production601exact/no Sourcecommit-push-adoption/actualSDK-nativebuild-current20canonical-kernel-broker-benchmarkcapture-RAMrepair-strictacceptance; providerabsent/gatealwaysraises/controllerCLOSED/ownershipNone/all3flagsFalse.",
+    "Journals-refs-rawbuffers-closures-tracebackgrowthUNMEASURED/noheapRSSbound-leak-timing-cause-trim-reset-evict-deleteauthority. OtherFileIOseams/EINTR/nativeinternalprogress/globalbuiltins/earlierAPI/enclosing-historical-transitive/fullindependentEX-originalruntimeimmutableCOMPLETEadmission remainINCOMPLETE."
+  ],
+  "storage": {
+    "free_bytes": 296439205888,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-json-writer-backing-fd-coverage-evidence.tar.gz",
+    "archive_sha256": "b82d63de4bca299915e758f11f82159c04a968deeb4aa27f69a641d4e86a3dec",
+    "selected_regular_members": 87,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-json-writer-backing-fd-coverage-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-json-writer-backing-fd-coverage-assessment.json"
+  }
+}

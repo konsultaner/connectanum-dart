@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Cover actual FileIO backing errors without producer changes
+
+New controls reach actual FileIO write/close delegates beneath the buffered JSON writer. The unchanged producer retains its original manager/writer/raw relationship, preserves first and leaves outer write/flush/exit returns unknown after controlled delegate faults. ROOT-known byte counts or close returns are never promoted into Source completion. Known native Raw close happens before buffered cleanup after views/assertions and identity checks; observed file bytes stay unchanged. These are finite unit facts, not publication, durability, ownership or EX/admission.
+
+Initial private5v3 yields4PASS/1harnessFAIL/0ERROR: the20k “large” payload stays buffered, so its actual FileIO error occurs in flush rather than write. This is a test premise failure, not a Source defect; the model's two-call theory is also false. A separately declared larger input using installedDEFAULT131072 produces1PASS in only that new v4 control; the original5/completed4 are not replayed. Final producer337ef3 is unchanged/test9c2ab7 appends the v4 class with exact old prefix and exclusive input-branch projection; no after-append run or combined current5PASS/canonical claim. ROOT qualifies Source/tests/AST/23hashes/other19helpers3bins/4newGit0/BOTHstreams/601/20untracked/productionempty. Qwen26067/GLM26678 advice0/fullanswers are ROOTqualified; final v3 assertion/v4 input changes follow selected review. Six new views/10+2currentDarwinEX observations and a separate5B native setup probe are not full independent EX/originalLinuxcredentials/runtime admission. No SDK/build/capture/adoption/RAMrepair/strictacceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-json-writer-backing-fd-coverage-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-json-writer-backing-fd-coverage-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-json-writer-backing-fd-coverage-evidence.tar.gz).
+
 ## 2026-11-05 — Validate Auxiliary result values before callbacks
 
 A controlled status value in an actual completed operation's mutable result can make the old factory accept invalid status and mutate its owner ledger through comparison. The factory now requires native success/failed strings before comparing and native string/None failure detail before rendering. Detail lookup/render intent and actual returns retain first without invoking unknown callbacks. Normal nonzero/native-string and None messages, success bytes and missing-key KeyError remain intact. Result values and completion facts remain DATA, not credentials, ownership, EX or admission.
