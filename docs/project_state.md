@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Reject invalid snapshot open and stat returns before use
+
+The snapshot helper accepted an interposed False open return as an FD and attempted fstat(False). A ROOT barrier prevented native FD0 access. A known None fstat return reached attribute access and produced AttributeError. Two checks now reject non-native/negative FD returns before storing or using them, and non-native stat returns before interpreting fields. Known invalid returns remain known in the attempt rows; ROOT-known native FD/stat values are never substituted.
+
+NEW5 befored42980/0c3ddf yields2FAIL/3PASS/0ERROR: two classification/refusal policies, not two spontaneous kernel bugs or a RAM cause. Distinct unknown-open/unknown-stat controls and a new normal empty-file control already passed. Finalb2488d/f12e8f passes28selected=5matchingNEW+23affected(5previoussnapshot8end10actualwaitcallers). Empty snapshots still return size0 and the native empty SHA, with original flags, EOF, digest and close order. All other Source bytes remain exact; old test prefix is exact. Ten new direct views plus5affected direct/8end-command views and currentDarwinEX observations are UNIT facts, not full independent EX/originalLinuxcredentials/actor closure. Qwen69209/GLM69539 complete0/fullanswers/reaped are ROOTqualified; flag-fallback, import-time, base-path and cleanup claims are corrected in the assessment.
+
+Raw chunk retention remains unchanged and does not establish fixed-memory streaming or a RAM repair. Source remains uncommitted, uncanonical and unadmitted; runtime admission and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-snapshot-open-stat-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-snapshot-open-stat-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-snapshot-open-stat-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Preserve snapshot read failures before cleanup or formatting
 
 The legacy log-snapshot helper closed its FD after an unknown read return. If that close also failed and formatting the secondary error raised, it replaced the original read error. Snapshot attempts now retain the first error, FD and per-call observations before I/O. Unknown reads or closes and known invalid None reads refuse further cleanup or reporting. Native close completion stays unknown when only ROOT observed its return; the retained FD number is data, not ownership or release authority.
