@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Retain archive constructor errors before the catch reads metadata
+
+A new controlled regression completes an actual fixture Git archive, then raises First after the snapshot constructor returns only to ROOT. A subsequent producer pending getter raises Secondary. The original constructor catch allowed Secondary to replace First. Three new cases before the fix produce 1FAIL/2PASS/0ERROR; the normal metadata and distinct finite recipe controls already pass.
+
+The catch now obtains its existing private first-error group before reading pending. Its original body remains inside a try: the same escaping error is rethrown unchanged, while a distinct secondary failure uses the existing private refusal. All six selected after tests pass: the matching three new cases and three constructor-refusal callers. Earlier pendingTrue deferral, helper acquisition, bindings and transitive actors remain outside this executed scope. Other existing Source bytes and the old test prefix are exact.
+
+The first harness attempt has three preserved setup errors before any producer constructor; a fresh corrected attempt executes the target for the first time. A separate collector count error is corrected from saved data without rerunning tests, models or Source census. Both advisory calls reach token limits with no final answer; ROOT independently qualifies the patch and evidence. Known finite waits, source order and FD checks remain unit data. Source is uncommitted, uncanonical and unadmitted. RAM repair and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-archive-constructor-catch-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-archive-constructor-catch-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-archive-constructor-catch-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Preserve the auxiliary snapshot error before fallible metadata
 
 A controlled snapshot constructor completed inside the test controller, which then raised the original error before returning the object to Source. A subsequent auxiliary metadata getter or setter could replace that error. Four new regressions produced 2FAIL/2PASS/0ERROR before the change. A private first-error record now precedes secondary metadata handling; a pure guard prevents repeated metadata handling. All four matching regressions pass. The unknown constructor object remains unregistered and unavailable to Source.

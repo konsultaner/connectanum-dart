@@ -1,0 +1,1108 @@
+{
+  "utc": "2026-11-05T11:44:26.407290+00:00",
+  "source_sha256": "ae1d1affd969a94137b886b20f3aefd231dd2fd4f3d7d95b2fbe382db31f7d79",
+  "test_sha256": "0265f84d36016deb2c163c8af09cf0a5578a8f4367462fbca26fb22bda406e7d",
+  "v1_setupERROR_frozen": {
+    "tests": 3,
+    "failures": 0,
+    "errors": 3,
+    "passes": 0,
+    "leases": [
+      {
+        "test": "test_new_archive_constructor_First_normal_metadata (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_First_normal_metadata (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_normal_finite_recipe_full_bytes (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_normal_finite_recipe_full_bytes (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "details": [
+      {
+        "test": "test_new_archive_constructor_First_normal_metadata (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/archive_constructor_catch_regressions-v1.py\", line 124, in test_new_archive_constructor_First_normal_metadata\n    def test_new_archive_constructor_First_normal_metadata(self):self._case('first_only')\n                                                                 ~~~~~~~~~~^^^^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/archive_constructor_catch_regressions-v1.py\", line 32, in _case\n    native_os=b.os;native_open=Path.open;native_allocate=b._allocate_process;native_observe=b._observe_auxiliary\n                                                         ^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'native_perf_build_producer' has no attribute '_allocate_process'\n"
+      },
+      {
+        "test": "test_new_archive_constructor_normal_finite_recipe_full_bytes (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/archive_constructor_catch_regressions-v1.py\", line 125, in test_new_archive_constructor_normal_finite_recipe_full_bytes\n    def test_new_archive_constructor_normal_finite_recipe_full_bytes(self):self._case('normal')\n                                                                           ~~~~~~~~~~^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/archive_constructor_catch_regressions-v1.py\", line 32, in _case\n    native_os=b.os;native_open=Path.open;native_allocate=b._allocate_process;native_observe=b._observe_auxiliary\n                                                         ^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'native_perf_build_producer' has no attribute '_allocate_process'\n"
+      },
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/archive_constructor_catch_regressions-v1.py\", line 123, in test_new_pending_getter_preserves_archive_constructor_First\n    def test_new_pending_getter_preserves_archive_constructor_First(self):self._case('pending')\n                                                                          ~~~~~~~~~~^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/archive_constructor_catch_regressions-v1.py\", line 32, in _case\n    native_os=b.os;native_open=Path.open;native_allocate=b._allocate_process;native_observe=b._observe_auxiliary\n                                                         ^^^^^^^^^^^^^^^^^^^\nAttributeError: module 'native_perf_build_producer' has no attribute '_allocate_process'\n"
+      }
+    ],
+    "source_sha256": "350759256161727a69fbabf81e38d9cbcc756a387c06e0b17dd7bdf7fadf42f0",
+    "test_sha256": "43e6e0e4d0741f4f634985f3b29ba2efa4418aa29afca7fef4eab552c5df934b",
+    "no_old_control_replay": true,
+    "not_currentcanonical_admission": true
+  },
+  "before_NEW3": {
+    "tests": 3,
+    "failures": 1,
+    "errors": 0,
+    "passes": 2,
+    "leases": [
+      {
+        "test": "test_new_archive_constructor_First_normal_metadata (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_First_normal_metadata (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_normal_finite_recipe_full_bytes (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_normal_finite_recipe_full_bytes (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "details": [
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (archive_catch_regressions.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/archive_constructor_catch_regressions-v2.py\", line 130, in test_new_pending_getter_preserves_archive_constructor_First\n    def test_new_pending_getter_preserves_archive_constructor_First(self):self._case('pending')\n                                                                          ~~~~~~~~~~^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/archive_constructor_catch_regressions-v2.py\", line 104, in _case\n    self.assertTrue(received is first);self.assertIsNone(returned);self.assertEqual(1,len(seen['ctor']));self.assertFalse(view['snapshot_root_object_registered']);self.assertFalse(view['source_tar_exists'])\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      }
+    ],
+    "source_sha256": "350759256161727a69fbabf81e38d9cbcc756a387c06e0b17dd7bdf7fadf42f0",
+    "test_sha256": "43e6e0e4d0741f4f634985f3b29ba2efa4418aa29afca7fef4eab552c5df934b",
+    "no_old_control_replay": true,
+    "not_currentcanonical_admission": true
+  },
+  "after_selected6": {
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "passes": 6,
+    "leases": [
+      {
+        "test": "test_new_archive_constructor_First_normal_metadata (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_First_normal_metadata (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_normal_finite_recipe_full_bytes (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_archive_constructor_normal_finite_recipe_full_bytes (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_dirty_source_refused_before_command (test_native_perf_build_producer.ProducerTests.test_dirty_source_refused_before_command)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_dirty_source_refused_before_command (test_native_perf_build_producer.ProducerTests.test_dirty_source_refused_before_command)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_wrong_archive_refused_before_command (test_native_perf_build_producer.ProducerTests.test_wrong_archive_refused_before_command)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_wrong_archive_refused_before_command (test_native_perf_build_producer.ProducerTests.test_wrong_archive_refused_before_command)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_head_drift_refused_before_command (test_native_perf_build_producer.ProducerTests.test_head_drift_refused_before_command)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_head_drift_refused_before_command (test_native_perf_build_producer.ProducerTests.test_head_drift_refused_before_command)",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "root_original_waits": [
+      {
+        "test": "test_new_archive_constructor_First_normal_metadata (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+        "rows": [
+          {
+            "pid": 327,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 330,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 335,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 336,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_new_archive_constructor_normal_finite_recipe_full_bytes (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+        "rows": [
+          {
+            "pid": 353,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 361,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 362,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 363,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 364,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 366,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 368,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 369,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_new_pending_getter_preserves_archive_constructor_First (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+        "rows": [
+          {
+            "pid": 394,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 395,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 396,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 397,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_dirty_source_refused_before_command (test_native_perf_build_producer.ProducerTests.test_dirty_source_refused_before_command)",
+        "rows": [
+          {
+            "pid": 412,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 413,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_wrong_archive_refused_before_command (test_native_perf_build_producer.ProducerTests.test_wrong_archive_refused_before_command)",
+        "rows": [
+          {
+            "pid": 424,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 426,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 427,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 428,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_head_drift_refused_before_command (test_native_perf_build_producer.ProducerTests.test_head_drift_refused_before_command)",
+        "rows": [
+          {
+            "pid": 445,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      }
+    ],
+    "source_sha256": "ae1d1affd969a94137b886b20f3aefd231dd2fd4f3d7d95b2fbe382db31f7d79",
+    "test_sha256": "0265f84d36016deb2c163c8af09cf0a5578a8f4367462fbca26fb22bda406e7d",
+    "details": [],
+    "selected": [
+      "test_new_archive_constructor_First_normal_metadata (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_archive_constructor_First_normal_metadata)",
+      "test_new_archive_constructor_normal_finite_recipe_full_bytes (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_archive_constructor_normal_finite_recipe_full_bytes)",
+      "test_new_pending_getter_preserves_archive_constructor_First (test_native_perf_build_producer.ArchiveConstructorCatchTests.test_new_pending_getter_preserves_archive_constructor_First)",
+      "test_dirty_source_refused_before_command (test_native_perf_build_producer.ProducerTests.test_dirty_source_refused_before_command)",
+      "test_wrong_archive_refused_before_command (test_native_perf_build_producer.ProducerTests.test_wrong_archive_refused_before_command)",
+      "test_head_drift_refused_before_command (test_native_perf_build_producer.ProducerTests.test_head_drift_refused_before_command)"
+    ],
+    "no_old27_replay_or_currentcanonical_admission": true
+  },
+  "controls": {
+    "BEFORE": {
+      "newviews": 3,
+      "root_original_bound_wait_rows": 17,
+      "all_signed0": true,
+      "Root_file_closes_afterevidence": 1
+    },
+    "AFTER": {
+      "newviews": 3,
+      "root_original_bound_wait_rows": 17,
+      "all_signed0": true,
+      "Root_file_closes_afterevidence": 1
+    }
+  },
+  "parent_after_original_bound_wait_rows23_includes_sameNEW16Aux_and_affected7": true,
+  "selected_views": {
+    "BEFORE": [
+      {
+        "archive_constructor_catch": "first_only",
+        "received_First": true,
+        "received_Secondary": false,
+        "received_type": "FirstArchiveError",
+        "Source_returned_object": false,
+        "snapshot_root_object_count": 1,
+        "snapshot_root_object_registered": false,
+        "pending_fault": false,
+        "pending_native_false": false,
+        "captured_private_guard_First": false,
+        "captured_groups": 1,
+        "Source_finished": true,
+        "Source_pending": false,
+        "source_tar_exists": false,
+        "actors": [
+          {
+            "pid": 99445,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/first_only-bnjge4_t/repo",
+              "rev-parse",
+              "HEAD"
+            ]
+          },
+          {
+            "pid": 99446,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/first_only-bnjge4_t/repo",
+              "status",
+              "--porcelain",
+              "--untracked-files=normal"
+            ]
+          },
+          {
+            "pid": 99447,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/first_only-bnjge4_t/repo",
+              "diff",
+              "--no-ext-diff",
+              "--no-textconv",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc",
+              "--",
+              "packages",
+              "native"
+            ]
+          },
+          {
+            "pid": 99448,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/first_only-bnjge4_t/repo",
+              "archive",
+              "--format=tar",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc"
+            ]
+          }
+        ],
+        "normal_result_kind": null,
+        "normal_result_status": null,
+        "expected_archive_sha256": "fc1fb9953709a3224ae6b951a002e3cb737f580b7c720c1ea57bf067d0c3aa7c",
+        "registry_growth": 8,
+        "setup_statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "unit_only_no_runtime_admission": true
+      },
+      {
+        "archive_constructor_catch": "normal",
+        "received_First": false,
+        "received_Secondary": false,
+        "received_type": null,
+        "Source_returned_object": true,
+        "snapshot_root_object_count": 0,
+        "snapshot_root_object_registered": false,
+        "pending_fault": false,
+        "pending_native_false": false,
+        "captured_private_guard_First": false,
+        "captured_groups": 0,
+        "Source_finished": true,
+        "Source_pending": false,
+        "source_tar_exists": true,
+        "actors": [
+          {
+            "pid": 99458,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/normal-v8hlcqym/repo",
+              "rev-parse",
+              "HEAD"
+            ]
+          },
+          {
+            "pid": 99459,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/normal-v8hlcqym/repo",
+              "status",
+              "--porcelain",
+              "--untracked-files=normal"
+            ]
+          },
+          {
+            "pid": 99460,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/normal-v8hlcqym/repo",
+              "diff",
+              "--no-ext-diff",
+              "--no-textconv",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc",
+              "--",
+              "packages",
+              "native"
+            ]
+          },
+          {
+            "pid": 99461,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/normal-v8hlcqym/repo",
+              "archive",
+              "--format=tar",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc"
+            ]
+          },
+          {
+            "pid": 99462,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/normal-v8hlcqym/repo",
+              "ls-tree",
+              "-rz",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc"
+            ]
+          },
+          {
+            "pid": 99463,
+            "argv": [
+              "ROOT-known-returned-recipe-Popen"
+            ]
+          },
+          {
+            "pid": 99464,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/normal-v8hlcqym/repo",
+              "rev-parse",
+              "HEAD"
+            ]
+          },
+          {
+            "pid": 99465,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/normal-v8hlcqym/repo",
+              "status",
+              "--porcelain",
+              "--untracked-files=normal"
+            ]
+          },
+          {
+            "pid": 99466,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/normal-v8hlcqym/repo",
+              "diff",
+              "--no-ext-diff",
+              "--no-textconv",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc",
+              "--",
+              "packages",
+              "native"
+            ]
+          }
+        ],
+        "normal_result_kind": "fixture-command-evidence-v1",
+        "normal_result_status": "success",
+        "expected_archive_sha256": "fc1fb9953709a3224ae6b951a002e3cb737f580b7c720c1ea57bf067d0c3aa7c",
+        "registry_growth": 18,
+        "setup_statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "unit_only_no_runtime_admission": true
+      },
+      {
+        "archive_constructor_catch": "pending",
+        "received_First": false,
+        "received_Secondary": true,
+        "received_type": "SecondaryPendingError",
+        "Source_returned_object": false,
+        "snapshot_root_object_count": 1,
+        "snapshot_root_object_registered": false,
+        "pending_fault": true,
+        "pending_native_false": true,
+        "captured_private_guard_First": false,
+        "captured_groups": 0,
+        "Source_finished": false,
+        "Source_pending": false,
+        "source_tar_exists": false,
+        "actors": [
+          {
+            "pid": 99477,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/pending-yv1qlvrt/repo",
+              "rev-parse",
+              "HEAD"
+            ]
+          },
+          {
+            "pid": 99478,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/pending-yv1qlvrt/repo",
+              "status",
+              "--porcelain",
+              "--untracked-files=normal"
+            ]
+          },
+          {
+            "pid": 99479,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/pending-yv1qlvrt/repo",
+              "diff",
+              "--no-ext-diff",
+              "--no-textconv",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc",
+              "--",
+              "packages",
+              "native"
+            ]
+          },
+          {
+            "pid": 99480,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/before-NEW3-v2/fixtures/pending-yv1qlvrt/repo",
+              "archive",
+              "--format=tar",
+              "bfbe7d9b6dd83f44b7a7fe843b9b23818b8cedcc"
+            ]
+          }
+        ],
+        "normal_result_kind": null,
+        "normal_result_status": null,
+        "expected_archive_sha256": "fc1fb9953709a3224ae6b951a002e3cb737f580b7c720c1ea57bf067d0c3aa7c",
+        "registry_growth": 8,
+        "setup_statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "unit_only_no_runtime_admission": true
+      }
+    ],
+    "AFTER": [
+      {
+        "archive_constructor_catch": "first_only",
+        "received_First": true,
+        "received_Secondary": false,
+        "received_type": "FirstArchiveError",
+        "Source_returned_object": false,
+        "snapshot_root_object_count": 1,
+        "snapshot_root_object_registered": false,
+        "pending_fault": false,
+        "pending_native_false": false,
+        "captured_private_guard_First": false,
+        "captured_groups": 2,
+        "Source_finished": true,
+        "Source_pending": false,
+        "source_tar_exists": false,
+        "actors": [
+          {
+            "pid": 327,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/first_only-c0_1unfz/repo",
+              "rev-parse",
+              "HEAD"
+            ]
+          },
+          {
+            "pid": 330,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/first_only-c0_1unfz/repo",
+              "status",
+              "--porcelain",
+              "--untracked-files=normal"
+            ]
+          },
+          {
+            "pid": 335,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/first_only-c0_1unfz/repo",
+              "diff",
+              "--no-ext-diff",
+              "--no-textconv",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4",
+              "--",
+              "packages",
+              "native"
+            ]
+          },
+          {
+            "pid": 336,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/first_only-c0_1unfz/repo",
+              "archive",
+              "--format=tar",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4"
+            ]
+          }
+        ],
+        "normal_result_kind": null,
+        "normal_result_status": null,
+        "expected_archive_sha256": "e4bebd9a8c85be6b5f266f771b5133139e4ad4ea1418d71ac0c12c379802d29e",
+        "registry_growth": 8,
+        "setup_statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "unit_only_no_runtime_admission": true
+      },
+      {
+        "archive_constructor_catch": "normal",
+        "received_First": false,
+        "received_Secondary": false,
+        "received_type": null,
+        "Source_returned_object": true,
+        "snapshot_root_object_count": 0,
+        "snapshot_root_object_registered": false,
+        "pending_fault": false,
+        "pending_native_false": false,
+        "captured_private_guard_First": false,
+        "captured_groups": 0,
+        "Source_finished": true,
+        "Source_pending": false,
+        "source_tar_exists": true,
+        "actors": [
+          {
+            "pid": 353,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/normal-r8_h19cc/repo",
+              "rev-parse",
+              "HEAD"
+            ]
+          },
+          {
+            "pid": 361,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/normal-r8_h19cc/repo",
+              "status",
+              "--porcelain",
+              "--untracked-files=normal"
+            ]
+          },
+          {
+            "pid": 362,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/normal-r8_h19cc/repo",
+              "diff",
+              "--no-ext-diff",
+              "--no-textconv",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4",
+              "--",
+              "packages",
+              "native"
+            ]
+          },
+          {
+            "pid": 363,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/normal-r8_h19cc/repo",
+              "archive",
+              "--format=tar",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4"
+            ]
+          },
+          {
+            "pid": 364,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/normal-r8_h19cc/repo",
+              "ls-tree",
+              "-rz",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4"
+            ]
+          },
+          {
+            "pid": 365,
+            "argv": [
+              "ROOT-known-returned-recipe-Popen"
+            ]
+          },
+          {
+            "pid": 366,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/normal-r8_h19cc/repo",
+              "rev-parse",
+              "HEAD"
+            ]
+          },
+          {
+            "pid": 368,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/normal-r8_h19cc/repo",
+              "status",
+              "--porcelain",
+              "--untracked-files=normal"
+            ]
+          },
+          {
+            "pid": 369,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/normal-r8_h19cc/repo",
+              "diff",
+              "--no-ext-diff",
+              "--no-textconv",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4",
+              "1b29d426f248799d76f6bb204ae96a2f06ef47f4",
+              "--",
+              "packages",
+              "native"
+            ]
+          }
+        ],
+        "normal_result_kind": "fixture-command-evidence-v1",
+        "normal_result_status": "success",
+        "expected_archive_sha256": "e4bebd9a8c85be6b5f266f771b5133139e4ad4ea1418d71ac0c12c379802d29e",
+        "registry_growth": 18,
+        "setup_statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "unit_only_no_runtime_admission": true
+      },
+      {
+        "archive_constructor_catch": "pending",
+        "received_First": true,
+        "received_Secondary": false,
+        "received_type": "FirstArchiveError",
+        "Source_returned_object": false,
+        "snapshot_root_object_count": 1,
+        "snapshot_root_object_registered": false,
+        "pending_fault": true,
+        "pending_native_false": true,
+        "captured_private_guard_First": true,
+        "captured_groups": 1,
+        "Source_finished": false,
+        "Source_pending": false,
+        "source_tar_exists": false,
+        "actors": [
+          {
+            "pid": 394,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/pending-b_02wf8m/repo",
+              "rev-parse",
+              "HEAD"
+            ]
+          },
+          {
+            "pid": 395,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/pending-b_02wf8m/repo",
+              "status",
+              "--porcelain",
+              "--untracked-files=normal"
+            ]
+          },
+          {
+            "pid": 396,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/pending-b_02wf8m/repo",
+              "diff",
+              "--no-ext-diff",
+              "--no-textconv",
+              "9bf1194395635cad538dafe4f46d8f4318b88444",
+              "9bf1194395635cad538dafe4f46d8f4318b88444",
+              "--",
+              "packages",
+              "native"
+            ]
+          },
+          {
+            "pid": 397,
+            "argv": [
+              "git",
+              "-C",
+              "/private/tmp/connectanum-native-perf-archive-constructor-catch-progress-v1/after-selected6/new-fixtures/pending-b_02wf8m/repo",
+              "archive",
+              "--format=tar",
+              "9bf1194395635cad538dafe4f46d8f4318b88444"
+            ]
+          }
+        ],
+        "normal_result_kind": null,
+        "normal_result_status": null,
+        "expected_archive_sha256": "b778ed33a077e5f8fbbd79104aa2df5e23d8b184b01ff8f312afe54986ed2563",
+        "registry_growth": 8,
+        "setup_statuses": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "unit_only_no_runtime_admission": true
+      }
+    ]
+  },
+  "models": {
+    "planning": {
+      "pid": 98741,
+      "status": 1,
+      "stdout_size": 0,
+      "stderr_size": 443,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "4496a30853df5c4008cc046fd6af3b302dc0f758ee186bd63ef15858a5900cde",
+      "both_separate_EOF": true
+    },
+    "review": {
+      "pid": 99726,
+      "status": 1,
+      "stdout_size": 0,
+      "stderr_size": 983,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "207652fd274859687a7afb1c39c3344d77aac93d4c221883f7de7f19d39872fc",
+      "both_separate_EOF": true
+    }
+  },
+  "wholeSource_BYTEprojectback": true,
+  "only_existing_method_changed": "CommandProducer.__init__",
+  "oldtest_PREFIX_exact": true,
+  "other18helpers3bins_unchanged": true,
+  "v1_verified23hashes_DATA_v2_firstSourceGit4_0_BOTH": true,
+  "SourceGit": [
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 1383,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 41,
+      "stderr_size": 0,
+      "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "branch",
+        "--show-current"
+      ],
+      "pid": 1384,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 36,
+      "stderr_size": 0,
+      "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain",
+        "--untracked-files=all"
+      ],
+      "pid": 1385,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 728,
+      "stderr_size": 0,
+      "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+        "--stat",
+        "--",
+        "packages",
+        "native"
+      ],
+      "pid": 1386,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 0,
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limits": [
+    "Only pending-getter catch gap executed: BEFORE NEW3 1FAIL2PASS0ERROR at350759/43e6e0; actualGit archive SourceAux completes then actual_FileSnapshotAttempt returns ROOT-only object andRootFirst; pending nativeFalse thenSecondary masksFirst. NormalmetadataFirst and distinct normal finite recipe controls alreadyPASS. This is one controlledfirstreplacement, not nativekernelbug/RAMcause.",
+    "Finalae1d1a/0265f8 AFTER6PASS=matchingNEW3+3constructorrefusal callers(dirty source/wrong archive/head drift), once. No old27-completed25-old2bodies-old7suite rerun; prior25PASS2ERROR staysfrozen/separate, futurefixtureNEW3 staysseparate. No aggregate current20canonical. PendingTrue deferral branch and earlier catchgroup acquisition/bindings/interiors/concurrentABA/higherhistoricaltransitive actors remain unexecuted/unproved.",
+    "Minimal existingCommandProducer.__init__catch only: existingfailuregroup capturesFirst BEFOREpending metadata; originalcatchbody inside try; identicalerror bare rethrow preserves normal helper quarantine state; distinctSecondary ->existingprivate refuse raisesFirst. Originalhelper/othermethodsclassesfunctions-oldauxpredicates-owner_emit_attempted exact/wholeSourceBYTEprojectback/oldtestPREFIXexact+v2NEW3append. Source pendingFalse/finishedFalse aftergetterfault staysDATA/no Sourcefieldrestore. UnknownsnapshotRootobject neverregistered-adopted-run; no returnedProducerafternegative/no partialPopenmethods-fieldderivedsettlement.",
+    "Privatev1 BEFORE3setupERROR atwrongmodule_allocate_process lookup AFTER7nativeGitsetupcommands percase BEFORESource constructor0-target0. ALLv1raws terminal/protected/no repeat. V2correct actualAuxiliaryCommand._allocate_process method and bounded recipeprocess setter retain confirmedoriginalPopen/boundwait BEFORESourceIO/publication; no Popenclass/globalmodulepatch/proxyPID/credentialsSDKchanges. V2firstactualNEW3 BEFORE. Declaration initially said8setupcommands; actual7 correctedinnewcandidate-declaration beforeSourceedit. Controllers defined beforecalls; initialplanningcontroller file savedAFTERactualplanning API, notfile-before-exec claim.",
+    "6newviews3BEFORE3AFTER; nativeSourceactors/rootboundwaitrows17each(4Firstnormalmetadata+9normalrecipe+4pending), all signed0/cachedpossible; Rootknownfileclose1before1after pendingcase AFTERevidence only. ParentAFTER Root23sameoriginalboundwaitrows include16sameNEW3Aux plus7affected SourceAux; privateNEW3rows17 alsoinclude1recipeactor, doNOTaddduplicates. ParentCURRENT officialDarwinEX6BEFORE12AFTERNone observations UNITnotfullphysicalEX-originalLinuxcredentials/fullFD-interpreter-delegate-descendantclosure-liveownership-admission. Setup/internalFD/affectedtestGitAPIreturns notallserialized/no reconstruction-globalPIDscan-kill-globalabsence-fullreap.",
+    "NEWfixture Gitsetup7percase, rawstdout/stderr fullSHA-size/status0/BOTH EOF; each namespace new, SourceactualfixtureGitarchive/SHA/recipefullbytes notproductionSourceSDKcohort. NormalconstructorretainedrecipePopen beforeSourcepublication/classsetterdelegates; Aux originalmethodreturncapturedbeforeSourcepublication. RootknownFDdevino data notatomicABA-writer-closure-auth. No Sourcepostfaultmethods except capturedpureprivateguard fromactualfailuregroup BEFOREpendingSecondary; guard returnsOriginalFirst/no metadataIO.",
+    "Qwen98741planning tokenlimit1/0stdout443stderr; GLM99726review tokenlimit1/0stdout983stderr; BOTH EOF/naturalhelperreaped/fullpartialfinalBOTH_ABSENT/no reconstruction/reachableNOTglobalunavailability-approval/no unchangedmodelretry. ROOTindependentfullcandidate-tests/order/projections/selectedresults qualification, no modelwholecurrentapproval.",
+    "Current23hashes other18helpers3bins unchanged/SourceGit4fresh status0-BOTH/HEAD601-ownbranch20untracked-productiontrackedempty DATA; all20uncommitteduncanonicalunadmitted/no Sourcecommit-push-adoption-SDK-nativebuild-current20canonical-kernel-broker-benchmarkcapture-strictdispatch. Strongowners/groups/closures/rawchunks processlife NOTfixedmemory/heapRSSgrowth-allocvolume-timing-leakcauseUNMEASURED/no memorybound-RAMrepair-trim-pop-reset-evict-deleteauthority.",
+    "ProviderABSENT/gatealwaysraises/controllerCLOSED/ownershipNone/all3flagsFalse/fullindependentEX-originalruntimeimmutableCOMPLETEadmission/RAMrepair-finalstrict48/50-cleanfinalCI INCOMPLETE/PR132OPENdraft#130/issue103milestoneOPEN. StoragefloorsDATA-recheck/notbuild-capture-deletionauthority/outsidecleanupcauseUNMEASURED.",
+    "ROOTcollectorv1 failed expectedparent24 oracle AFTERSource23hash/projection/view validations BEFOREmodels-Git4-assessment/publication. Actualparent23=16NEW3Aux+7affected; private17 additionallyincludesrecipe. Newv2 correctsONLYsavedDATA count/labels, reuses savedsource/hashDATA, firstGit4; no Source-edit-unit-model-Sourcecensus replay. Oldv1/raws frozen, administrativeoraclefailure notSource/numericalfailure."
+  ],
+  "storage": {
+    "free_bytes": 278739562496,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-archive-constructor-catch-progress-evidence.tar.gz",
+    "archive_sha256": "79f88d1075252cf4d59c83a716633e7e673a38977d6dc21e9f043991c8650c89",
+    "selected_regular_members": 1003,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-archive-constructor-catch-progress-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-archive-constructor-catch-progress-assessment.json"
+  }
+}
