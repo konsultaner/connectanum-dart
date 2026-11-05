@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Guard original Auxiliary factory returns and owner context
+
+The original public constructor call and owner append now retain intent, actual raw return and original context before later checks or child launch. Unknown constructor returns remain separate from allocation/initializer facts; invalid None/False and owner-list/environment drift stop before append/start. Original Auxiliary/Popen code, frozen predicates and start/result/wait60/status suffix remain exact. Strong owner references, snapshots and completion flags are DATA, never method authority, physical EX or runtime admission.
+
+NEW7 at745515/823166 yield6FAIL/1normalPASS/0APIerrors:2actual context-drift child launches,2invalid-return appends and2stronger raw/first policies where old first already escapes, not6 native bugs. Finalb84c8e/6908a9 passes21selected checks (7new+14affected). ROOT qualifies whole source/tests/AST/23hashes/other18helpers3bins and4newGit0/BOTHstreams/601/20untracked/productiondiffempty. Qwen planning0 is advisory; GLM review tokenlimit1/full partial final ABSENT is not approval/unavailability. Fourteen unit views and3BEFORE/1AFTER signed0 bounded SAMEactor waits remain DATA; current Darwin EX verification is not independent full EX/original Linux credentials. Root preparation/index and exact separator-projection corrections are retained; no Source/test/model replay. Earlier APIs/backingFD/enclosing/suffix/historical/transitive actors/full independent EX/runtime admission remain incomplete. No SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-aux-factory-call-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-aux-factory-call-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-aux-factory-call-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Retain Auxiliary objects before early initializer I/O
 
 The ordinary public constructor now retains its allocated object before the initializer's first filesystem operation. A same-signature wrapper delegates to the byte-exact original body and binds first before metadata; a pure first guard precedes old checks so early errors do not probe half-built fields. Allocation/initializer facts remain DATA; outer constructor-return/owner-append confirmation remains incomplete. Original factory, Popen guards/factories and frozen predicates remain intact. No record grants method authority or EX/admission.
