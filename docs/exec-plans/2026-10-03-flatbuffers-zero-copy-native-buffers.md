@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Require an exact UID return before snapshot reads
+
+A controlled wrapper returned501.0 after the native getuid call returned501. The helper accepted numeric equality with the file owner and continued hashing, reading and closing the file. It now requires an exact nonnegative native integer before comparing the owner or reading. The known float stays recorded as returned; an unknown completion keeps its original error and stays unknown. Actual credentials and native I/O order remain unchanged.
+
+Four new controls before99d39c/dfd8e9 produced1FAIL/3PASS/0ERROR. This is one controlled return-contract continuation gap, not a spontaneous kernel bug or a RAM cause. The unknown-completion control, actual owned directory and distinct normal19-byte file already passed. Final3a007f/286a72 passes44selected=4matchingNEW+40affected(22previoussnapshot8end10actualwaitcallers). The directory still short-circuits before getuid. Whole Source projection and the existing test prefix are exact. Both advisory models completed; ROOT rejects their incorrect API and test claims and independently qualifies the patch and results.
+
+Eight new direct views create no child actors. Current Darwin lease observations, known FD cleanup and affected finite waits remain unit evidence; full independent EX and original Linux actor closure remain unproved. Read-chunk retention is unchanged and establishes no heap/RSS bound. Source remains uncommitted, uncanonical and unadmitted; runtime admission, RAM repair and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-snapshot-uid-returns-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-snapshot-uid-returns-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-snapshot-uid-returns-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Validate post-read snapshot stat returns
 
 The snapshot helper interpreted an invalid post-read FD or path stat as fields and raised AttributeError. It now checks for an exact native stat result before reading those fields or continuing. A known None return remains recorded as returned; an unknown completion keeps its original error and stays unknown. The native I/O order and the existing file-change refusal remain intact.

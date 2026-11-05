@@ -1,0 +1,963 @@
+{
+  "utc": "2026-11-05T09:18:53.779436+00:00",
+  "source_sha256": "3a007f6d252dcdaa90c7989681729f907b140ba01c361482b6e63d04faed38de",
+  "test_sha256": "286a72d74b73ae4516581b5f9b9d3c168b7f8c355e26a7978147f7dd34d373bd",
+  "before": {
+    "tests": 4,
+    "failures": 1,
+    "passes": 3,
+    "errors": 0,
+    "scope": "1controlled knownUIDfloat continuationgap/refusalpolicy NOTspontaneousnativekernelbug/RAMcause"
+  },
+  "after": {
+    "tests": 44,
+    "failures": 0,
+    "errors": 0,
+    "selection": [
+      "SnapshotUidReturnTests.test_actual_OWNdirectory_shortcircuits_before_uid_hash_read",
+      "SnapshotUidReturnTests.test_native_uid_then_first_keeps_unknown_uid",
+      "SnapshotUidReturnTests.test_native_uid_then_float_refuses_before_hash_read",
+      "SnapshotUidReturnTests.test_new_normal_uid_file_preserves_native_sha_order",
+      "SnapshotPostStatTests.test_actual_appended_OWNfile_is_refused_without_restoration",
+      "SnapshotPostStatTests.test_native_pathstat_then_None_refuses_known_invalid_stat",
+      "SnapshotPostStatTests.test_native_pathstat_then_first_keeps_unknown_stat",
+      "SnapshotPostStatTests.test_native_postread_fstat_then_None_refuses_known_invalid_stat",
+      "SnapshotPostStatTests.test_native_postread_fstat_then_first_keeps_unknown_stat",
+      "SnapshotPostStatTests.test_new_normal_poststat_file_preserves_native_sha_order",
+      "SnapshotHashReturnTests.test_native_hash_update_then_False_refuses_before_next_read",
+      "SnapshotHashReturnTests.test_native_hash_update_then_first_keeps_unknown_None",
+      "SnapshotHashReturnTests.test_native_hexdigest_then_False_refuses_before_close",
+      "SnapshotHashReturnTests.test_native_hexdigest_then_first_keeps_unknown_digest",
+      "SnapshotHashReturnTests.test_native_hexdigest_then_uppercase_refuses_before_close",
+      "SnapshotHashReturnTests.test_new_normal_twochunk_file_preserves_fullbytes_sha_order_close",
+      "SnapshotOpenStatTests.test_actual_fstat_then_None_refuses_known_invalid_stat",
+      "SnapshotOpenStatTests.test_actual_fstat_then_first_keeps_unknown_native_stat",
+      "SnapshotOpenStatTests.test_actual_open_then_False_refuses_before_fstat_nativeFD0",
+      "SnapshotOpenStatTests.test_actual_open_then_first_keeps_unknown_nativeFD",
+      "SnapshotOpenStatTests.test_new_normal_emptyfile_preserves_size_emptysha_flags_EOF_close",
+      "FileSnapshotBoundaryTests.test_actual_native_close_then_first_keeps_unknown_close_without_reclose",
+      "FileSnapshotBoundaryTests.test_actual_native_read_then_None_refuses_known_invalid_read_before_close",
+      "FileSnapshotBoundaryTests.test_actual_native_read_then_first_preserves_first_before_secondary_formatting",
+      "FileSnapshotBoundaryTests.test_actual_native_read_then_first_stops_before_close",
+      "FileSnapshotBoundaryTests.test_new_normal_file_stream_bytes_size_sha_flags_and_close",
+      "ProducerEndCommandTests.test_actual_command_end_event_then_error_stops_before_finish",
+      "ProducerEndCommandTests.test_actual_log_close_then_error_stops_before_snapshot",
+      "ProducerEndCommandTests.test_actual_log_fileno_then_False_stops_before_fsync",
+      "ProducerEndCommandTests.test_actual_log_flush_then_error_stops_enclosing_reporting",
+      "ProducerEndCommandTests.test_actual_log_fsync_then_error_stops_before_close",
+      "ProducerEndCommandTests.test_actual_log_snapshot_then_error_stops_before_event",
+      "ProducerEndCommandTests.test_new_normal_failed_exit3_ignored_closeFalse",
+      "ProducerEndCommandTests.test_new_normal_success_fullbytes_and_hash",
+      "ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+      "ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+      "ProducerTests.test_negative_signal_status_is_not_success",
+      "ProducerTests.test_timeout_only_waits_same_owned_process",
+      "ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+      "ProducerTests.test_input_drift_waits_for_natural_child_exit",
+      "ProducerTests.test_single_wait_budget_decreases_across_commands",
+      "ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+      "ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+      "ProducerTests.test_wait_status_retained_before_uncertain_log_close"
+    ],
+    "leases": [
+      {
+        "test": "test_native_perf_build_producer.SnapshotUidReturnTests.test_actual_OWNdirectory_shortcircuits_before_uid_hash_read",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotUidReturnTests.test_actual_OWNdirectory_shortcircuits_before_uid_hash_read",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotUidReturnTests.test_native_uid_then_first_keeps_unknown_uid",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotUidReturnTests.test_native_uid_then_first_keeps_unknown_uid",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotUidReturnTests.test_native_uid_then_float_refuses_before_hash_read",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotUidReturnTests.test_native_uid_then_float_refuses_before_hash_read",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotUidReturnTests.test_new_normal_uid_file_preserves_native_sha_order",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotUidReturnTests.test_new_normal_uid_file_preserves_native_sha_order",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_actual_appended_OWNfile_is_refused_without_restoration",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_actual_appended_OWNfile_is_refused_without_restoration",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_native_pathstat_then_None_refuses_known_invalid_stat",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_native_pathstat_then_None_refuses_known_invalid_stat",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_native_pathstat_then_first_keeps_unknown_stat",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_native_pathstat_then_first_keeps_unknown_stat",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_native_postread_fstat_then_None_refuses_known_invalid_stat",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_native_postread_fstat_then_None_refuses_known_invalid_stat",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_native_postread_fstat_then_first_keeps_unknown_stat",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_native_postread_fstat_then_first_keeps_unknown_stat",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_new_normal_poststat_file_preserves_native_sha_order",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotPostStatTests.test_new_normal_poststat_file_preserves_native_sha_order",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hash_update_then_False_refuses_before_next_read",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hash_update_then_False_refuses_before_next_read",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hash_update_then_first_keeps_unknown_None",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hash_update_then_first_keeps_unknown_None",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hexdigest_then_False_refuses_before_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hexdigest_then_False_refuses_before_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hexdigest_then_first_keeps_unknown_digest",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hexdigest_then_first_keeps_unknown_digest",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hexdigest_then_uppercase_refuses_before_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_native_hexdigest_then_uppercase_refuses_before_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_new_normal_twochunk_file_preserves_fullbytes_sha_order_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotHashReturnTests.test_new_normal_twochunk_file_preserves_fullbytes_sha_order_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_actual_fstat_then_None_refuses_known_invalid_stat",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_actual_fstat_then_None_refuses_known_invalid_stat",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_actual_fstat_then_first_keeps_unknown_native_stat",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_actual_fstat_then_first_keeps_unknown_native_stat",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_actual_open_then_False_refuses_before_fstat_nativeFD0",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_actual_open_then_False_refuses_before_fstat_nativeFD0",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_actual_open_then_first_keeps_unknown_nativeFD",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_actual_open_then_first_keeps_unknown_nativeFD",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_new_normal_emptyfile_preserves_size_emptysha_flags_EOF_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.SnapshotOpenStatTests.test_new_normal_emptyfile_preserves_size_emptysha_flags_EOF_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_close_then_first_keeps_unknown_close_without_reclose",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_close_then_first_keeps_unknown_close_without_reclose",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_None_refuses_known_invalid_read_before_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_None_refuses_known_invalid_read_before_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_first_preserves_first_before_secondary_formatting",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_first_preserves_first_before_secondary_formatting",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_first_stops_before_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_actual_native_read_then_first_stops_before_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_new_normal_file_stream_bytes_size_sha_flags_and_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.FileSnapshotBoundaryTests.test_new_normal_file_stream_bytes_size_sha_flags_and_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_command_end_event_then_error_stops_before_finish",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_command_end_event_then_error_stops_before_finish",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_close_then_error_stops_before_snapshot",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_close_then_error_stops_before_snapshot",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_fileno_then_False_stops_before_fsync",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_fileno_then_False_stops_before_fsync",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_flush_then_error_stops_enclosing_reporting",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_flush_then_error_stops_enclosing_reporting",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_fsync_then_error_stops_before_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_fsync_then_error_stops_before_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_snapshot_then_error_stops_before_event",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_actual_log_snapshot_then_error_stops_before_event",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_new_normal_failed_exit3_ignored_closeFalse",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_new_normal_failed_exit3_ignored_closeFalse",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_new_normal_success_fullbytes_and_hash",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEndCommandTests.test_new_normal_success_fullbytes_and_hash",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_negative_signal_status_is_not_success",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_negative_signal_status_is_not_success",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_timeout_only_waits_same_owned_process",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_timeout_only_waits_same_owned_process",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_input_drift_waits_for_natural_child_exit",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_input_drift_waits_for_natural_child_exit",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_single_wait_budget_decreases_across_commands",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_single_wait_budget_decreases_across_commands",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wait_status_retained_before_uncertain_log_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wait_status_retained_before_uncertain_log_close",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "source_sha256": "3a007f6d252dcdaa90c7989681729f907b140ba01c361482b6e63d04faed38de",
+    "test_sha256": "286a72d74b73ae4516581b5f9b9d3c168b7f8c355e26a7978147f7dd34d373bd",
+    "details": [],
+    "not_fullcanonical_admission": true
+  },
+  "ROOT": {
+    "wholeSource_BYTE_projectsback": true,
+    "all_other_existing_methods_helpers_classes_factories_frozenpredicates_exact": true,
+    "oldtests_PREFIX_exact": true,
+    "only_native_uid_shape_check": true,
+    "original_nonregular_getuid_owner_mode_size_shortcircuit_nativeIO_order_preserved": true,
+    "privatev1_BEFORE4_frozen": true,
+    "no_before_replay": true,
+    "Qwen_planning_ROOT_qualified": "79578status0/full1977stdout488stderr. OR firstnotregular isTrue andshortcircuits; modelANDwordingwrong. Neveradopt fakeFD1, MagicMockstat, globalos.patch, duplicate-st_mode snippet or oldopen-shape repeat; actualOWNfile/directory/nativegetuid thenfloat-orFirst controls retained.",
+    "other18helpers3bins_unchanged": true,
+    "hashes23": {
+      "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_build_producer.py": "3a007f6d252dcdaa90c7989681729f907b140ba01c361482b6e63d04faed38de",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+      "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+      "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+      "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_build_producer.py": "286a72d74b73ae4516581b5f9b9d3c168b7f8c355e26a7978147f7dd34d373bd",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+      "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+      "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+      "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+      "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+      "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+      "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+    },
+    "git_commands": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 80661,
+        "status": 0,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 80662,
+        "status": 0,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--short",
+          "--untracked-files=all"
+        ],
+        "pid": 80663,
+        "status": 0,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "--name-only",
+          "HEAD",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 80664,
+        "status": 0,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "new_direct_views": 8,
+    "new_child_actors": 0,
+    "affected_snapshot_direct_views": 22,
+    "affected_end_views": 8,
+    "affected_same_originalboundwaits": [
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 80160,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 80145,
+        "status": 3,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 80070,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 80115,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 80085,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 80100,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 80130,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "ROOT_same_original_bound_wait",
+        "pid": 80055,
+        "status": 0,
+        "cached_possible": true
+      }
+    ],
+    "parent_BEFORE_EXverify_None": 8,
+    "parent_AFTER_EXverify_None": 88,
+    "known_directFD_cleanup": {
+      "before": [
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        }
+      ],
+      "after-new": [
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        }
+      ],
+      "after-prior-snapshot": [
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        }
+      ],
+      "after-prior-openstat": [
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        }
+      ],
+      "after-prior-hash": [
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        }
+      ],
+      "after-prior-poststat": [
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "ROOT_close_None": true
+        },
+        {
+          "fd": 4,
+          "evidence_ready": true,
+          "ROOT_close": false,
+          "fstat_or_close_errno": 9
+        }
+      ]
+    }
+  },
+  "models": {
+    "Qwen": {
+      "pid": 79578,
+      "status": 0,
+      "stdout_size": 1977,
+      "stderr_size": 488,
+      "stdout_sha256": "3ea2d654f5d7a9b0b277275e5d2f5027bce021fd95308d276f344ff587e57902",
+      "stderr_sha256": "183ae48489ba9e14678be1e46c3b8d8211e10d4bc8bae6865486fb38e8a4eb13",
+      "both_separate_EOF": true
+    },
+    "GLM": {
+      "pid": 79756,
+      "status": 0,
+      "stdout_size": 1682,
+      "stderr_size": 598,
+      "stdout_sha256": "6d033699901ee4be56cff57a4ed4736bec9fbb7257edb7d3605670ebc183e933",
+      "stderr_sha256": "02f5058d7d08899ddddd586f502d3cc8e248f8d53e97e4f22b519f55b1018fb9",
+      "both_separate_EOF": true
+    },
+    "ROOT_qualified_NOTwholecurrentapproval": true,
+    "corrections": {
+      "models": {
+        "Qwen": {
+          "pid": 79578,
+          "status": 0,
+          "stdout_size": 1977,
+          "stderr_size": 488,
+          "stdout_sha256": "3ea2d654f5d7a9b0b277275e5d2f5027bce021fd95308d276f344ff587e57902",
+          "stderr_sha256": "183ae48489ba9e14678be1e46c3b8d8211e10d4bc8bae6865486fb38e8a4eb13",
+          "both_separate_EOF": true
+        },
+        "GLM": {
+          "pid": 79756,
+          "status": 0,
+          "stdout_size": 1682,
+          "stderr_size": 598,
+          "stdout_sha256": "6d033699901ee4be56cff57a4ed4736bec9fbb7257edb7d3605670ebc183e933",
+          "stderr_sha256": "02f5058d7d08899ddddd586f502d3cc8e248f8d53e97e4f22b519f55b1018fb9",
+          "both_separate_EOF": true
+        }
+      },
+      "ROOT_qualified_NOTwholecurrentapproval": true,
+      "corrections": [
+        "Qwen79578 OR/AND wording corrected: original firstnotregular isTrue inOR andshortcircuits beforegetuid. Neverexecute fakeFD1/MagicMockstat/globalos.patch/duplicate_st_mode snippet oroldopen-shape replay. ActualOWNfile/directory/nativegetuid thenfloat-orFirst retained.",
+        "GLM79756 Path.stat follow_symlinks API finding isfalse foractualruntime. Before99d39c/dfd8e9 normalOWNfile alreadyreturned nativeSHA/size with Sourcecache explicit follow_symlinks=False andstat_after rowreturnedTrue. No pathAPIreplacement/dropflag orunchangednormalrerun needed.",
+        "GLM raw_native_uid_int finding omits existing explicit type(raw) is int conjunction inprivatev1. Beforefloat actualnative501->501.0 passes equality/hashreadclose; afterexpectProducerError preservesknownrawfloatTRUE. No fieldorassertionchanges needed.",
+        "Guard outerexcept preservesunknownfirst via privateguard. OwnProducerError sees no priorprivatefirst until fail; matchingAFTERguards exercise this. Do notsuppressguard, force secondfail, addrepr-note orretry.",
+        "Defaultmaximum16GiB notsmall; negative/othermaximum shapes remainoutside thisUIDscope/constructor-metadata gap. Do notchange bounds/SDK/workers orclaimmemorybound.",
+        "ROOTFD isknownOWNunit FD registered beforefault, notborrowed; devino/pathcomparison remainsDATA/notatomicABA-auth-ownership. Calleeinterior/concurrentABA/allFDdescendantclosure/originalLinux/fullindependentEX/runtimeadmission unproved.",
+        "Planningv1 selected-source.py missing beforemodelcommand/Popen/inputfiles; oldtest-planning namespace terminal/rawactualAPIretained. Freshtest-planning-v2 usesactualbefore-snapshot.py; firstactualQwenexecution, notmodelretry orbackendunavailability/Sourcefailingregression. No reconstructomittedPID/status."
+      ],
+      "candidate_privatev1_unexecuted_beforeedit": true,
+      "no_Source_change_for_model_advice": true,
+      "no_before_replay": true
+    }
+  },
+  "limits": [
+    "ONLY_FileSnapshotAttempt.run nativeUID shape check: original nonregular test shortcircuits beforegetuid, then getuid must return exactnative int>=0 BEFOREownercomparison/hash/read. Knownfloat rowTRUE/raw501.0 retained; no cast-normalization/fallback orROOTknownnative501 substitution. UnknownnativegetuidthenFirst rowNoneFalse/originalFirst/pureguard unchanged. NativeUID0 legitimate ifactuallyreturned isdistinctFalse; actualdrivercredentials-env-host unchanged. UIDshape/fileUID/FD DATA notcredentials-auth-access-ownership-EXrelease/admission.",
+    "NEW4 BEFORE99d39c/dfd8e9=1FAIL3PASS0ERROR: actualnativegetuid501 thenROOTfloat501.0 accepted integer owner equality, hashed/read/closed/returnednormalSHA-size. One controlled known-return continuation gap/refusalpolicy NOTspontaneousnativekernelbug orRAMcause. UnknownnativeUIDthenFirst, actualOWNdirectory(nonregular beforegetuid), distinctnormal19B fullnativeSHA-size alreadyPASS. Final3a007f/286a72 selected44PASS=4matchingNEW+40affected(22previoussnapshot8end10actualwaitcallers); no old22BEFORE/model-numericalreplay/aggregate-current20canonical-admission.",
+    "MODULELOCALproducer.osfacade/actualnativeopen-fstat-getuid-read-close/no stdlibmodulemutation/fakeFD0-FD1/devnull/mockstat/credentialchanges. ROOTactualOWNFD/devino/flags/inheritableFalse registeredBEFOREfault; nativeROOTsetupfstat separatefromSourcecalls. Allthree negative modes stopbeforehash/read/close andusepureguardonly/no Sourcepreserver-repr-note-nextIO-retry-replay-restore/reset; directory neverSourcegetuid. Normaloriginalflags/defaultmax16GiB/getuidonce/fullsizeSHA/read-update-stat-digest-close order preserved. Immutablebeforestat uidfieldread movesacrossreturnedgetuidcall; metadata/globalbindings/calleeinterior/concurrentABA unproved.",
+    "8newdirectviews=4BEFORE4AFTER/ZEROnewchild plus22priorSnapshotdirectviews/8endseparate. Parent8BEFORE88AFTER CURRENT officialDarwinEXverifyNone UNITnotfullindependentEX-originalLinuxcredentials/allactorclosure. ROOTnewknownsameopenFDdevino closes2BEFORE(unknown-directory) and3AFTER(float-unknown-directory) AFTERevidence/assertionstage; beforefloat+normalSourceclosed/no borrowedclosedreclose.22priorRootclose17separate/8endROOTsameoriginalboundwait10 signed7zero1three/cachedpossible finiteUNITnotSourcecleanup-liveownership/fullFD-interpreter-delegate-descendantclosure. Setup/internalFD/APIreturnsnotallserialized/no reconstruction-globalPIDscan-kill-globalabsence-fullreap.",
+    "Qwen79578=0/1977stdout488stderr; GLM79756=0/1682stdout598stderr, fullanswers/BOTH separateEOF/reaped/ROOTqualified NOTwholecurrentapproval. RejectQwenANDwording(actualORfirstnotregularTrue shortcircuits)/fakeFD1-MagicMockstat-globalpatch/duplicate_st_mode snippet/oldopencontractreplay. RejectGLM Path.stat lacksfollow_symlinks: actualBEFOREnormalalreadyPASS withSourceexplicitFalse/stat_afterknownreturnedTrue; do notdropflag/changeAPI/replaynormal. RejectGLMmissingrawuidtypeconjunction: privatev1 already type(raw)isint beforeequality. Guardfirst behavior exercised, no suppress/addsecondfail; defaultmax16GiB notsmall/no negative-maxscopeexpansion. KnownOWNFDcleanup isnotborrowed; ABA remainsunproved.",
+    "Planningv1 FileNotFound selected-source.py aftertest-planning.mkdir/contextprefix BEFOREcommand/inputfiles/modelPopen; oldnamespaceTERMINAL/rawactualAPIretained/no PIDreconstruction. Freshtest-planning-v2 readsactualbefore-snapshot.py/firstactualQwenexecution, notmodelretry/backendunavailability/Sourcefailingregression. Candidatev1/privatev1 unexecuted beforeSourceedit/firstBEFORE; controllersBEFOREcalls. WholeSourceBYTEprojectback/allotherexistingclasses-methods-helpers-factories-frozenpredicates exact/oldtestPREFIXexact/other18helpers3bins/23hashes/4NEWGit0-BOTH/601ownbranch20untracked-productionempty DATA. Historicalartifacts untouched/privateartifactsoutsideHELPERBUNDLE20.",
+    "Rawreadrows/hashupdateargs chunkretention UNCHANGED/processlifetime/NOTfixedmemory streaming; default16GiBlogicalfilelimitNOTheapRSSbound/heapRSSmagnitude-growth-timing-leakcauseUNMEASURED/no memorybound-RAMrepair-trim-pop-reset-evict-deleteauthority.19Blogicalnormalfile/directdirectory+affectedfixturelogs notbenchmarkpayload-SDK-Dartbrokerproof. OriginalSDK/GC/worker/body/window/sample/ownership/gates untouched.",
+    "All20uncommitteduncanonicalunadmitted/production601trackedexact. EarlierSnapshotconstructor-registration/metadata-globalbindings-hashfactory/calleeinterior-returnshapes-statcontents-concurrentABA/otherAPIs/enclosing-publicunknownCtor/historical-transitive/fullindependentactualofficialEX+originalruntimeimmutableCOMPLETEadmission INCOMPLETE. UnknownCtorPERMANENTrefusal/no partialPopenmethods-fieldderivedsettlement. ProviderABSENT/gatealwaysraises/controllerCLOSED/ownershipNone/all3flagsFalse/no Sourcecommit-push-adoption/SDK-nativebuild-current20canonical-kernel-broker-benchmarkcapture-RAMrepair-strictacceptance; PR132OPENdraft#130/issue103milestoneOPEN. Storagefloors/recheck DATAnotbuild-capture-deletionauthority/causeoutsideoldcleanupUNMEASURED."
+  ],
+  "storage": {
+    "free_bytes": 296035614720,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-snapshot-uid-returns-progress-evidence.tar.gz",
+    "archive_sha256": "4d4feb834bb0238ce60ff1bbbdb42f345843db6e850e345ae1909f18aec01c64",
+    "selected_regular_members": 2129,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-snapshot-uid-returns-progress-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-snapshot-uid-returns-progress-assessment.json"
+  }
+}
