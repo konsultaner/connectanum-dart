@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Cover regular hash early API refusal paths
+
+Nine new controls pass on unchanged producerb84c8e:8negative getuid/path/stat-before/initial-fstat/hash-constructor-update-digest cases and1actual two-chunk normal input. No Source behavior fix or new production defect is established. The private v1 class ran once before test append; final test58ccf9 retains the exact old prefix and AST-equivalent class without replay. Prior writer9/factory21/older selections stay separate, not aggregate/current20canonical/admission.
+
+ROOT qualifies final source/tests/AST/23hashes/other19helpers3bins and4newGit0/BOTHstreams/601/20untracked/productiondiffempty DATA. First3negatives open no FD; five known FD ROOTcloses happen AFTERevidence. Eighteen currentDarwinEXverifyNone observations are not independent physicalEX/originalLinuxcredentials. Qwen8995/GLM9152advisory0/fullanswers are ROOTqualified, rejecting incorrect Source-vs-ROOT digest-row and getuid-empty-row claims. OtherAPIs/backingFD/enclosing-historical-transitive/fullindependentEX/runtime immutableCOMPLETE admission remain incomplete. All20helpers uncommitteduncanonicalunadmitted/production601. No SDK/build/capture/adoption/RAMrepair/strictacceptance.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-regular-hash-early-seams-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-regular-hash-early-seams-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-regular-hash-early-seams-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Cover writer early API refusal paths
 
 Nine new controls pass on unchanged producerb84c8e:8negative early open/lookup/enter/encode/fileno/metadata cases and1new distinct manager/enteredwriter normal case. No writer behavior fix or new production defect is established. The private class ran once before append; final test22e506 retains the exact old prefix and AST-equivalent appended class without a replay. Historical factory21 and earlier selections remain separate, not an aggregate/current20canonical/admission.
