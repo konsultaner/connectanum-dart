@@ -1,0 +1,1273 @@
+{
+  "utc": "2026-11-05T14:37:02.999706+00:00",
+  "source_sha256": "f39cf8fca989ee102cdd739211b015fca2957759cbf0e0ec924343b38c5f40aa",
+  "test_sha256": "bdcaf8629e9c8341eebd6ac70494cc2c40c2696c8c6995a23d62694df6fb5a02",
+  "BEFORE4": {
+    "utc": "2026-11-05T14:27:43.262111+00:00",
+    "tests": 4,
+    "failures": 2,
+    "errors": 0,
+    "passes": 2,
+    "leases": [
+      {
+        "test": "test_new_native_refusal_pendingFalse_caller_control (refusal_completion_scope.RefusalCompletionTests.test_new_native_refusal_pendingFalse_caller_control)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_native_refusal_pendingFalse_caller_control (refusal_completion_scope.RefusalCompletionTests.test_new_native_refusal_pendingFalse_caller_control)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_native_refusal_pendingTrue_caller_control (refusal_completion_scope.RefusalCompletionTests.test_new_native_refusal_pendingTrue_caller_control)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_native_refusal_pendingTrue_caller_control (refusal_completion_scope.RefusalCompletionTests.test_new_native_refusal_pendingTrue_caller_control)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_refusal_Third_cannot_replace_First (refusal_completion_scope.RefusalCompletionTests.test_new_refusal_Third_cannot_replace_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_refusal_Third_cannot_replace_First (refusal_completion_scope.RefusalCompletionTests.test_new_refusal_Third_cannot_replace_First)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_refusal_return_False_cannot_finish_constructor (refusal_completion_scope.RefusalCompletionTests.test_new_refusal_return_False_cannot_finish_constructor)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_refusal_return_False_cannot_finish_constructor (refusal_completion_scope.RefusalCompletionTests.test_new_refusal_return_False_cannot_finish_constructor)",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "Source_test_fresh2_unchanged": {
+      "tool/native_perf_build_producer.py": "6e04cefc79c8c4725d72a19a931903fb2d1eb5b382b2916960c75c603fbc1706",
+      "tool/test_native_perf_build_producer.py": "3661f72f372c91cd152c6808074e191dd5dbd66ece8198f8ea72cc915acbfffa"
+    },
+    "Source_test_edits": false,
+    "new_BEFORE4_only": true,
+    "prior6_old27_completed25_old2bodies_old7suite_private2_replayed": false,
+    "SourceHEAD_current20recensus_or_compiledcanonical_admission": false,
+    "details": [
+      {
+        "test": "test_new_refusal_Third_cannot_replace_First (refusal_completion_scope.RefusalCompletionTests.test_new_refusal_Third_cannot_replace_First)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-constructor-refusal-completion-progress-v1/refusal_completion_regressions-v1.py\", line 143, in test_new_refusal_Third_cannot_replace_First\n    def test_new_refusal_Third_cannot_replace_First(self):self._case('raise_third')\n                                                          ~~~~~~~~~~^^^^^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-constructor-refusal-completion-progress-v1/refusal_completion_regressions-v1.py\", line 92, in _case\n    self.assertTrue(received is first);self.assertIsNone(returned)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      },
+      {
+        "test": "test_new_refusal_return_False_cannot_finish_constructor (refusal_completion_scope.RefusalCompletionTests.test_new_refusal_return_False_cannot_finish_constructor)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-constructor-refusal-completion-progress-v1/refusal_completion_regressions-v1.py\", line 142, in test_new_refusal_return_False_cannot_finish_constructor\n    def test_new_refusal_return_False_cannot_finish_constructor(self):self._case('return_false')\n                                                                      ~~~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-constructor-refusal-completion-progress-v1/refusal_completion_regressions-v1.py\", line 92, in _case\n    self.assertTrue(received is first);self.assertIsNone(returned)\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      }
+    ]
+  },
+  "AFTER4": {
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "passes": 4,
+    "leases": [
+      {
+        "test": "test_new_native_refusal_pendingFalse_caller_control (test_native_perf_build_producer.RefusalCompletionTests.test_new_native_refusal_pendingFalse_caller_control)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_native_refusal_pendingFalse_caller_control (test_native_perf_build_producer.RefusalCompletionTests.test_new_native_refusal_pendingFalse_caller_control)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_native_refusal_pendingTrue_caller_control (test_native_perf_build_producer.RefusalCompletionTests.test_new_native_refusal_pendingTrue_caller_control)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_native_refusal_pendingTrue_caller_control (test_native_perf_build_producer.RefusalCompletionTests.test_new_native_refusal_pendingTrue_caller_control)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_refusal_Third_cannot_replace_First (test_native_perf_build_producer.RefusalCompletionTests.test_new_refusal_Third_cannot_replace_First)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_refusal_Third_cannot_replace_First (test_native_perf_build_producer.RefusalCompletionTests.test_new_refusal_Third_cannot_replace_First)",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_refusal_return_False_cannot_finish_constructor (test_native_perf_build_producer.RefusalCompletionTests.test_new_refusal_return_False_cannot_finish_constructor)",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_new_refusal_return_False_cannot_finish_constructor (test_native_perf_build_producer.RefusalCompletionTests.test_new_refusal_return_False_cannot_finish_constructor)",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "root_original_waits": [
+      {
+        "test": "test_new_native_refusal_pendingFalse_caller_control (test_native_perf_build_producer.RefusalCompletionTests.test_new_native_refusal_pendingFalse_caller_control)",
+        "rows": [
+          {
+            "pid": 36094,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36095,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36096,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36097,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36098,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_new_native_refusal_pendingTrue_caller_control (test_native_perf_build_producer.RefusalCompletionTests.test_new_native_refusal_pendingTrue_caller_control)",
+        "rows": [
+          {
+            "pid": 36108,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36109,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36110,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36111,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36112,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36113,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_new_refusal_Third_cannot_replace_First (test_native_perf_build_producer.RefusalCompletionTests.test_new_refusal_Third_cannot_replace_First)",
+        "rows": [
+          {
+            "pid": 36123,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36124,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36125,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36126,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36127,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36128,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      },
+      {
+        "test": "test_new_refusal_return_False_cannot_finish_constructor (test_native_perf_build_producer.RefusalCompletionTests.test_new_refusal_return_False_cannot_finish_constructor)",
+        "rows": [
+          {
+            "pid": 36138,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36139,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36141,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36142,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36143,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          },
+          {
+            "pid": 36144,
+            "status": 0,
+            "signed_native_int": true,
+            "wait": "same_original_bound_10",
+            "unit_only": true
+          }
+        ]
+      }
+    ],
+    "source_sha256": "f39cf8fca989ee102cdd739211b015fca2957759cbf0e0ec924343b38c5f40aa",
+    "test_sha256": "bdcaf8629e9c8341eebd6ac70494cc2c40c2696c8c6995a23d62694df6fb5a02",
+    "details": [],
+    "selected": [
+      "test_new_native_refusal_pendingFalse_caller_control (test_native_perf_build_producer.RefusalCompletionTests.test_new_native_refusal_pendingFalse_caller_control)",
+      "test_new_native_refusal_pendingTrue_caller_control (test_native_perf_build_producer.RefusalCompletionTests.test_new_native_refusal_pendingTrue_caller_control)",
+      "test_new_refusal_Third_cannot_replace_First (test_native_perf_build_producer.RefusalCompletionTests.test_new_refusal_Third_cannot_replace_First)",
+      "test_new_refusal_return_False_cannot_finish_constructor (test_native_perf_build_producer.RefusalCompletionTests.test_new_refusal_return_False_cannot_finish_constructor)"
+    ],
+    "no_old27_replay_or_currentcanonical_admission": true
+  },
+  "matching_NEW2_negatives_plus2_nativeRefuse_affected_caller_controls": true,
+  "controls": {
+    "BEFORE": {
+      "views": [
+        {
+          "refusal_completion_contract": "native_false",
+          "group_calls": 1,
+          "Source_refusal_replaced": false,
+          "actual_pending_return_inside_ROOT": false,
+          "pending_exact_bool": true,
+          "pending_Secondary_injected": true,
+          "after_group_gets": [
+            "pending"
+          ],
+          "callback_attempted": false,
+          "callback_received_Second": false,
+          "callback_returned": false,
+          "callback_raw_is_False": false,
+          "callback_Third_attempted": false,
+          "received_First": true,
+          "received_Third": false,
+          "received_type": "RefusalCompletionFirst",
+          "First_context_Second": true,
+          "First_context_Third": false,
+          "Source_returned_owner": false,
+          "Source_pending_DATA": false,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "native_secondary_list_contains_Second": true,
+          "native_secondary_list_size": 1,
+          "spawn_returned_inside_ROOT": false,
+          "spawn_raw_None": null,
+          "spawn_stage": null,
+          "archive_native_returned_None": true,
+          "ROOT_native_tuple_NOT_filled_called_adopted": true,
+          "ROOT_never_Source_wait_or_returned_owner_adopted": true,
+          "actor_rows": [
+            {
+              "pid": 35186,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35187,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35188,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35189,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35190,
+              "kind": "Auxiliary"
+            }
+          ],
+          "unit_only_not_liveness_ownership_admission": true
+        },
+        {
+          "refusal_completion_contract": "native_true",
+          "group_calls": 1,
+          "Source_refusal_replaced": false,
+          "actual_pending_return_inside_ROOT": true,
+          "pending_exact_bool": true,
+          "pending_Secondary_injected": true,
+          "after_group_gets": [
+            "pending"
+          ],
+          "callback_attempted": false,
+          "callback_received_Second": false,
+          "callback_returned": false,
+          "callback_raw_is_False": false,
+          "callback_Third_attempted": false,
+          "received_First": true,
+          "received_Third": false,
+          "received_type": "RefusalCompletionFirst",
+          "First_context_Second": true,
+          "First_context_Third": false,
+          "Source_returned_owner": false,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "native_secondary_list_contains_Second": true,
+          "native_secondary_list_size": 1,
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "archive_native_returned_None": false,
+          "ROOT_native_tuple_NOT_filled_called_adopted": true,
+          "ROOT_never_Source_wait_or_returned_owner_adopted": true,
+          "actor_rows": [
+            {
+              "pid": 35200,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35201,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35202,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35203,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35204,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35205,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_liveness_ownership_admission": true
+        },
+        {
+          "refusal_completion_contract": "raise_third",
+          "group_calls": 1,
+          "Source_refusal_replaced": true,
+          "actual_pending_return_inside_ROOT": true,
+          "pending_exact_bool": true,
+          "pending_Secondary_injected": true,
+          "after_group_gets": [
+            "pending"
+          ],
+          "callback_attempted": true,
+          "callback_received_Second": true,
+          "callback_returned": false,
+          "callback_raw_is_False": false,
+          "callback_Third_attempted": true,
+          "received_First": false,
+          "received_Third": true,
+          "received_type": "RefusalCompletionThird",
+          "First_context_Second": false,
+          "First_context_Third": false,
+          "Source_returned_owner": false,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "native_secondary_list_contains_Second": false,
+          "native_secondary_list_size": 0,
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "archive_native_returned_None": false,
+          "ROOT_native_tuple_NOT_filled_called_adopted": true,
+          "ROOT_never_Source_wait_or_returned_owner_adopted": true,
+          "actor_rows": [
+            {
+              "pid": 35215,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35216,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35217,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35218,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35219,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35220,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_liveness_ownership_admission": true
+        },
+        {
+          "refusal_completion_contract": "return_false",
+          "group_calls": 1,
+          "Source_refusal_replaced": true,
+          "actual_pending_return_inside_ROOT": true,
+          "pending_exact_bool": true,
+          "pending_Secondary_injected": true,
+          "after_group_gets": [
+            "pending"
+          ],
+          "callback_attempted": true,
+          "callback_received_Second": true,
+          "callback_returned": true,
+          "callback_raw_is_False": true,
+          "callback_Third_attempted": false,
+          "received_First": false,
+          "received_Third": false,
+          "received_type": null,
+          "First_context_Second": false,
+          "First_context_Third": false,
+          "Source_returned_owner": true,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "native_secondary_list_contains_Second": false,
+          "native_secondary_list_size": 0,
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "archive_native_returned_None": false,
+          "ROOT_native_tuple_NOT_filled_called_adopted": true,
+          "ROOT_never_Source_wait_or_returned_owner_adopted": true,
+          "actor_rows": [
+            {
+              "pid": 35230,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35231,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35232,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35233,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35234,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 35235,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_liveness_ownership_admission": true
+        }
+      ],
+      "wait_rows": [
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35186,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35187,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35188,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35189,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35190,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35200,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35201,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35202,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35203,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35204,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 35205,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35215,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35216,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35217,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35218,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35219,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 35220,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35230,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35231,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35232,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35233,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 35234,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 35235,
+          "status": 0,
+          "signed_native_int": true
+        }
+      ],
+      "Root_pipe_closes_AFTERevidence": 3,
+      "Root_file_closes_AFTERevidence": 7,
+      "separate_setupGit_rows": 28
+    },
+    "AFTER": {
+      "views": [
+        {
+          "refusal_completion_contract": "native_false",
+          "group_calls": 1,
+          "Source_refusal_replaced": false,
+          "actual_pending_return_inside_ROOT": false,
+          "pending_exact_bool": true,
+          "pending_Secondary_injected": true,
+          "after_group_gets": [
+            "pending"
+          ],
+          "callback_attempted": false,
+          "callback_received_Second": false,
+          "callback_returned": false,
+          "callback_raw_is_False": false,
+          "callback_Third_attempted": false,
+          "received_First": true,
+          "received_Third": false,
+          "received_type": "RefusalCompletionFirst",
+          "First_context_Second": true,
+          "First_context_Third": false,
+          "Source_returned_owner": false,
+          "Source_pending_DATA": false,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "native_secondary_list_contains_Second": true,
+          "native_secondary_list_size": 1,
+          "spawn_returned_inside_ROOT": false,
+          "spawn_raw_None": null,
+          "spawn_stage": null,
+          "archive_native_returned_None": true,
+          "ROOT_native_tuple_NOT_filled_called_adopted": true,
+          "ROOT_never_Source_wait_or_returned_owner_adopted": true,
+          "actor_rows": [
+            {
+              "pid": 36094,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36095,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36096,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36097,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36098,
+              "kind": "Auxiliary"
+            }
+          ],
+          "unit_only_not_liveness_ownership_admission": true
+        },
+        {
+          "refusal_completion_contract": "native_true",
+          "group_calls": 1,
+          "Source_refusal_replaced": false,
+          "actual_pending_return_inside_ROOT": true,
+          "pending_exact_bool": true,
+          "pending_Secondary_injected": true,
+          "after_group_gets": [
+            "pending"
+          ],
+          "callback_attempted": false,
+          "callback_received_Second": false,
+          "callback_returned": false,
+          "callback_raw_is_False": false,
+          "callback_Third_attempted": false,
+          "received_First": true,
+          "received_Third": false,
+          "received_type": "RefusalCompletionFirst",
+          "First_context_Second": true,
+          "First_context_Third": false,
+          "Source_returned_owner": false,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "native_secondary_list_contains_Second": true,
+          "native_secondary_list_size": 1,
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "archive_native_returned_None": false,
+          "ROOT_native_tuple_NOT_filled_called_adopted": true,
+          "ROOT_never_Source_wait_or_returned_owner_adopted": true,
+          "actor_rows": [
+            {
+              "pid": 36108,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36109,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36110,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36111,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36112,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36113,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_liveness_ownership_admission": true
+        },
+        {
+          "refusal_completion_contract": "raise_third",
+          "group_calls": 1,
+          "Source_refusal_replaced": true,
+          "actual_pending_return_inside_ROOT": true,
+          "pending_exact_bool": true,
+          "pending_Secondary_injected": true,
+          "after_group_gets": [
+            "pending"
+          ],
+          "callback_attempted": true,
+          "callback_received_Second": true,
+          "callback_returned": false,
+          "callback_raw_is_False": false,
+          "callback_Third_attempted": true,
+          "received_First": true,
+          "received_Third": false,
+          "received_type": "RefusalCompletionFirst",
+          "First_context_Second": false,
+          "First_context_Third": true,
+          "Source_returned_owner": false,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "native_secondary_list_contains_Second": false,
+          "native_secondary_list_size": 0,
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "archive_native_returned_None": false,
+          "ROOT_native_tuple_NOT_filled_called_adopted": true,
+          "ROOT_never_Source_wait_or_returned_owner_adopted": true,
+          "actor_rows": [
+            {
+              "pid": 36123,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36124,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36125,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36126,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36127,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36128,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_liveness_ownership_admission": true
+        },
+        {
+          "refusal_completion_contract": "return_false",
+          "group_calls": 1,
+          "Source_refusal_replaced": true,
+          "actual_pending_return_inside_ROOT": true,
+          "pending_exact_bool": true,
+          "pending_Secondary_injected": true,
+          "after_group_gets": [
+            "pending"
+          ],
+          "callback_attempted": true,
+          "callback_received_Second": true,
+          "callback_returned": true,
+          "callback_raw_is_False": true,
+          "callback_Third_attempted": false,
+          "received_First": true,
+          "received_Third": false,
+          "received_type": "RefusalCompletionFirst",
+          "First_context_Second": true,
+          "First_context_Third": false,
+          "Source_returned_owner": false,
+          "Source_pending_DATA": true,
+          "Source_finished_DATA": false,
+          "Source_failure_attempted_DATA": false,
+          "native_secondary_list_contains_Second": false,
+          "native_secondary_list_size": 0,
+          "spawn_returned_inside_ROOT": true,
+          "spawn_raw_None": true,
+          "spawn_stage": "spawned",
+          "archive_native_returned_None": false,
+          "ROOT_native_tuple_NOT_filled_called_adopted": true,
+          "ROOT_never_Source_wait_or_returned_owner_adopted": true,
+          "actor_rows": [
+            {
+              "pid": 36138,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36139,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36141,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36142,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36143,
+              "kind": "Auxiliary"
+            },
+            {
+              "pid": 36144,
+              "kind": "recipe"
+            }
+          ],
+          "unit_only_not_liveness_ownership_admission": true
+        }
+      ],
+      "wait_rows": [
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36094,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36095,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36096,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36097,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36098,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36108,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36109,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36110,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36111,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36112,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 36113,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36123,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36124,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36125,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36126,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36127,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 36128,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36138,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36139,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36141,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36142,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "Auxiliary",
+          "pid": 36143,
+          "status": 0,
+          "signed_native_int": true
+        },
+        {
+          "kind": "same_original_bound_wait",
+          "actor_kind": "recipe",
+          "pid": 36144,
+          "status": 0,
+          "signed_native_int": true
+        }
+      ],
+      "Root_pipe_closes_AFTERevidence": 3,
+      "Root_file_closes_AFTERevidence": 7,
+      "separate_setupGit_rows": 28
+    }
+  },
+  "parent_after23_OVERLAPS_same_new23_NOTadditional_actors": true,
+  "models": {
+    "planning": {
+      "pid": 34886,
+      "status": 0,
+      "stdout_size": 1507,
+      "stderr_size": 405,
+      "stdout_sha256": "ee8b4004e63399c5826ec7aea84f24504c64e66036ec3bcb07d28c8c3f1114b9",
+      "stderr_sha256": "8c908d748a071c8bb79abe036e347a50945df45c975291a1296e3cc9b450f411",
+      "both_separate_EOF": true
+    },
+    "review": {
+      "pid": 35504,
+      "status": 0,
+      "stdout_size": 7496,
+      "stderr_size": 1212,
+      "stdout_sha256": "727dfb53e3854eefd970aecbe933abff3d57f6f6281169f9c2dddc341abd7f53",
+      "stderr_sha256": "b9ffc1ac3f0b684f83d1057a67c0f2069150116917c3e23360107b1ca1bc9498",
+      "both_separate_EOF": true
+    }
+  },
+  "model_ROOT_qualification": {
+    "Qwen": {
+      "pid": 34886,
+      "status": 0,
+      "full_answer": true,
+      "stdout_size": 1507,
+      "stderr_size": 405,
+      "ROOT": "Advice mostly targets native helper internals. Reject final Secondary in place of First, direct ROOT group invocation, atomic-quarantine claims and id reuse under strong ownership. Exact Second identity in the native Source secondary list is retained as DATA only. No suggested old suites or retry."
+    },
+    "GLM": {
+      "pid": 35504,
+      "status": 0,
+      "full_answer": true,
+      "stdout_size": 7496,
+      "stderr_size": 1212,
+      "ROOT": [
+        "Answer exceeds requested max2 and includes self-corrections. First priority over later BaseException is deliberate and matches native refusal's existing broad finally policy; async signals are not newly tested. Do not add from None or special KeyboardInterrupt/SystemExit recovery from this advice.",
+        "False-return owner publication is the reproduced unsupported-completion gap, not a supported public callback escape hatch. The selected native helper always raises its stored primary; all runtime alias/earlier-primary/multiowner histories remain unproved.",
+        "Harness already asserts exact First.contextSecond / First.contextThird for negative modes and zero native-secondary-list entries. AFTER is pending, not missing regression design. Verify these saved after views once, no additional tests/replay.",
+        "Unconditional re-raising the same error does not by itself prove self-referential context. Native pendingTrue/False controls exercise that path; actual contexts will be recorded. No traceback-depth or general asynchronous-interior guarantee is claimed.",
+        "The new finally changes no private group guard/quarantine or secondary list. Reject claim that merely raising First makes native guard fire: guard tests private quarantined[0]. Replacement modes leave native secondary list empty and do not prove quarantine/ownership.",
+        "Strong process-life retention is unchanged; no measured leak/RSS cause follows. Suggested extra try/except-pass and context suppression are not adopted. Native Source helper and frozen predicates remain byte-exact."
+      ]
+    },
+    "limited_scope": "known constructor First after Source's refusal callback attempt; no full private quarantine, earlier-primary history, actor closure, RAM repair or admission",
+    "no_unchanged_model_retry": true,
+    "not_whole_current_approval": true
+  },
+  "Source_whole_BYTEprojectback": true,
+  "oldtest_PREFIX_exact": true,
+  "only_existing_constructor_refusal_callback_finally_backstop_changed": true,
+  "native_callback_private_quarantine_helper_and_secondary_list_unchanged": true,
+  "First_priority_after_callback_attempt_deliberate_BaseException_policy": true,
+  "native_control_context_Second_preserved_negative_Third_context_preserved": true,
+  "earlier_primary_multiowner_history_bindings_callee_interiors_concurrentABA_transitive_unproved": true,
+  "Source_fields_status_EOF_closedFD_NOTliveness_ownership_EXrelease_admission": true,
+  "Root_collect_all_known_wait_outcomes_before_wait_assertions": true,
+  "unknown_beforeview_waitread_cleanup_incomplete": true,
+  "unit_NOTfull_physicalEX_originalLinux_fullFD_interpreter_delegate_descendant_closure": true,
+  "no_prior7_6_5_27_completed25_old2bodies_old7suite_private2_or_model_campaign_replay": true,
+  "current23hashes_other18helpers3bins_SourceGit4_0_BOTH": true,
+  "SourceGit": [
+    {
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 36357,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 41,
+      "stderr_size": 0,
+      "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "branch",
+        "--show-current"
+      ],
+      "pid": 36358,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 36,
+      "stderr_size": 0,
+      "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "status",
+        "--porcelain",
+        "--untracked-files=all"
+      ],
+      "pid": 36359,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 728,
+      "stderr_size": 0,
+      "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+        "--stat",
+        "--",
+        "packages",
+        "native"
+      ],
+      "pid": 36360,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 0,
+      "stderr_size": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "all20_uncommitted_uncanonical_unadmitted": true,
+  "stronggroups_closures_rawchunks_processlife_NOTfixedmemory_RSSgrowth_allocvolume_timing_cause_UNMEASURED": true,
+  "no_Sourcecommit_push_adoption_SDKbuild_kernel_broker_benchmarkcapture_strictdispatch_RAMrepair_acceptance": true,
+  "storage": {
+    "free_bytes": 269771091968,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "outside_oldcleanup_cause": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-refusal-completion-progress-evidence.tar.gz",
+    "archive_sha256": "f5cd0f028107f31cade4cfbe527bdcc5266f35d8650cfda232f727f882b9fa83",
+    "selected_regular_members": 874,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-refusal-completion-progress-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-refusal-completion-progress-assessment.json"
+  }
+}

@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Preserve constructor First after refusal callback completion
+
+A new before regression confirms both outcomes inferred by the cached audit: a substituted refusal callback returning False lets construction finish, while one raising Third replaces the already-known First. Native-refusal controls with pending True and False already pass. The before result is 2FAIL/2PASS/0ERROR. These are two controlled variants of one completion-priority gap, not spontaneous kernel faults or a RAM-cause finding.
+
+The constructor now attempts the existing refusal callback inside try/finally and raises its known First afterwards. Final after is 4PASS/0FAIL/0ERROR once: matching two negatives and two native-refusal caller controls. First retains Second or Third as its context; native Source secondary lists remain empty for replacements and contain Second for native controls. The change does not set private quarantine, settle ownership or restore Source fields.
+
+Only the constructor callback backstop changes. Whole Source reverse projection and the old test prefix are exact; all other helpers, root scripts, frozen auxiliary predicates and owner_emit_attempted are unchanged. Original native actors and handles precede Source I/O, and ROOT records all known wait outcomes before wait assertions and scoped closes. These remain unit observations. The twenty helpers remain uncommitted, uncanonical and unadmitted; original-runtime admission, RAM repair, final strict 48/50 and clean final CI remain incomplete.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-constructor-refusal-completion-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-constructor-refusal-completion-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-constructor-refusal-completion-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Audit refusal callback completion contracts from cached Source
 
 This scope changes no Source or tests. It maps five literal failure-group helper references in the cached 6e04ce producer: the constructor, deferral, preservation, end-command refusal and finish refusal. The map describes nominal syntax, not all aliases, bindings or transitive actors. The previous seven passing tests remain historical; this audit does not refresh Source HEAD, the twenty-file census or compiled validation.
