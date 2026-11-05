@@ -1,0 +1,1097 @@
+{
+  "utc": "2026-11-05T05:34:33.197332+00:00",
+  "source_sha256": "410d61b8b50b52d61d332406dfa234b87a4a9db0331a971682eb90e0151cf483",
+  "test_sha256": "0075d88e7f469475a758880d815393d33c341ec64cf243de2791cba884b5ef4a",
+  "before": {
+    "tests": 6,
+    "failures": 4,
+    "passes": 2,
+    "errors": 0,
+    "scope": "2invalidoutputdigestreturns accepted+2oldfirstalreadyescapes/enclosingcontinuation policies NOT4nativebugs/RAMcause"
+  },
+  "after": {
+    "tests": 24,
+    "failures": 0,
+    "errors": 0,
+    "selection": [
+      "ProducerEarlyFinishTests.test_actual_output_hash_then_False_refused_before_publication",
+      "ProducerEarlyFinishTests.test_actual_output_hash_then_error_stops_before_payload",
+      "ProducerEarlyFinishTests.test_actual_output_hash_then_uppercase_refused_before_publication",
+      "ProducerEarlyFinishTests.test_actual_output_path_string_then_error_stops_before_hash",
+      "ProducerEarlyFinishTests.test_new_normal_actualoutput_bytes_digest_and_callback_count",
+      "ProducerEarlyFinishTests.test_new_normal_failed_exit3_skips_all_output_setup",
+      "ProducerFinishPublicationTests.test_actual_finished_event_then_error_retains_original_journal",
+      "ProducerFinishPublicationTests.test_actual_journal_close_then_error_stops_before_hash",
+      "ProducerFinishPublicationTests.test_actual_journal_hash_then_error_stops_before_complete",
+      "ProducerFinishPublicationTests.test_actual_result_hash_then_error_stops_before_event",
+      "ProducerFinishPublicationTests.test_actual_result_write_then_False_refuses_before_hash",
+      "ProducerFinishPublicationTests.test_actual_result_write_then_error_stops_enclosing_reporting",
+      "ProducerFinishPublicationTests.test_new_normal_failed_exit3_ignored_closeFalse",
+      "ProducerFinishPublicationTests.test_new_normal_success_fullbytes_and_hashes",
+      "ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+      "ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+      "ProducerTests.test_negative_signal_status_is_not_success",
+      "ProducerTests.test_timeout_only_waits_same_owned_process",
+      "ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+      "ProducerTests.test_input_drift_waits_for_natural_child_exit",
+      "ProducerTests.test_single_wait_budget_decreases_across_commands",
+      "ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+      "ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+      "ProducerTests.test_wait_status_retained_before_uncertain_log_close"
+    ],
+    "leases": [
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_actual_output_hash_then_False_refused_before_publication",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_actual_output_hash_then_False_refused_before_publication",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_actual_output_hash_then_error_stops_before_payload",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_actual_output_hash_then_error_stops_before_payload",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_actual_output_hash_then_uppercase_refused_before_publication",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_actual_output_hash_then_uppercase_refused_before_publication",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_actual_output_path_string_then_error_stops_before_hash",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_actual_output_path_string_then_error_stops_before_hash",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_new_normal_actualoutput_bytes_digest_and_callback_count",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_new_normal_actualoutput_bytes_digest_and_callback_count",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_new_normal_failed_exit3_skips_all_output_setup",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerEarlyFinishTests.test_new_normal_failed_exit3_skips_all_output_setup",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_finished_event_then_error_retains_original_journal",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_finished_event_then_error_retains_original_journal",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_journal_close_then_error_stops_before_hash",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_journal_close_then_error_stops_before_hash",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_journal_hash_then_error_stops_before_complete",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_journal_hash_then_error_stops_before_complete",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_result_hash_then_error_stops_before_event",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_result_hash_then_error_stops_before_event",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_result_write_then_False_refuses_before_hash",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_result_write_then_False_refuses_before_hash",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_result_write_then_error_stops_enclosing_reporting",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_actual_result_write_then_error_stops_enclosing_reporting",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_new_normal_failed_exit3_ignored_closeFalse",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_new_normal_failed_exit3_ignored_closeFalse",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_new_normal_success_fullbytes_and_hashes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerFinishPublicationTests.test_new_normal_success_fullbytes_and_hashes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_negative_signal_status_is_not_success",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_negative_signal_status_is_not_success",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_timeout_only_waits_same_owned_process",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_timeout_only_waits_same_owned_process",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_input_drift_waits_for_natural_child_exit",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_input_drift_waits_for_natural_child_exit",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_single_wait_budget_decreases_across_commands",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_single_wait_budget_decreases_across_commands",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wait_status_retained_before_uncertain_log_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wait_status_retained_before_uncertain_log_close",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "source_sha256": "410d61b8b50b52d61d332406dfa234b87a4a9db0331a971682eb90e0151cf483",
+    "test_sha256": "0075d88e7f469475a758880d815393d33c341ec64cf243de2791cba884b5ef4a",
+    "details": [],
+    "not_fullcanonical_admission": true
+  },
+  "ROOT": {
+    "whole_final_Source_tests_AST_qualified": true,
+    "wholeSource_BYTE_projectsback": true,
+    "result_literal_AST_equivalent": true,
+    "oldtests_BYTES_PREFIX_exact": true,
+    "other18helpers3bins_unchanged": true,
+    "hashes23": {
+      "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_build_producer.py": "410d61b8b50b52d61d332406dfa234b87a4a9db0331a971682eb90e0151cf483",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+      "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+      "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+      "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_build_producer.py": "0075d88e7f469475a758880d815393d33c341ec64cf243de2791cba884b5ef4a",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+      "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+      "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+      "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+      "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+      "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+      "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+    },
+    "git_commands": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 45836,
+        "status": 0,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 45837,
+        "status": 0,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--short",
+          "--untracked-files=all"
+        ],
+        "pid": 45838,
+        "status": 0,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "--name-only",
+          "HEAD",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 45843,
+        "status": 0,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "new_unit_views": 12,
+    "affected_finish_views": 8,
+    "parent_BEFORE_EXverify_None": 12,
+    "parent_AFTER_EXverify_None": 48,
+    "known_same_originalbound_waits": {
+      "before": [
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44567,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44585,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44528,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44492,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44548,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44510,
+          "status": 0,
+          "cached_possible": true
+        }
+      ],
+      "after-new": [
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45336,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45264,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45282,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45300,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45318,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45242,
+          "status": 0,
+          "cached_possible": true
+        }
+      ],
+      "after-affected-finish": [
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45352,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45461,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45476,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45442,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45388,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45424,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45370,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45406,
+          "status": 0,
+          "cached_possible": true
+        }
+      ]
+    },
+    "known_unit_cleanup": {
+      "before": [
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44567,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44585,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44528,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44492,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44548,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 44510,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        }
+      ],
+      "after-new": [
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45336,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45264,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": false,
+          "raw_close": true,
+          "FD_path_original_identity_match": true,
+          "raw_close_None": true,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45282,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": false,
+          "raw_close": true,
+          "FD_path_original_identity_match": true,
+          "raw_close_None": true,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45300,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": false,
+          "raw_close": true,
+          "FD_path_original_identity_match": true,
+          "raw_close_None": true,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45318,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45242,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": false,
+          "raw_close": true,
+          "FD_path_original_identity_match": true,
+          "raw_close_None": true,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        }
+      ],
+      "after-affected-finish": [
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45352,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": false,
+          "raw_close": true,
+          "FD_path_original_identity_match": true,
+          "raw_close_None": true,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45461,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45476,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45442,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": false,
+          "raw_close": true,
+          "FD_path_original_identity_match": true,
+          "raw_close_None": true,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45388,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45424,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": false,
+          "raw_close": true,
+          "FD_path_original_identity_match": true,
+          "raw_close_None": true,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45370,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 45406,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_reader",
+          "fd": 6,
+          "closed": false,
+          "error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_log",
+          "raw_already_closed": true,
+          "raw_close": false,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        },
+        {
+          "kind": "ROOT_known_journal",
+          "raw_already_closed": false,
+          "raw_close": true,
+          "FD_path_original_identity_match": true,
+          "raw_close_None": true,
+          "buffered_close_None": true,
+          "raw_closed_after": true
+        }
+      ]
+    },
+    "allotherSource_methods_modulehelpers_endcommand_wait_Aux_Popen_constructors_factories_sharedstep_frozenpredicates_exact": true
+  },
+  "models": {
+    "Qwen": {
+      "pid": 44157,
+      "status": 0,
+      "stdout_size": 2876,
+      "stderr_size": 487,
+      "stdout_sha256": "15bd8d75b363c46df61279aec27a5c7165f86a499e0d46dfa770f8aefdeb1142",
+      "stderr_sha256": "e8aed8354e16c390a9a2ba76ca81803deae5671e01391822e2b1939aa512f5fd",
+      "both_separate_EOF": true
+    },
+    "GLM": {
+      "pid": 44756,
+      "status": 0,
+      "stdout_size": 3487,
+      "stderr_size": 858,
+      "stdout_sha256": "75f2721fd1205b6dd9dba3d7f1c514b56648145999b1f916c46163d21ec907a1",
+      "stderr_sha256": "b07c4c2e43d9b6fe7cc933ee56121a4cd782a97b4997c067b1bc1ca1f01f1282",
+      "both_separate_EOF": true
+    },
+    "ROOT_qualified_NOTwholecurrentapproval": true,
+    "model_v1_before_final_v1_Sourceedit": true
+  },
+  "limits": [
+    "ONLY_finish selectedearly outputsetup +sharedsuffixcontext scopecomplete. Hoists existingattempt/privatefirst/context/digest beforeoutputcallbacks, retainsoriginaljournal-outputs andpercallintent/raw. ResultliteralASTequivalent; SourcewholeBYTEprojectback/allothermethods/modulehelpers/endcommand/wait/nativehash-writer/AuxPopen/constructors/factories/sharedstep/frozenpredicates exact. Context/digest/type/refs/finished/helpercompleted DATA notauth-atomicABA-originalcredentials-ownership-EXrelease/admission.",
+    "NEW6 BEFOREonce4FAIL2normalPASS0ERROR:2knowninvalidFalse-uppercase outputdigests acceptedactualsuccessfulmetadata +2unknownPathstr/hash actualcallee-thenROOTfirst continuedenclosingreporting(oldfirstalreadyescapes). Invalidreturn andretention-refusalpolicies NOT4nativekernelbugs/RAMcause. AFTER24=6matchingNEW18affected(8priorfinishpublicationcontrols10actualwait-finishcallers); changed_finish/localstep/context justifiesaffectedselection, notunchangedendnegative-writer-hash suites/numerical/modelreplay oraggregate/fullcurrent20canonical/admission.",
+    "SourceunknownoriginalPath.__str__/nativehash rawNone-returnedFalse neverROOTknownstr-digestadopted. KnownFalse/uppercase rawretainedbeforedigestrefusal; firstisnewSourceProducerError, ROOTFirst neverraisedinthosemodes. Refusalvisibleinrecord.primary_error/guard, validationneednotinventseparatecallee row. UnknownnegativespreserveactualRootFirst. Negativeonlypureguard/no Sourcepreserve/repr-note-laterhash-payload-writer-event-close-retry-replay-restore. Calleroutputsdict remainsoriginal/mutable, no freeze-copy-away. FinishedTrue remainsSourcefactnotEXrelease.",
+    "Distinctnormalactualownartifact bytes/hash +exact2originalPathstrcalls/1artifacthash andfullEARLY-outEARLY-err output preserved. Finiteexit3 failure skipsALLoutputsetup; absentartifact/nativePathhookwouldfailifcalled, outputs{} preserved. Unitartifact/commands notbenchmarkfreshbody/SDK/nativeDartbroker/current20canonical/admission. Glob/multipleoutputs/Pathconversion-suboperations/earlierbindings-metadata-globalconcurrentABA/historical-transitive/fullindependentEX-originalruntimeimmutableCOMPLETEadmission unexecuted/incomplete.",
+    "12newviews=6BEFORE6AFTER plus8affectedfinishviews separately. ParentCURRENT officialDarwinEXverifyNone12BEFORE48AFTER plusSourcecallbacksNone UNITnotfullindependentactualEX-originalLinuxcredentials/allFD-interpreter-delegate-descendantclosure.6BEFORE6AFTERnew SAMEoriginalRootboundwait10 each5zero1three/cachedpossible;8affectedfinishwaits separate7zero1three. ROOTknownFD-log-journal devino cleanup AFTERviews/assertions UNITnotSourcecleanup-recovery-EXrelease; newharness closesnativeRaw once, callsBufferedclose onlyifdistinctobject, doesnotreclosealreadyclosednativeFileIO. Setup/internalFD/APIfactsnotallserialized/no globalabsence-fullreap-reconstruction.",
+    "Qwen44157status0/full2876stdout487stderr/fullanswer ROOTqualified/rejectexpectedprebarrieremptyregistry/secondSourcefinish/lenientdigest acceptance advice. GLM44756status0/full3487stdout858stderr/fullanswer ROOTqualified: False-uppercase SourceProducerError priority intentional/ROOTFirstneverraised/exacttype alreadyasserted/recordprimaryvisible; synchronouscallbacksneverstored/replayed sofuturelatebinding theorynotbug; mutableoutputs/glob data notimmutableownership/currentimage proof/no freezeorrehashreplay. DarwinPOSIXunits notWindows/fullLinuxproof. Modelv1 seesfinalcandidatev1/privatev1beforefirstBEFORE/no candidate-harness-Source-modelreplay; ROOTwholefinalSource-tests-AST independentlyqualified NOTwholecurrentapproval.",
+    "Strongowner/groups/primary-secondary/rows/originalrefs/closures/tracebackgrowthUNMEASURED/noheapRSSbound-leak-timing-cause-trim-reset-evict-deleteauthority. NamedcontrollersBEFOREcalls/availableactualAPIreturnsretained/omissionsnotreconstructed. No newharnessERROR. All20helpersuncommitteduncanonicalunadmitted/privateartifactsoutsideHELPERBUNDLE20/production601exact; no Sourcecommit-push-adoption/SDK-nativebuild-current20canonical-kernel-broker-benchmarkcapture-RAMrepair-strictacceptance. Providerabsent/gatealwaysraises/controllerCLOSED/ownershipNone/all3flagsFalse. Storagefloors/recheck DATAnotbuild-capture-deletionauthority/causeoutsideoldcleanupUNMEASURED."
+  ],
+  "storage": {
+    "free_bytes": 296352284672,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-producer-early-finish-progress-evidence.tar.gz",
+    "archive_sha256": "ec34de0bedab95e56202ed9d546c4f3346e1fafb7c3250d3fae67559ce009a37",
+    "selected_regular_members": 3510,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-producer-early-finish-progress-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-producer-early-finish-progress-assessment.json"
+  }
+}
