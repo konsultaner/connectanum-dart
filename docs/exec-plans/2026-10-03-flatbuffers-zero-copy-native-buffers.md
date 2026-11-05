@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Refuse early Auxiliary PathLike input drift
+
+Actual PathLike callbacks can change already-validated argv/environment before the old constructor copies them and writes an intent. The helper now records the four original early Path/resolve calls and rejects input/binding drift before later I/O, without freezing/restoring caller data or adding callbacks. Shared step and outer initializer capture failure handlers before callbacks; late body errors retain their own outer row rather than a successful nested path row. Public typecall/allocation/signatures/Popen/factories/frozen predicates remain intact; snapshots and path-completion flags are DATA, not method authority or EX/admission.
+
+Original NEW6 atb84c8e/58ccf9 yields5FAIL/1normalPASS/0APIerrors; separately declared NEW1 yields1FAIL, without replaying six. Two actual intent/validation gaps plus stronger context/binding policies are not six native defects. Finala78159/c1582a passes74selected=7matchingNEW+67affected, including36writer/hash cases whose shared step changed. ROOT qualifies whole source/tests/AST/23hashes/other18helpers3bins/4newGit0/BOTHstreams/601/20untracked/productionempty. Qwen11306advisory0/fullanswer is qualified; GLM12249tokenlimit1/fullpartialfinalABSENT is not approval/unavailability and preceded final bound-fail changes. Fourteen views (v1 arithmetic13 corrected beforepublication), currentDarwinEX12+2/148 observations and affectedfixture cleanup remain UNIT facts, not independent EX/originalLinuxcredentials. Reviewsetup/candidate/API truncation qualifications retained. Other APIs/backingFD/enclosing-historical-transitive/fullindependentEX/runtime immutableCOMPLETE admission remain incomplete. No SDK/build/capture/adoption/RAMrepair/strictacceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-aux-path-input-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-aux-path-input-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-aux-path-input-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Cover regular hash early API refusal paths
 
 Nine new controls pass on unchanged producerb84c8e:8negative getuid/path/stat-before/initial-fstat/hash-constructor-update-digest cases and1actual two-chunk normal input. No Source behavior fix or new production defect is established. The private v1 class ran once before test append; final test58ccf9 retains the exact old prefix and AST-equivalent class without replay. Prior writer9/factory21/older selections stay separate, not aggregate/current20canonical/admission.
