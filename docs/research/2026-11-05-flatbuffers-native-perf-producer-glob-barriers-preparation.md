@@ -1,0 +1,27 @@
+# Glob sub-operation barriers
+
+Before producer410d61b8b50b52d61d332406dfa234b87a4a9db0331a971682eb90e0151cf483/test2b57def79ef2a67a559e80523ebba8152e7ccf1cc089553a91f82489890b8e8b; final producerbd0cfefc93e2a041be66660b8c87588df3054787434f54860cc26456d6fa755b/test98a966cf0cc8dbd4606c7334cd0c27e29ec6f56d5a1e77d7493ad41d7b305cbf. Owned HEAD601108ea6216464bd00ae29c16cfaf0a59c71db6/branch codex/flatbuffers-native-perf-guard remain unchanged; all20helpers remain uncommitted/uncanonical/unadmitted, production packages/native exact601, private artifacts outside HELPERBUNDLE20.
+
+## Scoped result and qualifications
+
+ONLYcompoundglobbranch expands exactoriginalevaluation order Path1-parent-boundglob-Path2-name-call-sorted with percallintent/raw/contextAFTEReach beforelaterIO. Normal2Pathconversions perglob unchanged/no extraresolve/callback/copyfreeze/restore. AllotherSource methods/modulehelpers/endcommand/wait/nativehash-writer/privatefirst/factories/sharedstep/frozenpredicates byteexact; wholeSourceBYTEprojectback.
+
+NEW6 BEFORE5FAIL1normalPASS0ERROR:1actualglob-thenoutputsidentitydrift continuednativeFSiteration beforelatecontextrefusal +4strongerreturnwitness policies(parent/name/sortedunknown/knownNoneiterator). Oldfirstalreadyescapesin4; NOT5nativekernelbugs/RAMcause. AFTER13PASS=6matchingNEW+7affectedglobcontrols. No previous7glob BEFORE/unchangednonglob-end-writer-hash/model-numericalreplay/aggregate-fullcurrent20canonical-admission.
+
+ActualnativePath.parent/name/actualsortedreturns thenROOTfirst SourceunknownrawNone-returnedFalse neverROOTknownparent-name-list adopted. Nativeglob underlyingiterator retainedROOT; SourceglobrawknownreturnedROOTwrapperiterator distinct. GlobNone rowknownNone-returnedTrue, sortedactualTypeError rowunknown-returnedFalse; actualSourceTypeErrorfirst notROOTFirst. Driftedcalleroutputs remainsforeign/no restore-copyfreeze; contextrefusesbefore sorted/yield afteractualglobreturn. Callerpostreturn cannotpreventops alreadyinsidecallee.
+
+Normaldistinctmixed3 globB-direct-globA/fullBARRIER-outBARRIER-err/unitfilebytes-nativeSHA-hashorder/2actualnativeglobs preserved. Sourcefields/refs/methods/Path/list/digest/completed DATA notsemanticimageauth-atomicABA-originalcredentials-ownership-EXrelease/admission. Iterator/list/traceback refs retainednotfullFD-lifecycle/exhaustion/closure; no cancellation-reset-recovery. Unitfiles NOTbenchmarkfreshbody-SDK-Dartbroker-admission.
+
+12newviews=6BEFORE6AFTERnew plus7affectedglobviews separate;12BEFORE26AFTER parentCURRENT officialDarwinEXverifyNone/SourcecallbacksNone UNITnotfullindependentEX-originalLinux/fullFD-interpreter-delegate-descendantclosure.6+6newRootboundwait10 signed0cached/7affectedseparate0. KnownFDpathdevino cleanup AFTERevidence UNITnotSourcecleanup-liveownership-EXrelease. Setup/internalFD/APIreturnsnotallserialized/no reconstruction-globalPIDscan-kill-globalabsence-fullreap.
+
+Existingaffected7class ONLYmetadataoracle strengthened fornewSource row schema; behaviorassertions exact. OldtestPREFIX NOTexact; reversingclassmetadatachange+newclassappend restoreswholeoldtestbytes. Historicalprivatev1/7PASS artifact untouched. PrivateNEWv1 UNEXECUTED beforeROOTv2 conditionalnormal-newrow assertion correction BEFOREfirstBEFORE (negativewitnesses strict). Candidatev1UNEXECUTEDbeforeedit/modelreviewv1 finalsource/privatev2. No inventedtestfailures or unchangedcontrolreplay.
+
+Qwen50119planning tokenlimit1/0stdout527stderr/BOTH EOF/reaped/fullpartialfinalABSENT/notreconstructed/reachableNOTunavailability-approval/no unchangedmodelrepeat. GLM51011review0/full3487stdout848stderr/fullanswer ROOTqualified/rejectFalseassertioneveryglobentry (onlyglob_False), sortedNoneattempt=>completion, nativeiteratordiscarded (retained), patternincludesdirect.dat, priorfolderreuse-cleanup speculation (freshmkdtemp/O_EXCL). No modelwholecurrentapproval/Sourcefixfromadvisory; ROOTwholefinalSource-tests-AST qualified.
+
+Strongowner-groups/primary-secondary/rows/Path-iterator-list-refs/closures/tracebackgrowthUNMEASURED/noheapRSSbound-leak-timing-cause-trim-reset-evict-deleteauthority. All20helpersuncommitteduncanonicalunadmitted/privateartifactsoutsideHELPERBUNDLE20/production601exact/23hashes/other18helpers3bins unchanged/4NEWGit0-BOTH/601ownbranch20untrackedproductionempty DATA. No Sourcecommit-push-adoption/SDK-nativebuild-current20canonical-kernel-broker-benchmarkcapture-RAMrepair-strictacceptance; providerabsent/gatealwaysraises/controllerCLOSED/ownershipNone/all3flagsFalse. Otherearliermetadata/calleeinterior/globalABA/historical-transitive/fullindependentEX-immutableCOMPLETEruntimeadmission incomplete. Storagefloors/recheck DATAnotbuild-capture-deletionauthority/causeoutsideoldcleanupUNMEASURED.
+
+Free bytes: 296308420608. Fresh1GiB scoped/12GiB build floor rechecks required; storage is no build/capture/deletion authority, outside-old-cleanup cause UNMEASURED.
+
+PR132 remains OPEN DRAFT on#130; issue103/milestone OPEN. No Source commit/push/adoption or actual SDK/native build, current20canonical, kernel/broker/benchmark capture, RAM repair or strict acceptance.
+
+The evidence archive contains 2302 selected regular members, all verified byte-exact. Archive SHA256: 883e83f6a714b5d6b0815d0a5e7a5a1ec84809fbd0b74d58998678131d503234. Publication/readback receipts created afterwards are outside this snapshot.
