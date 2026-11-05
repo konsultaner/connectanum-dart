@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Retain deferred errors before formatting and reporting
+
+Pending-child deferral formatted errors before retaining them and ignored an invalid reporting-handler return. The body now reuses the private first-error group before formatting, retains original process/log/journal/context and records call intent/raw returns. Unknown/invalid body completion quarantines and raises the original first; negative controls use only a pure guard afterwards. Healthy first/secondary strings, normal failed results and output bytes stay intact. Pending/closed/finished/handle facts remain DATA, not liveness, ownership or EX/admission.
+
+NEW7 at5060d8/4e28d5 yields5FAIL/2normalPASS/0ERROR:four first-error replacements and one ignored known False, not five native kernel bugs or a RAM cause. Finaldbc955/1f93c7 passes8selected=7matchingNEW+1affected public-constructor postspawn-journal caller, not aggregate/current20canonical/admission. ROOT qualifies source/tests/AST/byte projection,23hashes/other18helpers3bins and4newGit0/BOTHstreams/601/20untracked/productionempty. Qwen34920/GLM35537 complete0/fullanswers are ROOTqualified; placeholder/trimming/GC-collision/leak-cause claims are rejected. GLM v1 input precedes ROOT v2 expected-journal compatibility; both candidates are unexecuted before edit. Fourteen views/14BEFORE16AFTER currentDarwinEX observations and7BEFORE7AFTER SAMEactor ROOTwait0/cached possible remain UNIT facts, not full independent EX/originalLinuxcredentials. Finish/enclosing/historical/transitive/fullEX/runtime immutableCOMPLETE admission remain incomplete. No SDK/build/capture/adoption/RAMrepair/strictacceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-producer-deferred-failure-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-producer-deferred-failure-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-producer-deferred-failure-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Preserve the original error during producer failure reporting
 
 The enclosing failure handler could replace its original error through failing repr/add_note code and close its journal after an uncertain failure-publication call. It now retains a private first-error group, original journal and per-call intent/raw returns before reporting I/O. Secondary errors stay as objects; unknown/invalid reporting stops before another I/O, add_note or close. Normal failure JSON, one terminal publication attempt, clearing events before healthy close and ignored close None/False/object returns remain intact. Completion and handle/status facts are DATA, not ownership or EX/admission.
