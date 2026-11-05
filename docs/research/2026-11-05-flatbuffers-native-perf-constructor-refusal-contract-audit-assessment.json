@@ -1,0 +1,140 @@
+{
+  "utc": "2026-11-05T14:13:36.484012+00:00",
+  "scope": "NEW cached refusal callback completion-contract audit",
+  "cached_source_path": "/tmp/connectanum-native-perf-constructor-group-shape-progress-v1/after-producer.py",
+  "cached_source_sha256": "6e04cefc79c8c4725d72a19a931903fb2d1eb5b382b2916960c75c603fbc1706",
+  "selected_symbol_count": 4,
+  "nominal_AST_reference_count": 5,
+  "nominal_calls": [
+    {
+      "line": 3125,
+      "qualified_scope": "CommandProducer._defer_failure",
+      "syntax": "_failure_preservation_group(self,error)",
+      "excerpt_start": 3117,
+      "excerpt_end": 3155
+    },
+    {
+      "line": 3193,
+      "qualified_scope": "CommandProducer._preserve_failure",
+      "syntax": "_failure_preservation_group(self,error)",
+      "excerpt_start": 3185,
+      "excerpt_end": 3223
+    },
+    {
+      "line": 2553,
+      "qualified_scope": "_end_command_group.refuse",
+      "syntax": "_failure_preservation_group(owner,primary[0])",
+      "excerpt_start": 2545,
+      "excerpt_end": 2583
+    },
+    {
+      "line": 3039,
+      "qualified_scope": "CommandProducer._finish.refuse",
+      "syntax": "_failure_preservation_group(self,error)",
+      "excerpt_start": 3031,
+      "excerpt_end": 3069
+    },
+    {
+      "line": 2644,
+      "qualified_scope": "CommandProducer.__init__",
+      "syntax": "_failure_preservation_group(self,error)",
+      "excerpt_start": 2636,
+      "excerpt_end": 2674
+    }
+  ],
+  "Source_only_conditional_inference": {
+    "constructor_no_surrounding_backstop_on_group2_secondary": true,
+    "substituted_callback_normal_return_allows_initializer_fallthrough": true,
+    "substituted_callback_different_error_can_escape": true,
+    "native_refuse_finally_always_primary_ONLY_if_that_body_entered": true,
+    "other_two_native_finally_backstops_have_independent_state_but_group3_binding_contract_unproved": true
+  },
+  "actual_runtime_counterexample_executed": false,
+  "prospective_next_regression": "Actual whole original_spawn completes inside ROOT then First; native helper builds exact5tuple only ROOT and Source receives group with field2 replaced. A later actual pending lookup returns native bool inside ROOT then raises Secondary before Source receives return. Compare refusal callback normal False, different Third, and native refusal control. Predeclare before execution; retain all real native original handles before I/O, same actor natural waits, no Source fields restored or ROOT native tuple/owner adopted.",
+  "models": {
+    "summarize": {
+      "pid": 31909,
+      "status": 0,
+      "stdout_size": 1348,
+      "stderr_size": 324,
+      "stdout_sha256": "188b2f660cd5f60f8d8f0c7e846f1bcd194399a413e76f23d4645140e102fa0a",
+      "stderr_sha256": "a5c9b84bb8e6cdb0b1c4d775cc0699f56fa2da0e5b69bf1acb4a696e88f7dfd1",
+      "both_separate_EOF": true
+    },
+    "ask": {
+      "pid": 32221,
+      "status": 0,
+      "stdout_size": 1627,
+      "stderr_size": 477,
+      "stdout_sha256": "5a2c90adb9c4001bdf5563b24628ce0ef9a23263da33d917dbfd9c4951482b0e",
+      "stderr_sha256": "f39297fedbe6c5f4fe91da4ace641a0ee7add12db797932df7eb41c93b6355d5",
+      "both_separate_EOF": true
+    },
+    "judge": {
+      "pid": 32575,
+      "status": 0,
+      "stdout_size": 1846,
+      "stderr_size": 594,
+      "stdout_sha256": "a08a46241387ecaad2868049201851bcc2296d38e9f0414fb6662cbd1f22617f",
+      "stderr_sha256": "6d3fd3863450643b1e088e5c278035d5e9c73c2a3849df6966df37609abf3e58",
+      "both_separate_EOF": true
+    }
+  },
+  "ROOT_model_qualification": {
+    "Gemma": {
+      "pid": 31909,
+      "status": 0,
+      "full_answer": true,
+      "stdout_size": 1348,
+      "stderr_size": 324,
+      "ROOT": "Summary is broad. Tuple-kind/arity check belongs to the constructor, not the helper. Context/guard logic is not proof of complete cleanup, ownership or terminal resources. Native refuse finally is conditional on entering that actual function."
+    },
+    "Qwen": {
+      "pid": 32221,
+      "status": 0,
+      "full_answer": true,
+      "stdout_size": 1627,
+      "stderr_size": 477,
+      "ROOT": "Reject claim that native-refuse finally covers a substituted callback which never invokes native refuse. Constructor handler invokes whatever occupies group[2]; conditional normal callback return permits handler/__init__ fallthrough, and another callback exception has no local priority backstop. This is Source inference only, no executed counterexample. Proposed finished=False assertion on pendingFalse is wrong for existing finished=True assignment; no Source field restore or ownership inference. Actual other scopes are _end_command_group.refuse and CommandProducer._finish.refuse, not question labels _end_command/_fail. Excerpts and map have correct names."
+    },
+    "GLM": {
+      "pid": 32575,
+      "status": 0,
+      "full_answer": true,
+      "stdout_size": 1846,
+      "stderr_size": 594,
+      "ROOT": "Conditional normal-return conclusion is supported by selected syntax. Opening 'conclusion survives' applies only if native refuse is actually entered, not a blanket constructor guarantee. Different replacement exception also lacks local backstop. Native earlier-primary retention may be deliberate; no proof of foreign/id-reused owner when strong owner and identity check remain. A test binding substituted callback to ROOT's saved native-refuse identity would defeat the intended boundary injection and is not adopted. Other finally blocks are independent source facts but consume group[3], so field bindings/primary identity remain unproved. No Source edits or runtime/cause/admission claims."
+    },
+    "no_unchanged_model_retry": true,
+    "all_answers_advisory_not_whole_current_approval": true
+  },
+  "v1_pre_model_assertion_failed_no_intermediate_counts_serialized": true,
+  "v2_fresh_cached_counts_not_reconstruction": true,
+  "ask_wrong_question_names_corrected_from_actual_map": true,
+  "judge_JS_parser_failed_BEFORE_any_nested_tool_corrected_first_actual_call": true,
+  "controller_summary_defined_before_operation_file_copy_AFTER_call": true,
+  "no_Source_test_edits_or_Source_HEAD_current20_census": true,
+  "no_new_tests_build_SDK_native_kernel_broker_benchmark_capture_adoption_strictdispatch": true,
+  "prior7_tests_historical_NOTreplayed_aggregated_currentcanonical": true,
+  "no_old_models_campaigns_archives_scans_bodywork_replayed": true,
+  "current_helper_epoch": "6e04ce/3661f7 last verified previous Source epoch DATA only, not refreshed here",
+  "provider_ABSENT_gate_always_refuses_controller_CLOSED_ownership_None_all3flags_False": true,
+  "full_physicalEX_originalLinux_credentials_actorFD_interpreter_delegate_descendant_closure_immutable_admission_RAMrepair_final48_50_cleanCI_INCOMPLETE": true,
+  "raw_chunks_groups_processlife_NOTfixedmemory_heapRSS_growth_timing_cause_UNMEASURED": true,
+  "no_trim_reset_evict_delete_authority": true,
+  "storage": {
+    "free_bytes": 271603425280,
+    "artifact_storage_only": true,
+    "no_test_build_capture_or_deletion_authority": true,
+    "outside_prior_cleanup_cause": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-refusal-contract-audit-evidence.tar.gz",
+    "archive_sha256": "c2d14222d9d6299bb7f13785f7c25386ef50a50071b98f192353589300c5ab26",
+    "selected_regular_members": 42,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-refusal-contract-audit-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-constructor-refusal-contract-audit-assessment.json"
+  }
+}

@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Audit refusal callback completion contracts from cached Source
+
+This scope changes no Source or tests. It maps five literal failure-group helper references in the cached 6e04ce producer: the constructor, deferral, preservation, end-command refusal and finish refusal. The map describes nominal syntax, not all aliases, bindings or transitive actors. The previous seven passing tests remain historical; this audit does not refresh Source HEAD, the twenty-file census or compiled validation.
+
+The native refusal body always raises primary when that body is entered. The constructor calls the returned tuple's refusal field without a separate local backstop. Under the prospective assumption that this field is substituted, a normal return can let the initializer finish normally, and a different exception can escape. No runtime counterexample has been executed and no Source change follows from this inference. End-command and finish have their own finally blocks, but their group[3] assignments still need a field-binding contract.
+
+ROOT rejects the advisory claim that a native function's finally block automatically covers a replacement callback. All three local model helpers completed naturally with full answers; their qualified advice is not whole-current approval. Setup assertion, naming and controller-parser corrections remain preserved. Original-runtime admission, RAM repair, final strict 48/50 and clean final CI remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-constructor-refusal-contract-audit-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-constructor-refusal-contract-audit-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-constructor-refusal-contract-audit-evidence.tar.gz).
+
 ## 2026-11-05 — Validate failure-group tuple shape before deferral
 
 The constructor now requires a plain five-element tuple from the failure-group helper before reading pending or entering deferral. Four new controlled cases returned an empty tuple, a four-element tuple, a six-element tuple or a list containing the native five elements. Before the change, all four continued through later native helper calls and returned an owner. After the change, each raises the original First before further metadata access. This validates kind and arity; it does not authenticate origins, callable fields or ownership.
