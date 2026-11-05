@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Preserve the auxiliary snapshot error before fallible metadata
+
+A controlled snapshot constructor completed inside the test controller, which then raised the original error before returning the object to Source. A subsequent auxiliary metadata getter or setter could replace that error. Four new regressions produced 2FAIL/2PASS/0ERROR before the change. A private first-error record now precedes secondary metadata handling; a pure guard prevents repeated metadata handling. All four matching regressions pass. The unknown constructor object remains unregistered and unavailable to Source.
+
+The initial affected selection is permanently recorded as 25PASS/0FAIL/2ERROR across 27 tests. The two errors arose in older teardown code after correct permanent wait refusals in unchanged Source paths. Those test bodies and completed controls were not replayed. Three different, predeclared fixture-cleanup regressions failed before a test-only repair and pass afterwards. The repaired fixture retains the original actor and handles before I/O and uses its original bound wait, independent of Source wait/result/process fields. The original 27 results remain unchanged; these epochs do not form a current canonical suite.
+
+Source and test projections preserve the other existing behavior and assertions. Known finite actors and FD cleanup remain scoped unit evidence. Process-lifetime retention, memory use, transitive actors, original Linux credentials and full runtime admission remain unresolved. Source remains uncommitted, uncanonical and unadmitted. RAM repair and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-aux-snapshot-first-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-aux-snapshot-first-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-aux-snapshot-first-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Map snapshot constructor containment before further changes
 
 A cached-source audit identifies three nominal snapshot routes: auxiliary finalization, archive revalidation and command-log finalization. The helper constructs its snapshot attempt before registering it. Auxiliary finalization records an unknown return as None; command-log finalization starts with False. The archive revalidation call has no immediate callback record, and an exception stops its later statements.

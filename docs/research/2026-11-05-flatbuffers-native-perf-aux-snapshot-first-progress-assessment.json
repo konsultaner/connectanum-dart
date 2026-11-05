@@ -1,0 +1,1549 @@
+{
+  "utc": "2026-11-05T11:13:32.664901+00:00",
+  "source_sha256": "350759256161727a69fbabf81e38d9cbcc756a387c06e0b17dd7bdf7fadf42f0",
+  "test_sha256": "43e6e0e4d0741f4f634985f3b29ba2efa4418aa29afca7fef4eab552c5df934b",
+  "primary_before": {
+    "tests": 4,
+    "failures": 2,
+    "errors": 0,
+    "passes": 2,
+    "selection": [
+      "test_new_normal_auxiliary_snapshot_full_bytes_and_status",
+      "test_snapshot_First_preserved_after_native_primary_store_then_secondary",
+      "test_snapshot_First_survives_primary_get_secondary",
+      "test_snapshot_First_survives_primary_set_beforewrite_secondary"
+    ],
+    "leases": [
+      {
+        "test": "aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_new_normal_auxiliary_snapshot_full_bytes_and_status",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_new_normal_auxiliary_snapshot_full_bytes_and_status",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_snapshot_First_preserved_after_native_primary_store_then_secondary",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_snapshot_First_preserved_after_native_primary_store_then_secondary",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_get_secondary",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_get_secondary",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_set_beforewrite_secondary",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_set_beforewrite_secondary",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "details": [
+      {
+        "test": "test_snapshot_First_survives_primary_get_secondary (aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_get_secondary)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/aux_snapshot_first_regressions-v1.py\", line 132, in test_snapshot_First_survives_primary_get_secondary\n    def test_snapshot_First_survives_primary_get_secondary(self):self._case('get')\n                                                                 ~~~~~~~~~~^^^^^^^\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/aux_snapshot_first_regressions-v1.py\", line 106, in _case\n    self.assertTrue(received is first);self.assertIsNone(result);self.assertTrue(view['pending']);self.assertFalse(view['finished']);self.assertTrue(view['Source_result_None']);self.assertEqual(0,snapshot_after-snapshot_before);self.assertEqual(1,len(seen['snapshot']));self.assertTrue(seen['spent'])\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      },
+      {
+        "test": "test_snapshot_First_survives_primary_set_beforewrite_secondary (aux_snapshot_first_regressions.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_set_beforewrite_secondary)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/aux_snapshot_first_regressions-v1.py\", line 133, in test_snapshot_First_survives_primary_set_beforewrite_secondary\n    def test_snapshot_First_survives_primary_set_beforewrite_secondary(self):self._case('set')\n                                                                             ~~~~~~~~~~^^^^^^^\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/aux_snapshot_first_regressions-v1.py\", line 106, in _case\n    self.assertTrue(received is first);self.assertIsNone(result);self.assertTrue(view['pending']);self.assertFalse(view['finished']);self.assertTrue(view['Source_result_None']);self.assertEqual(0,snapshot_after-snapshot_before);self.assertEqual(1,len(seen['snapshot']));self.assertTrue(seen['spent'])\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      }
+    ],
+    "not_canonical_admission": true
+  },
+  "initial_after27": {
+    "tests": 27,
+    "failures": 0,
+    "errors": 2,
+    "selection": [
+      "AuxSnapshotFirstTests.test_new_normal_auxiliary_snapshot_full_bytes_and_status",
+      "AuxSnapshotFirstTests.test_snapshot_First_preserved_after_native_primary_store_then_secondary",
+      "AuxSnapshotFirstTests.test_snapshot_First_survives_primary_get_secondary",
+      "AuxSnapshotFirstTests.test_snapshot_First_survives_primary_set_beforewrite_secondary",
+      "AuxiliaryFinalizationQuarantineTests.test_native_flush_then_error_stops_before_finally_close",
+      "AuxiliaryFinalizationQuarantineTests.test_native_fsync_then_error_stops_before_log_close",
+      "AuxiliaryFinalizationQuarantineTests.test_native_log_close_then_error_never_advances_snapshot",
+      "AuxiliaryFinalizationQuarantineTests.test_normal_actual_natural_wait_log_finalization_and_result",
+      "AuxiliaryFinalizationQuarantineTests.test_original_result_write_then_error_never_marks_complete",
+      "AuxiliaryFinalizationQuarantineTests.test_snapshot_return_then_error_never_advances_other_log",
+      "AuxiliaryNaturalWaitWitnessTests.test_actual_wait_witness_survives_prebody_complete_error",
+      "AuxiliaryNaturalWaitWitnessTests.test_boolean_wait_return_refuses_without_false_zero_witness",
+      "AuxiliaryNaturalWaitWitnessTests.test_natural_nonzero_is_retained_not_invented_zero",
+      "AuxiliaryNaturalWaitWitnessTests.test_normal_completion_records_exact_process_and_signed_zero",
+      "AuxiliaryNaturalWaitWitnessTests.test_poll_cached_zero_is_not_wait_method_witness",
+      "AuxiliaryNaturalWaitWitnessTests.test_process_drift_after_timeout_refuses_second_actor_wait",
+      "AuxiliaryNaturalWaitWitnessTests.test_wait_timeout_retains_exact_process_then_same_actor_completion",
+      "ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+      "ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+      "ProducerTests.test_negative_signal_status_is_not_success",
+      "ProducerTests.test_timeout_only_waits_same_owned_process",
+      "ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+      "ProducerTests.test_input_drift_waits_for_natural_child_exit",
+      "ProducerTests.test_single_wait_budget_decreases_across_commands",
+      "ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+      "ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+      "ProducerTests.test_wait_status_retained_before_uncertain_log_close"
+    ],
+    "leases": [
+      {
+        "test": "test_native_perf_build_producer.AuxSnapshotFirstTests.test_new_normal_auxiliary_snapshot_full_bytes_and_status",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxSnapshotFirstTests.test_new_normal_auxiliary_snapshot_full_bytes_and_status",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxSnapshotFirstTests.test_snapshot_First_preserved_after_native_primary_store_then_secondary",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxSnapshotFirstTests.test_snapshot_First_preserved_after_native_primary_store_then_secondary",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_get_secondary",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_get_secondary",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_set_beforewrite_secondary",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxSnapshotFirstTests.test_snapshot_First_survives_primary_set_beforewrite_secondary",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_native_flush_then_error_stops_before_finally_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_native_flush_then_error_stops_before_finally_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_native_fsync_then_error_stops_before_log_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_native_fsync_then_error_stops_before_log_close",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_native_log_close_then_error_never_advances_snapshot",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_native_log_close_then_error_never_advances_snapshot",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_normal_actual_natural_wait_log_finalization_and_result",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_normal_actual_natural_wait_log_finalization_and_result",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_original_result_write_then_error_never_marks_complete",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_original_result_write_then_error_never_marks_complete",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_snapshot_return_then_error_never_advances_other_log",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFinalizationQuarantineTests.test_snapshot_return_then_error_never_advances_other_log",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_actual_wait_witness_survives_prebody_complete_error",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_actual_wait_witness_survives_prebody_complete_error",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_boolean_wait_return_refuses_without_false_zero_witness",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_boolean_wait_return_refuses_without_false_zero_witness",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_natural_nonzero_is_retained_not_invented_zero",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_natural_nonzero_is_retained_not_invented_zero",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_normal_completion_records_exact_process_and_signed_zero",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_normal_completion_records_exact_process_and_signed_zero",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_poll_cached_zero_is_not_wait_method_witness",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_poll_cached_zero_is_not_wait_method_witness",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_process_drift_after_timeout_refuses_second_actor_wait",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_process_drift_after_timeout_refuses_second_actor_wait",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_wait_timeout_retains_exact_process_then_same_actor_completion",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_wait_timeout_retains_exact_process_then_same_actor_completion",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_negative_signal_status_is_not_success",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_negative_signal_status_is_not_success",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_timeout_only_waits_same_owned_process",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_timeout_only_waits_same_owned_process",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_postspawn_journal_error_keeps_owned_child_waitable",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_input_drift_waits_for_natural_child_exit",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_input_drift_waits_for_natural_child_exit",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_single_wait_budget_decreases_across_commands",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_single_wait_budget_decreases_across_commands",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wait_status_retained_before_uncertain_log_close",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wait_status_retained_before_uncertain_log_close",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "source_sha256": "350759256161727a69fbabf81e38d9cbcc756a387c06e0b17dd7bdf7fadf42f0",
+    "test_sha256": "5ff93167eae76be4013c84d1a6c4a615afe64a633c03162100b0b0a0f23d79d8",
+    "details": [
+      {
+        "test": "test_boolean_wait_return_refuses_without_false_zero_witness (test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_boolean_wait_return_refuses_without_false_zero_witness)",
+        "traceback": "Traceback (most recent call last):\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/test_native_perf_build_producer.py\", line 2251, in tearDown\n    result=op.result if op.finished else self.complete(op)\n                                         ~~~~~~~~~~~~~^^^^\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/test_native_perf_build_producer.py\", line 2175, in complete\n    result=op.wait(1)\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 1920, in wait\n    self._constructor_guard()\n    ~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 2231, in _constructor_guard\n    raise deferred_error\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/test_native_perf_build_producer.py\", line 2229, in test_boolean_wait_return_refuses_without_false_zero_witness\n    try:self.complete(op)\n        ~~~~~~~~~~~~~^^^^\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/test_native_perf_build_producer.py\", line 2175, in complete\n    result=op.wait(1)\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 1942, in wait\n    self.status=self._wait_natural_status(timeout=0)\n                ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 1913, in _wait_natural_status\n    self._defer(first)\n    ~~~~~~~~~~~^^^^^^^\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 791, in _defer\n    self._constructor_guard()\n    ~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 2231, in _constructor_guard\n    raise deferred_error\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 1904, in _wait_natural_status\n    if type(status) is not int:raise ProducerError('unknown direct auxiliary wait status')\n                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nnative_perf_build_producer.ProducerError: unknown direct auxiliary wait status\n"
+      },
+      {
+        "test": "test_process_drift_after_timeout_refuses_second_actor_wait (test_native_perf_build_producer.AuxiliaryNaturalWaitWitnessTests.test_process_drift_after_timeout_refuses_second_actor_wait)",
+        "traceback": "Traceback (most recent call last):\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/test_native_perf_build_producer.py\", line 2251, in tearDown\n    result=op.result if op.finished else self.complete(op)\n                                         ~~~~~~~~~~~~~^^^^\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/test_native_perf_build_producer.py\", line 2175, in complete\n    result=op.wait(1)\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 1920, in wait\n    self._constructor_guard()\n    ~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/konsultaner/.codex/worktrees/flatbuffers-ppt-custom-detail-map/connectanum-dart/tool/native_perf_build_producer.py\", line 2231, in _constructor_guard\n    raise deferred_error\nnative_perf_build_producer.ProducerError: original auxiliary direct wait binding changed\n"
+      }
+    ],
+    "not_fullcanonical_admission": true
+  },
+  "primary_matchingNEW4_PASS": true,
+  "relevant_AuxFinalization6_Producer10_PASS": true,
+  "otherNaturalWitness5PASS_2teardownERROR_FROZEN": true,
+  "cleanup_NEW3_before": {
+    "tests": 3,
+    "failures": 3,
+    "errors": 0,
+    "passes": 0,
+    "selection": [
+      "test_cleanup_ignores_fake_finished_result_fields",
+      "test_cleanup_keeps_foreign_process_field_and_uses_original_actor",
+      "test_cleanup_never_calls_replaced_Source_wait"
+    ],
+    "leases": [
+      {
+        "test": "cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_ignores_fake_finished_result_fields",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_ignores_fake_finished_result_fields",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_keeps_foreign_process_field_and_uses_original_actor",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_keeps_foreign_process_field_and_uses_original_actor",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_never_calls_replaced_Source_wait",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_never_calls_replaced_Source_wait",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "details": [
+      {
+        "test": "test_cleanup_ignores_fake_finished_result_fields (cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_ignores_fake_finished_result_fields)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/cleanup-regressions-v1.py\", line 71, in test_cleanup_ignores_fake_finished_result_fields\n    def test_cleanup_ignores_fake_finished_result_fields(self):self._case('finished')\n                                                               ~~~~~~~~~~^^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/cleanup-regressions-v1.py\", line 41, in _case\n    self.assertTrue(received is None);self.assertEqual(0,len(calls));self.assertTrue(view['Source_process_foreign_stays']);self.assertTrue(view['Source_finished_fake_stays']);self.assertTrue(view['root_fixture_receipt'])\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      },
+      {
+        "test": "test_cleanup_keeps_foreign_process_field_and_uses_original_actor (cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_keeps_foreign_process_field_and_uses_original_actor)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/cleanup-regressions-v1.py\", line 70, in test_cleanup_keeps_foreign_process_field_and_uses_original_actor\n    def test_cleanup_keeps_foreign_process_field_and_uses_original_actor(self):self._case('foreign')\n                                                                               ~~~~~~~~~~^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/cleanup-regressions-v1.py\", line 41, in _case\n    self.assertTrue(received is None);self.assertEqual(0,len(calls));self.assertTrue(view['Source_process_foreign_stays']);self.assertTrue(view['Source_finished_fake_stays']);self.assertTrue(view['root_fixture_receipt'])\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      },
+      {
+        "test": "test_cleanup_never_calls_replaced_Source_wait (cleanup_regressions.NaturalWaitCleanupScopeTests.test_cleanup_never_calls_replaced_Source_wait)",
+        "traceback": "Traceback (most recent call last):\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/cleanup-regressions-v1.py\", line 69, in test_cleanup_never_calls_replaced_Source_wait\n    def test_cleanup_never_calls_replaced_Source_wait(self):self._case('barrier')\n                                                            ~~~~~~~~~~^^^^^^^^^^^\n  File \"/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/cleanup-regressions-v1.py\", line 41, in _case\n    self.assertTrue(received is None);self.assertEqual(0,len(calls));self.assertTrue(view['Source_process_foreign_stays']);self.assertTrue(view['Source_finished_fake_stays']);self.assertTrue(view['root_fixture_receipt'])\n    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^\nAssertionError: False is not true\n"
+      }
+    ],
+    "not_canonical_admission": true
+  },
+  "cleanup_matchingNEW3_after": {
+    "tests": 3,
+    "failures": 0,
+    "errors": 0,
+    "passes": 3,
+    "selection": [
+      "test_cleanup_ignores_fake_finished_result_fields",
+      "test_cleanup_keeps_foreign_process_field_and_uses_original_actor",
+      "test_cleanup_never_calls_replaced_Source_wait"
+    ],
+    "leases": [
+      {
+        "test": "test_native_perf_build_producer.NaturalWaitCleanupScopeTests.test_cleanup_ignores_fake_finished_result_fields",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.NaturalWaitCleanupScopeTests.test_cleanup_ignores_fake_finished_result_fields",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.NaturalWaitCleanupScopeTests.test_cleanup_keeps_foreign_process_field_and_uses_original_actor",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.NaturalWaitCleanupScopeTests.test_cleanup_keeps_foreign_process_field_and_uses_original_actor",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.NaturalWaitCleanupScopeTests.test_cleanup_never_calls_replaced_Source_wait",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.NaturalWaitCleanupScopeTests.test_cleanup_never_calls_replaced_Source_wait",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "source_sha256": "350759256161727a69fbabf81e38d9cbcc756a387c06e0b17dd7bdf7fadf42f0",
+    "test_sha256": "43e6e0e4d0741f4f634985f3b29ba2efa4418aa29afca7fef4eab552c5df934b",
+    "details": [],
+    "old27_remains25PASS2ERROR_frozen": true,
+    "no_aggregate_currentcanonical_admission": true
+  },
+  "no_old27_25completed_2oldbody_replay": true,
+  "no_aggregate_currentcanonical_admission": true,
+  "Source_projection": {
+    "wholeSource_BYTE_projectsback": true,
+    "all_other_existing_methods_helpers_classes_factories_frozenpredicates_exact": true,
+    "old_finalization_guard_predicates_exact_after_prefix_removal": true,
+    "oldtests_PREFIX_exact": true,
+    "new_private_owner_strong_group_processlife_no_pop_reset_evict": true,
+    "Source_first_captured_BEFORE_secondary_metadata": true,
+    "Scope_only_finalizationStep_first_capture_and_guard_prefixes": true,
+    "early_complete_metadata_before_firststep_calleeinterior_globalbindings_ABA_incomplete": true
+  },
+  "test_projection": {
+    "whole_previous_tests_BYTE_projectsback_after_remove_NEW3_append_and_reverse_fixture": true,
+    "all_existing_test_method_assertions_exact": true,
+    "all_other_existing_classes_methods_exact": true,
+    "Source_UNCHANGED": true,
+    "old27_results_frozen": true,
+    "no_oldbody_replay": true,
+    "oldtest_PREFIX_NOT_exact": true,
+    "cleanup_only_field_restore_removed_Source_foreign_stays": true
+  },
+  "current_test_prefix_exact": false,
+  "wholeoldtest_byte_reverse_verified": true,
+  "ROOT": {
+    "hashes23": {
+      "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_build_producer.py": "350759256161727a69fbabf81e38d9cbcc756a387c06e0b17dd7bdf7fadf42f0",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+      "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+      "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+      "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_build_producer.py": "43e6e0e4d0741f4f634985f3b29ba2efa4418aa29afca7fef4eab552c5df934b",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+      "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+      "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+      "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+      "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+      "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+      "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+    },
+    "git4": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 96660,
+        "status": 0,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 96661,
+        "status": 0,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--short",
+          "--untracked-files=all"
+        ],
+        "pid": 96662,
+        "status": 0,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "--name-only",
+          "HEAD",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 96663,
+        "status": 0,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "primary_cleanup": {
+      "before": [
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 91349,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 4,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 7,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 5,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 6,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 8,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 9,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 91350,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 4,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 7,
+          "closed_before": false,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "raw_None": true
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 5,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 6,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 8,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 9,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 91351,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 4,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 7,
+          "closed_before": false,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "raw_None": true
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 5,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 6,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 8,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 9,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 91352,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 4,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 7,
+          "closed_before": false,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "raw_None": true
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 5,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 6,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 8,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 9,
+          "ROOT_close": false,
+          "errno": 9
+        }
+      ],
+      "after": [
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 92013,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 4,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 7,
+          "closed_before": false,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "raw_None": true
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 5,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 6,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 8,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 9,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 92012,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 4,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 7,
+          "closed_before": false,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "raw_None": true
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 5,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 6,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 8,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 9,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 92014,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 4,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 7,
+          "closed_before": false,
+          "ROOT_close": true,
+          "original_FD_path_identity_match": true,
+          "raw_None": true
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 5,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 6,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 8,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 9,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_same_original_bound_wait",
+          "pid": 92011,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 4,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_log",
+          "fd": 7,
+          "closed_before": true,
+          "ROOT_close": false
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 5,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 6,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 8,
+          "ROOT_close": false,
+          "errno": 9
+        },
+        {
+          "kind": "ROOT_known_pipe",
+          "fd": 9,
+          "ROOT_close": false,
+          "errno": 9
+        }
+      ]
+    },
+    "affected_finalization6waits": [
+      {
+        "kind": "bound_same_finite_wait",
+        "pid": 92016,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "bound_same_finite_wait",
+        "pid": 92015,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "bound_same_finite_wait",
+        "pid": 92018,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "bound_same_finite_wait",
+        "pid": 92020,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "bound_same_finite_wait",
+        "pid": 92017,
+        "status": 0,
+        "cached_possible": true
+      },
+      {
+        "kind": "bound_same_finite_wait",
+        "pid": 92019,
+        "status": 0,
+        "cached_possible": true
+      }
+    ],
+    "harness_NEW3_evidence": {
+      "barrier": {
+        "view": {
+          "cleanup_scope_control": true,
+          "mode": "barrier",
+          "teardown_returned": true,
+          "received_type": null,
+          "Source_wait_calls": 0,
+          "Source_process_foreign_stays": true,
+          "Source_finished_fake_stays": true,
+          "ROOT_original_Popen_known": true,
+          "ROOT_pid": 95973,
+          "root_fixture_receipt": true,
+          "limits": "NEWfreshcleanupcases only/no oldboolean-timeout bodies replay. ROOTcapturesnativepipe/FileIO andreturned_allocate_process Popen/boundwait beforeIO/hooks; any Source.wait blockedBEFORESourcebody. Sourcefieldsnotrestored/notownershipauthority. Knownsameactorwait10/rawpipe-fullEOF-evidence-beforeFDclose UNITnotoriginalLinux-fullEX-interpreter-descendantclosure. Old27/2teardownerrors frozen/oldactorAPI not reconstructed. No SDK-benchmark-adoption-RAMcause."
+        },
+        "receipt": [
+          {
+            "pid": 95973,
+            "status": 0,
+            "expected_status": 0,
+            "readers": [
+              {
+                "fd": 5,
+                "size": 16,
+                "sha256": "0a54bc9125177c4f71fb57834513b907331a8ab519a9a28b44b44f8148bc83ab",
+                "EOF": true,
+                "raw": "root-actor-0-pipe-0-raw.bin",
+                "partial_if_no_EOF": true
+              },
+              {
+                "fd": 8,
+                "size": 16,
+                "sha256": "f8cf62306b49cb3bb1ecd1f8b7ca17437421eb38d74dc669f7473bd70b8f8b5f",
+                "EOF": true,
+                "raw": "root-actor-0-pipe-1-raw.bin",
+                "partial_if_no_EOF": true
+              }
+            ],
+            "pipes": [
+              {
+                "fd": 5,
+                "end": 0,
+                "same_original_identity": true,
+                "errno": null,
+                "nonblocking": true
+              },
+              {
+                "fd": 6,
+                "end": 1,
+                "same_original_identity": false,
+                "errno": 9
+              },
+              {
+                "fd": 8,
+                "end": 0,
+                "same_original_identity": true,
+                "errno": null,
+                "nonblocking": true
+              },
+              {
+                "fd": 9,
+                "end": 1,
+                "same_original_identity": false,
+                "errno": 9
+              }
+            ],
+            "logs": [
+              {
+                "fd": 4,
+                "path": "/private/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/after-NEW3/fixtures/aux-wait-witness-bwyavfxh/aux-1/witness.stdout",
+                "closed": false,
+                "identity": [
+                  16777234,
+                  358561329
+                ]
+              },
+              {
+                "fd": 7,
+                "path": "/private/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/after-NEW3/fixtures/aux-wait-witness-bwyavfxh/aux-1/witness.stderr",
+                "closed": false,
+                "identity": [
+                  16777234,
+                  358561330
+                ]
+              }
+            ],
+            "Source_wait_called": false,
+            "Source_fields_not_restored": true,
+            "unit_only_not_live_ownership_EX_originalLinux_allactorclosure": true,
+            "cached_possible": true
+          }
+        ],
+        "external_cleanup": {
+          "evidence_ready": true,
+          "rows": [
+            {
+              "kind": "external_ROOT_same_bound_wait",
+              "pid": 95973,
+              "status": 0,
+              "cached_possible": true
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 5,
+              "end": 0,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 6,
+              "end": 1,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 8,
+              "end": 0,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 9,
+              "end": 1,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_log",
+              "fd": 4,
+              "closed_before": true,
+              "ROOT_close": false
+            },
+            {
+              "kind": "external_ROOT_known_log",
+              "fd": 7,
+              "closed_before": true,
+              "ROOT_close": false
+            }
+          ]
+        }
+      },
+      "finished": {
+        "view": {
+          "cleanup_scope_control": true,
+          "mode": "finished",
+          "teardown_returned": true,
+          "received_type": null,
+          "Source_wait_calls": 0,
+          "Source_process_foreign_stays": true,
+          "Source_finished_fake_stays": true,
+          "ROOT_original_Popen_known": true,
+          "ROOT_pid": 95971,
+          "root_fixture_receipt": true,
+          "limits": "NEWfreshcleanupcases only/no oldboolean-timeout bodies replay. ROOTcapturesnativepipe/FileIO andreturned_allocate_process Popen/boundwait beforeIO/hooks; any Source.wait blockedBEFORESourcebody. Sourcefieldsnotrestored/notownershipauthority. Knownsameactorwait10/rawpipe-fullEOF-evidence-beforeFDclose UNITnotoriginalLinux-fullEX-interpreter-descendantclosure. Old27/2teardownerrors frozen/oldactorAPI not reconstructed. No SDK-benchmark-adoption-RAMcause."
+        },
+        "receipt": [
+          {
+            "pid": 95971,
+            "status": 0,
+            "expected_status": 0,
+            "readers": [
+              {
+                "fd": 5,
+                "size": 16,
+                "sha256": "0a54bc9125177c4f71fb57834513b907331a8ab519a9a28b44b44f8148bc83ab",
+                "EOF": true,
+                "raw": "root-actor-0-pipe-0-raw.bin",
+                "partial_if_no_EOF": true
+              },
+              {
+                "fd": 8,
+                "size": 16,
+                "sha256": "f8cf62306b49cb3bb1ecd1f8b7ca17437421eb38d74dc669f7473bd70b8f8b5f",
+                "EOF": true,
+                "raw": "root-actor-0-pipe-1-raw.bin",
+                "partial_if_no_EOF": true
+              }
+            ],
+            "pipes": [
+              {
+                "fd": 5,
+                "end": 0,
+                "same_original_identity": true,
+                "errno": null,
+                "nonblocking": true
+              },
+              {
+                "fd": 6,
+                "end": 1,
+                "same_original_identity": false,
+                "errno": 9
+              },
+              {
+                "fd": 8,
+                "end": 0,
+                "same_original_identity": true,
+                "errno": null,
+                "nonblocking": true
+              },
+              {
+                "fd": 9,
+                "end": 1,
+                "same_original_identity": false,
+                "errno": 9
+              }
+            ],
+            "logs": [
+              {
+                "fd": 4,
+                "path": "/private/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/after-NEW3/fixtures/aux-wait-witness-_x8qrplo/aux-1/witness.stdout",
+                "closed": false,
+                "identity": [
+                  16777234,
+                  358561299
+                ]
+              },
+              {
+                "fd": 7,
+                "path": "/private/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/after-NEW3/fixtures/aux-wait-witness-_x8qrplo/aux-1/witness.stderr",
+                "closed": false,
+                "identity": [
+                  16777234,
+                  358561300
+                ]
+              }
+            ],
+            "Source_wait_called": false,
+            "Source_fields_not_restored": true,
+            "unit_only_not_live_ownership_EX_originalLinux_allactorclosure": true,
+            "cached_possible": true
+          }
+        ],
+        "external_cleanup": {
+          "evidence_ready": true,
+          "rows": [
+            {
+              "kind": "external_ROOT_same_bound_wait",
+              "pid": 95971,
+              "status": 0,
+              "cached_possible": true
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 5,
+              "end": 0,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 6,
+              "end": 1,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 8,
+              "end": 0,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 9,
+              "end": 1,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_log",
+              "fd": 4,
+              "closed_before": true,
+              "ROOT_close": false
+            },
+            {
+              "kind": "external_ROOT_known_log",
+              "fd": 7,
+              "closed_before": true,
+              "ROOT_close": false
+            }
+          ]
+        }
+      },
+      "foreign": {
+        "view": {
+          "cleanup_scope_control": true,
+          "mode": "foreign",
+          "teardown_returned": true,
+          "received_type": null,
+          "Source_wait_calls": 0,
+          "Source_process_foreign_stays": true,
+          "Source_finished_fake_stays": true,
+          "ROOT_original_Popen_known": true,
+          "ROOT_pid": 95972,
+          "root_fixture_receipt": true,
+          "limits": "NEWfreshcleanupcases only/no oldboolean-timeout bodies replay. ROOTcapturesnativepipe/FileIO andreturned_allocate_process Popen/boundwait beforeIO/hooks; any Source.wait blockedBEFORESourcebody. Sourcefieldsnotrestored/notownershipauthority. Knownsameactorwait10/rawpipe-fullEOF-evidence-beforeFDclose UNITnotoriginalLinux-fullEX-interpreter-descendantclosure. Old27/2teardownerrors frozen/oldactorAPI not reconstructed. No SDK-benchmark-adoption-RAMcause."
+        },
+        "receipt": [
+          {
+            "pid": 95972,
+            "status": 0,
+            "expected_status": 0,
+            "readers": [
+              {
+                "fd": 5,
+                "size": 16,
+                "sha256": "0a54bc9125177c4f71fb57834513b907331a8ab519a9a28b44b44f8148bc83ab",
+                "EOF": true,
+                "raw": "root-actor-0-pipe-0-raw.bin",
+                "partial_if_no_EOF": true
+              },
+              {
+                "fd": 8,
+                "size": 16,
+                "sha256": "f8cf62306b49cb3bb1ecd1f8b7ca17437421eb38d74dc669f7473bd70b8f8b5f",
+                "EOF": true,
+                "raw": "root-actor-0-pipe-1-raw.bin",
+                "partial_if_no_EOF": true
+              }
+            ],
+            "pipes": [
+              {
+                "fd": 5,
+                "end": 0,
+                "same_original_identity": true,
+                "errno": null,
+                "nonblocking": true
+              },
+              {
+                "fd": 6,
+                "end": 1,
+                "same_original_identity": false,
+                "errno": 9
+              },
+              {
+                "fd": 8,
+                "end": 0,
+                "same_original_identity": true,
+                "errno": null,
+                "nonblocking": true
+              },
+              {
+                "fd": 9,
+                "end": 1,
+                "same_original_identity": false,
+                "errno": 9
+              }
+            ],
+            "logs": [
+              {
+                "fd": 4,
+                "path": "/private/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/after-NEW3/fixtures/aux-wait-witness-r0hhagrr/aux-1/witness.stdout",
+                "closed": false,
+                "identity": [
+                  16777234,
+                  358561314
+                ]
+              },
+              {
+                "fd": 7,
+                "path": "/private/tmp/connectanum-native-perf-aux-snapshot-first-progress-v1/harness-cleanup-v1/after-NEW3/fixtures/aux-wait-witness-r0hhagrr/aux-1/witness.stderr",
+                "closed": false,
+                "identity": [
+                  16777234,
+                  358561315
+                ]
+              }
+            ],
+            "Source_wait_called": false,
+            "Source_fields_not_restored": true,
+            "unit_only_not_live_ownership_EX_originalLinux_allactorclosure": true,
+            "cached_possible": true
+          }
+        ],
+        "external_cleanup": {
+          "evidence_ready": true,
+          "rows": [
+            {
+              "kind": "external_ROOT_same_bound_wait",
+              "pid": 95972,
+              "status": 0,
+              "cached_possible": true
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 5,
+              "end": 0,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 6,
+              "end": 1,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 8,
+              "end": 0,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_pipe",
+              "fd": 9,
+              "end": 1,
+              "ROOT_close": false,
+              "errno": 9
+            },
+            {
+              "kind": "external_ROOT_known_log",
+              "fd": 4,
+              "closed_before": true,
+              "ROOT_close": false
+            },
+            {
+              "kind": "external_ROOT_known_log",
+              "fd": 7,
+              "closed_before": true,
+              "ROOT_close": false
+            }
+          ]
+        }
+      }
+    },
+    "old2_actor_API_finalwaits_incomplete_NOTreconstructed": true
+  },
+  "models": {
+    "Qwen_plan": {
+      "pid": 90975,
+      "status": 0,
+      "stdout_size": 2713,
+      "stderr_size": 570,
+      "stdout_sha256": "c7d8b60bbef3e3278aa3ead03a822e634f47622ed8236d205757775eaf9dcd3c",
+      "stderr_sha256": "73c1a3ad8ff15f0133e1c43f9b2e226516baa356c3b591d7e0584f84f1837b02",
+      "both_separate_EOF": true
+    },
+    "GLM_source": {
+      "pid": 91528,
+      "status": 0,
+      "stdout_size": 2466,
+      "stderr_size": 766,
+      "stdout_sha256": "5985324a10be3819b6cdace1680dea5d75d5bd0856e3475923af929f3e80b983",
+      "stderr_sha256": "565b272dc90553f9ece48b4ac33d70815564c453ea743fab3f224590f834f8f7",
+      "both_separate_EOF": true
+    },
+    "Qwen_debug": {
+      "pid": 93394,
+      "status": 0,
+      "stdout_size": 3657,
+      "stderr_size": 567,
+      "stdout_sha256": "df038dce349f81cea1150b0cd083db3dd23cf18260f0d30224a6e0e2597fdd54",
+      "stderr_sha256": "b5f09de7c48146f018372128624744667b12913d461930bcb5042fc850a56979",
+      "both_separate_EOF": true
+    },
+    "GLM_harness": {
+      "pid": 94885,
+      "status": 0,
+      "stdout_size": 2033,
+      "stderr_size": 701,
+      "stdout_sha256": "8604644d58f9f2a8c9a1af4cd87facaa157284bcded043988fd3f52db0ef7511",
+      "stderr_sha256": "29c4134a8ae5f5fae782ef347e0d9db0586f0e6314fb416e79d2b57ed0b1831d",
+      "both_separate_EOF": true
+    }
+  },
+  "model_ROOT_corrections": {
+    "models": {
+      "Qwen": {
+        "pid": 90975,
+        "status": 0,
+        "stdout_size": 2713,
+        "stderr_size": 570,
+        "stdout_sha256": "c7d8b60bbef3e3278aa3ead03a822e634f47622ed8236d205757775eaf9dcd3c",
+        "stderr_sha256": "73c1a3ad8ff15f0133e1c43f9b2e226516baa356c3b591d7e0584f84f1837b02",
+        "both_separate_EOF": true
+      },
+      "GLM": {
+        "pid": 91528,
+        "status": 0,
+        "stdout_size": 2466,
+        "stderr_size": 766,
+        "stdout_sha256": "5985324a10be3819b6cdace1680dea5d75d5bd0856e3475923af929f3e80b983",
+        "stderr_sha256": "565b272dc90553f9ece48b4ac33d70815564c453ea743fab3f224590f834f8f7",
+        "both_separate_EOF": true
+      }
+    },
+    "ROOT_qualified_NOTwholecurrentapproval": true,
+    "corrections": [
+      "Qwen90975 descriptorbypass claim false: hookcalls capturedoriginal__getattribute__/__setattr__, preservingactualdescriptor behavior for allotherattributes/objects. Targetspecificnativeget-beforeSecond andnativeSet-beforeSecond areintentional actualcallbacks. Restoringclasspatches doesnotrestoreSourcefields. No Sourcecleanup/fail-close/repeatedpublicwait afterfault.",
+      "Qwen requiresFirstin_sourcefield/Secondinlegacyjournal notadopted. Onget/setbeforewrite failure actualSource_primary mayremainNone; captureprivateFirst instead, doNOTnormalize-fill-restorefields oradoptROOTknownFirst/None. Secondaryretainedinprivategroup, originaljournalunknownmetadata preserved.",
+      "GLM91528 P1 missesexplicit_completeexcept pureguardbeforemetadataretainer: _finalization_step storesprivateFirst beforeSource_retainer get/set; finallyraisesFirst; _completeguard raisescachedFirst andneverre-entersretainer. No newgroupretain neededthere forthesestepcaught cases. Earlieroutermetadataerrors BEFOREprivatefirst remainoutsideScope/unproved andrequireNEWregression beforebroaderchange.",
+      "GLM P2 IDreuse-after-GC claim contradictsstrongowner group=(owner,...); ownercannotbereclaimed/reuseID whileprocesslifeglobalgroupretainsit. Rejectdel/finalizer-pop-reset-evict/tokenonfallibleownerfield. Logicalgroup/rawchunk retentioncost-growthunmeasured/notRAMcause/no deletionauthority ormemorybound.",
+      "set_after controlledhook callsactualcapturednative_set beforeRootSecondary; actualBEFOREcontrol receivesFirst/native_store_returnNone event, no genericallsubclasses guarantee. Concurrency/multiowner-globalbindings/calleeinterior/ABA/fullindependentEX-originalLinux/runtimeimmutableadmission incomplete.",
+      "Root_allocate_process wrapperretainsknownfullyreturnedPopen andoriginalboundwaitbeforeSourcepublication/targethooks; notRootadoption ofunknownPopen constructor/publicclasscallclosure. Nativepipecreator/FileIOhandlesregisteredbeforeI/O, knownFDdevino cleanupafterevidence UNITnotSourcecleanup/liveoriginalcredentialownership/fullFD-interpreter-descendantclosure. UnknownCtorPERMANENT/no partialPopenmethods; unknownsnapshotctorRootobjectneverSourceadopted."
+    ],
+    "candidate_artifact_first_execution": "AFTER Sourceedit",
+    "private_harnessv1_first_execution": "BEFOREonc4199a/0e4e94",
+    "no_before_replay": true,
+    "no_Source_change_for_model_advice": true
+  },
+  "harness_model_ROOT_corrections": {
+    "GLM94885_status0": true,
+    "advice_advisory_notwholecurrentapproval": true,
+    "P1_adopted_beforefirst_fixture_edit": "collectperactor errors/continueeveryknownactor before summary/assertions; preservefirst error; unknownstatusNone/skipunknownFDcleanup",
+    "P2_blocking_read_claim_rejected": "nativeSource start setreader nonblocking; nowassertget_blockingFalse beforefixedboundedreads/no flagchange; wait10 mustreturnbeforeanyread, timeoutrecordsunknown/skipsread-close",
+    "tail_not_silently_full": "save data+tail andEOF=False thenassertafterallactors/summary; partialunknown notfullcapture",
+    "ABA_interpreter_descendantclosure_heapRSS_unmeasured": true,
+    "v1_candidate_UNEXECUTED_protected": true,
+    "v2_beforefirst_edit_AFTER": true,
+    "no_repeated_model_oroldbody": true,
+    "old27_errors_not_erased_or_reclassified_green": true
+  },
+  "limits": [
+    "NEWprimary4 BEFOREc4199a/0e4e94=2FAIL2PASS0ERROR: actual_FileSnapshotAttempt completesinsideROOT thenRootFirst; auxiliaryprimaryget actualNone thenSecondary OR setterbeforewriteSecondary masksFirst/Secondaryescapes. NativeprimarysetFirst-thenSecondary control alreadyFirst, newnormalfiniteOWNchild fullAUXFIRST-out/err/status0 alreadyPASS. MinimalSource350759 capturesprivatefirst BEFOREsecondarymetadata in_finalization_step, retainssecondaryprivately, finallyraisesfirst; pureguardprefixes _complete/catch/_finalization_guard stopreprocessing. UnknownsnapshotctorRootobject staysSourceunknown/unregistered/no adoption/partialmethods.",
+    "AFTERinitial27 at350759/5ff931 =25PASS0FAIL2ERROR: matchingNEW4+6AuxFinalization+10actualProducercallers20PASS;5otherNaturalWaitWitnessPASS;2legacyNaturalWaitWitness tearDownERROR aftercorrectpermanentboolean-wait/directwait-binding refusals inUNCHANGED_constructor_guard/_wait_natural_status BEFORE_complete. All27results/raws frozen; no completed25/2oldbodies orold7suite replay. This isNOT27PASS/currentcanonical. Incompleteold2actor-API/finalwaitjournals remainunknown/notreconstructed/no globalPIDscan-kill-allreapclaim.",
+    "Futurefixture Rootcleanup repair isTESTONLY/currenttest43e6e0/Source350759unchanged. NEW3distinctcleanupcases(no oldboolean-timeout bodies) BEFORE3FAIL0PASS0ERROR; matchingNEW3AFTER3PASS0FAIL0ERROR ONCE. Source.wait ROOTbarrier/foreignprocesssentinel/fakefinished-result fields cannotdrivecleanup; confirmedreturned_allocate_process Popen/originalboundwait andnativepipe/FileIO handles beforeI/O, separateROOTrawEOF/evidence-before-knownFDclose, no Source.wait/retry/fieldrestore. Existingoldtest assertions exact; removecleanup-onlySourceprocessrestore; allothertestbytes projectback byreversefixture/removenew3+primary4 appends. OldtestPREFIX NOTexact; doNOTretagold27green/aggregateepochs/current20canonical.",
+    "SourcewholeBYTEprojectback/newhelpers3modifiedmethods only/allotherexistingmethodsclasseshelpersfactories-oldauxpredicatebytes-owner_emit_attempted exact. Sourceprimaryfield remainsNone foractualget/setbeforewrite failures; no restore/fillfromROOTknownNone-First. Actualcapturedpureguard BEFORESnapshotCtorfault throwsOriginalFirst afterfault withoutSourceI/O/metadata; primaryjournalunknown returnedNone/raw_returnNone/errorNone preserved. Strongowner/idgroup processlife/no IDreuse whileownerretained/no finalizer-pop-reset-evict; group/closure/rawchunk heapRSS-growth-timing-leakcauseUNMEASURED/no RAMrepair/memorybound/deletionauthority.",
+    "8primarynewviews=4BEFORE4AFTER/4+4originalboundROOTwait10 signed0cachedpossible/Rootlogclose3BEFORE3AFTER onlyAFTERevidence; pipesalreadySourceclosed/no borrowedclosedreclose.6affectedFinalization naturalboundwaitsseparate0. HC3BEFORE3AFTER freshactors rootexternal sameboundwait10 signed0/cachedpossible; HCafterRootfixture wait0/2actualnonblockingreaders16B+EOF each/sourcewaitcalls0/foreign-fakefieldsstay. CURRENTDarwinEX parent8BEFORE54initialAFTER plus6HCbefore6HCafterNone observations UNITnotfullindependentEX-originalLinuxcredentials/fullFD-interpreter-delegate-descendantclosure/ownershipadmission. Fields/pending-finished-status-EOF-closed DATAneverEXrelease.",
+    "Qwen90975=0/2713out570err;GLM91528=0/2466out766err;Qwen93394debug=0/3657out567err;GLM94885harness=0/2033out701err/fullanswers-BOTH EOF-reaped-ROOTqualified NOTwholecurrentapproval. Rejectdescriptorbypass(nativegetdelegates)/SourceprimaryFirstfield-restoration/journalSecondrequirement/Sourcefailclose. GLMSourceP1 missescatchpureguard/strongownerGC-IDreuse contradiction; no pop-finalizer/tokenonfalliblefield. Debugblamenewguard/catchlog-rerun oldcases rejected bytraces/unchanged_sourcepaths. HarnessGLMP1 adoptedv2BEFOREfirstedit: collecteveryknownactor before summary/assertions/preservefirsterror/unknownstatusNone. P2 blockingread rejected: nativeSource setsnonblock; v2assertFalseget_blocking BEFOREfixedreads/no flagreset, waitmustreturnbeforeIO; partialtailstoredEOFfalse notfullcapture. v2finalhunks ROOTqualified/no modelreviewreplay.",
+    "Planningv1 silentcontroller0 truncatedatcontext byuncheckedJSmarker-1/no command-Popen/model/contextfile; oldnamespaceTERMINAL/rawactualAPIkept/contextUNSERIALIZED-notreconstructed. Freshplanningv2 firstactualQwencall/notmodelretry-Sourcefailingregression. CandidateSourcev1/privateprimaryv1 FIRSTexecutedAFTERedit/BEFORE respectively; harnessv1UNEXECUTED/harnessv2BEFOREfirstedit-AFTER/new3beforeSourceunchanged. ControllersBEFOREcalls; firstpreparationDISPLAY7168tokens capped butfullselectedJSONs retained/notSourceoperationfailure/noomissionreconstruction.",
+    "Current23hashes/other18helpers3bins unchanged/freshSourceGit2BEFORE +4NEWafter all0-BOTH/HEAD601108ea6216464bd00ae29c16cfaf0a59c71db6/ownbranch20untracked-productiontrackedempty DATA. Originalfirst4After result staysat5ff931; current43e6e0 onlyfuturefixture/new3 changes/reverseproof, no currentwhole27/suitecanonical inference. HELPERBUNDLE20 excludesprivateartifacts. All20uncommitteduncanonicalunadmitted/production601trackedexact; no Sourcecommit-push-adoption/SDK-nativebuild-current20canonical-kernel-broker-benchmarkcapture-strictdispatch.",
+    "Earlier_finalization metadata BEFOREgroup/row/try, methodbinding/calleeinterior/concurrentABA/multiowner/globalABI/higher_git archiveConstructorFirst-initialization/defer/preserve/transitiveunknownactors/fullindependentEX-originalruntimeimmutableCOMPLETEadmission INCOMPLETE. UnknownPopenCtorPERMANENTrefusal/no partialPopenmethods-fieldderivedsettlement. Newstrongrefs/fixtureFDcopies/logicalcounts notheapRSSvolume/leakcause orphysicalownership. ProviderABSENT/gatealwaysraises/controllerCLOSED/ownershipNone/all3flagsFalse/RAMrepair-strict48/50-cleanfinalCI NOTcomplete/PR132OPENdraft#130/issue103milestoneOPEN. Storagefloors DATAnotbuild-capture-cleanupauthority/outsideoldcleanupcauseUNMEASURED."
+  ],
+  "storage": {
+    "free_bytes": 295944617984,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-aux-snapshot-first-progress-evidence.tar.gz",
+    "archive_sha256": "a71fc1cd52cb5158e13290fe7de6db6b0e07ea551552d7391a6a3a0291e23115",
+    "selected_regular_members": 1530,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-aux-snapshot-first-progress-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-aux-snapshot-first-progress-assessment.json"
+  }
+}
