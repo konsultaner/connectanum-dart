@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Map snapshot constructor containment before further changes
+
+A cached-source audit identifies three nominal snapshot routes: auxiliary finalization, archive revalidation and command-log finalization. The helper constructs its snapshot attempt before registering it. Auxiliary finalization records an unknown return as None; command-log finalization starts with False. The archive revalidation call has no immediate callback record, and an exception stops its later statements.
+
+These findings describe source order. Auxiliary first-error metadata accesses remain fallible, and higher failure handling, runtime bindings and transitive actors still need targeted evidence. No new failing regression was executed, so this audit makes no Source change. Five exact-identifier references, three separate Git attribute references and four higher attribute references are retained with their selected context. An empty literal-rebinding query establishes no runtime identity or global absence.
+
+Both companion reviews reached token limits without a final answer; their full partial finals remain absent. ROOT independently qualifies the selected source and its limits. Producer c4199a and test0e4e94 remain the latest verified factory epoch. This phase performs no Source or HEAD recensus, tests, build or capture. The previous49 scoped tests remain historical and separate. Runtime admission, RAM repair and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-snapshot-enclosing-audit-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-snapshot-enclosing-audit-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-snapshot-enclosing-audit-evidence.tar.gz).
+
 ## 2026-11-05 — Refuse None and bool hash factories before the first read
 
 A controlled SHA factory constructed a native hasher and then returned None, False or True. The snapshot helper read23bytes before failing an update-method lookup. It now rejects those explicit return kinds before the first read. Known invalid values stay recorded as returned; an unknown completion keeps its original error and stays unknown. A known returned proxy still delegates normal native hashing and returns the full size and SHA.
