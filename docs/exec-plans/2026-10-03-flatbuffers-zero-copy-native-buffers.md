@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Check finish primary kind before replacing First
+
+Four new actual-wait cases give 2FAIL/2PASS/0ERROR before: returned primary fields None and False overwrite the finish helper's captured First, causing TypeError in both the wait path and pure publication guard. Native valid-primary and unknown-completion controls already preserve First. The real result writer has completed inside ROOT, but Source has not received its return. The written success result remains data with capture_ready and evidence_complete False, never an accepted receipt.
+
+The finish helper now checks BaseException kind before assigning its private first-error slot. Matching after is 4PASS/0FAIL/0ERROR once, including the two actual-wait caller controls. Invalid fields retain First with classification error as context; unknown record metadata stays None and is not filled from ROOT. Valid exception selection is preserved without imposing identity to the current error or claiming complete earlier-primary history.
+
+Only the finish method's inner refusal check changes. Whole Source reverse projection, old test prefix, other eighteen helpers, three root scripts and frozen predicates are exact. ROOT retains actual log and result-file bytes; it reconstructs no Source result or raw pipe. Scoped waits, file closes and Darwin EX observations remain unit data. All twenty helpers remain uncommitted, uncanonical and unadmitted; original-runtime admission, RAM repair, final strict 48/50 and clean final CI remain incomplete.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-finish-primary-kind-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-finish-primary-kind-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-finish-primary-kind-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Check end-command primary kind before replacing First
 
 Four new actual-wait cases give a before result of 2FAIL/2PASS/0ERROR. Known returned primary fields None and False overwrite the end-command group's captured First and turn both the wait failure and pure guard into TypeError. Native valid-primary and unknown-group-completion controls already preserve First. These are two controlled variants of one classification gap, not spontaneous kernel faults or a RAM-cause finding.
