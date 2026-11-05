@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Refuse None and bool hash factories before the first read
+
+A controlled SHA factory constructed a native hasher and then returned None, False or True. The snapshot helper read23bytes before failing an update-method lookup. It now rejects those explicit return kinds before the first read. Known invalid values stay recorded as returned; an unknown completion keeps its original error and stays unknown. A known returned proxy still delegates normal native hashing and returns the full size and SHA.
+
+Five new controls before3a007f/286a72 produced3FAIL/2PASS/0ERROR: three controlled continuation/refusal policies, not spontaneous kernel bugs or a RAM cause. The unknown-completion and distinct normal23-byte proxy controls already passed. Finalc4199a/0e4e94 passes49selected=5matchingNEW+44affected(26previoussnapshot8end10actualwaitcallers). Whole Source projection and the existing test prefix are exact. Both advisory models completed; ROOT independently qualifies their claims, the patch and the results. This guard does not validate every possible factory return or establish native identity.
+
+Ten new direct views create no child actors. Current Darwin lease observations, known FD cleanup and affected finite waits remain unit evidence; full independent EX and original Linux actor closure remain unproved. Chunk-retention machinery is unchanged. Avoiding a read in these controlled refusals establishes no heap/RSS bound or RAM repair. Source remains uncommitted, uncanonical and unadmitted; runtime admission and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-snapshot-factory-returns-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-snapshot-factory-returns-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-snapshot-factory-returns-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Require an exact UID return before snapshot reads
 
 A controlled wrapper returned501.0 after the native getuid call returned501. The helper accepted numeric equality with the file owner and continued hashing, reading and closing the file. It now requires an exact nonnegative native integer before comparing the owner or reading. The known float stays recorded as returned; an unknown completion keeps its original error and stays unknown. Actual credentials and native I/O order remain unchanged.
