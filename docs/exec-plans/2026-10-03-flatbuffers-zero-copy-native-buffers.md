@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Retain Auxiliary objects before early initializer I/O
+
+The ordinary public constructor now retains its allocated object before the initializer's first filesystem operation. A same-signature wrapper delegates to the byte-exact original body and binds first before metadata; a pure first guard precedes old checks so early errors do not probe half-built fields. Allocation/initializer facts remain DATA; outer constructor-return/owner-append confirmation remains incomplete. Original factory, Popen guards/factories and frozen predicates remain intact. No record grants method authority or EX/admission.
+
+NEW6 ata90dca/877638 yield4FAIL/2normalPASS/0APIerrors, all stronger explicit-retention/pureguard failures where old caller errors already escape, not four native bugs. Final745515/823166 passes33selected checks (6new+27affected), not aggregated/current20canonical/admission. Original body/signature/factory and old test prefix remain exact; ROOT qualifies final source/tests/AST/23hashes/other18helpers3bins and4newGit0/BOTHstreams/601/20untracked/productiondiffempty DATA. Gemma/GLM/Qwen/GLM advice0 is qualified, including rejecting ignored non-None initializer return and deletion/eviction advice. Outer factory/earlier APIs/backingFD/enclosing/transitive actors/full independent EX/runtime admission remain incomplete. No SDK/build/capture/adoption/RAM repair/strict acceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-aux-early-init-retention-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-aux-early-init-retention-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-aux-early-init-retention-progress-evidence.tar.gz).
+
 ## 2026-11-04 — Hash reads retain first errors without automatic close
 
 The regular-file hash helper retains original received FD references and intent/raw returns, stops unknown or invalid operations without finally close/add_note and keeps its first error before metadata. False EOF is rejected. Normal path/flags/owner-mode-size/identity/chunk/hash/digest-before-close/close-before-return order remains intact. Shared pure observation machinery is reused without running or changing the JSON writer. FD/EOF/close/hash/source records are DATA, not credentials, ownership, physical EX or admission.
