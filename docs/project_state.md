@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Validate failure-group tuple shape before deferral
+
+The constructor now requires a plain five-element tuple from the failure-group helper before reading pending or entering deferral. Four new controlled cases returned an empty tuple, a four-element tuple, a six-element tuple or a list containing the native five elements. Before the change, all four continued through later native helper calls and returned an owner. After the change, each raises the original First before further metadata access. This validates kind and arity; it does not authenticate origins, callable fields or ownership.
+
+The new before run is 4FAIL/1PASS/0ERROR. Its healthy control completes the actual archive operation, then raises First before input checking or recipe launch; the native group preserves First. Final after is 7PASS/0FAIL/0ERROR: the matching five new cases and two affected constructor callers covering a missing executable and a post-spawn journal error. These are controlled refusal regressions, not spontaneous kernel faults or evidence of the RAM cause.
+
+Only the constructor condition changes. Whole Source reverse projection and the old test prefix are exact. Original native actors, waits and creator handles are retained before Source publication or I/O; raw pipe bytes and EOF precede scoped ROOT closes. These remain unit observations. The twenty helpers remain uncommitted, uncanonical and unadmitted. RAM repair, original-runtime admission, final strict 48/50 and clean final CI remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-constructor-group-shape-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-constructor-group-shape-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-constructor-group-shape-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Refuse known None and bool failure-group returns
 
 The constructor now refuses explicit None/False/True failure-group returns before reading pending or entering deferral. Previously each invalid first return was accepted: subsequent native group calls completed and the constructor returned an owner. The new reserved-event control already preserved First. This checks unsupported return kinds, not identity, ownership or all possible group shapes.
