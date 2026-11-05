@@ -1,0 +1,71 @@
+{
+  "scope": "NEW private Darwin keeper guarded release-order regression and private candidate fix only",
+  "utc": "2026-11-05T18:33:01.304090+00:00",
+  "before": {
+    "source_sha256": "6108e1b8ad4e2b8b2b0f54f6bbba7d23ed564ae149e9bdae34887b68d12ebbd4",
+    "tests": 2,
+    "passes": 1,
+    "failures": 1,
+    "errors": 0,
+    "publication_first_premature_exit_attempts": 1,
+    "actual_premature_native_release": false,
+    "backstop_exception_replaced_First": true
+  },
+  "after": {
+    "source_sha256": "205395029ca1a440118ba2bb6961a0bdacb1d32b314c519146a35d97ca8997df",
+    "tests": 2,
+    "passes": 2,
+    "failures": 0,
+    "errors": 0,
+    "publication_first_premature_exit_attempts": 0,
+    "original_First_identity_preserved": true,
+    "actual_premature_native_release": false
+  },
+  "mechanism": "TEST context-exit interception precedes real native close. BEFORE blocks unsafe attempt, probes actual official EX conflict, retains original context, collects same known child naturally then manually closes once. AFTER private candidate collects known child before Source attempts exit; one actual exit returns after collection. EOF caller already passed and remains passing.",
+  "meaningful_failure": "Premature context-exit ATTEMPT under controlled publication First after real ready-file IO. The test prevented actual unsafe kernel release in both phases; backstop masking of First is not itself a private Source bug claim.",
+  "private_fix": "Initialize known-child/collection state, mark actual normal collection before fallible publication, and collect the known child in finally before context exit. Reverse projection to frozen private before source is byte-exact.",
+  "native_actor_counts": "Five fixture actors per phase (two harness keepers, two finite children, one actual negative contender), not five tests; separate phase runners before exit1/after exit0. All known row statuses signed, cached possible, full streams/SHA-size retained; no global reaping claim.",
+  "models": {
+    "Qwen_planning": {
+      "pid": 63006,
+      "status": 0,
+      "stdout_size": 1770,
+      "stderr_size": 391
+    },
+    "GLM_judge": {
+      "pid": 63924,
+      "status": 0,
+      "stdout_size": 2523,
+      "stderr_size": 854
+    },
+    "both_EOF_natural_reaped": true,
+    "full_answers_ROOT_qualified_NOT_approval": true,
+    "corrections": "Full qualification files retained. GLM incorrectly treated unexecuted candidate/EOF trace as AFTER evidence; actual AFTER ran only later. Direct First identity is measured separately from context. Unknown/incomplete communicate is quarantine, not a retry. Actual-exit/collection errors remain unproved."
+  },
+  "unchanged_scope": {
+    "current20_Source_test_edit_import": false,
+    "current_SourceHEAD20_SDK_census": false,
+    "original_runtime_checkout_read_edit": false,
+    "SDK_original_recipe_build_native_production_kernel_broker_benchmark_capture": false,
+    "Source_commit_push_adoption_strictdispatch": false
+  },
+  "limits": [
+    "Known fully returned finite child only; Root/keeper crash, unknown constructor, unexpected communicate/wait/publication/actual-exit failure and uncooperative descendants remain unproved.",
+    "Original creator handles precede publication IO; TEST wrappers/native API observations are not complete interpreter/delegate/FD/origin/ABA/auth or original Linux credentials/physicalEX/pidfd/exec closure.",
+    "Original context remains strongly retained; actual official EX refusal uses LocalResourceLeaseError from native EAGAIN35. Fixture78 is a mapped refusal status, not backend unavailability. EOF/FD/status/poll data do not settle unknown ownership.",
+    "No SDK invocation authority, live bridge, input-generation/cohort authority, immutable admission, RAM magnitude/growth/volume/timing/cause/repair, strict48/50 or finalCI evidence.",
+    "No unchanged old case/suite/model/archive/campaign replay, missing API/PID/status/error/buffer/final reconstruction or evidence deletion. Historical raw limitations remain binding."
+  ],
+  "next": "Define concrete original actor creation/exec/FD registration and independent generated-output/original-cohort validation; unexpected collection/exit and unknown-actor paths stay permanent quarantine. No SDK/original recipe/build/capture authority.",
+  "capture_ready": false,
+  "evidence_complete": false,
+  "readiness": false,
+  "admission": false,
+  "public_evidence": {
+    "archive": "docs/research/2026-11-05-flatbuffers-native-perf-keeper-release-order-evidence.tar.gz",
+    "sha256": "af0ad96cb91fbba0727baa8b15d2d764ba5ed279e4424eefe4738d5e79054c2e",
+    "selected_regular_members": 133,
+    "all_selected_BYTEEXACT": true,
+    "scope": "NEW private keeper release-order BEFORE2/AFTER2; current20 Source/test unchanged; not SDK/live admission"
+  }
+}

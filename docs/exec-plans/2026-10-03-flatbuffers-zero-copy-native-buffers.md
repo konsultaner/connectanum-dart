@@ -2,6 +2,18 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Preserve the keeper lease through a publication failure
+
+Two new private Darwin cases expose one premature context-exit attempt before a known finite child was collected. BEFORE records one failure and one passing EOF caller. A TEST backstop intercepts the exit before native close, retains the original context, confirms an actual official EX conflict, then collects the same child and releases once. No unsafe kernel unlock occurred.
+
+A minimal private candidate collects the known child before attempting context exit. Matching AFTER records two passes, zero premature attempts and the original First exception identity. The EOF caller still passes. Five fixture actors per phase are separate from the two test cases; signed statuses, both streams and SHA/size records were retained before assertions. The private source reverse projection is byte-exact.
+
+Qwen planning and GLM judgment are ROOT-qualified. GLM described hypothetical AFTER ordering as established before AFTER ran; the actual matching run was performed later. Unknown constructors, crashes, unexpected collection or context-exit failures, complete actor/FD closure and original Linux ownership remain unproved. This private candidate is not a live SDK controller.
+
+No current twenty-helper Source/test edit/import, current HEAD/SDK census, runtime checkout operation, SDK/original recipe, build, production native or benchmark capture occurred. All readiness/admission flags remain false. RAM repair, immutable original-runtime admission, final strict 48/50 and clean final CI remain incomplete.
+
+[Declaration and limits](../research/2026-11-05-flatbuffers-native-perf-keeper-release-order-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-keeper-release-order-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-keeper-release-order-evidence.tar.gz).
+
 ## 2026-11-05 — Observe an independent EX keeper through a finite client failure
 
 One new private Darwin fixture case passes with five native actors. The independent keeper owns the official exclusive lease; a separate client exits 1 with First, an actual contender receives native EAGAIN and reports 78, and the keeper then observes its known finite child's native poll as None. The child and keeper finish naturally with status 0, and a later positive contender acquires a new lease and exits 0. All known outcomes and full streams precede final assertions. This is one case, not five tests.
