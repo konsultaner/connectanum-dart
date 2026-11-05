@@ -1,0 +1,19 @@
+# Selected original-PATH bootstrap input gaps
+
+This scope captures previously unbound files under the preselected local Flutter SDK without invoking Dart, Flutter, Git, pub, Cargo or rustup. It follows the retained current twenty-helper candidate as a pending preflight step; the candidate and historical tracked-source archive were not reopened or recreated. No Source/test edit or current helper/HEAD census occurred.
+
+Seven selected regular files are present and retained in full locally, totaling 48,517,062 bytes. The selected optional bootstrap script is absent. The present inputs are the Flutter tool snapshot, its pubspec and lock, the content-aware-hash script, engine realm, Git HEAD and the single loose branch ref named by HEAD. The snapshot has 48,487,312 bytes and SHA256 6ef8e2cd2477544e26c192623cc7710a88e5d0169d362511687a4bf0d78340be. The Git ref contains commit token 6655482ec06e547f90abf8ae7590466f4415978d. This is a file token; no Git command, object database, tree validation, repository cleanliness or loaded executable identity was established.
+
+The exact seven copied bodies and the model's source-bearing input remain local only. Each descriptor was recorded before reading, bounded streaming reads retained complete bytes, and copied-body SHA/size readback matched. File and descriptor identities matched across the read. This closes the selected missing-file observations, not atomic ABA, original runtime immutability, physical exclusive ownership or all startup-input closure.
+
+The six declared environment names were absent in the administrative process. That observation does not describe the original benchmark driver, establish effective SDK flags or fix the cohort. The local SDK remains distinct from the original Linux Dart 3.13.5 workload. These new inputs cannot be combined with the historical equal stamps into an update-free startup proof.
+
+The newly retained content-aware-hash script adds concrete transitive obligations: it queries the Git branch, conditionally examines remote configuration and merge bases, distinguishes shallow and CI state, checks the Git version, then hashes selected Git tree entries. The selected Git HEAD/ref token alone does not bind the object database, tree entries, Git executable or these conditional paths. Gemma completed a bounded summary with full stdout/stderr retained. ROOT confirmed the selected paths and commands, qualified its generic rebuild description and noted the origin fallback and additional shallow/CI inputs.
+
+The historical wrapper assessment still records an updater that can write engine stamp and realm before cached Dart execution. Selected optional-bootstrap absence does not remove that later updater. No update, write, timing, subprocess or no-update behavior was measured here. No SDK/root/flag/environment/credential/host replacement, runtime overlay, lock/config/native transplant or cleanup was performed.
+
+The runtime source checkout, twenty helper sources, SDK command paths and admission gate were untouched. There were no tests, bootstrap/build/native workloads, kernel/perf/broker/benchmark capture, adoption, Source commit/push or strict dispatch. All admission flags remain false, provider absent, controller closed and ownership absent. RAM cause/repair, final strict 48/50 and clean final CI remain incomplete.
+
+Next, declare the exact first lock/configuration generation boundaries and transitive actors for the original bootstrap and canonical recipes before any invocation. Original-host credentials/access and complete interpreter/delegate/descendant/FD ownership must be qualified independently; neither these SDK file observations nor historical helper controls authorize a startup or build.
+
+The evidence archive contains 43 selected regular members, all verified byte-exact. Evidence archive SHA256: 1847ab7fabe792fa79924610fe3c2fa8f5a85f0887c3a812b7f9dfb6e9ab9dd6. Later publication/readback bookkeeping is outside this snapshot.

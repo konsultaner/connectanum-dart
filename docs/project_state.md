@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Record selected bootstrap gaps without invoking the SDK
+
+Seven previously unbound SDK input files are present and retained in full locally; the selected optional bootstrap script is absent. The observations include the tool snapshot, pubspec/lock, content-aware-hash script, realm and a symbolic Git HEAD with its single loose ref. Copied SHA/size readback matches. No SDK or Git CLI was invoked, and external SDK bodies remain outside the public archive.
+
+The new hash-script inspection identifies conditional Git branch/remote/merge-base, shallow/CI, Git-version and tree/object obligations. The HEAD token and six absent administrative environment names establish file data only. They do not describe original benchmark workers, prove no updater writes or join the local SDK to the original Linux cohort. Gemma's bounded summary is complete and ROOT-qualified.
+
+There were no Source/test edits, current helper/HEAD refresh, tests, bootstrap, build, native workload or capture. Original first lock/configuration generation and complete actor/FD ownership remain pending before any SDK invocation. Admission, RAM repair, final strict 48/50 and clean final CI remain incomplete.
+
+[Declaration and limits](research/2026-11-05-flatbuffers-native-perf-original-path-bootstrap-gaps-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-original-path-bootstrap-gaps-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-original-path-bootstrap-gaps-evidence.tar.gz).
+
 ## 2026-11-05 — Bind the current helper candidate and freeze the prior continuation
 
 A new input candidate contains the latest twenty helper files, six actual prior continuation snapshots and two metadata files. All twenty-eight regular members read back byte-exact. It explicitly distinguishes the older helper package and leaves the retained tracked-source archive opaque. No Source/test code was edited or executed, and the runtime checkout was untouched.

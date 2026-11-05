@@ -1,0 +1,545 @@
+{
+  "utc": "2026-11-05T16:41:19.656924+00:00",
+  "scope": "NEW selected original-PATH bootstrap missing-input FILEDATA only",
+  "input_observations": {
+    "utc": "2026-11-05T16:37:43.303448+00:00",
+    "kind": "SELECTED_BOOTSTRAP_GAPS_FILEDATA_NOT_EXECUTION_ADMISSION",
+    "sdk_root_preselected": "/Users/konsultaner/flutter/flutter",
+    "candidate_reference": "717a1cc26d8c2d10528b360155621b524343348c56c2c99030fd0259100deb8f",
+    "rows": [
+      {
+        "relative": "bin/cache/flutter_tools.snapshot",
+        "present": true,
+        "kind": "regular",
+        "size": 48487312,
+        "sha256": "6ef8e2cd2477544e26c192623cc7710a88e5d0169d362511687a4bf0d78340be",
+        "before": {
+          "dev": 16777234,
+          "ino": 180107485,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 48487312,
+          "mtime_ns": 1787228818813894746,
+          "ctime_ns": 1787228818813894746,
+          "flags": 0
+        },
+        "opened": {
+          "dev": 16777234,
+          "ino": 180107485,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 48487312,
+          "mtime_ns": 1787228818813894746,
+          "ctime_ns": 1787228818813894746,
+          "flags": 0
+        },
+        "after": {
+          "dev": 16777234,
+          "ino": 180107485,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 48487312,
+          "mtime_ns": 1787228818813894746,
+          "ctime_ns": 1787228818813894746,
+          "flags": 0
+        },
+        "path_after": {
+          "dev": 16777234,
+          "ino": 180107485,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 48487312,
+          "mtime_ns": 1787228818813894746,
+          "ctime_ns": 1787228818813894746,
+          "flags": 0
+        },
+        "body_retained_LOCAL_ONLY": "LOCAL-ONLY/00-flutter_tools.snapshot",
+        "retained_readback_SHA_size_exact": true,
+        "descriptor_closed_by_own_reader": true,
+        "point_data_NOT_atomic_or_runtime_immutable": true
+      },
+      {
+        "relative": "packages/flutter_tools/pubspec.yaml",
+        "present": true,
+        "kind": "regular",
+        "size": 2805,
+        "sha256": "388bfad9606ee79cc670107d568a74f1a991f771b18292d6a911687b8de66922",
+        "before": {
+          "dev": 16777234,
+          "ino": 180101317,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 2805,
+          "mtime_ns": 1787228693500197787,
+          "ctime_ns": 1787228693500197787,
+          "flags": 0
+        },
+        "opened": {
+          "dev": 16777234,
+          "ino": 180101317,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 2805,
+          "mtime_ns": 1787228693500197787,
+          "ctime_ns": 1787228693500197787,
+          "flags": 0
+        },
+        "after": {
+          "dev": 16777234,
+          "ino": 180101317,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 2805,
+          "mtime_ns": 1787228693500197787,
+          "ctime_ns": 1787228693500197787,
+          "flags": 0
+        },
+        "path_after": {
+          "dev": 16777234,
+          "ino": 180101317,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 2805,
+          "mtime_ns": 1787228693500197787,
+          "ctime_ns": 1787228693500197787,
+          "flags": 0
+        },
+        "body_retained_LOCAL_ONLY": "LOCAL-ONLY/01-pubspec.yaml",
+        "retained_readback_SHA_size_exact": true,
+        "descriptor_closed_by_own_reader": true,
+        "point_data_NOT_atomic_or_runtime_immutable": true
+      },
+      {
+        "relative": "packages/flutter_tools/pubspec.lock",
+        "present": true,
+        "kind": "regular",
+        "size": 23781,
+        "sha256": "bc2ca8669c0c8503cb7b88ecb3ece08f3083e0fb67c206e981764735610bea2d",
+        "before": {
+          "dev": 16777234,
+          "ino": 2648074,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 23781,
+          "mtime_ns": 1787228808819866000,
+          "ctime_ns": 1787228808819880380,
+          "flags": 0
+        },
+        "opened": {
+          "dev": 16777234,
+          "ino": 2648074,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 23781,
+          "mtime_ns": 1787228808819866000,
+          "ctime_ns": 1787228808819880380,
+          "flags": 0
+        },
+        "after": {
+          "dev": 16777234,
+          "ino": 2648074,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 23781,
+          "mtime_ns": 1787228808819866000,
+          "ctime_ns": 1787228808819880380,
+          "flags": 0
+        },
+        "path_after": {
+          "dev": 16777234,
+          "ino": 2648074,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 23781,
+          "mtime_ns": 1787228808819866000,
+          "ctime_ns": 1787228808819880380,
+          "flags": 0
+        },
+        "body_retained_LOCAL_ONLY": "LOCAL-ONLY/02-pubspec.lock",
+        "retained_readback_SHA_size_exact": true,
+        "descriptor_closed_by_own_reader": true,
+        "point_data_NOT_atomic_or_runtime_immutable": true
+      },
+      {
+        "relative": "bin/internal/bootstrap.sh",
+        "present": false,
+        "error": {
+          "type": "FileNotFoundError",
+          "errno": 2,
+          "text": "[Errno 2] No such file or directory: '/Users/konsultaner/flutter/flutter/bin/internal/bootstrap.sh'"
+        },
+        "selected_absence_only": true
+      },
+      {
+        "relative": "bin/internal/content_aware_hash.sh",
+        "present": true,
+        "kind": "regular",
+        "size": 3099,
+        "sha256": "d54246a77b02cdb48a47fc871ef82d53f39e345b5cfd02a687308b5d4a765399",
+        "before": {
+          "dev": 16777234,
+          "ino": 180098847,
+          "mode": 33261,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 3099,
+          "mtime_ns": 1787228692702144544,
+          "ctime_ns": 1787228692702144544,
+          "flags": 0
+        },
+        "opened": {
+          "dev": 16777234,
+          "ino": 180098847,
+          "mode": 33261,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 3099,
+          "mtime_ns": 1787228692702144544,
+          "ctime_ns": 1787228692702144544,
+          "flags": 0
+        },
+        "after": {
+          "dev": 16777234,
+          "ino": 180098847,
+          "mode": 33261,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 3099,
+          "mtime_ns": 1787228692702144544,
+          "ctime_ns": 1787228692702144544,
+          "flags": 0
+        },
+        "path_after": {
+          "dev": 16777234,
+          "ino": 180098847,
+          "mode": 33261,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 3099,
+          "mtime_ns": 1787228692702144544,
+          "ctime_ns": 1787228692702144544,
+          "flags": 0
+        },
+        "body_retained_LOCAL_ONLY": "LOCAL-ONLY/04-content_aware_hash.sh",
+        "retained_readback_SHA_size_exact": true,
+        "descriptor_closed_by_own_reader": true,
+        "point_data_NOT_atomic_or_runtime_immutable": true
+      },
+      {
+        "relative": "bin/cache/engine.realm",
+        "present": true,
+        "kind": "regular",
+        "size": 1,
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "before": {
+          "dev": 16777234,
+          "ino": 2626438,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 1,
+          "mtime_ns": 1793794463980961757,
+          "ctime_ns": 1793794463980961757,
+          "flags": 0
+        },
+        "opened": {
+          "dev": 16777234,
+          "ino": 2626438,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 1,
+          "mtime_ns": 1793794463980961757,
+          "ctime_ns": 1793794463980961757,
+          "flags": 0
+        },
+        "after": {
+          "dev": 16777234,
+          "ino": 2626438,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 1,
+          "mtime_ns": 1793794463980961757,
+          "ctime_ns": 1793794463980961757,
+          "flags": 0
+        },
+        "path_after": {
+          "dev": 16777234,
+          "ino": 2626438,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 1,
+          "mtime_ns": 1793794463980961757,
+          "ctime_ns": 1793794463980961757,
+          "flags": 0
+        },
+        "body_retained_LOCAL_ONLY": "LOCAL-ONLY/05-engine.realm",
+        "retained_readback_SHA_size_exact": true,
+        "descriptor_closed_by_own_reader": true,
+        "point_data_NOT_atomic_or_runtime_immutable": true
+      },
+      {
+        "relative": ".git/HEAD",
+        "present": true,
+        "kind": "regular",
+        "size": 23,
+        "sha256": "b5c097d4e902fc407dfbfb12cc2e39e85434d694c39501c5456811f890aa2a29",
+        "before": {
+          "dev": 16777234,
+          "ino": 2607381,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 23,
+          "mtime_ns": 1776764112460570408,
+          "ctime_ns": 1776764112460644325,
+          "flags": 0
+        },
+        "opened": {
+          "dev": 16777234,
+          "ino": 2607381,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 23,
+          "mtime_ns": 1776764112460570408,
+          "ctime_ns": 1776764112460644325,
+          "flags": 0
+        },
+        "after": {
+          "dev": 16777234,
+          "ino": 2607381,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 23,
+          "mtime_ns": 1776764112460570408,
+          "ctime_ns": 1776764112460644325,
+          "flags": 0
+        },
+        "path_after": {
+          "dev": 16777234,
+          "ino": 2607381,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 23,
+          "mtime_ns": 1776764112460570408,
+          "ctime_ns": 1776764112460644325,
+          "flags": 0
+        },
+        "body_retained_LOCAL_ONLY": "LOCAL-ONLY/06-HEAD",
+        "retained_readback_SHA_size_exact": true,
+        "descriptor_closed_by_own_reader": true,
+        "point_data_NOT_atomic_or_runtime_immutable": true
+      },
+      {
+        "relative": ".git/refs/heads/stable",
+        "present": true,
+        "kind": "regular",
+        "size": 41,
+        "sha256": "660c831d68c9387c8d83121970016ce5cbeecfd5127ec193cebde7a5b6ade650",
+        "before": {
+          "dev": 16777234,
+          "ino": 180101589,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 41,
+          "mtime_ns": 1787228693614972450,
+          "ctime_ns": 1787228693616409653,
+          "flags": 0
+        },
+        "opened": {
+          "dev": 16777234,
+          "ino": 180101589,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 41,
+          "mtime_ns": 1787228693614972450,
+          "ctime_ns": 1787228693616409653,
+          "flags": 0
+        },
+        "after": {
+          "dev": 16777234,
+          "ino": 180101589,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 41,
+          "mtime_ns": 1787228693614972450,
+          "ctime_ns": 1787228693616409653,
+          "flags": 0
+        },
+        "path_after": {
+          "dev": 16777234,
+          "ino": 180101589,
+          "mode": 33188,
+          "uid": 501,
+          "gid": 20,
+          "nlink": 1,
+          "size": 41,
+          "mtime_ns": 1787228693614972450,
+          "ctime_ns": 1787228693616409653,
+          "flags": 0
+        },
+        "body_retained_LOCAL_ONLY": "LOCAL-ONLY/07-stable",
+        "retained_readback_SHA_size_exact": true,
+        "descriptor_closed_by_own_reader": true,
+        "point_data_NOT_atomic_or_runtime_immutable": true
+      }
+    ],
+    "present": 7,
+    "selected_absent": 1,
+    "total_retained_bytes": 48517062,
+    "Git_HEAD": {
+      "status": "loose_ref_commit_token_FILEDATA",
+      "actual_git_CLI": false,
+      "object_database_read": false,
+      "commit_content_or_cleanliness_proved": false,
+      "symbolic_ref": "refs/heads/stable",
+      "commit_token": "6655482ec06e547f90abf8ae7590466f4415978d"
+    },
+    "current_administrative_environment_presence_hashes_NOT_original_driver": {
+      "FLUTTER_TOOL_ARGS": {
+        "present": false,
+        "size": null,
+        "sha256": null
+      },
+      "FLUTTER_PREBUILT_ENGINE_VERSION": {
+        "present": false,
+        "size": null,
+        "sha256": null
+      },
+      "FLUTTER_GIT_URL": {
+        "present": false,
+        "size": null,
+        "sha256": null
+      },
+      "FLUTTER_ENGINE": {
+        "present": false,
+        "size": null,
+        "sha256": null
+      },
+      "FLUTTER_ROOT": {
+        "present": false,
+        "size": null,
+        "sha256": null
+      },
+      "CI": {
+        "present": false,
+        "size": null,
+        "sha256": null
+      }
+    },
+    "SourceR_HEAD_current20_refreshed": false,
+    "SDK_CLI_GitCLI_bootstrap_test_build_native_capture_adoption": false,
+    "external_source_bodies_LOCALONLY": true,
+    "old_SDK_stamp_wrapper_archive_model_replay": false,
+    "SDK_mutation_requested": false,
+    "full_input_closure": false,
+    "immutable_runtime": false,
+    "physical_EX_originalLinux_actorFD_closure": false,
+    "admission": false
+  },
+  "ROOT_qualification": {
+    "summary_full_answer": true,
+    "whole_runtime_or_Source_approval": false,
+    "ROOT_verified": [
+      "The new script uses branch rev-parse, upstream get-url with origin fallback, conditional merge-base master/main, Git version, selected ls-tree and hash-object. None was executed by this scope.",
+      "Tracked paths are DEPS, engine and the release-candidate branch marker. Script purpose must not be inflated into proof of all Flutter-tool rebuild inputs or actual no-update behavior.",
+      "Shallow state and LUCI_CONTEXT are additional conditional inputs. New fixed6 environment observations are administrative-process data, not complete original-driver environment.",
+      "Stable loose ref token is file data. Git branch query semantics/object database/tree/working tree/interpreter/delegate/descendant closure are unproved; no hostname or cohort substitution.",
+      "Selected optional bootstrap absence does not bypass or negate the historical later updater; no old stamp/wrapper source or SDK CLI was rerun.",
+      "No full external SDK bodies or source-bearing model context are public. Full local retained bytes have SHA/size readback; this is not a production RAM bound."
+    ]
+  },
+  "model": {
+    "pid": 53493,
+    "status": 0,
+    "both_separate_EOF": true,
+    "stdout_size": 1478,
+    "stderr_size": 321,
+    "stdout_sha256": "dd83df3a344ea839a58961f36acc64a6919214e9cc7c92bbf86a909e9b7ca73f",
+    "stderr_sha256": "ee8301c86de01f215df0630980d6e83fec5d2b852aab464e430b91b0be6999bc"
+  },
+  "pending": [
+    "Actual first3locks and hidden-config generation boundaries/first-writer recipes before bootstrap/canonical; historical absence not current global absence.",
+    "Exact original driver environment, original PATH bootstrap/updater and compiled/loaded image provenance; new6 environment names only current administrative DATA.",
+    "Git executable, applicable conditional branch/remote/shallow/CI inputs and selected Git tree/object database if content-aware hashing becomes part of original startup. Do not invoke it as an unqualified probe.",
+    "Physical EX and complete retained command/interpreter/delegate/descendant/FD ownership, including startup retry/timeout behavior, before any SDK command.",
+    "Current20 own canonical/copy validation and production native/driver/staticRLIB after explicit qualified preflight and fresh12GiB floor, without transplant or favorable redo.",
+    "Actual original Linux host credentials/access, sampler setup/arming/role/time/metadata/loss/coverage and complete immutable admission before diagnostic data.",
+    "RAM repair, own final strict48/50 and clean final CI."
+  ],
+  "source_pair_previous_packaged_epoch_not_refreshed": {
+    "producer": "2b74548180b01feb2c7684c52ba63dca578b7c40ed8badc60f9c6ded373fe70a",
+    "tests": "6594f3964f06a32fb7ac6bf880eb510642ac9b73e10e2cc4f19bfd9323270636"
+  },
+  "Source_test_edit": false,
+  "new_tests": 0,
+  "SDK_Git_CLI_bootstrap_build_native_workload_capture_adoption_Sourcecommitpush_dispatch": false,
+  "no_old_wrapper_stamp_sourcepackage_archive_model_suite_campaign_or_cleanup_replay": true,
+  "v1_controller_unexecuted_v2_first_acquisition": true,
+  "no_API_PID_status_error_buffer_final_omission_reconstruction": true,
+  "initial_old_metadata_chat_output_truncated_not_reconstructed": true,
+  "external_bodies_and_model_input_LOCAL_ONLY": true,
+  "admission": false,
+  "RAM_repair_final_strict48_50_cleanCI_complete": false,
+  "publisher_v1_refusal": {
+    "cause": "Scratch publisher template path replacement missed double-quoted P literal; old completed namespace mkdir refused",
+    "failed_before_any_Git_docs_files_archive_or_Source_model_SDK_IO": true,
+    "old_namespace_unchanged_and_not_resumed_recreated_reset": true,
+    "v2_fresh_new_scope_publication_namespace": true,
+    "old_api_missing_objects_not_reconstructed": true,
+    "input_model_Source_not_replayed": true
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-original-path-bootstrap-gaps-evidence.tar.gz",
+    "archive_sha256": "1847ab7fabe792fa79924610fe3c2fa8f5a85f0887c3a812b7f9dfb6e9ab9dd6",
+    "selected_regular_members": 43,
+    "all_selected_BYTEEXACT": true
+  }
+}
