@@ -7,6 +7,14 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Refuse changed wait-entry context before draining
+
+A lease or native-clock callback could return normally after changing the producer's journal, process or reader reference. The wait body then continued with changed context: one case reached natural status and later failed reporting, another returned None after a foreign-process lookup, and a False reader reached a ROOT barrier before native FD0. The wait prefix now checks private original references after each returned entry sub-operation and before the next operation. Known callback returns remain known; changed caller fields remain changed, without restoration or copying away.
+
+NEW4 at31cd79/326aed yields3FAIL/1normalPASS/0ERROR under controlled callbacks, not three spontaneous kernel bugs or a RAM cause. Final986f7d/d9baa1 passes19selected=4matchingNEW+15affected(5previous entry controls and10actual wait callers). The original inner wait body and all other methods/helpers/factories/frozen predicates remain exact; old test prefix is exact. Eight new views plus5affected views/8BEFORE38AFTER currentDarwinEX observations and original-bound ROOT waits remain UNIT facts, not full independent EX/originalLinuxcredentials/all actor closure. Normal leaseFalse/fullCTX-outCTX-err and earlier unknown-first contracts are preserved. Qwen57192 and GLM57649 complete0/fullanswers/reaped, ROOTqualified; later-loop scope, registry-pop/retry, return-witness, ABA and cleanup claims are corrected in the assessment. Source remains uncommitted/uncanonical/unadmitted; runtime admission, RAM repair and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-producer-wait-context-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-producer-wait-context-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-producer-wait-context-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Retain pending producer failures at wait entry
 
 The lease lookup/call and deadline clock ran before the protected wait body. Three controlled actual-completion-then-error cases escaped without retained entry references or a private first-error guard; a native clock wrapper returning False entered the drain path and silently timed out. The wait prefix now retains the original process, log, journal, command and reader references before those callbacks, records each intent and raw return, and permanently refuses an unknown or invalid entry. Pending/finished/status fields remain unchanged after refusal. Healthy ignored lease False and the original inner wait body remain intact.
