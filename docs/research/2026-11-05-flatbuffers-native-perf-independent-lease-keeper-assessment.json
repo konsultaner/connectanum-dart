@@ -1,0 +1,187 @@
+{
+  "scope": "One NEW finite private Darwin independent-keeper known-client-failure topology only",
+  "case": {
+    "kind": "NEW_PRIVATE_DARWIN_KNOWN_CONSTRUCTOR_CLIENT_FAILURE_FIXTURE_ONLY",
+    "cases": 1,
+    "passes": 1,
+    "failures": 0,
+    "errors": 0,
+    "parent_four_native_rows": [
+      {
+        "label": "keeper",
+        "pid": 60105,
+        "status": 0,
+        "signed_native_int": true,
+        "both_separate_EOF": true,
+        "stdout_size": 275,
+        "stderr_size": 0,
+        "stdout_sha256": "2bdd53852256a4c9c472a7e1da4d7ab132c488ff4428630e3512276d2c8920e0",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "client",
+        "pid": 60107,
+        "status": 1,
+        "signed_native_int": true,
+        "both_separate_EOF": true,
+        "stdout_size": 0,
+        "stderr_size": 293,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "20c2b017862bfe5669fc95d0d779c1cde259d6375b68cc81fc19faa972a508ff"
+      },
+      {
+        "label": "negative-contender",
+        "pid": 60108,
+        "status": 78,
+        "signed_native_int": true,
+        "both_separate_EOF": true,
+        "stdout_size": 282,
+        "stderr_size": 0,
+        "stdout_sha256": "6290a0e18ae36fc436a50861edff77ced17ec456c93c87a82cc017d7c7d212c7",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "label": "positive-contender",
+        "pid": 60117,
+        "status": 0,
+        "signed_native_int": true,
+        "both_separate_EOF": true,
+        "stdout_size": 39,
+        "stderr_size": 0,
+        "stdout_sha256": "795e36bfe1ca3a77a6f503be74905f8d2ea58e95f5c4fb3b2aa9313ba335f9de",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "keeper_owned_child": {
+      "kind": "FINITE_FIXTURE_ONLY_NOT_LIVE_RECEIPT",
+      "keeper_pid": 60105,
+      "child_pid": 60106,
+      "child_status": 0,
+      "child_signed_native_int": true,
+      "child_BOTH_EOF": true,
+      "stdout_size": 25,
+      "stderr_size": 25,
+      "stdout_sha256": "d0b6f82d416266b9ea199f566061915bdbf6cc5cd27148f11bda0ecb20794f98",
+      "stderr_sha256": "2945ac42ec999a378be0155ccd9fc3507b4f4e7d2642f9c91954d46be6c64f8c",
+      "original_bound_wait_retained": true,
+      "control_observe_exact": true,
+      "control_finish_exact": true,
+      "actual_native_poll_after_client_and_negative_probe": null,
+      "capture_ready": false,
+      "evidence_complete": false,
+      "readiness": false,
+      "admission": false
+    },
+    "distinct_actor_count": 5,
+    "actual_independent_negative_EX_native_conflict": true,
+    "positive_after_keeper_natural_exit": true,
+    "caller_exit1_before_native_poll_None_observation": true,
+    "official_EX_held_by_independent_keeper_not_parent_callback_or_owner_field": true,
+    "Source_test_edits": false,
+    "SDK_or_original_runtime_invocations": false,
+    "originalLinux_credentials_physicalEX_fullFD_actor_closure": false,
+    "unknown_ctor_crash_general_error_cleanup_proved": false,
+    "atomic_ABA_or_origin_auth": false,
+    "capture_ready": false,
+    "evidence_complete": false,
+    "readiness": false,
+    "admission": false
+  },
+  "native_negative_refusal": {
+    "pid": 60108,
+    "event": "EX_REFUSED",
+    "type": "LocalResourceLeaseError",
+    "text": "local resource lease unavailable: local companion request is active",
+    "native_cause_type": "BlockingIOError",
+    "native_errno": 35,
+    "matched_exact_native_conflict": true,
+    "fixture_body_entered": false
+  },
+  "floors": {
+    "keeper": {
+      "free_bytes": 266401501184,
+      "minimum_bytes": 1073741824,
+      "test_only_not_build_capture_cleanup_authority": true
+    },
+    "positive-probe": {
+      "free_bytes": 266401320960,
+      "minimum_bytes": 1073741824,
+      "test_only_not_build_capture_cleanup_authority": true
+    }
+  },
+  "models": {
+    "test-planning": {
+      "pid": 59189,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 2077,
+      "stderr_size": 480,
+      "stdout_sha256": "1295d588146d459928c786199160a61d6d0342b9c753c4fc7866da9184775594",
+      "stderr_sha256": "e61bbfb75cde82d30342598623644d79e2181ca40c058f404e7c70f86f3fed37"
+    },
+    "method-review": {
+      "pid": 59825,
+      "status": 0,
+      "both_separate_EOF": true,
+      "stdout_size": 5753,
+      "stderr_size": 737,
+      "stdout_sha256": "76ee6af2fb4f6a25b990db81d1ff564387c0c5032aa63bea9f860c5dd11684dc",
+      "stderr_sha256": "eba84177b14c214044bfb52535222bfc65d8ab861225fffec922f38492429d62"
+    }
+  },
+  "model_planning_ROOT": {
+    "Qwen_full_answer_retained": true,
+    "advisory_not_approval": true,
+    "selected_only_one_native_topology_once": true,
+    "three_suggested_tests_NOT_three_executed_cases": true,
+    "reject_synthetic_errno_print_and_shell_exit78_commands": true,
+    "require_actual_official_native_EAGAIN_EACCES_cause": true,
+    "actual_READY_before_client_probe": true,
+    "all_known_outcomes_BEFORE_assertions": true,
+    "unknown_constructor_root_or_keeper_crash_general_error_cleanup_unproved": true,
+    "no_Source_modules_import_edit_test_or_SDK_invocation": true
+  },
+  "model_review_ROOT": {
+    "review_full_answer_retained": true,
+    "ROOT_not_model_approval": true,
+    "selected_known_constructor_client_failure_case_only": true,
+    "ROOT_verified": [
+      "Keeper READY follows actual official EX, identity check, fresh floor and native child handle capture; Root launches client/probes only after that gate.",
+      "Client natural exit1 and negative native contention are collected before keeper native poll witness; all four parent outcomes plus keeper child outcome precede assertions.",
+      "Native errno is logged. Official original helper maps flock EAGAIN/EACCES to LocalResourceLeaseError with BlockingIOError cause; no arbitrary exception qualifies as78.",
+      "Positive probe is a separate new lease after keeper natural exit, not continuity proof by reacquisition. Keeper and child bound waits/BOTH EOF are retained; timing scheduling can fail the case and no favorable redo is allowed.",
+      "Fixed small child payload prevents selected-case pipe-buffer saturation; communicate precedes saved wait10. General stuck descendant/inherited writer, Root/keeper crash, unknown constructor and pre-view/read/wait error cleanup remain unproved.",
+      "Keeper finally can release on unexpected failures before complete known-child collection: this prototype is expressly not a safe general live controller and must not be used for SDK/unknown outcomes. This case injects failure only in separate client, with native known keeper/child methods."
+    ],
+    "reject": [
+      "kill-on-timeout advice forbidden",
+      "early assertions before all known waits",
+      "blind communicate replacement before interactive observe/finish would break protocol",
+      "nativeEACCES categoricalnotcontention overlooks actual official helper guard",
+      "Source fullphysicalEX/originalLinux/atomicABA/fullactorFD proof from this fixture",
+      "synthetic errno-print/shell exit78 controls"
+    ],
+    "no_Source_test_edits": true,
+    "no_original_SDK_call_or_current20_import": true
+  },
+  "all_known_four_parent_plus_one_keeper_child_native_outcomes_before_asserts": true,
+  "all_raws_SHA_size_verified": true,
+  "positive_new_lease_after_completion_NOT_continuity_by_reacquisition": true,
+  "known_client_not_owner_of_keeper_child_Root_orchestrator_alive": true,
+  "no_Source_test_edits_current20_import_SourceHEAD_SDK_census": true,
+  "no_before_failing_Source_regression_or_production_fix_claim": true,
+  "old_Darwin52_callbacks_Source_units_models_suites_archives_campaigns_not_replayed": true,
+  "Root_v1_indentation_compile_before_root_file_or_fixture_actor": true,
+  "v2_first_actual_case_once": true,
+  "unexpected_beforeview_IO_wait_cleanup_unknown_and_prototype_finally_not_safe_general_live_controller": true,
+  "no_originalLinux_physicalEX_credentials_pidfd_exec_full_actorFD_ABA_origin_immutable_admission": true,
+  "SDK_build_capture_adoption_Source_commitpush_strictdispatch": false,
+  "heapRSS_growth_allocvolume_timing_cause_RAMrepair_UNMEASURED": true,
+  "final_strict48_50_cleanCI_complete": false,
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-independent-lease-keeper-evidence.tar.gz",
+    "archive_sha256": "739ad9f60567d684239e574872fcc34dc0b18ba46a223a824419ed52b7b88337",
+    "selected_regular_members": 71,
+    "all_selected_BYTEEXACT": true
+  }
+}

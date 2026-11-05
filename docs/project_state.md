@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Observe an independent EX keeper through a finite client failure
+
+One new private Darwin fixture case passes with five native actors. The independent keeper owns the official exclusive lease; a separate client exits 1 with First, an actual contender receives native EAGAIN and reports 78, and the keeper then observes its known finite child's native poll as None. The child and keeper finish naturally with status 0, and a later positive contender acquires a new lease and exits 0. All known outcomes and full streams precede final assertions. This is one case, not five tests.
+
+The result supports the selected process-separation mechanism for a known client failure. It does not cover Root/keeper failure, unknown constructors, client-owned descendants, complete interpreter/delegate/FD closure or original Linux credentials. The positive probe is a new lease, not continuity by reacquisition. Qwen's planning/review are ROOT-qualified; unsafe cleanup/kill suggestions were rejected. The prototype remains unsuitable as a general live controller.
+
+No twenty-helper Source/test edit/import, SDK/original recipe call, current Source/HEAD/SDK census, build or capture occurred. Fixture flags remain false. RAM cause/repair, complete immutable original-runtime admission, final strict 48/50 and clean final CI remain incomplete.
+
+[Declaration and limits](research/2026-11-05-flatbuffers-native-perf-independent-lease-keeper-preparation.md), [frontier assessment](research/2026-11-05-flatbuffers-native-perf-independent-lease-keeper-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-independent-lease-keeper-evidence.tar.gz).
+
 ## 2026-11-05 — Keep the external generation-owner protocol unimplemented
 
 A single newly inspected runtime check-format file adds Git enumeration through shell process substitution and conditional original PATH Dart formatting before test-all. Its 419-byte copy and observed file identities match; Source HEAD, the helper set and SDK inputs were not refreshed. Static source supplies no actual Git/Dart actor or FD closure.
