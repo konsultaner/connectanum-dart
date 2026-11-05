@@ -2,6 +2,16 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Check end-command primary kind before replacing First
+
+Four new actual-wait cases give a before result of 2FAIL/2PASS/0ERROR. Known returned primary fields None and False overwrite the end-command group's captured First and turn both the wait failure and pure guard into TypeError. Native valid-primary and unknown-group-completion controls already preserve First. These are two controlled variants of one classification gap, not spontaneous kernel faults or a RAM-cause finding.
+
+The helper now checks the returned primary is a BaseException before assigning its private first-error slot. Invalid fields preserve the captured First through the existing finally, leave unconfirmed metadata as None and skip the native refusal callback. Valid exception selection is preserved without forcing identity to the current error. Matching after is 4PASS/0FAIL/0ERROR once, including both actual-wait caller controls. The finish helper's similar field contract remains unproved and unchanged.
+
+Only _end_command_group changes. Whole Source reverse projection, the old test prefix, other eighteen helpers, three root scripts and frozen predicates are exact. Actual log bytes are retained as file evidence; Source had already consumed and closed the pipe, so no raw pipe is reconstructed or reclosed. Scoped waits, FD closes and Darwin EX observations remain unit data. The twenty helpers remain uncommitted, uncanonical and unadmitted; original-runtime admission, RAM repair, final strict 48/50 and clean final CI remain incomplete.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-end-primary-kind-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-end-primary-kind-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-end-primary-kind-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Preserve constructor First after refusal callback completion
 
 A new before regression confirms both outcomes inferred by the cached audit: a substituted refusal callback returning False lets construction finish, while one raising Third replaces the already-known First. Native-refusal controls with pending True and False already pass. The before result is 2FAIL/2PASS/0ERROR. These are two controlled variants of one completion-priority gap, not spontaneous kernel faults or a RAM-cause finding.
