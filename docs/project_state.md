@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Refuse known None and bool failure-group returns
+
+The constructor now refuses explicit None/False/True failure-group returns before reading pending or entering deferral. Previously each invalid first return was accepted: subsequent native group calls completed and the constructor returned an owner. The new reserved-event control already preserved First. This checks unsupported return kinds, not identity, ownership or all possible group shapes.
+
+The actual before run has6tests:3FAIL/3PASS/0ERROR. Its intended four-case subset is3FAIL/1PASS. Two old method declarations were accidentally retained in the private harness; they invoked unsupported mode keys and passed through the existing acquisition-error guard. Their intent flag does not establish a returned invalid value. All six raw results remain frozen. Harnessv2 removes only those two declarations without replaying before cases.
+
+Final after6/6 pass once: matchingNEW4 plus environment-preservation and committed-archive caller controls. Whole Source reverse projection and the old test prefix are exact; only the constructor's explicit return-kind check changes. The ROOT-only native tuple is never filled into Source. Actor waits, FD closes and Darwin lease observations remain scoped unit evidence. Source remains uncommitted, uncanonical and unadmitted; RAM repair and strict acceptance are incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-constructor-group-returns-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-constructor-group-returns-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-constructor-group-returns-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Preserve First when failure-group acquisition has an unknown return
 
 Three new regressions produce2FAIL/1PASS/0ERROR before the change. The actual whole spawn body returns inside ROOT and ROOT raises First; the native failure-group function then returns a tuple only inside ROOT, which raises a later RuntimeError or SystemExit before Source receives that tuple. Acquisition outside the inner catch allowed the later error to replace First. The separate actual pre-spawn input-digest refusal control already passes.
