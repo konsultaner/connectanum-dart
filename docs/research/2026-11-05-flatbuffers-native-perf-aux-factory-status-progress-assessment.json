@@ -1,0 +1,995 @@
+{
+  "utc": "2026-11-05T03:04:49.384628+00:00",
+  "source_sha256": "337ef3ac04255ad9ec23db91e1df794c6ea72da5a55c3fff7b0ea561d21f8263",
+  "test_sha256": "0e0013d708d9bbab5fe47b08d573da3c82cf296542cdb2e12c4a58fbd6d3369d",
+  "before": {
+    "tests": 8,
+    "failures": 5,
+    "passes": 3,
+    "errors": 0,
+    "scope": "2invalidstatus accepted viaforeigncomparison inclownerdrift;2unsupportedprimarystrinvocations;1missinglookupintentpolicy. NOT5nativekernelbugs/RAMcause."
+  },
+  "after": {
+    "tests": 30,
+    "failures": 0,
+    "errors": 0,
+    "selection": [
+      "AuxiliaryFactoryStatusTests.test_actual_nonzero_then_detail_callback_cannot_mutate_owner",
+      "AuxiliaryFactoryStatusTests.test_actual_nonzero_then_hostile_detail_never_renders",
+      "AuxiliaryFactoryStatusTests.test_actual_nonzero_then_missing_primary_retains_lookup_error",
+      "AuxiliaryFactoryStatusTests.test_actual_success_then_lying_status_never_compares",
+      "AuxiliaryFactoryStatusTests.test_actual_success_then_status_callback_cannot_mutate_owner",
+      "AuxiliaryFactoryStatusTests.test_new_actual_nonzero_normal_None_detail_contract",
+      "AuxiliaryFactoryStatusTests.test_new_actual_nonzero_normal_native_detail_and_full_bytes",
+      "AuxiliaryFactoryStatusTests.test_new_actual_success_normal_new_full_bytes",
+      "AuxiliaryFactorySuffixTests.test_actual_start_then_ROOT_error_keeps_unknown_return",
+      "AuxiliaryFactorySuffixTests.test_actual_start_then_owner_ledger_alias_stops_before_wait",
+      "AuxiliaryFactorySuffixTests.test_actual_start_then_wait_alias_drift_stops_foreign_call",
+      "AuxiliaryFactorySuffixTests.test_actual_wait_then_False_is_known_invalid_not_zero",
+      "AuxiliaryFactorySuffixTests.test_actual_wait_then_ROOT_error_keeps_unknown_return",
+      "AuxiliaryFactorySuffixTests.test_actual_wait_then_foreign_completed_operation_result_is_refused",
+      "AuxiliaryFactorySuffixTests.test_new_normal_ignored_start_False_and_wait_None_preserve_full_bytes",
+      "AuxiliaryFactoryCallProgressTests.test_actual_allocation_then_classcall_False_is_known_invalid_not_zero",
+      "AuxiliaryFactoryCallProgressTests.test_actual_allocation_then_classcall_None_is_known_invalid_not_unknown",
+      "AuxiliaryFactoryCallProgressTests.test_actual_constructor_consumes_env_drift_but_refuses_child_launch",
+      "AuxiliaryFactoryCallProgressTests.test_actual_constructor_with_owner_list_alias_drift_stops_before_append_start",
+      "AuxiliaryFactoryCallProgressTests.test_actual_initializer_None_then_classcall_error_keeps_raw_UNKNOWN",
+      "AuxiliaryFactoryCallProgressTests.test_native_classcall_TypeError_keeps_unknown_raw_and_first",
+      "AuxiliaryFactoryCallProgressTests.test_normal_original_factory_keeps_full_bytes_and_append_before_start",
+      "ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+      "ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+      "ProducerTests.test_spawn_failure_retains_null_status_no_retry",
+      "ProducerTests.test_dirty_source_refused_before_command",
+      "ProducerTests.test_wrong_archive_refused_before_command",
+      "ProducerTests.test_head_drift_refused_before_command",
+      "ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+      "ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links"
+    ],
+    "leases": [
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_nonzero_then_detail_callback_cannot_mutate_owner",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_nonzero_then_detail_callback_cannot_mutate_owner",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_nonzero_then_hostile_detail_never_renders",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_nonzero_then_hostile_detail_never_renders",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_nonzero_then_missing_primary_retains_lookup_error",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_nonzero_then_missing_primary_retains_lookup_error",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_success_then_lying_status_never_compares",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_success_then_lying_status_never_compares",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_success_then_status_callback_cannot_mutate_owner",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_actual_success_then_status_callback_cannot_mutate_owner",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_new_actual_nonzero_normal_None_detail_contract",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_new_actual_nonzero_normal_None_detail_contract",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_new_actual_nonzero_normal_native_detail_and_full_bytes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_new_actual_nonzero_normal_native_detail_and_full_bytes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_new_actual_success_normal_new_full_bytes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryStatusTests.test_new_actual_success_normal_new_full_bytes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_start_then_ROOT_error_keeps_unknown_return",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_start_then_ROOT_error_keeps_unknown_return",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_start_then_owner_ledger_alias_stops_before_wait",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_start_then_owner_ledger_alias_stops_before_wait",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_start_then_wait_alias_drift_stops_foreign_call",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_start_then_wait_alias_drift_stops_foreign_call",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_wait_then_False_is_known_invalid_not_zero",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_wait_then_False_is_known_invalid_not_zero",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_wait_then_ROOT_error_keeps_unknown_return",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_wait_then_ROOT_error_keeps_unknown_return",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_wait_then_foreign_completed_operation_result_is_refused",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_actual_wait_then_foreign_completed_operation_result_is_refused",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_new_normal_ignored_start_False_and_wait_None_preserve_full_bytes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactorySuffixTests.test_new_normal_ignored_start_False_and_wait_None_preserve_full_bytes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_allocation_then_classcall_False_is_known_invalid_not_zero",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_allocation_then_classcall_False_is_known_invalid_not_zero",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_allocation_then_classcall_None_is_known_invalid_not_unknown",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_allocation_then_classcall_None_is_known_invalid_not_unknown",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_constructor_consumes_env_drift_but_refuses_child_launch",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_constructor_consumes_env_drift_but_refuses_child_launch",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_constructor_with_owner_list_alias_drift_stops_before_append_start",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_constructor_with_owner_list_alias_drift_stops_before_append_start",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_initializer_None_then_classcall_error_keeps_raw_UNKNOWN",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_actual_initializer_None_then_classcall_error_keeps_raw_UNKNOWN",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_native_classcall_TypeError_keeps_unknown_raw_and_first",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_native_classcall_TypeError_keeps_unknown_raw_and_first",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_normal_original_factory_keeps_full_bytes_and_append_before_start",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.AuxiliaryFactoryCallProgressTests.test_normal_original_factory_keeps_full_bytes_and_append_before_start",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_positive_exact_source_commands_and_output_bytes",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_nonzero_exit_preserves_log_and_prevents_next_command",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_spawn_failure_retains_null_status_no_retry",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_spawn_failure_retains_null_status_no_retry",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_dirty_source_refused_before_command",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_dirty_source_refused_before_command",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wrong_archive_refused_before_command",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_wrong_archive_refused_before_command",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_head_drift_refused_before_command",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_head_drift_refused_before_command",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_canonical_links_actual_logs_and_inputs",
+        "position": "after",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "before",
+        "raw_None": true
+      },
+      {
+        "test": "test_native_perf_build_producer.ProducerTests.test_receipt_fixture_production_keeps_fixture_kind_and_output_links",
+        "position": "after",
+        "raw_None": true
+      }
+    ],
+    "source_sha256": "337ef3ac04255ad9ec23db91e1df794c6ea72da5a55c3fff7b0ea561d21f8263",
+    "test_sha256": "0e0013d708d9bbab5fe47b08d573da3c82cf296542cdb2e12c4a58fbd6d3369d",
+    "details": [],
+    "not_fullcanonical_admission": true
+  },
+  "ROOT": {
+    "whole_final_source_tests_AST_qualified": true,
+    "wholeSource_BYTE_projectsback": true,
+    "oldtests_BYTES_PREFIX_exact": true,
+    "other18_helpers3bins_unchanged": true,
+    "hashes23": {
+      "tool/native_perf_admission.py": "a554dc4039efff204a1a5c35c7a59eaee4312fc3626b8a4224c2d2f770bc68a7",
+      "tool/native_perf_blocked_exec.py": "3823f54a2c7d24e75f46463a64d5a4016854327fbc748adaaf7cb32cbca684c0",
+      "tool/native_perf_build_producer.py": "337ef3ac04255ad9ec23db91e1df794c6ea72da5a55c3fff7b0ea561d21f8263",
+      "tool/native_perf_guard.py": "9ea12fa1cf5ae11ed0c0a8018e734a653a4f3d9b40021810c2b994e5b1bb7bd9",
+      "tool/native_perf_handoff.py": "82ee4f42e76723b79e376e7fa7dd2014203ced8024ec781852698c864c5c8f7f",
+      "tool/native_perf_input_census.py": "e2f7295266614063cafc65edaa535e0463f1e9af01b21c505d547c3287cf226c",
+      "tool/native_perf_mapped_images.py": "4750b1bb751772d539ffbdeb84900dbe9b8d3bb22a85ab48b16a21bf87180728",
+      "tool/native_perf_metadata.py": "a344abfeee4454fb6740a54cc291d4cd8f862b57798ee5f0f6090c5d2631a44b",
+      "tool/native_perf_proc_witness.py": "cf25789a22e8fc159f74631aa851fd22e0bff804086c2bbcc28ec38b5fbf719e",
+      "tool/native_perf_session.py": "8adde8179669bcb3bf3a00c7384a04d3e6003eaf3d63aae02881f4d92f141800",
+      "tool/test_native_perf_admission.py": "4863f391563149aa7f0de15227ac2e6529c9d710f0e9da1394401fe4fa604612",
+      "tool/test_native_perf_blocked_exec.py": "52f5398da09094240bffabd295ba366a7d4200130e22f9f8e223fa6b745c3ba3",
+      "tool/test_native_perf_build_producer.py": "0e0013d708d9bbab5fe47b08d573da3c82cf296542cdb2e12c4a58fbd6d3369d",
+      "tool/test_native_perf_guard.py": "f92d44ed3363d831dcd1cc5e1cbd6a3806295537572b1f978a95c12ee55f07b0",
+      "tool/test_native_perf_handoff.py": "da831ea8dfe36b8d050dafab7a5588981aadd4a26849b9bb86dbbdff5fa95551",
+      "tool/test_native_perf_input_census.py": "f5c2cc34fdfef21fa97f49ecfad86cef45665cb375f8d62b700d1e37815d4aed",
+      "tool/test_native_perf_mapped_images.py": "ab27d42656baa4ebd992d2f7a0a9d6a2240e0ef8742ba691b6fb3faf19a1ded0",
+      "tool/test_native_perf_metadata.py": "44a37049e1fac158f1b4695d304d4181e77446377686aec4cd713c031be9bd20",
+      "tool/test_native_perf_proc_witness.py": "cb80c2e7f86d519ec2f545c83eabacb40c1c54789d9de3f5e1ca72448eed02ba",
+      "tool/test_native_perf_session.py": "4dfeb089ee00132f3e1332c7a6bccf5266abdf05e7593364072992aecca201e0",
+      "bin/common.sh": "636cfd33340296f1a0b6ace84b0d17d2b56db8b2d9018431d806f6a16b04a36e",
+      "bin/verify": "ea1ea5b4ba26b2005f7ebc079ea9865068f324b5d71305d8beeea012d22ca39a",
+      "bin/test-all": "398570624a6d9c042098a198d401d3a5d089496859000b399851aa68e4a83690"
+    },
+    "git_commands": [
+      {
+        "argv": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "pid": 24134,
+        "status": 0,
+        "stdout_size": 41,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "72115bdfe562e244ab028bd14aa1fc9ca996f035bee1d3dccd68735664635e0e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "branch",
+          "--show-current"
+        ],
+        "pid": 24135,
+        "status": 0,
+        "stdout_size": 36,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "a0a4e213006874b05da95de4558986e3df9b9366e5d7dc8a8550e90ba4942dfa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--short",
+          "--untracked-files=all"
+        ],
+        "pid": 24136,
+        "status": 0,
+        "stdout_size": 728,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "6279105e4d031b81820300eb1f47800f6ba01d6e88ba94b10858d2fb5af78bba",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "argv": [
+          "git",
+          "diff",
+          "--name-only",
+          "HEAD",
+          "--",
+          "packages",
+          "native"
+        ],
+        "pid": 24137,
+        "status": 0,
+        "stdout_size": 0,
+        "stderr_size": 0,
+        "both_separate_EOF": true,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "new_unit_views": 16,
+    "parent_BEFORE_EXverify_None": 16,
+    "parent_AFTER_EXverify_None": 60,
+    "known_same_bounded_waits": {
+      "before": [
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23261,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23265,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23266,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23267,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23259,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23260,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23263,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23262,
+          "status": 0,
+          "cached_possible": true
+        }
+      ],
+      "after": [
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23914,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23917,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23918,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23919,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23912,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23913,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23916,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23915,
+          "status": 0,
+          "cached_possible": true
+        }
+      ]
+    },
+    "known_unit_cleanup": {
+      "before": [
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23261,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23265,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23266,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23267,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23259,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23260,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23263,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23262,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        }
+      ],
+      "after": [
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23914,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23917,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23918,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23919,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23912,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23913,
+          "status": 3,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23916,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_same_bounded_wait",
+          "pid": 23915,
+          "status": 0,
+          "cached_possible": true
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stdout",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        },
+        {
+          "kind": "ROOT_known_unit_resource",
+          "role": "stderr",
+          "fd_close": false,
+          "log_close": false,
+          "fd_identity_match": null,
+          "log_identity_match": null,
+          "fd_error_errno": 9
+        }
+      ]
+    },
+    "original_Aux_Popen_sharedstep_earlyinit_allocation_publicconstructor_otherfactories_methodbindings_frozenpredicates_resultliteral_exact": true
+  },
+  "models": {
+    "Qwen": {
+      "pid": 23084,
+      "status": 0,
+      "stdout_size": 2772,
+      "stderr_size": 484,
+      "stdout_sha256": "ed22942086477da771594e9b12b47954e1f1675c9617c1feab9dfc3678c368b2",
+      "stderr_sha256": "8bf1691cb8d7520c2be409c962b5e03447b08cc73c175f1315bdae80545fdcb0",
+      "both_separate_EOF": true
+    },
+    "GLM": {
+      "pid": 23497,
+      "status": 0,
+      "stdout_size": 5179,
+      "stderr_size": 1120,
+      "stdout_sha256": "b875f2239570c1a98c491621cfb4a71082e514448c34c0ebcc2fe4135d7a2672",
+      "stderr_sha256": "d6c2827032309143f033fccc2a0cba2b3e1d0e47aff47213882c58800b5060a3",
+      "both_separate_EOF": true
+    },
+    "advisory_ROOTqualified_NOTwholecurrentapproval": true
+  },
+  "limits": [
+    "ONLYselectedfactory status/detail caller scope. Actualownresult mutated in memory AFTERrealwait; no foreigndictsubstitution or artifactrewrite; controlledinvalidvalue integrity/policy notspontaneouskernelbug/RAMcause.",
+    "Exactnative str status success/failed BEFOREforeigncomparison;primary None/exactnative str BEFOREstr. Unknown/error raw preserved; missingkey oldfirstalreadyescapes/newexplicitrowpolicy notnewnativeerror. Validnormalfailurestring/None messages/fullbytes/success retained.",
+    "Callerpost-return cannotstopalreadyperformed nativecallee operations. Currentmutable dict notfrozen/copied/restored; field/type/refs/status/completion/hash facts DATA notsemanticimageauth-ABA-credentials-ownership-physicalEX/admission.",
+    "16newviews only(8BEFORE8AFTER),16BEFORE60AFTER parentCURRENT officialDarwinEXverifyNone;8BEFORE8AFTER knownSAMEboundRootwait10 statuses3zero5three eachphase/cachedpossible UNITnotindependentphysicalEX-originalLinuxcredentials-fullFD-interpreter-delegate-descendantclosure. Signed3 are expectedfiniteunitexit, notunknown0 or benchmark/setupretry.",
+    "KnownoriginalFDrefs ROOTidentitycheck/cleanupAFTERevidence only UNITnotlivecleanup-EXrelease. ActualSourcewait completed selectednativeprocess/logfinalization beforevalueinjection; no allbackingFD/API/descendant census/fullreap or reconstruction.",
+    "Sourcecontroller exactstring stored BEFOREinlineEXdeclaration/file saved AFTERcall; privateharnesspreparation stringstored BEFOREartifactcall/file AFTER. Later namedcontrollers BEFOREcalls. AvailableactualAPIreturns only; some initial toolAPIreturns notseparatelysaved/notreconstructed; originalmodel/test/source/artifact raws retained.",
+    "Sharedstep/earlyinit/Popen/sourcefactories/frozenpredicates unchanged; oldprefix/sourcebyteprojectback. No oldbeforecontrol/numerical/model replay;30selected=8matchingNEW+22affected(7suffix7factory8CommandProducer), notaggregate/fullcurrent20canonical/admission.",
+    "All20helpers uncommitteduncanonicalunadmitted/privateartifactsoutsideHELPERBUNDLE20/production601exact. Providerabsent/gatealwaysraises/controllerCLOSED/ownershipNone/all3flagsFalse/no actualSDK-nativebuild-current20canonical-kernel-broker-benchmarkcapture-adoption-RAMrepair-strictacceptance.",
+    "Registry-env-journal-ref-closure-traceback/raw growthUNMEASURED/notexactheapRSSbound-leak-timing-cause-trim-reset-evict-deleteauthority.",
+    "Metadata/otherunsupportedreturnshapes/globalbuiltinsbinding/concurrentABA/earlierwriter-hash-init APIs/backingFileIO-internalFD/enclosingproducer/historical-transitiveunknownactors/fullindependentEX-originalruntimeimmutableCOMPLETEadmission remainINCOMPLETE."
+  ],
+  "storage": {
+    "free_bytes": 305040187392,
+    "test_floor_open": true,
+    "build_floor_open": true,
+    "recheck": true,
+    "no_build_capture_deletion_authority": true,
+    "cause_outside_oldcleanup": "UNMEASURED"
+  },
+  "publication": {
+    "evidence": "docs/research/2026-11-05-flatbuffers-native-perf-aux-factory-status-progress-evidence.tar.gz",
+    "archive_sha256": "9f8b0bd6ec890bd8879296cb6f8901589d77c349a83c5bda0dffefd00b2f01a6",
+    "selected_regular_members": 1166,
+    "all_selected_members_BYTEEXACT": true,
+    "scope": "only selected new question; no old archives; later publication bookkeeping outside members",
+    "preparation": "docs/research/2026-11-05-flatbuffers-native-perf-aux-factory-status-progress-preparation.md",
+    "assessment": "docs/research/2026-11-05-flatbuffers-native-perf-aux-factory-status-progress-assessment.json"
+  }
+}

@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-05 — Validate Auxiliary result values before callbacks
+
+A controlled status value in an actual completed operation's mutable result can make the old factory accept invalid status and mutate its owner ledger through comparison. The factory now requires native success/failed strings before comparing and native string/None failure detail before rendering. Detail lookup/render intent and actual returns retain first without invoking unknown callbacks. Normal nonzero/native-string and None messages, success bytes and missing-key KeyError remain intact. Result values and completion facts remain DATA, not credentials, ownership, EX or admission.
+
+NEW8 at710fcb/3dd46b yields5FAIL/3normalPASS/0ERROR:2invalid-status comparison cases,2unsupported detail-render callbacks and1stronger missing-key witness policy, not five native defects or a RAM cause. Final337ef3/0e0013 passes30selected=8matchingNEW+22affected(7suffix/7factory/8CommandProducer Git-receipt callers), not aggregate/current20canonical/admission. ROOT qualifies whole source/tests/AST/byte projection,23hashes/other18helpers3bins and4newGit0/BOTHstreams/601/20untracked/productionempty. Qwen23084/GLM23497 complete0/fullanswers are ROOTqualified; incorrect review claims and withdrawals are retained. Sixteen new views/16BEFORE60AFTER currentDarwinEX observations and8BEFORE8AFTER SAMEactor ROOTwait10 (3status0/5status3 each phase, cached possible) remain UNIT facts, not full independent EX/original Linux credentials. Controller/API ordering qualifications retained. Other API/backingFD/enclosing/historical/transitive/fullindependentEX/runtime immutableCOMPLETE admission remain incomplete. No SDK/build/capture/adoption/RAMrepair/strictacceptance.
+
+[Exact regression, epochs and limits](../research/2026-11-05-flatbuffers-native-perf-aux-factory-status-progress-preparation.md), [assessment](../research/2026-11-05-flatbuffers-native-perf-aux-factory-status-progress-assessment.json), [evidence](../research/2026-11-05-flatbuffers-native-perf-aux-factory-status-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Bind Auxiliary factory suffix methods and results
 
 The factory caller accepted a different completed operation's success result and continued after owner-ledger or wait-method drift. Its suffix now records original bound methods, call intent and actual returns, checks owner context after calls, and refuses foreign results before consuming status. Known invalid False is rejected before another lookup; unknown returns stay unknown. Normal ignored start returns and the wait(None)/60-second loop remain intact. The caller cannot prevent operations already performed inside a callee; completion flags and method/result identities remain DATA, not ownership, credentials or EX/admission.
