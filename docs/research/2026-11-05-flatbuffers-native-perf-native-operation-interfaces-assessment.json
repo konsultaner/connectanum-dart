@@ -1,0 +1,80 @@
+{
+  "utc": "2026-11-05T19:43:55.566276+00:00",
+  "scope": "NEW uncompiled native operation interfaces/finite-refusal custody contract/prospective UNBOUND build packet",
+  "status": "DECLARATIONS_ONLY_NO_NATIVE_FACTORY_OR_EXECUTION_AUTHORITY",
+  "files": {
+    "native_bootstrap_operations.h": {
+      "size": 3929,
+      "sha256": "999d9168ff79c3177e5762e86c4a36dd8d68dbfd046287d0cdd51e45f1ea818c"
+    },
+    "creator-collector-interface-contract.md": {
+      "size": 6080,
+      "sha256": "6615ce47dafa3ae4e4d1a22364befe45ec22452f12bbc02fc8bcefeb14fee5e1"
+    },
+    "prospective-build-bindings.json": {
+      "size": 1198,
+      "sha256": "803204914836b161dd0ae43de6524e2c80a3813d0328064cb878a9a93fc24627"
+    }
+  },
+  "source_generation_under_official_EX": true,
+  "existing_Source20_runtime_prior_drafts_edited_imported": false,
+  "source_unchanged_after_review": true,
+  "actual_compiler_target_runtime_creator_collector_lease_bindings": "UNBOUND_IN_PACKET_NOT_FILESYSTEM_ABSENCE",
+  "model": {
+    "model_pid": 71817,
+    "status": 0,
+    "stdout_size": 6395,
+    "stderr_size": 744,
+    "full_answer": true,
+    "both_EOF_natural_reaped": true,
+    "ROOT_qualified_NOT_approval": true,
+    "source_unchanged_after_review": true,
+    "real_unimplemented_gaps": [
+      "Custodian/lifecycle/return and error ABI across operation boundaries",
+      "Raw writer lifetime/binary-byte/partial-error retention semantics",
+      "WAIT parameter admissibility and synchronization mechanism"
+    ],
+    "corrections": [
+      "Reject owner=NULL on failed creation as a universal rule; unknown native outcome cannot be settled from null. Contract already forbids that shortcut.",
+      "Reject manual/implicit cleanup or discarding owner/writer after P2/collection errors. Original references, raw buffers and physical lease must remain retained; no destroy/reset/retry API is intentionally not leak-cause evidence.",
+      "Raw writer replacement/retry/export replay is forbidden after partial/unknown IO. A new writer or success field does not repair uncertain native ownership.",
+      "Const/opaque pointer types prove neither deep immutability nor origin/thread safety. Implementation/concurrency/writer shape is absent; suggested mutable-buffer/callback races are conditional, not executed failures.",
+      "Full raw bytes require explicit length/offsets and binary-safe retention, not C-string NUL conversion. ROOT later clarifies that intended contract; no source/header fix or new test follows.",
+      "WAIT is initial state, not intended decision request; ROOT later specifies pre-store rejection. Model reviewed the initial artifacts only, not subsequent refinement.",
+      "Actual error codes, native syscall returns and signed child statuses are distinct. Adding a static enum cannot create actual binding/ownership/admission. No compiler/runtime test or production fix is inferred."
+    ]
+  },
+  "ROOT_refinement_after_model_unreviewed": true,
+  "compiler_binding_index": {
+    "selected_key_count": 7,
+    "checkpoint_metadata_only": true,
+    "not_seven_compiler_bindings": true,
+    "consumed77f6_reference_not_reopened": true,
+    "no_global_absence_or_current_binding_proof": true
+  },
+  "new_primary_research": 0,
+  "new_tests": 0,
+  "runnable_native_cases": 0,
+  "C_compilation_disassembly_helper_syscall_SDK_build_capture_adoption_Sourcepush_dispatch": false,
+  "no_current_Source20_HEAD_SDK_census": true,
+  "no_owner_writer_discard_cleanup_or_unknown_settlement": true,
+  "raw_limits": "Actual new source-generation/review/index tool returns and per-file journals retained. No omitted historical API/PID/status/error/buffer/final reconstructed. Data/opaque handles/index fields do not establish physical ownership.",
+  "startup_checkpoint_state_plan_full_policy_read_under_official_SH": true,
+  "next": "Identify concrete original-cohort compiler/input acquisition boundary from independently retained reference metadata and declare exact OWN source/tool/header/runtime/ABI/credentials/access/FD/officialEX lifetime before compile/disassembly/run; actual native factory/collector/writer and SDK transitive/output-cohort authority remain absent.",
+  "provider": "ABSENT",
+  "controller": "CLOSED",
+  "ownership": null,
+  "capture_ready": false,
+  "evidence_complete": false,
+  "readiness": false,
+  "admission": false,
+  "RAM_cause_repair_FINAL48_50_cleanCI_complete": false,
+  "public_evidence": {
+    "archive": "docs/research/2026-11-05-flatbuffers-native-perf-native-operation-interfaces-evidence.tar.gz",
+    "sha256": "fcb53c2512d8fd55037925e692760602fcc00cbedb3e7a5b8a64c60a2a7c7437",
+    "selected_regular_members": 39,
+    "all_selected_BYTEEXACT": true,
+    "scope": "NEW uncompiled native operation-interface declarations/prospective UNBOUND build packet/selected checkpoint binding index only; ZERO native implementation/tests",
+    "full_selected_index_and_API_returns_LOCAL_ONLY": true
+  }
+}

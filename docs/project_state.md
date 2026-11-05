@@ -7,6 +7,18 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Define native operation interfaces with unbound build inputs
+
+A new uncompiled header declares preparation, native creation, a single finite decision, same-actor collection and raw export interfaces. It supplies no definitions or native factory. Opaque types, enum names and observations are not native identity, ownership, admission or lease-release credentials. The C API deliberately has no official lease acquire/release/duplication interface.
+
+ROOT's later custody/error/writer contract retains original references and raw buffers after uncertainty, treats WAIT as initial state rather than a valid decision request, and requires binary-safe full evidence. Qwen's complete review is ROOT-qualified: lifecycle, writer and error ABI mechanisms are genuinely unimplemented, while its suggestions to null or discard an uncertain owner/writer were rejected. No header was changed from that advice and no runtime failure or memory-leak magnitude was observed.
+
+A new checkpoint key-name index found seven metadata keys leading to consumed toolchain/status references. These are not seven compiler bindings, current host access evidence or global absence proof. Old SDK bodies, paths, wrappers, stamps and archives were not reopened. All actual compiler/target/runtime/native-owner/collector/physical-lease and original-cohort inputs remain unbound in the prospective packet.
+
+The artifacts were generated under official EX and match their declared bytes. No C compiler, disassembler, native helper, SDK or test ran; existing twenty-helper/runtime and prior drafts remain untouched and unimported. Provider stays absent and flags false. Original-runtime admission, RAM repair, final strict 48/50 and clean final CI remain incomplete.
+
+[Declaration and limits](research/2026-11-05-flatbuffers-native-perf-native-operation-interfaces-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-native-operation-interfaces-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-native-operation-interfaces-evidence.tar.gz).
+
 ## 2026-11-05 — Record an uncompiled native source contract
 
 Three new private specification artifacts now define a draft C header, data initializer and source contract. The candidate requests a 512-byte layout with 64-byte alignment and separate decision/parent/child regions. Its assertions have not been compiled. The initializer requires valid owned writable storage and no concurrent access; its shape checks and data result supply no mapping, actor, lease or admission authority.
