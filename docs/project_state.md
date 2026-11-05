@@ -7,6 +7,16 @@ Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
+## 2026-11-05 — Validate post-read snapshot stat returns
+
+The snapshot helper interpreted an invalid post-read FD or path stat as fields and raised AttributeError. It now checks for an exact native stat result before reading those fields or continuing. A known None return remains recorded as returned; an unknown completion keeps its original error and stays unknown. The native I/O order and the existing file-change refusal remain intact.
+
+Six new controls before958c4b/e9cc2a produced2FAIL/4PASS/0ERROR. The failures concern two return-shape classification policies, not spontaneous kernel bugs or a RAM cause. Two unknown-completion controls, an actual one-byte append and a distinct normal file already passed. Final99d39c/dfd8e9 passes40selected=6matchingNEW+34affected(16previoussnapshot8end10actualwaitcallers). Existing test bytes remain an exact prefix. Privatev2 corrects two new view identity predicates before its first AFTER execution; the original BEFORE views remain unchanged. Both advisory models completed; ROOT rejects their proposed scope changes and independently qualifies the patch and results.
+
+Twelve new direct views create no child actors. Current Darwin lease observations, known FD cleanup and affected finite waits remain unit evidence, with full independent EX and original Linux actor closure still unproved. Read-chunk retention is unchanged and establishes no heap/RSS bound. Source remains uncommitted, uncanonical and unadmitted; runtime admission, RAM repair and strict acceptance remain incomplete.
+
+[Exact regression, epochs and limits](research/2026-11-05-flatbuffers-native-perf-snapshot-poststat-progress-preparation.md), [assessment](research/2026-11-05-flatbuffers-native-perf-snapshot-poststat-progress-assessment.json), [evidence](research/2026-11-05-flatbuffers-native-perf-snapshot-poststat-progress-evidence.tar.gz).
+
 ## 2026-11-05 — Validate snapshot hash returns before continuing
 
 The snapshot helper ignored an invalid hash-update return and continued reading. It also accepted False or uppercase digest returns into a result and closed the FD. It now requires the native None update contract before the next read and an exact lowercase 64-character SHA before constructing the result or closing. Known invalid proxy returns remain recorded as returned; ROOT-known native None/SHA values are never substituted. Unknown hash completion still preserves the original first error and refuses further I/O.
