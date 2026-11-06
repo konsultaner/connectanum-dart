@@ -1,0 +1,32 @@
+# Original Actions linkage frontier and actual candidate inputs
+
+A new static question reads only selected dynamic-linking ranges from five previously retained actual ELF images. It preserves all selected raw ranges privately and their offsets/hashes in the metadata. It does not repeat the completed compiler-parser regression, its tests/reviews, artifact downloads or whole-image/archive audits.
+
+The [ELF dynamic-section definitions](https://gabi.xinuos.com/elf/08-dynamic.html) identify needed-library/search strings through the dynamic string table; the [program-header definitions](https://gabi.xinuos.com/elf/07-pheader.html) distinguish file-backed load ranges from memory sizes. These draft reference definitions guide only static decoding, not actual target ABI or runtime admission. Library-name order and opaque entries are retained. The [ldconfig manual](https://man7.org/linux/man-pages/man8/ldconfig.8.html) describes -p as listing cache candidates. Such a list is not actual loaded-library resolution; that is a ROOT qualification.
+
+The resulting exact frontier has libLLVM.so.23.1-rust-1.99.0-stable, libc.so.6, libdl.so.2, libgcc_s.so.1, libm.so.6, libpthread.so.0 and librt.so.1 not represented by the five-image set. This says nothing about their presence elsewhere. The LLVM basename independently occurs in the retained actual SDK directory report. RUNPATH strings remain static data; names, paths, hashes and specifications cannot create origin/ownership or generated-input authority.
+
+A new source-tied [Actions run](https://github.com/konsultaner/connectanum-dart/actions/runs/42211987249) at [3b4f53dce01f4e3e2964a861ab7e96ab54b61056](https://github.com/konsultaner/connectanum-dart/commit/3b4f53dce01f4e3e2964a861ab7e96ab54b61056) runs only the isolated linkage preparation. Original Ubuntu 24.04/Dart 3.13.5/Rust 1.99.0 setup and all eight previous jobs are unchanged. New native queries are original-PATH rustc --print sysroot and ldconfig -p, without sudo, cache/link-mutating options, bootstrap, dependency resolution, compiler build, benchmark or Source20 adoption. Existing preparation functions are reused unchanged; no old control cases are rerun.
+
+| Observed item | Result |
+| --- | --- |
+| New preparation run/job | 42211987249 / 127872611469: success |
+| Other eight jobs | skipped, not rerun |
+| Native information queries | two signed-zero outcomes, full streams retained; not two tests |
+| New artifact | 13498509272, 72,565,416 bytes, SHA256 79d5f52390f249edeed9685b8ddefd6c9fcc4ed91a56dba0cbd91f2056f3108a |
+| Exact LLVM input | 208,094,144 bytes, SHA256 7c2c7ebb79211f07e3b32e408a1a65b4d205656792f9c51bdbefcb21c0868cbd |
+| Static catalog candidates copied | 15 image streams, 215,356,744 bytes; all candidates retained |
+| Unexpanded raw images | six; retained and unadmitted |
+| Job log | 60,740 bytes, SHA256 f5b5f687b44d03ce2a449a1e16d84ede033a9e876dce7de56208c9b0aed9d5f6 |
+
+All current SDK-directory/cache candidates for encountered names were copied rather than selecting an architecture or favorable path. The empty unresolved-name list applies only to processed supported ELF64/catalog entries. Six unsupported raw images remain unexpanded, so there is no full static-graph or runtime-closure claim. Actual loaded files, search behavior, symbol-version compatibility and possible dynamically requested libraries remain unproved. Cache-file snapshot and CLI output are separate observations, not an atomic cache relationship. Setup UID/GID1001/1001 and image ubuntu24/20261101.360.1 are data, never historical-host equality or an original-driver credential waiver.
+
+The query PATH source is a newly captured 387-byte /usr/sbin/ldconfig shell wrapper, SHA256 bfd5df90c7f070feab584435f106f254ffffaa268a04de5b5c3bd61d59c092f3. Its observed shebang refers to /bin/sh, and its exec source refers to /sbin/ldconfig.real. With the recorded nonempty -p argument, the observed zero-argument deferral condition is false. This conditional source inference does not prove actual native interpreter/delegate execution, file identity, FD origin or full closure. The actual interpreter/delegate images remain unbound, and future queries must preserve the original PATH wrapper rather than bypass it.
+
+The bounded new review helper37213 ended naturally1, with zero stdout, 781 stderr bytes and both EOF, at token limit. No visible final/partial body was retained or reconstructed; no approval or backend-unavailability conclusion, no model relaunch. ROOT checked the bounded file arithmetic and catalog traversal; Python syntax, actual YAML structure/byte projection and this first Actions data acquisition provide their stated evidence only. One earlier outer JavaScript generation draft failed parsing before any tools/files/actors; the first actual generation occurred once.
+
+The [qualified assessment](2026-11-06-flatbuffers-actions-linkage-frontier-inputs-assessment.json) and [selected evidence](2026-11-06-flatbuffers-actions-linkage-frontier-inputs-evidence.tar.gz) retain static metadata, source/diff declarations, validations, raw query streams, operation journals, full job log and model qualifications. The archive has 26 regular selected members with byte-exact readback, SHA256 fe002c9f8dd6a50dd3ed73295d384b9589411b5007ce64306b01f991f84a5cb6. Full SDK/wrapper/ZIP/raw-range bodies and complete primary web returns remain private. Public primary-source hashes name actual saved tool-return bytes, not full HTTP page bodies. This is not full directory/process/actor/FD or immutable runtime admission.
+
+No old numerical job, campaign or artifact endpoint was polled or retried, no favorable cohort selected and no generated lock/config/native bytes transplanted. Preparation-only skip-ci prevents unintended push builds and does not waive final production CI. File sizes and graph counts do not establish heap/RSS growth, allocation volume, timing or RAM cause. PR #132 remains draft with all admission flags false; production RAM repair, final strict48/50 and clean final CI are incomplete.
+
+Next: bind the observed wrapper/interpreter/real delegate and effective Cargo linker/C-header/input provenance through a genuinely new original Actions acquisition declaration. Keep original wrapper/argv/env/credentials and all generated-output/cohort/native actor/physical-EX requirements. Use retained copies only for distinct bounded questions; no unchanged replay of this linkage component or any earlier completed work. No bootstrap/build/diagnostic/adoption authority comes from this snapshot.

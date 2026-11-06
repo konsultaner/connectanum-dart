@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-06 — Capture exact LLVM and static linkage candidates
+
+A genuinely new read of dynamic strings in five retained SDK/runtime ELF images identified seven needed names absent from that selected snapshot, including the compiler's LLVM shared library. Twenty-two selected byte ranges are retained. The exact LLVM name also occurs in the previously recorded SDK directory listing; no global library absence or actual loaded-file resolution is inferred.
+
+The new [original Actions preparation](https://github.com/konsultaner/connectanum-dart/actions/runs/42211987249) succeeds at source 3b4f53dce01f4e3e2964a861ab7e96ab54b61056. It captures the exact LLVM image and every candidate reached through current SDK-directory and read-only loader-cache catalogs: 15 candidate image streams, including six unexpanded raw images, plus the query wrapper and cache bytes. Both native information queries returned signed zero; all eight previous jobs were skipped. No bootstrap, native build, numerical campaign or Source20 change/adoption ran.
+
+This is an input snapshot, not actual loader, ABI, native actor/FD, cohort or physical EX admission. The captured ldconfig PATH file is a new 387-byte shell wrapper referring to /bin/sh and /sbin/ldconfig.real; those actual interpreter/delegate images remain unbound. Effective Cargo linker/C headers, generated-output authority and full runtime qualification still precede any build or diagnostic. All admission flags stay false; RAM repair, final strict48/50 and clean final CI are incomplete. See the [record](../research/2026-11-06-flatbuffers-actions-linkage-frontier-inputs.md).
+
 ## 2026-11-06 — Repair preparation parsing on actual compiler inputs
 
 A new original Actions preparation exposed a real metadata-parser failure: the installed Rust compiler library has a valid ELF program table at byte 88,080,384, beyond the new parser's 65,536-byte prefix. The full 158,319,840-byte library was preserved before fixing the parser; the original failed run was not repeated.

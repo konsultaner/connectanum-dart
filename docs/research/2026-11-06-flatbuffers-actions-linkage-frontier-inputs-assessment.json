@@ -1,0 +1,851 @@
+{
+  "component": "New original Actions static-linkage frontier and actual input-candidate acquisition",
+  "static_frontier": {
+    "ELF_images": 5,
+    "raw_selected_ranges": 22,
+    "images": [
+      {
+        "member": "inputs/rustc.image",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "strings": [
+          {
+            "index": 0,
+            "tag": 29,
+            "value": 1194,
+            "kind": "DT_RUNPATH",
+            "string_offset_in_file": 4378,
+            "raw_hex": "244f524947494e2f2e2e2f6c6962",
+            "utf8": "$ORIGIN/../lib"
+          },
+          {
+            "index": 1,
+            "tag": 1,
+            "value": 1209,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 4393,
+            "raw_hex": "6c696272757374635f6472697665722d393939613132316465326630343262652e736f",
+            "utf8": "librustc_driver-999a121de2f042be.so"
+          },
+          {
+            "index": 2,
+            "tag": 1,
+            "value": 1067,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 4251,
+            "raw_hex": "6c6962646c2e736f2e32",
+            "utf8": "libdl.so.2"
+          },
+          {
+            "index": 3,
+            "tag": 1,
+            "value": 1090,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 4274,
+            "raw_hex": "6c696272742e736f2e31",
+            "utf8": "librt.so.1"
+          },
+          {
+            "index": 4,
+            "tag": 1,
+            "value": 1101,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 4285,
+            "raw_hex": "6c6962707468726561642e736f2e30",
+            "utf8": "libpthread.so.0"
+          },
+          {
+            "index": 5,
+            "tag": 1,
+            "value": 1140,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 4324,
+            "raw_hex": "6c6962632e736f2e36",
+            "utf8": "libc.so.6"
+          }
+        ]
+      },
+      {
+        "member": "inputs/cargo.image",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "strings": [
+          {
+            "index": 0,
+            "tag": 29,
+            "value": 3735,
+            "kind": "DT_RUNPATH",
+            "string_offset_in_file": 12923,
+            "raw_hex": "244f524947494e2f2e2e2f6c6962",
+            "utf8": "$ORIGIN/../lib"
+          },
+          {
+            "index": 1,
+            "tag": 1,
+            "value": 3454,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 12642,
+            "raw_hex": "6c6962646c2e736f2e32",
+            "utf8": "libdl.so.2"
+          },
+          {
+            "index": 2,
+            "tag": 1,
+            "value": 3477,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 12665,
+            "raw_hex": "6c69626763635f732e736f2e31",
+            "utf8": "libgcc_s.so.1"
+          },
+          {
+            "index": 3,
+            "tag": 1,
+            "value": 3517,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 12705,
+            "raw_hex": "6c696272742e736f2e31",
+            "utf8": "librt.so.1"
+          },
+          {
+            "index": 4,
+            "tag": 1,
+            "value": 3528,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 12716,
+            "raw_hex": "6c6962707468726561642e736f2e30",
+            "utf8": "libpthread.so.0"
+          },
+          {
+            "index": 5,
+            "tag": 1,
+            "value": 3567,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 12755,
+            "raw_hex": "6c69626d2e736f2e36",
+            "utf8": "libm.so.6"
+          },
+          {
+            "index": 6,
+            "tag": 1,
+            "value": 3577,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 12765,
+            "raw_hex": "6c6962632e736f2e36",
+            "utf8": "libc.so.6"
+          },
+          {
+            "index": 7,
+            "tag": 1,
+            "value": 3714,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 12902,
+            "raw_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+            "utf8": "ld-linux-x86-64.so.2"
+          }
+        ]
+      },
+      {
+        "member": "inputs/rustc-driver-librustc_driver-999a121de2f042be.so",
+        "interpreter": null,
+        "strings": [
+          {
+            "index": 0,
+            "tag": 29,
+            "value": 2540162,
+            "kind": "DT_RUNPATH",
+            "string_offset_in_file": 3214590,
+            "raw_hex": "244f524947494e2f2e2e2f6c6962",
+            "utf8": "$ORIGIN/../lib"
+          },
+          {
+            "index": 1,
+            "tag": 1,
+            "value": 2539869,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 3214297,
+            "raw_hex": "6c6962646c2e736f2e32",
+            "utf8": "libdl.so.2"
+          },
+          {
+            "index": 2,
+            "tag": 1,
+            "value": 2539892,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 3214320,
+            "raw_hex": "6c69624c4c564d2e736f2e32332e312d727573742d312e39392e302d737461626c65",
+            "utf8": "libLLVM.so.23.1-rust-1.99.0-stable"
+          },
+          {
+            "index": 3,
+            "tag": 1,
+            "value": 2539937,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 3214365,
+            "raw_hex": "6c69626763635f732e736f2e31",
+            "utf8": "libgcc_s.so.1"
+          },
+          {
+            "index": 4,
+            "tag": 1,
+            "value": 2539977,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 3214405,
+            "raw_hex": "6c696272742e736f2e31",
+            "utf8": "librt.so.1"
+          },
+          {
+            "index": 5,
+            "tag": 1,
+            "value": 2539988,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 3214416,
+            "raw_hex": "6c6962707468726561642e736f2e30",
+            "utf8": "libpthread.so.0"
+          },
+          {
+            "index": 6,
+            "tag": 1,
+            "value": 2540015,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 3214443,
+            "raw_hex": "6c6962632e736f2e36",
+            "utf8": "libc.so.6"
+          },
+          {
+            "index": 7,
+            "tag": 1,
+            "value": 2540141,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 3214569,
+            "raw_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+            "utf8": "ld-linux-x86-64.so.2"
+          },
+          {
+            "index": 8,
+            "tag": 14,
+            "value": 2540177,
+            "kind": "DT_SONAME",
+            "string_offset_in_file": 3214605,
+            "raw_hex": "6c696272757374635f6472697665722d393939613132316465326630343262652e736f",
+            "utf8": "librustc_driver-999a121de2f042be.so"
+          }
+        ]
+      },
+      {
+        "member": "inputs/target-libstd-44675f186029a4cd.so",
+        "interpreter": null,
+        "strings": [
+          {
+            "index": 0,
+            "tag": 29,
+            "value": 163745,
+            "kind": "DT_RUNPATH",
+            "string_offset_in_file": 230245,
+            "raw_hex": "244f524947494e2f2e2e2f6c6962",
+            "utf8": "$ORIGIN/../lib"
+          },
+          {
+            "index": 1,
+            "tag": 1,
+            "value": 163507,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 230007,
+            "raw_hex": "6c69626763635f732e736f2e31",
+            "utf8": "libgcc_s.so.1"
+          },
+          {
+            "index": 2,
+            "tag": 1,
+            "value": 163547,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 230047,
+            "raw_hex": "6c696272742e736f2e31",
+            "utf8": "librt.so.1"
+          },
+          {
+            "index": 3,
+            "tag": 1,
+            "value": 163570,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 230070,
+            "raw_hex": "6c6962707468726561642e736f2e30",
+            "utf8": "libpthread.so.0"
+          },
+          {
+            "index": 4,
+            "tag": 1,
+            "value": 163597,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 230097,
+            "raw_hex": "6c6962646c2e736f2e32",
+            "utf8": "libdl.so.2"
+          },
+          {
+            "index": 5,
+            "tag": 1,
+            "value": 163608,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 230108,
+            "raw_hex": "6c6962632e736f2e36",
+            "utf8": "libc.so.6"
+          },
+          {
+            "index": 6,
+            "tag": 1,
+            "value": 163724,
+            "kind": "DT_NEEDED",
+            "string_offset_in_file": 230224,
+            "raw_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+            "utf8": "ld-linux-x86-64.so.2"
+          },
+          {
+            "index": 7,
+            "tag": 14,
+            "value": 163760,
+            "kind": "DT_SONAME",
+            "string_offset_in_file": 230260,
+            "raw_hex": "6c69627374642d343436373566313836303239613463642e736f",
+            "utf8": "libstd-44675f186029a4cd.so"
+          }
+        ]
+      },
+      {
+        "member": "inputs/elf-interpreter-0.image",
+        "interpreter": null,
+        "strings": [
+          {
+            "index": 0,
+            "tag": 14,
+            "value": 625,
+            "kind": "DT_SONAME",
+            "string_offset_in_file": 3009,
+            "raw_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+            "utf8": "ld-linux-x86-64.so.2"
+          }
+        ]
+      }
+    ],
+    "needed_names_not_represented_by_selected_snapshot": [
+      "libLLVM.so.23.1-rust-1.99.0-stable",
+      "libc.so.6",
+      "libdl.so.2",
+      "libgcc_s.so.1",
+      "libm.so.6",
+      "libpthread.so.0",
+      "librt.so.1"
+    ],
+    "all_admission_flags": false
+  },
+  "Actions_acquisition": {
+    "source_commit": "3b4f53dce01f4e3e2964a861ab7e96ab54b61056",
+    "run_id": 42211987249,
+    "job_id": 127872611469,
+    "conclusion": "success",
+    "eight_other_jobs": [
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped"
+    ],
+    "artifact_id": 13498509272,
+    "artifact_bytes": 72565416,
+    "artifact_sha256": "79d5f52390f249edeed9685b8ddefd6c9fcc4ed91a56dba0cbd91f2056f3108a",
+    "job_log_bytes": 60740,
+    "job_log_sha256": "f5b5f687b44d03ce2a449a1e16d84ede033a9e876dce7de56208c9b0aed9d5f6",
+    "report_bytes": 174729,
+    "report_sha256": "e54ebe8e11be47ba1acf170e492f78572fc9dc49f0babd690bb6b62ff56916e7",
+    "native_query_statuses": [
+      0,
+      0
+    ],
+    "native_query_argvs": [
+      [
+        "rustc",
+        "--print",
+        "sysroot"
+      ],
+      [
+        "ldconfig",
+        "-p"
+      ]
+    ],
+    "LLVM_raw_byte_checks": [
+      {
+        "member": "inputs/candidate-0.image",
+        "bytes": 208094144,
+        "sha256": "7c2c7ebb79211f07e3b32e408a1a65b4d205656792f9c51bdbefcb21c0868cbd"
+      }
+    ],
+    "candidate_image_count": 15,
+    "candidate_image_bytes": 215356744,
+    "query_tool_image": {
+      "source": "/usr/sbin/ldconfig",
+      "saved": "inputs/ldconfig-tool.image",
+      "bytes_read": 387,
+      "sha256": "bfd5df90c7f070feab584435f106f254ffffaa268a04de5b5c3bd61d59c092f3",
+      "before": [
+        33261,
+        22851,
+        2049,
+        1,
+        0,
+        0,
+        387,
+        1793567040,
+        1788444912,
+        1792556254
+      ],
+      "after": [
+        33261,
+        22851,
+        2049,
+        1,
+        0,
+        0,
+        387,
+        1793965255,
+        1788444912,
+        1792556254
+      ],
+      "saved_stream_readback_byteexact": true,
+      "elf_header": null
+    },
+    "loader_cache_data": {
+      "source": "/etc/ld.so.cache",
+      "saved": "inputs/loader-cache.data",
+      "bytes_read": 38395,
+      "sha256": "5a53d69843994ee6f66e0c009a2c072b931cbc2f64c355ada6096e3b97ab6028",
+      "before": [
+        33188,
+        6239,
+        2049,
+        1,
+        0,
+        0,
+        38395,
+        1793965153,
+        1793569183,
+        1793569183
+      ],
+      "after": [
+        33188,
+        6239,
+        2049,
+        1,
+        0,
+        0,
+        38395,
+        1793965153,
+        1793569183,
+        1793569183
+      ],
+      "saved_stream_readback_byteexact": true,
+      "elf_header": null
+    },
+    "images": [
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/libLLVM.so.23.1-rust-1.99.0-stable",
+        "saved": "inputs/candidate-0.image",
+        "bytes": 208094144,
+        "sha256": "7c2c7ebb79211f07e3b32e408a1a65b4d205656792f9c51bdbefcb21c0868cbd",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "libLLVM.so.23.1-rust-1.99.0-stable",
+            "path": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/libLLVM.so.23.1-rust-1.99.0-stable",
+            "origin": "current exact SDK directory catalog"
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": [
+          "librt.so.1",
+          "libdl.so.2",
+          "libpthread.so.0",
+          "libm.so.6",
+          "libz.so.1",
+          "libgcc_s.so.1",
+          "libc.so.6",
+          "ld-linux-x86-64.so.2"
+        ]
+      },
+      {
+        "source": "/lib/x86_64-linux-gnu/libc.so.6",
+        "saved": "inputs/candidate-1.image",
+        "bytes": 2129424,
+        "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": "/lib64/ld-linux-x86-64.so.2",
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "libc.so.6",
+            "path": "/lib/x86_64-linux-gnu/libc.so.6",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 521
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": [
+          "ld-linux-x86-64.so.2"
+        ]
+      },
+      {
+        "source": "/lib32/libc.so.6",
+        "saved": "inputs/candidate-2.image",
+        "bytes": 2274044,
+        "sha256": "50deb7759edba42249e5e9b426f7944d003825a758aa1727802508ba3ed10211",
+        "elf_header": null,
+        "catalog_references": [
+          {
+            "name": "libc.so.6",
+            "path": "/lib32/libc.so.6",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 522
+          }
+        ],
+        "supported_ELF64": false,
+        "needed": null
+      },
+      {
+        "source": "/lib/x86_64-linux-gnu/libdl.so.2",
+        "saved": "inputs/candidate-3.image",
+        "bytes": 14408,
+        "sha256": "c2994527172cc23b7fb0f7d611b71e00a37da27af12c2e5e9e0dc1a742886c96",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "libdl.so.2",
+            "path": "/lib/x86_64-linux-gnu/libdl.so.2",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 471
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": [
+          "libc.so.6"
+        ]
+      },
+      {
+        "source": "/lib32/libdl.so.2",
+        "saved": "inputs/candidate-4.image",
+        "bytes": 13672,
+        "sha256": "751571287cf8aa3fc7cbe20483e4a22b7825c37570563cf7ee558072b467d493",
+        "elf_header": null,
+        "catalog_references": [
+          {
+            "name": "libdl.so.2",
+            "path": "/lib32/libdl.so.2",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 472
+          }
+        ],
+        "supported_ELF64": false,
+        "needed": null
+      },
+      {
+        "source": "/lib/x86_64-linux-gnu/libgcc_s.so.1",
+        "saved": "inputs/candidate-5.image",
+        "bytes": 183024,
+        "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "libgcc_s.so.1",
+            "path": "/lib/x86_64-linux-gnu/libgcc_s.so.1",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 412
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": [
+          "libc.so.6",
+          "ld-linux-x86-64.so.2"
+        ]
+      },
+      {
+        "source": "/lib32/libgcc_s.so.1",
+        "saved": "inputs/candidate-6.image",
+        "bytes": 214696,
+        "sha256": "9c77987dad1b7d4ede0af66017e07ad08918bf52d15a7fc3fae8020dcea9fcec",
+        "elf_header": null,
+        "catalog_references": [
+          {
+            "name": "libgcc_s.so.1",
+            "path": "/lib32/libgcc_s.so.1",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 413
+          }
+        ],
+        "supported_ELF64": false,
+        "needed": null
+      },
+      {
+        "source": "/lib/x86_64-linux-gnu/libm.so.6",
+        "saved": "inputs/candidate-7.image",
+        "bytes": 952616,
+        "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "libm.so.6",
+            "path": "/lib/x86_64-linux-gnu/libm.so.6",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 288
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": [
+          "libc.so.6",
+          "ld-linux-x86-64.so.2"
+        ]
+      },
+      {
+        "source": "/lib32/libm.so.6",
+        "saved": "inputs/candidate-8.image",
+        "bytes": 1074632,
+        "sha256": "d27a8110749e0ad0212c687252a6216f9afa89210632c4876265d3557d8af121",
+        "elf_header": null,
+        "catalog_references": [
+          {
+            "name": "libm.so.6",
+            "path": "/lib32/libm.so.6",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 289
+          }
+        ],
+        "supported_ELF64": false,
+        "needed": null
+      },
+      {
+        "source": "/lib/x86_64-linux-gnu/libpthread.so.0",
+        "saved": "inputs/candidate-9.image",
+        "bytes": 14408,
+        "sha256": "90491a21ce44efcf3bd4b65ec82501c091d7ebe7f8d9b341dd01d721001d9ecd",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "libpthread.so.0",
+            "path": "/lib/x86_64-linux-gnu/libpthread.so.0",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 156
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": [
+          "libc.so.6"
+        ]
+      },
+      {
+        "source": "/lib32/libpthread.so.0",
+        "saved": "inputs/candidate-10.image",
+        "bytes": 13672,
+        "sha256": "6302a56141a7ee4b387c40f3a2e5da1c3b20dd7e27965c3a2c544c3c01143b9b",
+        "elf_header": null,
+        "catalog_references": [
+          {
+            "name": "libpthread.so.0",
+            "path": "/lib32/libpthread.so.0",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 157
+          }
+        ],
+        "supported_ELF64": false,
+        "needed": null
+      },
+      {
+        "source": "/lib/x86_64-linux-gnu/librt.so.1",
+        "saved": "inputs/candidate-11.image",
+        "bytes": 14624,
+        "sha256": "6d072187d88e092e81561a44c03a4a41397319022c6d43519757cc051c576d82",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "librt.so.1",
+            "path": "/lib/x86_64-linux-gnu/librt.so.1",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 134
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": [
+          "libc.so.6"
+        ]
+      },
+      {
+        "source": "/lib32/librt.so.1",
+        "saved": "inputs/candidate-12.image",
+        "bytes": 13764,
+        "sha256": "0a4d5688f9e58f9a913f591ee8c5ea612a1f95e3c2e029c4b049c9fb1f3965b6",
+        "elf_header": null,
+        "catalog_references": [
+          {
+            "name": "librt.so.1",
+            "path": "/lib32/librt.so.1",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 135
+          }
+        ],
+        "supported_ELF64": false,
+        "needed": null
+      },
+      {
+        "source": "/lib/x86_64-linux-gnu/libz.so.1",
+        "saved": "inputs/candidate-13.image",
+        "bytes": 113000,
+        "sha256": "f61677c7bdb7c2aa2a243ea781bfd16afcb361cede7b4ef76127a9d8eb9a5242",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "libz.so.1",
+            "path": "/lib/x86_64-linux-gnu/libz.so.1",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 8
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": [
+          "libc.so.6"
+        ]
+      },
+      {
+        "source": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "saved": "inputs/candidate-14.image",
+        "bytes": 236616,
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        },
+        "catalog_references": [
+          {
+            "name": "ld-linux-x86-64.so.2",
+            "path": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+            "origin": "ldconfig -p candidate ONLY",
+            "cache_line": 619
+          }
+        ],
+        "supported_ELF64": true,
+        "needed": []
+      }
+    ],
+    "unresolved_names": [],
+    "unexpanded_raw_images": [
+      "inputs/candidate-2.image",
+      "inputs/candidate-4.image",
+      "inputs/candidate-6.image",
+      "inputs/candidate-8.image",
+      "inputs/candidate-10.image",
+      "inputs/candidate-12.image"
+    ],
+    "name_request_count": 24,
+    "setup_uid": 1001,
+    "setup_gid": 1001,
+    "setup_environment": {
+      "PATH": "/home/runner/.pub-cache/bin:/opt/hostedtoolcache/dart/3.13.5/x64/bin:/snap/bin:/home/runner/.local/bin:/opt/pipx_bin:/home/runner/.cargo/bin:/home/runner/.config/composer/vendor/bin:/usr/local/.ghcup/bin:/home/runner/.dotnet/tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin",
+      "RUSTUP_TOOLCHAIN": "1.99.0",
+      "ImageOS": "ubuntu24",
+      "ImageVersion": "20261101.360.1",
+      "RUNNER_OS": "Linux",
+      "RUNNER_ARCH": "X64",
+      "LD_LIBRARY_PATH": null,
+      "LD_PRELOAD": null
+    },
+    "no_actual_loaded_resolution_or_ABI_cohort_actor_EX_proof": true,
+    "no_Source20_adoption_build_or_numerical_campaign": true,
+    "all_admission_flags": false
+  },
+  "wrapper_binding_interior": {
+    "new_read_only_static_source_question": true,
+    "source_file": "/usr/sbin/ldconfig",
+    "bytes": 387,
+    "sha256": "bfd5df90c7f070feab584435f106f254ffffaa268a04de5b5c3bd61d59c092f3",
+    "observed_shebang": "/bin/sh",
+    "observed_exec_source_reference": "/sbin/ldconfig.real",
+    "conditional_source_inference": "Given the recorded -p argument, the observed zero-argument deferral branch is false. This is static inference conditional on those bytes, not actual native exec/FD/interpreter proof.",
+    "full_source_body": "LOCAL_ONLY/excluded",
+    "actual_interpreter_and_real_delegate_images": "UNBOUND_not_reconstructed_or_bypassed"
+  },
+  "review": {
+    "pid": 37213,
+    "signed_status": 1,
+    "stdout_bytes": 0,
+    "stderr_bytes": 781,
+    "both_eof": true,
+    "token_limit_no_visible_final_or_partial_body": true,
+    "not_approval_or_backend_unavailability": true,
+    "terminal_no_relaunch": true
+  },
+  "primary_sources": {
+    "actual_saved_tool_return_bytes": 64494,
+    "actual_saved_tool_return_sha256": "560c2bafb629ccbd61398dce3f7ece21fdae12ed813467c38b02b28438d29d8f",
+    "not_full_HTTP_page_bodies": true,
+    "primary_sources": [
+      "https://gabi.xinuos.com/elf/08-dynamic.html",
+      "https://gabi.xinuos.com/elf/07-pheader.html",
+      "https://man7.org/linux/man-pages/man8/ldconfig.8.html"
+    ],
+    "qualification": "New static-field/cache-query references only; draft gABI/manual does not bind actual host ABI/runtime/original cohort. Full returns local-only, selected index public. No old UAPI/ptrace/clone/cgroup primary replay."
+  },
+  "qualifications": [
+    "Five old retained images were read only for a genuinely NEW static dynamic-string question; 22 actual selected raw ranges retained locally, no whole old ZIP/member rehash or completed case/model/campaign replay.",
+    "New original setup is required for this new data question; original Ubuntu24.04/Dart3.13.5/Rust1.99.0, all eight earlier jobs and workload/gates unchanged.",
+    "Fifteen candidate image streams plus separate query wrapper/cache bytes are retained; six unsupported raw images are unexpanded, not silently selected away. Empty unresolved-name list concerns only processed supported ELF64/catalog names, not full graph/runtime closure.",
+    "Static DT_NEEDED/SONAME/RUNPATH strings, cache candidates, point file hashes/readbacks and workflow success do not prove actual loaded files, effective Cargo linker/C headers, symbol versions, original cohort/credentials, native actor/FD origin or continuous physical EX.",
+    "No source20 edit/import/adoption, SDK bootstrap/dependency resolution/native build, broker/driver/perf/benchmark or numerical campaign. No RAM magnitude/growth/timing/leak-cause inference from file sizes or counts.",
+    "All SDK/wrapper/ZIP/raw-byte-range bodies and complete primary tool returns remain private; public source indexes hash actual saved tool returns, not full HTTP bodies.",
+    "One outer JavaScript candidate draft parsed unsuccessfully before tools/files/actors; first actual generation happened once. No unsaved draft or missing native/model records reconstructed."
+  ],
+  "production_RAM_repair_FINAL_strict48_50_clean_final_CI": "INCOMPLETE",
+  "all_admission_flags": false
+}
