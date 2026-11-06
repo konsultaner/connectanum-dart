@@ -2246,6 +2246,6 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: native-perf-linker-candidate-inputs
-        path: out/native-perf-linker-candidate-inputs
+        path: ${{ runner.temp }}/native-perf-linker-candidate-inputs
         if-no-files-found: error
         retention-days: 30
