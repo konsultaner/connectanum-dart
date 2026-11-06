@@ -1,0 +1,320 @@
+{
+  "question": "FIRST docs-only publication of the NEW transitive C-runtime source/interior/three-reference Actions packet, not RAM repair or runtime admission.",
+  "new_static_frontier": {
+    "source_named_images": 3,
+    "selected_ranges": 15,
+    "selected_range_bytes": 31467,
+    "new_needed_names": [
+      "libsframe.so.1",
+      "libz.so.1",
+      "libzstd.so.1"
+    ],
+    "new_retained_catalogue_lookup_bytes": 45341,
+    "all_matching_rows": 3,
+    "no_ABI_host_path_selection": true,
+    "not_tests_native_queries_or_loaded_runtime_proof": true
+  },
+  "result": {
+    "source_commit": "791906bbf6e9058de78aad0f8d010e4fdfc217d0",
+    "branch": "codex/pr132-actions-c-runtime-transitive-inputs-20261106",
+    "run_id": 42261755971,
+    "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42261755971",
+    "job_id": 128043232510,
+    "job_conclusion": "success",
+    "fourteen_previous_jobs": "skipped_not_rerun",
+    "artifact_id": 13525471746,
+    "artifact_bytes": 410576,
+    "artifact_sha256": "7070675a4dba5449b568c909d0010d7d54766bad8e6111a3f7dbef0de8a74f73",
+    "job_log_bytes": 44158,
+    "job_log_sha256": "c4a418af1e60b82a9a321afb3cd162b38e21d0fa6e3676f7014d4d3f88b0fb8e",
+    "source_path_references": [
+      "/lib/x86_64-linux-gnu/libzstd.so.1",
+      "/lib/x86_64-linux-gnu/libz.so.1",
+      "/lib/x86_64-linux-gnu/libsframe.so.1"
+    ],
+    "point_reference_observations": 3,
+    "present_saved_image_streams": [
+      {
+        "name": "/lib/x86_64-linux-gnu/libzstd.so.1",
+        "bytes": 755864,
+        "sha256": "0a2128bc10841fb29e76d08d945864dfb0b6a66da5df6df5d8299197439e54bb",
+        "saved_stream_matches_report": true
+      },
+      {
+        "name": "/lib/x86_64-linux-gnu/libz.so.1",
+        "bytes": 113000,
+        "sha256": "f61677c7bdb7c2aa2a243ea781bfd16afcb361cede7b4ef76127a9d8eb9a5242",
+        "saved_stream_matches_report": true
+      },
+      {
+        "name": "/lib/x86_64-linux-gnu/libsframe.so.1",
+        "bytes": 35168,
+        "sha256": "1693a2dbd77c909d279ae34aa9b5d8d08d97f116f8d0ed724063df11151b3c69",
+        "saved_stream_matches_report": true
+      }
+    ],
+    "absent_at_source_open_only": [],
+    "native_information_queries": 0,
+    "candidate_executions": 0,
+    "all_admission_flags": false,
+    "not_effective_Cargo_linker_C_header_ABI_runtime_cohort_actorEX_or_RAM_repair": true
+  },
+  "new_candidate_validation": {
+    "new_job_key": "flatbuffers-c-runtime-transitive-inputs",
+    "parent_jobs": 14,
+    "new_job_count": 15,
+    "candidate_bytes": 136233,
+    "candidate_sha256": "1fa4afc5afaa06c64f0a22224039e252bb3553d84ca7fa96d413fd28b44efd51",
+    "old_jobs_unchanged": 14,
+    "exact_collector_embedding": true,
+    "explicit_runner_temp_uploader_sink_match": true,
+    "YAML_pass": true,
+    "reverse_projection_byteexact": true,
+    "Python_AST_pass": true,
+    "collector_bytes": 6315,
+    "native_candidate_executions": 0,
+    "all_admission_flags": false
+  },
+  "review_completion": {
+    "pid": 11170,
+    "signed_status": 0,
+    "same_original_wait": true,
+    "wait_may_be_cached": true,
+    "stdout_eof": true,
+    "stderr_eof": true,
+    "stdout_bytes": 3044,
+    "stderr_bytes": 271,
+    "stdout_sha256": "944b4d707606e91de61eb4a33718199cca82b612df14aa735196a40f1af54086",
+    "stderr_sha256": "c0653137b520f17b5c534ed7b151373ec0b48a160ae15b4e89fde7eeed0df11a",
+    "advisory_not_approval": true
+  },
+  "ROOT_review_qualification": "Qwen11170 natural0/full3044stdout271stderr/BOTH EOF/SAMEoriginalwait-cachedpossible, advisory NOTapproval. ROOT rejects speculative P1 hyphen/underscore confusion: actual parent job key uses hyphens, campaign choice uses underscores; exact parent fetch/generation and matching new YAML/key/choice/embedding/reverseprojection/sink checks already passed once. Reject P2 implicit-missing-key/regex hazard: Hash.fetch is intentional failclosed, script selection explicitly checks run.is_a?(String), requires one exact collector substring, String.sub has literal String pattern, no regex-special interpretation. Do not add redundant checks or manufacture a failing parent. Historical path refs are intentionally fixed source inputs; absent-at-source-open is point data, not reason for dynamic lookup/fallback/host selection or another native query. Structural drift would failclosed; no original-job mutation/selection/ABI/runtime/cohort authority inferred. No advice-derived edits/tests/model relaunch. All old copy/open/close/loop helpers unchanged/excluded from new review; no full actorFD/continuous physicalEX/crash proof.\n",
+  "archive": {
+    "regular_selected_members": 39,
+    "all_selected_members_byteexact": true,
+    "archive_sha256": "7ff6a585ffd039e5558cccb7ea8e9d17c9a1015a73f0a281a2843e5e683c18b6",
+    "archive_bytes": 11636,
+    "not_full_directory_Source20_or_admitted_runtime_package": true,
+    "members": [
+      {
+        "name": "source-generation-v1/collector.py",
+        "bytes": 6315,
+        "sha256": "eb6f1239bcf88e178973333b76d0a113d09c433c3e79db318752610aa4893ddf"
+      },
+      {
+        "name": "source-generation-v1/declaration.json",
+        "bytes": 1084,
+        "sha256": "7653021cc0efc599575e4c257c01d65449bfbd3aa381c3a77dff57558af42035"
+      },
+      {
+        "name": "source-generation-v1/fresh-validation-floor.json",
+        "bytes": 107,
+        "sha256": "763dac71059d3fe1acc4e9253c222ca4b88677b95c54bc192cdcf5e8c46556f7"
+      },
+      {
+        "name": "source-generation-v1/candidate.diff",
+        "bytes": 9065,
+        "sha256": "b71340a7b77515f4f0c82cda9edb3397c6e6d4d9175ead75fa66fa57a881d1fe"
+      },
+      {
+        "name": "source-generation-v1/new-job-block.yml",
+        "bytes": 8346,
+        "sha256": "5911df2aa049049cbe9f403b19dc7ae590c1823134c4e5e5e675876dead9cfb1"
+      },
+      {
+        "name": "source-generation-v1/candidate-validation.json",
+        "bytes": 525,
+        "sha256": "0ccd0a71badfa45a93ccc155b304c77d31a6b628e60d5bf884d07083349a4eae"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation-creator.json",
+        "bytes": 71,
+        "sha256": "f19fb4cfabfa9637094e9d01b1a28efa3722ac35b9869df29d9f73bbcb8ae0da"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation-completion.json",
+        "bytes": 362,
+        "sha256": "8e575416e4ca03759cc24fbb162d34c5d44c3afcaaba4fd0d6ab4bf384a273d2"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation.stdout",
+        "bytes": 205,
+        "sha256": "23ddd4436015759efbab80214b9774d792547da94eb6eda25eac7dc4e8583865"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "source-generation-v1/new-candidate-validation-creator.json",
+        "bytes": 71,
+        "sha256": "c20c851f5f0835bf946f4060417c9271010b15efe5ba559d9b2a46f1e7dbdba6"
+      },
+      {
+        "name": "source-generation-v1/new-candidate-validation-completion.json",
+        "bytes": 362,
+        "sha256": "195b64ce1f8e002c132ffc0116bcd82c6f26970ddbb1dc59b224628c8acd7b00"
+      },
+      {
+        "name": "source-generation-v1/new-candidate-validation.stdout",
+        "bytes": 199,
+        "sha256": "3584fa93162e9c6d02cd8b2627caa11118990d20ea149fa488c009ca2a725f50"
+      },
+      {
+        "name": "source-generation-v1/new-candidate-validation.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "source-generation-v1/new-generation.rb",
+        "bytes": 1861,
+        "sha256": "adf6210cbc49632a63d9ba1dc583018e7b1ec134a29fe9412f6ba507acf791f1"
+      },
+      {
+        "name": "source-generation-v1/new-validation.rb",
+        "bytes": 1198,
+        "sha256": "fc7e3b1301fc7112fe54cb2fe952b5e0d798f083fdbfab870191ce8e9ddc3320"
+      },
+      {
+        "name": "review-v1/new-data-and-job-glue-scope.txt",
+        "bytes": 5767,
+        "sha256": "e52dfe7f980fc79ea66d8cec1309391b80d21191eb64d708d670a7ca6f7553b7"
+      },
+      {
+        "name": "review-v1/creator.json",
+        "bytes": 71,
+        "sha256": "b26d82e80223a6749d3038d53b3308a034b1670bb38950d88f8166f0392f7634"
+      },
+      {
+        "name": "review-v1/stdout",
+        "bytes": 3044,
+        "sha256": "944b4d707606e91de61eb4a33718199cca82b612df14aa735196a40f1af54086"
+      },
+      {
+        "name": "review-v1/stderr",
+        "bytes": 271,
+        "sha256": "c0653137b520f17b5c534ed7b151373ec0b48a160ae15b4e89fde7eeed0df11a"
+      },
+      {
+        "name": "review-v1/completion.json",
+        "bytes": 398,
+        "sha256": "e21ba8743819b4cfa24305c03dac72438d9dd27d28b213ae2d41dfdc190d4f43"
+      },
+      {
+        "name": "Actions-v1/execution-declaration.json",
+        "bytes": 1565,
+        "sha256": "d8002be7bc3ba2e7485892e881ce77ceff4a1f9c34b14bb69ad8fef7aabbad10"
+      },
+      {
+        "name": "Actions-v1/ROOT-source-review-qualification.md",
+        "bytes": 1123,
+        "sha256": "eb4d9bcf0a3db6fa11363546227cb2bc9e9fd0cc9889b278d84e16f9d820c8cc"
+      },
+      {
+        "name": "Actions-v1/source-publication-receipt.json",
+        "bytes": 366,
+        "sha256": "e81a2a6103fd7619a9b28d536eb21d6572ce5b846cc6a5897e792bea9cbf17bd"
+      },
+      {
+        "name": "Actions-v1/ROOT-first-linker-candidate-assessment.json",
+        "bytes": 1713,
+        "sha256": "de4c8a9efdf3b707462b75147bb6d3499145018ef4d52d01ce1315b1f1c47a73"
+      },
+      {
+        "name": "Actions-v1/actual-new-artifact-member-index.json",
+        "bytes": 752,
+        "sha256": "a09cf7fda4364d915b10e72892df42eb817754c930de62a253a3117a2ccd56f9"
+      },
+      {
+        "name": "Actions-v1/create-new-linker-candidate-branch-completion.json",
+        "bytes": 362,
+        "sha256": "067602c40bf4af41a497616a747ffbb4b951687fea7a545d22f8ce808cce16d8"
+      },
+      {
+        "name": "Actions-v1/publish-new-linker-candidate-source-completion.json",
+        "bytes": 363,
+        "sha256": "7e5b69a62bdb858ddd9bcc276edcd3c4b6cc542cbe7ecae05395db894cfbf73d"
+      },
+      {
+        "name": "Actions-v1/new-linker-candidate-source-readback-completion.json",
+        "bytes": 365,
+        "sha256": "647ea3cd6c3163f969561bddca919fcbd2497ab40c28c419808b75412a0cb3a2"
+      },
+      {
+        "name": "Actions-v1/dispatch-only-new-linker-candidate-inputs-completion.json",
+        "bytes": 360,
+        "sha256": "56b298359b2dce25716debab6f97df8121c1eb694ccf566a9dfbbcb9e4b68c10"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-linker-run-0-completion.json",
+        "bytes": 361,
+        "sha256": "cf2c7daad3dd0270acc3f5fa77a7fcfeac1ee9349ff32ddd3ead0dd931a1e034"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-linker-run-1-completion.json",
+        "bytes": 364,
+        "sha256": "b9e4279149718cd3329432abf3749e9143d8d3512d3e5310cb4e1018575d0db3"
+      },
+      {
+        "name": "Actions-v1/watch-only-new-linker-run-completion.json",
+        "bytes": 363,
+        "sha256": "03a3067f74643ae7d1807cd3e3f09b3295a55834e8fafca3cee21e1367cf0d5c"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-final-completion.json",
+        "bytes": 364,
+        "sha256": "e6b9cb3d183964822680c437dc7c387c3ba509c0bc1d76b7def2c003936492be"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-jobs-completion.json",
+        "bytes": 364,
+        "sha256": "65b6e05e4159bf60b595c3eeaa9152721a5d11c6802f9ff4275b63a4a9c78497"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-job-log-completion.json",
+        "bytes": 364,
+        "sha256": "f85af5cee8baae93625744e7d82d8c2bab4dc91497b54d48c1c9a0f652fc4143"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-artifact-list-completion.json",
+        "bytes": 362,
+        "sha256": "86874fcc03c2bae4e66008d1c7b1601e0ed80c85b1271b83512389835bbf907f"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-artifact-zip-completion.json",
+        "bytes": 365,
+        "sha256": "a3d23d3131a3e8ffa60579bec3e91e2ede6530df193f08dc833ca7921110bc57"
+      },
+      {
+        "name": "catalogue-lookup-v1/ROOT-new-three-name-path-reference-packet.json",
+        "bytes": 1247,
+        "sha256": "b5a1d7102885bd0dee62c4eada48caa488e07ef60cdea9b04f579c7f8a4f56ed"
+      }
+    ]
+  },
+  "known_controller_limits": {
+    "original_Actions_execsession34534": "natural0_AFTER_one_pre_target_EX_refusal_then_FIRST_body_once",
+    "original_watcher_PID": 11366,
+    "original_watcher_signed_status": 0,
+    "original_watcher_stdout_bytes": 6141,
+    "original_watcher_stderr_bytes": 0,
+    "both_EOF_same_original_wait_may_be_cached": true,
+    "not_global_actor_FD_or_continuous_physical_EX_crash_closure": true,
+    "publication_pretarget_EX_refusals": 0
+  },
+  "all_component_work": "COMPLETE_CONSUMED",
+  "provider_route": "original_GitHub_Actions_selected_NOT_runtime_admitted",
+  "controller": "CLOSED_observed_only",
+  "ownership": null,
+  "all_admission_flags": false,
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE",
+  "private_excluded": "Full image bytes/static raw ranges/report/environment/ZIP/API/log/controller bodies remain private and preserved. No unique data deleted. Selected archive not full package.",
+  "remaining_unbound": [
+    "actual compiler-build CFG_DEFAULT_LINKER/flavor",
+    "effective Cargo target/config/environment",
+    "C headers/sysroot/ABI",
+    "original loaded runtime/credentials/generated-input cohort",
+    "full transitive native actor/FD and continuous official physical EX/crash admission"
+  ]
+}

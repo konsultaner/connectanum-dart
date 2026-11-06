@@ -1,5 +1,14 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-06: original Actions transitive C-runtime references
+
+The new [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42261755971) succeeds at source 791906bbf6e9058de78aad0f8d010e4fdfc217d0. All fourteen prior jobs were unchanged and skipped; original Ubuntu24.04/Dart3.13.5/Rust1.99.0 recipes remain unchanged. A new static question over all three BFD/CTF/Jansson library interiors read15selectedranges/31,467bytes and exposed three additional needed names. A distinct three-name retained-catalogue lookup supplied all three path references without ABI/host filtering.
+
+The new acquisition script executes zero candidate/native-information/C/header queries. All three saved streams (904,032 bytes) independently match their new report/readbacks. No SDK/bootstrap/build/numerical work or Source20/runtime adoption ran. All new static/lookup/source/review/checks/Actions/acquisition/comparison/archive work is complete and consumed. [Evidence](../research/2026-11-06-flatbuffers-actions-transitive-c-runtime-inputs.md):39selectedregularmembers/byteexact archive SHA-256 7ff6a585ffd039e5558cccb7ea8e9d17c9a1015a73f0a281a2843e5e683c18b6. Full raw inputs remain private and preserved.
+
+Effective Cargo/default linker/C headers/ABI/runtime/cohort/native actorFD/continuous official physical EX/crash admission remains unbound. All flags stay false; RAM cause/repair, immutable original runtime admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE. The same-chat follow-up remains active. Next: declare a genuinely new source-tied input/default-linker/Cargo/header/runtime question before execution; no completed component replay, guessed tools/paths/ABI, unsupported flags, favorable cohorts, old-input transplant, Source20 adoption or GC/copy/gate/workload changes. Complete applicable original preflight remains required; memory floors are not authority.
+
+
 ## 2026-11-06: original Actions C-tool runtime reference inputs
 
 The new [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42258952372) succeeds at source 5f20cf878210efc003c94bff80acb801aee80be7, preserving the original Ubuntu24.04/Dart3.13.5/Rust1.99.0 setup and all thirteen previous jobs, which were skipped. Seven original path references yield seven complete saved streams (6,640,980 bytes); every stream independently matches the report/readback. The acquisition script executes zero candidates, native information queries or header/C-preprocessing commands. No bootstrap/build/numerical work or Source20/runtime adoption ran.
