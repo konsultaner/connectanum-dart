@@ -37,6 +37,7 @@ on:
           - flatbuffers_rss_control
           - flatbuffers_dictionary_component
           - flatbuffers_toolchain_preflight
+          - flatbuffers_compiler_inputs
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -961,5 +962,214 @@ jobs:
         with:
           name: flatbuffers-toolchain-preflight-${{ github.sha }}-${{ github.run_attempt }}
           path: out/wamp-flatbuffers-toolchain-preflight
+          if-no-files-found: error
+          retention-days: 30
+
+  linux-flatbuffers-compiler-inputs:
+    name: FlatBuffers compiler input preparation (no build)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_compiler_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-compiler-inputs-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.5
+
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Acquire actual compiler delegates and query-derived inputs
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import struct
+          import subprocess
+          
+          root = Path.cwd()
+          out = root / "out/wamp-flatbuffers-compiler-inputs"
+          out.mkdir(parents=True, exist_ok=False)
+          (out / "queries").mkdir()
+          (out / "inputs").mkdir()
+          journal = (out / "operations.jsonl").open("x")
+          children = []
+          def event(row):
+              journal.write(json.dumps(row, sort_keys=True) + "\n")
+              journal.flush()
+          
+          def query(label, argv):
+              event({"operation": "query_request_before_launch", "label": label, "argv": argv})
+              child = subprocess.Popen(argv, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              children.append(child)
+              original = {"label": label, "pid": child.pid, "argv": argv, "handle": child}
+              # The original handle is retained before the first stream operation.
+              stdout, stderr = child.communicate()
+              status = child.wait()
+              for suffix, data in [("stdout", stdout), ("stderr", stderr)]:
+                  with (out / "queries" / (label + "." + suffix)).open("xb") as f:
+                      f.write(data)
+              row = {k: v for k, v in original.items() if k != "handle"}
+              row.update(signed_status=status, same_original_wait=True, wait_may_be_cached=True,
+                         stdout_eof=True, stderr_eof=True, stdout_bytes=len(stdout),
+                         stderr_bytes=len(stderr), stdout_sha256=hashlib.sha256(stdout).hexdigest(),
+                         stderr_sha256=hashlib.sha256(stderr).hexdigest())
+              event({"operation": "query_collected", **row})
+              if status != 0:
+                  raise RuntimeError("Terminal query failure: " + label)
+              return stdout
+          
+          def one_path(label, data):
+              text = data.decode("utf-8")
+              lines = text.splitlines()
+              if len(lines) != 1 or not lines[0] or not Path(lines[0]).is_absolute():
+                  raise RuntimeError("Unbound query path: " + label)
+              return Path(lines[0])
+          
+          def preserve(label, source):
+              source = Path(source)
+              target = out / "inputs" / label
+              src_fd = os.open(source, os.O_RDONLY)
+              # Register returned handles in strong local state before reading.
+              owned = {"source_fd": src_fd, "source": str(source), "destination": str(target)}
+              dst_fd = None
+              try:
+                  event({"operation": "input_open_returned_before_read", **owned})
+                  before = os.fstat(src_fd)
+                  dst_fd = os.open(target, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o644)
+                  owned["destination_fd"] = dst_fd
+                  event({"operation": "output_open_returned_before_write", **owned})
+                  h = hashlib.sha256()
+                  count = 0
+                  prefix = bytearray()
+                  while True:
+                      data = os.read(src_fd, 1024 * 1024)
+                      if not data:
+                          break
+                      if len(prefix) < 65536:
+                          prefix.extend(data[:65536 - len(prefix)])
+                      h.update(data)
+                      count += len(data)
+                      cursor = 0
+                      while cursor < len(data):
+                          written = os.write(dst_fd, data[cursor:])
+                          if written <= 0:
+                              raise RuntimeError("Unknown/zero write; no resend recovery")
+                          event({"operation": "known_write_return", "source_offset": count - len(data) + cursor, "returned_bytes": written, "requested_bytes": len(data) - cursor})
+                          cursor += written
+                  os.lseek(dst_fd, 0, os.SEEK_SET)
+                  copied_hash = hashlib.sha256()
+                  copied_count = 0
+                  while True:
+                      copied = os.read(dst_fd, 1024 * 1024)
+                      if not copied:
+                          break
+                      copied_hash.update(copied)
+                      copied_count += len(copied)
+                  if copied_count != count or copied_hash.hexdigest() != h.hexdigest():
+                      raise RuntimeError("Saved stream readback mismatch; terminal")
+                  after = os.fstat(src_fd)
+                  row = {"source": str(source), "saved": "inputs/" + label,
+                         "bytes_read": count, "sha256": h.hexdigest(),
+                         "before": list(before), "after": list(after), "saved_stream_readback_byteexact": True}
+                  event({"operation": "input_eof_and_output_writes_returned", **row})
+              finally:
+                  # Actual native close results are journaled separately.
+                  try:
+                      if dst_fd is not None:
+                          os.close(dst_fd)
+                          event({"operation": "destination_close_returned", "fd": dst_fd})
+                  finally:
+                      os.close(src_fd)
+                      event({"operation": "source_close_returned", "fd": src_fd})
+              elf = None
+              if bytes(prefix[:4]) == b"\x7fELF" and len(prefix) >= 64:
+                  bits = prefix[4]
+                  endian = {1: "<", 2: ">"}.get(prefix[5])
+                  if bits == 2 and endian is not None:
+                      machine = struct.unpack_from(endian + "H", prefix, 18)[0]
+                      phoff = struct.unpack_from(endian + "Q", prefix, 32)[0]
+                      phsize, phnum = struct.unpack_from(endian + "HH", prefix, 54)
+                      interpreter = None
+                      for i in range(phnum):
+                          at = phoff + i * phsize
+                          if phsize < 56 or at + 56 > len(prefix):
+                              raise RuntimeError("ELF header range not retained; no guessed parsing")
+                          typ, flags, offset, va, pa, size, memsize, align = struct.unpack_from(endian + "IIQQQQQQ", prefix, at)
+                          if typ == 3:
+                              if offset + size > len(prefix):
+                                  raise RuntimeError("ELF interpreter not retained; no guessed path")
+                              interpreter = bytes(prefix[offset:offset + size]).rstrip(b"\0").decode("utf-8")
+                      elf = {"class_byte": bits, "endianness_byte": prefix[5],
+                             "machine_field": machine, "interpreter_field": interpreter,
+                             "qualification": "Static image fields, not actual exec/mappings or full target ABI"}
+              row["elf_header"] = elf
+              return row
+          
+          try:
+              rustc = one_path("rustup-which-rustc", query("rustup-which-rustc", ["rustup", "which", "rustc"]))
+              cargo = one_path("rustup-which-cargo", query("rustup-which-cargo", ["rustup", "which", "cargo"]))
+              # Keep original PATH proxy execution; resolved leaf paths are read as DATA only.
+              sysroot = one_path("rustc-sysroot", query("rustc-sysroot", ["rustc", "--print", "sysroot"]))
+              target_libdir = one_path("rustc-target-libdir", query("rustc-target-libdir", ["rustc", "--print", "target-libdir"]))
+              query("rustc-verbose-version", ["rustc", "-vV"])
+              query("cargo-verbose-version", ["cargo", "-vV"])
+              entries = {
+                  "sysroot": sorted(x.name for x in sysroot.iterdir()),
+                  "sysroot_lib": sorted(x.name for x in (sysroot / "lib").iterdir()),
+                  "target_libdir": sorted(x.name for x in target_libdir.iterdir()),
+              }
+              selection = [("rustc.image", rustc), ("cargo.image", cargo)]
+              selection += [("rustc-driver-" + x.name, x) for x in sorted((sysroot / "lib").glob("librustc_driver*.so"))]
+              selection += [("target-" + x.name, x) for x in sorted(target_libdir.glob("libstd-*.so"))]
+              selection += [("target-" + x.name, x) for x in sorted(target_libdir.glob("libstd-*.rlib"))]
+              event({"operation": "query_derived_input_selection_before_reads",
+                     "entries": entries, "selection": [{"label": a, "source": str(b)} for a, b in selection]})
+              inputs = [preserve(label, path) for label, path in selection]
+              interpreters = sorted({x["elf_header"]["interpreter_field"] for x in inputs
+                                     if x["elf_header"] is not None and x["elf_header"]["interpreter_field"] is not None})
+              for i, path in enumerate(interpreters):
+                  if not Path(path).is_absolute():
+                      raise RuntimeError("Unbound interpreter path")
+                  inputs.append(preserve("elf-interpreter-" + str(i) + ".image", Path(path)))
+              result = {
+                  "purpose": "NEW actual Rust compiler/cargo delegate and query-derived runtime/input acquisition",
+                  "workflow_revision": os.environ["GITHUB_SHA"],
+                  "run_id": os.environ["GITHUB_RUN_ID"], "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                  "uid": os.getuid(), "gid": os.getgid(), "cwd": str(root),
+                  "environment": {k: os.environ.get(k) for k in ["PATH", "RUSTUP_TOOLCHAIN", "ImageOS", "ImageVersion", "RUNNER_OS", "RUNNER_ARCH"]},
+                  "sysroot_query_path": str(sysroot), "target_libdir_query_path": str(target_libdir),
+                  "directory_entry_observations": entries, "inputs": inputs,
+                  "free_bytes_at_observation": shutil.disk_usage(root).free,
+                  "source_admitted": False, "live_admission": False, "capture_ready": False, "evidence_complete": False,
+                  "limitations": [
+                      "Only fresh original Actions preparation; no bootstrap, dependency resolution, native build or benchmark",
+                      "Installed image copies and provider queries are point DATA, not original601 immutable cohort equality",
+                      "C headers, effective linker/build args, complete loaded runtime/delegates, original driver credentials and actor/FD/physical EX closure remain unbound",
+                      "No resolved leaf executable is directly invoked; all Rust tool queries retain original PATH execution",
+                      "Any partial/unknown IO or constructor outcome is terminal and unadmitted; no automatic retry, deletion or successful receipt",
+                  ],
+              }
+              with (out / "compiler-input-observations.json").open("x") as f:
+                  json.dump(result, f, indent=2)
+                  f.write("\n")
+          finally:
+              journal.close()
+          PY
+
+      - name: Upload compiler input preparation even after failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatbuffers-compiler-inputs-${{ github.sha }}-${{ github.run_attempt }}
+          path: out/wamp-flatbuffers-compiler-inputs
           if-no-files-found: error
           retention-days: 30
