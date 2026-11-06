@@ -1,0 +1,328 @@
+{
+  "question": "Preserve ALL seven source-named C-tool runtime references in a NEW original Actions preparation, without candidate execution or runtime admission",
+  "result": {
+    "source_commit": "5f20cf878210efc003c94bff80acb801aee80be7",
+    "branch": "codex/pr132-actions-c-tool-runtime-inputs-20261106",
+    "run_id": 42258952372,
+    "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42258952372",
+    "job_id": 128033536128,
+    "job_conclusion": "success",
+    "thirteen_previous_jobs": "skipped_not_rerun",
+    "artifact_id": 13523069516,
+    "artifact_bytes": 2989603,
+    "artifact_sha256": "c05334619dede218b454a97f9150627d4d5cddf70dda61d9c4b3642d63f4763a",
+    "job_log_bytes": 44235,
+    "job_log_sha256": "3a8f8082cd51662a4fda615c9a7418b13d87869cc3511f4dff39763ca152f248",
+    "source_path_references": [
+      "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "/lib/x86_64-linux-gnu/libbfd-2.42-system.so",
+      "/lib/x86_64-linux-gnu/libc.so.6",
+      "/lib/x86_64-linux-gnu/libctf.so.0",
+      "/lib/x86_64-linux-gnu/libjansson.so.4",
+      "/lib32/libc.so.6",
+      "/lib64/ld-linux-x86-64.so.2"
+    ],
+    "point_reference_observations": 7,
+    "present_saved_image_streams": [
+      {
+        "name": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "bytes": 236616,
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+        "saved_stream_matches_report": true
+      },
+      {
+        "name": "/lib/x86_64-linux-gnu/libbfd-2.42-system.so",
+        "bytes": 1479888,
+        "sha256": "11f084bc6ff5fc64e91c0b6422040fab1245419e7ff29560a95c1176ce1b9ff4",
+        "saved_stream_matches_report": true
+      },
+      {
+        "name": "/lib/x86_64-linux-gnu/libc.so.6",
+        "bytes": 2129424,
+        "sha256": "3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf",
+        "saved_stream_matches_report": true
+      },
+      {
+        "name": "/lib/x86_64-linux-gnu/libctf.so.0",
+        "bytes": 220384,
+        "sha256": "25c8f765c259d05b59a3dc3634d711912a7f5ce9be8a28ace081507b925b3ad1",
+        "saved_stream_matches_report": true
+      },
+      {
+        "name": "/lib/x86_64-linux-gnu/libjansson.so.4",
+        "bytes": 64008,
+        "sha256": "c49935a4b3ac599064281b1f257576087806d0dad7ec46f353bd983b052c5e26",
+        "saved_stream_matches_report": true
+      },
+      {
+        "name": "/lib32/libc.so.6",
+        "bytes": 2274044,
+        "sha256": "50deb7759edba42249e5e9b426f7944d003825a758aa1727802508ba3ed10211",
+        "saved_stream_matches_report": true
+      },
+      {
+        "name": "/lib64/ld-linux-x86-64.so.2",
+        "bytes": 236616,
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+        "saved_stream_matches_report": true
+      }
+    ],
+    "absent_at_source_open_only": [],
+    "native_information_queries": 0,
+    "candidate_executions": 0,
+    "all_admission_flags": false,
+    "not_effective_Cargo_linker_C_header_ABI_runtime_cohort_actorEX_or_RAM_repair": true
+  },
+  "new_source_validation": {
+    "old_jobs_unchanged": 13,
+    "new_job_count": 14,
+    "new_campaign": "flatbuffers_c_tool_runtime_inputs",
+    "exact_collector_embedding": true,
+    "YAML_pass": true,
+    "Python_AST_pass": true,
+    "reverse_projection_byteexact": true,
+    "candidate_bytes": 127834,
+    "candidate_sha256": "96319b8608031f4c8cee8562971c9203342117a1bb5cf1270156007bd864789a",
+    "collector_bytes": 6468,
+    "native_candidate_executions": 0,
+    "all_admission_flags": false
+  },
+  "new_review_completion": {
+    "pid": 95068,
+    "signed_status": 0,
+    "same_original_wait": true,
+    "wait_may_be_cached": true,
+    "stdout_eof": true,
+    "stderr_eof": true,
+    "stdout_bytes": 2821,
+    "stderr_bytes": 271,
+    "stdout_sha256": "f61216c69d95cd49a5810847de1f8d5cffea3cb07c24cf67f96b7daf8463920b",
+    "stderr_sha256": "b3e0dd2d068ada706a98acd8b8b20e8abad68b486d57fffad393fa17ab4197f9",
+    "advisory_not_approval": true
+  },
+  "ROOT_review_qualification": "Qwen95068 natural0/full2821stdout271stderr/BOTH EOF/SAMEoriginalwait-cachedpossible advisory NOTapproval. Reject claimed P1 open-OSError leak/report requirement: other open errors intentionally propagate failclosed; no FD was returned by failed open; full raw traceback/journal/partial artifacts retained by always-upload, report absence not success/admission. Do not catch broad OSError to fabricate structured success/absence, retry/reclose or recover unknowns. Reject P2 lstat/readlink/open misclassification: fields explicitly separate point observations, no atomicABA/origin/loaded mapping claim; inode comparison cannot authenticate ABA. Process crash/journal/report closure remains UNBOUND and raw missing fields stay unknown; no reconstruction or schema-authority assumption. No advice-derived source edits/tests. ROOT checked new scope/first AST-YAML-embedding-reverseprojection-sink match once; old13jobs untouched; no Source20/SDK/build/diagnostic admission.\n",
+  "source_body_and_checks_and_review_and_run_acquisition": "COMPLETE_CONSUMED",
+  "static_frontier": {
+    "ranges": 15,
+    "bytes": 12075,
+    "images": 3,
+    "subsequent_catalogue_lookup_bytes": 45341,
+    "matching_catalogue_rows": 6,
+    "reference_paths": 7,
+    "not_tests_or_ABI_loaded_resolution_or_cohort_authority": true
+  },
+  "archive": {
+    "selected_regular_member_count": 36,
+    "all_selected_members_byteexact": true,
+    "archive_sha256": "00aad8e5e3ac9c2225d15b944dd95ee4be880516d8166f44562237419bcc31ee",
+    "archive_bytes": 10834,
+    "not_full_directory_Source20_or_runtime_input_package": true,
+    "excluded_private_full_raw_images_ZIP_report_environment_and_controllers": true,
+    "members": [
+      {
+        "name": "source-generation-v1/collector.py",
+        "bytes": 6468,
+        "sha256": "8f0aa41352539b9b70824c1fb67c91e338b0ad3862e97c8318cccb42e0d7e3d2"
+      },
+      {
+        "name": "source-generation-v1/declaration.json",
+        "bytes": 1419,
+        "sha256": "b3854adf0242a2020f7d707b6daf9a823d3ee603199c994e79d9eb23c52ecb50"
+      },
+      {
+        "name": "source-generation-v1/fresh-validation-floor.json",
+        "bytes": 183,
+        "sha256": "3849a78e4452f2045082a3168bc41d8c5f3f5e9b706f0782d514506411ecaf33"
+      },
+      {
+        "name": "source-generation-v1/candidate.diff",
+        "bytes": 9170,
+        "sha256": "4b3cd63ff0381e9d705b925233702c81c562f489ee3b22bce3a56030b86445fa"
+      },
+      {
+        "name": "source-generation-v1/new-job-block.yml",
+        "bytes": 8151,
+        "sha256": "60d4dd1d782e98ef6d2626008f4e0b88e4c2f7451d79885d96eec08416e6d3b9"
+      },
+      {
+        "name": "source-generation-v1/candidate-validation.json",
+        "bytes": 447,
+        "sha256": "e4024143c64e212b53d8b0c9f76b36fc6067699259a80e5db156b374a0b671f0"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation-creator.json",
+        "bytes": 58,
+        "sha256": "5d4674dbf26a5c958e43178b3248589c3ec642177c86e7754faf842c08f2cbcf"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation-completion.json",
+        "bytes": 363,
+        "sha256": "61dac7df862b6a2923707a34171458560edc83e78ddcae7c44c8591b969520a1"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation.stdout",
+        "bytes": 8151,
+        "sha256": "60d4dd1d782e98ef6d2626008f4e0b88e4c2f7451d79885d96eec08416e6d3b9"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "source-generation-v1/new-candidate-validation-creator.json",
+        "bytes": 58,
+        "sha256": "f11f1f630d1c048623d9885d9ed1aa06ad4649929668936b7621c06f64038597"
+      },
+      {
+        "name": "source-generation-v1/new-candidate-validation-completion.json",
+        "bytes": 362,
+        "sha256": "b296b4ebea87774a4063d399365eb61804bfafe6b5c92b2a505b55a2872f4564"
+      },
+      {
+        "name": "source-generation-v1/new-candidate-validation.stdout",
+        "bytes": 145,
+        "sha256": "f23d099ed1d84f5d4d4d7fad1bb3ba24ae04e3b16aec5579a315f12f08e48954"
+      },
+      {
+        "name": "source-generation-v1/new-candidate-validation.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "review-v1/new-direct-reference-scope.txt",
+        "bytes": 3964,
+        "sha256": "21b92a9c6ac0151aaa527e621bec57f625c4a729d55aa04bdd9094d2204b923a"
+      },
+      {
+        "name": "review-v1/creator.json",
+        "bytes": 64,
+        "sha256": "97a23c4215405588b7119466311737d85305fa1568adc73096a46f41433abd11"
+      },
+      {
+        "name": "review-v1/stdout",
+        "bytes": 2821,
+        "sha256": "f61216c69d95cd49a5810847de1f8d5cffea3cb07c24cf67f96b7daf8463920b"
+      },
+      {
+        "name": "review-v1/stderr",
+        "bytes": 271,
+        "sha256": "b3e0dd2d068ada706a98acd8b8b20e8abad68b486d57fffad393fa17ab4197f9"
+      },
+      {
+        "name": "review-v1/completion.json",
+        "bytes": 398,
+        "sha256": "87fa552868e8d8a6865295ddd653df2516f7c02bb9e61fe7d15aeafa78cb8255"
+      },
+      {
+        "name": "Actions-v1/execution-declaration.json",
+        "bytes": 1607,
+        "sha256": "62461a959736aea0be6598cb38b0a547a5d8b4c3c65f3987087ae47bfe452f52"
+      },
+      {
+        "name": "Actions-v1/ROOT-source-review-qualification.md",
+        "bytes": 970,
+        "sha256": "23694d25b1deac7d15328818fe72621eb8f1a6b1454b3cd7728905b2e05ed4c9"
+      },
+      {
+        "name": "Actions-v1/source-publication-receipt.json",
+        "bytes": 360,
+        "sha256": "1403d171c3b2c16d9a0be4fd9207dbfb3b77c07cd5b4a147418375dce6755264"
+      },
+      {
+        "name": "Actions-v1/ROOT-first-linker-candidate-assessment.json",
+        "bytes": 2719,
+        "sha256": "32375680aef9079a7d1a7a5099ae6fe7c8bb249a6bd285e85f3e761e1bd6a880"
+      },
+      {
+        "name": "Actions-v1/actual-new-artifact-member-index.json",
+        "bytes": 1354,
+        "sha256": "92962bcace8209ddc32ed4d37ebdaf2621e19213f141d55638193cc049f235a4"
+      },
+      {
+        "name": "Actions-v1/create-new-linker-candidate-branch-completion.json",
+        "bytes": 361,
+        "sha256": "8fb066d84b3457970f06c8fee158026f403d17f540f9c3fbd6dd6df77a186244"
+      },
+      {
+        "name": "Actions-v1/publish-new-linker-candidate-source-completion.json",
+        "bytes": 362,
+        "sha256": "a0dd54bf65f20249e2782f012fbd3cd5a552099e6ab1f85baa23928247407816"
+      },
+      {
+        "name": "Actions-v1/new-linker-candidate-source-readback-completion.json",
+        "bytes": 364,
+        "sha256": "bb8e0b5d5bf6b1d282a65dfe9e3f901f68d0ddd801a4698e540eece5b6e93e0e"
+      },
+      {
+        "name": "Actions-v1/dispatch-only-new-linker-candidate-inputs-completion.json",
+        "bytes": 359,
+        "sha256": "9dc20eb5253b3e76e683ad815f41cb12a9395147bbbab25bf4be75ad72968504"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-linker-run-0-completion.json",
+        "bytes": 360,
+        "sha256": "a289cbfd4961e93704c94c714339520016d60f91c0d430eba0217fde97f7da3f"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-linker-run-1-completion.json",
+        "bytes": 363,
+        "sha256": "a98a6eb6fdaf3664fe8bd501fe7120953386acd3833650e0ec8de00ae4a47a24"
+      },
+      {
+        "name": "Actions-v1/watch-only-new-linker-run-completion.json",
+        "bytes": 362,
+        "sha256": "7908e1ac197d66c57f459b3ad6ece31f1964b7a3c1477f4259bace62afb09dcd"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-final-completion.json",
+        "bytes": 363,
+        "sha256": "83d657c51897671425a95b3a4d2c4ce88f6b9c2cb80f96a9ba04bdf0bd462cbc"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-jobs-completion.json",
+        "bytes": 363,
+        "sha256": "5eba12b9f3b2b1ada98ab00ddf3501e1570fccfb4457eee973d80930d8461215"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-job-log-completion.json",
+        "bytes": 363,
+        "sha256": "632fbdc6cb617b7b96c35af7ddaf94a8ca24b3c6f845f5e862a2d4f319cfa276"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-artifact-list-completion.json",
+        "bytes": 361,
+        "sha256": "7a8ac163f12f220221fa75b0a500f5a91cee43cf86a1d8e325a0c7bb47e1e453"
+      },
+      {
+        "name": "Actions-v1/actual-new-linker-artifact-zip-completion.json",
+        "bytes": 365,
+        "sha256": "efc5bab4b06cabf477af779f7fd6a8bb92b3a407fcc6f5ea50c1cedaf37e680d"
+      }
+    ]
+  },
+  "known_controller_observation": {
+    "original_execsession97017": "natural0_after23_pre_target_EX_refusals_then_FIRST_body_once",
+    "previous_Actions_initial_plus_original8211_refusals": 37,
+    "previous_original8211": "natural1_before_all_target_IO",
+    "Source_generation_PID": 94805,
+    "validation_PID": 94811,
+    "review_PID": 95068,
+    "original_new_run_watcher_PID": 8288,
+    "original_new_run_watcher_full_stdout_bytes": 5821,
+    "signed_known_statuses_BOTH_EOF_not_global_actor_FD_or_crash_EX_closure": true
+  },
+  "limitations": [
+    "Seven complete image streams/readbacks are input snapshots, not selected/effective Cargo linker, compiler-build defaults, C-header/sysroot/ABI, loaded runtime or original execution proof.",
+    "Separate path/FD/data/close observations do not authenticate atomic ABA, origin, loaded mapping, all transitive actors/FDs, continuous physical EX or crash behavior.",
+    "Equal loader alias bytes are not proof of original loaded-file/cohort identity. The lib32 pathname is not ELF-class/ABI authority.",
+    "The new acquisition script performs zero candidate executions, native information queries, C preprocessing, header queries, bootstrap, dependency resolution, native build, driver, broker, profiler, benchmark or numerical execution. Actions setup is separate and unadmitted.",
+    "Full raw report/environment/images/ZIP/log/controller/API bodies remain private; this selected public archive is not a full directory or admitted Source20/runtime package.",
+    "No Source20 or runtime checkout edit/import/adoption. Preparation success is not RAM cause or repair."
+  ],
+  "all_admission_flags": false,
+  "controller": "CLOSED_observed_original_completion_only",
+  "ownership": null,
+  "provider_route": "original_GitHub_Actions_selected_NOT_admitted",
+  "RAM_cause_repair_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}

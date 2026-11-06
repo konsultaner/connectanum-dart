@@ -1,5 +1,14 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-06: original Actions C-tool runtime reference inputs
+
+The new [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42258952372) succeeds at source 5f20cf878210efc003c94bff80acb801aee80be7, preserving the original Ubuntu24.04/Dart3.13.5/Rust1.99.0 setup and all thirteen previous jobs, which were skipped. Seven original path references yield seven complete saved streams (6,640,980 bytes); every stream independently matches the report/readback. The acquisition script executes zero candidates, native information queries or header/C-preprocessing commands. No bootstrap/build/numerical work or Source20/runtime adoption ran.
+
+The first new source generation, validation, review and Actions acquisition are complete and consumed. They must not be repeated because older pending prose said source generation never ran. These snapshots do not bind effective Cargo linker/target/config-env, compiler-build defaults, C headers/ABI, loaded runtime/cohort, transitive actorFD or continuous physical EX/crash behavior. All admission flags stay false; RAM cause/repair, immutable original runtime admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE. [New evidence](../research/2026-11-06-flatbuffers-actions-c-tool-runtime-inputs.md): 36 selected regular members, byteexact archive SHA-256 00aad8e5e3ac9c2225d15b944dd95ee4be880516d8166f44562237419bcc31ee. The same-chat follow-up remains active.
+
+Next: independently declare a genuinely new bounded question over uninspected runtime candidate interiors/transitive references, actual compiler-build defaults and effective Cargo session inputs before candidate execution. No completed component/model/check/SDK/job/log/artifact/archive replay, guessed paths/tools/ABI/default cc, unsupported flags, favorable cohorts, transplanted old inputs, Source20 adoption or GC/copy/gate/workload changes. Applicable complete original source/tool/header/runtime/credentials/argv/env/cohort/native actorFD/continuous official physical EX/crash preflight remains required before bootstrap/build/diagnostic/canonical work; memory floors are not authority.
+
+
 ## 2026-11-06: repair new Actions linker-input artifact retention
 
 The new original Actions collector wrote under runner.temp while its uploader looked in out/. The actual BEFORE run42243142422 failed only at artifact upload; its report/image bytes were not retained. Changing only the new upload path produced successful matching AFTER run42243927888 at source345f21974caf888ab68f5ffcab9abcc364591331. All twelve previous jobs were skipped in both phases. This repairs preparation artifact retention; RAM cause/repair, immutable original runtime admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE.
