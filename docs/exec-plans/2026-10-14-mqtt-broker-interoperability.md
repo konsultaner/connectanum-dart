@@ -1,15 +1,15 @@
 # MQTT broker interoperability
 
-Status: active publication. Direct QoS 0 is merged; the authorized gateway and
-both-direction performance/memory qualification and downloaded history verification
-are complete. Publication CI found a fixture startup race and a macOS runner
-capacity failure. Follow-up `bin/test-fast` and full Rust/Dart/Chrome/Wasm
-`bin/verify` pass (17:37 UTC), with no source drift during verification.
-The fixes require a new exact-head PR run.
+Status: active MQTT client memory qualification. PR #135 merged on 2026-11-03 as `ef1479d6`.
+Gateway functionality, both-direction performance/memory qualification and the
+downloaded history/CI archives are complete. Final publication CI `41493246321`
+passes 59 checks. The current task separates two manual diagnostic entry points
+from PR-triggered profiling and corrects a reproduced client backlog memory peak,
+preserving every mandatory gate.
 
-The working branch contains runtime `839bbf6e`. Runtime and benchmark gate inputs
-match its frozen source; the non-benchmark macOS ownership lane now explicitly
-selects Intel. Coverage is 1,016/1,016 Dart, 979/979 added native
+The gateway/broker/native implementation retains qualified source `839bbf6e`
+and its frozen numeric policies. The client receive follow-up below requires its
+own complete qualification. The macOS ownership lane explicitly selects Intel. Coverage is 1,016/1,016 Dart, 979/979 added native
 lines and 1,084/1,084 gateway tooling statements with zero exclusions. Payload
 lifetime, shared isolate snapshots, bounds, ordering, profile acceptance and
 per-recipient failures have fail-first/live regressions and local review.
@@ -28,7 +28,53 @@ verification passed at 14:40 UTC without source drift.
 - [x] Publish complete accepted/rejected history with downloaded checksum verification.
 - [x] Synchronize fan-out fixture worker registration; preserve exact batching assertions and pass all 55 cases under VM coverage.
 - [x] Verify the fixture/runner follow-up without runtime or numeric budget drift.
-- [ ] Pass the complete exact-head GitHub Actions chain before handoff.
+- [x] Pass the complete exact-head GitHub Actions chain before handoff.
+- [x] Add a regression for automatic PR jobs registering only applicable checks.
+- [x] Keep CPU profiling automatic, route manual gateway runs through their existing workflow, and move the Intel probe to its own manual workflow.
+- [x] Preserve hardware qualification, recovery/comparison modes, coverage and every numeric/required gate.
+- [x] Run local verification and publish the CI routing follow-up for fresh PR checks.
+- [x] Compare base/head LCOV artifacts and deterministically exercise all six lost MQTT/WebSocket error-path hits.
+- [x] Verify coverage stability with clean-source `bin/verify`, `bin/test-fast`, both Codecov checks and hosted hits on all six previously missed lines.
+- [x] Preserve and inspect gateway shard 0's 56.3 MiB slow-subscriber failure against the unchanged 50 MiB cap.
+- [x] Reproduce the receive peak independently and compare all eight original/candidate samples on Linux ARM64 with default VM options.
+- [x] Add bounded asynchronous receive batches, ten protocol/transport regressions and full-client coverage enforcement.
+- [x] Pass all 150 MQTT cases, including Paho with zero skips, complete client coverage (160/160) and gateway tooling coverage (1,084/1,084, zero exclusions).
+- [ ] Pass clean-source canonical verification and every fresh hosted CI/benchmark gate.
+
+The routing reproducer fails against the merged workflow and passes after the
+split. All 19 CI-contract tests and 12 native comparison/Intel hardware tests pass;
+Actionlint 1.7.12 accepts the three diagnostic workflows. `bin/test-fast` passes.
+Profiler steps and Intel comparison/artifact steps match the merged source, and
+main CI, gateway recorder, coverage validators and all MQTT budgets are unchanged.
+
+Clean-source `bin/verify` passes on `84e597e7`, including Chrome/Wasm. PR #136's
+first CI run `41612900291` and CPU diagnostic `41612900303` pass all 56 Actions
+jobs, with zero skips. The external Codecov project check detects three net lost
+hits against merged `ef1479d6`. Raw LCOV comparison proves the six lost and three
+gained hits are in unchanged transport error paths. Three focused regressions
+exercise all six lost lines, with real native error checks and controlled boss
+MQTT/WebSocket failures; no runtime, coverage policy or numeric budget changes.
+
+The coverage correction `3b3cadd3` passes both Codecov checks; fresh hosted LCOV
+hits all six previously missed lines. Its clean-source full verification and
+baseline fast suite pass. CI `41651852479` passes 57 checks, but gateway shard 0
+and its required Full Verify summary fail on an unchanged 50 MiB subscriber peak
+RSS cap (56.3 MiB observed). All other fifteen numeric shards pass.
+
+The failed sample delivers 207 queued 64 KiB MQTT packets after a 20-second
+subscriber stall. The old reader materializes all coalesced frames before
+listeners consume them. A fixed ABBA reproduction measures four original peaks
+at 51.8–57.3 MiB and four asynchronous-batch peaks at 39.6–44.5 MiB, with exact
+payload validation and default VM settings. All samples, including rejected
+allocation experiments, are retained under ignored local evidence. These local
+diagnostics do not replace hosted gateway qualification.
+
+The correction pauses the input stream while listeners consume each 64 KiB
+decode batch. MQTT packet limits and owned payloads retain their existing
+contract. Ten tests cover both versions over TCP/WebSocket, large owned payloads,
+callback closure and pending control operations; all four closure and two malformed-tail tests fail on
+the original implementation. Coverage now requires the complete MQTT client in
+addition to the existing gateway/shared/native scopes. No numeric cap changes.
 
 Use [project state](../project_state.md) for current verification status. The
 [README](../../packages/connectanum_bench/README.md#mqtt-and-wamp-gateway) contains
@@ -81,8 +127,9 @@ for the same GuardMalloc checks. This changes neither ARM64 benchmark hardware n
 any measurement budget. Preserve the first run's failed/cancelled records and raw
 benchmark samples alongside the final CI supplement. All sixteen numeric shards
 pass in that first run; all 264 secure samples were independently audited, and
-all 53 artifacts were captured with verified GitHub digests. Its complete CI
-conclusion remains failed until the follow-up passes its own exact-head chain.
+all 53 artifacts were captured with verified GitHub digests. That first run remains
+recorded as failed; the final follow-up passes all required checks in
+[41493246321](https://github.com/konsultaner/connectanum-dart/actions/runs/41493246321).
 
 ## Remaining milestone and release work
 
@@ -90,7 +137,7 @@ conclusion remains failed until the follow-up passes its own exact-head chain.
 | --- | --- |
 | Codec/topic/coverage, #110–#111 | Implemented; full-protocol conformance remains a release prerequisite |
 | Direct live QoS 0, #112–#115, #125–#127 | Merged in PR #128, with existing numeric gates preserved |
-| Authorized gateway, #116–#117 | Implemented; ready for current PR review and exact-head CI acceptance |
+| Authorized gateway, #116–#117 | Merged in PR #135, with final CI and independently verified archives |
 | Translation performance/memory, #131 | Hosted results/budgets implemented; controlled-hardware release sign-off remains open |
 | Complete protocol, #118–#123 | QoS 1/2, retained/wills, persistence, credential authentication and full properties remain open |
 | Release, #124 | Requires all advertised protocol, recovery, coverage, performance and operational acceptance |

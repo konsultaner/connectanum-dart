@@ -48,7 +48,6 @@ class CompositeSetupTests(unittest.TestCase):
     def test_gateway_recorder_uses_same_commit_native_artifacts_and_smokes_secure_peers_first(self):
         workflow=(ROOT/'.github/workflows/mqtt-gateway-benchmarks.yml').read_text()
         action=(ROOT/'.github/actions/profile-mqtt-gateway/action.yml').read_text()
-        wrapper=(ROOT/'.github/workflows/mqtt-profile.yml').read_text()
         self.assertIn('workflow_call:',workflow)
         self.assertIn('needs: native-build',workflow)
         self.assertIn('needs: smoke',workflow)
@@ -59,11 +58,13 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertIn('ci_native_artifact.py record',workflow)
         self.assertEqual(workflow.count('ci_native_artifact.py prepare'),2)
         self.assertNotIn('run-id:',workflow)
-        self.assertIn('gateway_benchmarks == true',wrapper)
-        self.assertEqual(wrapper.count('gateway_benchmarks != true'),2)
-        concurrency=wrapper.split('concurrency:',1)[1].split('permissions:',1)[0]
-        self.assertIn("inputs.gateway_benchmarks && github.run_id || 'latest'",concurrency)
-        self.assertIn('cancel-in-progress: ${{ !inputs.gateway_benchmarks }}',concurrency)
+        trigger=workflow.split('\non:\n',1)[1].split('\npermissions:',1)[0]
+        self.assertIn('workflow_dispatch:',trigger)
+        self.assertNotIn('pull_request:',trigger)
+        self.assertNotIn('push:',trigger)
+        self.assertNotIn('inputs.gateway_',workflow)
+        # Independent manual captures keep running when a PR profiler is replaced.
+        self.assertNotIn('concurrency:',workflow)
         self.assertIn('require_python_coverage',action)
         self.assertIn('paho-mqtt==2.1.0',action)
         self.assertIn('mosquitto version 2.0.18',action)
@@ -93,8 +94,32 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertIn('record_only:\n        default: false\n        type: boolean',release)
         dispatch=release.split('  workflow_dispatch:',1)[1].split('permissions:',1)[0]
         self.assertIn('default: false',dispatch.split('record_only:',1)[1].split('      matrix:',1)[0])
-        wrapper=(ROOT/'.github/workflows/mqtt-profile.yml').read_text()
-        self.assertIn('default: false',wrapper.split('      gateway_record_only:',1)[1].split('      gateway_matrix:',1)[0])
+
+    def test_mqtt_pr_diagnostic_registers_only_applicable_jobs(self):
+        workflow=(ROOT/'.github/workflows/mqtt-profile.yml').read_text()
+        self.assertIn('  pull_request:',workflow)
+        jobs=workflow.split('jobs:\n',1)[1]
+        self.assertEqual(re.findall(r'^  ([\w-]+):\s*$',jobs,re.MULTILINE),['profile'])
+        self.assertNotRegex(jobs,r'(?m)^    if:')
+        self.assertIn('uses: ./.github/actions/profile-mqtt',jobs)
+        self.assertIn('Compare worker policies with identical native binaries',jobs)
+        self.assertIn('Recover the original profile artifact',jobs)
+        self.assertNotIn('gateway_benchmarks',workflow)
+        self.assertNotIn('probe_intel',workflow)
+        concurrency=workflow.split('concurrency:',1)[1].split('permissions:',1)[0]
+        self.assertIn('${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}',concurrency)
+        self.assertIn('cancel-in-progress: true',concurrency)
+
+    def test_intel_diagnostic_has_a_separate_manual_entry(self):
+        workflow=(ROOT/'.github/workflows/mqtt-intel-profile.yml').read_text()
+        trigger=workflow.split('\non:\n',1)[1].split('\npermissions:',1)[0]
+        self.assertIn('workflow_dispatch:',trigger)
+        self.assertNotRegex(trigger,r'(?m)^  (pull_request|pull_request_target|push):')
+        jobs=workflow.split('jobs:\n',1)[1]
+        self.assertEqual(re.findall(r'^  ([\w-]+):\s*$',jobs,re.MULTILINE),['intel'])
+        self.assertNotRegex(jobs,r'(?m)^    if:')
+        self.assertIn('Identify the requested Intel hardware',jobs)
+        self.assertIn('Compare baseline and candidate on the matching CPU',jobs)
 
     def test_nested_dart_setup_does_not_register_a_matcher_from_the_parent_path(self):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()

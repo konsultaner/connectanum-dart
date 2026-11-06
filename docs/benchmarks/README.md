@@ -88,6 +88,26 @@ The stress processes use an 8 MiB nursery limit and collection of unused memory;
 their timings do not enter performance acceptance. All original numerical
 limits remain in force.
 
+## Running diagnostics
+
+Main CI runs the required gateway smoke, sixteen numeric shards and coverage
+checks on every PR. Manual captures use their own workflows:
+
+| Workflow | Purpose |
+| --- | --- |
+| [MQTT CPU diagnostics](../../.github/workflows/mqtt-profile.yml) | Automatic profiling for relevant PRs; manual profile recovery or worker comparisons |
+| [MQTT Gateway Benchmarks](../../.github/workflows/mqtt-gateway-benchmarks.yml) | Manual smoke or full gateway captures; numeric limits are enforced by default |
+| [MQTT Intel hardware diagnostic](../../.github/workflows/mqtt-intel-profile.yml) | Manual 8370C availability and matched comparison with pinned userland |
+
+```sh
+gh workflow run mqtt-gateway-benchmarks.yml -f matrix=release
+gh workflow run mqtt-intel-profile.yml
+```
+
+The Intel probe samples only matching 8370C hosts. Other hosts retain their CPU
+identity and an explicit `benchmark_executed: false` result. Manual workflows
+remain independent of PR profiler cancellation.
+
 ## Coverage
 
 | Scope | Covered / executable lines |

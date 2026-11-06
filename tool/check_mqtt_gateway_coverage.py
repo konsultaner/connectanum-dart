@@ -9,6 +9,7 @@ import subprocess
 from check_coverage import ROOT, read_lcov
 
 WHOLE = (
+    'packages/connectanum_client/lib/src/mqtt/qos0_client.dart',
     'packages/connectanum_router/lib/src/mqtt/gateway_policy.dart',
     'packages/connectanum_router/lib/src/router/router_instance/router_mqtt.dart',
     'packages/connectanum_bench/lib/src/mqtt_gateway_measurement.dart',

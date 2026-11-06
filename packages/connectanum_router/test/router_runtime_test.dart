@@ -875,7 +875,34 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
   }
 }
 
+class _RejectedMqttWakeRuntime extends _HandleRuntime
+    implements NativeRuntimeWithMqtt {
+  final List<int> wakeAttempts = [];
+
+  @override
+  void setMqttWake(int connectionId, void Function(int)? callback) {
+    wakeAttempts.add(connectionId);
+    throw NativeTransportException(
+      NativeTransportErrorCode.connectionNotFound,
+      'MQTT reader already rejected connection',
+    );
+  }
+
+  @override
+  int mqttVersion(int connectionId) => 5;
+
+  @override
+  Uint8List? pollMqttChunk(int connectionId) =>
+      throw StateError('rejected MQTT connection must not be polled');
+
+  @override
+  void sendMqttChunk(int connectionId, Uint8List bytes) =>
+      throw StateError('rejected MQTT connection must not be sent data');
+}
+
 class _WebSocketHandleRuntime extends _HandleRuntime {
+  NativeTransportException? webSocketPollError;
+
   @override
   int pollMessageHandle(int connectionId) {
     final protocol = _protocols[connectionId];
@@ -892,8 +919,9 @@ class _WebSocketHandleRuntime extends _HandleRuntime {
 
   @override
   int pollWebSocketMessageHandle(int connectionId) {
-    final error = _scheduledError;
+    final error = webSocketPollError ?? _scheduledError;
     if (error != null) {
+      webSocketPollError = null;
       _scheduledError = null;
       throw error;
     }
@@ -5453,6 +5481,57 @@ void main() {
   });
 
   group('Router boss/worker', () {
+    test(
+      'rejected MQTT wake registration preserves other connections',
+      () async {
+        final runtime = _RejectedMqttWakeRuntime();
+        final events = <Object>[];
+        final binding =
+            Router(
+              RouterConfig(
+                endpoints: [
+                  Endpoint(
+                    host: '127.0.0.1',
+                    port: 0,
+                    tlsMode: TlsMode.disabled,
+                    maxRawSocketSizeExponent: 16,
+                  ),
+                ],
+              ),
+            ).start(
+              runtime,
+              workerEntryPoint: _testWorkerEntryPoint,
+              onEvent: events.add,
+              workerPollInterval: const Duration(milliseconds: 1),
+            );
+        addTearDown(binding.dispose);
+        final listener = binding.listeners.single.listenerId;
+        runtime.setConnectionProtocol(51, NativeConnectionProtocol.mqtt);
+        runtime.enqueueConnection(listener, 51);
+        final handle = runtime.enqueueHandle(listener, 52);
+
+        await _waitUntil(
+          () => events.whereType<Map>().any((event) {
+            final payload = event['payload'];
+            return payload is Map &&
+                payload['type'] == 'test_processed' &&
+                payload['connectionId'] == 52 &&
+                payload['handle'] == handle;
+          }),
+        );
+        expect(runtime.wakeAttempts, [51]);
+        expect(
+          events.whereType<Map>().where(
+            (event) =>
+                event['type'] == 'worker_connection_added' &&
+                event['connectionId'] == 51,
+          ),
+          isEmpty,
+        );
+        expect(runtime.closedConnections, isNot(contains(52)));
+      },
+    );
+
     test('closes idle sessions based on session_idle_ms', () async {
       final runtime = _HandleRuntime();
       final settings = RouterSettingsBuilder()
@@ -5622,7 +5701,7 @@ void main() {
       expect(runtime.http3HandshakePolls, isEmpty);
     });
 
-    test('dispatches WebSocket message handles to workers', () async {
+    test('dispatches WebSocket handles and detaches on poll failure', () async {
       final runtime = _WebSocketHandleRuntime();
       final router = Router(
         RouterConfig(
@@ -5689,6 +5768,28 @@ void main() {
               )['payload']
               as Map;
       expect(processed['handle'], handle);
+
+      // RawSocket polling returns zero. Inject into the WebSocket operation
+      // itself so error handling does not depend on a socket teardown race.
+      runtime.webSocketPollError = NativeTransportException(
+        NativeTransportErrorCode.connectionNotFound,
+        'WebSocket connection gone',
+      );
+      await _waitUntil(() {
+        final errors = events.whereType<Map>().where(
+          (event) =>
+              event['type'] == 'boss_error' &&
+              event['connectionId'] == 9201 &&
+              (event['error'] as String).contains('WebSocket connection gone'),
+        );
+        final removed = events.whereType<Map>().any(
+          (event) =>
+              event['type'] == 'worker_connection_removed' &&
+              event['connectionId'] == 9201,
+        );
+        return errors.length == 1 && removed;
+      });
+      expect(runtime.webSocketPollError, isNull);
     });
 
     test(

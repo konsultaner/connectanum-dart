@@ -7,11 +7,16 @@ import 'package:connectanum_core/mqtt.dart';
 /// A TCP, TLS, WebSocket or secure WebSocket MQTT QoS 0 client.
 final class MqttQos0Client {
   static const int _maxUnflushedSocketBytes = 64 * 1024;
+  static const int _maxReadBatchBytes = 64 * 1024;
   static final Future<void> _queuedPublish = Future<void>.value();
 
   MqttQos0Client._(this._socket, this._webSocket, this.version) {
-    _socket?.listen(_onData, onDone: _onDone, onError: _onError);
-    _webSocket?.listen(_onWebSocketData, onDone: _onDone, onError: _onError);
+    _socket
+        ?.asyncMap(_onData)
+        .listen((_) {}, onDone: _onDone, onError: _onError);
+    _webSocket
+        ?.asyncMap(_onWebSocketData)
+        .listen((_) {}, onDone: _onDone, onError: _onError);
   }
 
   /// TCP_NODELAY defaults on Linux to avoid delayed-ACK stalls.
@@ -238,30 +243,42 @@ final class MqttQos0Client {
     await response.future.timeout(const Duration(seconds: 10));
   }
 
-  void _onData(Uint8List data) {
+  Future<void> _onData(Uint8List data) async {
     try {
-      for (final frame in _decoder.add(data)) {
-        switch (frame.type) {
-          case MqttPacketType.connack:
-            final reason = MqttPacketCodec.decodeConnack(
-              frame,
-              version,
-            ).reasonCode;
-            if (!_connack.isCompleted) _connack.complete(reason);
-          case MqttPacketType.suback:
-            final packet = MqttPacketCodec.decodeSuback(frame, version);
-            _subacks.remove(packet.packetId)?.complete(packet.grantedQos);
-          case MqttPacketType.publish:
-            _messages.add(MqttPacketCodec.decodePublish(frame, version));
-          case MqttPacketType.pingresp:
-            if (frame.body.isNotEmpty) {
-              throw const MqttProtocolException('PINGRESP has a body');
-            }
-            _ping?.complete();
-            _ping = null;
-          default:
-            throw const MqttProtocolException('unsupported broker packet');
+      // Pause incoming reads while listeners consume bounded frame batches.
+      // A coalesced backlog must not materialize every payload at once.
+      for (var offset = 0; offset < data.length; offset += _maxReadBatchBytes) {
+        if (_closed) return;
+        final end = offset + _maxReadBatchBytes < data.length
+            ? offset + _maxReadBatchBytes
+            : data.length;
+        for (final frame in _decoder.add(
+          Uint8List.sublistView(data, offset, end),
+        )) {
+          switch (frame.type) {
+            case MqttPacketType.connack:
+              final reason = MqttPacketCodec.decodeConnack(
+                frame,
+                version,
+              ).reasonCode;
+              if (!_connack.isCompleted) _connack.complete(reason);
+            case MqttPacketType.suback:
+              final packet = MqttPacketCodec.decodeSuback(frame, version);
+              _subacks.remove(packet.packetId)?.complete(packet.grantedQos);
+            case MqttPacketType.publish:
+              _messages.add(MqttPacketCodec.decodePublish(frame, version));
+            case MqttPacketType.pingresp:
+              if (frame.body.isNotEmpty) {
+                throw const MqttProtocolException('PINGRESP has a body');
+              }
+              _ping?.complete();
+              _ping = null;
+            default:
+              throw const MqttProtocolException('unsupported broker packet');
+          }
         }
+        // Let queued message listeners release payloads before the next batch.
+        if (end < data.length) await Future<void>.value();
       }
     } on MqttProtocolException catch (error) {
       _onError(error);
@@ -270,7 +287,7 @@ final class MqttQos0Client {
     }
   }
 
-  void _onWebSocketData(dynamic data) {
+  Future<void> _onWebSocketData(dynamic data) async {
     if (data is! List<int>) {
       _onError(
         const MqttProtocolException('MQTT WebSocket requires binary data'),
@@ -278,7 +295,7 @@ final class MqttQos0Client {
       _webSocket?.close(WebSocketStatus.unsupportedData);
       return;
     }
-    _onData(data is Uint8List ? data : Uint8List.fromList(data));
+    await _onData(data is Uint8List ? data : Uint8List.fromList(data));
   }
 
   void _onError(Object error) {
