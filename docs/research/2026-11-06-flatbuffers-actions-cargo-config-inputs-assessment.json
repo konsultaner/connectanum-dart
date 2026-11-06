@@ -1,0 +1,95 @@
+{
+  "source_commit": "c4b9f8219b901c3096d114738a9b68b186ea2191",
+  "branch": "codex/pr132-actions-cargo-config-inputs-20261106",
+  "run_id": 42231124146,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42231124146",
+  "job_id": 127936976189,
+  "job_conclusion": "success",
+  "ten_other_jobs": "skipped_not_rerun",
+  "artifact_id": 13511106609,
+  "artifact_bytes": 2922,
+  "artifact_sha256": "ef28865f8c76ddba6381ccc2776901bdca0df95e3c19366dcd7557e73265fb6f",
+  "job_log_bytes": 49341,
+  "job_log_sha256": "6a3bacfdb976deb01d9427756adae44850c32c3f5c4ba289c66b309c7d655c71",
+  "source_candidate_requests": 14,
+  "distinct_path_observations": 12,
+  "present_raw_file_streams": 1,
+  "absent_at_source_open": 11,
+  "unresolved_home_context": [],
+  "native_information_queries": [],
+  "full_raw_config_and_environment": "PRIVATE_not_public_or_effective_merge",
+  "all_admission_flags": false,
+  "not_runtime_admission_or_RAM_repair": true,
+  "configuration_interior": {
+    "source_path_in_new_setup": "/home/runner/work/connectanum-dart/connectanum-dart/.cargo/config.toml",
+    "bytes_interpreted": 153,
+    "actual_parsed_stream_sha256": "94c71b87c3d295de62ce93d31557a9b15718475c2fc8861bef162ae50d56e771",
+    "prior_new_stream_size_hash_match": true,
+    "top_level_keys": [
+      "target"
+    ],
+    "explicit_tool_or_target_or_include_references": {
+      "target": {
+        "cfg(all(target_arch = \"aarch64\", any(target_os = \"macos\", target_os = \"linux\")))": {
+          "rustflags": [
+            "--cfg",
+            "aes_armv8",
+            "--cfg",
+            "polyval_armv8"
+          ]
+        }
+      },
+      "env_key_names": null
+    },
+    "full_raw_file_and_unselected_values": "PRIVATE",
+    "qualification": "Python TOML interpretation of this retained stream only, not installed Cargo1.99 evaluation/merge, original exec/ABI, effective default linker/C headers, entire config/environment closure or original cohort/native actorFD/physicalEX admission",
+    "all_admission_flags": false
+  },
+  "primary_reference": {
+    "URL": "https://doc.rust-lang.org/cargo/reference/config.html",
+    "selected_topics": [
+      "cwd/ancestor/CARGO_HOME config candidates; legacy and toml names",
+      "env and CLI overrides",
+      "target linker default is not overridden, not proof of actual default program"
+    ],
+    "actual_target_Cargo1_99_semantics_or_execution_not_bound": true,
+    "returns": [
+      {
+        "name": "actual-primary-tool-return.json",
+        "bytes": 31771,
+        "sha256": "1d1dc3a17f0ff4156e44f8b0fd65c4409fdd23a51aad501fdd7f86e78b62f064",
+        "kind": "actual saved web tool return NOT HTTP page body",
+        "public_full_body": "LOCAL_ONLY"
+      },
+      {
+        "name": "actual-linker-tool-return.json",
+        "bytes": 14687,
+        "sha256": "655c671ac5919f6e2aac86298e7fdfe3377f44302128a91f5ab2bd46ffbd28ea",
+        "kind": "actual saved web tool return NOT HTTP page body",
+        "public_full_body": "LOCAL_ONLY"
+      }
+    ]
+  },
+  "review": {
+    "pid": 31762,
+    "signed_status": 0,
+    "stdout_bytes": 4860,
+    "stderr_bytes": 520,
+    "full_answer_both_EOF": true,
+    "same_original_wait_cached_possible": true,
+    "ROOT_qualified_not_approval": true
+  },
+  "qualifications": [
+    "This new input-only run copies configuration candidates before bootstrap/build; the original ten jobs were unchanged and skipped. No old numerical or preparation run/artifact was replayed.",
+    "Cargo reference defines cwd/ancestor/home candidates, env/CLI override concepts and no default linker override. It is not actual installed Cargo1.99 semantics, effective target/linker or a source/actor authority.",
+    "Fourteen candidate references produced twelve distinct path observations: one full153-byte stream and eleven ENOENT-at-source-open observations. Neither missing files nor observed file size is a regression, memory bound or generation/adoption authority.",
+    "Only a distinct new interpretation of the retained present stream was performed. It contains a target cfg(all(target_arch = \"aarch64\", any(target_os = \"macos\", target_os = \"linux\"))) rustflags entry with --cfg aes_armv8 and --cfg polyval_armv8. This file has no explicit linker/compiler/wrapper/include entry in the parsed fields. No actual target match/inactivity, effective default program, full config/environment graph, old-cohort equality or runtime proof is inferred.",
+    "Full raw config/environment/ZIP bodies remain private; selected indexes name the actual saved bytes. Full primary tool returns are private and their indexes hash saved tool-return JSON, not HTTP page bodies.",
+    "The original known watcher39343 returned natural0 with128387 stdout bytes, both EOF; signed CLI statuses and stream journals do not establish whole remote/native actor or continuous original-Linux physicalEX/crash closure. Public page Queued observation also had a loading error and was not actor/start/capacity authority; a distinct progress API observation showed this new run complete, then original watcher collection completed.",
+    "Two inherited display-step labels still mention LLVM/linkage; actual job name, new committed embedded script and raw report identify the config acquisition. No cosmetic rerun or raw rewrite.",
+    "One local holder draft had a Python SyntaxError before imports/lease/namespace/target body. The first actual context query/research/source generation/review/new run happened once. No unsaved record or missing actor status reconstructed.",
+    "The separate new153-byte interpretation saved the returned original FD before reading and closed it in the code. Its close call has no separately serialized per-FD close-attempt/return journal; Root natural0/code is not full immutable actor/FD origin proof.",
+    "No Source20/runtime checkout edit/import/adoption, Cargo/compiler/linker information query by the acquisition script, bootstrap/dependency resolution/native build/driver/broker/perf/benchmark or numerical workload. Original Actions setup remains separate, unchanged and unadmitted.",
+    "Prep-only skip-ci prevents unintended push builds, not a clean final production-CI waiver. RAM cause/repair, complete immutable original runtime admission, own FINAL strict48/50 and clean final CI remain incomplete."
+  ]
+}

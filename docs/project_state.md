@@ -1,5 +1,12 @@
 # Project State
 
+## 2026-11-06 — Preserve Cargo configuration-source candidates
+
+The new [original Actions input preparation](https://github.com/konsultaner/connectanum-dart/actions/runs/42231124146) succeeds at source c4b9f8219b901c3096d114738a9b68b186ea2191. All ten previous jobs were skipped and remain unchanged. Fourteen candidate references yield twelve path observations: one153-byte configuration stream and eleven absence-at-source-open observations. No bootstrap, native build, Source20 change/adoption or numerical campaign ran.
+
+A distinct interpretation of the retained configuration finds conditional ARM rustflags and no explicit linker/compiler/wrapper/include reference in its parsed fields. It does not prove the actual target match, effective default linker, C headers, generated-input cohort or native actor/FD/physical EX admission. All flags stay false; RAM repair, own final strict48/50 and clean final CI remain incomplete. See the [record](research/2026-11-06-flatbuffers-actions-cargo-config-inputs.md).
+
+
 ## 2026-11-06 — Preserve wrapper interpreter and delegate input images
 
 The new [original Actions preparation](https://github.com/konsultaner/connectanum-dart/actions/runs/42217836026) succeeds at source 554d27fd502b92e5166f4ba233c9ba2fe9f76778. It copies the two actual input paths previously named by the original PATH wrapper, plus an ELF interpreter path observed in the saved shell image. All nine previous jobs were skipped. Original Ubuntu 24.04/Dart 3.13.5/Rust 1.99.0 setup and previous jobs remain unchanged; no bootstrap, native build, numerical campaign or Source20 change/adoption ran.
