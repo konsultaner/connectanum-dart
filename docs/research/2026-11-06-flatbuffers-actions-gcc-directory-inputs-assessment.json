@@ -1,0 +1,581 @@
+{
+  "source_commit": "bcfce692a65e55a16bd98803e41542bb0abb938b",
+  "branch": "codex/pr132-actions-gcc-directory-inputs-20261106",
+  "run_id": 42314394403,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42314394403",
+  "job_id": 128223368530,
+  "job_conclusion": "success",
+  "twenty_one_previous_jobs": "skipped_not_rerun",
+  "artifact_id": 13550361190,
+  "artifact_bytes": 3665,
+  "artifact_sha256": "c9590d198207ab57c4348216d177d1fae1ceb3b9b689a8638a429666a6ef19eb",
+  "job_log_bytes": 55931,
+  "job_log_sha256": "8dd21cb56015d3e369e8ffff0d9f0ba59ab584f00338a797d225711d82f5b566",
+  "ALL2_source_directory_references": [
+    "/usr/libexec/gcc",
+    "/usr/share/gcc"
+  ],
+  "ALL9_historical_candidate_rows_kept": true,
+  "ALL20_source_relations_kept": true,
+  "ALL11_positive_usr_entries_kept": true,
+  "ALL4_pre_IO_exclusions_kept": true,
+  "BOTH_positive_gcc_source_records_kept": true,
+  "point_directory_observations": [
+    {
+      "source_directory_reference": "/usr/libexec/gcc",
+      "absent_at_directory_open_only": false,
+      "entry_observation_count": 1,
+      "literal_symlink_observation_count": 0
+    },
+    {
+      "source_directory_reference": "/usr/share/gcc",
+      "absent_at_directory_open_only": false,
+      "entry_observation_count": 1,
+      "literal_symlink_observation_count": 0
+    }
+  ],
+  "total_entry_observations": 2,
+  "full_entry_names_stat_readlink_values_PRIVATE": true,
+  "report_bytes": 18853,
+  "report_sha256": "56fffc765302a3c20cbce355750f10b15a9ef852a025dad463bf60ae595b2001",
+  "report_full_stream_matches_collector_write_record": true,
+  "regular_input_file_body_opens": 0,
+  "entry_symlink_target_follows": 0,
+  "recursive_walks": 0,
+  "native_information_queries": 0,
+  "candidate_executions": 0,
+  "environment_mutations": 0,
+  "all_admission_flags": false,
+  "qualification": "Fresh explicitly declared BOTH GCC-named directory input metadata only; BOTH positive source rows/ALL11 prior rows/four preIOexclusions retained, not automatic authority from names/scope nonmatches or favorable host-language-target-version-ABI selection. No regular INPUT file body/hash read or entry symlink target follow/recursion; report/journal are OUTPUT writes and directory paths use normal kernel resolution. All9historical source rows/20relations retained, not new PATH queries/absence proof. Point entries/metadata not effective compiler prefix/program/delegate/builtin-header/sysroot/Cargo/defaultflavor/ABI/currentcohort/originaldriver/access/loadedmap/nativeactorFD/atomicABA-origin-auth/continuousofficialphysicalEX-crash/RAMrepair/admission. OriginalsetupseparateUNADMITTED; no Source20/runtime adoption, SDK/header/candidate query/build/numerical work.",
+  "FIRST_BOTH_entry_interpretation": {
+    "phase": "FIRST_BOTH_gcc_entry_interpretation_COMPLETE_CONSUMED_NOT_admitted",
+    "source_run": 42314394403,
+    "BOTH_parent_references": [
+      "/usr/libexec/gcc",
+      "/usr/share/gcc"
+    ],
+    "ALL2_literal_entry_metadata": [
+      {
+        "parent_source_reference": "/usr/libexec/gcc",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu",
+        "literal_name": "x86_64-linux-gnu",
+        "name_bytes_hex": "7838365f36342d6c696e75782d676e75",
+        "saved_mode": 16877,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/share/gcc",
+        "literal_entry_reference": "/usr/share/gcc/python",
+        "literal_name": "python",
+        "name_bytes_hex": "707974686f6e",
+        "saved_mode": 16895,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      }
+    ],
+    "new_saved_report_read_bytes": 18853,
+    "new_saved_report_read_sha256": "56fffc765302a3c20cbce355750f10b15a9ef852a025dad463bf60ae595b2001",
+    "read_binding_NOT_oldcomparison_or_SDK_refresh": true,
+    "separate_reader_launcher_PID_pipe_EOF_metadata": null,
+    "all_prior_source_exclusion_candidate_relation_ledgers_preserved": true,
+    "qualification": "Two literal child-entry records only; names/types/UIDGID DATA, not selected compiler target/version/ABI/header/default/sysroot/CFG/flavor/loadedruntime/cohort/originaldriver-access/ownership or automaticrecursion-body-query-resolution-download/executionauthority. Alltarget-versionentries kept. No actualcompiler/header body read/query or old component parser/model/hash/archive/job replay; setupUNADMITTED/allflagsFALSE/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI incomplete. PointFDread/stat/close NOTatomicABA-origin-auth/globalnativeactorFD/continuousofficialphysicalEX-crashproof.",
+    "all_admission_flags": false
+  },
+  "interpretation": "EXPLICITLY_DERIVED_directory_point_count_summary_NOTfullrawreport",
+  "source_and_exclusion_ledger": {
+    "interpretation": "EXPLICITLY_DERIVED_source_and_exclusion_ledger",
+    "ALL11_positive_usr_entries": [
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/bin",
+        "name": "bin",
+        "name_bytes_hex": "62696e",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/games",
+        "name": "games",
+        "name_bytes_hex": "67616d6573",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/include",
+        "name": "include",
+        "name_bytes_hex": "696e636c756465",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/lib",
+        "name": "lib",
+        "name_bytes_hex": "6c6962",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/lib32",
+        "name": "lib32",
+        "name_bytes_hex": "6c69623332",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/lib64",
+        "name": "lib64",
+        "name_bytes_hex": "6c69623634",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/libexec",
+        "name": "libexec",
+        "name_bytes_hex": "6c696265786563",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/local",
+        "name": "local",
+        "name_bytes_hex": "6c6f63616c",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/sbin",
+        "name": "sbin",
+        "name_bytes_hex": "7362696e",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/share",
+        "name": "share",
+        "name_bytes_hex": "7368617265",
+        "separate_lstat_mode": 16895,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/src",
+        "name": "src",
+        "name_bytes_hex": "737263",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      }
+    ],
+    "ALL2_positive_gcc_entry_metadata": [
+      {
+        "parent_source_reference": "/usr/libexec",
+        "literal_entry_reference": "/usr/libexec/gcc",
+        "name": "gcc",
+        "name_bytes_hex": "676363",
+        "separate_lstat_filetype": "directory",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "separate_readlink_literal": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/share",
+        "literal_entry_reference": "/usr/share/gcc",
+        "name": "gcc",
+        "name_bytes_hex": "676363",
+        "separate_lstat_filetype": "directory",
+        "separate_lstat_mode": 16895,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "separate_readlink_literal": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      }
+    ],
+    "ALL4_explicit_pre_IO_exclusions": [
+      {
+        "literal_entry_reference": "/usr/bin",
+        "reason": "Exact directory source already listed in consumed run42308644569; excluded before all source IO. No repeat."
+      },
+      {
+        "literal_entry_reference": "/usr/lib",
+        "reason": "Conservative library-branch exclusion because earlier library catalogue/image scopes and alias coverage are not fully established. Not proven same directory or an ABI decision."
+      },
+      {
+        "literal_entry_reference": "/usr/lib32",
+        "reason": "Same conservative library-branch exclusion; no favorable ABI choice or assertion of directory/body identity."
+      },
+      {
+        "literal_entry_reference": "/usr/lib64",
+        "reason": "Historical /lib64 directory listing consumed in compiler package inputs. Potential alias with /usr/lib64 remains unproved, so both source names excluded from this collector before IO."
+      }
+    ],
+    "ALL2_source_directory_references": [
+      "/usr/libexec/gcc",
+      "/usr/share/gcc"
+    ],
+    "ALL9_historical_candidates": [
+      {
+        "source_named_candidate": "gcc",
+        "historical_PATH_lookup_return": "/usr/bin/gcc",
+        "historical_image_path": "/usr/bin/gcc",
+        "historical_readlink_literal": "gcc-13",
+        "historical_realpath_literal": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "historical_absent_at_PATH_lookup_only": false
+      },
+      {
+        "source_named_candidate": "cc",
+        "historical_PATH_lookup_return": "/usr/bin/cc",
+        "historical_image_path": "/usr/bin/cc",
+        "historical_readlink_literal": "/etc/alternatives/cc",
+        "historical_realpath_literal": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "historical_absent_at_PATH_lookup_only": false
+      },
+      {
+        "source_named_candidate": "lld",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "ld",
+        "historical_PATH_lookup_return": "/usr/bin/ld",
+        "historical_image_path": "/usr/bin/ld",
+        "historical_readlink_literal": "x86_64-linux-gnu-ld",
+        "historical_realpath_literal": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+        "historical_absent_at_PATH_lookup_only": false
+      },
+      {
+        "source_named_candidate": "link.exe",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "emcc.bat",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "emcc",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "bpf-linker",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "llvm-bitcode-linker",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      }
+    ],
+    "ALL20_source_directory_reference_origins": [
+      {
+        "candidate": "gcc",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/gcc",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/gcc",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/gcc",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/gcc",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/cc",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/cc",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/cc",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/cc",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_readlink_literal",
+        "literal_source_path": "/etc/alternatives/cc",
+        "relation": "immediate_parent",
+        "directory_reference": "/etc/alternatives"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_readlink_literal",
+        "literal_source_path": "/etc/alternatives/cc",
+        "relation": "one_more_parent",
+        "directory_reference": "/etc"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/ld",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/ld",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/ld",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/ld",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      }
+    ],
+    "qualification": "NEW explicit originalActions metadata-only acquisition for BOTH positive saved directory-mode references /usr/libexec/gcc,/usr/share/gcc. Preserve both/all immediate target-version names; no host/language/target/version/ABI filter/default/header-root/actualcompiler selection. New positive-record/CP prior-directory-scope intake has no exact scope match; NOTglobalabsence/newness/alias or permission proof. This explicitly bounded originalActions preparation authorization, not names, supports only this collector. ALL11priorrows/fourpreIOexclusions/ninehistoricalcandidates/twentyrelations remainmetadata, no old7directory query. Full applicable original input-source-tool-runtime/argv-env-cwd-credentials-access/interpreter-delegate/nativeactorFD/continuousofficialphysicalEX-crash admission remains required BEFOREcandidateexecution; setup separateUNADMITTED/allflagsFALSE/ownershipNone. Regular INPUTbody/hash reads and ENTRYtargetfollows zero, OUTPUTreport/journal writes/ordinarykernelpathresolution distinct. No SDK/bootstrap/build/numerical/Source20-runtime adoption authority.",
+    "all_admission_flags": false
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_review_qualification",
+    "review": "Qwen82112 naturalSIGNED0/full2897stdout354stderr/BOTH EOF/SAMEwaitmaycached, advisory NOTapproval. ROOT rejects speculative all-string-transformation corruption: no supported actual corrupted field; first new AST/YAML/exact collector embedding/sink/21oldjob equality/byteexact reverse projection checks passed, new job cloned original setup/recipes with only declared identifiers/collector/sink updated. This is generator source transformation BEFORErequestJSONembedding, not forbidden global rewrite after embedding exact app request. New collector contains no old campaign identifiers needing unexpected replacement. Reject RUNNER_TEMP fallback: actual originalActions fixed runner.temp sink is required; missing env intentionally failclosed, not arbitrary './output'. Prior library exclusions/historical refs explicitly incomplete/stale DATA, NOTcomplete toolchain/currentcompiler detection; no expected subdirectory/version assertion or selected-ABI fallback. No actual BEFOREfailure/minimalfix/AFTER need, no advice-derived edits/tests/model relaunch. ROOT verifies BOTHpositive refs/all entries retained, historical metadata/exclusions not queried, no source-body/hash/recursion/entry-targetfollow/compiler-tool-header-nativequery/envmutation/adoption. Unknown FD/write/close/crash remains quarantine; no cleanup/cap/skip/retry/ownerdiscard/fake settlement.",
+    "FIRST_entry_semantic_interpretation_COMPLETE_CONSUMED": true,
+    "regular_INPUT_body_reads_zero_NOT_output_writes": true,
+    "ENTRY_target_follows_zero_NOT_kernel_directory_path_resolution": true,
+    "all_admission_flags": false
+  },
+  "archive": {
+    "regular_selected_members": 10,
+    "original_declaration_collector_completion_files": 7,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 9783,
+    "archive_sha256": "6617a4d6800f57fb73ed37d0375ab2c1bee58081bb06da93e78b49952b3e511d",
+    "not_full_raw_directory_Source20_or_runtime_input_package": true,
+    "members": [
+      {
+        "name": "source-declaration.json",
+        "bytes": 16108,
+        "sha256": "80347596f3a3acf5627b092a7f10e734d412e682b96210353b2ee9f175eccd98"
+      },
+      {
+        "name": "child-directory-collector.py",
+        "bytes": 18953,
+        "sha256": "1c988c9d54bad21ccf22b02d92906121f47d839b84930b3907d3f11da23d8464"
+      },
+      {
+        "name": "candidate-validation.json",
+        "bytes": 519,
+        "sha256": "740a0a640156e6b35b9f48dd99043a71047e38d1c2d0b913ccf2b133a3d45fb7"
+      },
+      {
+        "name": "generation-completion.json",
+        "bytes": 362,
+        "sha256": "a50f0cd2c9d538858d08b32eb7c4fef9343b08a9a9bb3fe6e2b8d157bee2cc16"
+      },
+      {
+        "name": "validation-completion.json",
+        "bytes": 362,
+        "sha256": "0ecbdbd09ab0e2d922627ef66649def94d83246f3021ce11947bae454f9f3250"
+      },
+      {
+        "name": "review-completion.json",
+        "bytes": 398,
+        "sha256": "7e12750ccc54c6d67fbb7550575d1d22840ffbf79b432432e51c6e07c183f971"
+      },
+      {
+        "name": "source-publication-receipt.json",
+        "bytes": 359,
+        "sha256": "8d45873f306c5615986404652309abba68de6e180b49a3b4512d8cd85e95c496"
+      },
+      {
+        "name": "derived/BOTH-gcc-directory-point-summary.json",
+        "bytes": 4971,
+        "sha256": "514bcbfb025277e1affc2afcdb1b8532f5816a8ee0e68da89562458e805e87bb"
+      },
+      {
+        "name": "derived/BOTH-gcc-ALL11-source-ALL4-exclusion-ledger.json",
+        "bytes": 15329,
+        "sha256": "d847f54510477f1dc90ffa0021f5e02be56900ae846df745295c444dd02217e4"
+      },
+      {
+        "name": "derived/ROOT-review-and-evidence-limits.json",
+        "bytes": 1680,
+        "sha256": "4fb702ff04e5956c782f4f940de5f8f352266a505dcd65442a9401d772327602"
+      }
+    ]
+  },
+  "private_exclusions": [
+    "all entry names/stat/timestamps/readlink literals and original report/journal",
+    "ZIP/log/API/environment/controllers/models and actual tool requests/returns",
+    "full checkpoint reference-intake metadata"
+  ],
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
