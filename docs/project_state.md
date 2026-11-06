@@ -1,5 +1,14 @@
 # Project State
 
+## 2026-11-06: repair new Actions linker-input artifact retention
+
+The new original Actions collector wrote under runner.temp while its uploader looked in out/. The actual BEFORE run42243142422 failed only at artifact upload; its report/image bytes were not retained. Changing only the new upload path produced successful matching AFTER run42243927888 at source345f21974caf888ab68f5ffcab9abcc364591331. All twelve previous jobs were skipped in both phases. This repairs preparation artifact retention; RAM cause/repair, immutable original runtime admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE.
+
+Nine source-named PATH observations yield three saved candidate streams and six point absences. The actual uploader-path failure is repaired by one changed field; matching AFTER retains its report and images. Source/build-default/effective Cargo linker/C headers/ABI/runtime/cohort/actor-FD/physicalEX admission remain unbound. No candidate execution, native information query, Source20/runtime adoption or numerical campaign ran. [New evidence](research/2026-11-06-flatbuffers-actions-linker-candidate-upload-fix.md): 60 selected regular members, archive SHA-256 ea38368d95560ce285f104a52a5ff943b767fe008279e60552b38c211b837857. All new component work is consumed; all admission flags remain false. The same-chat follow-up stays active.
+
+Next: use the retained new candidate streams for a genuinely NEW bounded static interpreter/delegate and C-tool/header/sysroot-reference question before any candidate execution. Independently bind compiler-build CFG_DEFAULT_LINKER/flavor and effective Cargo target/config-env; source branches/PATH snapshots are not selection or execution authority. Keep original Actions Linux/Dart/Rust recipes/PATH/argv/env/credentials and generated-output/cohort/native-transitive actorFD/continuous official physicalEX/crash obligations. Do not repeat this completed source/primary/model/generator/validation/BEFORE/AFTER/log/artifact/image/archive work, guess paths/tools/ABI, run link-args/native-static-libs/unsupported compiler flags, transplant old locks/config/native/RLIBs, alter copy/GC/gates/SDK/workload or adopt Source20. Any bootstrap/build/diagnostic/canonical work needs its complete applicable original preflight; fresh12GiB before any build/1GiB before tests is not authority. RAM repair, own FINAL strict48/50 and clean final CI remain incomplete.
+
+
 ## 2026-11-06: original Actions compiler host/default cfg packet
 
 New source db24989b55b6a83a0c94a3015990f33ffdbdc7f7 added only an isolated compiler help/default-cfg/host job. The original Ubuntu24.04/Dart3.13.5/Rust1.99.0 setup was preserved. Run 42237618876/job127959276218 succeeded; all eleven previous jobs were skipped. RAM cause/repair, original immutable runtime admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE.

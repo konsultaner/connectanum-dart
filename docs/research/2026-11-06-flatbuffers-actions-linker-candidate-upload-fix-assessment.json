@@ -1,0 +1,460 @@
+{
+  "phase_kind": "CHANGED_source_matching_AFTER_only_upload_path_fix",
+  "BEFORE_run_id": 42243142422,
+  "BEFORE_job_id": 127978344320,
+  "BEFORE_report_and_image_bytes_unavailable": true,
+  "source_commit": "345f21974caf888ab68f5ffcab9abcc364591331",
+  "branch": "codex/pr132-actions-linker-candidates-20261106",
+  "run_id": 42243927888,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42243927888",
+  "job_id": 127981078055,
+  "job_conclusion": "success",
+  "twelve_previous_jobs": "skipped_not_rerun",
+  "artifact_id": 13517528046,
+  "artifact_bytes": 1019086,
+  "artifact_sha256": "112f3cb4c1d40cbda12fed9be62453a65eb1738093e71f4632cd1fc1ed78af40",
+  "job_log_bytes": 43668,
+  "job_log_sha256": "4b6fd2daaaa6490b3e55eba4887060bc2cc2e5c8bd6669ce6cc87f76d133f36d",
+  "source_named_candidates": [
+    "gcc",
+    "cc",
+    "lld",
+    "ld",
+    "link.exe",
+    "emcc.bat",
+    "emcc",
+    "bpf-linker",
+    "llvm-bitcode-linker"
+  ],
+  "point_PATH_observations": 9,
+  "present_saved_image_streams": [
+    {
+      "name": "gcc",
+      "bytes": 1023032,
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+      "saved_stream_matches_report": true
+    },
+    {
+      "name": "cc",
+      "bytes": 1023032,
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+      "saved_stream_matches_report": true
+    },
+    {
+      "name": "ld",
+      "bytes": 1359128,
+      "sha256": "e9ceb054c12207970f2726dfc07e9a66b411602748628baf27399f02a9bbb31b",
+      "saved_stream_matches_report": true
+    }
+  ],
+  "absent_at_PATH_lookup_only": [
+    "lld",
+    "link.exe",
+    "emcc.bat",
+    "emcc",
+    "bpf-linker",
+    "llvm-bitcode-linker"
+  ],
+  "native_information_queries": 0,
+  "candidate_executions": 0,
+  "all_admission_flags": false,
+  "not_effective_Cargo_linker_C_header_ABI_runtime_cohort_actorEX_or_RAM_repair": true,
+  "scope_qualifications": [
+    "Original Ubuntu24.04/Dart3.13.5/Rust1.99.0 setup and all previous jobs remain unchanged. The new collector launches zero candidate executions or native information queries. Nine source-named conditional candidates produce three saved image streams (gcc, cc and ld; 3405192 bytes total) and six absence-at-PATH-lookup observations. All three retained AFTER streams independently match report sizes and SHA-256 values. These are candidate point observations, not tests, global absence, an effective linker, C headers/ABI, runtime/cohort equality or native actor/FD/continuous physicalEX/crash proof. Matching gcc/cc saved bytes do not bind an original execution.",
+    "A distinct 196-byte retained compiler-provenance text reports source commit b940084d7eb6a299eb4bfeb8e34901bc051e7ac4. No compiler query was rerun. Its [immutable source reference](https://github.com/rust-lang/rust/commit/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4) leads to tree6913117a864d5d61315111b926f9768f91c505a5. The full saved recursive-tree response is16567430 bytes/64720 entries and explicitly truncated; unseen paths are not absent. Five exact positive source blobs total341691 bytes and match returned Git object IDs and saved hashes. A self-reported source commit, Git record or hash does not authenticate the installed compiler image.",
+    "The [target-option defaults](https://github.com/rust-lang/rust/blob/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/compiler/rustc_target/src/spec/mod.rs#L2860) depend on compiler-build CFG_DEFAULT_LINKER. The [Linux GNU base](https://github.com/rust-lang/rust/blob/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/compiler/rustc_target/src/spec/base/linux_gnu.rs#L12) also has a compiler-build flavor setting. The [selector](https://github.com/rust-lang/rust/blob/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/compiler/rustc_codegen_ssa/src/back/link.rs#L1834) gives command-line settings precedence and names conditional fallback programs. All nine inspected branch names were catalogued together. Actual build settings, effective Cargo target/config-env and loaded tool choice remain unbound; no source branch was used to select or execute cc.",
+    "Actual BEFORE source9f003848a7d816c0925077de3ee7a314c4878342/run42243142422/job127978344320 completed the collector step but failed upload with no files found at out/native-perf-linker-candidate-inputs. Its42681-byte full log, SHA-2560a68ef2f0d81c8cbd677a8bbf212906a386c54c86506d833dbcc0bbe33db1d98, was acquired once. Its artifact list was empty. The unavailable report/image bytes remain unknown and were neither reconstructed nor replaced by AFTER bytes. The failed run/watch/log acquisition was not repeated.",
+    "The minimal source change corrects only uploader with.path to the collector's runner.temp basename. A new path-wiring check confirms that field and preserves the collector and twelve other jobs. Matching AFTER source345f21974caf888ab68f5ffcab9abcc364591331/run42243927888/job127981078055 succeeds. Artifact13517528046 is1019086 bytes/SHA-256112f3cb4c1d40cbda12fed9be62453a65eb1738093e71f4632cd1fc1ed78af40; the full43668-byte log is SHA-2564b6fd2daaaa6490b3e55eba4887060bc2cc2e5c8bd6669ce6cc87f76d133f36d. Both were acquired once. Original same-handle waits can be cached; known signed statuses and both stream EOFs do not establish global/transitive process or FD closure.",
+    "Local generator preparation first failed on the actual system Ruby2.6 Psych load_file API rejecting aliases:true, before candidate output or any SDK/job. Removing that unsupported keyword from the generator and its two validator callers produced matching generation, YAML, embedding and reverse-projection checks; all twelve old jobs were preserved. The collector AST passed the first body and was not rerun. A separate draft closing-parenthesis correction happened in memory before the first generation body, with no executed syntax-failure claim. These are preparation-tool fixes, not production Source20 or RAM regressions.",
+    "Qwen review65146 exited native1 with full0-byte stdout/441-byte stderr and a token-limit error. No visible final/partial body was retained, reconstructed or relaunched; no approval or backend-unavailability inference was made. Distinct actual-failure debug67108 exited naturally0 with full1980-byte stdout/267-byte stderr. ROOT confirms its path-mismatch finding and rejects its unsupported claim that twelve previous jobs skipped because of the new failure, directory-absence speculation and alternative collector relocation. The uploader alone changed. Advice is not approval.",
+    "Full Rust source/tree/API/web bodies, compiler/candidate images, raw PATH/report/environment, ZIP and private controllers remain retained locally. Saved web-tool JSON is not an HTTP page body. Public selected evidence contains metadata, new collector/diffs, actual failure and matching-check records and both new full job logs. It is not the full evidence directory or an admitted Source20/runtime package. No bootstrap/dependency resolution/native build/driver/broker/profiler/benchmark/numerical run or Source20/runtime edit/import/adoption occurred. Prep-only skip-ci commits do not waive clean final production CI. PR132 remains draft; all admission flags remain false.",
+    "All new source-reference, local generator/fix/checks, review/debug, BEFORE/AFTER, log/artifact/image comparison and public archive work is consumed. The original numerical quarantine and every frozen raw/ownership/SDK/copy/GC/cohort/cleanup requirement remain binding."
+  ],
+  "next": "Next: use the retained new candidate streams for a genuinely NEW bounded static interpreter/delegate and C-tool/header/sysroot-reference question before any candidate execution. Independently bind compiler-build CFG_DEFAULT_LINKER/flavor and effective Cargo target/config-env; source branches/PATH snapshots are not selection or execution authority. Keep original Actions Linux/Dart/Rust recipes/PATH/argv/env/credentials and generated-output/cohort/native-transitive actorFD/continuous official physicalEX/crash obligations. Do not repeat this completed source/primary/model/generator/validation/BEFORE/AFTER/log/artifact/image/archive work, guess paths/tools/ABI, run link-args/native-static-libs/unsupported compiler flags, transplant old locks/config/native/RLIBs, alter copy/GC/gates/SDK/workload or adopt Source20. Any bootstrap/build/diagnostic/canonical work needs its complete applicable original preflight; fresh12GiB before any build/1GiB before tests is not authority. RAM repair, own FINAL strict48/50 and clean final CI remain incomplete.",
+  "source_reference": {
+    "reported_commit": "b940084d7eb6a299eb4bfeb8e34901bc051e7ac4",
+    "actual_tree_sha": "6913117a864d5d61315111b926f9768f91c505a5",
+    "tree_entries": 64720,
+    "tree_truncated": true,
+    "tree_full_saved_stdout_bytes": 16567430,
+    "tree_stdout_sha256": "41e6b5afbf09649a5346778a978b95c246209c038f3eb53a4ebbcdce325a4b75",
+    "five_source_blob_bytes": 341691,
+    "source_body_index": [
+      {
+        "path": "compiler/rustc_target/src/spec/targets/x86_64_unknown_linux_gnu.rs",
+        "blob_sha1": "f8556b3415d944eb8c9bca3ab3e3fadaa4ee3677",
+        "bytes": 1287,
+        "sha256": "e39a2d7a6385b70b4beda09534c8a15b3cda68f8f89e3bb4dbbe5d86159bccba",
+        "retained_file": "actual-source-blob-0.rs",
+        "full_raw_JSON_and_body_saved": true
+      },
+      {
+        "path": "compiler/rustc_target/src/spec/base/linux_gnu.rs",
+        "blob_sha1": "02e243fe0a12998bf7925ee3a9ae01ce0e552aba",
+        "bytes": 663,
+        "sha256": "307e3a042a21aaae4a359d39ce4721b8f7a28edcd46aa8bd220f692704794489",
+        "retained_file": "actual-source-blob-1.rs",
+        "full_raw_JSON_and_body_saved": true
+      },
+      {
+        "path": "compiler/rustc_target/src/spec/base/linux.rs",
+        "blob_sha1": "e7757fd4726c9ec28412fd6669e7eadcaa701aea",
+        "bytes": 788,
+        "sha256": "a57b355ba7ac63be11e4698aede7ac9c9852b419e726974d44753bd222fbeb96",
+        "retained_file": "actual-source-blob-2.rs",
+        "full_raw_JSON_and_body_saved": true
+      },
+      {
+        "path": "compiler/rustc_target/src/spec/mod.rs",
+        "blob_sha1": "97c8db078073321fabba7ca8c92d43ca09e01fe1",
+        "bytes": 164231,
+        "sha256": "2210a435f8dfacac209082d89ef3fbdd2f61bdcdb1b62dde2c2a572827e03b85",
+        "retained_file": "actual-source-blob-3.rs",
+        "full_raw_JSON_and_body_saved": true
+      },
+      {
+        "path": "compiler/rustc_codegen_ssa/src/back/link.rs",
+        "blob_sha1": "014e3ee8bd3659bf66d1d5b43bf94add8769bcc0",
+        "bytes": 174722,
+        "sha256": "899fef8fc3d24571fb29fe5a00151058124ad60720e83fd20b4e83dc2e7caec5",
+        "retained_file": "actual-source-blob-4.rs",
+        "full_raw_JSON_and_body_saved": true
+      }
+    ],
+    "new_binding_interior": "Target option linker is inherited from compiler-build CFG_DEFAULT_LINKER, flavor can change with compiler-build CFG_DEFAULT_LINKER_SELF_CONTAINED_LLD_CC; command-line settings precede target settings. Actual build-time values and effective Cargo session are UNBOUND. Source fallback branch is not actual default selection authority.",
+    "source_named_branch_candidates": [
+      "gcc",
+      "cc",
+      "lld",
+      "ld",
+      "link.exe",
+      "emcc.bat",
+      "emcc",
+      "bpf-linker",
+      "llvm-bitcode-linker"
+    ],
+    "next_original_Actions_scope": "Prepare ONLY a NEW original Actions nonnumerical input catalogue for ALL nine actual source-named conditional candidate names via original PATH resolution and saved file streams; no candidate execution, native informationquery, selection as effective linker, C preprocessing/header query, dependency/bootstrap/build/Source20 adoption. Source-derived names justify input-reference candidates only, not execution/admission. Keep CFG_DEFAULT_LINKER and complete config-env/runtime/ABI/cohort/actorFD/physicalEX-crash unbound.",
+    "no_unseen_tree_path_absence_or_installed_image_binding_inference": true,
+    "all_admission_flags": false,
+    "RAM_repair_FINAL_strict48_50_cleanCI": "INCOMPLETE"
+  },
+  "actual_BEFORE": {
+    "run_id": 42243142422,
+    "job_id": 127978344320,
+    "source_commit": "9f003848a7d816c0925077de3ee7a314c4878342",
+    "log_bytes": 42681,
+    "log_sha256": "0a68ef2f0d81c8cbd677a8bbf212906a386c54c86506d833dbcc0bbe33db1d98",
+    "artifact_list_empty": true,
+    "report_and_image_bytes": null
+  },
+  "selected_archive": {
+    "path": "docs/research/2026-11-06-flatbuffers-actions-linker-candidate-upload-fix-evidence.tar.gz",
+    "bytes": 40324,
+    "sha256": "ea38368d95560ce285f104a52a5ff943b767fe008279e60552b38c211b837857",
+    "regular_members": 60,
+    "saved_bytes_and_members_byteexact": true,
+    "not_full_directory_or_admitted_package": true,
+    "members": [
+      {
+        "name": "source-generation-v1/declaration.json",
+        "bytes": 1101,
+        "sha256": "43486e395a2c867b75d7aff03a80737feb7ebe067f974ccdee2c7363abec34e2"
+      },
+      {
+        "name": "source-generation-v1/collector.py",
+        "bytes": 5924,
+        "sha256": "377e923a05452f0b0e2248cc386562c595a8181abd2f5dc6b62bd37c849cfcad"
+      },
+      {
+        "name": "source-generation-v1/fresh-validation-floor.json",
+        "bytes": 172,
+        "sha256": "0b68133076bdf2e3df6180c5d288e194b443f74baf2fa0305c489c47ab7cb0e9"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation-request.json",
+        "bytes": 1675,
+        "sha256": "1ab89d7f96776e0d7c2c6328ffe60a085b58298e0220ffc332e44c4b7fcec2fe"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation-completion.json",
+        "bytes": 362,
+        "sha256": "a94474774cc56c9a08856dc98d1eb17b343d09c0126cf64274393bb58e56a9c4"
+      },
+      {
+        "name": "source-generation-v1/new-job-generation.stderr",
+        "bytes": 167,
+        "sha256": "dba106edc0ba5cdeb641ae38f0de0848463c0dc7948634c2bed2a1dc0792e1a9"
+      },
+      {
+        "name": "source-generation-v2/declaration.json",
+        "bytes": 1480,
+        "sha256": "9d15a9ffa9e043478dc840d50b0a48d550b9df67c7a9db88efe99a62217c89ff"
+      },
+      {
+        "name": "source-generation-v2/candidate.diff",
+        "bytes": 8601,
+        "sha256": "4d79fcc857a5c1e8ff0a99f1600f9130a843cc139c50d40e39d53800e8e09836"
+      },
+      {
+        "name": "source-generation-v2/candidate-validation.json",
+        "bytes": 498,
+        "sha256": "a2cee4b6a20634e49351c7da798fbac65c66d15ae52031127bf08a9cad72dd77"
+      },
+      {
+        "name": "source-generation-v2/new-job-generation-completion.json",
+        "bytes": 363,
+        "sha256": "02e93d32dac4bb8e839380c77f2e01bf828c498ad71b8b4b0db7d61e72d359ce"
+      },
+      {
+        "name": "source-generation-v2/new-candidate-validation-completion.json",
+        "bytes": 362,
+        "sha256": "0255e40b7b57d204bfd3ae893538bf8c339effebdccbe027955204025504403e"
+      },
+      {
+        "name": "upload-path-fix-v1/declaration.json",
+        "bytes": 700,
+        "sha256": "6f2aca15d388a4e8595767784261d5ac421e6bae92b126b446d2021d4934bc27"
+      },
+      {
+        "name": "upload-path-fix-v1/minimal-upload-path-fix.diff",
+        "bytes": 372,
+        "sha256": "1802f23ec4f7fa19975f56d83215bf754ffa4b9e626412c3ab0daae2c36810aa"
+      },
+      {
+        "name": "upload-path-fix-v1/ROOT-new-upload-path-wiring-assessment.json",
+        "bytes": 604,
+        "sha256": "23481cebee88448ecb5dd2c2367050a0b46f4830d505c5c3a1f92193fab52ef0"
+      },
+      {
+        "name": "upload-path-fix-v1/new-wiring-check-completion.json",
+        "bytes": 362,
+        "sha256": "6b6b4cbc6deb935fd9859a37c02deecb8d6565affa917cf038f37e8934506af0"
+      },
+      {
+        "name": "Actions-v1/execution-declaration.json",
+        "bytes": 1320,
+        "sha256": "c2f9460dcae37035771ccf74d86c3db3a959404494f23220f7fed25b89bab98e"
+      },
+      {
+        "name": "Actions-v1/source-publication-receipt.json",
+        "bytes": 356,
+        "sha256": "462aa32f51b0e4793d780e1b3e991dea047f00c0cf483ad21a271ccf176314ad"
+      },
+      {
+        "name": "Actions-v1/ROOT-source-review-qualification.md",
+        "bytes": 1076,
+        "sha256": "3ba7cd26ecf383df604ca08e57cb06a7535095844fae44e78f87413429f3d384"
+      },
+      {
+        "name": "first-failure-acquisition-v1/declaration.json",
+        "bytes": 431,
+        "sha256": "671f1ca3aa88a98c46cdd92a00de0f74e6051b310a75413f49c1d9de56660c57"
+      },
+      {
+        "name": "first-failure-acquisition-v1/ROOT-first-actual-failure-observation.json",
+        "bytes": 4432,
+        "sha256": "e710a22f126a036d9af8f9c9a6a4505e6e8686ef105c65435bab0b06571d09d8"
+      },
+      {
+        "name": "first-failure-acquisition-v1/actual-new-failed-job-full-log.stdout",
+        "bytes": 42681,
+        "sha256": "0a68ef2f0d81c8cbd677a8bbf212906a386c54c86506d833dbcc0bbe33db1d98"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/execution-declaration.json",
+        "bytes": 1466,
+        "sha256": "7be0b569a0cfdbfa03683ac5e40ef8640e6a2bcf37a684ea6298683d283a87bc"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/source-publication-receipt.json",
+        "bytes": 356,
+        "sha256": "86effa5757481c46d8ab613a2d8b397de4010aa8327f47bfc17d336330b26135"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/ROOT-source-review-qualification-original-new-collector.md",
+        "bytes": 1076,
+        "sha256": "3ba7cd26ecf383df604ca08e57cb06a7535095844fae44e78f87413429f3d384"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/actual-new-artifact-member-index.json",
+        "bytes": 728,
+        "sha256": "c51e659c03b8356c3b798e16f294f49eba510523957d3b4efe0ac405176a65d3"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/actual-new-linker-job-log.stdout",
+        "bytes": 43668,
+        "sha256": "4b6fd2daaaa6490b3e55eba4887060bc2cc2e5c8bd6669ce6cc87f76d133f36d"
+      },
+      {
+        "name": "review-v1/completion.json",
+        "bytes": 386,
+        "sha256": "e47eef0eb44da83057458a60fb1d2b9912648a03959283d1a1a8638bc3c264d2"
+      },
+      {
+        "name": "actual-upload-failure-debug-v1/completion.json",
+        "bytes": 389,
+        "sha256": "3b6910c9f49f5c9c5ae359e5df1761bdf60fd9c176efdf3996187c994522c2eb"
+      },
+      {
+        "name": "compiler-source-reference/declaration.json",
+        "bytes": 1030,
+        "sha256": "9f1a520fc46de10d4f5cb5c5b5a37a40a07967f0d72a618a7682e86c27f8582e"
+      },
+      {
+        "name": "compiler-source-reference/provenance-text-read-declaration.json",
+        "bytes": 592,
+        "sha256": "f368392154085f4030b55db4ef20d4a62ffc28aeed0ffb0b0ef879cd56fc390f"
+      },
+      {
+        "name": "compiler-source-reference/immutable-source-acquisition-v1/declaration.json",
+        "bytes": 1328,
+        "sha256": "40ca1198f5a58a5450acafea5f957f531999285c2476b982173e53c51bfed31f"
+      },
+      {
+        "name": "compiler-source-reference/immutable-source-acquisition-v1/five-actual-source-blobs-declaration.json",
+        "bytes": 2310,
+        "sha256": "cc957405ce8b546b0d03822ea6888c9e38c7b7193687afc394e68ed8a2a4f87e"
+      },
+      {
+        "name": "compiler-source-reference/immutable-source-acquisition-v1/actual-five-source-body-index.json",
+        "bytes": 1622,
+        "sha256": "d1bb750e2ba729c91510e228b112c3eeea4fb541d85d1b2ba4cde61c682c1fab"
+      },
+      {
+        "name": "compiler-source-reference/immutable-source-acquisition-v1/ROOT-compiler-source-candidate-assessment.json",
+        "bytes": 3342,
+        "sha256": "50041f82c7bd84017b60804304a2ca6d4c1dad57173cef60a9ea31c1c130d6c9"
+      },
+      {
+        "name": "compiler-source-reference/immutable-source-acquisition-v1/reported-commit-record-completion.json",
+        "bytes": 363,
+        "sha256": "64dfa404d675b379242fdabded901115b659896bee5c77b647906841c67dc538"
+      },
+      {
+        "name": "compiler-source-reference/immutable-source-acquisition-v1/reported-commit-recursive-tree-completion.json",
+        "bytes": 367,
+        "sha256": "16d07d38019af2a4e8403a923f2813b6eb89a8440adbf31f15fef54d30e7a208"
+      },
+      {
+        "name": "Actions-v1/create-new-linker-candidate-branch-completion.json",
+        "bytes": 362,
+        "sha256": "d4f7bfcb52a1395949a81175bf94f3dce52d4c5d6be5c8e4396f8c22e4366298"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-linker-run-0-completion.json",
+        "bytes": 361,
+        "sha256": "108b2c3465c6755ae305ad97b3d3646ae3651a13457dd82e998abe5f1c1720ce"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-linker-run-1-completion.json",
+        "bytes": 364,
+        "sha256": "80615d281dfed03fcfd175c92e5095d92f205c9eba5cd2f4a46ce31ca6ac5deb"
+      },
+      {
+        "name": "Actions-v1/dispatch-only-new-linker-candidate-inputs-completion.json",
+        "bytes": 360,
+        "sha256": "864fa825e75b527d11febc3d25dadfdf6350a619e24c2bd12daf9beea05f7b52"
+      },
+      {
+        "name": "Actions-v1/new-linker-candidate-source-readback-completion.json",
+        "bytes": 365,
+        "sha256": "a17744379cfb967fce95447848de8b3222a3b47357fe67bab7511b02fd11e655"
+      },
+      {
+        "name": "Actions-v1/publish-new-linker-candidate-source-completion.json",
+        "bytes": 363,
+        "sha256": "a73d3f7aa03711d1265fe5be2cd30c21db6fc120b3de7c69ab908be628db3997"
+      },
+      {
+        "name": "Actions-v1/watch-only-new-linker-run-completion.json",
+        "bytes": 363,
+        "sha256": "d774c0a34ddcf4795c641ecbec2b615570a27d3c51c4ebcf2bedf1db9a2a1887"
+      },
+      {
+        "name": "first-failure-acquisition-v1/actual-new-failed-artifact-list-completion.json",
+        "bytes": 361,
+        "sha256": "f1ad22d5379277fc5d1528b119459eac580d6af38ad5accd1e7633908398d079"
+      },
+      {
+        "name": "first-failure-acquisition-v1/actual-new-failed-job-full-log-completion.json",
+        "bytes": 364,
+        "sha256": "a618f6be2cc0ab736fd8c5002b7639b09e67bceeb2b42d4fefa5c02e90e69f2d"
+      },
+      {
+        "name": "first-failure-acquisition-v1/actual-new-failed-run-final-completion.json",
+        "bytes": 364,
+        "sha256": "5722dfca59e6606be563beb0a63f1168b3912b9a291b4487d4ea593426078db6"
+      },
+      {
+        "name": "first-failure-acquisition-v1/actual-new-failed-run-jobs-completion.json",
+        "bytes": 364,
+        "sha256": "0fce46167bd7dc7934bbae52540b0087edf46678e712861bd64d60512d0b97f8"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/actual-new-linker-artifact-list-completion.json",
+        "bytes": 362,
+        "sha256": "6d8d29319270b1534d0c521a9125a035bd475d7177199e099730afb0ef306409"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/actual-new-linker-artifact-zip-completion.json",
+        "bytes": 366,
+        "sha256": "11618fad7b354fd6f90e3a5656b35616b388444e81e1f263ee31fbe2a721b37e"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/actual-new-linker-final-completion.json",
+        "bytes": 364,
+        "sha256": "dffbbb97908e3f19d3e3590532773c0306534853b625de022d5fd9170e64a82a"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/actual-new-linker-job-log-completion.json",
+        "bytes": 364,
+        "sha256": "8e16b1399a13a53c21553a18d5a0e3db8a4f6098d89084427c05fb74f38f66ef"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/actual-new-linker-jobs-completion.json",
+        "bytes": 364,
+        "sha256": "2ab36dba4e64408a932a7e3aa155f89f74a58c6e7c77d6b3300ec6f7a2dc1d14"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/discover-only-new-linker-run-0-completion.json",
+        "bytes": 364,
+        "sha256": "aaca14dfde69ca9934c8b4a611a016d06ac7c4130f3529dd006d5504f19b85c2"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/discover-only-new-linker-run-1-completion.json",
+        "bytes": 364,
+        "sha256": "e19dd963d3bd5a30cd3fbea623b9659aaffd73de8f49e7a438eed92e779d249c"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/dispatch-only-new-linker-candidate-inputs-completion.json",
+        "bytes": 360,
+        "sha256": "bca00290def80c3cfc21b7f5554e1d4fe762443f3880dfa286b2fd0d1df83bd5"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/new-linker-candidate-source-readback-completion.json",
+        "bytes": 365,
+        "sha256": "f97f2b31c6cf04405aad95cd44bca667d20032bb890035ea2b3b9d4264933c5a"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/publish-new-linker-candidate-source-completion.json",
+        "bytes": 363,
+        "sha256": "ca469de8cbdb739fdae590939148a8189544e4f9dac5b5b47813d10d02c90951"
+      },
+      {
+        "name": "after-upload-fix-Actions-v1/watch-only-new-linker-run-completion.json",
+        "bytes": 363,
+        "sha256": "b3ad44509f7876521ca4271ff7b3158e92b576e60f17db1342c6176061d2d6e0"
+      },
+      {
+        "name": "compiler-source-reference/actual-web-tool-return-index.json",
+        "bytes": 321,
+        "sha256": "3e61d10a47bef2affa01a3f4f356e8f4731d4e71bffe7f3e65b6c7b150c0cc85"
+      },
+      {
+        "name": "ROOT-public-assessment-before-archive.json",
+        "bytes": 12360,
+        "sha256": "703d1631fae4aefa5d516ccc0914c76562eef15ba167125f463bb0705c6bb6b7"
+      }
+    ]
+  }
+}
