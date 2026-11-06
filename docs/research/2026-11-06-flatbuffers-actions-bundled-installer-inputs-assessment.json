@@ -1,0 +1,637 @@
+{
+  "source_commit": "bba704170a1df027a5dbffb9f23abb175687e02a",
+  "branch": "codex/pr132-actions-bundled-installer-inputs-20261106",
+  "run_id": 42301162305,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42301162305",
+  "job_id": 128179028921,
+  "job_conclusion": "success",
+  "seventeen_previous_jobs": "skipped_not_rerun",
+  "artifact_id": 13544800857,
+  "artifact_bytes": 4092394,
+  "artifact_sha256": "2d08dc483a1ffee2333681d4df3234946564d9bc6bddf8e9b526a1d0978a479d",
+  "job_log_bytes": 48078,
+  "job_log_sha256": "6a03b595f4b5f4752edd89288f75a0094de154227f363ba64b9683b8294a2d4c",
+  "all11_reference_observations": [
+    {
+      "manifest_line": 3,
+      "literal": "file:bin/rust-lldb",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463457113,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602326,
+        "mode": 33261,
+        "mtime_ns": 1794002395197009351,
+        "size": 961,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 961,
+        "saved": "bundled-input-0000.bin",
+        "saved_readback_matches": true,
+        "sha256": "a82c91ccb285aa4a1dbcf08cda68ba4e8c36082af0adfefdee514673113815da",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/bin/rust-lldb",
+        "source_after": {
+          "ctime_ns": 1794002400463457113,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602326,
+          "mode": 33261,
+          "mtime_ns": 1794002395197009351,
+          "size": 961,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463457113,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602326,
+          "mode": 33261,
+          "mtime_ns": 1794002395197009351,
+          "size": 961,
+          "uid": 1001
+        }
+      }
+    },
+    {
+      "manifest_line": 7,
+      "literal": "file:lib/libLLVM-23-rust-1.99.0-stable.so",
+      "body_policy": "excluded_no_IO_no_old_LLVM_body_or_hash_refresh",
+      "excluded_without_source_IO": true,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": null,
+      "saved_stream": null
+    },
+    {
+      "manifest_line": 8,
+      "literal": "file:lib/libLLVM.so.23.1-rust-1.99.0-stable",
+      "body_policy": "excluded_no_IO_no_old_LLVM_body_or_hash_refresh",
+      "excluded_without_source_IO": true,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": null,
+      "saved_stream": null
+    },
+    {
+      "manifest_line": 13,
+      "literal": "file:lib/rustlib/etc/lldb_lookup.py",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463599207,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602366,
+        "mode": 33188,
+        "mtime_ns": 1794002400343048445,
+        "size": 17524,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 17524,
+        "saved": "bundled-input-0001.bin",
+        "saved_readback_matches": true,
+        "sha256": "183b7ad0118b2f27e713dfaf4052908ddc6bd50544e724725112d1ae4291fa4b",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/etc/lldb_lookup.py",
+        "source_after": {
+          "ctime_ns": 1794002400463599207,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602366,
+          "mode": 33188,
+          "mtime_ns": 1794002400343048445,
+          "size": 17524,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463599207,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602366,
+          "mode": 33188,
+          "mtime_ns": 1794002400343048445,
+          "size": 17524,
+          "uid": 1001
+        }
+      }
+    },
+    {
+      "manifest_line": 14,
+      "literal": "file:lib/rustlib/etc/lldb_providers.py",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463606492,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602369,
+        "mode": 33188,
+        "mtime_ns": 1794002400344048452,
+        "size": 54408,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 54408,
+        "saved": "bundled-input-0002.bin",
+        "saved_readback_matches": true,
+        "sha256": "79b6372863088b358db4a386655cedfad77c6d7af4abbc91d280fea7f6ecff20",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/etc/lldb_providers.py",
+        "source_after": {
+          "ctime_ns": 1794002400463606492,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602369,
+          "mode": 33188,
+          "mtime_ns": 1794002400344048452,
+          "size": 54408,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463606492,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602369,
+          "mode": 33188,
+          "mtime_ns": 1794002400344048452,
+          "size": 54408,
+          "uid": 1001
+        }
+      }
+    },
+    {
+      "manifest_line": 16,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld.lld",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463613798,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602333,
+        "mode": 33261,
+        "mtime_ns": 1794002395623013587,
+        "size": 371248,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 371248,
+        "saved": "bundled-input-0003.bin",
+        "saved_readback_matches": true,
+        "sha256": "acf9413ba755c639cd394ba156cdaabd3a859138ce7885dfe0b9f6bf3f287278",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld.lld",
+        "source_after": {
+          "ctime_ns": 1794002400463613798,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602333,
+          "mode": 33261,
+          "mtime_ns": 1794002395623013587,
+          "size": 371248,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463613798,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602333,
+          "mode": 33261,
+          "mtime_ns": 1794002395623013587,
+          "size": 371248,
+          "uid": 1001
+        }
+      }
+    },
+    {
+      "manifest_line": 17,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld64.lld",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463671834,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602332,
+        "mode": 33261,
+        "mtime_ns": 1794002395623013587,
+        "size": 371248,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 371248,
+        "saved": "bundled-input-0004.bin",
+        "saved_readback_matches": true,
+        "sha256": "acf9413ba755c639cd394ba156cdaabd3a859138ce7885dfe0b9f6bf3f287278",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld64.lld",
+        "source_after": {
+          "ctime_ns": 1794002400463671834,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602332,
+          "mode": 33261,
+          "mtime_ns": 1794002395623013587,
+          "size": 371248,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463671834,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602332,
+          "mode": 33261,
+          "mtime_ns": 1794002395623013587,
+          "size": 371248,
+          "uid": 1001
+        }
+      }
+    },
+    {
+      "manifest_line": 18,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/lld-link",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463679885,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602341,
+        "mode": 33261,
+        "mtime_ns": 1794002398133032747,
+        "size": 371248,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 371248,
+        "saved": "bundled-input-0005.bin",
+        "saved_readback_matches": true,
+        "sha256": "acf9413ba755c639cd394ba156cdaabd3a859138ce7885dfe0b9f6bf3f287278",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/lld-link",
+        "source_after": {
+          "ctime_ns": 1794002400463679885,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602341,
+          "mode": 33261,
+          "mtime_ns": 1794002398133032747,
+          "size": 371248,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463679885,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602341,
+          "mode": 33261,
+          "mtime_ns": 1794002398133032747,
+          "size": 371248,
+          "uid": 1001
+        }
+      }
+    },
+    {
+      "manifest_line": 19,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/wasm-ld",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463687499,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602329,
+        "mode": 33261,
+        "mtime_ns": 1794002395404011409,
+        "size": 371248,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 371248,
+        "saved": "bundled-input-0006.bin",
+        "saved_readback_matches": true,
+        "sha256": "acf9413ba755c639cd394ba156cdaabd3a859138ce7885dfe0b9f6bf3f287278",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/wasm-ld",
+        "source_after": {
+          "ctime_ns": 1794002400463687499,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602329,
+          "mode": 33261,
+          "mtime_ns": 1794002395404011409,
+          "size": 371248,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463687499,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602329,
+          "mode": 33261,
+          "mtime_ns": 1794002395404011409,
+          "size": 371248,
+          "uid": 1001
+        }
+      }
+    },
+    {
+      "manifest_line": 20,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463687499,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602331,
+        "mode": 33261,
+        "mtime_ns": 1794002395623013587,
+        "size": 11879600,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 11879600,
+        "saved": "bundled-input-0007.bin",
+        "saved_readback_matches": true,
+        "sha256": "4739514e3484915747c34b35007cd990235cc6b490b2d0525a61ac402ca16af9",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+        "source_after": {
+          "ctime_ns": 1794002400463687499,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602331,
+          "mode": 33261,
+          "mtime_ns": 1794002395623013587,
+          "size": 11879600,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463687499,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602331,
+          "mode": 33261,
+          "mtime_ns": 1794002395623013587,
+          "size": 11879600,
+          "uid": 1001
+        }
+      }
+    },
+    {
+      "manifest_line": 34,
+      "literal": "file:share/doc/rust/licenses/LLVM-exception.txt",
+      "body_policy": "new_point_input_regular_body_or_literal_symlink_metadata",
+      "excluded_without_source_IO": false,
+      "parent_absent_at_open_only": null,
+      "entry_absent_at_lstat_only": null,
+      "separate_readlink_literal": null,
+      "separate_lstat": {
+        "ctime_ns": 1794002400463837837,
+        "dev": 66305,
+        "gid": 1001,
+        "ino": 7602361,
+        "mode": 33188,
+        "mtime_ns": 1794002400321048288,
+        "size": 919,
+        "uid": 1001
+      },
+      "saved_stream": {
+        "bytes": 919,
+        "saved": "bundled-input-0008.bin",
+        "saved_readback_matches": true,
+        "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e",
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/share/doc/rust/licenses/LLVM-exception.txt",
+        "source_after": {
+          "ctime_ns": 1794002400463837837,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602361,
+          "mode": 33188,
+          "mtime_ns": 1794002400321048288,
+          "size": 919,
+          "uid": 1001
+        },
+        "source_before": {
+          "ctime_ns": 1794002400463837837,
+          "dev": 66305,
+          "gid": 1001,
+          "ino": 7602361,
+          "mode": 33188,
+          "mtime_ns": 1794002400321048288,
+          "size": 919,
+          "uid": 1001
+        }
+      }
+    }
+  ],
+  "new_bundled_streams": [
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/bin/rust-lldb",
+      "bytes": 961,
+      "sha256": "a82c91ccb285aa4a1dbcf08cda68ba4e8c36082af0adfefdee514673113815da",
+      "saved_stream_matches_report": true
+    },
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/etc/lldb_lookup.py",
+      "bytes": 17524,
+      "sha256": "183b7ad0118b2f27e713dfaf4052908ddc6bd50544e724725112d1ae4291fa4b",
+      "saved_stream_matches_report": true
+    },
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/etc/lldb_providers.py",
+      "bytes": 54408,
+      "sha256": "79b6372863088b358db4a386655cedfad77c6d7af4abbc91d280fea7f6ecff20",
+      "saved_stream_matches_report": true
+    },
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld.lld",
+      "bytes": 371248,
+      "sha256": "acf9413ba755c639cd394ba156cdaabd3a859138ce7885dfe0b9f6bf3f287278",
+      "saved_stream_matches_report": true
+    },
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld64.lld",
+      "bytes": 371248,
+      "sha256": "acf9413ba755c639cd394ba156cdaabd3a859138ce7885dfe0b9f6bf3f287278",
+      "saved_stream_matches_report": true
+    },
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/lld-link",
+      "bytes": 371248,
+      "sha256": "acf9413ba755c639cd394ba156cdaabd3a859138ce7885dfe0b9f6bf3f287278",
+      "saved_stream_matches_report": true
+    },
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/wasm-ld",
+      "bytes": 371248,
+      "sha256": "acf9413ba755c639cd394ba156cdaabd3a859138ce7885dfe0b9f6bf3f287278",
+      "saved_stream_matches_report": true
+    },
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+      "bytes": 11879600,
+      "sha256": "4739514e3484915747c34b35007cd990235cc6b490b2d0525a61ac402ca16af9",
+      "saved_stream_matches_report": true
+    },
+    {
+      "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/share/doc/rust/licenses/LLVM-exception.txt",
+      "bytes": 919,
+      "sha256": "e34c58338bd89d43e709e226610d8f32b3e3c47f4ad9a99a8dc1d4ac7842488e",
+      "saved_stream_matches_report": true
+    }
+  ],
+  "new_bundled_stream_count": 9,
+  "new_bundled_stream_bytes": 13438404,
+  "excluded_LLVM_rows": 2,
+  "native_information_queries": 0,
+  "candidate_executions": 0,
+  "all_admission_flags": false,
+  "qualification": "Fresh manifest-tied static input preparation only; two LLVM references excluded from ALL source IO. Full setup separate UNADMITTED; saved file/metadata and known local waits/BOTH EOF are not selected linker/flavor/effectiveCargo/C-header/sysroot/ABI/origin/cohort/loaded native actorFD/continuous physicalEX-crash admission or RAM repair. No Source20/runtime adoption or numerical work.",
+  "interpretation": "EXPLICITLY_DERIVED_summary_not_original_full_report_or_raw_images",
+  "archive": {
+    "regular_selected_members": 11,
+    "original_members": 7,
+    "explicitly_derived_metadata_members": 4,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 8546,
+    "archive_sha256": "e2775f232961149a6fe3a861be8e9ffc58985a824e21cdd0de2bc94c78c8f10f",
+    "not_full_raw_directory_Source20_or_runtime_input_package": true,
+    "members": [
+      {
+        "name": "original-source-declaration.json",
+        "bytes": 4147,
+        "sha256": "0d9ccb9d468ccd8265cca46005ec4ee957197f1aab1f8f2e325767dd69fd8911"
+      },
+      {
+        "name": "original-collector.py",
+        "bytes": 9721,
+        "sha256": "abe0b1dd8755f6b1cba75ecac4e7f0db3f1a930ddcf2ac0d955afda7697bd2fc"
+      },
+      {
+        "name": "original-candidate-validation.json",
+        "bytes": 522,
+        "sha256": "7849012763a59013cad07e2b297286d64e694dd58c310f99b21b8eb07a916576"
+      },
+      {
+        "name": "original-generation-completion.json",
+        "bytes": 362,
+        "sha256": "1a4dbd9ff07bf3c57b65ef56884f6612de4cb8506694ea86ec5a2d2236a9ee80"
+      },
+      {
+        "name": "original-validation-completion.json",
+        "bytes": 362,
+        "sha256": "ab0c1f28036c1ab97ee665338b3373048a5ab5eeef6c9130596a05befdc0e69f"
+      },
+      {
+        "name": "original-review-completion.json",
+        "bytes": 398,
+        "sha256": "eadea002de3ee8de97aab1850190b56721ed1e47645fe8cfef3e9eb8063e44e4"
+      },
+      {
+        "name": "original-source-publication-receipt.json",
+        "bytes": 363,
+        "sha256": "c0965ea3b8ba80e2afbec6c302a4dc01a62b23c4357029efb3528b16801fce58"
+      },
+      {
+        "name": "derived/ALL11-static-input-outcome-summary.json",
+        "bytes": 18270,
+        "sha256": "5d86db6c4d94b9abe8137c6946070c5bc0d3307ccba30bd439c9718132c4acb4"
+      },
+      {
+        "name": "derived/ROOT-review-and-input-qualification.json",
+        "bytes": 2161,
+        "sha256": "331b6404fec8d33e19ef774eadbdafabe8551b59420fef9d0a24cd9658321f94"
+      },
+      {
+        "name": "derived/new-reference-and-alias-qualification.json",
+        "bytes": 2073,
+        "sha256": "40ed02449cf1ad1e623a6d9dc1f6d52812b0f6c9954ffe592f20a65268be27a2"
+      },
+      {
+        "name": "derived/actual-publication-integer-transport-fix.json",
+        "bytes": 1362,
+        "sha256": "6fb56f6515b5cf9b883248afe5337b0d9cd637f8274105d78945334edf7be466"
+      }
+    ]
+  },
+  "actual_publication_transport_fix": {
+    "interpretation": "EXPLICITLY_DERIVED_metadata",
+    "first_publication_failed_at_whole_result_equality_before_archive_docs_write": true,
+    "first_publication_tool_reported_status": 1,
+    "separate_launcher_PID_pipe_EOF_metadata": null,
+    "all54_differences_are_large_integer_JS_transport_rounding": true,
+    "original_whole_result_equality_preserved_by_exact_JSON_STRING_transport": true,
+    "original_failed_namespace_permanently_terminal": true,
+    "new_first_substantive_publication_body_justified_by_actual_fault_and_minimal_fix_not_new_name_alone": true,
+    "debug_ROOT_qualification": "Qwen68145 natural0/full1664stdout185stderr/BOTH EOF/SAMEwait-maycached; advisory NOTapproval. Accept only narrowly supported exact-integer JS transport cause and Python JSON-string fix, independently demonstrated by54 actual field differences and whole original-result equality after Python parsing. Do not elevate binary64-equivalent to general no-corruption/origin/ABI proof. New private handoff string is declared and explicitly Python-parsed; it does not alter acceptance schema, gates, Source20 or downstream consumers. Model schema/next-check advice creates no replay or authority. Original v1 terminal remains binding. No model relaunch or additional old source/check/API/acquisition replay.",
+    "not_RAM_or_Source20_repair": true,
+    "all_admission_flags": false
+  },
+  "ROOT_review_qualification": "Qwen67396 natural0/full2836stdout271stderr/BOTH EOF; SAMEwait may be cached, advisory NOTapproval. Reject P1 owner-removal-on-uncertain-close: failed os.close must keep unknown ownership; unconditional remove would settle unknown. Final owned check is not reached after propagating finally failure, contrary masking claim. If close succeeds then close_return event fails, owned removal already preceded that event; no evidence of leak. Reject P2 branch conflation: symlink branch only calls readlink and never preserve, while regular branch opens relative to retained directory with O_NOFOLLOW and fstat rejects nonregular; shifts fail closed. Re-stat adds no atomic ABA/origin authority. Journal close/crash exceptions remain unknown and unadmitted, no invented closure. Stream names cannot reuse after an exception because component is terminal; no concurrent list mutation in this collector. Reject hypothetical collision/cap/cleanup/fallback inference. No advice-derived collector edit/test/model relaunch.",
+  "ROOT_input_boundary_qualification": "ALL11 literal installer records preserved; BOTH LLVM references excluded before ANY source IO, irrespective of their prior separate lstat regular-file modes/readlinkNULL. Two earlier source metadata occurrences identify ONE consumed LLVM source reference, not two images; other zero hits are not absence/newness authority. Nine remaining exact manifest paths are expressly declared for necessary fresh static bundled-tool input acquisition, without selecting host/ABI/default/linker or following URLs/archives/symlink targets. ALL23package/974target catalogue rows retained by prior semantic phase. Original setup retains Ubuntu24.04/Dart3.13.5/Rust1.99.0; setup separate unadmitted. New saved static bodies/point metadata neither actual compiler-build CFG_DEFAULT_LINKER/flavor nor effective Cargo/C-header/sysroot/ABI/runtime/cohort/actorFD/continuous official physicalEX-crash/RAM repair/adoption authority. Local EX held across source/API/original watch/acquisition as observed, not global remote nativeactor closure.",
+  "all4_alias_reference_metadata": [
+    {
+      "name": "libLLVM-23-rust-1.99.0-stable.so",
+      "name_bytes_hex": "6c69624c4c564d2d32332d727573742d312e39392e302d737461626c652e736f",
+      "separate_lstat_mode": 33188,
+      "separate_readlink_literal": null,
+      "literal_target_names_another_listed_entry": null,
+      "qualification": "Point metadata naming relation only, not same current body/origin/ABI/cohort or loaded linker proof"
+    },
+    {
+      "name": "libLLVM.so.23.1-rust-1.99.0-stable",
+      "name_bytes_hex": "6c69624c4c564d2e736f2e32332e312d727573742d312e39392e302d737461626c65",
+      "separate_lstat_mode": 33188,
+      "separate_readlink_literal": null,
+      "literal_target_names_another_listed_entry": null,
+      "qualification": "Point metadata naming relation only, not same current body/origin/ABI/cohort or loaded linker proof"
+    },
+    {
+      "name": "librustc_driver-999a121de2f042be.so",
+      "name_bytes_hex": "6c696272757374635f6472697665722d393939613132316465326630343262652e736f",
+      "separate_lstat_mode": 33188,
+      "separate_readlink_literal": null,
+      "literal_target_names_another_listed_entry": null,
+      "qualification": "Point metadata naming relation only, not same current body/origin/ABI/cohort or loaded linker proof"
+    },
+    {
+      "name": "rustlib",
+      "name_bytes_hex": "727573746c6962",
+      "separate_lstat_mode": 16877,
+      "separate_readlink_literal": null,
+      "literal_target_names_another_listed_entry": null,
+      "qualification": "Point metadata naming relation only, not same current body/origin/ABI/cohort or loaded linker proof"
+    }
+  ],
+  "private_exclusions": [
+    "full static input bodies, original report and journal",
+    "full original Actions ZIP/log/API/environment and known original child outputs",
+    "full local model answer, all controllers and actual launcher tool returns"
+  ],
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
