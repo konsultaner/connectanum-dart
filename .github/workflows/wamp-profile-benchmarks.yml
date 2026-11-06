@@ -36,6 +36,7 @@ on:
           - flatbuffers_encoder_component
           - flatbuffers_rss_control
           - flatbuffers_dictionary_component
+          - flatbuffers_toolchain_preflight
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -813,5 +814,152 @@ jobs:
             out/wamp-native-ppt-copy-proof
             !out/wamp-native-ppt-view/source/**
             !out/wamp-native-ppt-view/source.tar
+          if-no-files-found: error
+          retention-days: 30
+
+  linux-flatbuffers-toolchain-preflight:
+    name: FlatBuffers toolchain preparation (no benchmark)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_toolchain_preflight'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-toolchain-preflight-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.5
+
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Verify effective pinned Rust toolchain
+        run: |
+          python3 - <<'PY'
+          import os
+          import subprocess
+          actual = subprocess.check_output(['rustc', '--version'], text=True).split()[1]
+          if actual != os.environ['RUSTUP_TOOLCHAIN']:
+              raise SystemExit(f'Unexpected Rust toolchain: {actual}')
+          PY
+
+      - name: Record hosted runner and source
+        run: |
+          set -euo pipefail
+          mkdir -p out/wamp-flatbuffers-toolchain-preflight
+          {
+            printf 'source_revision=%s\n' "$(git rev-parse HEAD)"
+            printf 'runner_image=%s/%s\n' "${ImageOS:?}/${ImageVersion:?}"
+            printf 'uname=%s\n' "$(uname -a)"
+            printf 'dart=%s\n' "$(dart --version 2>&1)"
+            printf 'rustc=%s\n' "$(rustc --version)"
+            cat /proc/cpuinfo
+          } > out/wamp-flatbuffers-toolchain-preflight/host-info.txt
+
+      - name: Record unadmitted preparation observations
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import sys
+          
+          root = Path.cwd()
+          out = root / "out/wamp-flatbuffers-toolchain-preflight"
+          out.mkdir(parents=True, exist_ok=True)
+          journal = (out / "input-operations.jsonl").open("x")
+          def event(row):
+              journal.write(json.dumps(row, sort_keys=True) + "\n")
+              journal.flush()
+          
+          def observe(path):
+              p = Path(path)
+              row = {"requested_path": str(p)}
+              try:
+                  fd = os.open(p, os.O_RDONLY)
+              except FileNotFoundError:
+                  row["state"] = "absent_at_open"
+                  event(row)
+                  return row
+              try:
+                  event({"operation": "open_returned_before_read", "fd": fd, **row})
+                  before = os.fstat(fd)
+                  h = hashlib.sha256()
+                  size = 0
+                  while True:
+                      block = os.read(fd, 1024 * 1024)
+                      if not block:
+                          break
+                      h.update(block)
+                      size += len(block)
+                  after = os.fstat(fd)
+                  row.update(state="observed_file_data", sha256=h.hexdigest(), bytes_read=size,
+                             before=list(before), after=list(after))
+                  event({"operation": "read_reached_eof", "fd": fd, **row})
+              finally:
+                  try:
+                      event({"operation": "close_attempt", "fd": fd})
+                  finally:
+                      os.close(fd)
+                  event({"operation": "close_returned", "fd": fd})
+              return row
+          
+          try:
+              files = {}
+              for name in [
+                  ".github/workflows/wamp-profile-benchmarks.yml", "bin/bootstrap",
+                  "pubspec.yaml", "pubspec.lock", "native/bench/Cargo.toml",
+                  "native/bench/Cargo.lock", "native/transport/Cargo.toml",
+                  "native/transport/Cargo.lock",
+              ]:
+                  files[name] = observe(root / name)
+              tools = {}
+              for name in ["dart", "rustc", "cargo"]:
+                  located = shutil.which(name)
+                  tools[name] = {"path_search_result": located, "realpath": None, "file": None}
+                  if located is not None:
+                      real = Path(located).resolve(strict=True)
+                      tools[name].update(realpath=str(real), file=observe(real))
+              result = {
+                  "purpose": "Fresh original Actions preparation before bootstrap or native build",
+                  "source_baseline": "601108ea6216464bd00ae29c16cfaf0a59c71db6",
+                  "workflow_revision": os.environ["GITHUB_SHA"],
+                  "run_id": os.environ["GITHUB_RUN_ID"],
+                  "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                  "uid": os.getuid(), "gid": os.getgid(), "groups": os.getgroups(),
+                  "cwd": str(root), "python_executable": sys.executable,
+                  "environment": {k: os.environ.get(k) for k in [
+                      "PATH", "RUSTUP_TOOLCHAIN", "RUSTUP_HOME", "CARGO_HOME",
+                      "DART_SDK", "ImageOS", "ImageVersion", "RUNNER_OS", "RUNNER_ARCH",
+                  ]},
+                  "free_bytes_at_observation": shutil.disk_usage(root).free,
+                  "files": files, "path_resolutions": tools,
+                  "limitations": [
+                      "File observations do not bind all compiler, linker, header, runtime or delegate images",
+                      "Hosted setup actor ownership and continuous physical EX are not established",
+                      "No bootstrap, native build, driver, broker, profiler or benchmark is invoked",
+                      "This is not canonical evidence, a cohort equality proof or runtime admission",
+                  ],
+                  "source_admitted": False, "live_admission": False,
+                  "capture_ready": False, "evidence_complete": False,
+              }
+              with (out / "preparation-observations.json").open("x") as f:
+                  json.dump(result, f, indent=2)
+                  f.write("\n")
+          finally:
+              journal.close()
+          PY
+
+      - name: Upload preparation evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatbuffers-toolchain-preflight-${{ github.sha }}-${{ github.run_attempt }}
+          path: out/wamp-flatbuffers-toolchain-preflight
           if-no-files-found: error
           retention-days: 30
