@@ -38,6 +38,7 @@ on:
           - flatbuffers_dictionary_component
           - flatbuffers_toolchain_preflight
           - flatbuffers_compiler_inputs
+          - flatbuffers_linkage_inputs
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -1178,5 +1179,348 @@ jobs:
         with:
           name: flatbuffers-compiler-inputs-${{ github.sha }}-${{ github.run_attempt }}
           path: out/wamp-flatbuffers-compiler-inputs
+          if-no-files-found: error
+          retention-days: 30
+
+  linux-flatbuffers-linkage-inputs:
+    name: FlatBuffers linkage input preparation (no build)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_linkage_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-linkage-inputs-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.13.5
+
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Acquire LLVM and static loader-catalog input candidates
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import shutil
+          import struct
+          import subprocess
+          
+          root = Path.cwd()
+          out = root / "out/wamp-flatbuffers-linkage-inputs"
+          out.mkdir(parents=True, exist_ok=False)
+          (out / "queries").mkdir()
+          (out / "inputs").mkdir()
+          journal = (out / "operations.jsonl").open("x")
+          children = []
+          
+          def event(row):
+              journal.write(json.dumps(row, sort_keys=True) + "\n")
+              journal.flush()
+          
+          def query(label, argv):
+              event({"operation": "query_request_before_launch", "label": label, "argv": argv})
+              child = subprocess.Popen(argv, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              children.append(child)
+              original = {"label": label, "pid": child.pid, "argv": argv, "handle": child}
+              # The original handle is retained before the first stream operation.
+              stdout, stderr = child.communicate()
+              status = child.wait()
+              for suffix, data in [("stdout", stdout), ("stderr", stderr)]:
+                  with (out / "queries" / (label + "." + suffix)).open("xb") as f:
+                      f.write(data)
+              row = {k: v for k, v in original.items() if k != "handle"}
+              row.update(signed_status=status, same_original_wait=True, wait_may_be_cached=True,
+                         stdout_eof=True, stderr_eof=True, stdout_bytes=len(stdout),
+                         stderr_bytes=len(stderr), stdout_sha256=hashlib.sha256(stdout).hexdigest(),
+                         stderr_sha256=hashlib.sha256(stderr).hexdigest())
+              event({"operation": "query_collected", **row})
+              if status != 0:
+                  raise RuntimeError("Terminal query failure: " + label)
+              return stdout
+          
+          def one_path(label, data):
+              text = data.decode("utf-8")
+              lines = text.splitlines()
+              if len(lines) != 1 or not lines[0] or not Path(lines[0]).is_absolute():
+                  raise RuntimeError("Unbound query path: " + label)
+              return Path(lines[0])
+          
+          def elf_header_data(fd, file_bytes):
+              def read_at(offset, size):
+                  if offset < 0 or size < 0 or offset + size > file_bytes:
+                      raise RuntimeError("ELF range exceeds the verified saved stream")
+                  data = os.pread(fd, size, offset)
+                  if len(data) != size:
+                      raise RuntimeError("ELF range read incomplete; no guessed parsing")
+                  return data
+          
+              header = read_at(0, min(file_bytes, 64))
+              if header[:4] != b"\x7fELF" or len(header) < 64:
+                  return None
+              bits = header[4]
+              endian = {1: "<", 2: ">"}.get(header[5])
+              if bits != 2 or endian is None:
+                  return None
+              machine = struct.unpack_from(endian + "H", header, 18)[0]
+              phoff = struct.unpack_from(endian + "Q", header, 32)[0]
+              phsize, phnum = struct.unpack_from(endian + "HH", header, 54)
+              if phnum and (phsize < 56 or phoff + phsize * phnum > file_bytes):
+                  raise RuntimeError("ELF program table exceeds the verified saved stream")
+              interpreter = None
+              for i in range(phnum):
+                  entry = read_at(phoff + i * phsize, 56)
+                  typ, flags, offset, va, pa, size, memsize, align = struct.unpack(endian + "IIQQQQQQ", entry)
+                  if typ == 3:
+                      interpreter = read_at(offset, size).rstrip(b"\0").decode("utf-8")
+              return {"class_byte": bits, "endianness_byte": header[5],
+                      "machine_field": machine, "interpreter_field": interpreter,
+                      "qualification": "Static image fields, not actual exec/mappings or full target ABI"}
+          
+          def preserve(label, source):
+              source = Path(source)
+              target = out / "inputs" / label
+              src_fd = os.open(source, os.O_RDONLY)
+              # Register returned handles in strong local state before reading.
+              owned = {"source_fd": src_fd, "source": str(source), "destination": str(target)}
+              dst_fd = None
+              try:
+                  event({"operation": "input_open_returned_before_read", **owned})
+                  before = os.fstat(src_fd)
+                  dst_fd = os.open(target, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o644)
+                  owned["destination_fd"] = dst_fd
+                  event({"operation": "output_open_returned_before_write", **owned})
+                  h = hashlib.sha256()
+                  count = 0
+                  while True:
+                      data = os.read(src_fd, 1024 * 1024)
+                      if not data:
+                          break
+                      h.update(data)
+                      count += len(data)
+                      cursor = 0
+                      while cursor < len(data):
+                          written = os.write(dst_fd, data[cursor:])
+                          if written <= 0:
+                              raise RuntimeError("Unknown/zero write; no resend recovery")
+                          event({"operation": "known_write_return", "source_offset": count - len(data) + cursor, "returned_bytes": written, "requested_bytes": len(data) - cursor})
+                          cursor += written
+                  os.lseek(dst_fd, 0, os.SEEK_SET)
+                  copied_hash = hashlib.sha256()
+                  copied_count = 0
+                  while True:
+                      copied = os.read(dst_fd, 1024 * 1024)
+                      if not copied:
+                          break
+                      copied_hash.update(copied)
+                      copied_count += len(copied)
+                  if copied_count != count or copied_hash.hexdigest() != h.hexdigest():
+                      raise RuntimeError("Saved stream readback mismatch; terminal")
+                  after = os.fstat(src_fd)
+                  row = {"source": str(source), "saved": "inputs/" + label,
+                         "bytes_read": count, "sha256": h.hexdigest(),
+                         "before": list(before), "after": list(after), "saved_stream_readback_byteexact": True}
+                  event({"operation": "input_eof_and_output_writes_returned", **row})
+                  row["elf_header"] = elf_header_data(dst_fd, count)
+              finally:
+                  # Actual native close results are journaled separately.
+                  try:
+                      if dst_fd is not None:
+                          os.close(dst_fd)
+                          event({"operation": "destination_close_returned", "fd": dst_fd})
+                  finally:
+                      os.close(src_fd)
+                      event({"operation": "source_close_returned", "fd": src_fd})
+              return row
+          
+          def dynamic_fields(saved_path):
+              fd = os.open(saved_path, os.O_RDONLY)
+              retained = {"fd": fd, "saved_path": str(saved_path)}
+              try:
+                  event({"operation": "saved_image_analysis_open_before_io", **retained})
+                  size = os.fstat(fd).st_size
+                  def read_at(offset, count):
+                      if offset < 0 or count < 0 or offset + count > size:
+                          raise RuntimeError("Static range outside saved image")
+                      data = os.pread(fd, count, offset)
+                      if len(data) != count:
+                          raise RuntimeError("Partial static range, terminal")
+                      return data
+                  h = read_at(0, min(size, 64))
+                  if len(h) < 64 or h[:4] != b"\x7fELF" or h[4] != 2:
+                      return {"supported_ELF64": False, "needed": None, "qualification": "Raw input retained; format not expanded"}
+                  endian = {1: "<", 2: ">"}.get(h[5])
+                  if endian is None:
+                      return {"supported_ELF64": False, "needed": None, "qualification": "Raw input retained; encoding not expanded"}
+                  phoff = struct.unpack_from(endian + "Q", h, 32)[0]
+                  phsize, phnum = struct.unpack_from(endian + "HH", h, 54)
+                  if phnum == 65535 or (phnum and phsize < 56):
+                      raise RuntimeError("Unsupported program table, terminal")
+                  ph = read_at(phoff, phsize * phnum)
+                  rows = [struct.unpack_from(endian + "IIQQQQQQ", ph, i * phsize) for i in range(phnum)]
+                  dyns = [x for x in rows if x[0] == 2]
+                  if not dyns:
+                      return {"supported_ELF64": True, "needed": [], "dynamic_entries": [], "no_PT_DYNAMIC": True}
+                  if len(dyns) != 1 or dyns[0][5] % 16:
+                      raise RuntimeError("Ambiguous or partial dynamic array")
+                  raw = read_at(dyns[0][2], dyns[0][5])
+                  entries = [{"index": i // 16, "tag": struct.unpack_from(endian + "q", raw, i)[0],
+                              "value": struct.unpack_from(endian + "Q", raw, i + 8)[0]}
+                             for i in range(0, len(raw), 16)]
+                  ends = [x["index"] for x in entries if x["tag"] == 0]
+                  if not ends:
+                      raise RuntimeError("No dynamic terminator")
+                  active = entries[:ends[0]]
+                  selected = [x for x in active if x["tag"] in (1, 14, 15, 29)]
+                  if not selected:
+                      return {"supported_ELF64": True, "needed": [], "dynamic_entries": entries, "strings": []}
+                  def scalar(tag):
+                      values = [x["value"] for x in active if x["tag"] == tag]
+                      if len(values) != 1:
+                          raise RuntimeError("Ambiguous dynamic scalar")
+                      return values[0]
+                  va, amount = scalar(5), scalar(10)
+                  offsets = [x[2] + va - x[3] for x in rows if x[0] == 1 and x[3] <= va and va + amount <= x[3] + x[5]]
+                  if len(offsets) != 1:
+                      raise RuntimeError("Dynamic strings not uniquely file backed")
+                  table = read_at(offsets[0], amount)
+                  strings = []
+                  for x in selected:
+                      at = x["value"]
+                      if at >= len(table):
+                          raise RuntimeError("Dynamic string offset outside table")
+                      end = table.find(b"\0", at)
+                      if end < 0:
+                          raise RuntimeError("Unterminated dynamic string")
+                      data = table[at:end]
+                      try:
+                          value = data.decode("utf-8")
+                      except UnicodeDecodeError:
+                          value = None
+                      strings.append({**x, "utf8": value, "raw_hex": data.hex()})
+                  return {"supported_ELF64": True, "needed": [x["utf8"] for x in strings if x["tag"] == 1],
+                          "strings": strings, "dynamic_entries": entries,
+                          "raw_dynamic_sha256": hashlib.sha256(raw).hexdigest(),
+                          "qualification": "Static selected fields only; unparsed tags opaque, not actual loaded resolution"}
+              finally:
+                  os.close(fd)
+                  event({"operation": "saved_image_analysis_close_returned", "fd": fd})
+          
+          try:
+              sysroot = one_path("rustc-sysroot-current", query("rustc-sysroot-current", ["rustc", "--print", "sysroot"]))
+              sdk_lib = sysroot / "lib"
+              sdk_catalog = {x.name: str(x) for x in sdk_lib.iterdir()}
+              exact_llvm = "libLLVM.so.23.1-rust-1.99.0-stable"
+              if exact_llvm not in sdk_catalog:
+                  raise RuntimeError("Exact observed LLVM basename absent from current SDK catalog; no replacement")
+              located = shutil.which("ldconfig")
+              if located is None:
+                  raise RuntimeError("ldconfig PATH query unavailable before process creation; no fallback")
+              tool_input = preserve("ldconfig-tool.image", Path(located).resolve(strict=True))
+              cache_input = preserve("loader-cache.data", Path("/etc/ld.so.cache"))
+              cache_output = query("loader-cache-listing", ["ldconfig", "-p"])
+              cache_catalog = {}
+              unmatched_lines = []
+              for number, line in enumerate(cache_output.decode("utf-8").splitlines()):
+                  if " => " not in line:
+                      unmatched_lines.append({"line": number, "text": line})
+                      continue
+                  left, right = line.split(" => ", 1)
+                  fields = left.split()
+                  if not fields or not Path(right.strip()).is_absolute():
+                      unmatched_lines.append({"line": number, "text": line})
+                      continue
+                  name = fields[0]
+                  cache_catalog.setdefault(name, []).append({"path": right.strip(), "line": number, "description": left.strip()})
+              event({"operation": "candidate_catalogs_observed", "sdk": sdk_catalog,
+                     "cache": cache_catalog, "uninterpreted_cache_lines": unmatched_lines})
+              seed_names = [
+                  exact_llvm, "libc.so.6", "libdl.so.2", "libgcc_s.so.1",
+                  "libm.so.6", "libpthread.so.0", "librt.so.1",
+              ]
+              pending = [{"name": n, "requested_by": "actual retained ELF frontier"} for n in seed_names]
+              expanded_names = set()
+              copied_paths = {}
+              edges = []
+              unresolved = []
+              opaque_images = []
+              cursor = 0
+              while cursor < len(pending):
+                  request = pending[cursor]
+                  cursor += 1
+                  name = request["name"]
+                  edges.append(request)
+                  if name is None:
+                      unresolved.append({**request, "reason": "non-UTF8 needed bytes retained in source image"})
+                      continue
+                  if name in expanded_names:
+                      continue
+                  expanded_names.add(name)
+                  candidates = []
+                  if name in sdk_catalog:
+                      candidates.append({"path": sdk_catalog[name], "origin": "current exact SDK directory catalog"})
+                  candidates += [{"path": x["path"], "origin": "ldconfig -p candidate ONLY", "cache_line": x["line"]}
+                                 for x in cache_catalog.get(name, [])]
+                  if not candidates:
+                      unresolved.append({**request, "reason": "not represented by these catalogs; not global absence"})
+                  for candidate in candidates:
+                      path = candidate["path"]
+                      if path in copied_paths:
+                          copied_paths[path]["catalog_references"].append({"name": name, **candidate})
+                          continue
+                      label = "candidate-" + str(len(copied_paths)) + ".image"
+                      row = preserve(label, Path(path))
+                      row["catalog_references"] = [{"name": name, **candidate}]
+                      copied_paths[path] = row
+                      parsed = dynamic_fields(out / row["saved"])
+                      row["static_dynamic_fields"] = parsed
+                      if not parsed["supported_ELF64"]:
+                          opaque_images.append(row["saved"])
+                          continue
+                      for needed in parsed["needed"]:
+                          pending.append({"name": needed, "requested_by": row["saved"]})
+              report = {
+                  "purpose": "NEW actual LLVM and loader-cache candidate input graph, never loaded-resolution admission",
+                  "workflow_revision": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"],
+                  "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                  "source_frontier": "Five retained after42206010056 ELF images, actual ordered DT_NEEDED fields",
+                  "uid": os.getuid(), "gid": os.getgid(), "cwd": str(root),
+                  "environment": {k: os.environ.get(k) for k in ["PATH", "RUSTUP_TOOLCHAIN", "ImageOS", "ImageVersion", "RUNNER_OS", "RUNNER_ARCH", "LD_LIBRARY_PATH", "LD_PRELOAD"]},
+                  "sysroot_query_path": str(sysroot), "sdk_catalog": sdk_catalog,
+                  "loader_cache_candidate_catalog": cache_catalog,
+                  "loader_cache_uninterpreted_lines": unmatched_lines,
+                  "query_tool_input": tool_input, "loader_cache_file_input": cache_input,
+                  "seed_names": seed_names, "name_requests_original_order": pending,
+                  "images": list(copied_paths.values()), "unresolved_names": unresolved,
+                  "unexpanded_raw_images": opaque_images,
+                  "qualification": [
+                      "Every catalog candidate is retained, with no favorable ABI/path choice",
+                      "Static names/catalogs/fields and file copies do not establish which files original processes loaded",
+                      "Cache snapshot and CLI listing occur at different times; no atomic equality, origin/authentication, full ABI, complete runtime or original cohort proof",
+                      "Finite expansion uses only actual SDK directory and cache candidate catalogs; absent/opaque entries remain unadmitted",
+                      "No bootstrap/dependency resolution/native build/linker/C-header compile, driver, broker, perf, benchmark or Source20 adoption",
+                  ],
+                  "source_admitted": False, "live_admission": False,
+                  "capture_ready": False, "evidence_complete": False,
+              }
+              with (out / "linkage-input-observations.json").open("x") as f:
+                  json.dump(report, f, indent=2)
+                  f.write("\n")
+          finally:
+              journal.close()
+          PY
+
+      - name: Upload linkage preparation even after failure
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: flatbuffers-linkage-inputs-${{ github.sha }}-${{ github.run_attempt }}
+          path: out/wamp-flatbuffers-linkage-inputs
           if-no-files-found: error
           retention-days: 30
