@@ -1,0 +1,80 @@
+{
+  "source_commit": "554d27fd502b92e5166f4ba233c9ba2fe9f76778",
+  "branch": "codex/pr132-actions-wrapper-delegates-20261106",
+  "run_id": 42217836026,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42217836026",
+  "job_id": 127892188141,
+  "job_conclusion": "success",
+  "nine_other_jobs": "skipped_not_rerun",
+  "artifact_id": 13502276623,
+  "artifact_bytes": 674201,
+  "artifact_sha256": "37cdb02f90ed434ff38b95f10240ea7441881a6bb1563790626120f489effc8b",
+  "job_log_bytes": 47169,
+  "job_log_sha256": "fc7c53315fa90781077d87a00b1687644375af50ed6f83e0f513e253ae0ddf26",
+  "images": [
+    {
+      "source": "/bin/sh",
+      "bytes": 129784,
+      "sha256": "86d31f6fb799e91fa21bad341484564510ca287703a16e9e46c53338776f4f42",
+      "elf_header": {
+        "class_byte": 2,
+        "endianness_byte": 1,
+        "machine_field": 62,
+        "interpreter_field": "/lib64/ld-linux-x86-64.so.2",
+        "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+      },
+      "saved": "inputs/reference-0.image"
+    },
+    {
+      "source": "/sbin/ldconfig.real",
+      "bytes": 1051280,
+      "sha256": "d879c9a8a41240aeb7fd0f3221116fc4cf41cc6c64c24e10541d1bafbe537ab1",
+      "elf_header": {
+        "class_byte": 2,
+        "endianness_byte": 1,
+        "machine_field": 62,
+        "interpreter_field": null,
+        "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+      },
+      "saved": "inputs/reference-1.image"
+    },
+    {
+      "source": "/lib64/ld-linux-x86-64.so.2",
+      "bytes": 236616,
+      "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+      "elf_header": {
+        "class_byte": 2,
+        "endianness_byte": 1,
+        "machine_field": 62,
+        "interpreter_field": null,
+        "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+      },
+      "saved": "inputs/reference-2.image"
+    }
+  ],
+  "native_information_queries": [],
+  "all_admission_flags": false,
+  "not_runtime_admission_or_RAM_repair": true,
+  "scope": "New original Actions wrapper-reference input snapshot; not loaded-runtime, ABI, cohort, actor/FD or physical EX admission",
+  "qualifications": [
+    "Only the independently observed source references /bin/sh and /sbin/ldconfig.real, and an actual saved ELF PT_INTERP field, selected these new raw input bytes. Old wrapper body and old jobs/artifacts were not replayed.",
+    "All three streams were fully copied/read back and matched the new report hashes. Point path/lstat/readlink/resolve/FD metadata is not atomic ABA, origin/authentication or actual exec/mapping evidence.",
+    "ELF class/endianness/machine fields are static data, not actual target ABI. No PT_INTERP in ldconfig.real does not prove all-runtime/static-link closure or absence of dynamically requested actors.",
+    "The acquisition script launches no native information queries; original Actions toolchain setup is unchanged, not evidence that original driver credentials/env/cohort or transitive physical EX are admitted.",
+    "Two local source selectors failed before candidate creation, followed by a Ruby YAML validator failing because unquoted on was parsed as boolean true. Structured job generation and a corrected key reader produced one matching successful validation with exact embedded Python. These are prep tooling corrections, not RAM repair or Source20 fix evidence.",
+    "The private validator assessment new_job_key field contains job-property names because a duplicate Ruby JSON key overwrote the key string. This is qualified here; raw actual workflow/job display name and successful Actions receipt remain authoritative.",
+    "Qwen47286 full natural0 answer was ROOT qualified: external definitions exist in the complete script; required Actions env is intentionally fail-closed; point observations claim no atomic consistency; images dictionary handles repeated/cyclic path references. No advice-derived source changes/tests or model approval.",
+    "Nine prior jobs skipped; no bootstrap/dependency resolution/native build, broker/driver/perf/benchmark or numerical campaign and no Source20/runtime checkout edit/import/adoption. Prep-only skip-ci does not waive clean final production CI.",
+    "Full input-image bodies, full ZIP and private administrative controllers/API objects are retained locally, excluded from selected public evidence. This archive is not full directory/process/native actor closure.",
+    "RAM cause/repair, complete immutable admission, own FINAL strict48/50 and clean final CI remain incomplete. Counts and image byte sizes establish no heap/RSS magnitude/growth, allocations, timing or leak cause."
+  ],
+  "local_review": {
+    "pid": 47286,
+    "signed_status": 0,
+    "stdout_bytes": 3897,
+    "stderr_bytes": 271,
+    "full_answer_both_EOF": true,
+    "same_original_wait_cached_possible": true,
+    "ROOT_qualified_not_approval": true
+  }
+}

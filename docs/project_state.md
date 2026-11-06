@@ -1,5 +1,12 @@
 # Project State
 
+## 2026-11-06 — Preserve wrapper interpreter and delegate input images
+
+The new [original Actions preparation](https://github.com/konsultaner/connectanum-dart/actions/runs/42217836026) succeeds at source 554d27fd502b92e5166f4ba233c9ba2fe9f76778. It copies the two actual input paths previously named by the original PATH wrapper, plus an ELF interpreter path observed in the saved shell image. All nine previous jobs were skipped. Original Ubuntu 24.04/Dart 3.13.5/Rust 1.99.0 setup and previous jobs remain unchanged; no bootstrap, native build, numerical campaign or Source20 change/adoption ran.
+
+Three complete streams and their readbacks are retained privately. These are source-reference input snapshots, not proof that original processes loaded those files, complete target ABI/cohort identity, effective Cargo linker/C headers, native actor/FD origin or continuous physical EX. All admission flags remain false. RAM repair, own final strict48/50 and clean final CI remain incomplete. Local source-selector and YAML-validator corrections are qualified prep tooling evidence only. See the [record](research/2026-11-06-flatbuffers-actions-wrapper-delegate-inputs.md).
+
+
 Last updated: 2026-11-06.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
