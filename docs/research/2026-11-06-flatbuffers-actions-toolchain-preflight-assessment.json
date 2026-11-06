@@ -1,0 +1,187 @@
+{
+  "run_id": 42202140739,
+  "job_id": 127839762730,
+  "job_count": 7,
+  "other_job_conclusions": [
+    "skipped",
+    "skipped",
+    "skipped",
+    "skipped",
+    "skipped",
+    "skipped"
+  ],
+  "artifact_id": 13495096148,
+  "artifact_bytes": 4199,
+  "artifact_sha256": "50b7ba414a5f83a8a705106543375e2b38796214030684231d15d7742f9d7967",
+  "members": [
+    {
+      "name": "host-info.txt",
+      "bytes": 6190,
+      "sha256": "3f0de9d98142be9dd85455b15c87cacadee3c35af4bd5c8b53d6537dcba213ae"
+    },
+    {
+      "name": "input-operations.jsonl",
+      "bytes": 5614,
+      "sha256": "f15f1a056efbf3bde743c5d27fa0c99ec98e33a2a403db04845688a48c57baa0"
+    },
+    {
+      "name": "preparation-observations.json",
+      "bytes": 7898,
+      "sha256": "3da176ff9b21be19e20794bb5dea1367ad33a1492cd5956baa03f144fa998848"
+    }
+  ],
+  "workflow_revision": "7a7295a1bd3ee4a7910a246bf7f33f5e654d09e0",
+  "uid": 1001,
+  "gid": 1001,
+  "environment": {
+    "PATH": "/home/runner/.pub-cache/bin:/opt/hostedtoolcache/dart/3.13.5/x64/bin:/snap/bin:/home/runner/.local/bin:/opt/pipx_bin:/home/runner/.cargo/bin:/home/runner/.config/composer/vendor/bin:/usr/local/.ghcup/bin:/home/runner/.dotnet/tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin",
+    "RUSTUP_TOOLCHAIN": "1.99.0",
+    "RUSTUP_HOME": null,
+    "CARGO_HOME": "/home/runner/.cargo",
+    "DART_SDK": null,
+    "ImageOS": "ubuntu24",
+    "ImageVersion": "20261101.360.1",
+    "RUNNER_OS": "Linux",
+    "RUNNER_ARCH": "X64"
+  },
+  "free_bytes_at_observation": 89863770112,
+  "input_file_states": {
+    ".github/workflows/wamp-profile-benchmarks.yml": "observed_file_data",
+    "bin/bootstrap": "observed_file_data",
+    "pubspec.yaml": "observed_file_data",
+    "pubspec.lock": "absent_at_open",
+    "native/bench/Cargo.toml": "observed_file_data",
+    "native/bench/Cargo.lock": "absent_at_open",
+    "native/transport/Cargo.toml": "observed_file_data",
+    "native/transport/Cargo.lock": "absent_at_open"
+  },
+  "path_resolutions": {
+    "dart": {
+      "path_search_result": "/opt/hostedtoolcache/dart/3.13.5/x64/bin/dart",
+      "realpath": "/opt/hostedtoolcache/dart/3.13.5/x64/bin/dart",
+      "file": {
+        "requested_path": "/opt/hostedtoolcache/dart/3.13.5/x64/bin/dart",
+        "state": "observed_file_data",
+        "sha256": "85261d86cfb808e762d7b951f2d9745d8746eb9f1f2f62547d87753fd001ea89",
+        "bytes_read": 4792704,
+        "before": [
+          33261,
+          9180789,
+          66305,
+          1,
+          1001,
+          1001,
+          4792704,
+          1793960550,
+          1793960546,
+          1793960546
+        ],
+        "after": [
+          33261,
+          9180789,
+          66305,
+          1,
+          1001,
+          1001,
+          4792704,
+          1793960550,
+          1793960546,
+          1793960546
+        ]
+      }
+    },
+    "rustc": {
+      "path_search_result": "/home/runner/.cargo/bin/rustc",
+      "realpath": "/home/runner/.cargo/bin/rustup",
+      "file": {
+        "requested_path": "/home/runner/.cargo/bin/rustup",
+        "state": "observed_file_data",
+        "sha256": "5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4",
+        "bytes_read": 21139856,
+        "before": [
+          33261,
+          351227,
+          66305,
+          1,
+          1001,
+          1001,
+          21139856,
+          1793960550,
+          1793568530,
+          1793570673
+        ],
+        "after": [
+          33261,
+          351227,
+          66305,
+          1,
+          1001,
+          1001,
+          21139856,
+          1793960550,
+          1793568530,
+          1793570673
+        ]
+      }
+    },
+    "cargo": {
+      "path_search_result": "/home/runner/.cargo/bin/cargo",
+      "realpath": "/home/runner/.cargo/bin/rustup",
+      "file": {
+        "requested_path": "/home/runner/.cargo/bin/rustup",
+        "state": "observed_file_data",
+        "sha256": "5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4",
+        "bytes_read": 21139856,
+        "before": [
+          33261,
+          351227,
+          66305,
+          1,
+          1001,
+          1001,
+          21139856,
+          1793960550,
+          1793568530,
+          1793570673
+        ],
+        "after": [
+          33261,
+          351227,
+          66305,
+          1,
+          1001,
+          1001,
+          21139856,
+          1793960550,
+          1793568530,
+          1793570673
+        ]
+      }
+    }
+  },
+  "journal_event_counts": {
+    "open_returned_before_read": 8,
+    "read_reached_eof": 8,
+    "close_attempt": 8,
+    "close_returned": 8,
+    "absent_at_open": 3
+  },
+  "host_info": [
+    "source_revision=7a7295a1bd3ee4a7910a246bf7f33f5e654d09e0",
+    "runner_image=ubuntu24/20261101.360.1/",
+    "uname=Linux runnervm7aw5e 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+    "dart=Dart SDK version: 3.13.5 (stable) (Tue Sep 29 01:00:52 2026 -0700) on \"linux_x64\"",
+    "rustc=rustc 1.99.0 (b940084d7 2026-09-28)"
+  ],
+  "all_admission_flags": false,
+  "point_file_data_not_full_native_origin_or_transitive_physical_EX_proof": true,
+  "ROOT_qualification": [
+    "Only this new setup job succeeded; all six existing jobs were skipped, not rerun.",
+    "Runner image ubuntu24/20261101.360.1 is newly observed and differs from historical 20261026.354.1; no favorable-host selection, host equality, target ABI or immutable cohort is inferred.",
+    "host-info runner_image has an extra terminal slash because the new copied printf supplies one combined argument to a two-field format. Original environment fields preserve the actual separate values. Raw file remains unchanged; no cosmetic rerun.",
+    "All three lockfiles are absent before bootstrap. This is observed pre-generation state, not an executed bug, permission to copy old locks, or a successful cohort/admission receipt.",
+    "rustc/cargo resolve to the same rustup proxy image, not actual compiler/cargo delegate images. Actual target/compiler/header/sysroot/runtime/access/FD/transitive/physical EX closure remains incomplete.",
+    "Eight observed opened-file read/close journals and three absent-at-open records do not prove atomic ABA, original origin, complete actor custody or live controller safety.",
+    "No new numerical campaign, production native build, Source20 adoption, final strict acceptance or clean final production CI occurred."
+  ]
+}

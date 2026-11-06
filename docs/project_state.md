@@ -9,6 +9,8 @@ PR #132 remains draft. Do not merge or claim performance acceptance yet.
 
 ## 2026-11-06 — Resume original Actions toolchain preparation
 
+The fresh [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42202140739) succeeded: job 127839762730 ran and all six existing campaign jobs were skipped. Artifact 13495096148 contains only preparation observations, file-operation journals and host information. No bootstrap, production build or numerical workload ran. The observed runner image is ubuntu24/20261101.360.1, different from the historical image; original Dart 3.13.5 and Rust 1.99.0 settings were retained. UID/GID 1001/1001 are setup observations, not original-driver credential admission. Rustc/cargo path resolution identifies the rustup proxy, and the three lockfiles are absent before bootstrap. Full compiler/delegate/input/cohort and actor/FD/physical-EX admission remains incomplete.
+
 The user selected the original GitHub Actions workflow and Linux/Dart toolchain. This answers the separate access request recorded below; the follow-up is active again in the same chat. Fresh nonnumerical preparation is authorized. Original workload, recipes and strict acceptance remain unchanged.
 
 A new isolated campaign uses the original Ubuntu 24.04, Dart 3.13.5 and Rust 1.99.0 setup and stops before bootstrap or native builds. Every existing workflow job remains byte-for-byte unchanged. Current twenty-helper source remains uncommitted, unimported and unadopted. See the [preparation declaration](research/2026-11-06-flatbuffers-actions-toolchain-preflight.md).
