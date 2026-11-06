@@ -1,0 +1,308 @@
+{
+  "source_commit": "3912440ca25d551ac8ed482ffde62a69a75cac58",
+  "branch": "codex/pr132-actions-c-header-environment-inputs-20261106",
+  "run_id": 42306040353,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42306040353",
+  "job_id": 128195470398,
+  "job_conclusion": "success",
+  "eighteen_previous_jobs": "skipped_not_rerun",
+  "artifact_id": 13545718450,
+  "artifact_bytes": 2040,
+  "artifact_sha256": "c23d402c829b28833ec5fc8355a81270af4c4b4a9fca7467ee332fc55628fe38",
+  "job_log_bytes": 40412,
+  "job_log_sha256": "e885a68cc02d825896db1a91aff0e0bc3ba80371d418bf4880f5415509bd3f80",
+  "all7_source_names": [
+    "CPATH",
+    "C_INCLUDE_PATH",
+    "CPLUS_INCLUDE_PATH",
+    "OBJC_INCLUDE_PATH",
+    "DEPENDENCIES_OUTPUT",
+    "SUNPRO_DEPENDENCIES",
+    "SOURCE_DATE_EPOCH"
+  ],
+  "ALL8_source_occurrences_retained": true,
+  "point_environment_observations": [
+    {
+      "source_environment_name": "CPATH",
+      "present_in_this_collector_environment": false,
+      "empty_value_when_present": null
+    },
+    {
+      "source_environment_name": "C_INCLUDE_PATH",
+      "present_in_this_collector_environment": false,
+      "empty_value_when_present": null
+    },
+    {
+      "source_environment_name": "CPLUS_INCLUDE_PATH",
+      "present_in_this_collector_environment": false,
+      "empty_value_when_present": null
+    },
+    {
+      "source_environment_name": "OBJC_INCLUDE_PATH",
+      "present_in_this_collector_environment": false,
+      "empty_value_when_present": null
+    },
+    {
+      "source_environment_name": "DEPENDENCIES_OUTPUT",
+      "present_in_this_collector_environment": false,
+      "empty_value_when_present": null
+    },
+    {
+      "source_environment_name": "SUNPRO_DEPENDENCIES",
+      "present_in_this_collector_environment": false,
+      "empty_value_when_present": null
+    },
+    {
+      "source_environment_name": "SOURCE_DATE_EPOCH",
+      "present_in_this_collector_environment": false,
+      "empty_value_when_present": null
+    }
+  ],
+  "full_actual_values_private_not_in_this_summary": true,
+  "report_bytes": 3958,
+  "report_sha256": "d08a8e3d9cba7c1d82d18ac20b1a7edcaa105ae4fc714b9b7d03a2be975c17cb",
+  "report_full_stream_matches_collector_write_record": true,
+  "native_information_queries": 0,
+  "candidate_executions": 0,
+  "environment_mutations": 0,
+  "all_admission_flags": false,
+  "qualification": "Current official CPP manual names and THIS collector point raw environment observations only. No value splitting/path resolution/default include/header/sysroot/language-target/Cargo/ABI/runtime/generated cohort/original driver/native actorFD/continuous official physicalEX-crash admission or RAM repair. Original setup separate UNADMITTED; no Source20/runtime adoption/SDK/header/native candidate query/build/numerical work.",
+  "interpretation": "EXPLICITLY_DERIVED_environment_summary_NOTfullrawvalues_report_or_journal",
+  "new_primary_source_name_reference": {
+    "phase": "NEW_ALL8_mentions_ALL7_CPP_names_matching_AFTER_complete_NOT_installed_authority",
+    "source_URL": "https://gcc.gnu.org/onlinedocs/cpp/Environment-Variables.html",
+    "ALL8_ordered_positive_source_mentions": [
+      {
+        "source_line": 8,
+        "source_environment_name": "CPATH"
+      },
+      {
+        "source_line": 9,
+        "source_environment_name": "C_INCLUDE_PATH"
+      },
+      {
+        "source_line": 10,
+        "source_environment_name": "CPLUS_INCLUDE_PATH"
+      },
+      {
+        "source_line": 11,
+        "source_environment_name": "OBJC_INCLUDE_PATH"
+      },
+      {
+        "source_line": 15,
+        "source_environment_name": "CPATH"
+      },
+      {
+        "source_line": 22,
+        "source_environment_name": "DEPENDENCIES_OUTPUT"
+      },
+      {
+        "source_line": 28,
+        "source_environment_name": "SUNPRO_DEPENDENCIES"
+      },
+      {
+        "source_line": 33,
+        "source_environment_name": "SOURCE_DATE_EPOCH"
+      }
+    ],
+    "ALL7_names_first_mention_order": [
+      "CPATH",
+      "C_INCLUDE_PATH",
+      "CPLUS_INCLUDE_PATH",
+      "OBJC_INCLUDE_PATH",
+      "DEPENDENCIES_OUTPUT",
+      "SUNPRO_DEPENDENCIES",
+      "SOURCE_DATE_EPOCH"
+    ],
+    "ALL7_per_name_source_locations": [
+      {
+        "source_environment_name": "CPATH",
+        "ALL_source_mention_lines": [
+          8,
+          15
+        ]
+      },
+      {
+        "source_environment_name": "C_INCLUDE_PATH",
+        "ALL_source_mention_lines": [
+          9
+        ]
+      },
+      {
+        "source_environment_name": "CPLUS_INCLUDE_PATH",
+        "ALL_source_mention_lines": [
+          10
+        ]
+      },
+      {
+        "source_environment_name": "OBJC_INCLUDE_PATH",
+        "ALL_source_mention_lines": [
+          11
+        ]
+      },
+      {
+        "source_environment_name": "DEPENDENCIES_OUTPUT",
+        "ALL_source_mention_lines": [
+          22
+        ]
+      },
+      {
+        "source_environment_name": "SUNPRO_DEPENDENCIES",
+        "ALL_source_mention_lines": [
+          28
+        ]
+      },
+      {
+        "source_environment_name": "SOURCE_DATE_EPOCH",
+        "ALL_source_mention_lines": [
+          33
+        ]
+      }
+    ],
+    "reference_categories": {
+      "include_search": [
+        "CPATH",
+        "C_INCLUDE_PATH",
+        "CPLUS_INCLUDE_PATH",
+        "OBJC_INCLUDE_PATH"
+      ],
+      "dependency_output": [
+        "DEPENDENCIES_OUTPUT",
+        "SUNPRO_DEPENDENCIES"
+      ],
+      "timestamp_macro_input": [
+        "SOURCE_DATE_EPOCH"
+      ]
+    },
+    "PATH_SEPARATOR_build_literal_NOT_environment_definition_selected": true,
+    "actual_tool_return_JSON_bytes": 4262,
+    "actual_tool_return_JSON_sha256": "026a3ae40a0d89c67505b6a0b946f853b6540bbac3c183c976cc92f13678b5a9",
+    "actual_tool_return_not_HTTP_response_body_receipt": true,
+    "original_source_bytes_preserved": true,
+    "v1_name_writer_permanently_terminal": true,
+    "actual_fault_and_minimal_preserving_fix_not_new_name_alone": true,
+    "matching_AFTER_ALL8_and_ALL7_source_assertions_passed_once": true,
+    "no_source_environment_value_normalization_schema_or_gate_change": true,
+    "qualification": "Current official manual SOURCE REFERENCE ONLY, not installed GCC implementation/version/build-time separator/default paths/effective Cargo or CPP env/argv/C-header/sysroot/ABI/runtime/cohort/driver/actorFD/physicalEX-crash authority. ALL7 support separately declared first original Actions environment collector only, with absence/present-empty/raw values distinct. No old4name query, SDK/compiler/header/native query, environment mutation/path resolution/automatic archive download/bootstrap/build/Source20-runtime adoption or numerical work. Prep parser fix NOT RAM/Source20 repair.",
+    "all_admission_flags": false,
+    "interpretation": "EXPLICITLY_DERIVED_source_names_metadata_NOTrawweb_tool_return_HTTPbody_or_installed_implementation"
+  },
+  "actual_prep_parser_fault_and_fix": {
+    "actual_source_mentions": 8,
+    "distinct_documented_names": 7,
+    "repeated_name": "CPATH",
+    "repeat_lines": [
+      8,
+      15
+    ],
+    "cause": "Source returned CPATH in heading and leading prose. The parser assumption one mention per distinct environment name was false, NOT a missing source/page/compiler bug.",
+    "minimal_preserving_fix": "Keep ALL8 ordered positive source mentions unchanged. Derive7 distinct collector names in first-mention order while retaining per-name ALL source occurrences. Preserve original source bytes and exact source-variable count assertions; no environment value/string normalization or acceptance schema/gate change.",
+    "original_source_save_namespace_permanently_terminal": true,
+    "actual_failed_body_not_retried": true,
+    "new_name_interpretation_v2_requires_actual_fault_and_this_fix_not_name_alone": true,
+    "failed_launcher_PID_separate_EOF_metadata": null,
+    "not_RAM_or_Source20_repair": true,
+    "all_admission_flags": false,
+    "interpretation": "EXPLICITLY_DERIVED_actual_prep_fault_and_minimal_fix_metadata",
+    "failed_source_name_writer_tool_reported_status": 1,
+    "source_name_writer_v1_permanently_terminal": true,
+    "matching_v2_tool_reported_status": 0,
+    "ALL8_source_mentions_and_ALL7_firstorder_names_preserved": true,
+    "raw_source_bytes_unmodified": true,
+    "source_holder71734_execsession30300_natural_SH_context_exit_observed": true,
+    "source_holder_exit_NOT_failed_name_writer_success_or_nativeactor_settlement": true,
+    "separate_launcher_PID_pipe_EOF_metadata": null,
+    "debug_ROOT_qualification": "Qwen72189natural0/full1089stdout184stderr/BOTH EOF/SAMEwait-maycached, advisory NOTapproval. Accept only independently demonstrated8positive source mentions/7distinct names withCPATH at8/15, minimal keepingALL8+per-name source locations/ALL7firstorder names. Reject generic downstream/model/source replay, approval or schema/gate normalization inference. Failedv1 remains terminal, freshv2 justified actualfault/minimalfix notnamealone. No advice-derived code/test/model relaunch."
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_review_and_input_qualification",
+    "review": "QwenREVIEW72515 natural0/full3734stdout271stderr/BOTH EOF/SAMEwaitmaycached; advisory NOTapproval. Reject P1 journal leak: enclosing outerfinally already invokes journal.close even if inner report close raises; failed close must preserve unknown ownership, never unconditional owner removal/handler settlement. Reject P2 no progress-check/zero-write spin: count<=0 raises before offset advance. A blocking/uncertain write remains unknown/quarantined; timeout/cap/socket-timeout/atomicity/retry advice is not scope or permission. EINTR/OSError propagates through inner FD finally and outerjournal finally; no automatic write retry/fake report. Crash/partial journal/report unknown and unadmitted; later report comparison is point data, not global nativeactorFD/continuous physicalEX-crash authentication. No advice-derived collector edit/test/model relaunch.",
+    "source_and_input": "Exact seven names explicitly new CPP input boundary, not guessed from absent old4names. ALL8source occurrences retained including CPATH2; seven unique query names preserve allC/C++/ObjC/dependency/time inputs without target/language filtering. No rawvalue normalization/split/header-root resolution/environment mutation; absent vs present-empty vs nonempty kept distinct inTHIS collector. Current official manual only; PATH_SEPARATOR build field stays unbound, no actual GCC version/build/default/selection/Cargo/header/sysroot/ABI/runtime/cohort/driver credentials/native actors/physicalEX admission. Original setup LinuxUbuntu24/Dart3.13.5/Rust1.99/PATH/env/argv/credentials/recipes unchanged; setup separateUNADMITTED. New localEX and knownactor statuses observed only, not remote nativeactor closure. No Source20/runtime adoption, bootstrap/build/capture/numerical work or LLVM/oldconfig/range/helper/query replay.",
+    "manual_semantics_not_installed_build_or_headers": true,
+    "all_values_report_journal_API_web_model_raw_PRIVATE": true,
+    "all_admission_flags": false
+  },
+  "archive": {
+    "regular_selected_members": 13,
+    "original_declaration_collector_completion_files": 9,
+    "explicitly_derived_metadata_files": 4,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 7338,
+    "archive_sha256": "3c4df7261a2446c02fd3c7c8a051e28ae21cda580724c2c4b32501a34500c842",
+    "not_full_raw_directory_Source20_or_runtime_input_package": true,
+    "members": [
+      {
+        "name": "original-new-source-declaration.json",
+        "bytes": 2765,
+        "sha256": "767db776afacbef1369b691ea346a92a7a57ab447bdc70e17f05e6d5ab33c425"
+      },
+      {
+        "name": "original-ALL7-collector.py",
+        "bytes": 4821,
+        "sha256": "37de10273c555d82e4ad85d8d74114ab683c3f99487393b7cab4d0ce466db313"
+      },
+      {
+        "name": "original-candidate-validation.json",
+        "bytes": 525,
+        "sha256": "017eaac42e4d0dbaf03437b35d17508f9485cfcba2bc980c69aed5cd3b1b3837"
+      },
+      {
+        "name": "original-generation-completion.json",
+        "bytes": 362,
+        "sha256": "8784246a15309deb2d161863e49c9e77f91a34b8c4dab2a730eb8af5603fa111"
+      },
+      {
+        "name": "original-validation-completion.json",
+        "bytes": 362,
+        "sha256": "26f036ec716aa8eda0b9fa2389ab4ede1ae01bccef6359404f53321e106c31c4"
+      },
+      {
+        "name": "original-review-completion.json",
+        "bytes": 398,
+        "sha256": "e0cf311875eff1b98b5874e1a59323df156d6511a2e695e65d4cf9ee031bb296"
+      },
+      {
+        "name": "original-source-publication-receipt.json",
+        "bytes": 366,
+        "sha256": "89f62d6973f1f4f9356521f36013b31fbef04edc71cde361ae843c9dd5f51a6b"
+      },
+      {
+        "name": "original-minimal-AFTER-interpretation-declaration.json",
+        "bytes": 978,
+        "sha256": "a9ff436c8c932c5dd19cd88a97dd7f9c4eff078f12fe2cef2a991bf438fa4591"
+      },
+      {
+        "name": "original-parser-debug-completion.json",
+        "bytes": 398,
+        "sha256": "df73bc20a033110b9e14413e9f09685b35306a914bebcb3bb7264e0aeee58de4"
+      },
+      {
+        "name": "derived/ALL7-point-environment-observations.json",
+        "bytes": 2907,
+        "sha256": "ecf24f3b48ae0c19f7720a098dcbac922323aa3233ecca2ba17c3a85bf866494"
+      },
+      {
+        "name": "derived/ALL8-mentions-ALL7-name-source-qualification.json",
+        "bytes": 3695,
+        "sha256": "02d97891811e385ebb5008c68737a007c43a108d2c4925a26b441f56cea1c8b3"
+      },
+      {
+        "name": "derived/actual-source-name-parser-fault-and-preserving-fix.json",
+        "bytes": 2047,
+        "sha256": "3952b18fc74a817a7f270197568c3d04cbeae0dbd3a4427a9cc6625a20c21493"
+      },
+      {
+        "name": "derived/ROOT-review-and-input-qualification.json",
+        "bytes": 2052,
+        "sha256": "78e592a2692883b74ba9481ab8bbd6d7a911ca607215a47557da445a5f6874ca"
+      }
+    ]
+  },
+  "private_exclusions": [
+    "actual full raw environment values, original report and operation journal",
+    "full original Actions ZIP/log/API/environment and known original child streams",
+    "actual full web-tool return, source parser controllers and before evidence",
+    "full local debug/review answers, all controllers and actual launcher returns"
+  ],
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
