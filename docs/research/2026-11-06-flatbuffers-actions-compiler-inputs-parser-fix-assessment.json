@@ -1,0 +1,366 @@
+{
+  "component": "Original Actions compiler input acquisition and prep-parser regression/fix",
+  "BEFORE": {
+    "source": "2bde40bfc1dc10c547d8d77ae4e9407579c3437b",
+    "run_id": 42204409558,
+    "job_id": 127847343166,
+    "conclusion": "failure",
+    "artifact_id": 13496605176,
+    "artifact_bytes": 78542221,
+    "artifact_sha256": "36591741f755db0b554658d592c6010f52d7174a396264ca0a87313dcfa3ea32",
+    "actual_image_and_ELF_fields": {
+      "failed_saved_member": "inputs/rustc-driver-librustc_driver-999a121de2f042be.so",
+      "source_path_DATA": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/librustc_driver-999a121de2f042be.so",
+      "bytes": 158319840,
+      "sha256": "f45c41337f1516bb9f4d504a2a507202a01c431fc2063334913dde5480ffee03",
+      "actual_ELF_phoff": 88080384,
+      "actual_ELF_phentsize": 56,
+      "actual_ELF_phnum": 11,
+      "table_end": 88081000,
+      "prior_parser_prefix_bytes": 65536,
+      "full_table_within_saved_image": true,
+      "all_known_query_statuses": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "known_query_count": 6,
+      "successfully_saved_inputs_before_parser_fault": [
+        {
+          "saved": "inputs/rustc.image",
+          "bytes": 647376,
+          "sha256": "f3834d26669b03f6855fa54bd2381443123e860167bc0c7a8dd137e5cf6e5e4f"
+        },
+        {
+          "saved": "inputs/cargo.image",
+          "bytes": 36160240,
+          "sha256": "e951141cc55a6cd7b9876d187bd30a3720e6086b99413af95e3b8de1cdd72f14"
+        },
+        {
+          "saved": "inputs/rustc-driver-librustc_driver-999a121de2f042be.so",
+          "bytes": 158319840,
+          "sha256": "f45c41337f1516bb9f4d504a2a507202a01c431fc2063334913dde5480ffee03"
+        }
+      ],
+      "no_successful_compiler_input_report": true,
+      "all_admission_flags": false
+    },
+    "replayed": false
+  },
+  "local_matching_AFTER": {
+    "file_cases": 3,
+    "pass": 3,
+    "fail": 0,
+    "error": 0,
+    "same_actual_failed_image": true,
+    "not_native_tool_execution_or_production_test": true
+  },
+  "Actions_matching_AFTER": {
+    "before_run_id": 42204409558,
+    "after_run_id": 42206010056,
+    "after_job_id": 127852706722,
+    "after_artifact_id": 13495854411,
+    "after_artifact_bytes": 83913731,
+    "after_artifact_sha256": "25c738a1e8f11ccdbbd7fd6f090c44a8abdc7a337959b8c3979aefb0a09851a6",
+    "after_job_log_bytes": 49824,
+    "after_job_log_sha256": "7156f68902eaaf01c9bf82222e0a6d98e4bba27ec7e44a9cd804ee8475448744",
+    "other_job_conclusions": [
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped"
+    ],
+    "known_query_statuses": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "input_image_count": 6,
+    "input_images": [
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/bin/rustc",
+        "saved": "inputs/rustc.image",
+        "bytes_read": 647376,
+        "sha256": "f3834d26669b03f6855fa54bd2381443123e860167bc0c7a8dd137e5cf6e5e4f",
+        "before": [
+          33261,
+          7602328,
+          2049,
+          1,
+          1001,
+          1001,
+          647376,
+          1793962468,
+          1793962463,
+          1793962468
+        ],
+        "after": [
+          33261,
+          7602328,
+          2049,
+          1,
+          1001,
+          1001,
+          647376,
+          1793962468,
+          1793962463,
+          1793962468
+        ],
+        "saved_stream_readback_byteexact": true,
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": "/lib64/ld-linux-x86-64.so.2",
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        }
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/bin/cargo",
+        "saved": "inputs/cargo.image",
+        "bytes_read": 36160240,
+        "sha256": "e951141cc55a6cd7b9876d187bd30a3720e6086b99413af95e3b8de1cdd72f14",
+        "before": [
+          33261,
+          7602242,
+          2049,
+          1,
+          1001,
+          1001,
+          36160240,
+          1793962468,
+          1793962461,
+          1793962461
+        ],
+        "after": [
+          33261,
+          7602242,
+          2049,
+          1,
+          1001,
+          1001,
+          36160240,
+          1793962468,
+          1793962461,
+          1793962461
+        ],
+        "saved_stream_readback_byteexact": true,
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": "/lib64/ld-linux-x86-64.so.2",
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        }
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/librustc_driver-999a121de2f042be.so",
+        "saved": "inputs/rustc-driver-librustc_driver-999a121de2f042be.so",
+        "bytes_read": 158319840,
+        "sha256": "f45c41337f1516bb9f4d504a2a507202a01c431fc2063334913dde5480ffee03",
+        "before": [
+          33188,
+          7602349,
+          2049,
+          1,
+          1001,
+          1001,
+          158319840,
+          1793962468,
+          1793962468,
+          1793962468
+        ],
+        "after": [
+          33188,
+          7602349,
+          2049,
+          1,
+          1001,
+          1001,
+          158319840,
+          1793962468,
+          1793962468,
+          1793962468
+        ],
+        "saved_stream_readback_byteexact": true,
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        }
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/libstd-44675f186029a4cd.so",
+        "saved": "inputs/target-libstd-44675f186029a4cd.so",
+        "bytes_read": 2857168,
+        "sha256": "eecfd9cf54451e1f7f89d14d72dea1e47c12a4e4de68ce17ea133fb2cf03aa09",
+        "before": [
+          33261,
+          7602318,
+          2049,
+          1,
+          1001,
+          1001,
+          2857168,
+          1793962463,
+          1793962463,
+          1793962463
+        ],
+        "after": [
+          33261,
+          7602318,
+          2049,
+          1,
+          1001,
+          1001,
+          2857168,
+          1793962469,
+          1793962463,
+          1793962463
+        ],
+        "saved_stream_readback_byteexact": true,
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        }
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/libstd-44675f186029a4cd.rlib",
+        "saved": "inputs/target-libstd-44675f186029a4cd.rlib",
+        "bytes_read": 12240594,
+        "sha256": "fac69b9ff15fec1098a5de2ec37129dbbb95d8234c43b28d09f619f62fa2538f",
+        "before": [
+          33188,
+          7602306,
+          2049,
+          1,
+          1001,
+          1001,
+          12240594,
+          1793962463,
+          1793962463,
+          1793962463
+        ],
+        "after": [
+          33188,
+          7602306,
+          2049,
+          1,
+          1001,
+          1001,
+          12240594,
+          1793962469,
+          1793962463,
+          1793962463
+        ],
+        "saved_stream_readback_byteexact": true,
+        "elf_header": null
+      },
+      {
+        "source": "/lib64/ld-linux-x86-64.so.2",
+        "saved": "inputs/elf-interpreter-0.image",
+        "bytes_read": 236616,
+        "sha256": "c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da",
+        "before": [
+          33261,
+          6452,
+          2049,
+          1,
+          0,
+          0,
+          236616,
+          1793962404,
+          1788444912,
+          1792556252
+        ],
+        "after": [
+          33261,
+          6452,
+          2049,
+          1,
+          0,
+          0,
+          236616,
+          1793962404,
+          1788444912,
+          1792556252
+        ],
+        "saved_stream_readback_byteexact": true,
+        "elf_header": {
+          "class_byte": 2,
+          "endianness_byte": 1,
+          "machine_field": 62,
+          "interpreter_field": null,
+          "qualification": "Static image fields, not actual exec/mappings or full target ABI"
+        }
+      }
+    ],
+    "actual_after_driver_sha256": "f45c41337f1516bb9f4d504a2a507202a01c431fc2063334913dde5480ffee03",
+    "actual_after_driver_bytes": 158319840,
+    "same_actual_before_failed_driver_bytes": true,
+    "metadata_report_bytes": 10552,
+    "metadata_report_sha256": "fc0c3df70ca34c0ded48711eb1bf4c44d96177c70f7e8cc1e64c36fa46b9bd06",
+    "setup_environment": {
+      "PATH": "/home/runner/.pub-cache/bin:/opt/hostedtoolcache/dart/3.13.5/x64/bin:/snap/bin:/home/runner/.local/bin:/opt/pipx_bin:/home/runner/.cargo/bin:/home/runner/.config/composer/vendor/bin:/usr/local/.ghcup/bin:/home/runner/.dotnet/tools:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin",
+      "RUSTUP_TOOLCHAIN": "1.99.0",
+      "ImageOS": "ubuntu24",
+      "ImageVersion": "20261101.360.1",
+      "RUNNER_OS": "Linux",
+      "RUNNER_ARCH": "X64"
+    },
+    "setup_uid": 1001,
+    "setup_gid": 1001,
+    "source20_edit_import_adoption": false,
+    "all_admission_flags": false,
+    "qualification": "Actual prep-parser BEFORE failure/local file AFTER3PASS/changed-source Actions AFTER success; not production RAM repair, full ABI/cohort/actor/EX admission or strict acceptance"
+  },
+  "full_SDK_bodies": "Preserved in two actual private artifact ZIPs; excluded from public selected archive. Public hashes/indexes name saved bytes, not full native origin or immutable runtime proof.",
+  "source_fix": "Same retained destination FD, validated full-saved-stream ranges via pread before existing finally closes; no larger prefix cap or SDK/wrapper/recipe change.",
+  "review_qualifications": {
+    "initial_review": {
+      "pid": 22887,
+      "signed_status": 0,
+      "stdout_bytes": 8358,
+      "stderr_bytes": 528,
+      "full_both_EOF": true,
+      "ROOT": "Invented Path.name traversal/OOB and intended-failure claims rejected; actual prefix fault established by later real execution, not model approval."
+    },
+    "actual_failure_debug": {
+      "pid": 27991,
+      "signed_status": 0,
+      "stdout_bytes": 1801,
+      "stderr_bytes": 270,
+      "full_both_EOF": true,
+      "ROOT": "Offset diagnosis independently verified; second root restates same fault; keep finally close on failure too."
+    },
+    "final_fix_review": {
+      "pid": 29743,
+      "signed_status": 1,
+      "stdout_bytes": 0,
+      "stderr_bytes": 443,
+      "both_EOF": true,
+      "token_limit": true,
+      "final_or_partial_answer_reconstructed": false,
+      "approval_or_backend_unavailability_inferred": false,
+      "repeated": false
+    }
+  },
+  "input_custody_limit": "File data/readback and static ELF fields only; no full target ABI, effective linker/C headers/complete runtime or original cohort/credential/native actor/physical EX admission.",
+  "source20_edits_import_adoption": false,
+  "production_RAM_cause_repair_final_strict48_50_clean_final_CI": "INCOMPLETE",
+  "all_admission_flags": false
+}

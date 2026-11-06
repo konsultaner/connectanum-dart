@@ -2,6 +2,14 @@
 
 Status: active; the user resumed the FlatBuffers milestone after the MQTT/master integration. Started: 2026-10-03.
 
+## 2026-11-06 — Repair preparation parsing on actual compiler inputs
+
+A new original Actions preparation exposed a real metadata-parser failure: the installed Rust compiler library has a valid ELF program table at byte 88,080,384, beyond the new parser's 65,536-byte prefix. The full 158,319,840-byte library was preserved before fixing the parser; the original failed run was not repeated.
+
+The minimal fix reads validated ranges through the same retained saved-file FD before its existing finally closes. Three matching file-data checks pass on the identical failing library and normal Rust/Cargo images. The changed-source [Actions after-run](https://github.com/konsultaner/connectanum-dart/actions/runs/42206010056) succeeds; all seven other jobs are skipped. Six PATH tool queries per phase returned signed zero. Six complete SDK/runtime input images are now retained privately; their actual compiler library bytes match the before artifact. These are preparation observations, not production regression tests or RAM repair.
+
+Original Ubuntu 24.04, Dart 3.13.5 and Rust 1.99.0 settings and all existing campaign jobs remain unchanged. No bootstrap, dependency resolution, native build, benchmark, Source20 edit/import/adoption or numerical campaign ran. Full ABI/linker/C-header/runtime, generated-output/cohort, native actor/FD and physical EX admission remains incomplete, with all admission flags false. Final strict48/50 and clean final production CI remain required. See the [record and evidence](../research/2026-11-06-flatbuffers-actions-compiler-inputs-parser-fix.md).
+
 ## 2026-11-06 — Resume original Actions toolchain preparation
 
 The fresh [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42202140739) succeeded: job 127839762730 ran and all six existing campaign jobs were skipped. Artifact 13495096148 contains only preparation observations, file-operation journals and host information. No bootstrap, production build or numerical workload ran. The observed runner image is ubuntu24/20261101.360.1, different from the historical image; original Dart 3.13.5 and Rust 1.99.0 settings were retained. UID/GID 1001/1001 are setup observations, not original-driver credential admission. Rustc/cargo path resolution identifies the rustup proxy, and the three lockfiles are absent before bootstrap. Full compiler/delegate/input/cohort and actor/FD/physical-EX admission remains incomplete.
