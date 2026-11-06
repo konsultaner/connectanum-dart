@@ -1,0 +1,259 @@
+{
+  "new_static_summary": {
+    "question": "NEW original C-tool/header/sysroot input-reference boundary: interpret previously uninspected ELF section-header fields and actual read-only configuration text in ALL retained gcc/cc/ld candidates, before any candidate execution.",
+    "all_three_candidate_names": [
+      "gcc",
+      "cc",
+      "ld"
+    ],
+    "new_image_selected_range_count": 9,
+    "new_image_selected_range_bytes": 1977201,
+    "retained_context_header_new_field_bytes": 42,
+    "candidates": [
+      {
+        "candidate_name": "gcc",
+        "historical_stream_sha256_NOT_refreshed": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+        "retained_header_new_section_fields": {
+          "shoff": 1020792,
+          "shentsize": 64,
+          "shnum": 35,
+          "shstrndx": 34
+        },
+        "positive_rodata_section": [
+          {
+            "index": 18,
+            "name": ".rodata",
+            "type": 1,
+            "flags": 2,
+            "offset": 417792,
+            "bytes": 513872
+          }
+        ],
+        "configuration_text_reference_count": 25,
+        "configure_command_text_hashes": [
+          {
+            "bytes": 1317,
+            "sha256": "f3ff3c7d81287758b4de5f9a339147bf6ce8c9f47edce33205fcf39c9c5f9ad5"
+          }
+        ],
+        "observed_literal_environment_names": [
+          "GCC_EXEC_PREFIX",
+          "COMPILER_PATH",
+          "LIBRARY_PATH"
+        ],
+        "observed_literal_interface_tokens": [
+          "--print-sysroot",
+          "-print-sysroot-headers-suffix",
+          "include-fixed",
+          "--print-sysroot-headers-suffix"
+        ]
+      },
+      {
+        "candidate_name": "cc",
+        "historical_stream_sha256_NOT_refreshed": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+        "retained_header_new_section_fields": {
+          "shoff": 1020792,
+          "shentsize": 64,
+          "shnum": 35,
+          "shstrndx": 34
+        },
+        "positive_rodata_section": [
+          {
+            "index": 18,
+            "name": ".rodata",
+            "type": 1,
+            "flags": 2,
+            "offset": 417792,
+            "bytes": 513872
+          }
+        ],
+        "configuration_text_reference_count": 25,
+        "configure_command_text_hashes": [
+          {
+            "bytes": 1317,
+            "sha256": "f3ff3c7d81287758b4de5f9a339147bf6ce8c9f47edce33205fcf39c9c5f9ad5"
+          }
+        ],
+        "observed_literal_environment_names": [
+          "GCC_EXEC_PREFIX",
+          "COMPILER_PATH",
+          "LIBRARY_PATH"
+        ],
+        "observed_literal_interface_tokens": [
+          "--print-sysroot",
+          "-print-sysroot-headers-suffix",
+          "include-fixed",
+          "--print-sysroot-headers-suffix"
+        ]
+      },
+      {
+        "candidate_name": "ld",
+        "historical_stream_sha256_NOT_refreshed": "e9ceb054c12207970f2726dfc07e9a66b411602748628baf27399f02a9bbb31b",
+        "retained_header_new_section_fields": {
+          "shoff": 1357208,
+          "shentsize": 64,
+          "shnum": 30,
+          "shstrndx": 29
+        },
+        "positive_rodata_section": [
+          {
+            "index": 18,
+            "name": ".rodata",
+            "type": 1,
+            "flags": 2,
+            "offset": 348160,
+            "bytes": 942057
+          }
+        ],
+        "configuration_text_reference_count": 6,
+        "configure_command_text_hashes": [],
+        "observed_literal_environment_names": [
+          "LD_LIBRARY_PATH"
+        ],
+        "observed_literal_interface_tokens": [
+          "print-sysroot"
+        ]
+      }
+    ],
+    "positive_configure_arguments_as_static_text_only": [
+      "--prefix=/usr",
+      "--libexecdir=/usr/libexec",
+      "--libdir=/usr/lib",
+      "--program-suffix=-13",
+      "--program-prefix=x86_64-linux-gnu-"
+    ],
+    "actual_effective_C_header_roots": null,
+    "actual_Cargo_target_config_env": null,
+    "actual_compiler_build_default_linker": null,
+    "candidate_executions": 0,
+    "native_information_queries": 0,
+    "full_image_hash_refreshes": 0,
+    "all_admission_flags": false,
+    "not_runtime_ownership_ABI_cohort_or_RAM_repair": true
+  },
+  "qualifications": "The selected configuration strings, prefix/install directory arguments, program naming text, environment names and help/diagnostic literals are input references only. They do not establish actual compiler-build defaults, effective Cargo target/config/environment, selected compiler/linker, C-header/sysroot/ABI, original argv/credentials/loaded mapping, generated cohort, transitive actor/FD ownership or continuous official physical EX/crash closure. A diagnostic literal about a sysroot headers suffix is not an observed error or a configuration result. Absence of a header root in this selection is not global absence or permission to guess /usr/include. Identical GCC/cc text is not original-exec/cohort equality. Historical hashes were not refreshed. Full raw selected section bytes, context bytes, full configuration strings, FD journal and controllers remain private. No candidate/native information/header/preprocessor/SDK/build/workload query, Source20/runtime adoption or numerical work occurred. All flags false; RAM cause/repair, full original immutable admission, own FINAL strict48/50 and clean final production CI incomplete.",
+  "source_range_index": [
+    {
+      "candidate": "gcc",
+      "kind": "NEW-section-table",
+      "offset": 1020792,
+      "bytes": 2240,
+      "saved": "gcc-NEW-section-table.bin",
+      "sha256": "cf7d1a5e6485981a069d6fb0ad1bf99a6772f4d81c653eaad5ad7659f525e880"
+    },
+    {
+      "candidate": "gcc",
+      "kind": "NEW-section-name-table",
+      "offset": 1020436,
+      "bytes": 356,
+      "saved": "gcc-NEW-section-name-table.bin",
+      "sha256": "a200387a7fc3883c267d967c29de4a42230524abec98b6002a79a7ef278a3186"
+    },
+    {
+      "candidate": "gcc",
+      "kind": "NEW-positive-rodata",
+      "offset": 417792,
+      "bytes": 513872,
+      "saved": "gcc-NEW-positive-rodata.bin",
+      "sha256": "f0d8534674fffafc30da34d069cdf71c717b53345487e205105af99ffa920119"
+    },
+    {
+      "candidate": "cc",
+      "kind": "NEW-section-table",
+      "offset": 1020792,
+      "bytes": 2240,
+      "saved": "cc-NEW-section-table.bin",
+      "sha256": "cf7d1a5e6485981a069d6fb0ad1bf99a6772f4d81c653eaad5ad7659f525e880"
+    },
+    {
+      "candidate": "cc",
+      "kind": "NEW-section-name-table",
+      "offset": 1020436,
+      "bytes": 356,
+      "saved": "cc-NEW-section-name-table.bin",
+      "sha256": "a200387a7fc3883c267d967c29de4a42230524abec98b6002a79a7ef278a3186"
+    },
+    {
+      "candidate": "cc",
+      "kind": "NEW-positive-rodata",
+      "offset": 417792,
+      "bytes": 513872,
+      "saved": "cc-NEW-positive-rodata.bin",
+      "sha256": "f0d8534674fffafc30da34d069cdf71c717b53345487e205105af99ffa920119"
+    },
+    {
+      "candidate": "ld",
+      "kind": "NEW-section-table",
+      "offset": 1357208,
+      "bytes": 1920,
+      "saved": "ld-NEW-section-table.bin",
+      "sha256": "cc614d11800bda6e2007fd2486407253d9333254fa56b451c258dc1c3e476d6e"
+    },
+    {
+      "candidate": "ld",
+      "kind": "NEW-section-name-table",
+      "offset": 1356913,
+      "bytes": 288,
+      "saved": "ld-NEW-section-name-table.bin",
+      "sha256": "26432579415cc74087cb732254bcad7effd40932ff6c702556d7c524e5b79111"
+    },
+    {
+      "candidate": "ld",
+      "kind": "NEW-positive-rodata",
+      "offset": 348160,
+      "bytes": 942057,
+      "saved": "ld-NEW-positive-rodata.bin",
+      "sha256": "0d69ce5c204f0fb769f466956eafb952c9cbe16bcb951fee360017bf0f503012"
+    }
+  ],
+  "archive": {
+    "regular_selected_members": 5,
+    "one_original_declaration_four_explicitly_derived_metadata_files": true,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 3006,
+    "archive_sha256": "f203001d482cd975ebe9f4ab432c1aaad6599fee43ff96789303f481c1e4b5d0",
+    "not_full_directory_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "declaration.json",
+        "bytes": 1458,
+        "sha256": "bf7a66a37d0e641c95368cee96b06c88f901e0191d9c405d838ae9db3aebad22"
+      },
+      {
+        "name": "selected/derived-public-static-summary.json",
+        "bytes": 3912,
+        "sha256": "dacdc5ac05ddfb1c313b6e5e089c09c4bdc24e6f209340b4e082d9ccd61a2805"
+      },
+      {
+        "name": "selected/derived-range-index.json",
+        "bytes": 2112,
+        "sha256": "a901b9eb6b34a9b6da365ba2852a33171f65b6446b13e38ee107dd0a1f3d2963"
+      },
+      {
+        "name": "selected/qualifications.txt",
+        "bytes": 1141,
+        "sha256": "49129d4799d9a89b2d48dde7dbf88c2152efa82cda1a01f5eb1046337b17ab5f"
+      },
+      {
+        "name": "selected/actual-tool-exit-observation.json",
+        "bytes": 255,
+        "sha256": "8493f5e126c45f8b3f548ebd921f38ac8fa505442b8ad4dfc400c207a0bf5c7d"
+      }
+    ]
+  },
+  "known_execution_scope": {
+    "previous_1735_static_initial_plus_wait_refusals": 7,
+    "previous_original68804": "natural1_before_all_target_IO",
+    "1750_startup_initial_plus_wait_refusals": 7,
+    "original1750_execsession13296": "natural1_before_checkpoint_docs_policy_target_reads",
+    "1805_first_static_body": "exec_tool_exit0_without_new_refusal",
+    "no_new_Actions_dispatch": true,
+    "no_model_review_or_test_campaign": true,
+    "publication_pre_target_EX_refusals": 0
+  },
+  "provider_route": "original_GitHub_Actions_selected_NOT_runtime_admitted",
+  "controller": "CLOSED_observed_original_completion_only",
+  "ownership": null,
+  "all_admission_flags": false,
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}

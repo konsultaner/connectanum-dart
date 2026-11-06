@@ -1,5 +1,14 @@
 # Project State
 
+## 2026-11-06: C-tool configuration/header input frontier
+
+A genuinely new static question interpreted42previously retained header-context bytes and read9newsection/name/.rodata ranges (1,977,201bytes) in ALLthree original Actions gcc/cc/ld candidates. The selected text exposes compiler prefix/program naming, search-path environment names, sysroot interfaces and include-fixed references. These do not establish actual effective C-header paths, Cargo target/config-env, compiler-build/default-linker values, ABI, original execution, loaded runtime/cohort or native actorFD/continuous physical EX/crash admission.
+
+The static body completed once; earlier lease refusals occurred before all target I/O. No candidate/native-information/header/SDK query, new Actions dispatch, Source20/runtime adoption, bootstrap/build or numerical work ran. [New record](research/2026-11-06-flatbuffers-c-tool-configuration-header-frontier.md):5selectedregularmembers (one original declaration/four explicitly derived metadata files), byteexact archive SHA-256 f203001d482cd975ebe9f4ab432c1aaad6599fee43ff96789303f481c1e4b5d0; fullrawsections/configuration/FD/controller evidence remain private. All new static reads and publication are consumed. All admission flags remain false; RAM cause/repair, immutable original admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE.
+
+Next: independently establish a source-tied actual original compiler/default-linker/effective Cargo configuration/environment and C-header/sysroot input boundary before execution. No static-string execution authority, guessed tools/paths/ABI/default cc, unsupported flags, old component replay, favorable cohort, old-input transplant, Source20 adoption or GC/copy/gate/workload change. Applicable complete original source/tool/header/runtime/credentials/argv/env/cohort/native actorFD/continuous official physical EX/crash preflight remains required before bootstrap/build/diagnostic/canonical work. Memory floors are not authority. Same-chat follow-up remains active.
+
+
 ## 2026-11-06: original Actions transitive C-runtime references
 
 The new [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42261755971) succeeds at source 791906bbf6e9058de78aad0f8d010e4fdfc217d0. All fourteen prior jobs were unchanged and skipped; original Ubuntu24.04/Dart3.13.5/Rust1.99.0 recipes remain unchanged. A new static question over all three BFD/CTF/Jansson library interiors read15selectedranges/31,467bytes and exposed three additional needed names. A distinct three-name retained-catalogue lookup supplied all three path references without ABI/host filtering.
