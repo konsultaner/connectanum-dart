@@ -40,6 +40,7 @@ on:
           - flatbuffers_compiler_inputs
           - flatbuffers_linkage_inputs
           - flatbuffers_wrapper_delegates
+          - flatbuffers_cargo_config_inputs
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -1720,5 +1721,222 @@ jobs:
         name: flatbuffers-wrapper-delegates-${{ github.sha }}-${{ github.run_attempt
           }}
         path: out/wamp-flatbuffers-wrapper-delegates
+        if-no-files-found: error
+        retention-days: 30
+
+  flatbuffers-cargo-config-inputs:
+    name: FlatBuffers Cargo configuration inputs (no build)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_cargo_config_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-cargo-config-inputs-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Acquire LLVM and static loader-catalog input candidates
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+        from pathlib import Path
+        import re
+        import struct
+  
+        root = Path.cwd()
+        out = root / "out/wamp-flatbuffers-cargo-config-inputs"
+        out.mkdir(parents=True, exist_ok=False)
+        (out / "inputs").mkdir()
+        journal = (out / "operations.jsonl").open("x")
+  
+        def event(row):
+            journal.write(json.dumps(row, sort_keys=True) + "\n")
+            journal.flush()
+  
+        def elf_header_data(fd, file_bytes):
+            def read_at(offset, size):
+                if offset < 0 or size < 0 or offset + size > file_bytes:
+                    raise RuntimeError("ELF range exceeds the verified saved stream")
+                data = os.pread(fd, size, offset)
+                if len(data) != size:
+                    raise RuntimeError("ELF range read incomplete; no guessed parsing")
+                return data
+  
+            header = read_at(0, min(file_bytes, 64))
+            if header[:4] != b"\x7fELF" or len(header) < 64:
+                return None
+            bits = header[4]
+            endian = {1: "<", 2: ">"}.get(header[5])
+            if bits != 2 or endian is None:
+                return None
+            machine = struct.unpack_from(endian + "H", header, 18)[0]
+            phoff = struct.unpack_from(endian + "Q", header, 32)[0]
+            phsize, phnum = struct.unpack_from(endian + "HH", header, 54)
+            if phnum and (phsize < 56 or phoff + phsize * phnum > file_bytes):
+                raise RuntimeError("ELF program table exceeds the verified saved stream")
+            interpreter = None
+            for i in range(phnum):
+                entry = read_at(phoff + i * phsize, 56)
+                typ, flags, offset, va, pa, size, memsize, align = struct.unpack(endian + "IIQQQQQQ", entry)
+                if typ == 3:
+                    interpreter = read_at(offset, size).rstrip(b"\0").decode("utf-8")
+            return {"class_byte": bits, "endianness_byte": header[5],
+                    "machine_field": machine, "interpreter_field": interpreter,
+                    "qualification": "Static image fields, not actual exec/mappings or full target ABI"}
+  
+        def preserve_optional(label, source):
+            source = Path(source)
+            target = out / "inputs" / label
+            event({"operation": "source_open_request", "source": str(source), "label": label})
+            try:
+                src_fd = os.open(source, os.O_RDONLY)
+            except FileNotFoundError:
+                row = {"source": str(source), "absent_at_source_open": True, "qualification": "point observation only; no stable/global absence or effective Cargo proof"}
+                event({"operation": "source_open_absent", **row})
+                return row
+            # Register returned handles in strong local state before reading.
+            owned = {"source_fd": src_fd, "source": str(source), "destination": str(target)}
+            dst_fd = None
+            try:
+                event({"operation": "input_open_returned_before_read", **owned})
+                before = os.fstat(src_fd)
+                dst_fd = os.open(target, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o644)
+                owned["destination_fd"] = dst_fd
+                event({"operation": "output_open_returned_before_write", **owned})
+                h = hashlib.sha256()
+                count = 0
+                while True:
+                    data = os.read(src_fd, 1024 * 1024)
+                    if not data:
+                        break
+                    h.update(data)
+                    count += len(data)
+                    cursor = 0
+                    while cursor < len(data):
+                        written = os.write(dst_fd, data[cursor:])
+                        if written <= 0:
+                            raise RuntimeError("Unknown/zero write; no resend recovery")
+                        event({"operation": "known_write_return", "source_offset": count - len(data) + cursor, "returned_bytes": written, "requested_bytes": len(data) - cursor})
+                        cursor += written
+                os.lseek(dst_fd, 0, os.SEEK_SET)
+                copied_hash = hashlib.sha256()
+                copied_count = 0
+                while True:
+                    copied = os.read(dst_fd, 1024 * 1024)
+                    if not copied:
+                        break
+                    copied_hash.update(copied)
+                    copied_count += len(copied)
+                if copied_count != count or copied_hash.hexdigest() != h.hexdigest():
+                    raise RuntimeError("Saved stream readback mismatch; terminal")
+                after = os.fstat(src_fd)
+                row = {"source": str(source), "saved": "inputs/" + label,
+                       "bytes_read": count, "sha256": h.hexdigest(),
+                       "before": list(before), "after": list(after), "saved_stream_readback_byteexact": True}
+                event({"operation": "input_eof_and_output_writes_returned", **row})
+                row["elf_header"] = elf_header_data(dst_fd, count)
+            finally:
+                # Actual native close results are journaled separately.
+                try:
+                    if dst_fd is not None:
+                        os.close(dst_fd)
+                        event({"operation": "destination_close_returned", "fd": dst_fd})
+                finally:
+                    os.close(src_fd)
+                    event({"operation": "source_close_returned", "fd": src_fd})
+            return row
+  
+        try:
+            literal_keys = [
+                "HOME", "CARGO_HOME", "RUSTUP_HOME", "RUSTUP_TOOLCHAIN", "PATH",
+                "RUSTC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RUSTDOC",
+                "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTDOCFLAGS", "CARGO_ENCODED_RUSTDOCFLAGS",
+                "CARGO_BUILD_TARGET", "CARGO_BUILD_RUSTC", "CARGO_BUILD_RUSTC_WRAPPER",
+                "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER", "CARGO_BUILD_RUSTDOC",
+                "CARGO_BUILD_RUSTFLAGS", "CARGO_BUILD_RUSTDOCFLAGS",
+                "CARGO_TARGET_DIR", "CARGO_BUILD_TARGET_DIR",
+                "CC", "CXX", "AR", "CFLAGS", "CXXFLAGS", "CPPFLAGS", "LDFLAGS",
+                "ImageOS", "ImageVersion", "RUNNER_OS", "RUNNER_ARCH",
+            ]
+            selected_env = {key: os.environ.get(key) for key in literal_keys}
+            for key, value in os.environ.items():
+                if (key.startswith("CARGO_TARGET_") and key.endswith(("_LINKER", "_RUSTFLAGS", "_RUSTDOCFLAGS", "_RUNNER"))) or re.fullmatch(r"(?:(?:HOST|TARGET)_)?(?:CC|CXX|AR|CFLAGS|CXXFLAGS|CPPFLAGS|LDFLAGS)(?:_[A-Za-z0-9_-]+)?", key):
+                    selected_env[key] = value
+            requests = []
+            for directory in [root, *root.parents]:
+                for name in ["config", "config.toml"]:
+                    requests.append({"path": str(directory / ".cargo" / name),
+                                     "origin": "actual cwd/ancestor candidate from Cargo reference; not effective selection"})
+            raw_home = os.environ.get("CARGO_HOME")
+            home = None
+            unresolved = []
+            if raw_home is None:
+                observed_home = os.environ.get("HOME")
+                if observed_home:
+                    home = Path(observed_home) / ".cargo"
+                else:
+                    unresolved.append("CARGO_HOME and nonempty HOME unavailable; no guessed home")
+            elif raw_home:
+                home = Path(raw_home)
+                if not home.is_absolute():
+                    home = root / home
+            else:
+                unresolved.append("CARGO_HOME is explicitly empty; actual Cargo interpretation not inferred")
+            if home is not None:
+                for name in ["config", "config.toml"]:
+                    requests.append({"path": str(home / name),
+                                     "origin": "actual CARGO_HOME or reference default from actual HOME; not runtime authority"})
+            files = {}
+            for request in requests:
+                path = request["path"]
+                if path in files:
+                    files[path]["source_references"].append(request)
+                    continue
+                row = preserve_optional("candidate-" + str(len(files)) + ".data", Path(path))
+                row["source_references"] = [request]
+                files[path] = row
+            report = {
+                "purpose": "NEW original Actions raw Cargo configuration-source candidates before bootstrap/build",
+                "workflow_revision": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"],
+                "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                "uid": os.getuid(), "gid": os.getgid(), "cwd": str(root),
+                "selected_environment": selected_env,
+                "candidate_requests_original_order": requests,
+                "file_observations": list(files.values()),
+                "unresolved_home_context": unresolved,
+                "native_information_queries": [],
+                "qualification": [
+                    "Both legacy/config.toml candidates are retained; this code does not implement actual Cargo probing, merge, include or effective-target/linker semantics",
+                    "Missing-at-source-open is a point observation before bootstrap, not a regression, generation permission, global absence or stable runtime proof",
+                    "Raw files may themselves reference more inputs; no complete generated-input/cohort/environment/credential or actor/FD closure is claimed",
+                    "Reference hierarchy and separate current setup observations do not prove installed Cargo 1.99 semantics or original exec/ABI/physical EX",
+                    "No credential file or token-variable intake; selected environment is not a complete effective driver environment",
+                    "No Cargo/compiler/linker/shell query, dependency resolution/bootstrap/native build/driver/broker/perf/benchmark, Source20 change/import/adoption or numerical workload",
+                    "No conventional cc/linker guess, old input transplantation, unlocked generation recipe or favorable cohort choice",
+                ],
+                "source_admitted": False, "live_admission": False,
+                "capture_ready": False, "evidence_complete": False,
+            }
+            with (out / "cargo-config-input-observations.json").open("x") as f:
+                json.dump(report, f, indent=2)
+                f.write("\n")
+        finally:
+            journal.close()
+  
+        PY
+    - name: Upload linkage preparation even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: flatbuffers-cargo-config-inputs-${{ github.sha }}-${{ github.run_attempt
+          }}
+        path: out/wamp-flatbuffers-cargo-config-inputs
         if-no-files-found: error
         retention-days: 30
