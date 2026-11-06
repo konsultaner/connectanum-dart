@@ -1034,6 +1034,37 @@ jobs:
                   raise RuntimeError("Unbound query path: " + label)
               return Path(lines[0])
           
+          def elf_header_data(fd, file_bytes):
+              def read_at(offset, size):
+                  if offset < 0 or size < 0 or offset + size > file_bytes:
+                      raise RuntimeError("ELF range exceeds the verified saved stream")
+                  data = os.pread(fd, size, offset)
+                  if len(data) != size:
+                      raise RuntimeError("ELF range read incomplete; no guessed parsing")
+                  return data
+          
+              header = read_at(0, min(file_bytes, 64))
+              if header[:4] != b"\x7fELF" or len(header) < 64:
+                  return None
+              bits = header[4]
+              endian = {1: "<", 2: ">"}.get(header[5])
+              if bits != 2 or endian is None:
+                  return None
+              machine = struct.unpack_from(endian + "H", header, 18)[0]
+              phoff = struct.unpack_from(endian + "Q", header, 32)[0]
+              phsize, phnum = struct.unpack_from(endian + "HH", header, 54)
+              if phnum and (phsize < 56 or phoff + phsize * phnum > file_bytes):
+                  raise RuntimeError("ELF program table exceeds the verified saved stream")
+              interpreter = None
+              for i in range(phnum):
+                  entry = read_at(phoff + i * phsize, 56)
+                  typ, flags, offset, va, pa, size, memsize, align = struct.unpack(endian + "IIQQQQQQ", entry)
+                  if typ == 3:
+                      interpreter = read_at(offset, size).rstrip(b"\0").decode("utf-8")
+              return {"class_byte": bits, "endianness_byte": header[5],
+                      "machine_field": machine, "interpreter_field": interpreter,
+                      "qualification": "Static image fields, not actual exec/mappings or full target ABI"}
+          
           def preserve(label, source):
               source = Path(source)
               target = out / "inputs" / label
@@ -1049,13 +1080,10 @@ jobs:
                   event({"operation": "output_open_returned_before_write", **owned})
                   h = hashlib.sha256()
                   count = 0
-                  prefix = bytearray()
                   while True:
                       data = os.read(src_fd, 1024 * 1024)
                       if not data:
                           break
-                      if len(prefix) < 65536:
-                          prefix.extend(data[:65536 - len(prefix)])
                       h.update(data)
                       count += len(data)
                       cursor = 0
@@ -1081,6 +1109,7 @@ jobs:
                          "bytes_read": count, "sha256": h.hexdigest(),
                          "before": list(before), "after": list(after), "saved_stream_readback_byteexact": True}
                   event({"operation": "input_eof_and_output_writes_returned", **row})
+                  row["elf_header"] = elf_header_data(dst_fd, count)
               finally:
                   # Actual native close results are journaled separately.
                   try:
@@ -1090,28 +1119,6 @@ jobs:
                   finally:
                       os.close(src_fd)
                       event({"operation": "source_close_returned", "fd": src_fd})
-              elf = None
-              if bytes(prefix[:4]) == b"\x7fELF" and len(prefix) >= 64:
-                  bits = prefix[4]
-                  endian = {1: "<", 2: ">"}.get(prefix[5])
-                  if bits == 2 and endian is not None:
-                      machine = struct.unpack_from(endian + "H", prefix, 18)[0]
-                      phoff = struct.unpack_from(endian + "Q", prefix, 32)[0]
-                      phsize, phnum = struct.unpack_from(endian + "HH", prefix, 54)
-                      interpreter = None
-                      for i in range(phnum):
-                          at = phoff + i * phsize
-                          if phsize < 56 or at + 56 > len(prefix):
-                              raise RuntimeError("ELF header range not retained; no guessed parsing")
-                          typ, flags, offset, va, pa, size, memsize, align = struct.unpack_from(endian + "IIQQQQQQ", prefix, at)
-                          if typ == 3:
-                              if offset + size > len(prefix):
-                                  raise RuntimeError("ELF interpreter not retained; no guessed path")
-                              interpreter = bytes(prefix[offset:offset + size]).rstrip(b"\0").decode("utf-8")
-                      elf = {"class_byte": bits, "endianness_byte": prefix[5],
-                             "machine_field": machine, "interpreter_field": interpreter,
-                             "qualification": "Static image fields, not actual exec/mappings or full target ABI"}
-              row["elf_header"] = elf
               return row
           
           try:
