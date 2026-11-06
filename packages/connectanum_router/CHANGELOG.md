@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-beta.9
+
+- Add native MQTT QoS 0 routing and an opt-in, realm-authorized MQTT ↔ WAMP gateway with binary payloads.
+- Bound policy queues, cancellation and teardown; enforce throughput, CPU and memory regression gates in both directions.
+- Align router-hosted MCP metadata and native binaries with beta.9.
+
 ## 3.0.0-beta.8
 
 - Add an opt-in MQTT ↔ WAMP QoS 0 gateway with realm permissions, trusted caller

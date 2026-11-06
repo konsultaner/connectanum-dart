@@ -1,6 +1,9 @@
 # MQTT broker interoperability
 
-Status: active MQTT client memory qualification. PR #135 merged on 2026-11-03 as `ef1479d6`.
+Status: completed gateway and client memory qualification. PR #135 merged as
+`ef1479d6`; PR #136 merged on 2026-11-06 as `47e06946`. Broader MQTT protocol
+work remains open; coordinated publication continues in the
+[beta.9 release plan](2026-11-06-3.0.0-beta.9-release.md).
 Gateway functionality, both-direction performance/memory qualification and the
 downloaded history/CI archives are complete. Final publication CI `41493246321`
 passes 59 checks. The current task separates two manual diagnostic entry points
@@ -39,7 +42,15 @@ verification passed at 14:40 UTC without source drift.
 - [x] Reproduce the receive peak independently and compare all eight original/candidate samples on Linux ARM64 with default VM options.
 - [x] Add bounded asynchronous receive batches, ten protocol/transport regressions and full-client coverage enforcement.
 - [x] Pass all 150 MQTT cases, including Paho with zero skips, complete client coverage (160/160) and gateway tooling coverage (1,084/1,084, zero exclusions).
-- [ ] Pass clean-source canonical verification and every fresh hosted CI/benchmark gate.
+- [x] Pass clean-source canonical verification and every fresh hosted CI/benchmark gate.
+
+Final PR #136 CI [41668179162](https://github.com/konsultaner/connectanum-dart/actions/runs/41668179162)
+passes all 59 checks with zero skipped jobs. The clean-source `bin/verify` passes
+on `e109df94`; hosted coverage is 828/828 across complete MQTT client/gateway
+files, including 160/160 client lines. All sixteen numeric shards pass, with the
+stalled MQTT subscriber peaking at 35.3 MiB under the unchanged 50 MiB cap.
+The merged-source main CI [42204368959](https://github.com/konsultaner/connectanum-dart/actions/runs/42204368959)
+passes all 55 jobs. No numeric budget or coverage requirement was relaxed.
 
 The routing reproducer fails against the merged workflow and passes after the
 split. All 19 CI-contract tests and 12 native comparison/Intel hardware tests pass;

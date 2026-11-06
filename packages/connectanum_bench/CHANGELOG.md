@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.9
+
+- Add MQTT ↔ WAMP throughput, latency, CPU and memory measurements in both directions, including slow-peer recovery and retained-memory checks.
+- Publish user-facing benchmark tables with numeric regression gates and strict coverage requirements in the benchmark package.
+
 ## 3.0.0-beta.8
 
 - Measure MQTT ↔ WAMP throughput, latency, CPU and per-process memory in both
