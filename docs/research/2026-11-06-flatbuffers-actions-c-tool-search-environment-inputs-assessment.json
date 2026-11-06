@@ -1,0 +1,324 @@
+{
+  "question": "Actual original Actions collector environment for ALL four C-tool-source-named inputs, no compiler/native/header execution",
+  "result": {
+    "source_commit": "635793583af040d09171f4b6e4e9c3948ac2df39",
+    "branch": "codex/pr132-actions-c-tool-search-environment-20261106",
+    "run_id": 42271186633,
+    "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42271186633",
+    "job_id": 128075873678,
+    "job_conclusion": "success",
+    "fifteen_previous_jobs": "skipped_not_rerun",
+    "artifact_id": 13527589851,
+    "artifact_bytes": 1623,
+    "artifact_sha256": "bbba863eac942dbdca49c54f0f57a9af4d07c2536f24b19a3d7a1b262e76ff50",
+    "job_log_bytes": 39281,
+    "job_log_sha256": "2a902a6a38e941713e1196e577f99d29a1dfcff1bc578cd0024ca27f6b6ca41a",
+    "source_environment_names": [
+      "GCC_EXEC_PREFIX",
+      "COMPILER_PATH",
+      "LIBRARY_PATH",
+      "LD_LIBRARY_PATH"
+    ],
+    "point_environment_observations": [
+      {
+        "source_environment_name": "GCC_EXEC_PREFIX",
+        "present_in_this_collector_environment": false,
+        "empty_value_when_present": null
+      },
+      {
+        "source_environment_name": "COMPILER_PATH",
+        "present_in_this_collector_environment": false,
+        "empty_value_when_present": null
+      },
+      {
+        "source_environment_name": "LIBRARY_PATH",
+        "present_in_this_collector_environment": false,
+        "empty_value_when_present": null
+      },
+      {
+        "source_environment_name": "LD_LIBRARY_PATH",
+        "present_in_this_collector_environment": false,
+        "empty_value_when_present": null
+      }
+    ],
+    "full_actual_values_private_not_in_this_summary": true,
+    "report_bytes": 2158,
+    "report_sha256": "706ea76b31414f8acec73caf03cafb94b66d42bdd553045350cca35f2961772e",
+    "report_full_stream_matches_collector_write_record": true,
+    "native_information_queries": 0,
+    "candidate_executions": 0,
+    "environment_mutations": 0,
+    "all_admission_flags": false,
+    "not_effective_Cargo_default_linker_C_header_ABI_runtime_cohort_actorEX_or_RAM_repair": true,
+    "publication_pretarget_EX_refusals": 0
+  },
+  "new_candidate_validation": {
+    "new_job_key": "flatbuffers-c-tool-search-environment",
+    "parent_jobs": 15,
+    "new_job_count": 16,
+    "candidate_bytes": 141653,
+    "candidate_sha256": "a9c5aa3e151f1bc0fa12261513c67d0c33e1ab5d54571260027ebca2ce072675",
+    "old_jobs_unchanged": 15,
+    "exact_collector_embedding": true,
+    "explicit_runner_temp_uploader_sink_match": true,
+    "YAML_pass": true,
+    "reverse_projection_byteexact": true,
+    "Python_AST_pass": true,
+    "collector_bytes": 3791,
+    "native_candidate_executions": 0,
+    "all_admission_flags": false
+  },
+  "actual_preparation_generation_failure_and_minimal_fix": {
+    "actual_before_kind": "FileNotFoundError: source-generation-v1 child mkdir before its new evidence parent existed",
+    "actual_before_tool_reported_exit_code": 1,
+    "before_separate_native_PID_and_EOF_metadata": null,
+    "before_source_AST_Ruby_SDK_Git_API_job_body_not_entered": true,
+    "failed_v1_path_permanently_terminal_never_recreated": true,
+    "minimal_changed_source_fix": "Explicit new evidence parent mkdir under official EX before a separately declared source-generation-v2 child; same collector/setup/gates; new namespace alone is not authority",
+    "matching_after": "FIRST substantive v2 source generation and new checks pass; no before/old-check replay",
+    "not_production_RAM_or_Source20_regression_fix": true
+  },
+  "new_debug_completion": {
+    "pid": 20611,
+    "signed_status": 0,
+    "same_original_wait": true,
+    "wait_may_be_cached": true,
+    "stdout_eof": true,
+    "stderr_eof": true,
+    "stdout_bytes": 1152,
+    "stderr_bytes": 185,
+    "stdout_sha256": "42dec6d0b250366f4f42e04a4c84565944470cde93884ef68116272e3d8345c8",
+    "stderr_sha256": "81176709a346b08d2558eba4c8c848400fdf31adcee7d53dd523e9ae9a37d8ea",
+    "advisory_not_approval": true
+  },
+  "ROOT_debug_qualification": "Qwen20611 natural0/full1152stdout185stderr/BOTH EOF/SAMEwait-cachedpossible, advisory NOTapproval. ROOT verifies actual missing-parent N.mkdir failure occurred before save helper/source/AST/Ruby/SDK/Git/API/job body. Accept only parent-before-child cause. Reject model step2 keeping/retrying source-generation-v1: that attempted namespace is permanently terminal even though creation failed. Minimal changed-source fix explicitly creates declared P under officialEX before a separately declared source-generation-v2 child for the never-run substantive body; this permission follows the actual implementation fault/minimal fix, not merely a new name. No parents=True/exist_ok/cleanup/rename/recreation/ownership relaxation. Actual filesystem operation must succeed; writable/free inferred only from actual operations and fresh scoped floor, not model claims. No production RAM/Source20 regression/fix or runtime admission claim.\n",
+  "new_review_completion": {
+    "pid": 20773,
+    "signed_status": 0,
+    "same_original_wait": true,
+    "wait_may_be_cached": true,
+    "stdout_eof": true,
+    "stderr_eof": true,
+    "stdout_bytes": 2909,
+    "stderr_bytes": 271,
+    "stdout_sha256": "5ccf230c2f7cb2b320781f48a69873a55da10bbea514c92937885589f408134c",
+    "stderr_sha256": "34e77f847c65489924b05c5836b9306c3862d6d2f19463042bd13a439c17c4f9",
+    "advisory_not_approval": true
+  },
+  "ROOT_review_qualification": "Qwen20773 natural0/full2909stdout271stderr/BOTH EOF/SAMEwait-cachedpossible, advisory NOTapproval. ROOT rejects its retracted write/short-write leak claim: offset loop handles short writes and reportFD is closed by nested finally on write/event errors. RUNNER_TEMP/GITHUB metadata are intentionally mandatory failclosed; no fallback, and RUNNER_TEMP lookup precedes journal creation, so model's journal-already-open ordering claim is false. Reject mkdir parents/exist_ok rerun advice: unique root mkdir and x/O_EXCL outputs intentionally refuse collisions; no concurrent second instance can reuse journal, no old namespace retry/reset. Signal/crash/uncertain-write/journal outcomes remain unknown/quarantined, not settled by signal handlers or fabricated receipts. No advice-derived source edits/tests/relaunch; all ownership/ABI/Cargo/header/continuous physicalEX admission flags remain false.\n",
+  "archive": {
+    "regular_selected_members": 37,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 8971,
+    "archive_sha256": "cd8f232272d96cbfe70afed0c84373d5310a748195e7fc3a0481fd90beebb103",
+    "not_full_directory_Source20_or_runtime_input_package": true,
+    "members": [
+      {
+        "name": "source-generation-v2/collector.py",
+        "bytes": 3791,
+        "sha256": "9411ffb134a424be3e5cd0387fdf437d9ff6d8c69ba9450cf27ac4f7281d455e"
+      },
+      {
+        "name": "source-generation-v2/declaration.json",
+        "bytes": 1806,
+        "sha256": "44f80d65d05824157d68caddac0b7bd166a483f7e9bede192ea98c4b1b51c0ec"
+      },
+      {
+        "name": "source-generation-v2/fresh-validation-floor.json",
+        "bytes": 107,
+        "sha256": "3c2f2d84ff83b701f24196d577e3294d192cd6d9867c607c4ea0e46e436e76a1"
+      },
+      {
+        "name": "source-generation-v2/candidate.diff",
+        "bytes": 6041,
+        "sha256": "d23ec81bbd3c06468bf4631bd966abc910f6214ea024bb67991c25ff5e7a4dc2"
+      },
+      {
+        "name": "source-generation-v2/new-job-block.yml",
+        "bytes": 5369,
+        "sha256": "e0c3092c023db6096039cc2f59ce3f1015c1236b32d4ec2fed182c5892add073"
+      },
+      {
+        "name": "source-generation-v2/candidate-validation.json",
+        "bytes": 523,
+        "sha256": "2d52b275ebf36dfca71b97889682e011b02c4530828feabbd78d23972a7296b1"
+      },
+      {
+        "name": "source-generation-v2/new-job-generation-creator.json",
+        "bytes": 71,
+        "sha256": "50d002e43ee8c6a289104e7511c1acdc6e0f35297c062f1f6d6a023966f9fe68"
+      },
+      {
+        "name": "source-generation-v2/new-job-generation-completion.json",
+        "bytes": 362,
+        "sha256": "582c5a36b2df54d0555d9c450dc8b094077df955e9eeb5a7190ef7cc31773953"
+      },
+      {
+        "name": "source-generation-v2/new-job-generation.stdout",
+        "bytes": 203,
+        "sha256": "61cfafee4b9505cb68d4ad9c1db13939eb0e6da9d723006f9911c53703a0c1ce"
+      },
+      {
+        "name": "source-generation-v2/new-job-generation.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "source-generation-v2/new-candidate-validation-creator.json",
+        "bytes": 71,
+        "sha256": "7a4b37555e9cb3e7f8745bbe87e0e1b6a0b8bbfc719cf0f85b8f6fb404d92f7e"
+      },
+      {
+        "name": "source-generation-v2/new-candidate-validation-completion.json",
+        "bytes": 362,
+        "sha256": "845495fdd4a6f5a6d5b1cc24400db7816644bd13d63611f6211a3fe3d1d18baa"
+      },
+      {
+        "name": "source-generation-v2/new-candidate-validation.stdout",
+        "bytes": 197,
+        "sha256": "b835bdecad9a50f9c471c9f6aeeafe1e0ad133c68c6efb84d1888ef9702e1d81"
+      },
+      {
+        "name": "source-generation-v2/new-candidate-validation.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "source-generation-v2/new-generation.rb",
+        "bytes": 1882,
+        "sha256": "476ffaed6aa00561ed0989e856c784da89e44aac12b60b7a2e6064fd60e0c094"
+      },
+      {
+        "name": "source-generation-v2/new-validation.rb",
+        "bytes": 1190,
+        "sha256": "1eaf18fca5501c91a68d143193f3f7af636f3fdd7e876ab97ad5f0439df4cdff"
+      },
+      {
+        "name": "review-v1/creator.json",
+        "bytes": 71,
+        "sha256": "fb034279cccd3227fd36ef28e6d692410ad66c0a16942442b2fdeaef99073bf5"
+      },
+      {
+        "name": "review-v1/completion.json",
+        "bytes": 398,
+        "sha256": "e90648d71fa11c2891fb7e00c5a766dbc4468db8bf8627a271176da249519604"
+      },
+      {
+        "name": "Actions-v1/execution-declaration.json",
+        "bytes": 1601,
+        "sha256": "989450216258990cc8bff588fbc29c092d503f36af3a28a165ac895346a67c80"
+      },
+      {
+        "name": "Actions-v1/ROOT-new-review-qualification.md",
+        "bytes": 895,
+        "sha256": "187bb3b4720d4a0782ebc60a01eadffa49c8f47c0cd553fb2453441b7c9c7cb3"
+      },
+      {
+        "name": "Actions-v1/ROOT-actual-generation-failure-debug-qualification.md",
+        "bytes": 928,
+        "sha256": "cd7e7c984e32e8becf0040e1355070d16b08ed28909ac1209633050f09097e1c"
+      },
+      {
+        "name": "Actions-v1/source-publication-receipt.json",
+        "bytes": 364,
+        "sha256": "7e758b4ea6d5ef91a33a636a730eac69b1e2e78f35637406574293b03d7b906e"
+      },
+      {
+        "name": "Actions-v1/ROOT-first-new-environment-input-assessment.json",
+        "bytes": 1899,
+        "sha256": "c96632651511ab94ac7f02c3cb60e490a18ed11d3c0d592515c19f0e52d7ab66"
+      },
+      {
+        "name": "Actions-v1/actual-new-artifact-member-index.json",
+        "bytes": 298,
+        "sha256": "9104be60decea5dbd448b9670e7490dbb973c4079946949f2deaad5166b96911"
+      },
+      {
+        "name": "Actions-v1/create-new-environment-branch-completion.json",
+        "bytes": 362,
+        "sha256": "1be6c89f4cb13a3999149e31a70a1fa91972e396a41eecc2c80636786a4281d1"
+      },
+      {
+        "name": "Actions-v1/publish-new-environment-source-completion.json",
+        "bytes": 363,
+        "sha256": "6e527ce3dfaf2b3f1ef5ee65d43826b0163c2a515af1dccb5809eb5eb5387062"
+      },
+      {
+        "name": "Actions-v1/new-environment-source-readback-completion.json",
+        "bytes": 365,
+        "sha256": "3ea395bac4fdd84aaf09b8e5ccf1dca92ef009f8d11dc81ea8b27bb04a60ecda"
+      },
+      {
+        "name": "Actions-v1/dispatch-only-new-environment-inputs-completion.json",
+        "bytes": 360,
+        "sha256": "a86f0cb4b658adba774d1aecf83816824349fefb489272dfb86e54151d956026"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-environment-run-0-completion.json",
+        "bytes": 361,
+        "sha256": "b0f6caf5aeafd2eaa3610238546c12080f0ce0279f63767a709a7c7273cde0ac"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-environment-run-1-completion.json",
+        "bytes": 364,
+        "sha256": "05eae05fef5e0522f134730ac3d0591c5a54c1f2d589d61fee0e1e19ba722348"
+      },
+      {
+        "name": "Actions-v1/watch-only-new-environment-run-completion.json",
+        "bytes": 363,
+        "sha256": "06195f62677659ab936e3efb3478537c442d665086ee3a7b3b05b57ab3646211"
+      },
+      {
+        "name": "Actions-v1/actual-new-environment-final-completion.json",
+        "bytes": 364,
+        "sha256": "abdae9497c14007b4e9cd70746ff91109e8275dce561529060c4415b49481dbb"
+      },
+      {
+        "name": "Actions-v1/actual-new-environment-jobs-completion.json",
+        "bytes": 364,
+        "sha256": "d6f40213118b2986a3693f5d43421947daacfb4127848df05ef411b590d7e4b4"
+      },
+      {
+        "name": "Actions-v1/actual-new-environment-job-log-completion.json",
+        "bytes": 364,
+        "sha256": "94041586ae3ecfa965bc35162e03771799c8334ac9f2d9090077d84c8cfa23b9"
+      },
+      {
+        "name": "Actions-v1/actual-new-environment-artifact-list-completion.json",
+        "bytes": 362,
+        "sha256": "007b3732fae4c451d5608460448f4d08cf6ebf4ec1043e9190c9c11168906df3"
+      },
+      {
+        "name": "Actions-v1/actual-new-environment-artifact-zip-completion.json",
+        "bytes": 363,
+        "sha256": "69bd65fa54c189016c89c3bb8f76a893467a713813dcba01e60b0c3810f22cc5"
+      },
+      {
+        "name": "actual-generation-failure-debug/completion.json",
+        "bytes": 398,
+        "sha256": "b6f5b45a002dce8e17d0cba43179e6eb273f550948cc5509ad20f047401bfb30"
+      }
+    ]
+  },
+  "full_private_exclusions": [
+    "actual environment values/report/operation journal",
+    "full ZIP and job log/API/controller bodies",
+    "full actual generation-failure request/trace/context",
+    "full debug and review responses"
+  ],
+  "known_controller_limits": {
+    "original_Actions_execsession83304": "natural0_FIRST_body_without_pretarget_refusal",
+    "original_watcher_PID": 21076,
+    "original_watcher_signed_status": 0,
+    "original_watcher_stdout_bytes": 6509,
+    "original_watcher_stderr_bytes": 0,
+    "both_EOF_same_original_wait_may_be_cached": true,
+    "not_global_actor_FD_or_continuous_physical_EX_crash_closure": true,
+    "publication_pre_target_EX_refusals": 0
+  },
+  "all_admission_flags": false,
+  "controller": "CLOSED_observed_only",
+  "ownership": null,
+  "provider_route": "original_GitHub_Actions_selected_NOT_runtime_admitted",
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}

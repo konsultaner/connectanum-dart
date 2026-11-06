@@ -1,5 +1,14 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-06: original Actions C-tool search environment inputs
+
+The new [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42271186633) succeeds at source 635793583af040d09171f4b6e4e9c3948ac2df39; all fifteen prior jobs were unchanged and skipped. Original Ubuntu24.04/Dart3.13.5/Rust1.99.0 recipes remain unchanged. The collector reads four source-named environment inputs only, with zero child/native-information/header/C-preprocessor queries or environment mutations. All four were absent in that collector process. Full2158B report matches the collector write journal; these four point observations are not tests, global absence, compiler defaults, effective Cargo/header paths or runtime admission.
+
+An actual local missing-parent evidence-directory failure occurred before source/checks/SDK/Git/API execution. The minimal parent-before-new-child fix permits the first substantive v2 generation, whose new checks pass once; the attempted v1 path remains permanently terminal. This is preparation setup repair, not RAM/Source20 repair. [New evidence](../research/2026-11-06-flatbuffers-actions-c-tool-search-environment-inputs.md):37selectedregularmembers/byteexact archive SHA-256 cd8f232272d96cbfe70afed0c84373d5310a748195e7fc3a0481fd90beebb103. Full values/report/journal/log/ZIP/controller/failure/model raw bodies remain private. All new source/debug/review/checks/Actions/acquisition/comparison/archive work is complete and consumed; no old body was replayed.
+
+All admission flags stay false; effective Cargo/compiler defaults/Cheaders/sysroot/ABI/runtime/cohort/transitiveactorFD/continuous physical EX/crash admission remains unbound. RAM cause/repair, immutable original admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE. No bootstrap/build/numerical work or Source20/runtime adoption ran. Next: concrete original Actions acquisition/execution qualification for actual defaults/Cargo/header inputs, without guessing paths/default cc, interpreting absence as authority, unsupported flags, favorable cohorts, old-input transplant, GC/copy/gate/workload change or completed component replay. Same-chat follow-up remains active.
+
+
 ## 2026-11-06: C-tool configuration/header input frontier
 
 A genuinely new static question interpreted42previously retained header-context bytes and read9newsection/name/.rodata ranges (1,977,201bytes) in ALLthree original Actions gcc/cc/ld candidates. The selected text exposes compiler prefix/program naming, search-path environment names, sysroot interfaces and include-fixed references. These do not establish actual effective C-header paths, Cargo target/config-env, compiler-build/default-linker values, ABI, original execution, loaded runtime/cohort or native actorFD/continuous physical EX/crash admission.
