@@ -49,6 +49,7 @@ on:
           - flatbuffers_compiler_package_inputs
           - flatbuffers_bundled_installer_inputs
           - flatbuffers_c_header_environment_inputs
+          - flatbuffers_c_tool_program_parent_inputs
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -3128,5 +3129,140 @@ jobs:
       with:
         name: native-perf-c-header-environment-inputs
         path: "${{ runner.temp }}/native-perf-c-header-environment-inputs"
+        if-no-files-found: error
+        retention-days: 30
+
+  flatbuffers-c-tool-program-parent-inputs:
+    name: FlatBuffers C-tool program parent inputs (no execution)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_program_parent_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-rustc-default-target-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Preserve referenced C-tool runtime inputs (no execution)
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+        import pathlib
+        import stat
+        import sys
+        import time
+  
+        references = ["/usr/bin","/usr","/etc/alternatives","/etc"]
+        source_candidate_metadata = json.loads("[{\"source_named_candidate\":\"gcc\",\"historical_PATH_lookup_return\":\"/usr/bin/gcc\",\"historical_image_path\":\"/usr/bin/gcc\",\"historical_readlink_literal\":\"gcc-13\",\"historical_realpath_literal\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"historical_absent_at_PATH_lookup_only\":false},{\"source_named_candidate\":\"cc\",\"historical_PATH_lookup_return\":\"/usr/bin/cc\",\"historical_image_path\":\"/usr/bin/cc\",\"historical_readlink_literal\":\"/etc/alternatives/cc\",\"historical_realpath_literal\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"historical_absent_at_PATH_lookup_only\":false},{\"source_named_candidate\":\"lld\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"ld\",\"historical_PATH_lookup_return\":\"/usr/bin/ld\",\"historical_image_path\":\"/usr/bin/ld\",\"historical_readlink_literal\":\"x86_64-linux-gnu-ld\",\"historical_realpath_literal\":\"/usr/bin/x86_64-linux-gnu-ld.bfd\",\"historical_absent_at_PATH_lookup_only\":false},{\"source_named_candidate\":\"link.exe\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"emcc.bat\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"emcc\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"bpf-linker\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"llvm-bitcode-linker\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true}]")
+        source_directory_reference_origins = json.loads("[{\"candidate\":\"gcc\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/gcc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/gcc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/gcc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/gcc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"cc\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/cc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"cc\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/cc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"cc\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/cc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"cc\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/cc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"cc\",\"source_field\":\"historical_readlink_literal\",\"literal_source_path\":\"/etc/alternatives/cc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/etc/alternatives\"},{\"candidate\":\"cc\",\"source_field\":\"historical_readlink_literal\",\"literal_source_path\":\"/etc/alternatives/cc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/etc\"},{\"candidate\":\"cc\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"cc\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"ld\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/ld\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"ld\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/ld\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"ld\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/ld\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"ld\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/ld\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"ld\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-ld.bfd\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"ld\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-ld.bfd\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"}]")
+        root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "native-perf-c-tool-program-parent-inputs"
+        root.mkdir()
+        journal = open(root / "operations.jsonl", "x", encoding="utf-8")
+        owned = []
+  
+        def event(operation, **fields):
+            journal.write(json.dumps({"operation": operation, "monotonic_ns": time.monotonic_ns(),
+                                      **fields}, sort_keys=True) + "\n")
+            journal.flush()
+  
+        def state(fd):
+            s = os.fstat(fd)
+            return {"dev": s.st_dev, "ino": s.st_ino, "mode": s.st_mode,
+                    "uid": s.st_uid, "gid": s.st_gid, "nlink": s.st_nlink,
+                    "size": s.st_size, "mtime_ns": s.st_mtime_ns, "ctime_ns": s.st_ctime_ns}
+  
+        def close_known(fd, role):
+            try:
+                event("close_attempt", fd=fd, role=role)
+            finally:
+                os.close(fd)
+            owned.remove(fd)
+            event("close_return", fd=fd, role=role)
+  
+        try:
+            observations = []
+            for reference in references:
+                row = {"source_directory_reference": reference, "entries": []}
+                observations.append(row)
+                try:
+                    fd = os.open(reference, os.O_RDONLY | os.O_DIRECTORY)
+                except FileNotFoundError as error:
+                    row["absent_at_directory_open_only"] = {"type": type(error).__name__, "text": str(error)}
+                    event("directory_absent_at_open", source=reference)
+                    continue
+                owned.append(fd)
+                try:
+                    event("directory_open_return_before_list", fd=fd, source=reference)
+                    row["directory_before"] = state(fd)
+                    names = os.listdir(fd)
+                    event("directory_list_return", fd=fd, source=reference, entry_count=len(names))
+                    for name in sorted(names, key=os.fsencode):
+                        entry = {"name": name, "name_bytes_hex": os.fsencode(name).hex()}
+                        row["entries"].append(entry)
+                        s = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                        entry["separate_lstat"] = {"dev": s.st_dev, "ino": s.st_ino,
+                            "mode": s.st_mode, "uid": s.st_uid, "gid": s.st_gid,
+                            "nlink": s.st_nlink, "size": s.st_size,
+                            "mtime_ns": s.st_mtime_ns, "ctime_ns": s.st_ctime_ns}
+                        if stat.S_ISLNK(s.st_mode):
+                            entry["separate_readlink_literal"] = os.readlink(name, dir_fd=fd)
+                            entry["link_target_not_followed_or_executed"] = True
+                    row["directory_after"] = state(fd)
+                finally:
+                    close_known(fd, "source_directory")
+            if owned:
+                raise RuntimeError("known input directory FD closure incomplete")
+            report = {
+                "workflow_revision": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"],
+                "source_directory_references": references,
+                "ALL9_historical_candidate_metadata": source_candidate_metadata,
+                "ALL20_reference_relations": source_directory_reference_origins,
+                "reference_basis": "Actual retained gcc/cc/ld image/PATH/readlink/realpath point metadata from run42243927888. Keep ALL nine conditional source-candidate rows including six historical point absences. Declare every immediate directory parent and exactly one further ancestor of each absolute program-source reference, de-duplicating directory names only in first order. Do not split historical PATH, use collector cwd, expand relative symlink targets, infer default/header roots or choose an ABI.",
+                "selection_rule": "List ALL immediate entry names, separate nonfollowing lstat metadata and literal symlink targets in all four fixed directories. No recursion, regular file opens/body reads/hashes, link target follow, native/tool/header query or execution.",
+                "observations": observations,
+                "collector_credentials": {"uid": os.getuid(), "gid": os.getgid(), "groups": os.getgroups()},
+                "collector_cwd": os.getcwd(), "collector_argv": list(sys.argv),
+                "collector_interpreter_reference": sys.executable,
+                "regular_file_body_opens": 0, "symlink_target_follows": 0, "recursive_walks": 0,
+                "native_information_queries": 0, "candidate_executions": 0, "environment_mutations": 0,
+                "remaining_known_input_FDs": list(owned), "all_admission_flags": False,
+                "qualification": "New point program-parent/one-ancestor directory input metadata only. Current directory entries and symlink strings are not effective compiler prefix/program/delegate/default C-header/sysroot/Cargo/ABI/runtime/cohort/original driver/access/loaded-map/atomic ABA-origin-auth/transitive native actorFD/continuous official physicalEX-crash admission or execution authority. Historical program references are not current selection/execution or a missing-input generation claim. No SDK/bootstrap/dependency/native build/driver/broker/perf/benchmark/numerical or Source20/runtime edit/import/adoption; original setup separate UNADMITTED."
+            }
+            raw = (json.dumps(report, sort_keys=True, indent=2) + "\n").encode()
+            path = root / "c-tool-program-parent-inputs.json"
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            owned.append(fd)
+            try:
+                event("report_open_return_before_write", fd=fd, path=str(path))
+                offset = 0
+                while offset < len(raw):
+                    event("report_write_attempt", fd=fd, offset=offset, requested_bytes=len(raw)-offset)
+                    count = os.write(fd, raw[offset:])
+                    event("report_write_return", fd=fd, offset=offset, written_bytes=count)
+                    if count <= 0:
+                        raise OSError("report write made no progress; partial report quarantined")
+                    offset += count
+                event("report_bytes_written", fd=fd, bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+            finally:
+                close_known(fd, "report")
+            event("report_saved", references=len(references), regular_file_body_opens=0,
+                  native_information_queries=0, candidate_executions=0, remaining_known_input_FDs=list(owned))
+        finally:
+            journal.close()
+  
+        PY
+    - name: Upload C-tool runtime input packet even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: native-perf-c-tool-program-parent-inputs
+        path: "${{ runner.temp }}/native-perf-c-tool-program-parent-inputs"
         if-no-files-found: error
         retention-days: 30
