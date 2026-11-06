@@ -39,6 +39,7 @@ on:
           - flatbuffers_toolchain_preflight
           - flatbuffers_compiler_inputs
           - flatbuffers_linkage_inputs
+          - flatbuffers_wrapper_delegates
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -1524,3 +1525,200 @@ jobs:
           path: out/wamp-flatbuffers-linkage-inputs
           if-no-files-found: error
           retention-days: 30
+
+  linux-flatbuffers-wrapper-delegates:
+    name: FlatBuffers wrapper delegate inputs (no build)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_wrapper_delegates'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-wrapper-delegates-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Acquire LLVM and static loader-catalog input candidates
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+        from pathlib import Path
+        import struct
+  
+        root = Path.cwd()
+        out = root / "out/wamp-flatbuffers-wrapper-delegates"
+        out.mkdir(parents=True, exist_ok=False)
+        (out / "inputs").mkdir()
+        journal = (out / "operations.jsonl").open("x")
+  
+        def event(row):
+            journal.write(json.dumps(row, sort_keys=True) + "\n")
+            journal.flush()
+  
+        def elf_header_data(fd, file_bytes):
+            def read_at(offset, size):
+                if offset < 0 or size < 0 or offset + size > file_bytes:
+                    raise RuntimeError("ELF range exceeds the verified saved stream")
+                data = os.pread(fd, size, offset)
+                if len(data) != size:
+                    raise RuntimeError("ELF range read incomplete; no guessed parsing")
+                return data
+  
+            header = read_at(0, min(file_bytes, 64))
+            if header[:4] != b"\x7fELF" or len(header) < 64:
+                return None
+            bits = header[4]
+            endian = {1: "<", 2: ">"}.get(header[5])
+            if bits != 2 or endian is None:
+                return None
+            machine = struct.unpack_from(endian + "H", header, 18)[0]
+            phoff = struct.unpack_from(endian + "Q", header, 32)[0]
+            phsize, phnum = struct.unpack_from(endian + "HH", header, 54)
+            if phnum and (phsize < 56 or phoff + phsize * phnum > file_bytes):
+                raise RuntimeError("ELF program table exceeds the verified saved stream")
+            interpreter = None
+            for i in range(phnum):
+                entry = read_at(phoff + i * phsize, 56)
+                typ, flags, offset, va, pa, size, memsize, align = struct.unpack(endian + "IIQQQQQQ", entry)
+                if typ == 3:
+                    interpreter = read_at(offset, size).rstrip(b"\0").decode("utf-8")
+            return {"class_byte": bits, "endianness_byte": header[5],
+                    "machine_field": machine, "interpreter_field": interpreter,
+                    "qualification": "Static image fields, not actual exec/mappings or full target ABI"}
+  
+        def preserve(label, source):
+            source = Path(source)
+            target = out / "inputs" / label
+            src_fd = os.open(source, os.O_RDONLY)
+            # Register returned handles in strong local state before reading.
+            owned = {"source_fd": src_fd, "source": str(source), "destination": str(target)}
+            dst_fd = None
+            try:
+                event({"operation": "input_open_returned_before_read", **owned})
+                before = os.fstat(src_fd)
+                dst_fd = os.open(target, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o644)
+                owned["destination_fd"] = dst_fd
+                event({"operation": "output_open_returned_before_write", **owned})
+                h = hashlib.sha256()
+                count = 0
+                while True:
+                    data = os.read(src_fd, 1024 * 1024)
+                    if not data:
+                        break
+                    h.update(data)
+                    count += len(data)
+                    cursor = 0
+                    while cursor < len(data):
+                        written = os.write(dst_fd, data[cursor:])
+                        if written <= 0:
+                            raise RuntimeError("Unknown/zero write; no resend recovery")
+                        event({"operation": "known_write_return", "source_offset": count - len(data) + cursor, "returned_bytes": written, "requested_bytes": len(data) - cursor})
+                        cursor += written
+                os.lseek(dst_fd, 0, os.SEEK_SET)
+                copied_hash = hashlib.sha256()
+                copied_count = 0
+                while True:
+                    copied = os.read(dst_fd, 1024 * 1024)
+                    if not copied:
+                        break
+                    copied_hash.update(copied)
+                    copied_count += len(copied)
+                if copied_count != count or copied_hash.hexdigest() != h.hexdigest():
+                    raise RuntimeError("Saved stream readback mismatch; terminal")
+                after = os.fstat(src_fd)
+                row = {"source": str(source), "saved": "inputs/" + label,
+                       "bytes_read": count, "sha256": h.hexdigest(),
+                       "before": list(before), "after": list(after), "saved_stream_readback_byteexact": True}
+                event({"operation": "input_eof_and_output_writes_returned", **row})
+                row["elf_header"] = elf_header_data(dst_fd, count)
+            finally:
+                # Actual native close results are journaled separately.
+                try:
+                    if dst_fd is not None:
+                        os.close(dst_fd)
+                        event({"operation": "destination_close_returned", "fd": dst_fd})
+                finally:
+                    os.close(src_fd)
+                    event({"operation": "source_close_returned", "fd": src_fd})
+            return row
+  
+        try:
+            pending = [
+                {"path": "/bin/sh", "role": "observed wrapper shebang reference"},
+                {"path": "/sbin/ldconfig.real", "role": "observed wrapper exec source reference"},
+            ]
+            images = {}
+            cursor = 0
+            while cursor < len(pending):
+                request = pending[cursor]
+                cursor += 1
+                source = Path(request["path"])
+                if not source.is_absolute():
+                    raise RuntimeError("Actual interpreter reference is not absolute; no guessed search")
+                if str(source) in images:
+                    images[str(source)]["source_references"].append(request)
+                    continue
+                event({"operation": "path_observation_request_before_open", **request})
+                path_stat = os.lstat(source)
+                link_text = os.readlink(source) if source.is_symlink() else None
+                resolved_path_observation = str(source.resolve(strict=True))
+                row = preserve("reference-" + str(len(images)) + ".image", source)
+                row["source_references"] = [request]
+                row["path_observations"] = {
+                    "lstat_before_open": list(path_stat),
+                    "symlink_text_observed": link_text,
+                    "resolved_path_observed": resolved_path_observation,
+                    "qualification": "Separate point observations, not atomic path/FD/origin identity",
+                }
+                images[str(source)] = row
+                elf = row["elf_header"]
+                interpreter = None if elf is None else elf["interpreter_field"]
+                if interpreter is not None:
+                    pending.append({"path": interpreter, "role": "actual saved ELF PT_INTERP field",
+                                    "requested_by": row["saved"]})
+            report = {
+                "purpose": "NEW original Actions wrapper-reference input images, no delegate execution",
+                "workflow_revision": os.environ["GITHUB_SHA"],
+                "run_id": os.environ["GITHUB_RUN_ID"],
+                "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                "independent_reference_origin": "Previously captured original-PATH wrapper source only; no wrapper reread or bypass",
+                "uid": os.getuid(), "gid": os.getgid(), "cwd": str(root),
+                "environment": {k: os.environ.get(k) for k in [
+                    "PATH", "RUSTUP_TOOLCHAIN", "ImageOS", "ImageVersion",
+                    "RUNNER_OS", "RUNNER_ARCH", "LD_LIBRARY_PATH", "LD_PRELOAD"]},
+                "original_order_references": pending,
+                "images": list(images.values()),
+                "native_information_queries": [],
+                "qualification": [
+                    "The two source references and actual saved ELF interpreter fields justify only this bounded acquisition",
+                    "Complete saved streams/readbacks and point metadata do not prove original exec, loaded mappings, ABA/origin/authentication, target ABI, cohort or actor/FD closure",
+                    "No shell, ldconfig delegate, compiler, cargo, bootstrap or dependency recipe is executed by this acquisition script",
+                    "DT_NEEDED, symbol versions, effective Cargo linker, C headers and generated-input/runtime authority remain unbound",
+                    "No Source20 edits/import/adoption, native build, driver, broker, perf, benchmark or numerical workload",
+                    "Original Actions setup remains unchanged; no favorable runner/cohort selection",
+                ],
+                "source_admitted": False, "live_admission": False,
+                "capture_ready": False, "evidence_complete": False,
+            }
+            with (out / "wrapper-delegate-input-observations.json").open("x") as f:
+                json.dump(report, f, indent=2)
+                f.write("\n")
+        finally:
+            journal.close()
+  
+        PY
+    - name: Upload linkage preparation even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: flatbuffers-wrapper-delegates-${{ github.sha }}-${{ github.run_attempt
+          }}
+        path: out/wamp-flatbuffers-wrapper-delegates
+        if-no-files-found: error
+        retention-days: 30
