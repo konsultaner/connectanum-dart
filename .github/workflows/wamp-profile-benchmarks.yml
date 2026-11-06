@@ -47,6 +47,7 @@ on:
           - flatbuffers_c_runtime_transitive_inputs
           - flatbuffers_c_tool_search_environment
           - flatbuffers_compiler_package_inputs
+          - flatbuffers_bundled_installer_inputs
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -2848,5 +2849,179 @@ jobs:
       with:
         name: native-perf-compiler-package-inputs
         path: "${{ runner.temp }}/native-perf-compiler-package-inputs"
+        if-no-files-found: error
+        retention-days: 30
+
+  flatbuffers-bundled-installer-inputs:
+    name: FlatBuffers bundled installer inputs (no execution)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_bundled_installer_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-rustc-default-target-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Preserve referenced C-tool runtime inputs (no execution)
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+        import pathlib
+        import stat
+        import time
+  
+        package_root = "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu"
+        references = [{"manifest_line":3,"literal":"file:bin/rust-lldb","relative":"bin/rust-lldb","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"},{"manifest_line":7,"literal":"file:lib/libLLVM-23-rust-1.99.0-stable.so","relative":"lib/libLLVM-23-rust-1.99.0-stable.so","body_policy":"excluded_no_IO_no_old_LLVM_body_or_hash_refresh"},{"manifest_line":8,"literal":"file:lib/libLLVM.so.23.1-rust-1.99.0-stable","relative":"lib/libLLVM.so.23.1-rust-1.99.0-stable","body_policy":"excluded_no_IO_no_old_LLVM_body_or_hash_refresh"},{"manifest_line":13,"literal":"file:lib/rustlib/etc/lldb_lookup.py","relative":"lib/rustlib/etc/lldb_lookup.py","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"},{"manifest_line":14,"literal":"file:lib/rustlib/etc/lldb_providers.py","relative":"lib/rustlib/etc/lldb_providers.py","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"},{"manifest_line":16,"literal":"file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld.lld","relative":"lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld.lld","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"},{"manifest_line":17,"literal":"file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld64.lld","relative":"lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld64.lld","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"},{"manifest_line":18,"literal":"file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/lld-link","relative":"lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/lld-link","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"},{"manifest_line":19,"literal":"file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/wasm-ld","relative":"lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/wasm-ld","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"},{"manifest_line":20,"literal":"file:lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld","relative":"lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"},{"manifest_line":34,"literal":"file:share/doc/rust/licenses/LLVM-exception.txt","relative":"share/doc/rust/licenses/LLVM-exception.txt","body_policy":"new_point_input_regular_body_or_literal_symlink_metadata"}]
+        root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "native-perf-bundled-installer-inputs"
+        root.mkdir()
+        journal = open(root / "operations.jsonl", "x", encoding="utf-8")
+        owned = []
+        observations = []
+        streams = []
+  
+        def event(operation, **fields):
+            journal.write(json.dumps({"operation": operation, "monotonic_ns": time.monotonic_ns(),
+                                      **fields}, sort_keys=True) + "\n")
+            journal.flush()
+  
+        def state(fd):
+            s = os.fstat(fd)
+            return {"dev": s.st_dev, "ino": s.st_ino, "mode": s.st_mode,
+                    "uid": s.st_uid, "gid": s.st_gid, "size": s.st_size,
+                    "mtime_ns": s.st_mtime_ns, "ctime_ns": s.st_ctime_ns}
+  
+        def close_known(fd, role):
+            try:
+                event("close_attempt", fd=fd, role=role)
+            finally:
+                os.close(fd)
+            owned.remove(fd)
+            event("close_return", fd=fd, role=role)
+  
+        def preserve(directory_fd, name, source_path):
+            source = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+            owned.append(source)
+            try:
+                event("source_open_return_before_read", fd=source, source=source_path)
+                before = state(source)
+                if not stat.S_ISREG(before["mode"]):
+                    raise RuntimeError("source opened as nonregular input")
+                saved = "bundled-input-%04d.bin" % len(streams)
+                destination = os.open(root / saved, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
+                owned.append(destination)
+                try:
+                    event("destination_open_return_before_write", fd=destination, saved=saved)
+                    digest = hashlib.sha256()
+                    count = 0
+                    while True:
+                        chunk = os.read(source, 1024 * 1024)
+                        if not chunk:
+                            break
+                        count += len(chunk)
+                        digest.update(chunk)
+                        offset = 0
+                        while offset < len(chunk):
+                            written = os.write(destination, chunk[offset:])
+                            if written <= 0:
+                                raise RuntimeError("destination write made no progress")
+                            offset += written
+                    event("source_EOF", fd=source, bytes=count, sha256=digest.hexdigest())
+                    after = state(source)
+                    os.lseek(destination, 0, os.SEEK_SET)
+                    readback = hashlib.sha256()
+                    reread = 0
+                    while True:
+                        chunk = os.read(destination, 1024 * 1024)
+                        if not chunk:
+                            break
+                        reread += len(chunk)
+                        readback.update(chunk)
+                    event("destination_readback_EOF", fd=destination, bytes=reread,
+                          sha256=readback.hexdigest())
+                    if before != after or count != reread or digest.digest() != readback.digest():
+                        raise RuntimeError("source metadata or saved stream/readback mismatch")
+                    row = {"source": source_path, "saved": saved, "bytes": count,
+                           "sha256": digest.hexdigest(), "source_before": before,
+                           "source_after": after, "saved_readback_matches": True}
+                    streams.append(row)
+                    return row
+                finally:
+                    close_known(destination, "saved_bundled_input")
+            finally:
+                close_known(source, "bundled_input")
+  
+        try:
+            for reference in references:
+                row = {"reference": reference}
+                observations.append(row)
+                if reference["body_policy"].startswith("excluded_"):
+                    row["excluded_without_source_IO"] = True
+                    continue
+                relative = pathlib.PurePosixPath(reference["relative"])
+                if relative.is_absolute() or ".." in relative.parts:
+                    raise RuntimeError("unsafe literal installer reference")
+                path = pathlib.PurePosixPath(package_root) / relative
+                row["source_reference"] = str(path)
+                try:
+                    directory = os.open(str(path.parent), os.O_RDONLY | os.O_DIRECTORY)
+                except FileNotFoundError as error:
+                    row["parent_absent_at_open_only"] = {"type": type(error).__name__, "text": str(error)}
+                    event("parent_absent_at_open", source=str(path), **row["parent_absent_at_open_only"])
+                    continue
+                owned.append(directory)
+                try:
+                    event("directory_open_return_before_reference", fd=directory, source=str(path))
+                    try:
+                        s = os.stat(path.name, dir_fd=directory, follow_symlinks=False)
+                    except FileNotFoundError as error:
+                        row["entry_absent_at_lstat_only"] = {"type": type(error).__name__, "text": str(error)}
+                        event("entry_absent_at_lstat", source=str(path), **row["entry_absent_at_lstat_only"])
+                        continue
+                    row["separate_lstat"] = {"dev": s.st_dev, "ino": s.st_ino,
+                        "mode": s.st_mode, "uid": s.st_uid, "gid": s.st_gid,
+                        "size": s.st_size, "mtime_ns": s.st_mtime_ns, "ctime_ns": s.st_ctime_ns}
+                    if stat.S_ISLNK(s.st_mode):
+                        row["separate_readlink_literal"] = os.readlink(path.name, dir_fd=directory)
+                        row["symlink_target_not_followed_or_executed"] = True
+                    elif stat.S_ISREG(s.st_mode):
+                        row["saved_stream"] = preserve(directory, path.name, str(path))
+                    else:
+                        raise RuntimeError("unsupported nonregular nonsymlink installer input")
+                finally:
+                    close_known(directory, "source_parent_directory")
+            if owned:
+                raise RuntimeError("known input FD closure incomplete")
+            report = {
+                "workflow_revision": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"],
+                "package_root_reference": package_root, "references": references,
+                "observations": observations, "streams": streams,
+                "reference_basis": "ALL eleven lexical installer records from the newly interpreted complete installed rustc manifest. Both LLVM-library references remain explicitly excluded from ALL source IO to avoid prior image body/hash refresh. The other nine are a declared fresh static input boundary, not execution selection or a claim inferred from zero metadata matches.",
+                "collector_credentials": {"uid": os.getuid(), "gid": os.getgid(), "groups": os.getgroups()},
+                "collector_cwd": os.getcwd(), "native_information_queries": 0, "candidate_executions": 0,
+                "remaining_known_input_FDs": list(owned), "all_admission_flags": False,
+                "qualification": "Point source metadata and saved static inputs only. No candidate/header/compiler/Cargo/linker query or execution, bootstrap/build, source20/runtime adoption, automatic URL/archive download, default CFG/flavor/effective Cargo/C-header/sysroot/ABI/cohort/loaded runtime/native actorFD/atomic ABA-origin-auth/continuous physicalEX-crash or RAM repair authority. Symlink literals are not followed. Original setup executes separately and is unadmitted. Missing paths are point observations, not bugs/global absence/generation authority."
+            }
+            with open(root / "bundled-installer-inputs.json", "x", encoding="utf-8") as stream:
+                json.dump(report, stream, sort_keys=True, indent=2)
+            event("report_saved", observations=len(observations), streams=len(streams),
+                  native_information_queries=0, candidate_executions=0, remaining_known_input_FDs=list(owned))
+        finally:
+            journal.close()
+  
+        PY
+    - name: Upload C-tool runtime input packet even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: native-perf-bundled-installer-inputs
+        path: "${{ runner.temp }}/native-perf-bundled-installer-inputs"
         if-no-files-found: error
         retention-days: 30
