@@ -7383,7 +7383,7 @@ void main() {
                   '_meta': {
                     'io.modelcontextprotocol/serverInfo': {
                       'name': 'connectanum-router',
-                      'version': '3.0.0-beta.8',
+                      'version': '3.0.0-beta.9',
                       'description': description,
                     },
                     'io.modelcontextprotocol/subscriptionId': requestId,
@@ -7853,7 +7853,7 @@ void main() {
                 'result': <String, Object?>{
                   'resultType': 'complete',
                   '_meta': <String, Object?>{
-                    'io.modelcontextprotocol/serverInfo': <String, Object?>{'name': 'connectanum-router', 'version': '3.0.0-beta.8', 'description': serverDescription},
+                    'io.modelcontextprotocol/serverInfo': <String, Object?>{'name': 'connectanum-router', 'version': '3.0.0-beta.9', 'description': serverDescription},
                     'io.modelcontextprotocol/subscriptionId': requestId,
                   },
                 },

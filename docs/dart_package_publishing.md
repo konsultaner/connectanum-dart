@@ -1,135 +1,60 @@
-# Dart Package Publishing Readiness
+# Dart package publishing
 
-This document records the current package-publishing state for the
-Connectanum Dart workspace. It is intentionally separate from the native FFI
-release flow because pub.dev publishing has its own ownership, package-name,
-and version-sequencing decisions.
+The eight workspace packages form one coordinated versioned stack. The current
+release target is `3.0.0-beta.9`, including the merged native MQTT client, QoS 0
+router and authorized MQTT ↔ WAMP gateway. Publication was explicitly authorized
+on 2026-11-06; follow the [active release plan](exec-plans/2026-11-06-3.0.0-beta.9-release.md)
+for progress and evidence.
 
-## Current Status
+## Release requirements
 
-- The approved strategy is to publish the modular package graph in dependency
-  order while keeping the legacy public `connectanum` package as a thin
-  client-facing compatibility wrapper/facade.
-- `connectanum`, `connectanum_core`, `connectanum_client`, `connectanum_mcp`,
-  `connectanum_router`, `connectanum_auth_server`, and `connectanum_bench` are
-  all configured as publishable archives. None of these workspace packages sets
-  `publish_to: none`.
-- Every package now carries the repo MIT license in its package root so future
-  package archives satisfy pub.dev's mandatory license check.
-- Every package pubspec now points to the GitHub repository and issue tracker
-  so package metadata is readable when a package becomes public.
-- `bin/dart-package-publish-dry-run` is the canonical non-mutating local check
-  for package archive readiness. It discovers publishable workspace packages,
-  skips private packages by default, and runs `dart pub publish --dry-run` for
-  each publishable package.
-- The dry-run command now also requires each publishable package dry-run to
-  report `Package has 0 warnings`; warning-bearing package archives fail the
-  release-evidence gate even when pub's process exit status is successful.
-- The same tool reports release-readiness blockers when a publishable package
-  depends on a private workspace package. Its default mode keeps archive
-  validation non-mutating and green, while `--strict-release-ready` exits
-  non-zero if the package graph regresses.
-- `--show-release-plan` prints the full workspace package inventory, the
-  dependency order, and operator decisions needed for a real publish without
-  changing package publishability.
-- `.github/workflows/dart-package-publish.yml` runs
-  `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
-  on GitHub for any package archive-input change under `packages/**`, the
-  dry-run tool, this readiness document, and the workflow itself. It can also
-  be started manually with `workflow_dispatch`.
-- `.github/workflows/pub-dev-*.yml` contains dormant tag-triggered pub.dev
-  publishing workflows for the six modular packages plus the compatibility
-  `connectanum` facade. Each workflow follows the pub.dev monorepo tag-pattern
-  shape `<package>-v{{version}}`, validates the tag with
-  `bin/validate-dart-package-publish-tag`, runs the strict package dry-run for
-  the selected package, then delegates to Dart's reusable
-  `dart-lang/setup-dart/.github/workflows/publish.yml@v1` workflow with OIDC
-  authentication and the `pub.dev` environment input.
-- As of 2026-08-24, all seven package names are owned and public on pub.dev at
-  `3.0.0-beta.1`. A clean external install then exposed that the native build
-  hooks still assumed the monorepo Rust workspace when no release tag override
-  was supplied. The synchronized `3.0.0-beta.2` corrective release derives the
-  matching native tag from hosted package metadata while preserving source
-  checkout builds. Public dependency constraints use `^3.0.0-beta.2`, and the
-  strict release gate rejects future package-version drift.
-- All seven `3.0.0-beta.7` packages and the matching native assets are live
-  under the verified `dart.konsultaner.de` publisher. The source graph now
-  prepares synchronized `3.0.0-beta.8` packages and Rust crates with the merged
-  FlatBuffers encoding and native buffer APIs. Performance parity and complete
-  copy coverage remain unaccepted; this release retains the beta designation.
+- Synchronize package and Rust crate versions, internal dependency constraints,
+  MCP runtime identity, changelogs and installation guidance.
+- Pass `bin/test-fast`, `bin/verify` and
+  `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`.
+  Every package archive must report `Package has 0 warnings`.
+- Pass hosted CI and every applicable performance/memory gate before publication.
+  Keep the scoped 100% coverage requirements and numeric budgets unchanged.
+- Publish matching signed native assets under `v3.0.0-beta.9` before publishing
+  client/router packages. Hosted build hooks derive the native tag from the
+  package version; validate fresh installation with
+  `bin/validate-native-release-install --tag v3.0.0-beta.9`.
 
-## Latest Evidence
+## Package order
 
-As of 2026-07-17:
+| Order | Package | Pub.dev |
+| --- | --- | --- |
+| 1 | connectanum_core | <https://pub.dev/packages/connectanum_core> |
+| 2 | connectanum_client | <https://pub.dev/packages/connectanum_client> |
+| 3 | connectanum_mcp | <https://pub.dev/packages/connectanum_mcp> |
+| 4 | connectanum_router | <https://pub.dev/packages/connectanum_router> |
+| 5 | connectanum | <https://pub.dev/packages/connectanum> |
+| 6 | connectanum_auth_server | <https://pub.dev/packages/connectanum_auth_server> |
+| 7 | connectanum_bench | <https://pub.dev/packages/connectanum_bench> |
+| 8 | connectanum_objectbox_adapter | <https://pub.dev/packages/connectanum_objectbox_adapter> |
 
-- `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
-  validates all seven publishable workspace packages at `3.0.0-beta.2` with
-  `Package has 0 warnings`, reports no private workspace dependency blockers,
-  and enforces the synchronized-version contract.
-- The release-plan recommended publish order is `connectanum_core`,
-  `connectanum_client`, `connectanum_mcp`, `connectanum_router`,
-  `connectanum`, `connectanum_auth_server`, then `connectanum_bench`. The
-  compatibility facade's required graph edge is
-  `connectanum_client -> connectanum`.
-- Clean scoped strict dry-runs passed for the `connectanum_mcp`,
-  `connectanum_router`, `connectanum_auth_server`, and `connectanum_bench`
-  package-release slices after their hosted runtime constraints were applied.
-- The scoped strict dry-run for the compatibility facade passed with
-  `Package has 0 warnings`:
-  `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan
-  connectanum`.
-- Full local `bin/verify` passed after the compatibility facade package and
-  dormant `connectanum-v*` publish workflow were added.
-- Full local `bin/verify` passed after the bench package became publishable at
-  commit `4ef668b`.
-- Hosted GitHub evidence for commit `4ef668b` is clean: CI `28944706690`,
-  Dart Package Publish Dry Run `28944706698`, and WAMP Profile Benchmarks
-  `28944706579` passed.
-- The clean deployment-chain audit passed with CI/log, Dart package dry-run,
-  WAMP benchmark, workflow visibility, and router-package requirements at
-  `4ef668b`. Strict audit still fails only for the known operator-owned
-  `add-router` branch-protection gap.
+The compatibility facade depends on the client. The ObjectBox adapter depends
+on client/core and uses the router in its tests; retain its narrow beta version
+band and publish it after its prerequisites.
 
-## Release Sequence
+## Automated publication
 
-Do not publish any Dart package from the autonomous loop without an explicit
-operator/product decision for the package names, versions, and ownership.
+Existing package names use the verified `dart.konsultaner.de` publisher and
+GitHub OIDC. Each `.github/workflows/pub-dev-*.yml` workflow triggers on the
+package-specific tag `<package>-v<version>`, validates the tag against its
+pubspec, runs a strict scoped dry-run, and calls Dart's reusable publishing
+workflow with the `pub.dev` environment. Package version bumps and ordinary
+master merges do not publish a package automatically.
 
-When that decision exists, use this sequence:
+After CI passes and release source is promoted, push `v3.0.0-beta.9` for the
+native release. Require all five native platforms and production consumer proofs
+to pass. Then push the exact package tags in the table order, waiting for each
+publish workflow and pub.dev indexing before publishing dependents. Record the
+source commit, workflow results and package version URLs in the release evidence,
+and verify a clean hosted consumer without workspace path overrides.
 
-1. Confirm the target package names exist or are claimable on pub.dev.
-2. For any package name that is not already published, create the
-   first version manually with `dart pub publish`; pub.dev automated publishing
-   only supports existing packages. See the official Dart automated publishing
-   guide: <https://dart.dev/tools/pub/automated-publishing>.
-3. If GitHub automated publishing will be used for later versions, configure it
-   on pub.dev for the package, repository, tag pattern, and workflow before
-   relying on CI. Pub.dev accepts GitHub Actions automated publishes only from
-   tag-triggered workflows.
-4. Configure each package with the tag pattern `<package>-v{{version}}`; for
-   example, `connectanum_core-v{{version}}` for `connectanum_core` and
-   `connectanum-v{{version}}` for the compatibility facade.
-5. If pub.dev requires a GitHub Actions environment, configure the same
-   `pub.dev` environment and protection rules on GitHub before pushing tags.
-6. Run `dart pub publish --dry-run` in each package that will be published.
-7. Run `bin/dart-package-publish-dry-run --strict-release-ready
-   --show-release-plan` to confirm the dependency order, zero-warning archives,
-   and remaining operator decisions.
-8. Publish packages in dependency order, starting with `connectanum_core`.
-   For automated publication, push the exact package tag
-   `<package>-v<pubspec-version>` after the package already exists on pub.dev.
-9. Record exact package versions and pub.dev URLs in `docs/project_state.md`
-   and the active execution plan.
-
-## Current Blockers
-
-- No code-owned archive-readiness or private workspace dependency blockers
-  remain for the workspace package graph.
-- Promotion of the synchronized `3.0.0-beta.8` manifests through protected
-  `master` and the hosted deployment chain must complete before publish tags
-  are created.
-- Package ownership and GitHub OIDC publication are proven by the public
-  packages and verified publisher pages. Beta.8 still requires its matching
-  native release assets before package-specific tags are pushed.
-- The published `3.0.0-beta.1` native hook default is unsuitable for external
-  native execution; testers should use `3.0.0-beta.2` or newer.
+Pub.dev publication is immutable. Publish only after an explicit user decision
+for the package names and version; do not move an existing release tag or replace
+a published version. For a new package, the initial version must be published
+manually before enabling automated publication. See the
+[official automated publishing guide](https://dart.dev/tools/pub/automated-publishing).

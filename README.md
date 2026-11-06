@@ -11,7 +11,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 [![Coverage](https://codecov.io/gh/konsultaner/connectanum-dart/branch/master/graph/badge.svg)](https://app.codecov.io/gh/konsultaner/connectanum-dart)
 [![WAMP Profile Benchmarks](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml)
 [![Package Dry Run](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml)
-[![Version](https://img.shields.io/badge/version-3.0.0--beta.7-f59e0b)](https://github.com/konsultaner/connectanum-dart)
+[![Version](https://img.shields.io/badge/version-3.0.0--beta.9-f59e0b)](https://github.com/konsultaner/connectanum-dart)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.10.0-0175c2?logo=dart&logoColor=white)](https://dart.dev/)
 [![WAMP](https://img.shields.io/badge/WAMP-v2-4b32c3)](https://wamp-proto.org/)
 [![License](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
@@ -24,7 +24,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 </div>
 
 > **3.0 beta:** all Connectanum Dart packages and native Rust crates move
-> together at `3.0.0-beta.8`, including matching native release assets.
+> together at `3.0.0-beta.9`, including matching native release assets.
 > The beta is intended for integration testing before final `3.0.0`.
 
 ## Why Connectanum?
@@ -191,10 +191,11 @@ coordinated stack.
 | [`connectanum_core`](packages/connectanum_core) | Protocol messages, serializers, feature announcements, and shared E2EE contracts. |
 | [`connectanum`](packages/connectanum) | Compatibility facade for existing `package:connectanum/...` client imports. |
 | [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
+| [`connectanum_objectbox_adapter`](packages/connectanum_objectbox_adapter) | ObjectBox encoded-entity integration with explicit native buffer ownership. |
 
-All seven packages share the coordinated `3.0.0-beta.8` version. Install them
+All eight packages share the coordinated `3.0.0-beta.9` version. Install them
 from [pub.dev](https://pub.dev/publishers/dart.konsultaner.de/packages) with
-matching `v3.0.0-beta.8` native assets; do not mix package and native versions.
+matching `v3.0.0-beta.9` native assets; do not mix package and native versions.
 
 ## Documentation
 
@@ -212,7 +213,14 @@ Start at the [documentation index](docs/README.md), or jump directly to:
 
 ## Project Status
 
-`3.0.0-beta.8` adds FlatBuffers as a protocol encoding and exposes native-owned
+`3.0.0-beta.9` adds native MQTT 5/3.1.1 QoS 0 pub/sub and an opt-in,
+realm-authorized MQTT ↔ WAMP gateway. Both translation directions have throughput,
+CPU and memory regression gates; see the [MQTT guide](docs/mqtt.md) and
+[benchmark tables](packages/connectanum_bench/README.md#mqtt-and-wamp-gateway).
+QoS 1/2, retained messages, wills, persistence and full MQTT authentication and
+conformance remain future work.
+
+The stack also supports FlatBuffers as a protocol encoding and native-owned
 buffers and external producer leases with explicit lifetime management. See the
 [FlatBuffers binding](docs/flatbuffers_binding.md) and
 [buffer ownership guide](docs/native_buffer_ownership.md) for supported profiles

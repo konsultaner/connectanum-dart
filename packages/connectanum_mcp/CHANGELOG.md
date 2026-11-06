@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.0-beta.9
+
+- Synchronize MCP runtime metadata and client/core dependencies with beta.9.
+
 ## 3.0.0-beta.8
 
 - Synchronize public MCP metadata and dependencies with the beta.8 release.
