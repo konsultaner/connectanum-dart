@@ -1,0 +1,358 @@
+{
+  "question": "New source-tied installed compiler/package directory and regular-file input acquisition without candidate execution",
+  "result": {
+    "source_commit": "846eaf93f007906b5082a82fb7d2e79a1faf5a23",
+    "branch": "codex/pr132-actions-compiler-package-inputs-20261106",
+    "run_id": 42286327692,
+    "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42286327692",
+    "job_id": 128127987517,
+    "job_conclusion": "success",
+    "sixteen_previous_jobs": "skipped_not_rerun",
+    "artifact_id": 13536599932,
+    "artifact_bytes": 92182,
+    "artifact_sha256": "430f127b84c7a905370df376a40915841255bc5f92aacbdec06019f9e6db6842",
+    "job_log_bytes": 46109,
+    "job_log_sha256": "bb5e21bd28506eed12a71c577bcc7d56221ec7abaeb2493e234ea0a06a870bef",
+    "source_directory_references": [
+      "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu",
+      "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/bin",
+      "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib",
+      "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib",
+      "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu",
+      "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib",
+      "/lib64"
+    ],
+    "point_directory_observations": [
+      {
+        "source_directory_reference": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu",
+        "entry_count": 5,
+        "absent_at_source_open_only": false
+      },
+      {
+        "source_directory_reference": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/bin",
+        "entry_count": 6,
+        "absent_at_source_open_only": false
+      },
+      {
+        "source_directory_reference": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib",
+        "entry_count": 4,
+        "absent_at_source_open_only": false
+      },
+      {
+        "source_directory_reference": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib",
+        "entry_count": 9,
+        "absent_at_source_open_only": false
+      },
+      {
+        "source_directory_reference": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu",
+        "entry_count": 2,
+        "absent_at_source_open_only": false
+      },
+      {
+        "source_directory_reference": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib",
+        "entry_count": 63,
+        "absent_at_source_open_only": false
+      },
+      {
+        "source_directory_reference": "/lib64",
+        "entry_count": 1,
+        "absent_at_source_open_only": false
+      }
+    ],
+    "new_package_streams": [
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/components",
+        "bytes": 96,
+        "sha256": "a13769c18a7a74ea492ab633b644d6c238ae81e536d30d3f168eddb57e86000e",
+        "saved_stream_matches_report": true
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/manifest-cargo-x86_64-unknown-linux-gnu",
+        "bytes": 1532,
+        "sha256": "5b2160ec3635b8c8f3129f12cbeee078d55d882f9362313e56e9fd484febe8ba",
+        "saved_stream_matches_report": true
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/manifest-rust-std-x86_64-unknown-linux-gnu",
+        "bytes": 5136,
+        "sha256": "41d07945b4443b478bc6866defabc060b879ed1ba34abe7d840b6e02262b4975",
+        "saved_stream_matches_report": true
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/manifest-rustc-x86_64-unknown-linux-gnu",
+        "bytes": 1656,
+        "sha256": "982d06993b810395621fd989b902db1b0c4c5a4095d77c61281159c14c18c10f",
+        "saved_stream_matches_report": true
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/multirust-channel-manifest.toml",
+        "bytes": 1086673,
+        "sha256": "3bd93d33248db8d373f1b7d53d344ee12ae2815c11653449ce5f227a0ec9d3cb",
+        "saved_stream_matches_report": true
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/multirust-config.toml",
+        "bytes": 285,
+        "sha256": "6f233d981acb122ba6e279a60542f090ca1724f45a770f69370bc01e3658edab",
+        "saved_stream_matches_report": true
+      },
+      {
+        "source": "/home/runner/.rustup/toolchains/1.99.0-x86_64-unknown-linux-gnu/lib/rustlib/rust-installer-version",
+        "bytes": 1,
+        "sha256": "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
+        "saved_stream_matches_report": true
+      }
+    ],
+    "new_package_stream_count": 7,
+    "new_package_stream_bytes": 1095379,
+    "directory_entry_count": 90,
+    "native_information_queries": 0,
+    "candidate_executions": 0,
+    "all_admission_flags": false,
+    "not_compiler_build_CFG_DEFAULT_LINKER_flavor_effective_Cargo_C_header_ABI_runtime_cohort_actorEX_or_RAM_repair": true,
+    "publication_pretarget_EX_refusals": 0
+  },
+  "new_candidate_validation": {
+    "new_job_key": "flatbuffers-compiler-package-inputs",
+    "parent_jobs": 16,
+    "new_job_count": 17,
+    "candidate_bytes": 151559,
+    "candidate_sha256": "0b4955a4f0e80fdbe9d4ee43470e8a4f2af74b8c4c0bc8c50e844c47ef2ffe71",
+    "old_jobs_unchanged": 16,
+    "exact_collector_embedding": true,
+    "explicit_runner_temp_uploader_sink_match": true,
+    "YAML_pass": true,
+    "reverse_projection_byteexact": true,
+    "Python_AST_pass": true,
+    "collector_bytes": 7730,
+    "native_candidate_executions": 0,
+    "all_admission_flags": false
+  },
+  "new_review_completion": {
+    "pid": 44772,
+    "signed_status": 0,
+    "same_original_wait": true,
+    "wait_may_be_cached": true,
+    "stdout_eof": true,
+    "stderr_eof": true,
+    "stdout_bytes": 2345,
+    "stderr_bytes": 354,
+    "stdout_sha256": "ef0f3985d952bd2f59844de36bb44382d27fce521772833ac5df5db577fdbe35",
+    "stderr_sha256": "45ad7476b075752402bccd0e47746d95391ebb0e0e923d36d9a213f35afeccb0",
+    "advisory_not_approval": true
+  },
+  "ROOT_review_qualification": "Qwen44772 natural0/full2345stdout354stderr/BOTH EOF/SAMEwait-cachedpossible; advisory NOTapproval. ROOT rejects OOM attribution to count/digest: file bytes are streamed in fixed chunks and not accumulated; no fixed process-memory/disk bound is claimed. Finite disk exhaustion remains a possible actual failclosed acquisition failure, not authority to cap/skip package files or weaken the declared all-direct-regular-files scope. Reject retracted directory-FD leak: outer directory finally encloses preserve and entry stat. Reject unconditional owned.remove in a finally after uncertain os.close: that would discard an unresolved owner; actual close failures remain unknown/quarantined, not settled/reset. Partial raw files/journal on exception remain preserved by always-upload, not deleted. Directory-entry disappearance, symlink/type drift or source mutation fail closed without fallback, global absence, current input/cohort or execution/admission inference. No model-derived source edit/test/relaunch/approval/unavailability.\n",
+  "archive": {
+    "regular_selected_members": 36,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 11128,
+    "archive_sha256": "f0ce31ebd33d944c9bfb2978c2041a21653c3df1c5a11342f89625411cc98145",
+    "not_full_directory_Source20_or_runtime_input_package": true,
+    "members": [
+      {
+        "name": "source/declaration.json",
+        "bytes": 1761,
+        "sha256": "eb50bd70efe3aaae729a94e8cd74ba6dd774b4b405fa8aa4b0455041dc9bd66c"
+      },
+      {
+        "name": "source/collector.py",
+        "bytes": 7730,
+        "sha256": "8739987937128152e9aca8776cb41ed1df9195c0d3c56f0ced97a1ddb5c15dcf"
+      },
+      {
+        "name": "source/new-generation.rb",
+        "bytes": 1848,
+        "sha256": "6e4c8711e659cf610d344b4865e3107d105565676109f841d39d4993f4b9c62f"
+      },
+      {
+        "name": "source/new-validation.rb",
+        "bytes": 1182,
+        "sha256": "b05d74c0f4aa74521316e47c696c4361d22c79fdd44c497a76fbeca84ad4cce8"
+      },
+      {
+        "name": "source/new-source-generation-request.json",
+        "bytes": 12759,
+        "sha256": "d2d5fc09cb1bd3a8a1ab64768697290a47b4fe1301547fa3a4a7c7964e943678"
+      },
+      {
+        "name": "source/new-job-generation-request.json",
+        "bytes": 508,
+        "sha256": "c86f60f95eb6a4ef4a6b8c9952d56b1badb73bf0f97aeefdf79c6e799fede9cb"
+      },
+      {
+        "name": "source/new-job-generation-creator.json",
+        "bytes": 71,
+        "sha256": "d55f72b9835d8813b27b403767b2acfbec3cce512fbfd5d01d20ca83be0777b6"
+      },
+      {
+        "name": "source/new-job-generation-completion.json",
+        "bytes": 362,
+        "sha256": "cfcef0310e95e859456b9e1f0f3dc516fcc45899a2586895b63a43d1a83131d8"
+      },
+      {
+        "name": "source/new-job-generation.stdout",
+        "bytes": 201,
+        "sha256": "e1e6470bb816134ba1e89cfc152f59b387ce042c7a4deec2401942b895162995"
+      },
+      {
+        "name": "source/new-job-generation.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "source/new-candidate-validation-request.json",
+        "bytes": 508,
+        "sha256": "48d3972471651f9e91b51fcab8f7bc04be7f078cbef227cde10c43ec14827eb3"
+      },
+      {
+        "name": "source/new-candidate-validation-creator.json",
+        "bytes": 71,
+        "sha256": "0a522736474751144154f787809387a06a7954d43f5f568b39ce1895c51595b2"
+      },
+      {
+        "name": "source/new-candidate-validation-completion.json",
+        "bytes": 362,
+        "sha256": "e6574963c51fdd9e0ba7994235a4a15e7f6253984336432a9c505acdb72a18aa"
+      },
+      {
+        "name": "source/new-candidate-validation.stdout",
+        "bytes": 195,
+        "sha256": "5caaa73aad33c0b89617666aaf9210ad8347d4f46930556c2301a097384d6710"
+      },
+      {
+        "name": "source/new-candidate-validation.stderr",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "source/candidate-validation.json",
+        "bytes": 521,
+        "sha256": "522d65767a670959ebb049b178e669a91aa538d983f17bfa09c951b1c3e582fe"
+      },
+      {
+        "name": "review/creator.json",
+        "bytes": 71,
+        "sha256": "1ebc2121ebc3a8bd56a7cf1d91fc9a14d1e2efa2b7e12e97a1a21263089383d4"
+      },
+      {
+        "name": "review/completion.json",
+        "bytes": 398,
+        "sha256": "5e835ddfb6ab44fea15c0ec9135972bec21fe3bd907a2a067c6daa3015ae058d"
+      },
+      {
+        "name": "Actions/execution-declaration.json",
+        "bytes": 2073,
+        "sha256": "e84e3e73d0b6a032a5fdfaa9c73d8c7a9cccad21737aa07cd8fb174b6f3b5442"
+      },
+      {
+        "name": "Actions/ROOT-new-review-qualification.md",
+        "bytes": 1030,
+        "sha256": "67bc1b5541c097befda6505d00b22b6355a49488940c37e66290e42e8cb9f736"
+      },
+      {
+        "name": "Actions/ROOT-input-boundary-qualification.md",
+        "bytes": 577,
+        "sha256": "6cb44c3d153eab07b657f5901f180ce91963ebebaee8842abaaeb35b3a564a00"
+      },
+      {
+        "name": "Actions/source-publication-receipt.json",
+        "bytes": 362,
+        "sha256": "f73dda278cd36f10e06c1cbfefe95f75bf37f8e53e8c47f5ad208fa7bdc94f96"
+      },
+      {
+        "name": "Actions/ROOT-first-new-environment-input-assessment.json",
+        "bytes": 4932,
+        "sha256": "93861a45d5855e118824325f8bae265dcacdfdb7d0cfd759fc9742ef91fa2a89"
+      },
+      {
+        "name": "Actions/actual-new-artifact-member-index.json",
+        "bytes": 1324,
+        "sha256": "f56841501272a8f39fe8d151d332f8dce91c6d253d1dd0346a279c5c682823a4"
+      },
+      {
+        "name": "Actions/create-new-environment-branch-completion.json",
+        "bytes": 362,
+        "sha256": "585c8bc7f5b82ecc465a33135b7281d963fc5b61926ce0b0f979d5e6c3414530"
+      },
+      {
+        "name": "Actions/publish-new-environment-source-completion.json",
+        "bytes": 363,
+        "sha256": "81a6f1d30672806e44d222a7a70ec97f276159408dace2f21a213f85d3004303"
+      },
+      {
+        "name": "Actions/new-environment-source-readback-completion.json",
+        "bytes": 365,
+        "sha256": "e4120b5f07bb572606631047cb4c33d9dd8fc192917b28faaa12d10974c8a7cc"
+      },
+      {
+        "name": "Actions/dispatch-only-new-environment-inputs-completion.json",
+        "bytes": 360,
+        "sha256": "928c96585da444b6cc5e436620a7dafb46f76906906cf1f77f10462d760ebb48"
+      },
+      {
+        "name": "Actions/discover-only-new-environment-run-0-completion.json",
+        "bytes": 361,
+        "sha256": "5889fe8fa4135d0b7fb6361d6b7f571a56595e89e60a309853936bb74d5e0ce2"
+      },
+      {
+        "name": "Actions/discover-only-new-environment-run-1-completion.json",
+        "bytes": 364,
+        "sha256": "3aacf6edafce869b781fe62c17a2b8ba21dfdd562b5d1e354c1136cf9655a3ae"
+      },
+      {
+        "name": "Actions/watch-only-new-environment-run-completion.json",
+        "bytes": 363,
+        "sha256": "b786730817528d40d30af64859c4afe5fda0bd4427e8fc93336de3c047d7905f"
+      },
+      {
+        "name": "Actions/actual-new-environment-final-completion.json",
+        "bytes": 364,
+        "sha256": "475b26a74c63f96927c7d372941697300c7c8c48f5d2e819d1d13b034653dd61"
+      },
+      {
+        "name": "Actions/actual-new-environment-jobs-completion.json",
+        "bytes": 364,
+        "sha256": "bdb451dc8ba39ce0195481255f495bb1faf7b82900d5756152f1f93150fed204"
+      },
+      {
+        "name": "Actions/actual-new-environment-job-log-completion.json",
+        "bytes": 364,
+        "sha256": "d3923ea0b527a092391aaa697d50b85bfa23d83b3a5c9f1dd73928775d788a98"
+      },
+      {
+        "name": "Actions/actual-new-environment-artifact-list-completion.json",
+        "bytes": 362,
+        "sha256": "bb3c4a91dfcb0bdc1b7fb04c7fa439db010f6f013b92cfcbc3983c4a9d2c9d5e"
+      },
+      {
+        "name": "Actions/actual-new-environment-artifact-zip-completion.json",
+        "bytes": 364,
+        "sha256": "25e0fdc7c1fa288e03247168f3d17cdfdad0d674bb64442ff54fbdb984c2c8ae"
+      }
+    ]
+  },
+  "known_original_watch_completion": {
+    "pid": 53957,
+    "signed_status": 0,
+    "same_original_wait": true,
+    "wait_may_be_cached": true,
+    "stdout_eof": true,
+    "stderr_eof": true,
+    "stdout_bytes": 6360,
+    "stderr_bytes": 0,
+    "stdout_sha256": "94608983f7642cfef99f2d85b017417d88a32f02df176ba03e372c108a218e20",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "known_controller_limits": "Original local publisher completion, signed statuses and both EOF are observations only, not global native/transitive actor FD or continuous physical EX/crash closure",
+  "full_private_exclusions": [
+    "directory-entry report and operations",
+    "new raw package file bodies",
+    "full ZIP and job log/API/controllers",
+    "full review raw body"
+  ],
+  "all_admission_flags": false,
+  "controller": "CLOSED_observed_only",
+  "ownership": null,
+  "provider_route": "original_GitHub_Actions_selected_NOT_runtime_admitted",
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}

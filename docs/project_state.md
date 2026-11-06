@@ -1,5 +1,14 @@
 # Project State
 
+## 2026-11-06: original Actions compiler package input references
+
+The new [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42286327692) succeeds at source 846eaf93f007906b5082a82fb7d2e79a1faf5a23; all sixteen previous jobs were unchanged and skipped. Original Ubuntu24.04/Dart3.13.5/Rust1.99.0 setup and recipes remain unchanged. Seven source-tied directory references yielded 90 entry observations and 7 new package streams (1,095,379 bytes), all independently matching their report/readbacks. All direct entries were retained; every direct regular file in the two declared metadata roots was saved without filename/content filtering, recursion or a guessed manifest/header path. No old compiler/bin/lib/target-library image body was reopened.
+
+Zero collector child/native-information/header/C-preprocessor queries, bootstrap/dependency/native build/numerical work or Source20/runtime adoption ran. First new source/checks/review/Actions/acquisition/comparison/archive work is complete and consumed. [New evidence](research/2026-11-06-flatbuffers-actions-compiler-package-inputs.md):36selectedregularmembers, byteexact archive SHA-256 f0ce31ebd33d944c9bfb2978c2041a21653c3df1c5a11342f89625411cc98145. Full report/raw package inputs/journal/ZIP/log/API/controllers/review remain private.
+
+Point package names and file streams are not actual compiler-build CFG_DEFAULT_research/2026-11-06-flatbuffers-actions-compiler-package-inputs.mdER/flavor, effective Cargo target/config-env, selected C-header/sysroot/ABI/cohort, original driver credentials or native actorFD/continuous official physical EX/crash admission. All flags remain false. RAM cause/repair, immutable original admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE. Next: a genuinely new declared interpretation of newly retained installed package metadata, without acquisition replay, guessed tools/paths/defaults, unsupported flags, favorable cohorts, old-input transplant or copy/GC/gate/workload change. Complete applicable original preflight remains required; memory floors and prep-only skip-ci grant no build or final CI waiver. Same-chat follow-up remains active.
+
+
 ## 2026-11-06: original Actions C-tool search environment inputs
 
 The new [preparation run](https://github.com/konsultaner/connectanum-dart/actions/runs/42271186633) succeeds at source 635793583af040d09171f4b6e4e9c3948ac2df39; all fifteen prior jobs were unchanged and skipped. Original Ubuntu24.04/Dart3.13.5/Rust1.99.0 recipes remain unchanged. The collector reads four source-named environment inputs only, with zero child/native-information/header/C-preprocessor queries or environment mutations. All four were absent in that collector process. Full2158B report matches the collector write journal; these four point observations are not tests, global absence, compiler defaults, effective Cargo/header paths or runtime admission.
