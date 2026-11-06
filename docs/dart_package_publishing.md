@@ -1,10 +1,13 @@
 # Dart package publishing
 
-The eight workspace packages form one coordinated versioned stack. The current
-release target is `3.0.0-beta.9`, including the merged native MQTT client, QoS 0
-router and authorized MQTT ↔ WAMP gateway. Publication was explicitly authorized
-on 2026-11-06; follow the [active release plan](exec-plans/2026-11-06-3.0.0-beta.9-release.md)
-for progress and evidence.
+All eight workspace packages are published at `3.0.0-beta.9`, including the
+merged native MQTT client, QoS 0 router and authorized MQTT ↔ WAMP gateway.
+Publication and a fresh hosted-only consumer were verified on 2026-11-06.
+The [release](https://github.com/konsultaner/connectanum-dart/releases/tag/v3.0.0-beta.9)
+contains signed native assets, the checksum-verified benchmark/coverage archive
+and a [publication receipt](https://github.com/konsultaner/connectanum-dart/releases/download/v3.0.0-beta.9/beta9-publication.json).
+The [completed release plan](exec-plans/2026-11-06-3.0.0-beta.9-release.md)
+records qualification and publication methods.
 
 ## Release requirements
 
@@ -39,19 +42,26 @@ band and publish it after its prerequisites.
 
 ## Automated publication
 
-Existing package names use the verified `dart.konsultaner.de` publisher and
-GitHub OIDC. Each `.github/workflows/pub-dev-*.yml` workflow triggers on the
-package-specific tag `<package>-v<version>`, validates the tag against its
-pubspec, runs a strict scoped dry-run, and calls Dart's reusable publishing
-workflow with the `pub.dev` environment. Package version bumps and ordinary
+Seven packages use the verified `dart.konsultaner.de` publisher and GitHub OIDC.
+ObjectBox remains individually owned and was published with the existing
+authenticated Dart CLI. Do not push its package tag until automation is verified;
+its checked-in workflow has no confirmed configuration. Each configured
+`.github/workflows/pub-dev-*.yml` workflow triggers on the package-specific tag
+`<package>-v<version>`, validates the tag against its pubspec, runs a strict
+scoped dry-run, and calls Dart's reusable publishing workflow with the `pub.dev`
+environment. Package version bumps and ordinary
 master merges do not publish a package automatically.
 
-After CI passes and release source is promoted, push `v3.0.0-beta.9` for the
-native release. Require all five native platforms and production consumer proofs
-to pass. Then push the exact package tags in the table order, waiting for each
-publish workflow and pub.dev indexing before publishing dependents. Record the
-source commit, workflow results and package version URLs in the release evidence,
-and verify a clean hosted consumer without workspace path overrides.
+After CI passes, tag the exact qualified source. Beta.9 was published from
+`72c078f1` while the version-metadata PR remains under normal GitHub review;
+publication was explicitly authorized separately. Push the coordinated version
+tag for the native release. Require all five native platforms and production
+consumer proofs to pass. Then push configured package tags in dependency order, waiting for each
+publish workflow and pub.dev indexing before publishing dependents. Use the
+existing authenticated `dart pub publish --force` path for individually owned
+packages whose automation has not been verified. Keep all zero-warning and
+source checks. Record the source commit, workflow results and package version
+URLs in the release evidence, and verify a clean hosted consumer without workspace path overrides.
 
 Pub.dev publication is immutable. Publish only after an explicit user decision
 for the package names and version; do not move an existing release tag or replace

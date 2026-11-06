@@ -193,9 +193,9 @@ coordinated stack.
 | [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
 | [`connectanum_objectbox_adapter`](packages/connectanum_objectbox_adapter) | ObjectBox encoded-entity integration with explicit native buffer ownership. |
 
-All eight packages share the coordinated `3.0.0-beta.9` version. Install them
-from [pub.dev](https://pub.dev/publishers/dart.konsultaner.de/packages) with
-matching `v3.0.0-beta.9` native assets; do not mix package and native versions.
+All eight packages share the published `3.0.0-beta.9` version. The
+[publishing guide](docs/dart_package_publishing.md#package-order) links to every
+package on pub.dev. Use matching `v3.0.0-beta.9` native assets.
 
 ## Documentation
 
