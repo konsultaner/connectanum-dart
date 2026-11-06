@@ -48,6 +48,7 @@ on:
           - flatbuffers_c_tool_search_environment
           - flatbuffers_compiler_package_inputs
           - flatbuffers_bundled_installer_inputs
+          - flatbuffers_c_header_environment_inputs
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -3023,5 +3024,109 @@ jobs:
       with:
         name: native-perf-bundled-installer-inputs
         path: "${{ runner.temp }}/native-perf-bundled-installer-inputs"
+        if-no-files-found: error
+        retention-days: 30
+
+  flatbuffers-c-header-environment-inputs:
+    name: FlatBuffers C-header environment inputs (no execution)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_header_environment_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-rustc-default-target-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Preserve referenced C-tool runtime inputs (no execution)
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+        import pathlib
+        import sys
+        import time
+  
+        references = ["CPATH","C_INCLUDE_PATH","CPLUS_INCLUDE_PATH","OBJC_INCLUDE_PATH","DEPENDENCIES_OUTPUT","SUNPRO_DEPENDENCIES","SOURCE_DATE_EPOCH"]
+        source_occurrences = [{"source_line":8,"source_environment_name":"CPATH"},{"source_line":9,"source_environment_name":"C_INCLUDE_PATH"},{"source_line":10,"source_environment_name":"CPLUS_INCLUDE_PATH"},{"source_line":11,"source_environment_name":"OBJC_INCLUDE_PATH"},{"source_line":15,"source_environment_name":"CPATH"},{"source_line":22,"source_environment_name":"DEPENDENCIES_OUTPUT"},{"source_line":28,"source_environment_name":"SUNPRO_DEPENDENCIES"},{"source_line":33,"source_environment_name":"SOURCE_DATE_EPOCH"}]
+        root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "native-perf-c-header-environment-inputs"
+        root.mkdir()
+        journal = open(root / "operations.jsonl", "x", encoding="utf-8")
+        owned = []
+  
+        def event(operation, **fields):
+            journal.write(json.dumps({"operation": operation, "monotonic_ns": time.monotonic_ns(),
+                                      **fields}, sort_keys=True) + "\n")
+            journal.flush()
+  
+        try:
+            observations = []
+            for name in references:
+                present = name in os.environ
+                observations.append({"source_environment_name": name,
+                                     "present_in_this_collector_environment": present,
+                                     "value": os.environ[name] if present else None,
+                                     "empty_value_when_present": os.environ[name] == "" if present else None})
+                event("environment_name_observed", name=name, present=present)
+            report = {
+                "workflow_revision": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"],
+                "reference_basis": "ALL seven distinct names from current official GCC CPP Environment Variables source, preserving ALL eight ordered source mentions, including repeated CPATH. This is a declared point input acquisition, not installed implementation or header/default/runtime authority.",
+                "reference_source_URL": "https://gcc.gnu.org/onlinedocs/cpp/Environment-Variables.html",
+                "ALL8_reference_source_occurrences": source_occurrences,
+                "no_value_splitting_normalization_or_path_resolution": True,
+                "source_environment_names": references, "observations": observations,
+                "collector_credentials": {"uid": os.getuid(), "gid": os.getgid(), "groups": os.getgroups()},
+                "collector_cwd": os.getcwd(), "collector_argv": list(sys.argv),
+                "collector_interpreter_reference": sys.executable,
+                "native_information_queries": 0, "candidate_executions": 0, "environment_mutations": 0,
+                "all_admission_flags": False,
+                "qualification": "Only this collector process's seven documented CPP source-named environment inputs. "
+                                 "Absent and present-empty are distinct point observations. Not global absence, "
+                                 "effective Cargo/target/linker/default compiler/header or sysroot resolution, "
+                                 "actual compiler-build defaults, original driver credentials/argv/environment, "
+                                 "loaded-runtime/ABI/cohort/transitive actor FD/continuous physical EX/crash admission. "
+                                 "No build, bootstrap, dependency resolution, driver, broker, profiler, benchmark "
+                                 "or numerical campaign; actual Actions setup is separate and unadmitted. Current manual is not installed GCC/source/version/build-time PATH_SEPARATOR authority; C/C++/ObjC/dependency/time names are all retained without target/language filtering."
+            }
+            raw = (json.dumps(report, sort_keys=True, indent=2) + "\n").encode()
+            path = root / "c-header-environment-inputs.json"
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            owned.append(fd)
+            try:
+                event("report_open_return_before_write", fd=fd, path=str(path))
+                offset = 0
+                while offset < len(raw):
+                    event("report_write_attempt", fd=fd, offset=offset, requested_bytes=len(raw)-offset)
+                    count = os.write(fd, raw[offset:])
+                    event("report_write_return", fd=fd, offset=offset, written_bytes=count)
+                    if count <= 0:
+                        raise OSError("report write made no progress; partial report quarantined")
+                    offset += count
+                event("report_bytes_written", fd=fd, bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+            finally:
+                try:
+                    event("close_attempt", fd=fd, role="report")
+                finally:
+                    os.close(fd)
+                owned.remove(fd)
+                event("close_return", fd=fd, role="report")
+            event("report_saved", references=len(references), native_information_queries=0,
+                  candidate_executions=0, environment_mutations=0)
+        finally:
+            journal.close()
+  
+        PY
+    - name: Upload C-tool runtime input packet even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: native-perf-c-header-environment-inputs
+        path: "${{ runner.temp }}/native-perf-c-header-environment-inputs"
         if-no-files-found: error
         retention-days: 30
