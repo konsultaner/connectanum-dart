@@ -43,6 +43,7 @@ on:
           - flatbuffers_cargo_config_inputs
           - flatbuffers_rustc_default_target
           - flatbuffers_linker_candidate_inputs
+          - flatbuffers_c_tool_runtime_inputs
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -2247,5 +2248,165 @@ jobs:
       with:
         name: native-perf-linker-candidate-inputs
         path: ${{ runner.temp }}/native-perf-linker-candidate-inputs
+        if-no-files-found: error
+        retention-days: 30
+
+  flatbuffers-c-tool-runtime-inputs:
+    name: FlatBuffers C-tool runtime reference inputs (no execution)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_runtime_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-rustc-default-target-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Preserve referenced C-tool runtime inputs (no execution)
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+        import pathlib
+        import stat
+        import time
+
+        paths = ["/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2","/lib/x86_64-linux-gnu/libbfd-2.42-system.so","/lib/x86_64-linux-gnu/libc.so.6","/lib/x86_64-linux-gnu/libctf.so.0","/lib/x86_64-linux-gnu/libjansson.so.4","/lib32/libc.so.6","/lib64/ld-linux-x86-64.so.2"]
+        root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "native-perf-c-tool-runtime-inputs"
+        root.mkdir()
+        journal = open(root / "operations.jsonl", "x", encoding="utf-8")
+        owned = []
+        images = []
+        observations = []
+
+        def event(operation, **fields):
+            journal.write(json.dumps({"operation": operation, "monotonic_ns": time.monotonic_ns(),
+                                      **fields}, sort_keys=True) + "\n")
+            journal.flush()
+
+        def state(fd):
+            s = os.fstat(fd)
+            return {"dev": s.st_dev, "ino": s.st_ino, "mode": s.st_mode,
+                    "uid": s.st_uid, "gid": s.st_gid, "size": s.st_size,
+                    "mtime_ns": s.st_mtime_ns, "ctime_ns": s.st_ctime_ns}
+
+        def close_known(fd, role):
+            try:
+                event("close_attempt", fd=fd, role=role)
+            finally:
+                os.close(fd)
+            owned.remove(fd)
+            event("close_return", fd=fd, role=role)
+
+        def preserve(name, path, number):
+            try:
+                fd = os.open(path, os.O_RDONLY)
+            except FileNotFoundError as error:
+                event("absent_at_source_open", name=name, path=path, error_type=type(error).__name__, error_text=str(error))
+                return {"absent_at_source_open_only": True, "error_type": type(error).__name__, "error_text": str(error)}
+            owned.append(fd)
+            try:
+                event("source_open_return_before_read", fd=fd, name=name, path=path)
+                before = state(fd)
+                if not stat.S_ISREG(before["mode"]):
+                    raise RuntimeError("candidate opened as nonregular input")
+                saved = "runtime-reference-%02d.bin" % number
+                destination = os.open(root / saved, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
+                owned.append(destination)
+                try:
+                    event("destination_open_return_before_write", fd=destination, name=name, saved=saved)
+                    digest = hashlib.sha256()
+                    size = 0
+                    while True:
+                        chunk = os.read(fd, 1024 * 1024)
+                        if not chunk:
+                            break
+                        digest.update(chunk)
+                        size += len(chunk)
+                        offset = 0
+                        while offset < len(chunk):
+                            written = os.write(destination, chunk[offset:])
+                            if written <= 0:
+                                raise RuntimeError("destination write made no progress")
+                            offset += written
+                    event("source_EOF", fd=fd, name=name, bytes=size, sha256=digest.hexdigest())
+                    after = state(fd)
+                    os.lseek(destination, 0, os.SEEK_SET)
+                    readback = hashlib.sha256()
+                    reread = 0
+                    while True:
+                        chunk = os.read(destination, 1024 * 1024)
+                        if not chunk:
+                            break
+                        reread += len(chunk)
+                        readback.update(chunk)
+                    event("destination_readback_EOF", fd=destination, name=name, bytes=reread,
+                          sha256=readback.hexdigest())
+                    if reread != size or readback.digest() != digest.digest():
+                        raise RuntimeError("saved stream/readback mismatch")
+                    if before != after:
+                        raise RuntimeError("source descriptor metadata changed during copy")
+                    row = {"name": name, "path": path, "saved": saved, "bytes": size,
+                           "sha256": digest.hexdigest(), "source_before": before,
+                           "source_after": after, "destination": state(destination),
+                           "saved_readback_matches": True}
+                    images.append(row)
+                    return row
+                finally:
+                    close_known(destination, "saved_candidate")
+            finally:
+                close_known(fd, "source_candidate")
+
+
+        try:
+            for number, path in enumerate(paths):
+                observation = {"source_path_reference": path}
+                observations.append(observation)
+                try:
+                    s = os.lstat(path)
+                except FileNotFoundError as error:
+                    observation["separate_lstat_error"] = {"type": type(error).__name__, "text": str(error)}
+                else:
+                    observation["separate_lstat"] = {"dev": s.st_dev, "ino": s.st_ino, "mode": s.st_mode,
+                                                   "uid": s.st_uid, "gid": s.st_gid, "size": s.st_size}
+                    observation["separate_readlink"] = os.readlink(path) if stat.S_ISLNK(s.st_mode) else None
+                observation["separate_realpath"] = os.path.realpath(path)
+                observation["source_open_result"] = preserve(path, path, number)
+            report = {
+                "workflow_revision": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"],
+                "reference_basis": "ALL seven path references: exact PT_INTERP in three retained C-tool "
+                                   "candidate streams plus ALL six old catalogue rows for five NEW needed names. "
+                                   "Historical catalogue is not current path/cohort/ABI/loaded resolution authority.",
+                "source_path_references": paths, "observations": observations, "images": images,
+                "collector_credentials": {"uid": os.getuid(), "gid": os.getgid(), "groups": os.getgroups()},
+                "collector_cwd": os.getcwd(), "native_information_queries": 0, "candidate_executions": 0,
+                "remaining_known_input_FDs": list(owned), "all_admission_flags": False,
+                "qualification": "Input snapshots only, not effective Cargo linker/target/build-default, "
+                                 "C-header/sysroot/ABI/complete loaded-runtime/cohort/original-driver credentials/"
+                                 "transitive actor FD/continuous official physical EX/crash admission. "
+                                 "All reference paths included without ABI label/path selection. "
+                                 "Separate path/FD/data records do not prove atomic ABA/origin/authentication. "
+                                 "Absent-at-source-open is point data, not global absence, regression or generation authority."
+            }
+            with open(root / "c-tool-runtime-inputs.json", "x", encoding="utf-8") as stream:
+                json.dump(report, stream, sort_keys=True, indent=2)
+            event("report_saved", images=len(images), observations=len(observations),
+                  native_information_queries=0, candidate_executions=0, remaining_known_input_FDs=list(owned))
+        finally:
+            journal.close()
+
+        PY
+    - name: Upload C-tool runtime input packet even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: native-perf-c-tool-runtime-inputs
+        path: "${{ runner.temp }}/native-perf-c-tool-runtime-inputs"
         if-no-files-found: error
         retention-days: 30
