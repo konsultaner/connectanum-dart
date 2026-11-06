@@ -41,6 +41,7 @@ on:
           - flatbuffers_linkage_inputs
           - flatbuffers_wrapper_delegates
           - flatbuffers_cargo_config_inputs
+          - flatbuffers_rustc_default_target
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -1938,5 +1939,152 @@ jobs:
         name: flatbuffers-cargo-config-inputs-${{ github.sha }}-${{ github.run_attempt
           }}
         path: out/wamp-flatbuffers-cargo-config-inputs
+        if-no-files-found: error
+        retention-days: 30
+
+  flatbuffers-rustc-default-target:
+    name: FlatBuffers compiler default target (no build)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_rustc_default_target'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-rustc-default-target-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Observe compiler default target without compilation
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+        from pathlib import Path
+        import re
+        import subprocess
+  
+        root = Path.cwd()
+        out = root / "out/wamp-flatbuffers-rustc-default-target"
+        out.mkdir(parents=True, exist_ok=False)
+        (out / "queries").mkdir()
+        journal = (out / "operations.jsonl").open("x")
+        children = []
+  
+        def event(row):
+            journal.write(json.dumps(row, sort_keys=True) + "\n")
+            journal.flush()
+  
+        def query(label, argv):
+            event({"operation": "query_request_before_launch", "label": label, "argv": argv})
+            child = subprocess.Popen(argv, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            children.append(child)
+            original = {"label": label, "pid": child.pid, "argv": argv, "handle": child}
+            # The original handle is retained before the first stream operation.
+            stdout, stderr = child.communicate()
+            status = child.wait()
+            for suffix, data in [("stdout", stdout), ("stderr", stderr)]:
+                with (out / "queries" / (label + "." + suffix)).open("xb") as f:
+                    f.write(data)
+            row = {k: v for k, v in original.items() if k != "handle"}
+            row.update(signed_status=status, same_original_wait=True, wait_may_be_cached=True,
+                       stdout_eof=True, stderr_eof=True, stdout_bytes=len(stdout),
+                       stderr_bytes=len(stderr), stdout_sha256=hashlib.sha256(stdout).hexdigest(),
+                       stderr_sha256=hashlib.sha256(stderr).hexdigest())
+            event({"operation": "query_collected", **row})
+            if status != 0:
+                raise RuntimeError("Terminal query failure: " + label)
+            return stdout
+  
+        try:
+            help_raw = query("rustc-help", ["rustc", "--help"])
+            try:
+                help_text = help_raw.decode("utf-8")
+                help_decode_error = None
+            except UnicodeDecodeError as error:
+                help_text = None
+                help_decode_error = str(error)
+            paragraphs = []
+            if help_text is not None:
+                lines = help_text.splitlines()
+                starts = [i for i, line in enumerate(lines) if re.match(r"^\s*--print(?:\s|=|$)", line)]
+                for start in starts:
+                    paragraph = [lines[start]]
+                    for line in lines[start + 1:]:
+                        if not line.strip() or re.match(r"^\s*(?:--[A-Za-z]|-[A-Za-z](?:\s|,|$))", line):
+                            break
+                        paragraph.append(line)
+                    paragraphs.append("\n".join(paragraph))
+            observed_print_section = paragraphs[0] if len(paragraphs) == 1 else None
+            observations = {}
+            for kind in ["cfg", "host-tuple"]:
+                supported = observed_print_section is not None and re.search(
+                    r"(?<![A-Za-z0-9_-])" + re.escape(kind) + r"(?![A-Za-z0-9_-])",
+                    observed_print_section,
+                ) is not None
+                if not supported:
+                    observations[kind] = {
+                        "query_executed": False,
+                        "reason": "Exact token not explicitly listed in one unambiguous actual --print help paragraph",
+                        "reported_utf8": None,
+                    }
+                    continue
+                raw = query("rustc-print-" + kind, ["rustc", "--print", kind])
+                try:
+                    text = raw.decode("utf-8")
+                    error_text = None
+                except UnicodeDecodeError as error:
+                    text = None
+                    error_text = str(error)
+                observations[kind] = {
+                    "query_executed": True, "stdout_bytes": len(raw),
+                    "stdout_sha256": hashlib.sha256(raw).hexdigest(),
+                    "reported_utf8": text, "decode_error": error_text,
+                }
+            report = {
+                "purpose": "NEW original Actions compiler-reported default cfg/host-tuple, no compilation",
+                "workflow_revision": os.environ["GITHUB_SHA"],
+                "run_id": os.environ["GITHUB_RUN_ID"],
+                "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                "uid": os.getuid(), "gid": os.getgid(), "cwd": str(root),
+                "selected_environment": {key: os.environ.get(key) for key in [
+                    "PATH", "RUSTUP_TOOLCHAIN", "RUSTUP_HOME", "CARGO_HOME",
+                    "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_BUILD_TARGET",
+                    "ImageOS", "ImageVersion", "RUNNER_OS", "RUNNER_ARCH"]},
+                "help_stdout_bytes": len(help_raw),
+                "help_stdout_sha256": hashlib.sha256(help_raw).hexdigest(),
+                "help_utf8_decode_error": help_decode_error,
+                "print_paragraph_count": len(paragraphs),
+                "actual_print_help_paragraph": observed_print_section,
+                "observations": observations,
+                "qualification": [
+                    "Actual help is only an operational guard for already-declared information queries, never tool/image/ABI/cohort/actor/physicalEX authority",
+                    "Host-tuple reports compiler host, not necessarily Cargo selected target; default cfg does not prove Cargo flags or the captured conditional ARM configuration match/inactivity",
+                    "Complete raw help/cfg/host streams and native statuses are retained, including opaque bytes and refusals; no guessed or normalized report values",
+                    "No target/SDK/worker/GC/allocator/workload setting changed, no unstable flag, source input, emit, link-args or native-static-libs request",
+                    "No old version/sysroot/query/component/config intake replay, C-tool guess, bootstrap/dependency/native build, driver/broker/perf/benchmark or Source20/runtime adoption",
+                    "Original Actions setup is unchanged and separate; complete effective linker/C headers/config-env/generated-input/native actor-FD/crash/officialEX admission remains unbound",
+                ],
+                "source_admitted": False, "live_admission": False,
+                "capture_ready": False, "evidence_complete": False,
+            }
+            with (out / "rustc-default-target-observations.json").open("x") as f:
+                json.dump(report, f, indent=2)
+                f.write("\n")
+        finally:
+            journal.close()
+  
+        PY
+    - name: Upload default-target observations even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: flatbuffers-rustc-default-target-${{ github.sha }}-${{ github.run_attempt
+          }}
+        path: out/wamp-flatbuffers-rustc-default-target
         if-no-files-found: error
         retention-days: 30
