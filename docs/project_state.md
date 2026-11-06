@@ -1,5 +1,14 @@
 # Project State
 
+## 2026-11-06: first child-entry metadata interpretation
+
+FIRST interpretation of ALL7saved child-directory sets fromrun42311168556 keepsALL1124rows:673regular/290directory/161symlink/0other modes. ALL11prior source rows/4exclusions/9historicalcandidates/20relations retained. ALL63exact-name slots=2gccdirectory matches(/usr/libexec/gcc,/usr/share/gcc)+61scopednonmatches, NOTprograms/currentPATH/default/delegate/ABI/cohort/driver-access proof. ALL210include names/23libexec/16local/3src rows remainPRIVATE; no target/body/path expansion or host/language/ABI selection.
+
+First498051Bmetadata read binding/SHA0985af9b080ed7cbbcd697ac3dfcd66c6c1f8e7be465698ac1f25c377e3937a0 is new interpretation, NOToldcomparison/SDKrefresh. Gemma80170natural0/full1048out191err/BOTH EOF/ROOTqualified advisoryNOTapproval; prior4flavors/BOTHcfg/11installer/BOTHLLVM/974rows preservedhistoricallyNOTnewbodyvalidation. Reader tool0/separatePID-pipeEOFNULL, pointFDdata NOTatomicABA-origin-auth/nativeactorFD/continuousphysicalEX-crashclosure.
+
+[Evidence](research/2026-11-06-flatbuffers-c-tool-child-entry-interpretation.md):6regularselected(3original/3derived), byteexact archiveSHA051dcde855c6d60f3f00a0e821abc911d8da9590a69f19585c254170d4bd55da; full1124ledger/report/journal/ZIP/log/API/model/controller/raw PRIVATE/preserved. ALLnewreader/63slots/summary/archive COMPLETE_CONSUMED. No newActionsSource/run/compiler-header-native query/bootstrap/build/driver/broker/perf/benchmark/numerical/Source20-runtime adoption. Actualcompiler-build CFG_DEFAULT_LINKER/flavor/effectiveCargo/builtinCheader-sysroot/PATH_SEPARATOR/ABI/loadedruntime/generatedcohort/nativeactorFD/continuousofficialphysicalEX-crash/RAMrepair-FINALstrict48/50-cleanCI INCOMPLETE; setupUNADMITTED/allflagsFALSE/ownershipNone. Next genuinelyNEW explicitlydeclared source-positive input boundary, includingBOTHgccrefs/ALLheaderrows, consumedalias checks BEFOREacquisition; no automaticrecursion/body/query/download/executionauthority or preflightwaiver. Same-chatfollow-upACTIVE.
+
+
 ## 2026-11-06: C-tool child-directory input preparation
 
 Original Actions run42311168556/job128212693415 succeeds at source67481dc3b8e828b5720e35d1543727ec60669360; all20earlierjobs unchanged/skipped,21total. Explicit7directory input references come from ALL11 positive/usr entries, with4pre-I/O exclusions (/usr/bin consumed; library-family references conservatively excluded for uncertain prior aliases). All11rows/4exclusions/9historicalcandidates/20relations retained; no favorable ABI/default/compiler-header-root inference or authority from names/zero metadata mentions.
