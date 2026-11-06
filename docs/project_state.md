@@ -1,11 +1,21 @@
 # Project State
 
-Last updated: 2026-11-05.
+Last updated: 2026-11-06.
 
 Current milestone: [FlatBuffers and zero-copy native buffers](https://github.com/konsultaner/connectanum-dart/milestone/1).
 Active plan: [FlatBuffers execution plan](exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md).
 Branch: `codex/flatbuffers-performance-parity`, [PR #132](https://github.com/konsultaner/connectanum-dart/pull/132).
 PR #132 remains draft. Do not merge or claim performance acceptance yet.
+
+## 2026-11-06 — Resume original Actions toolchain preparation
+
+The user selected the original GitHub Actions workflow and Linux/Dart toolchain. This answers the separate access request recorded below; the follow-up is active again in the same chat. Fresh nonnumerical preparation is authorized. Original workload, recipes and strict acceptance remain unchanged.
+
+A new isolated campaign uses the original Ubuntu 24.04, Dart 3.13.5 and Rust 1.99.0 setup and stops before bootstrap or native builds. Every existing workflow job remains byte-for-byte unchanged. Current twenty-helper source remains uncommitted, unimported and unadopted. See the [preparation declaration](research/2026-11-06-flatbuffers-actions-toolchain-preflight.md).
+
+Temporary context records were observed missing, with cause unmeasured. The exact frozen policy was recovered and hash-verified from retained own-chat bytes; a new durable checkpoint explicitly preserves unknown fields rather than reconstructing lost records. An earlier summary-model result is permanently quarantined as unknown. No consumed numerical run, job or artifact was replayed.
+
+The selected provider route is not admitted runtime evidence. Actor/FD custody, full tool/input/cohort and continuous physical EX qualification remain incomplete; all admission flags stay false. RAM repair, own final strict48/50 and clean final CI remain incomplete. PR #132 stays open draft.
 
 ## 2026-11-05 — Original runtime access is needed for further execution
 
