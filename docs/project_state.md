@@ -1,5 +1,14 @@
 # Project State
 
+## 2026-11-06: original Actions compiler host/default cfg packet
+
+New source db24989b55b6a83a0c94a3015990f33ffdbdc7f7 added only an isolated compiler help/default-cfg/host job. The original Ubuntu24.04/Dart3.13.5/Rust1.99.0 setup was preserved. Run 42237618876/job127959276218 succeeded; all eleven previous jobs were skipped. RAM cause/repair, original immutable runtime admission, own FINAL strict48/50 and clean final production CI remain INCOMPLETE.
+
+Three help-guarded information-query streams independently match the saved report. Compiler host/default cfg does not bind effective Cargo target/flags, config inactivity, default linker, C headers/ABI or original runtime admission. No Source20/runtime adoption or numerical campaign ran. [New evidence](research/2026-11-06-flatbuffers-actions-rustc-default-target.md): 30 selected regular members, archive SHA-256 4180b5a6d7fe4901db01fe8c14d4978c7c9e297da5a73296f1f1276306ec8554. All new component work is consumed; all admission flags remain false. The same-chat follow-up stays active.
+
+Next: establish a genuinely new independently justified original compiler-source/default-linker and C-tool/header input boundary. The compiler-reported host/default cfg is data, not effective Cargo target/flags, conditional-config inactivity, default cc, C ABI or original cohort authority. No link-args/native-static-libs compilation, unsupported target-spec/-Z/RUSTC_BOOTSTRAP workaround, SDK/recipe changes, old component replay or Source20 adoption. Bootstrap/build/diagnostic/canonical work still needs complete applicable original source-tool-header-runtime-credentials-argv-env-cwd/actor-FD/continuous official physical EX/crash preflight. Fresh12GiB before any build/1GiB before tests is not authority.
+
+
 ## 2026-11-06 — Preserve Cargo configuration-source candidates
 
 The new [original Actions input preparation](https://github.com/konsultaner/connectanum-dart/actions/runs/42231124146) succeeds at source c4b9f8219b901c3096d114738a9b68b186ea2191. All ten previous jobs were skipped and remain unchanged. Fourteen candidate references yield twelve path observations: one153-byte configuration stream and eleven absence-at-source-open observations. No bootstrap, native build, Source20 change/adoption or numerical campaign ran.

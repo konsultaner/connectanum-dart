@@ -1,0 +1,284 @@
+{
+  "source_commit": "db24989b55b6a83a0c94a3015990f33ffdbdc7f7",
+  "branch": "codex/pr132-actions-rustc-default-target-20261106",
+  "run_id": 42237618876,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42237618876",
+  "job_id": 127959276218,
+  "job_conclusion": "success",
+  "eleven_other_jobs": "skipped_not_rerun",
+  "artifact_id": 13511767564,
+  "artifact_bytes": 5229,
+  "artifact_sha256": "5d5439e7bbef4b51eb31aac65e7c2346c7d5a058a8667a187d2aba961cc573bd",
+  "job_log_bytes": 43049,
+  "job_log_sha256": "64fc97ab015fe6c53fee2269812648be635fd09cc8d54d5413985ef7a6d19997",
+  "help_stdout_bytes": 4061,
+  "help_stdout_sha256": "df16a210b53b743e02829ae8479bb9179e91469b981ef5888a066252936229aa",
+  "print_paragraph_count": 1,
+  "observations": {
+    "cfg": {
+      "query_executed": true,
+      "stdout_bytes": 596,
+      "stdout_sha256": "de83cfea3c26b77e5109d1fbb7cb65187d45b7020ff6a2de1456242eadea656a",
+      "reported_utf8": "debug_assertions\npanic=\"unwind\"\ntarget_abi=\"\"\ntarget_arch=\"x86_64\"\ntarget_endian=\"little\"\ntarget_env=\"gnu\"\ntarget_family=\"unix\"\ntarget_feature=\"fxsr\"\ntarget_feature=\"sse\"\ntarget_feature=\"sse2\"\ntarget_has_atomic=\"16\"\ntarget_has_atomic=\"32\"\ntarget_has_atomic=\"64\"\ntarget_has_atomic=\"8\"\ntarget_has_atomic=\"ptr\"\ntarget_has_atomic_primitive_alignment=\"16\"\ntarget_has_atomic_primitive_alignment=\"32\"\ntarget_has_atomic_primitive_alignment=\"64\"\ntarget_has_atomic_primitive_alignment=\"8\"\ntarget_has_atomic_primitive_alignment=\"ptr\"\ntarget_os=\"linux\"\ntarget_pointer_width=\"64\"\ntarget_vendor=\"unknown\"\nunix\n",
+      "decode_error": null
+    },
+    "host-tuple": {
+      "query_executed": true,
+      "stdout_bytes": 25,
+      "stdout_sha256": "0f8c1ba3b2472237fbea77ab675c51c649f80370d3e559f385f9af57d2a66036",
+      "reported_utf8": "x86_64-unknown-linux-gnu\n",
+      "decode_error": null
+    }
+  },
+  "native_query_count": 3,
+  "all_admission_flags": false,
+  "not_Cargo_target_ABI_linker_runtime_or_RAM_repair": true,
+  "actual_query_completion_metadata": [
+    {
+      "argv": [
+        "rustc",
+        "--help"
+      ],
+      "label": "rustc-help",
+      "operation": "query_collected",
+      "pid": 2247,
+      "same_original_wait": true,
+      "signed_status": 0,
+      "stderr_bytes": 0,
+      "stderr_eof": true,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 4061,
+      "stdout_eof": true,
+      "stdout_sha256": "df16a210b53b743e02829ae8479bb9179e91469b981ef5888a066252936229aa",
+      "wait_may_be_cached": true
+    },
+    {
+      "argv": [
+        "rustc",
+        "--print",
+        "cfg"
+      ],
+      "label": "rustc-print-cfg",
+      "operation": "query_collected",
+      "pid": 2254,
+      "same_original_wait": true,
+      "signed_status": 0,
+      "stderr_bytes": 0,
+      "stderr_eof": true,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 596,
+      "stdout_eof": true,
+      "stdout_sha256": "de83cfea3c26b77e5109d1fbb7cb65187d45b7020ff6a2de1456242eadea656a",
+      "wait_may_be_cached": true
+    },
+    {
+      "argv": [
+        "rustc",
+        "--print",
+        "host-tuple"
+      ],
+      "label": "rustc-print-host-tuple",
+      "operation": "query_collected",
+      "pid": 2261,
+      "same_original_wait": true,
+      "signed_status": 0,
+      "stderr_bytes": 0,
+      "stderr_eof": true,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 25,
+      "stdout_eof": true,
+      "stdout_sha256": "0f8c1ba3b2472237fbea77ab675c51c649f80370d3e559f385f9af57d2a66036",
+      "wait_may_be_cached": true
+    }
+  ],
+  "scope_qualifications": [
+    "The original PATH queries were rustc --help, then rustc --print cfg and rustc --print host-tuple only if each exact token appeared in one actual help paragraph. Three saved stdout streams independently match report sizes and hashes. The compiler host was x86_64-unknown-linux-gnu; standalone default cfg reported x86_64/Linux/GNU/little-endian/64-bit-pointer values. Three observational queries are not three tests. The actual saved operation rows record signed status0 and both stream EOFs for original PIDs2247,2254,2261; same original waits may be cached.",
+    "These results do not establish effective Cargo target or flags, whether conditional ARM configuration applies, default linker or C-tool selection, C headers/ABI, release-mode behavior, generated-output cohort or loaded delegates/runtime. Printed atomic/alignment capability lines are not C layout, atomic lowering or shared-mapping proof. Help support, UID/GID and image labels do not establish original credentials, transitive actor FD ownership, continuous physical exclusion or crash closure.",
+    "The [current Rustc CLI reference](https://doc.rust-lang.org/rustc/command-line-arguments.html) informed the bounded help query. The versioned 1.99.0 page was inaccessible through the web tool; its exact error was retained with no HTTP-status, page-absence or backend-unavailability inference. The [current print reference](https://doc.rust-lang.org/rustc/command-line-arguments/print-options.html) describes compiler host reporting and modes that can compile. Those modes were excluded. Current documentation and help are interface context, not installed implementation or native binding authority.",
+    "Qwen60221 exited naturally with full4354-byte stdout/272-byte stderr, both EOF. ROOT qualified the advice: existing finally coverage and explicit query-executed fields already address claimed omissions; cap, cancel, retry and speculative source changes were rejected. Advisory output is not approval. Offline Python syntax/YAML/embedding/reverse-projection checks passed once; no production BEFORE regression or RAM fix is claimed.",
+    "The 5229-byte artifact13511767564 has SHA-256 5d5439e7bbef4b51eb31aac65e7c2346c7d5a058a8667a187d2aba961cc573bd; the full43049-byte new job log has SHA-256 64fc97ab015fe6c53fee2269812648be635fd09cc8d54d5413985ef7a6d19997. Each was acquired once. Known original admin handles have signed statuses and both stream EOFs; same original waits may be cached. Missing fields remain unknown. These records are not global/native actor or crash closure.",
+    "Full raw query/report/environment, ZIP, web-tool returns and controllers remain privately retained. The public selected archive is not the full directory or a Source20/runtime input package. No Source20/runtime edit/import/adoption, dependency resolution, bootstrap, native build, driver, broker, profiler, benchmark or numerical campaign ran. Prep-only skip-ci commits avoid unintended push builds; final clean production CI remains required. PR132 remains draft; all admission flags remain false.",
+    "All new source, reference, review, validation, query, log, artifact, saved-stream comparison and selected archive work is consumed. No consumed old campaign or artifact was replayed. A separate publication JS draft parser failed before stores, tools, files or actors; no draft bytes were retained or reconstructed."
+  ],
+  "next": "Next: establish a genuinely new independently justified original compiler-source/default-linker and C-tool/header input boundary. The compiler-reported host/default cfg is data, not effective Cargo target/flags, conditional-config inactivity, default cc, C ABI or original cohort authority. No link-args/native-static-libs compilation, unsupported target-spec/-Z/RUSTC_BOOTSTRAP workaround, SDK/recipe changes, old component replay or Source20 adoption. Bootstrap/build/diagnostic/canonical work still needs complete applicable original source-tool-header-runtime-credentials-argv-env-cwd/actor-FD/continuous official physical EX/crash preflight. Fresh12GiB before any build/1GiB before tests is not authority.",
+  "first_saved_stream_comparison": [
+    {
+      "member": "queries/rustc-help.stdout",
+      "bytes": 4061,
+      "sha256": "df16a210b53b743e02829ae8479bb9179e91469b981ef5888a066252936229aa",
+      "saved_stream_matches_report": true
+    },
+    {
+      "member": "queries/rustc-print-cfg.stdout",
+      "bytes": 596,
+      "sha256": "de83cfea3c26b77e5109d1fbb7cb65187d45b7020ff6a2de1456242eadea656a",
+      "saved_stream_matches_report": true
+    },
+    {
+      "member": "queries/rustc-print-host-tuple.stdout",
+      "bytes": 25,
+      "sha256": "0f8c1ba3b2472237fbea77ab675c51c649f80370d3e559f385f9af57d2a66036",
+      "saved_stream_matches_report": true
+    }
+  ],
+  "selected_archive": {
+    "path": "docs/research/2026-11-06-flatbuffers-actions-rustc-default-target-evidence.tar.gz",
+    "bytes": 22199,
+    "sha256": "4180b5a6d7fe4901db01fe8c14d4978c7c9e297da5a73296f1f1276306ec8554",
+    "regular_members": 30,
+    "saved_bytes_and_members_byteexact": true,
+    "not_full_directory_or_admitted_package": true,
+    "members": [
+      {
+        "name": "declaration.json",
+        "bytes": 1076,
+        "sha256": "3431566f89def0e1b56282eb07a428b76832e60d6564d3137210356d38fbaf13"
+      },
+      {
+        "name": "new-current-reference-declaration.json",
+        "bytes": 682,
+        "sha256": "6e5821b3b3d957ce157bc7fd803b0e613b1bd62a8b6edab7ebc17ddb255145a3"
+      },
+      {
+        "name": "primary-index.json",
+        "bytes": 1206,
+        "sha256": "9b84356ca4fa1a011b27a5cb888237bceb2449dad965d3ca281c1718e5221b3c"
+      },
+      {
+        "name": "new-Actions-execution-plan.json",
+        "bytes": 1807,
+        "sha256": "887558e49d8d130cc064af1b2fe159d99345cc3fc914fe9f8ffaede780347806"
+      },
+      {
+        "name": "source-generation-v1/declaration.json",
+        "bytes": 821,
+        "sha256": "b9022d07e1b97564641df5a65afd383f0af6634583bc476e0318c326b927976a"
+      },
+      {
+        "name": "source-generation-v1/rustc-default-target.py",
+        "bytes": 5710,
+        "sha256": "eb4e44716c25734983058bca66754aa29fa96e89db83bf2c8f582beb16857805"
+      },
+      {
+        "name": "source-generation-v1/new-help-guard-and-report-only.py",
+        "bytes": 4171,
+        "sha256": "175879d6dda68f291bd1fd59f20cf1e46e848ffb5c3532565dbed53c3743d90e"
+      },
+      {
+        "name": "source-generation-v1/candidate.diff",
+        "bytes": 8297,
+        "sha256": "36a079c4f473107216f40f4264a87f178dee61503516e976ce66f151147f1c99"
+      },
+      {
+        "name": "source-generation-v1/candidate-validation.json",
+        "bytes": 402,
+        "sha256": "19d8b161140219a8d7a4d15ab6397c8b2ad6716fbe26bc66c992bb510c048eaa"
+      },
+      {
+        "name": "source-generation-v1/fresh-validation-floor.json",
+        "bytes": 94,
+        "sha256": "f8fee4f49ebcfa722d5196e3d651dc6afa5969725ce4bd396db2c5b58dbd6a1d"
+      },
+      {
+        "name": "Actions-v1/execution-declaration.json",
+        "bytes": 1317,
+        "sha256": "afa6bf6b2ddf895940d95a2fde6a341a5937785bd12ddd421ab5cc38e0400411"
+      },
+      {
+        "name": "Actions-v1/source-publication-receipt.json",
+        "bytes": 366,
+        "sha256": "20d23ed9309c1ddca8d91ea05bceeed01dbffa49e9c07a9f707adf09ab62885c"
+      },
+      {
+        "name": "Actions-v1/ROOT-review-qualification.md",
+        "bytes": 1005,
+        "sha256": "9bf34b3a6c19acf0de2bd4ee62c7b467981db896994282cd6cfad10e01537afa"
+      },
+      {
+        "name": "Actions-v1/actual-new-artifact-member-index.json",
+        "bytes": 1228,
+        "sha256": "c0f08e83fa5bef82068dd8b9c1119ec8355f922ae65ee0550329d04c18562197"
+      },
+      {
+        "name": "Actions-v1/actual-new-target-job-log.stdout",
+        "bytes": 43049,
+        "sha256": "64fc97ab015fe6c53fee2269812648be635fd09cc8d54d5413985ef7a6d19997"
+      },
+      {
+        "name": "first-stream-qualification-v1/declaration.json",
+        "bytes": 358,
+        "sha256": "17221cf82a625fcfdadd63868a1662867f650825c88b25c09cfab6b69bbd9b6e"
+      },
+      {
+        "name": "Actions-v1/actual-new-target-artifact-list-completion.json",
+        "bytes": 362,
+        "sha256": "01ebb4e3b5309899a959a177fd4a67676d5fbe383f5865c2db9cee02d12402cf"
+      },
+      {
+        "name": "Actions-v1/actual-new-target-artifact-zip-completion.json",
+        "bytes": 363,
+        "sha256": "26d11c72bb01de30f397f99b9e007c1b61f93dfcfbf371cb5586bd5572a5aeb4"
+      },
+      {
+        "name": "Actions-v1/actual-new-target-final-completion.json",
+        "bytes": 364,
+        "sha256": "d8f966fd45b05026f062074bf8c23d3eebd2890838a29cc13b86ef938abcbbd8"
+      },
+      {
+        "name": "Actions-v1/actual-new-target-job-log-completion.json",
+        "bytes": 364,
+        "sha256": "da1877f6750aed363862311e3df6f28c1bdf228f08b1a6b4e8b3734e360acfac"
+      },
+      {
+        "name": "Actions-v1/actual-new-target-jobs-completion.json",
+        "bytes": 364,
+        "sha256": "cb94873d35d50f0e34d9487a4423efd8d79f16137601436927418956eaaebac4"
+      },
+      {
+        "name": "Actions-v1/create-new-target-branch-completion.json",
+        "bytes": 362,
+        "sha256": "429d261b7cf7bcaa910f94e18e8e06707c207c0bc76d46d0e651fe7148c00755"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-target-run-0-completion.json",
+        "bytes": 361,
+        "sha256": "5332ae7ba00cf888cf2c611fb5f7a657ecfb5d1dcf114457dc050db4d40667cf"
+      },
+      {
+        "name": "Actions-v1/discover-only-new-target-run-1-completion.json",
+        "bytes": 364,
+        "sha256": "91372df33b879cb6a53beb6f63b7fac9e35b232c91df461d44ca974dbe9edfd7"
+      },
+      {
+        "name": "Actions-v1/dispatch-only-new-target-question-completion.json",
+        "bytes": 360,
+        "sha256": "ac92dc400a4c118cb1c87d940904b602180587826e6b721c2e1e14d43bfdcc9b"
+      },
+      {
+        "name": "Actions-v1/new-target-source-readback-completion.json",
+        "bytes": 365,
+        "sha256": "cefa6a78551f148503eb49bf7c98a3334f61e0e4cd9246329e23ebd095be3a87"
+      },
+      {
+        "name": "Actions-v1/publish-new-target-source-completion.json",
+        "bytes": 363,
+        "sha256": "42c77a38cbd840abda4712b97ce1bfa0cdd669b09246d25a933241296fb3c4c4"
+      },
+      {
+        "name": "Actions-v1/watch-only-new-target-run-completion.json",
+        "bytes": 363,
+        "sha256": "ccbe2d88b7fc7ef35174f2534b38c78476d27ff224d1d846130b120ff30d3b13"
+      },
+      {
+        "name": "ROOT-public-assessment-before-archive.json",
+        "bytes": 8569,
+        "sha256": "e09f8d407f9d0d86c25412cd3cc2d910fd884eb4e8bf0a78cab83ab31b9907d1"
+      },
+      {
+        "name": "ROOT-first-stream-comparison.json",
+        "bytes": 791,
+        "sha256": "b1c158d49f66f59f53b325735c87d32a964fcdba8f54ea97ff1dd8bf1eac2b45"
+      }
+    ]
+  }
+}
