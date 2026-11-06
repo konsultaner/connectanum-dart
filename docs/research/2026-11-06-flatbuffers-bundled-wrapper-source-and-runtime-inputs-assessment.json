@@ -1,0 +1,1418 @@
+{
+  "phase": "NEW_ALL9_static_interpretation_COMPLETE_CONSUMED_NOT_admitted",
+  "source_run": 42301162305,
+  "all11_reference_rows_preserved": true,
+  "both_LLVM_exclusions_preserved_no_body_read": true,
+  "all9_new_bodies_interpreted": true,
+  "new_body_count": 9,
+  "new_body_bytes": 13438404,
+  "new_read_byte_bindings": 11,
+  "binding_scope": "2 mapping metadata reads plus9 FIRST body interpretations, NOT tests or old acquisition comparison/SDK refresh",
+  "SDK_queries_candidate_executions_native_header_queries_build_or_download": false,
+  "all_admission_flags": false,
+  "qualification": "Static data only: ELF layout/INTERP/DYNAMIC/script literals do not establish actual selected linker/default CFG/flavor/effective Cargo/header/sysroot/target ABI/original loaded runtime/cohort/credentials/native actorFD/atomic ABA-origin-auth/continuous official physicalEX-crash or execution authority. ALL source text stays private; no script imported/executed, no model/API/job/archive/acquisition replay or Source20/runtime adoption.",
+  "summaries": [
+    {
+      "source_basename": "rust-lldb",
+      "manifest_line": 3,
+      "new_read_bytes": 961,
+      "kind": "Shebang_script_text_NO_execution",
+      "first_line": "#!/bin/sh",
+      "line_count": 36,
+      "terminal_LF": true
+    },
+    {
+      "source_basename": "lldb_lookup.py",
+      "manifest_line": 13,
+      "new_read_bytes": 17524,
+      "kind": "Python_source_static_AST_NO_import_execution",
+      "first_line": "from __future__ import annotations",
+      "line_count": 530,
+      "terminal_LF": true,
+      "ALL_import_statements": [
+        {
+          "line": 1,
+          "module": "__future__",
+          "level": 0,
+          "names": [
+            "annotations"
+          ]
+        },
+        {
+          "line": 2,
+          "module": "typing",
+          "level": 0,
+          "names": [
+            "TYPE_CHECKING",
+            "List",
+            "Callable"
+          ]
+        },
+        {
+          "line": 4,
+          "module": null,
+          "names": [
+            "lldb"
+          ]
+        },
+        {
+          "line": 6,
+          "module": "lldb_providers",
+          "level": 0,
+          "names": [
+            "LLDBFeature",
+            "FEATURE_FLAGS",
+            "LLDBOpaque",
+            "StructSyntheticProvider",
+            "StdHashMapSyntheticProvider",
+            "StdOldHashMapSyntheticProvider",
+            "StdRcSyntheticProvider",
+            "TupleSyntheticProvider",
+            "EmptySyntheticProvider",
+            "ClangEncodedEnumProvider",
+            "DefaultSyntheticProvider",
+            "StdStringSyntheticProvider",
+            "StdStringSummaryProvider",
+            "StdSliceSyntheticProvider",
+            "StdStrSummaryProvider",
+            "MSVCStrSyntheticProvider",
+            "SizeSummaryProvider",
+            "MSVCStdSliceSyntheticProvider",
+            "StdSliceSummaryProvider",
+            "StdOsStringSummaryProvider",
+            "StdVecSyntheticProvider",
+            "StdVecDequeSyntheticProvider",
+            "StdRcSummaryProvider",
+            "StdCellSyntheticProvider",
+            "StdRefSyntheticProvider",
+            "StdRefSummaryProvider",
+            "StdNonZeroNumberSummaryProvider",
+            "StdPathBufSummaryProvider",
+            "StdPathSummaryProvider",
+            "MSVCEnumSyntheticProvider",
+            "MSVCEnumSummaryProvider",
+            "TupleSummaryProvider",
+            "MSVCTupleSyntheticProvider",
+            "ClangEncodedEnumSummaryProvider",
+            "StructSummaryProvider",
+            "get_template_args",
+            "resolve_msvc_template_arg"
+          ]
+        },
+        {
+          "line": 46,
+          "module": "rust_types",
+          "level": 0,
+          "names": [
+            "ENUM_DISR_FIELD_NAME",
+            "ENUM_LLDB_ENCODED_VARIANTS",
+            "RustType",
+            "classify_union",
+            "is_tuple_fields"
+          ]
+        },
+        {
+          "line": 55,
+          "module": "lldb",
+          "level": 0,
+          "names": [
+            "SBValue"
+          ]
+        }
+      ],
+      "call_syntax_count": 108,
+      "string_literal_count": 37
+    },
+    {
+      "source_basename": "lldb_providers.py",
+      "manifest_line": 14,
+      "new_read_bytes": 54408,
+      "kind": "Python_source_static_AST_NO_import_execution",
+      "first_line": "from __future__ import annotations",
+      "line_count": 1560,
+      "terminal_LF": true,
+      "ALL_import_statements": [
+        {
+          "line": 1,
+          "module": "__future__",
+          "level": 0,
+          "names": [
+            "annotations"
+          ]
+        },
+        {
+          "line": 3,
+          "module": null,
+          "names": [
+            "sys"
+          ]
+        },
+        {
+          "line": 4,
+          "module": "enum",
+          "level": 0,
+          "names": [
+            "Flag",
+            "auto"
+          ]
+        },
+        {
+          "line": 5,
+          "module": "typing",
+          "level": 0,
+          "names": [
+            "TYPE_CHECKING",
+            "Dict",
+            "Generator",
+            "List",
+            "Optional"
+          ]
+        },
+        {
+          "line": 7,
+          "module": "lldb",
+          "level": 0,
+          "names": [
+            "SBData",
+            "SBError",
+            "eBasicTypeChar32",
+            "eBasicTypeDouble",
+            "eBasicTypeFloat",
+            "eBasicTypeHalf",
+            "eBasicTypeLong",
+            "eBasicTypeLongLong",
+            "eBasicTypeShort",
+            "eBasicTypeSignedChar",
+            "eBasicTypeUnsignedChar",
+            "eBasicTypeUnsignedLong",
+            "eBasicTypeUnsignedLongLong",
+            "eBasicTypeUnsignedShort",
+            "eFormatChar",
+            "eTypeIsInteger"
+          ]
+        },
+        {
+          "line": 25,
+          "module": "rust_types",
+          "level": 0,
+          "names": [
+            "is_tuple_fields"
+          ]
+        },
+        {
+          "line": 28,
+          "module": "lldb",
+          "level": 0,
+          "names": [
+            "SBProcess",
+            "SBTarget",
+            "SBType",
+            "SBTypeStaticField",
+            "SBValue"
+          ]
+        },
+        {
+          "line": 85,
+          "module": null,
+          "names": [
+            "lldb"
+          ]
+        },
+        {
+          "line": 272,
+          "module": "lldb",
+          "level": 0,
+          "names": [
+            "eBasicTypeFloat128"
+          ]
+        }
+      ],
+      "call_syntax_count": 515,
+      "string_literal_count": 266
+    },
+    {
+      "source_basename": "ld.lld",
+      "manifest_line": 16,
+      "new_read_bytes": 371248,
+      "kind": "ELF_static_input",
+      "class_bits": 64,
+      "machine_literal": 62,
+      "program_header_count": 12,
+      "ALL_INTERP_records": [
+        {
+          "program_index": 1,
+          "offset": 736,
+          "bytes_hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "literal": "/lib64/ld-linux-x86-64.so.2",
+          "trailing_after_first_NUL_hex": "",
+          "not_resolved_or_executed": true
+        }
+      ],
+      "ALL_DYNAMIC_string_references": [
+        {
+          "dynamic_entry_file_offset": 363064,
+          "tag": 29,
+          "tag_name": "RUNPATH",
+          "string_file_offset": 4326,
+          "string_bytes_hex": "244f524947494e2f2e2e2f6c6962",
+          "literal": "$ORIGIN/../lib",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363080,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4173,
+          "string_bytes_hex": "6c69626763635f732e736f2e31",
+          "literal": "libgcc_s.so.1",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363096,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4213,
+          "string_bytes_hex": "6c6962707468726561642e736f2e30",
+          "literal": "libpthread.so.0",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363112,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4241,
+          "string_bytes_hex": "6c6962632e736f2e36",
+          "literal": "libc.so.6",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363128,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4305,
+          "string_bytes_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+          "literal": "ld-linux-x86-64.so.2",
+          "not_resolved_or_loaded_or_executed": true
+        }
+      ]
+    },
+    {
+      "source_basename": "ld64.lld",
+      "manifest_line": 17,
+      "new_read_bytes": 371248,
+      "kind": "ELF_static_input",
+      "class_bits": 64,
+      "machine_literal": 62,
+      "program_header_count": 12,
+      "ALL_INTERP_records": [
+        {
+          "program_index": 1,
+          "offset": 736,
+          "bytes_hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "literal": "/lib64/ld-linux-x86-64.so.2",
+          "trailing_after_first_NUL_hex": "",
+          "not_resolved_or_executed": true
+        }
+      ],
+      "ALL_DYNAMIC_string_references": [
+        {
+          "dynamic_entry_file_offset": 363064,
+          "tag": 29,
+          "tag_name": "RUNPATH",
+          "string_file_offset": 4326,
+          "string_bytes_hex": "244f524947494e2f2e2e2f6c6962",
+          "literal": "$ORIGIN/../lib",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363080,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4173,
+          "string_bytes_hex": "6c69626763635f732e736f2e31",
+          "literal": "libgcc_s.so.1",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363096,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4213,
+          "string_bytes_hex": "6c6962707468726561642e736f2e30",
+          "literal": "libpthread.so.0",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363112,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4241,
+          "string_bytes_hex": "6c6962632e736f2e36",
+          "literal": "libc.so.6",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363128,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4305,
+          "string_bytes_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+          "literal": "ld-linux-x86-64.so.2",
+          "not_resolved_or_loaded_or_executed": true
+        }
+      ]
+    },
+    {
+      "source_basename": "lld-link",
+      "manifest_line": 18,
+      "new_read_bytes": 371248,
+      "kind": "ELF_static_input",
+      "class_bits": 64,
+      "machine_literal": 62,
+      "program_header_count": 12,
+      "ALL_INTERP_records": [
+        {
+          "program_index": 1,
+          "offset": 736,
+          "bytes_hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "literal": "/lib64/ld-linux-x86-64.so.2",
+          "trailing_after_first_NUL_hex": "",
+          "not_resolved_or_executed": true
+        }
+      ],
+      "ALL_DYNAMIC_string_references": [
+        {
+          "dynamic_entry_file_offset": 363064,
+          "tag": 29,
+          "tag_name": "RUNPATH",
+          "string_file_offset": 4326,
+          "string_bytes_hex": "244f524947494e2f2e2e2f6c6962",
+          "literal": "$ORIGIN/../lib",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363080,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4173,
+          "string_bytes_hex": "6c69626763635f732e736f2e31",
+          "literal": "libgcc_s.so.1",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363096,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4213,
+          "string_bytes_hex": "6c6962707468726561642e736f2e30",
+          "literal": "libpthread.so.0",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363112,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4241,
+          "string_bytes_hex": "6c6962632e736f2e36",
+          "literal": "libc.so.6",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363128,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4305,
+          "string_bytes_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+          "literal": "ld-linux-x86-64.so.2",
+          "not_resolved_or_loaded_or_executed": true
+        }
+      ]
+    },
+    {
+      "source_basename": "wasm-ld",
+      "manifest_line": 19,
+      "new_read_bytes": 371248,
+      "kind": "ELF_static_input",
+      "class_bits": 64,
+      "machine_literal": 62,
+      "program_header_count": 12,
+      "ALL_INTERP_records": [
+        {
+          "program_index": 1,
+          "offset": 736,
+          "bytes_hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "literal": "/lib64/ld-linux-x86-64.so.2",
+          "trailing_after_first_NUL_hex": "",
+          "not_resolved_or_executed": true
+        }
+      ],
+      "ALL_DYNAMIC_string_references": [
+        {
+          "dynamic_entry_file_offset": 363064,
+          "tag": 29,
+          "tag_name": "RUNPATH",
+          "string_file_offset": 4326,
+          "string_bytes_hex": "244f524947494e2f2e2e2f6c6962",
+          "literal": "$ORIGIN/../lib",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363080,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4173,
+          "string_bytes_hex": "6c69626763635f732e736f2e31",
+          "literal": "libgcc_s.so.1",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363096,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4213,
+          "string_bytes_hex": "6c6962707468726561642e736f2e30",
+          "literal": "libpthread.so.0",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363112,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4241,
+          "string_bytes_hex": "6c6962632e736f2e36",
+          "literal": "libc.so.6",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 363128,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 4305,
+          "string_bytes_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+          "literal": "ld-linux-x86-64.so.2",
+          "not_resolved_or_loaded_or_executed": true
+        }
+      ]
+    },
+    {
+      "source_basename": "rust-lld",
+      "manifest_line": 20,
+      "new_read_bytes": 11879600,
+      "kind": "ELF_static_input",
+      "class_bits": 64,
+      "machine_literal": 62,
+      "program_header_count": 12,
+      "ALL_INTERP_records": [
+        {
+          "program_index": 1,
+          "offset": 736,
+          "bytes_hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "literal": "/lib64/ld-linux-x86-64.so.2",
+          "trailing_after_first_NUL_hex": "",
+          "not_resolved_or_executed": true
+        }
+      ],
+      "ALL_DYNAMIC_string_references": [
+        {
+          "dynamic_entry_file_offset": 7640296,
+          "tag": 29,
+          "tag_name": "RUNPATH",
+          "string_file_offset": 90988,
+          "string_bytes_hex": "244f524947494e2f2e2e2f2e2e2f2e2e2f3a244f524947494e2f2e2e2f6c6962",
+          "literal": "$ORIGIN/../../../:$ORIGIN/../lib",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 7640312,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 90842,
+          "string_bytes_hex": "6c6962707468726561642e736f2e30",
+          "literal": "libpthread.so.0",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 7640328,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 90870,
+          "string_bytes_hex": "6c69627a2e736f2e31",
+          "literal": "libz.so.1",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 7640344,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 90891,
+          "string_bytes_hex": "6c69624c4c564d2e736f2e32332e312d727573742d312e39392e302d737461626c65",
+          "literal": "libLLVM.so.23.1-rust-1.99.0-stable",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 7640360,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 91076,
+          "string_bytes_hex": "6c69626d2e736f2e36",
+          "literal": "libm.so.6",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 7640376,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 91086,
+          "string_bytes_hex": "6c69626763635f732e736f2e31",
+          "literal": "libgcc_s.so.1",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 7640392,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 90936,
+          "string_bytes_hex": "6c6962632e736f2e36",
+          "literal": "libc.so.6",
+          "not_resolved_or_loaded_or_executed": true
+        },
+        {
+          "dynamic_entry_file_offset": 7640408,
+          "tag": 1,
+          "tag_name": "NEEDED",
+          "string_file_offset": 90957,
+          "string_bytes_hex": "6c642d6c696e75782d7838362d36342e736f2e32",
+          "literal": "ld-linux-x86-64.so.2",
+          "not_resolved_or_loaded_or_executed": true
+        }
+      ]
+    },
+    {
+      "source_basename": "LLVM-exception.txt",
+      "manifest_line": 34,
+      "new_read_bytes": 919,
+      "kind": "UTF8_text_input",
+      "first_line": "---- LLVM Exceptions to the Apache 2.0 License ----",
+      "line_count": 15,
+      "terminal_LF": true
+    }
+  ],
+  "interpretation": "EXPLICITLY_DERIVED_metadata_not_original_full_ELF_script_source_or_report",
+  "new_literal_ranges": {
+    "phase": "NEW_ALL5_wrapper_source_delegate_literal_ranges_COMPLETE_CONSUMED_NOT_admitted",
+    "source_run": 42301162305,
+    "all5_ELF_inputs_preserved": true,
+    "token_file_observations": 25,
+    "total_positive_literal_occurrences": 21,
+    "all5_summaries": [
+      {
+        "source_basename": "ld.lld",
+        "ALL_token_results": [
+          {
+            "token": "lld-wrapper",
+            "occurrence_count": 2,
+            "occurrences": [
+              {
+                "match_offset": 35262,
+                "window_offset": 35166,
+                "window_bytes": 299,
+                "window_sha256": "118ddb6f91b6f7a1fc3c5864b5d3d765d3286f4b48a6f81afca0a2a439f5cfb9",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 51,
+                    "literal": "memory allocation of "
+                  },
+                  {
+                    "window_offset": 74,
+                    "literal": " bytes failed"
+                  },
+                  {
+                    "window_offset": 96,
+                    "literal": "lld-wrapper: "
+                  },
+                  {
+                    "window_offset": 118,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/alloc/src/raw_vec/mod.rs"
+                  },
+                  {
+                    "window_offset": 200,
+                    "literal": "assertion `left "
+                  },
+                  {
+                    "window_offset": 218,
+                    "literal": " right` failed: "
+                  },
+                  {
+                    "window_offset": 237,
+                    "literal": "  left: "
+                  },
+                  {
+                    "window_offset": 248,
+                    "literal": " right: "
+                  },
+                  {
+                    "window_offset": 258,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc05"
+                  }
+                ]
+              },
+              {
+                "match_offset": 36688,
+                "window_offset": 36592,
+                "window_bytes": 299,
+                "window_sha256": "c4099544e28e5e6de1a68b1d7b5dee4dd308a31af83e41a73624ffffcc51f2ac",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "ry/std/src/../../backtrace/src/symbolize/gimli.rs"
+                  },
+                  {
+                    "window_offset": 50,
+                    "literal": "*extension cannot contain path separators: "
+                  },
+                  {
+                    "window_offset": 96,
+                    "literal": "lld-wrapper: "
+                  },
+                  {
+                    "window_offset": 117,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/../../backtrace/src/symbolize/gimli/stash.rs"
+                  },
+                  {
+                    "window_offset": 226,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/sys/sync/"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "rust-lld",
+            "occurrence_count": 2,
+            "occurrences": [
+              {
+                "match_offset": 41332,
+                "window_offset": 41236,
+                "window_bytes": 296,
+                "window_sha256": "d05349f771f749f7b6686ce0faae0c1c41c3aa1ec9480ae3a9364e50e08c4194",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "utable has unexpected name-flavorcould not get the path of the current executablecould not exec rust-lldT"
+                  }
+                ]
+              },
+              {
+                "match_offset": 87595,
+                "window_offset": 87499,
+                "window_bytes": 296,
+                "window_sha256": "af90add0a93feb2fd71d39fbf1323dde0c8f5585a24c5b478355364e88fadf99",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 96,
+                    "literal": "rust-lldI"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "-flavor",
+            "occurrence_count": 1,
+            "occurrences": [
+              {
+                "match_offset": 41262,
+                "window_offset": 41166,
+                "window_bytes": 295,
+                "window_sha256": "505a816aed80b0fedfa451b596af073452e7e21bca7cab8521cdda8a05b74090",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "le could not be determinedparent directory could not be determinedexecutable has unexpected name-flavorcould not get the path of the current executablecould not exec rust-lldT"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "src/tools",
+            "occurrence_count": 0,
+            "occurrences": []
+          },
+          {
+            "token": "RUSTC_LINKER",
+            "occurrence_count": 0,
+            "occurrences": []
+          }
+        ]
+      },
+      {
+        "source_basename": "ld64.lld",
+        "ALL_token_results": [
+          {
+            "token": "lld-wrapper",
+            "occurrence_count": 2,
+            "occurrences": [
+              {
+                "match_offset": 35262,
+                "window_offset": 35166,
+                "window_bytes": 299,
+                "window_sha256": "118ddb6f91b6f7a1fc3c5864b5d3d765d3286f4b48a6f81afca0a2a439f5cfb9",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 51,
+                    "literal": "memory allocation of "
+                  },
+                  {
+                    "window_offset": 74,
+                    "literal": " bytes failed"
+                  },
+                  {
+                    "window_offset": 96,
+                    "literal": "lld-wrapper: "
+                  },
+                  {
+                    "window_offset": 118,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/alloc/src/raw_vec/mod.rs"
+                  },
+                  {
+                    "window_offset": 200,
+                    "literal": "assertion `left "
+                  },
+                  {
+                    "window_offset": 218,
+                    "literal": " right` failed: "
+                  },
+                  {
+                    "window_offset": 237,
+                    "literal": "  left: "
+                  },
+                  {
+                    "window_offset": 248,
+                    "literal": " right: "
+                  },
+                  {
+                    "window_offset": 258,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc05"
+                  }
+                ]
+              },
+              {
+                "match_offset": 36688,
+                "window_offset": 36592,
+                "window_bytes": 299,
+                "window_sha256": "c4099544e28e5e6de1a68b1d7b5dee4dd308a31af83e41a73624ffffcc51f2ac",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "ry/std/src/../../backtrace/src/symbolize/gimli.rs"
+                  },
+                  {
+                    "window_offset": 50,
+                    "literal": "*extension cannot contain path separators: "
+                  },
+                  {
+                    "window_offset": 96,
+                    "literal": "lld-wrapper: "
+                  },
+                  {
+                    "window_offset": 117,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/../../backtrace/src/symbolize/gimli/stash.rs"
+                  },
+                  {
+                    "window_offset": 226,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/sys/sync/"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "rust-lld",
+            "occurrence_count": 2,
+            "occurrences": [
+              {
+                "match_offset": 41332,
+                "window_offset": 41236,
+                "window_bytes": 296,
+                "window_sha256": "d05349f771f749f7b6686ce0faae0c1c41c3aa1ec9480ae3a9364e50e08c4194",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "utable has unexpected name-flavorcould not get the path of the current executablecould not exec rust-lldT"
+                  }
+                ]
+              },
+              {
+                "match_offset": 87595,
+                "window_offset": 87499,
+                "window_bytes": 296,
+                "window_sha256": "af90add0a93feb2fd71d39fbf1323dde0c8f5585a24c5b478355364e88fadf99",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 96,
+                    "literal": "rust-lldI"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "-flavor",
+            "occurrence_count": 1,
+            "occurrences": [
+              {
+                "match_offset": 41262,
+                "window_offset": 41166,
+                "window_bytes": 295,
+                "window_sha256": "505a816aed80b0fedfa451b596af073452e7e21bca7cab8521cdda8a05b74090",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "le could not be determinedparent directory could not be determinedexecutable has unexpected name-flavorcould not get the path of the current executablecould not exec rust-lldT"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "src/tools",
+            "occurrence_count": 0,
+            "occurrences": []
+          },
+          {
+            "token": "RUSTC_LINKER",
+            "occurrence_count": 0,
+            "occurrences": []
+          }
+        ]
+      },
+      {
+        "source_basename": "lld-link",
+        "ALL_token_results": [
+          {
+            "token": "lld-wrapper",
+            "occurrence_count": 2,
+            "occurrences": [
+              {
+                "match_offset": 35262,
+                "window_offset": 35166,
+                "window_bytes": 299,
+                "window_sha256": "118ddb6f91b6f7a1fc3c5864b5d3d765d3286f4b48a6f81afca0a2a439f5cfb9",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 51,
+                    "literal": "memory allocation of "
+                  },
+                  {
+                    "window_offset": 74,
+                    "literal": " bytes failed"
+                  },
+                  {
+                    "window_offset": 96,
+                    "literal": "lld-wrapper: "
+                  },
+                  {
+                    "window_offset": 118,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/alloc/src/raw_vec/mod.rs"
+                  },
+                  {
+                    "window_offset": 200,
+                    "literal": "assertion `left "
+                  },
+                  {
+                    "window_offset": 218,
+                    "literal": " right` failed: "
+                  },
+                  {
+                    "window_offset": 237,
+                    "literal": "  left: "
+                  },
+                  {
+                    "window_offset": 248,
+                    "literal": " right: "
+                  },
+                  {
+                    "window_offset": 258,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc05"
+                  }
+                ]
+              },
+              {
+                "match_offset": 36688,
+                "window_offset": 36592,
+                "window_bytes": 299,
+                "window_sha256": "c4099544e28e5e6de1a68b1d7b5dee4dd308a31af83e41a73624ffffcc51f2ac",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "ry/std/src/../../backtrace/src/symbolize/gimli.rs"
+                  },
+                  {
+                    "window_offset": 50,
+                    "literal": "*extension cannot contain path separators: "
+                  },
+                  {
+                    "window_offset": 96,
+                    "literal": "lld-wrapper: "
+                  },
+                  {
+                    "window_offset": 117,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/../../backtrace/src/symbolize/gimli/stash.rs"
+                  },
+                  {
+                    "window_offset": 226,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/sys/sync/"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "rust-lld",
+            "occurrence_count": 2,
+            "occurrences": [
+              {
+                "match_offset": 41332,
+                "window_offset": 41236,
+                "window_bytes": 296,
+                "window_sha256": "d05349f771f749f7b6686ce0faae0c1c41c3aa1ec9480ae3a9364e50e08c4194",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "utable has unexpected name-flavorcould not get the path of the current executablecould not exec rust-lldT"
+                  }
+                ]
+              },
+              {
+                "match_offset": 87595,
+                "window_offset": 87499,
+                "window_bytes": 296,
+                "window_sha256": "af90add0a93feb2fd71d39fbf1323dde0c8f5585a24c5b478355364e88fadf99",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 96,
+                    "literal": "rust-lldI"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "-flavor",
+            "occurrence_count": 1,
+            "occurrences": [
+              {
+                "match_offset": 41262,
+                "window_offset": 41166,
+                "window_bytes": 295,
+                "window_sha256": "505a816aed80b0fedfa451b596af073452e7e21bca7cab8521cdda8a05b74090",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "le could not be determinedparent directory could not be determinedexecutable has unexpected name-flavorcould not get the path of the current executablecould not exec rust-lldT"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "src/tools",
+            "occurrence_count": 0,
+            "occurrences": []
+          },
+          {
+            "token": "RUSTC_LINKER",
+            "occurrence_count": 0,
+            "occurrences": []
+          }
+        ]
+      },
+      {
+        "source_basename": "wasm-ld",
+        "ALL_token_results": [
+          {
+            "token": "lld-wrapper",
+            "occurrence_count": 2,
+            "occurrences": [
+              {
+                "match_offset": 35262,
+                "window_offset": 35166,
+                "window_bytes": 299,
+                "window_sha256": "118ddb6f91b6f7a1fc3c5864b5d3d765d3286f4b48a6f81afca0a2a439f5cfb9",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 51,
+                    "literal": "memory allocation of "
+                  },
+                  {
+                    "window_offset": 74,
+                    "literal": " bytes failed"
+                  },
+                  {
+                    "window_offset": 96,
+                    "literal": "lld-wrapper: "
+                  },
+                  {
+                    "window_offset": 118,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/alloc/src/raw_vec/mod.rs"
+                  },
+                  {
+                    "window_offset": 200,
+                    "literal": "assertion `left "
+                  },
+                  {
+                    "window_offset": 218,
+                    "literal": " right` failed: "
+                  },
+                  {
+                    "window_offset": 237,
+                    "literal": "  left: "
+                  },
+                  {
+                    "window_offset": 248,
+                    "literal": " right: "
+                  },
+                  {
+                    "window_offset": 258,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc05"
+                  }
+                ]
+              },
+              {
+                "match_offset": 36688,
+                "window_offset": 36592,
+                "window_bytes": 299,
+                "window_sha256": "c4099544e28e5e6de1a68b1d7b5dee4dd308a31af83e41a73624ffffcc51f2ac",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "ry/std/src/../../backtrace/src/symbolize/gimli.rs"
+                  },
+                  {
+                    "window_offset": 50,
+                    "literal": "*extension cannot contain path separators: "
+                  },
+                  {
+                    "window_offset": 96,
+                    "literal": "lld-wrapper: "
+                  },
+                  {
+                    "window_offset": 117,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/../../backtrace/src/symbolize/gimli/stash.rs"
+                  },
+                  {
+                    "window_offset": 226,
+                    "literal": "/rustc/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/library/std/src/sys/sync/"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "rust-lld",
+            "occurrence_count": 2,
+            "occurrences": [
+              {
+                "match_offset": 41332,
+                "window_offset": 41236,
+                "window_bytes": 296,
+                "window_sha256": "d05349f771f749f7b6686ce0faae0c1c41c3aa1ec9480ae3a9364e50e08c4194",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "utable has unexpected name-flavorcould not get the path of the current executablecould not exec rust-lldT"
+                  }
+                ]
+              },
+              {
+                "match_offset": 87595,
+                "window_offset": 87499,
+                "window_bytes": 296,
+                "window_sha256": "af90add0a93feb2fd71d39fbf1323dde0c8f5585a24c5b478355364e88fadf99",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 96,
+                    "literal": "rust-lldI"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "-flavor",
+            "occurrence_count": 1,
+            "occurrences": [
+              {
+                "match_offset": 41262,
+                "window_offset": 41166,
+                "window_bytes": 295,
+                "window_sha256": "505a816aed80b0fedfa451b596af073452e7e21bca7cab8521cdda8a05b74090",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "le could not be determinedparent directory could not be determinedexecutable has unexpected name-flavorcould not get the path of the current executablecould not exec rust-lldT"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "src/tools",
+            "occurrence_count": 0,
+            "occurrences": []
+          },
+          {
+            "token": "RUSTC_LINKER",
+            "occurrence_count": 0,
+            "occurrences": []
+          }
+        ]
+      },
+      {
+        "source_basename": "rust-lld",
+        "ALL_token_results": [
+          {
+            "token": "lld-wrapper",
+            "occurrence_count": 0,
+            "occurrences": []
+          },
+          {
+            "token": "rust-lld",
+            "occurrence_count": 0,
+            "occurrences": []
+          },
+          {
+            "token": "-flavor",
+            "occurrence_count": 1,
+            "occurrences": [
+              {
+                "match_offset": 375566,
+                "window_offset": 375470,
+                "window_bytes": 295,
+                "window_sha256": "c0e72ade5a72ce6a0c6cf33368f277e09f0a636c49e91c3da792bca5db93c788",
+                "ASCII_runs_explicitly_clipped_to_window": [
+                  {
+                    "window_offset": 0,
+                    "literal": "be used against `"
+                  },
+                  {
+                    "window_offset": 18,
+                    "literal": "const "
+                  },
+                  {
+                    "window_offset": 25,
+                    "literal": "tableLog requires too much memory : unsupported"
+                  },
+                  {
+                    "window_offset": 73,
+                    "literal": "missing arg value for '-flavor'"
+                  },
+                  {
+                    "window_offset": 109,
+                    "literal": "malformed /order option: '@' missing"
+                  },
+                  {
+                    "window_offset": 146,
+                    "literal": "Parse cl::opt"
+                  },
+                  {
+                    "window_offset": 160,
+                    "literal": "ignoring '/incremental' due to '/profile' specification"
+                  },
+                  {
+                    "window_offset": 216,
+                    "literal": "uleb128 too big for uint64"
+                  },
+                  {
+                    "window_offset": 243,
+                    "literal": "_NtProcessStartup"
+                  },
+                  {
+                    "window_offset": 261,
+                    "literal": "__DllMainCRTStartup@12"
+                  },
+                  {
+                    "window_offset": 284,
+                    "literal": "__guard_eh_"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "token": "src/tools",
+            "occurrence_count": 0,
+            "occurrences": []
+          },
+          {
+            "token": "RUSTC_LINKER",
+            "occurrence_count": 0,
+            "occurrences": []
+          }
+        ]
+      }
+    ],
+    "no_old_body_hash_or_parser_replay": true,
+    "all_admission_flags": false,
+    "qualification": "ALL positive clipped literal windows only; not disassembly/control flow, full C string, selected path/default/flavor/delegate/Cargo/ABI/cohort/origin/loaded runtime/native actorFD/physicalEX-crash or execution/download authority. Zero literal hits scoped to these exact five inputs/tokens, not global absence. Both LLVM exclusions/ALL11manifest/ALL974channel rows preserved.",
+    "interpretation": "EXPLICITLY_DERIVED_metadata_only_not_full_raw_window_bytes"
+  },
+  "new_primary_reference_source": {
+    "interpretation": "EXPLICITLY_DERIVED_reference_source_metadata",
+    "new_primary_sources": [
+      {
+        "source_path": "src/tools/lld-wrapper/Cargo.toml",
+        "blob_sha1": "bf5138b16d5bd8f5615e2caa829a378e7e634d12",
+        "body_bytes": 96,
+        "body_sha256": "63c3db7e96063377e9bb2bc834ee06faaaa7380f51757cdf78c8ed5010f13dae",
+        "retained_file": "new-wrapper-blob-0.source",
+        "primary_immutable_reference_URL": "https://github.com/rust-lang/rust/blob/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/src/tools/lld-wrapper/Cargo.toml",
+        "original_child": {
+          "pid": 69982,
+          "signed_status": 0,
+          "same_original_wait": true,
+          "wait_may_be_cached": true,
+          "stdout_eof": true,
+          "stderr_eof": true,
+          "stdout_bytes": 415,
+          "stderr_bytes": 0,
+          "stdout_sha256": "5fec056478d64e707ecb77dafe7f8f1adc658ac490a80eb56270a6da0e7eee31",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "source_path": "src/tools/lld-wrapper/src/main.rs",
+        "blob_sha1": "299f0329b940ee2e56821bb129b602772e5c20f5",
+        "body_bytes": 4183,
+        "body_sha256": "a30a23820589cf9c94efd91cf85d2585e49e522461c861c574cdc7d3e3126214",
+        "retained_file": "new-wrapper-blob-1.source",
+        "primary_immutable_reference_URL": "https://github.com/rust-lang/rust/blob/b940084d7eb6a299eb4bfeb8e34901bc051e7ac4/src/tools/lld-wrapper/src/main.rs",
+        "original_child": {
+          "pid": 69985,
+          "signed_status": 0,
+          "same_original_wait": true,
+          "wait_may_be_cached": true,
+          "stdout_eof": true,
+          "stderr_eof": true,
+          "stdout_bytes": 6049,
+          "stderr_bytes": 0,
+          "stdout_sha256": "5dd68e997c7f083004e8705bbe6aeb711c10f3be8e7878455ee381356ba87cc4",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "retained_tree_truncated": true,
+    "retained_tree_entries": 64720,
+    "new_positive_tree_entries": 4,
+    "old_five_source_bodies_not_read_or_requeried": true,
+    "reference_commit_from_historical_self_report_NOT_image_build_binding": true,
+    "ALL4_reference_source_flavor_mappings": {
+      "ld.lld": "gnu",
+      "ld64.lld": "darwin",
+      "lld-link": "link",
+      "wasm-ld": "wasm"
+    },
+    "reference_source_path_basis": "env::current_exe; parent().parent(); append rust-lld plus EXE_SUFFIX",
+    "reference_source_argument_order": [
+      "-flavor",
+      "selected reference flavor",
+      "all original args_os().skip(1)"
+    ],
+    "ALL_cfg_branches_kept": {
+      "cfg(unix)": "CommandExt.exec returning only error branch; not actual installed execution proof",
+      "cfg(not(unix))": "Command.status then exit-code propagation; not actual observed child/ownership proof"
+    },
+    "not_actual_selected_Cargo_default_CFG_flavor_ABI_cohort_loaded_map_actorFD_or_execution_authority": true,
+    "all_admission_flags": false
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_qualification",
+    "Gemma": "Gemma69528 natural0/full1527stdout192stderr/BOTH EOF/SAMEwait-maycached; advisory NOTapproval. Reject rust-lld/rust-lldb shell-name conflation: actual first full read identifies rust-lldb961B shell versus rust-lld11879600B ELF. Neither generalized dependency statements nor source import/call counts establish selected paths/defaultflavor/ABI/actors or execution authority. No advice-derived edits/tests/SDKqueries or summary/model relaunch.",
+    "Qwen": "Qwen70087 helper signed1/full0stdout274stderr/BOTH EOF/SAMEwait-maycached, tokenlimit. Progress stderr output_chars1736 is NOT a retained partial/final answer; none visible. No approval, global Ollama/GLM unavailability or relaunch inferred. ROOT independently checks ALL4 name mappings, current_exe two-parent sibling resolution, ordered -flavor/value/restargs and BOTHcfg branches from first full new primary read. No model answer reconstructed or test/source/query change.",
+    "input_and_source_limits": "All11manifest records/bothLLVMnoIO exclusions/all974channel target rows retained. ELF machine/class/layout/NEEDED/INTERP/RUNPATH and script/AST literals are input DATA, not selected tool/library/default/Cargo/header/sysroot/ABI/cohort/actorFD or execution authority. Range25observations/21positive windows6235summedbytes include overlap/repeated files; windows clipped, not full C strings/controlflow/disassembly; zero tokens not global absence. Retained recursive tree stays truncated=true/64720entries; four positive lld-wrapper entries identify two DISTINCT new blobs versus old5path-SHA metadata ONLY. New96B+4183B Git-bound source is a historical self-report commit reference, not installed image/build CFG/flavor or actual conditional compilation proof. All4flavors/bothcfg kept. Newprimary API children69982/69985natural0/fullraw/BOTH EOF not globalnativeFD/continuous physicalEX-crash admission; reader/range launcherPID/separateEOFnull. No old5source/treeAPI/SDK/native/headerquery/build/Source20/runtime/numerical work or flag/argv/env/PATH/credentials/GC/copy/gate/cohort changes.",
+    "static_reader_tool_reported_exit_code": 0,
+    "range_reader_tool_reported_exit_code": 0,
+    "separate_launcher_PID_pipe_EOF_metadata": null,
+    "all_admission_flags": false
+  },
+  "archive": {
+    "regular_selected_members": 12,
+    "original_files": 7,
+    "explicitly_derived_metadata_files": 5,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 9601,
+    "archive_sha256": "c45b0065e5816c86b15630a9cd3a937d6c90814b12171a4f42ba2f901455811e",
+    "not_full_raw_directory_Source20_or_runtime_input_package": true,
+    "members": [
+      {
+        "name": "original-ALL9-interpretation-declaration.json",
+        "bytes": 1459,
+        "sha256": "3fabc20c9602fd7029f71394b127c800f1a590869407fb38d2297a702668af4f"
+      },
+      {
+        "name": "original-new-range-question-declaration.json",
+        "bytes": 1124,
+        "sha256": "64d5a4ae620c08c981eb3eaea2fa73a2a187d5ae450ae1077c04775d5d3dab73"
+      },
+      {
+        "name": "original-two-primary-source-declaration.json",
+        "bytes": 1818,
+        "sha256": "fb2621e3bd2399033c16d658df066441d103befadf35f2de39881d944f0669c7"
+      },
+      {
+        "name": "original-Gemma-summary-completion.json",
+        "bytes": 398,
+        "sha256": "93ae03485c7f3707f740631e71155b87ea2f3e6bd9e90b15d839a991a306e26a"
+      },
+      {
+        "name": "original-Qwen-review-completion.json",
+        "bytes": 395,
+        "sha256": "af377c8c9d187c208b7f8833a64c72e1084306a60a862723eec44f13a4b6da8c"
+      },
+      {
+        "name": "original-new-primary-blob-0-completion.json",
+        "bytes": 362,
+        "sha256": "59bfe32904da4fb75417abe86ebd398045fa9f3e8915d0f5e6b48dff8f414dc9"
+      },
+      {
+        "name": "original-new-primary-blob-1-completion.json",
+        "bytes": 363,
+        "sha256": "22e7c97fd767c45ef22fe3975a7195ef97e5c44d546d0bf30167bca57332c7a7"
+      },
+      {
+        "name": "derived/ALL9-new-static-input-summary.json",
+        "bytes": 18910,
+        "sha256": "03aee08578003beb18e8e4511df48c4f73060df4e0431ec577d956742e93dbe2"
+      },
+      {
+        "name": "derived/new-interpretation-read-bindings.json",
+        "bytes": 4777,
+        "sha256": "cb3a4234b50c2683168dd55f85fdee8cb0522851b5ed53b81858857f5a76fd8b"
+      },
+      {
+        "name": "derived/ALL5-new-literal-range-summary.json",
+        "bytes": 22795,
+        "sha256": "9fe7d4e13f85a695577a2e9e5d323e825adcf98528c03bc0d7d7a5220d59dcef"
+      },
+      {
+        "name": "derived/new-wrapper-primary-source-qualification.json",
+        "bytes": 2925,
+        "sha256": "912e3e1f441719b7eabf638f255802d7979ab5f00f2c95ceb6c7519cabd7b9b1"
+      },
+      {
+        "name": "derived/ROOT-companion-and-input-qualification.json",
+        "bytes": 2307,
+        "sha256": "ae4cb410475881ab51f35dab24f2ba79fb00060575f6c13cadbadc4f0d132519"
+      }
+    ]
+  },
+  "private_exclusions": [
+    "full saved ELF/script/Python/license bodies and full original report",
+    "full new parsed program/dynamic tables/AST/text and raw literal-window bytes",
+    "full retained truncated source tree and original old five-source index metadata",
+    "both new full primary source bodies, API returns and stdout/stderr",
+    "full model answer/error/controllers/FD journals/new input paths/actual tool returns"
+  ],
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
