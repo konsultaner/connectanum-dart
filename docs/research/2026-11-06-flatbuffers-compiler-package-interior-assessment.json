@@ -1,0 +1,452 @@
+{
+  "interpretation": "EXPLICITLY_DERIVED_metadata_not_original_raw",
+  "all7_bodies_bytes": 1095379,
+  "source_run": 42286327692,
+  "summaries": [
+    {
+      "source_basename": "components",
+      "bytes": 96,
+      "ordered_record_count": 3,
+      "literal_record_kind_counts": {
+        "cargo-x86_64-unknown-linux-gnu": 1,
+        "rust-std-x86_64-unknown-linux-gnu": 1,
+        "rustc-x86_64-unknown-linux-gnu": 1
+      },
+      "literal_text": "cargo-x86_64-unknown-linux-gnu\nrust-std-x86_64-unknown-linux-gnu\nrustc-x86_64-unknown-linux-gnu\n"
+    },
+    {
+      "source_basename": "manifest-cargo-x86_64-unknown-linux-gnu",
+      "bytes": 1532,
+      "ordered_record_count": 44,
+      "literal_record_kind_counts": {
+        "file": 44
+      }
+    },
+    {
+      "source_basename": "manifest-rust-std-x86_64-unknown-linux-gnu",
+      "bytes": 5136,
+      "ordered_record_count": 63,
+      "literal_record_kind_counts": {
+        "file": 63
+      }
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "bytes": 1656,
+      "ordered_record_count": 40,
+      "literal_record_kind_counts": {
+        "file": 40
+      }
+    },
+    {
+      "source_basename": "multirust-channel-manifest.toml",
+      "bytes": 1086673,
+      "top_level_keys": [
+        "manifest-version",
+        "date",
+        "pkg",
+        "renames",
+        "profiles"
+      ],
+      "manifest_version_literal": "2",
+      "date_literal": "2026-10-01",
+      "all_package_keys": [
+        "cargo",
+        "clippy-preview",
+        "enzyme-preview",
+        "gcc-x86_64-unknown-linux-gnu-preview",
+        "llvm-bitcode-linker-preview",
+        "llvm-tools-preview",
+        "miri-preview",
+        "offload-preview",
+        "reproducible-artifacts",
+        "rust",
+        "rust-analysis",
+        "rust-analyzer-preview",
+        "rust-docs",
+        "rust-docs-json-preview",
+        "rust-mingw",
+        "rust-src",
+        "rust-std",
+        "rustc",
+        "rustc-codegen-cranelift-preview",
+        "rustc-codegen-gcc-preview",
+        "rustc-dev",
+        "rustc-docs",
+        "rustfmt-preview"
+      ],
+      "all_package_count": 23,
+      "all_target_row_count": 974,
+      "three_source_named_package_headers": {
+        "cargo": {
+          "non_target_fields": {
+            "version": "0.100.0 (5f94df478 2026-08-27)"
+          },
+          "all_target_row_count": 34,
+          "target_field_key_union": [
+            "available",
+            "components",
+            "extensions",
+            "hash",
+            "url",
+            "xz_hash",
+            "xz_url"
+          ]
+        },
+        "rustc": {
+          "non_target_fields": {
+            "version": "1.99.0 (b940084d7 2026-09-28)"
+          },
+          "all_target_row_count": 34,
+          "target_field_key_union": [
+            "available",
+            "components",
+            "extensions",
+            "hash",
+            "url",
+            "xz_hash",
+            "xz_url"
+          ]
+        },
+        "rust-std": {
+          "non_target_fields": {
+            "version": "1.99.0 (b940084d7 2026-09-28)"
+          },
+          "all_target_row_count": 119,
+          "target_field_key_union": [
+            "available",
+            "components",
+            "extensions",
+            "hash",
+            "url",
+            "xz_hash",
+            "xz_url"
+          ]
+        }
+      }
+    },
+    {
+      "source_basename": "multirust-config.toml",
+      "bytes": 285,
+      "top_level_keys": [
+        "config_version",
+        "components"
+      ],
+      "literal_installer_config": {
+        "config_version": "1",
+        "components": [
+          {
+            "pkg": "cargo",
+            "target": "x86_64-unknown-linux-gnu",
+            "is_extension": false
+          },
+          {
+            "pkg": "rust-std",
+            "target": "x86_64-unknown-linux-gnu",
+            "is_extension": false
+          },
+          {
+            "pkg": "rustc",
+            "target": "x86_64-unknown-linux-gnu",
+            "is_extension": false
+          }
+        ]
+      }
+    },
+    {
+      "source_basename": "rust-installer-version",
+      "bytes": 1,
+      "ordered_record_count": 1,
+      "literal_record_kind_counts": {
+        "3": 1
+      },
+      "literal_text": "3"
+    }
+  ],
+  "all_channel_package_target_rows_retained": true,
+  "positive_lexical_reference_count": 11,
+  "qualification": "Package composition/distribution/literal input references only; not actual compiler-build defaults/flavor/effective Cargo/header roots/target ABI/original loaded runtime/cohort/actorFD/continuous official physicalEX/crash/RAM repair or strict acceptance.",
+  "all_admission_flags": false,
+  "archive": {
+    "regular_selected_members": 6,
+    "one_original_declaration_five_explicitly_derived_metadata_files": true,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 4001,
+    "archive_sha256": "197752002f5cc01372c93f942e61a5ec61ef9d6e44aeac3fc3100f54f13700ea",
+    "not_full_raw_directory_Source20_or_runtime_input_package": true,
+    "members": [
+      {
+        "name": "original-declaration.json",
+        "bytes": 1321,
+        "sha256": "cd839d181c838416837d6cc0b68cfb19a23e029f7df126b35236482bc469ae69"
+      },
+      {
+        "name": "derived/new-read-byte-bindings.json",
+        "bytes": 2914,
+        "sha256": "ecff33f513bcf976c3cd4af9b43288b8b313981ea5523c52f67de668a3dc4536"
+      },
+      {
+        "name": "derived/package-summary.json",
+        "bytes": 4694,
+        "sha256": "1b44fa4ff93409e22fb7b99843f575592a08705d8e18a01e9ca8b072759ade4a"
+      },
+      {
+        "name": "derived/positive-unexpanded-installer-references.json",
+        "bytes": 4722,
+        "sha256": "8371806ce1362227c5b0f4c78c6f85839a6cf15d54b8f7ca017d5cfb88880824"
+      },
+      {
+        "name": "derived/qualification-and-literal-observations.json",
+        "bytes": 4461,
+        "sha256": "3904f986c7f426517b9ec91a3c0a73359a127ccc8a540dec84d977165c963b52"
+      },
+      {
+        "name": "derived/actual-doc-token-and-epoch-correction.json",
+        "bytes": 1342,
+        "sha256": "d0c2be8c3587fa0a488299031c28d77960dca11d92efc0ff6ec61a9c608056d9"
+      }
+    ]
+  },
+  "all_positive_unexpanded_installer_references": [
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 3,
+      "literal": "file:bin/rust-lldb",
+      "split_at_first_colon": [
+        "file",
+        "bin/rust-lldb"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 7,
+      "literal": "file:lib/libLLVM-23-rust-1.99.0-stable.so",
+      "split_at_first_colon": [
+        "file",
+        "lib/libLLVM-23-rust-1.99.0-stable.so"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 8,
+      "literal": "file:lib/libLLVM.so.23.1-rust-1.99.0-stable",
+      "split_at_first_colon": [
+        "file",
+        "lib/libLLVM.so.23.1-rust-1.99.0-stable"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 13,
+      "literal": "file:lib/rustlib/etc/lldb_lookup.py",
+      "split_at_first_colon": [
+        "file",
+        "lib/rustlib/etc/lldb_lookup.py"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 14,
+      "literal": "file:lib/rustlib/etc/lldb_providers.py",
+      "split_at_first_colon": [
+        "file",
+        "lib/rustlib/etc/lldb_providers.py"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 16,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld.lld",
+      "split_at_first_colon": [
+        "file",
+        "lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld.lld"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 17,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld64.lld",
+      "split_at_first_colon": [
+        "file",
+        "lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/ld64.lld"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 18,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/lld-link",
+      "split_at_first_colon": [
+        "file",
+        "lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/lld-link"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 19,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/wasm-ld",
+      "split_at_first_colon": [
+        "file",
+        "lib/rustlib/x86_64-unknown-linux-gnu/bin/gcc-ld/wasm-ld"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 20,
+      "literal": "file:lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld",
+      "split_at_first_colon": [
+        "file",
+        "lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "line_number": 34,
+      "literal": "file:share/doc/rust/licenses/LLVM-exception.txt",
+      "split_at_first_colon": [
+        "file",
+        "share/doc/rust/licenses/LLVM-exception.txt"
+      ],
+      "qualification": "Positive lexical installer reference only; not active linker/default/path existence/ABI/loaded runtime"
+    }
+  ],
+  "two_exact_build_literals_in_all7_bodies": [
+    {
+      "source_basename": "components",
+      "literal_token": "CFG_DEFAULT_LINKER",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "components",
+      "literal_token": "CFG_DEFAULT_LINKER_SELF_CONTAINED_LLD_CC",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "manifest-cargo-x86_64-unknown-linux-gnu",
+      "literal_token": "CFG_DEFAULT_LINKER",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "manifest-cargo-x86_64-unknown-linux-gnu",
+      "literal_token": "CFG_DEFAULT_LINKER_SELF_CONTAINED_LLD_CC",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "manifest-rust-std-x86_64-unknown-linux-gnu",
+      "literal_token": "CFG_DEFAULT_LINKER",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "manifest-rust-std-x86_64-unknown-linux-gnu",
+      "literal_token": "CFG_DEFAULT_LINKER_SELF_CONTAINED_LLD_CC",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "literal_token": "CFG_DEFAULT_LINKER",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "manifest-rustc-x86_64-unknown-linux-gnu",
+      "literal_token": "CFG_DEFAULT_LINKER_SELF_CONTAINED_LLD_CC",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "multirust-channel-manifest.toml",
+      "literal_token": "CFG_DEFAULT_LINKER",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "multirust-channel-manifest.toml",
+      "literal_token": "CFG_DEFAULT_LINKER_SELF_CONTAINED_LLD_CC",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "multirust-config.toml",
+      "literal_token": "CFG_DEFAULT_LINKER",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "multirust-config.toml",
+      "literal_token": "CFG_DEFAULT_LINKER_SELF_CONTAINED_LLD_CC",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "rust-installer-version",
+      "literal_token": "CFG_DEFAULT_LINKER",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    },
+    {
+      "source_basename": "rust-installer-version",
+      "literal_token": "CFG_DEFAULT_LINKER_SELF_CONTAINED_LLD_CC",
+      "byte_offsets": [],
+      "scope": "Only these seven complete retained bodies; no global source/tool/compiler-setting absence inference"
+    }
+  ],
+  "optional_local_companion": {
+    "phase": "PRETARGET_official_SH_refused_no_namespace_or_model_called",
+    "initial_plus_finite_wait_refusals": 7,
+    "last_tool_reported_exit_code": 1,
+    "separate_native_PID_and_pipe_EOF_metadata": null,
+    "Ollama_or_GLM_unavailability_inferred": false,
+    "approval_inferred": false,
+    "optional_summary_not_required_as_runtime_authority": true
+  },
+  "actual_documentation_and_epoch_correction": {
+    "interpretation": "EXPLICITLY_DERIVED_metadata",
+    "docs_commit": "3d2a9c108673497f33ee827e2e36b31c397223fe",
+    "two_exact_doc_token_corrections": [
+      {
+        "path": "docs/project_state.md",
+        "actual_before_literal": "CFG_DEFAULT_research/2026-11-06-flatbuffers-actions-compiler-package-inputs.mdER",
+        "after_literal": "CFG_DEFAULT_LINKER",
+        "exact_one_replacement": true,
+        "all_other_bytes_preserved": true,
+        "before_sha256": "d1771d1fb1cdf6e256259962cd57b7b154eb34b09eda57ef0b39a234941855b8",
+        "after_sha256": "e53f42b5c92acd1b9c81feae55ab905ee9c5d551e5722d2d8529c03821ecce79"
+      },
+      {
+        "path": "docs/exec-plans/2026-10-03-flatbuffers-zero-copy-native-buffers.md",
+        "actual_before_literal": "CFG_DEFAULT_../research/2026-11-06-flatbuffers-actions-compiler-package-inputs.mdER",
+        "after_literal": "CFG_DEFAULT_LINKER",
+        "exact_one_replacement": true,
+        "all_other_bytes_preserved": true,
+        "before_sha256": "6fe3013514a49a038828fdbc24ded0e6f5a0fda737721ad6b7cb9a629933b7e1",
+        "after_sha256": "c08a6b37b86faa207ffedd406426a8856dee14dbda406aa35f9cc1d108bbf520"
+      }
+    ],
+    "all_other_doc_bytes_preserved": true,
+    "checkpoint_call_flags_epoch_qualified_from_retained_actual_returns": true,
+    "old_publication_archive_untouched": true,
+    "all_admission_flags": false
+  },
+  "full_private_exclusions": [
+    "all seven raw package bodies and full derived package/target rows",
+    "full report and new FD journal/binding paths/controllers",
+    "full previous Actions ZIP/API/log/environment",
+    "actual raw known tool returns and original documentation snapshots"
+  ],
+  "RAM_cause_repair_full_original_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
