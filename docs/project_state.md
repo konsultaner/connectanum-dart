@@ -1,5 +1,18 @@
 # Project State
 
+## 2026-11-07: All49 include-directory metadata inputs
+
+ALL49originaldirectory records get expresslydeclared NEWliteralparent+singlebasename text BEFOREIO; original210metadata/160lexicalepochs/old49DEFERREDflags unchanged versusNEWqueryepoch. Actions42355093028/source7520bfd0c37d217e9e17d2b6be819aa32177b8a9/job128351335812 succeeds/all29oldjobs SKIPPED/30total.49present/1280onelevel childrecords/18NEWrawreadlinkbytehex-literals; childparent/name SEPARATE/no follow-recursion-childbodyopen/hash. Oldncurses.h-curses.h originalreadlinkhexNULL neverretrofilled.
+
+ActualRuby46434 signed1/full0out191err/BOTH EOF line17uploaderprefix mismatch beforecandidatewrite; FIRSTboundary46716 confirms regularsink. MinimalONLYnative-perf mapping pair/SAMEcollector/everyassertion preserved; matching46885 signed0/full495out0err/BOTH EOF passes ALL29oldjobs/topfields/wholeworkflowBYTEEXACTreverse/newjobreverse/sink checks. Workflow477716B/SHA868a4570e676c87dcd0fb9b2c5ba9902b4447bb1ea8fe8f8a453721f10f31f6c; collector642688B/SHA383bd1c6c286645bd3dcaca429a193f889cab658621d028baa532db0621df90f. Failedv1terminal/no generator-ASTreplay. SeparateearlierJSinterpolationparse failedBEFOREmodule/nestedtool; literalwrapperfix NOTSDK/runtimefix.
+
+Qwen46774debug0/full703out184err/BOTH EOF/ROOTactualmappingline6-failure17 vsmodelline16approx; suggestedverification alreadydoneNOTrepeated. Review46973 signed1/full0out359err/BOTH EOF/tokenlimit/progress304then2969 NOTretainedpartial-final/approval/unavailability/relaunch; ROOTwholeNEWscope/code/gates inspected. AtomicTWOfile source/BOTHbyteexactreadbacks BEFOREdispatch; originalworkflow265291183/Ubuntu24-Dart3.13.5-Rust1.99/PATH-env-argv-credentials-recipes retainedNOTadmitted. Watch47319natural0/full8074out0err/BOTH EOF.
+
+[Evidence](research/2026-11-07-flatbuffers-actions-include-directory-inputs.md):24selectedregular21original3explicitderivedmetadata, byteexactarchive 104487 B/SHA 261e62fd79262c69edfda8d7f2fca01537e3bf5aa77362a47d5ea72a5de2faa0. Report1805520/SHA8c16cf4715609bb02a7ffbf2d2298bfbd723d9321914f5d219c79b75be5e8375/write-recordmatchesONCE; fullsavedresult1807158/SHA320d0e5c659e38ce3ec6d8994118541816c3f74653e69e54845a59a663cdc19a/wholeoriginalraw-JSONSTRING-PythonALLfield equality/gates beforederivedselection/fullrawPRIVATE. PointFD/listdir/lstat-readlink/outputreadback-close-journal NOTatomicABA-origin/pathchain/effectivecompiler-sysroot/ABI-loadedcohort/driveraccess-credentials/globalactorFD/continuousphysicalEX-crash admission; separateouterPID-EOFNULL.
+
+Next FIRSTexpresslydeclared ALL1280saved-child source/alias intake, parent/name remainSEPARATE/nojoins/no nativequery-recursion-bodyacquisition frommatches/nonmatches. ALLsource-failure-boundary-debug-minimalfix-check-review-Actions-watch-log-artifact-report-journal-publication CONSUMED; no replay/Source20-runtime adoption/bootstrap/build/numerical. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE/follow-upACTIVE.
+
+
 ## 2026-11-07: All576 operand source relationships
 
 FIRST exactbyte source/alias intake retains all576physical operand candidates:575raw-delimited comparisons yield184matches to64originalregular basename records/391nonmatches;1macro-empty-other has no raw_name, comparison/matchcount NULL/unperformed. All210originalentries/146withnomatch and all576duplicates preserved; no favorabletype/language-version-ABI/defaultcompiler filter. Nameequality NOTaliasidentity/effectivedependency/bodycoverage/absence/newness/access/permission. No basenameextraction/parentjoin/normalize/resolve/follow/query/compile/execute.
