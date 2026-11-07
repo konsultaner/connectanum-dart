@@ -1,0 +1,3067 @@
+{
+  "source_commit": "cc00f98065073ec6411fff3fc8b9630b77823752",
+  "branch": "codex/pr132-actions-gcc-math-lexical-target-metadata-20261107",
+  "run_id": 42334755810,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42334755810",
+  "job_id": 128289046350,
+  "job_conclusion": "success",
+  "twenty_six_previous_jobs": "skipped_not_rerun",
+  "artifact_id": 13559515082,
+  "artifact_bytes": 6228,
+  "artifact_sha256": "433991c2bcad8ecd350828eab8c7551e0fd08f50c9682a6ba44d544cbb369e1a",
+  "job_log_bytes": 93396,
+  "job_log_sha256": "e6c3bcb36a3c6ed102996ade8523dce3a3fcf2170294629cedec845d49b2cd7a",
+  "ALL4_source_final_component_references": [
+    "/lib/x86_64-linux-gnu/libisl.so.23.3.0",
+    "/lib/x86_64-linux-gnu/libmpc.so.3.3.1",
+    "/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+    "/lib/x86_64-linux-gnu/libgmp.so.10.5.0"
+  ],
+  "ALL4_positive_math_catalogue_metadata": [
+    {
+      "captured_name": "libisl.so.23",
+      "line": 339,
+      "path": "/lib/x86_64-linux-gnu/libisl.so.23",
+      "prior_exact_reference_matches": [],
+      "qualifier": "libc6,x86-64"
+    },
+    {
+      "captured_name": "libmpc.so.3",
+      "line": 265,
+      "path": "/lib/x86_64-linux-gnu/libmpc.so.3",
+      "prior_exact_reference_matches": [],
+      "qualifier": "libc6,x86-64"
+    },
+    {
+      "captured_name": "libmpfr.so.6",
+      "line": 264,
+      "path": "/lib/x86_64-linux-gnu/libmpfr.so.6",
+      "prior_exact_reference_matches": [],
+      "qualifier": "libc6,x86-64"
+    },
+    {
+      "captured_name": "libgmp.so.10",
+      "line": 398,
+      "path": "/lib/x86_64-linux-gnu/libgmp.so.10",
+      "prior_exact_reference_matches": [],
+      "qualifier": "libc6,x86-64"
+    }
+  ],
+  "ALL4_explicit_lexical_reference_relations": [
+    {
+      "lexical_candidate_reference": "/lib/x86_64-linux-gnu/libisl.so.23.3.0",
+      "origin_record": {
+        "literal_readlink": {
+          "bytes_hex": "6c696269736c2e736f2e32332e332e30",
+          "filesystem_surrogateescape": "libisl.so.23.3.0"
+        },
+        "readlink_match_scalar_count": 0,
+        "source_match_scalar_count": 3,
+        "source_reference": "/lib/x86_64-linux-gnu/libisl.so.23",
+        "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+      },
+      "original_epoch_flags_preserved": true,
+      "relation": "EXPLICIT_NEW_literal_parent_plus_single_literal_basename_ONLY_NOT_filesystem_resolution_or_alias_identity",
+      "target_body_or_symlink_NOT_followed_or_executed": true
+    },
+    {
+      "lexical_candidate_reference": "/lib/x86_64-linux-gnu/libmpc.so.3.3.1",
+      "origin_record": {
+        "literal_readlink": {
+          "bytes_hex": "6c69626d70632e736f2e332e332e31",
+          "filesystem_surrogateescape": "libmpc.so.3.3.1"
+        },
+        "readlink_match_scalar_count": 0,
+        "source_match_scalar_count": 3,
+        "source_reference": "/lib/x86_64-linux-gnu/libmpc.so.3",
+        "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+      },
+      "original_epoch_flags_preserved": true,
+      "relation": "EXPLICIT_NEW_literal_parent_plus_single_literal_basename_ONLY_NOT_filesystem_resolution_or_alias_identity",
+      "target_body_or_symlink_NOT_followed_or_executed": true
+    },
+    {
+      "lexical_candidate_reference": "/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+      "origin_record": {
+        "literal_readlink": {
+          "bytes_hex": "6c69626d7066722e736f2e362e322e31",
+          "filesystem_surrogateescape": "libmpfr.so.6.2.1"
+        },
+        "readlink_match_scalar_count": 0,
+        "source_match_scalar_count": 3,
+        "source_reference": "/lib/x86_64-linux-gnu/libmpfr.so.6",
+        "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+      },
+      "original_epoch_flags_preserved": true,
+      "relation": "EXPLICIT_NEW_literal_parent_plus_single_literal_basename_ONLY_NOT_filesystem_resolution_or_alias_identity",
+      "target_body_or_symlink_NOT_followed_or_executed": true
+    },
+    {
+      "lexical_candidate_reference": "/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+      "origin_record": {
+        "literal_readlink": {
+          "bytes_hex": "6c6962676d702e736f2e31302e352e30",
+          "filesystem_surrogateescape": "libgmp.so.10.5.0"
+        },
+        "readlink_match_scalar_count": 0,
+        "source_match_scalar_count": 3,
+        "source_reference": "/lib/x86_64-linux-gnu/libgmp.so.10",
+        "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+      },
+      "original_epoch_flags_preserved": true,
+      "relation": "EXPLICIT_NEW_literal_parent_plus_single_literal_basename_ONLY_NOT_filesystem_resolution_or_alias_identity",
+      "target_body_or_symlink_NOT_followed_or_executed": true
+    }
+  ],
+  "ALL5_prior_reference_reacquisition_exclusions": [
+    {
+      "captured_name": "libz.so.1",
+      "line": 9,
+      "path": "/lib/x86_64-linux-gnu/libz.so.1",
+      "prior_exact_reference_matches": [
+        {
+          "CP_node": "actions_c_runtime_transitive_inputs_v1",
+          "prior_literal_reference": "/lib/x86_64-linux-gnu/libz.so.1"
+        }
+      ],
+      "qualifier": "libc6,x86-64"
+    },
+    {
+      "captured_name": "libzstd.so.1",
+      "line": 4,
+      "path": "/lib/x86_64-linux-gnu/libzstd.so.1",
+      "prior_exact_reference_matches": [
+        {
+          "CP_node": "actions_c_runtime_transitive_inputs_v1",
+          "prior_literal_reference": "/lib/x86_64-linux-gnu/libzstd.so.1"
+        }
+      ],
+      "qualifier": "libc6,x86-64"
+    },
+    {
+      "captured_name": "libc.so.6",
+      "line": 522,
+      "path": "/lib/x86_64-linux-gnu/libc.so.6",
+      "prior_exact_reference_matches": [
+        {
+          "CP_node": "actions_c_tool_runtime_inputs_v1",
+          "prior_literal_reference": "/lib/x86_64-linux-gnu/libc.so.6"
+        }
+      ],
+      "qualifier": "libc6,x86-64"
+    },
+    {
+      "captured_name": "libc.so.6",
+      "line": 523,
+      "path": "/lib32/libc.so.6",
+      "prior_exact_reference_matches": [
+        {
+          "CP_node": "actions_c_tool_runtime_inputs_v1",
+          "prior_literal_reference": "/lib32/libc.so.6"
+        }
+      ],
+      "qualifier": "libc6"
+    },
+    {
+      "captured_name": "ld-linux-x86-64.so.2",
+      "line": 620,
+      "path": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "prior_exact_reference_matches": [
+        {
+          "CP_node": "actions_c_tool_runtime_inputs_v1",
+          "prior_literal_reference": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+        }
+      ],
+      "qualifier": "libc6,x86-64"
+    }
+  ],
+  "ALL76_source_NEEDED_bindings": [
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libisl.so.23",
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "libmpc.so.3",
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 2,
+      "literal": "libmpfr.so.6",
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 3,
+      "literal": "libgmp.so.10",
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 4,
+      "literal": "libz.so.1",
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 5,
+      "literal": "libzstd.so.1",
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 6,
+      "literal": "libc.so.6",
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 7,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libisl.so.23",
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "libmpc.so.3",
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 2,
+      "literal": "libmpfr.so.6",
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 3,
+      "literal": "libgmp.so.10",
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 4,
+      "literal": "libz.so.1",
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 5,
+      "literal": "libzstd.so.1",
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 6,
+      "literal": "libc.so.6",
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 7,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libc.so.6",
+      "source_ordinal": 2,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 2,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libz.so.1",
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "libisl.so.23",
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 2,
+      "literal": "libmpc.so.3",
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 3,
+      "literal": "libmpfr.so.6",
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 4,
+      "literal": "libgmp.so.10",
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 5,
+      "literal": "libzstd.so.1",
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 6,
+      "literal": "libc.so.6",
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 7,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libc.so.6",
+      "source_ordinal": 4,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 4,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libc.so.6",
+      "source_ordinal": 5,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 5,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libisl.so.23",
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "libmpc.so.3",
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 2,
+      "literal": "libmpfr.so.6",
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 3,
+      "literal": "libgmp.so.10",
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 4,
+      "literal": "libz.so.1",
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 5,
+      "literal": "libzstd.so.1",
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 6,
+      "literal": "libc.so.6",
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 7,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libisl.so.23",
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "libmpc.so.3",
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 2,
+      "literal": "libmpfr.so.6",
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 3,
+      "literal": "libgmp.so.10",
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 4,
+      "literal": "libz.so.1",
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 5,
+      "literal": "libzstd.so.1",
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 6,
+      "literal": "libc.so.6",
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 7,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libisl.so.23",
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "libmpc.so.3",
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 2,
+      "literal": "libmpfr.so.6",
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 3,
+      "literal": "libgmp.so.10",
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 4,
+      "literal": "libz.so.1",
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 5,
+      "literal": "libzstd.so.1",
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 6,
+      "literal": "libc.so.6",
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 7,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libc.so.6",
+      "source_ordinal": 9,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 9,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libz.so.1",
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "libisl.so.23",
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 2,
+      "literal": "libmpc.so.3",
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 3,
+      "literal": "libmpfr.so.6",
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 4,
+      "literal": "libgmp.so.10",
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 5,
+      "literal": "libzstd.so.1",
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 6,
+      "literal": "libc.so.6",
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 7,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libc.so.6",
+      "source_ordinal": 11,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 11,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libc.so.6",
+      "source_ordinal": 12,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 12,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 0,
+      "literal": "libisl.so.23",
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 1,
+      "literal": "libmpc.so.3",
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 2,
+      "literal": "libmpfr.so.6",
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 3,
+      "literal": "libgmp.so.10",
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 4,
+      "literal": "libz.so.1",
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 5,
+      "literal": "libzstd.so.1",
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 6,
+      "literal": "libc.so.6",
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "tag": 1
+    },
+    {
+      "NUL_terminated": true,
+      "binding_ordinal": 7,
+      "literal": "ld-linux-x86-64.so.2",
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "tag": 1
+    }
+  ],
+  "ALL14_source_INTERP_records_NUL_preserved": [
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 0,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 1,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 2,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 3,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 4,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 5,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 6,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 7,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 8,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 9,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 10,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 11,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 12,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper"
+    },
+    {
+      "file_range_in_bounds": true,
+      "literal_bytes": {
+        "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+        "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+      },
+      "program_header_ordinal": 1,
+      "source_ordinal": 13,
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1"
+    }
+  ],
+  "ALL19_source_records_kept": true,
+  "ALL3_plugin_exclusions_before_source_IO_kept": true,
+  "v6_directory_deferred_NOT_queried": true,
+  "ALL9_20_11_4_2_2_4_prior_ledgers_kept": true,
+  "present_at_lstat_only": 4,
+  "absent_at_lstat_only": [],
+  "literal_symlink_record_count": 0,
+  "regular_point_record_count": 4,
+  "report_bytes": 61094,
+  "report_sha256": "f82d5ff2a0507c592c19845cbd3cf83ca26153eb1460168ca898134e3e4c102a",
+  "report_full_stream_matches_collector_write_record": true,
+  "regular_source_INPUT_body_opens": 0,
+  "regular_source_INPUT_hashes": 0,
+  "entry_symlink_target_follows": 0,
+  "recursive_walks": 0,
+  "directory_queries": 0,
+  "collector_child_executions": 0,
+  "native_information_queries": 0,
+  "candidate_executions": 0,
+  "environment_mutations": 0,
+  "all_admission_flags": false,
+  "qualification": "NEW expressly scoped ORIGINALActions final-component metadata ONLY for ALL4 separately declared lexical candidate references from actual prior math-link literals after sourcealiasintake. Original source epoch flags stay unchanged; NEW lexical declarations are not filesystem resolution/originallink following/alias identity. ALL9candidatepaths/BOTHlibc/76NEEDED/14NULINTERPs/15sources/19records/3plugins/v6/priorledgers retained without favorablehost-language-version-ABI selection or name/nonmatch-derived authority. Full report once matches write journal; ALL4 new first lexical-candidate pointstat/readlink interpretations retained, no final target bodies opened or original soname links followed. Point lstat/readlink/re-lstat/EOF NOTactualcompiler-default/delegate/header-sysroot/Cargo/CFG/flavor/loadedmap/cohort/originaldriver credentials-access/atomicABA-origin-auth/nativeactorFD/continuousofficialphysicalEX-crash admission/executionproof. No regularINPUTbody/hash/ENTRYtargetfollow/recursion/directoryquery/candidate/compiler-tool-header-nativequery/import/child/bootstrap/build/numerical/Source20-runtime adoption; setupUNADMITTED/allflagsFALSE.",
+  "interpretation": "EXPLICITLY_DERIVED_complete_result_fields_except_declared_PRIVATE_rawstat_times",
+  "ALL4_derived_point_records": [
+    {
+      "source_reference": "/lib/x86_64-linux-gnu/libisl.so.23.3.0",
+      "ordinal": 0,
+      "saved_type": "regular",
+      "saved_mode": 33188,
+      "saved_uid": 0,
+      "saved_gid": 0,
+      "literal_readlink": null,
+      "target_NOT_expanded_followed_resolved_or_executed": true
+    },
+    {
+      "source_reference": "/lib/x86_64-linux-gnu/libmpc.so.3.3.1",
+      "ordinal": 1,
+      "saved_type": "regular",
+      "saved_mode": 33188,
+      "saved_uid": 0,
+      "saved_gid": 0,
+      "literal_readlink": null,
+      "target_NOT_expanded_followed_resolved_or_executed": true
+    },
+    {
+      "source_reference": "/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+      "ordinal": 2,
+      "saved_type": "regular",
+      "saved_mode": 33188,
+      "saved_uid": 0,
+      "saved_gid": 0,
+      "literal_readlink": null,
+      "target_NOT_expanded_followed_resolved_or_executed": true
+    },
+    {
+      "source_reference": "/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+      "ordinal": 3,
+      "saved_type": "regular",
+      "saved_mode": 33188,
+      "saved_uid": 0,
+      "saved_gid": 0,
+      "literal_readlink": null,
+      "target_NOT_expanded_followed_resolved_or_executed": true
+    }
+  ],
+  "private_raw_point_records_preserved": true,
+  "source_and_exclusion_ledger": {
+    "interpretation": "EXPLICITLY_DERIVED_source_and_conservative_exclusion_ledger",
+    "ALL4_source_final_component_references": [
+      "/lib/x86_64-linux-gnu/libisl.so.23.3.0",
+      "/lib/x86_64-linux-gnu/libmpc.so.3.3.1",
+      "/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+      "/lib/x86_64-linux-gnu/libgmp.so.10.5.0"
+    ],
+    "ALL4_explicit_lexical_reference_relations": [
+      {
+        "origin_record": {
+          "source_reference": "/lib/x86_64-linux-gnu/libisl.so.23",
+          "literal_readlink": {
+            "bytes_hex": "6c696269736c2e736f2e32332e332e30",
+            "filesystem_surrogateescape": "libisl.so.23.3.0"
+          },
+          "source_match_scalar_count": 3,
+          "readlink_match_scalar_count": 0,
+          "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+        },
+        "lexical_candidate_reference": "/lib/x86_64-linux-gnu/libisl.so.23.3.0",
+        "relation": "EXPLICIT_NEW_literal_parent_plus_single_literal_basename_ONLY_NOT_filesystem_resolution_or_alias_identity",
+        "original_epoch_flags_preserved": true,
+        "target_body_or_symlink_NOT_followed_or_executed": true
+      },
+      {
+        "origin_record": {
+          "source_reference": "/lib/x86_64-linux-gnu/libmpc.so.3",
+          "literal_readlink": {
+            "bytes_hex": "6c69626d70632e736f2e332e332e31",
+            "filesystem_surrogateescape": "libmpc.so.3.3.1"
+          },
+          "source_match_scalar_count": 3,
+          "readlink_match_scalar_count": 0,
+          "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+        },
+        "lexical_candidate_reference": "/lib/x86_64-linux-gnu/libmpc.so.3.3.1",
+        "relation": "EXPLICIT_NEW_literal_parent_plus_single_literal_basename_ONLY_NOT_filesystem_resolution_or_alias_identity",
+        "original_epoch_flags_preserved": true,
+        "target_body_or_symlink_NOT_followed_or_executed": true
+      },
+      {
+        "origin_record": {
+          "source_reference": "/lib/x86_64-linux-gnu/libmpfr.so.6",
+          "literal_readlink": {
+            "bytes_hex": "6c69626d7066722e736f2e362e322e31",
+            "filesystem_surrogateescape": "libmpfr.so.6.2.1"
+          },
+          "source_match_scalar_count": 3,
+          "readlink_match_scalar_count": 0,
+          "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+        },
+        "lexical_candidate_reference": "/lib/x86_64-linux-gnu/libmpfr.so.6.2.1",
+        "relation": "EXPLICIT_NEW_literal_parent_plus_single_literal_basename_ONLY_NOT_filesystem_resolution_or_alias_identity",
+        "original_epoch_flags_preserved": true,
+        "target_body_or_symlink_NOT_followed_or_executed": true
+      },
+      {
+        "origin_record": {
+          "source_reference": "/lib/x86_64-linux-gnu/libgmp.so.10",
+          "literal_readlink": {
+            "bytes_hex": "6c6962676d702e736f2e31302e352e30",
+            "filesystem_surrogateescape": "libgmp.so.10.5.0"
+          },
+          "source_match_scalar_count": 3,
+          "readlink_match_scalar_count": 0,
+          "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+        },
+        "lexical_candidate_reference": "/lib/x86_64-linux-gnu/libgmp.so.10.5.0",
+        "relation": "EXPLICIT_NEW_literal_parent_plus_single_literal_basename_ONLY_NOT_filesystem_resolution_or_alias_identity",
+        "original_epoch_flags_preserved": true,
+        "target_body_or_symlink_NOT_followed_or_executed": true
+      }
+    ],
+    "ALL4_positive_math_catalogue_metadata": [
+      {
+        "line": 339,
+        "captured_name": "libisl.so.23",
+        "qualifier": "libc6,x86-64",
+        "path": "/lib/x86_64-linux-gnu/libisl.so.23",
+        "prior_exact_reference_matches": []
+      },
+      {
+        "line": 265,
+        "captured_name": "libmpc.so.3",
+        "qualifier": "libc6,x86-64",
+        "path": "/lib/x86_64-linux-gnu/libmpc.so.3",
+        "prior_exact_reference_matches": []
+      },
+      {
+        "line": 264,
+        "captured_name": "libmpfr.so.6",
+        "qualifier": "libc6,x86-64",
+        "path": "/lib/x86_64-linux-gnu/libmpfr.so.6",
+        "prior_exact_reference_matches": []
+      },
+      {
+        "line": 398,
+        "captured_name": "libgmp.so.10",
+        "qualifier": "libc6,x86-64",
+        "path": "/lib/x86_64-linux-gnu/libgmp.so.10",
+        "prior_exact_reference_matches": []
+      }
+    ],
+    "ALL5_prior_reference_reacquisition_exclusions": [
+      {
+        "line": 9,
+        "captured_name": "libz.so.1",
+        "qualifier": "libc6,x86-64",
+        "path": "/lib/x86_64-linux-gnu/libz.so.1",
+        "prior_exact_reference_matches": [
+          {
+            "CP_node": "actions_c_runtime_transitive_inputs_v1",
+            "prior_literal_reference": "/lib/x86_64-linux-gnu/libz.so.1"
+          }
+        ]
+      },
+      {
+        "line": 4,
+        "captured_name": "libzstd.so.1",
+        "qualifier": "libc6,x86-64",
+        "path": "/lib/x86_64-linux-gnu/libzstd.so.1",
+        "prior_exact_reference_matches": [
+          {
+            "CP_node": "actions_c_runtime_transitive_inputs_v1",
+            "prior_literal_reference": "/lib/x86_64-linux-gnu/libzstd.so.1"
+          }
+        ]
+      },
+      {
+        "line": 522,
+        "captured_name": "libc.so.6",
+        "qualifier": "libc6,x86-64",
+        "path": "/lib/x86_64-linux-gnu/libc.so.6",
+        "prior_exact_reference_matches": [
+          {
+            "CP_node": "actions_c_tool_runtime_inputs_v1",
+            "prior_literal_reference": "/lib/x86_64-linux-gnu/libc.so.6"
+          }
+        ]
+      },
+      {
+        "line": 523,
+        "captured_name": "libc.so.6",
+        "qualifier": "libc6",
+        "path": "/lib32/libc.so.6",
+        "prior_exact_reference_matches": [
+          {
+            "CP_node": "actions_c_tool_runtime_inputs_v1",
+            "prior_literal_reference": "/lib32/libc.so.6"
+          }
+        ]
+      },
+      {
+        "line": 620,
+        "captured_name": "ld-linux-x86-64.so.2",
+        "qualifier": "libc6,x86-64",
+        "path": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+        "prior_exact_reference_matches": [
+          {
+            "CP_node": "actions_c_tool_runtime_inputs_v1",
+            "prior_literal_reference": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+          }
+        ]
+      }
+    ],
+    "ALL8_name_coverage": [
+      {
+        "literal_name": "libisl.so.23",
+        "ALL_matching_catalogue_lines": [
+          339
+        ],
+        "ALL_captured_literal_path_metadata": [
+          {
+            "line": 339,
+            "captured_name": "libisl.so.23",
+            "qualifier": "libc6,x86-64",
+            "path": "/lib/x86_64-linux-gnu/libisl.so.23",
+            "prior_exact_reference_matches": []
+          }
+        ]
+      },
+      {
+        "literal_name": "libmpc.so.3",
+        "ALL_matching_catalogue_lines": [
+          265
+        ],
+        "ALL_captured_literal_path_metadata": [
+          {
+            "line": 265,
+            "captured_name": "libmpc.so.3",
+            "qualifier": "libc6,x86-64",
+            "path": "/lib/x86_64-linux-gnu/libmpc.so.3",
+            "prior_exact_reference_matches": []
+          }
+        ]
+      },
+      {
+        "literal_name": "libmpfr.so.6",
+        "ALL_matching_catalogue_lines": [
+          264
+        ],
+        "ALL_captured_literal_path_metadata": [
+          {
+            "line": 264,
+            "captured_name": "libmpfr.so.6",
+            "qualifier": "libc6,x86-64",
+            "path": "/lib/x86_64-linux-gnu/libmpfr.so.6",
+            "prior_exact_reference_matches": []
+          }
+        ]
+      },
+      {
+        "literal_name": "libgmp.so.10",
+        "ALL_matching_catalogue_lines": [
+          398
+        ],
+        "ALL_captured_literal_path_metadata": [
+          {
+            "line": 398,
+            "captured_name": "libgmp.so.10",
+            "qualifier": "libc6,x86-64",
+            "path": "/lib/x86_64-linux-gnu/libgmp.so.10",
+            "prior_exact_reference_matches": []
+          }
+        ]
+      },
+      {
+        "literal_name": "libz.so.1",
+        "ALL_matching_catalogue_lines": [
+          9
+        ],
+        "ALL_captured_literal_path_metadata": [
+          {
+            "line": 9,
+            "captured_name": "libz.so.1",
+            "qualifier": "libc6,x86-64",
+            "path": "/lib/x86_64-linux-gnu/libz.so.1",
+            "prior_exact_reference_matches": [
+              {
+                "CP_node": "actions_c_runtime_transitive_inputs_v1",
+                "prior_literal_reference": "/lib/x86_64-linux-gnu/libz.so.1"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "literal_name": "libzstd.so.1",
+        "ALL_matching_catalogue_lines": [
+          4
+        ],
+        "ALL_captured_literal_path_metadata": [
+          {
+            "line": 4,
+            "captured_name": "libzstd.so.1",
+            "qualifier": "libc6,x86-64",
+            "path": "/lib/x86_64-linux-gnu/libzstd.so.1",
+            "prior_exact_reference_matches": [
+              {
+                "CP_node": "actions_c_runtime_transitive_inputs_v1",
+                "prior_literal_reference": "/lib/x86_64-linux-gnu/libzstd.so.1"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "literal_name": "libc.so.6",
+        "ALL_matching_catalogue_lines": [
+          522,
+          523
+        ],
+        "ALL_captured_literal_path_metadata": [
+          {
+            "line": 522,
+            "captured_name": "libc.so.6",
+            "qualifier": "libc6,x86-64",
+            "path": "/lib/x86_64-linux-gnu/libc.so.6",
+            "prior_exact_reference_matches": [
+              {
+                "CP_node": "actions_c_tool_runtime_inputs_v1",
+                "prior_literal_reference": "/lib/x86_64-linux-gnu/libc.so.6"
+              }
+            ]
+          },
+          {
+            "line": 523,
+            "captured_name": "libc.so.6",
+            "qualifier": "libc6",
+            "path": "/lib32/libc.so.6",
+            "prior_exact_reference_matches": [
+              {
+                "CP_node": "actions_c_tool_runtime_inputs_v1",
+                "prior_literal_reference": "/lib32/libc.so.6"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "literal_name": "ld-linux-x86-64.so.2",
+        "ALL_matching_catalogue_lines": [
+          620
+        ],
+        "ALL_captured_literal_path_metadata": [
+          {
+            "line": 620,
+            "captured_name": "ld-linux-x86-64.so.2",
+            "qualifier": "libc6,x86-64",
+            "path": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+            "prior_exact_reference_matches": [
+              {
+                "CP_node": "actions_c_tool_runtime_inputs_v1",
+                "prior_literal_reference": "/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ALL76_source_NEEDED_bindings": [
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libisl.so.23",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "libmpc.so.3",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "binding_ordinal": 2,
+        "tag": 1,
+        "literal": "libmpfr.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "binding_ordinal": 3,
+        "tag": 1,
+        "literal": "libgmp.so.10",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "binding_ordinal": 4,
+        "tag": 1,
+        "literal": "libz.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "binding_ordinal": 5,
+        "tag": 1,
+        "literal": "libzstd.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "binding_ordinal": 6,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "binding_ordinal": 7,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libisl.so.23",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "libmpc.so.3",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "binding_ordinal": 2,
+        "tag": 1,
+        "literal": "libmpfr.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "binding_ordinal": 3,
+        "tag": 1,
+        "literal": "libgmp.so.10",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "binding_ordinal": 4,
+        "tag": 1,
+        "literal": "libz.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "binding_ordinal": 5,
+        "tag": 1,
+        "literal": "libzstd.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "binding_ordinal": 6,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "binding_ordinal": 7,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 2,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 2,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libz.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "libisl.so.23",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "binding_ordinal": 2,
+        "tag": 1,
+        "literal": "libmpc.so.3",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "binding_ordinal": 3,
+        "tag": 1,
+        "literal": "libmpfr.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "binding_ordinal": 4,
+        "tag": 1,
+        "literal": "libgmp.so.10",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "binding_ordinal": 5,
+        "tag": 1,
+        "literal": "libzstd.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "binding_ordinal": 6,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "binding_ordinal": 7,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 4,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 4,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 5,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 5,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libisl.so.23",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "libmpc.so.3",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "binding_ordinal": 2,
+        "tag": 1,
+        "literal": "libmpfr.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "binding_ordinal": 3,
+        "tag": 1,
+        "literal": "libgmp.so.10",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "binding_ordinal": 4,
+        "tag": 1,
+        "literal": "libz.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "binding_ordinal": 5,
+        "tag": 1,
+        "literal": "libzstd.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "binding_ordinal": 6,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "binding_ordinal": 7,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libisl.so.23",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "libmpc.so.3",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "binding_ordinal": 2,
+        "tag": 1,
+        "literal": "libmpfr.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "binding_ordinal": 3,
+        "tag": 1,
+        "literal": "libgmp.so.10",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "binding_ordinal": 4,
+        "tag": 1,
+        "literal": "libz.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "binding_ordinal": 5,
+        "tag": 1,
+        "literal": "libzstd.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "binding_ordinal": 6,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "binding_ordinal": 7,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libisl.so.23",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "libmpc.so.3",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "binding_ordinal": 2,
+        "tag": 1,
+        "literal": "libmpfr.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "binding_ordinal": 3,
+        "tag": 1,
+        "literal": "libgmp.so.10",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "binding_ordinal": 4,
+        "tag": 1,
+        "literal": "libz.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "binding_ordinal": 5,
+        "tag": 1,
+        "literal": "libzstd.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "binding_ordinal": 6,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "binding_ordinal": 7,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 9,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 9,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libz.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "libisl.so.23",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "binding_ordinal": 2,
+        "tag": 1,
+        "literal": "libmpc.so.3",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "binding_ordinal": 3,
+        "tag": 1,
+        "literal": "libmpfr.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "binding_ordinal": 4,
+        "tag": 1,
+        "literal": "libgmp.so.10",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "binding_ordinal": 5,
+        "tag": 1,
+        "literal": "libzstd.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "binding_ordinal": 6,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "binding_ordinal": 7,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 11,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 11,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 12,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 12,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "binding_ordinal": 0,
+        "tag": 1,
+        "literal": "libisl.so.23",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "binding_ordinal": 1,
+        "tag": 1,
+        "literal": "libmpc.so.3",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "binding_ordinal": 2,
+        "tag": 1,
+        "literal": "libmpfr.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "binding_ordinal": 3,
+        "tag": 1,
+        "literal": "libgmp.so.10",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "binding_ordinal": 4,
+        "tag": 1,
+        "literal": "libz.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "binding_ordinal": 5,
+        "tag": 1,
+        "literal": "libzstd.so.1",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "binding_ordinal": 6,
+        "tag": 1,
+        "literal": "libc.so.6",
+        "NUL_terminated": true
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "binding_ordinal": 7,
+        "tag": 1,
+        "literal": "ld-linux-x86-64.so.2",
+        "NUL_terminated": true
+      }
+    ],
+    "ALL14_source_INTERP_records_NUL_preserved": [
+      {
+        "source_ordinal": 0,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 1,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 2,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 3,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 4,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 5,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 6,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 7,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 8,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 9,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 10,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 11,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 12,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      },
+      {
+        "source_ordinal": 13,
+        "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "program_header_ordinal": 1,
+        "file_range_in_bounds": true,
+        "literal_bytes": {
+          "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+          "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+        }
+      }
+    ],
+    "ALL19_positive_entry_metadata": [
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/12",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/12/liblto_plugin.so",
+        "literal_name": "liblto_plugin.so",
+        "name_bytes_hex": "6c69626c746f5f706c7567696e2e736f",
+        "saved_mode": 41471,
+        "saved_type": "symlink",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": "../../../../lib/gcc/x86_64-linux-gnu/12/liblto_plugin.so",
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+        "literal_name": "cc1",
+        "name_bytes_hex": "636331",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+        "literal_name": "cc1plus",
+        "name_bytes_hex": "636331706c7573",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+        "literal_name": "collect2",
+        "name_bytes_hex": "636f6c6c65637432",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+        "literal_name": "f951",
+        "name_bytes_hex": "66393531",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server",
+        "literal_name": "g++-mapper-server",
+        "name_bytes_hex": "672b2b2d6d61707065722d736572766572",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so",
+        "literal_name": "liblto_plugin.so",
+        "name_bytes_hex": "6c69626c746f5f706c7567696e2e736f",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper",
+        "literal_name": "lto-wrapper",
+        "name_bytes_hex": "6c746f2d77726170706572",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+        "literal_name": "lto1",
+        "name_bytes_hex": "6c746f31",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+        "literal_name": "cc1",
+        "name_bytes_hex": "636331",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+        "literal_name": "cc1plus",
+        "name_bytes_hex": "636331706c7573",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2",
+        "literal_name": "collect2",
+        "name_bytes_hex": "636f6c6c65637432",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+        "literal_name": "f951",
+        "name_bytes_hex": "66393531",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server",
+        "literal_name": "g++-mapper-server",
+        "name_bytes_hex": "672b2b2d6d61707065722d736572766572",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so",
+        "literal_name": "liblto_plugin.so",
+        "name_bytes_hex": "6c69626c746f5f706c7567696e2e736f",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper",
+        "literal_name": "lto-wrapper",
+        "name_bytes_hex": "6c746f2d77726170706572",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+        "literal_name": "lto1",
+        "name_bytes_hex": "6c746f31",
+        "saved_mode": 33261,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/share/gcc/python/libstdcxx",
+        "literal_entry_reference": "/usr/share/gcc/python/libstdcxx/__init__.py",
+        "literal_name": "__init__.py",
+        "name_bytes_hex": "5f5f696e69745f5f2e7079",
+        "saved_mode": 33279,
+        "saved_type": "regular",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/share/gcc/python/libstdcxx",
+        "literal_entry_reference": "/usr/share/gcc/python/libstdcxx/v6",
+        "literal_name": "v6",
+        "name_bytes_hex": "7636",
+        "saved_mode": 16895,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      }
+    ],
+    "ALL3_conservative_pre_IO_plugin_exclusions": [
+      {
+        "source_record": {
+          "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/12",
+          "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/12/liblto_plugin.so",
+          "literal_name": "liblto_plugin.so",
+          "name_bytes_hex": "6c69626c746f5f706c7567696e2e736f",
+          "saved_mode": 41471,
+          "saved_type": "symlink",
+          "saved_uid": 0,
+          "saved_gid": 0,
+          "literal_readlink": "../../../../lib/gcc/x86_64-linux-gnu/12/liblto_plugin.so",
+          "target_NOT_expanded_resolved_or_executed": true
+        },
+        "reason": "Conservative exclusion BEFORE ALL source IO: liblto_plugin.so priorlibrary-body/alias coverage unsettled; literal symlink if present is NOT expanded/followed. Not proven alias/samebytes or ABI selection."
+      },
+      {
+        "source_record": {
+          "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+          "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so",
+          "literal_name": "liblto_plugin.so",
+          "name_bytes_hex": "6c69626c746f5f706c7567696e2e736f",
+          "saved_mode": 33261,
+          "saved_type": "regular",
+          "saved_uid": 0,
+          "saved_gid": 0,
+          "literal_readlink": null,
+          "target_NOT_expanded_resolved_or_executed": true
+        },
+        "reason": "Conservative exclusion BEFORE ALL source IO: liblto_plugin.so priorlibrary-body/alias coverage unsettled; literal symlink if present is NOT expanded/followed. Not proven alias/samebytes or ABI selection."
+      },
+      {
+        "source_record": {
+          "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+          "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so",
+          "literal_name": "liblto_plugin.so",
+          "name_bytes_hex": "6c69626c746f5f706c7567696e2e736f",
+          "saved_mode": 33261,
+          "saved_type": "regular",
+          "saved_uid": 0,
+          "saved_gid": 0,
+          "literal_readlink": null,
+          "target_NOT_expanded_resolved_or_executed": true
+        },
+        "reason": "Conservative exclusion BEFORE ALL source IO: liblto_plugin.so priorlibrary-body/alias coverage unsettled; literal symlink if present is NOT expanded/followed. Not proven alias/samebytes or ABI selection."
+      }
+    ],
+    "deferred_directory_metadata_NO_query": [
+      {
+        "parent_source_reference": "/usr/share/gcc/python/libstdcxx",
+        "literal_entry_reference": "/usr/share/gcc/python/libstdcxx/v6",
+        "literal_name": "v6",
+        "name_bytes_hex": "7636",
+        "saved_mode": 16895,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      }
+    ],
+    "ALL9_historical_candidates": [
+      {
+        "source_named_candidate": "gcc",
+        "historical_PATH_lookup_return": "/usr/bin/gcc",
+        "historical_image_path": "/usr/bin/gcc",
+        "historical_readlink_literal": "gcc-13",
+        "historical_realpath_literal": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "historical_absent_at_PATH_lookup_only": false
+      },
+      {
+        "source_named_candidate": "cc",
+        "historical_PATH_lookup_return": "/usr/bin/cc",
+        "historical_image_path": "/usr/bin/cc",
+        "historical_readlink_literal": "/etc/alternatives/cc",
+        "historical_realpath_literal": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "historical_absent_at_PATH_lookup_only": false
+      },
+      {
+        "source_named_candidate": "lld",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "ld",
+        "historical_PATH_lookup_return": "/usr/bin/ld",
+        "historical_image_path": "/usr/bin/ld",
+        "historical_readlink_literal": "x86_64-linux-gnu-ld",
+        "historical_realpath_literal": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+        "historical_absent_at_PATH_lookup_only": false
+      },
+      {
+        "source_named_candidate": "link.exe",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "emcc.bat",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "emcc",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "bpf-linker",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      },
+      {
+        "source_named_candidate": "llvm-bitcode-linker",
+        "historical_PATH_lookup_return": null,
+        "historical_image_path": null,
+        "historical_readlink_literal": null,
+        "historical_realpath_literal": null,
+        "historical_absent_at_PATH_lookup_only": true
+      }
+    ],
+    "ALL20_source_directory_reference_origins": [
+      {
+        "candidate": "gcc",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/gcc",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/gcc",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/gcc",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/gcc",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "gcc",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/cc",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/cc",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/cc",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/cc",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_readlink_literal",
+        "literal_source_path": "/etc/alternatives/cc",
+        "relation": "immediate_parent",
+        "directory_reference": "/etc/alternatives"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_readlink_literal",
+        "literal_source_path": "/etc/alternatives/cc",
+        "relation": "one_more_parent",
+        "directory_reference": "/etc"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "cc",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/ld",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_PATH_lookup_return",
+        "literal_source_path": "/usr/bin/ld",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/ld",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_image_path",
+        "literal_source_path": "/usr/bin/ld",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+        "relation": "immediate_parent",
+        "directory_reference": "/usr/bin"
+      },
+      {
+        "candidate": "ld",
+        "source_field": "historical_realpath_literal",
+        "literal_source_path": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+        "relation": "one_more_parent",
+        "directory_reference": "/usr"
+      }
+    ],
+    "ALL11_positive_usr_entries": [
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/bin",
+        "name": "bin",
+        "name_bytes_hex": "62696e",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/games",
+        "name": "games",
+        "name_bytes_hex": "67616d6573",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/include",
+        "name": "include",
+        "name_bytes_hex": "696e636c756465",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/lib",
+        "name": "lib",
+        "name_bytes_hex": "6c6962",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/lib32",
+        "name": "lib32",
+        "name_bytes_hex": "6c69623332",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/lib64",
+        "name": "lib64",
+        "name_bytes_hex": "6c69623634",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/libexec",
+        "name": "libexec",
+        "name_bytes_hex": "6c696265786563",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/local",
+        "name": "local",
+        "name_bytes_hex": "6c6f63616c",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/sbin",
+        "name": "sbin",
+        "name_bytes_hex": "7362696e",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/share",
+        "name": "share",
+        "name_bytes_hex": "7368617265",
+        "separate_lstat_mode": 16895,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      },
+      {
+        "parent_source_reference": "/usr",
+        "literal_entry_reference": "/usr/src",
+        "name": "src",
+        "name_bytes_hex": "737263",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "is_directory_by_separate_lstat": true,
+        "is_symlink_by_separate_lstat": false,
+        "separate_readlink_literal": null,
+        "not_current_body_access_origin_ABI_or_selection_authority": true
+      }
+    ],
+    "ALL4_explicit_pre_IO_exclusions": [
+      {
+        "literal_entry_reference": "/usr/bin",
+        "reason": "Exact directory source already listed in consumed run42308644569; excluded before all source IO. No repeat."
+      },
+      {
+        "literal_entry_reference": "/usr/lib",
+        "reason": "Conservative library-branch exclusion because earlier library catalogue/image scopes and alias coverage are not fully established. Not proven same directory or an ABI decision."
+      },
+      {
+        "literal_entry_reference": "/usr/lib32",
+        "reason": "Same conservative library-branch exclusion; no favorable ABI choice or assertion of directory/body identity."
+      },
+      {
+        "literal_entry_reference": "/usr/lib64",
+        "reason": "Historical /lib64 directory listing consumed in compiler package inputs. Potential alias with /usr/lib64 remains unproved, so both source names excluded from this collector before IO."
+      }
+    ],
+    "ALL2_positive_gcc_entry_metadata": [
+      {
+        "parent_source_reference": "/usr/libexec",
+        "literal_entry_reference": "/usr/libexec/gcc",
+        "name": "gcc",
+        "name_bytes_hex": "676363",
+        "separate_lstat_filetype": "directory",
+        "separate_lstat_mode": 16877,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "separate_readlink_literal": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/share",
+        "literal_entry_reference": "/usr/share/gcc",
+        "name": "gcc",
+        "name_bytes_hex": "676363",
+        "separate_lstat_filetype": "directory",
+        "separate_lstat_mode": 16895,
+        "separate_lstat_uid": 0,
+        "separate_lstat_gid": 0,
+        "separate_readlink_literal": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      }
+    ],
+    "ALL2_positive_gcc_child_metadata": [
+      {
+        "parent_source_reference": "/usr/libexec/gcc",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu",
+        "literal_name": "x86_64-linux-gnu",
+        "name_bytes_hex": "7838365f36342d6c696e75782d676e75",
+        "saved_mode": 16877,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/share/gcc",
+        "literal_entry_reference": "/usr/share/gcc/python",
+        "literal_name": "python",
+        "name_bytes_hex": "707974686f6e",
+        "saved_mode": 16895,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      }
+    ],
+    "ALL4_positive_gcc_component_metadata": [
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/12",
+        "literal_name": "12",
+        "name_bytes_hex": "3132",
+        "saved_mode": 16877,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13",
+        "literal_name": "13",
+        "name_bytes_hex": "3133",
+        "saved_mode": 16877,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/libexec/gcc/x86_64-linux-gnu",
+        "literal_entry_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14",
+        "literal_name": "14",
+        "name_bytes_hex": "3134",
+        "saved_mode": 16877,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      },
+      {
+        "parent_source_reference": "/usr/share/gcc/python",
+        "literal_entry_reference": "/usr/share/gcc/python/libstdcxx",
+        "literal_name": "libstdcxx",
+        "name_bytes_hex": "6c6962737464637878",
+        "saved_mode": 16895,
+        "saved_type": "directory",
+        "saved_uid": 0,
+        "saved_gid": 0,
+        "literal_readlink": null,
+        "target_NOT_expanded_resolved_or_executed": true
+      }
+    ],
+    "qualification": "QwenREVIEW11627 natural signed0/full2729stdout271stderr/BOTH EOF; advisoryNOTapproval. ROOT rejects P0: labelled SELECTED binding lines are intentionally noncontiguous excerpts, dictionary-field line is within actual report literal, not standalone Python. Original full collector AST parse preceded generation10981; full exactembedding/YAML/samecandidate matching AFTER11545 passed. Reject P1 hex mismatch: NEW preceding literal-link intake explicitly asserts os.fsdecode(bytes.fromhex(bytes_hex))==filesystem_surrogateescape BEFORE lexical declaration; source generation binds every complete origin row to that actual intake summary. No actual source syntax/encoding failure, advice-derived edit/retest/modelrelaunch/unavailability. Minimal validator fix whole-byte reverse equality changes ONLY one expected sink literal, ALL assertions same; hidden changes unsupported. Failclosed namespaces/unknown write-close-crash partialraw remain permanentquarantine, NOTatomicity/recovery/fullactorclosure. All4lexical candidates declared separately, originalsaved epoch flags not overwritten; no originallink follow/resolve/regularbody/nativequery/build/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE.",
+    "all_admission_flags": false,
+    "preceding_NEW_literal_link_source_alias_intake": {
+      "phase": "FIRST_ALL4_actual_math_literal_link_source_alias_metadata_intake_COMPLETE_CONSUMED_NOT_admitted",
+      "source_run": 42333280905,
+      "source_commit": "5c9a4212d9022f7a13f80033867e9bced8a5f367",
+      "ALL4_original_source_references": [
+        "/lib/x86_64-linux-gnu/libisl.so.23",
+        "/lib/x86_64-linux-gnu/libmpc.so.3",
+        "/lib/x86_64-linux-gnu/libmpfr.so.6",
+        "/lib/x86_64-linux-gnu/libgmp.so.10"
+      ],
+      "prior_string_scalar_count": 2227,
+      "ALL9_catalogue_paths_BOTHlibc_5priorrefs14INTERP_exclusions_76NEEDED15sources19records3plugins_v6_ALLpriorledgers_preserved_NOT_newly_read_revalidated": true,
+      "qualification": "NEW literal-source/readlink metadata relationship intake before ANY lexical-target declaration. Full saved point records preserved privately, no old report-journal comparison/SDK-imagehash/body/query/Actions/model/archive replay. Scoped source matches/target nonmatches NOTaliasidentity/globalabsence/newness/acquisition/execution authority. ALL4targetbytes remain UNEXPANDED/UNFOLLOWED/unjoined. PointFD/stat/close NOTatomicABA-origin/globalnativeactorFD/continuousofficialphysicalEX-crash/actualdriver-access proof. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE.",
+      "separate_launcher_PID_pipe_EOF": null,
+      "all_admission_flags": false,
+      "ALL4_literal_link_summary": [
+        {
+          "source_reference": "/lib/x86_64-linux-gnu/libisl.so.23",
+          "literal_readlink": {
+            "bytes_hex": "6c696269736c2e736f2e32332e332e30",
+            "filesystem_surrogateescape": "libisl.so.23.3.0"
+          },
+          "source_match_scalar_count": 3,
+          "readlink_match_scalar_count": 0,
+          "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+        },
+        {
+          "source_reference": "/lib/x86_64-linux-gnu/libmpc.so.3",
+          "literal_readlink": {
+            "bytes_hex": "6c69626d70632e736f2e332e332e31",
+            "filesystem_surrogateescape": "libmpc.so.3.3.1"
+          },
+          "source_match_scalar_count": 3,
+          "readlink_match_scalar_count": 0,
+          "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+        },
+        {
+          "source_reference": "/lib/x86_64-linux-gnu/libmpfr.so.6",
+          "literal_readlink": {
+            "bytes_hex": "6c69626d7066722e736f2e362e322e31",
+            "filesystem_surrogateescape": "libmpfr.so.6.2.1"
+          },
+          "source_match_scalar_count": 3,
+          "readlink_match_scalar_count": 0,
+          "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+        },
+        {
+          "source_reference": "/lib/x86_64-linux-gnu/libgmp.so.10",
+          "literal_readlink": {
+            "bytes_hex": "6c6962676d702e736f2e31302e352e30",
+            "filesystem_surrogateescape": "libgmp.so.10.5.0"
+          },
+          "source_match_scalar_count": 3,
+          "readlink_match_scalar_count": 0,
+          "target_NOT_lexically_constructed_expanded_followed_resolved_or_executed": true
+        }
+      ]
+    }
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_review_and_raw_evidence_limits",
+    "ROOT_review_qualification": "QwenREVIEW11627 natural signed0/full2729stdout271stderr/BOTH EOF; advisoryNOTapproval. ROOT rejects P0: labelled SELECTED binding lines are intentionally noncontiguous excerpts, dictionary-field line is within actual report literal, not standalone Python. Original full collector AST parse preceded generation10981; full exactembedding/YAML/samecandidate matching AFTER11545 passed. Reject P1 hex mismatch: NEW preceding literal-link intake explicitly asserts os.fsdecode(bytes.fromhex(bytes_hex))==filesystem_surrogateescape BEFORE lexical declaration; source generation binds every complete origin row to that actual intake summary. No actual source syntax/encoding failure, advice-derived edit/retest/modelrelaunch/unavailability. Minimal validator fix whole-byte reverse equality changes ONLY one expected sink literal, ALL assertions same; hidden changes unsupported. Failclosed namespaces/unknown write-close-crash partialraw remain permanentquarantine, NOTatomicity/recovery/fullactorclosure. All4lexical candidates declared separately, originalsaved epoch flags not overwritten; no originallink follow/resolve/regularbody/nativequery/build/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE.",
+    "review_completion": {
+      "pid": 11627,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 2729,
+      "stderr_bytes": 271,
+      "stdout_sha256": "d96054fb116f67c5bafeab8662c908ad7e38574ccae23fd011c2cfd4f4febd4c",
+      "stderr_sha256": "801a2f45c62a5dad12be248532a2808f767bc7f1c2f949f2065555e40c95d1e2",
+      "advisory_not_approval": true
+    },
+    "ROOT_debug_qualification": "QwenDEBUG11285 natural signed0/full1835stdout185stderr/BOTH EOF; advisoryNOTapproval. ROOT rejects guessed wrong-count/candidate-path/malformed-YAML cause: actual supplied validator line7 is uploader-sink equality; size26/27, oldjobs equality and exactcollector embedding are earlier assertions. Actualnewblock sink native-perf-gcc-math-lexical-target-metadata; expected literal wrongly remains native-perf-gcc-math-reference-metadata. Minimal ONLY expected-sink string fix keeps EVERY assertion/SAMEcandidate, no generator rerun/failednamespace retry/modelrelaunch/query/path-debug loop/schema-gate weakening. Newvalidationnamespace justified actualBEFORE+minimalfix, notnewnamealone. Failedsource-generation-v1 FOREVERTERMINAL; unknown outerPID/pipeEOFNULL; gen10981natural0/val10986natural1bothEOF. Debugdraft238667charcap and firstfix JS-template pretoolSyntaxError rejected BEFOREtools/Q/model/fixbody, no runtimecode/evidencechange. PrepfixNOTRAM/Source20repair.",
+    "debug_completion": {
+      "pid": 11285,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 1835,
+      "stderr_bytes": 185,
+      "stdout_sha256": "cb1febd078b2a99c63d4eb4627d4e62ba3abcc4f372501c80eba69548dd1dbf4",
+      "stderr_sha256": "df74f1f39a9c3a1f05a5353f575cf3aea68d77ec757acacf774843e5012e10b8",
+      "advisory_not_approval": true
+    },
+    "actual_minimal_fix_matching_AFTER": {
+      "new_job_key": "flatbuffers-gcc-math-lexical-target-metadata",
+      "parent_jobs": 26,
+      "new_job_count": 27,
+      "candidate_bytes": 415801,
+      "candidate_sha256": "21828bbcff57c572695b4984ca791d3fba352c95fd9cab7e0635d2616e1f8a96",
+      "old_jobs_unchanged": 26,
+      "exact_collector_embedding": true,
+      "explicit_runner_temp_uploader_sink_match": true,
+      "YAML_pass": true,
+      "minimal_fix_ONLY_expected_sink_literal": true,
+      "SAME_original_candidate_unchanged": true,
+      "first_remaining_reverse_projection_byteexact": true,
+      "generator_reexecutions": 0,
+      "collector_reexecutions": 0,
+      "original_source_v1_AST_parse_preceded_generation_retained_controller_only_NOT_new_AST_test": true,
+      "matching_AFTER_completion": {
+        "pid": 11545,
+        "signed_status": 0,
+        "same_original_wait": true,
+        "wait_may_be_cached": true,
+        "stdout_eof": true,
+        "stderr_eof": true,
+        "stdout_bytes": 204,
+        "stderr_bytes": 0,
+        "stdout_sha256": "ad3d143775c72044d791805ab4e5e1ca9766fa509e12fd1231b3126cdfba980f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "source_generation_v1_FOREVER_TERMINAL": true,
+      "all_admission_flags": false
+    },
+    "outer_native_stdout_full_unretained_NOT_reconstructed": true,
+    "original_saved_result_JSON_used_for_FIRST_publication": {
+      "bytes": 33532,
+      "sha256": "6f6b2bd5975b376cafbb5bcba9c3bed1a656fa72885a711e5857c290e6fb8d2e"
+    },
+    "FIRST_ALL4_point_record_interpretation_COMPLETE_CONSUMED": true,
+    "all_admission_flags": false
+  },
+  "archive": {
+    "selected_regular_members": 16,
+    "original_declaration_reader_completion_files": 13,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 25655,
+    "archive_sha256": "e59ff242a11eb8ee4f8ea0f1f4ec1059cc4298498a9db3285336d214fec29913",
+    "not_full_raw_directory_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "source-declaration.json",
+        "bytes": 44988,
+        "sha256": "bde9f909a19840bae074b384518f284b7a0b4ef58793756251727658522d4f81"
+      },
+      {
+        "name": "metadata-collector.py",
+        "bytes": 55022,
+        "sha256": "5ad4068c61b7b3cdee5be4a6cf646fdde7ed62b33e6a0600d9a0d5ec52290928"
+      },
+      {
+        "name": "failed-original-validator.rb",
+        "bytes": 1200,
+        "sha256": "2d47554f7114b7cd9478dd0bdd50acc3489bd0dcce9b3f6e07ae27ed0c5273a2"
+      },
+      {
+        "name": "failed-validation-completion.json",
+        "bytes": 362,
+        "sha256": "c8d6562e8113cb40855a339addae529a25a7ce5b7b181cbaf49ad8bb6528dfaf"
+      },
+      {
+        "name": "minimal-matching-validator.rb",
+        "bytes": 1205,
+        "sha256": "ef8552dfb69cd61a4d4f1576297fa7f46e89759ac9a9b2074360054b4eb85993"
+      },
+      {
+        "name": "candidate-validation.json",
+        "bytes": 1181,
+        "sha256": "7de788e836f26bade9274d115b265c833f44e47dd9d5041b48b5401df32443df"
+      },
+      {
+        "name": "generation-completion.json",
+        "bytes": 362,
+        "sha256": "5be8dd83716a5051f1b0e4ffe9d802d1ca713f0599c41a6ebcbdde3c336ece25"
+      },
+      {
+        "name": "matching-validation-completion.json",
+        "bytes": 362,
+        "sha256": "9e0c8300af9843cae184b2edb2c00c84e8e0af07f3b4bf268d1ca9b7ebc28156"
+      },
+      {
+        "name": "debug-completion.json",
+        "bytes": 398,
+        "sha256": "e42bb8f02e1d9e0c1e8865b070b9667ebdc64e7e7b7b52415b5bff6cb5b081a3"
+      },
+      {
+        "name": "scope-review-completion.json",
+        "bytes": 398,
+        "sha256": "3120331fdd06a63cabdf2623cc841f8c30f00c104270d664972e2b994eb11a28"
+      },
+      {
+        "name": "source-publication-receipt.json",
+        "bytes": 371,
+        "sha256": "8e776374a636d61ff34ce27d2abc5c0d3ff258105d81300bbfb9910447dd8b75"
+      },
+      {
+        "name": "execution-declaration.json",
+        "bytes": 61799,
+        "sha256": "58ad2d79914d13992cf2379b9879402a237ec51fc49bdc30ec1e362088ac6b39"
+      },
+      {
+        "name": "source-alias-intake-declaration.json",
+        "bytes": 773,
+        "sha256": "d66d1f4717d4f30a8f7cfb9e7e7f2b8956776bdaf244eecd7fd83e55c42df97e"
+      },
+      {
+        "name": "derived/ALL4-final-component-point-summary.json",
+        "bytes": 31809,
+        "sha256": "59a9ed439be6b69eb23be218c76be2712e582fe1b0c98c67e909eb93f83c4698"
+      },
+      {
+        "name": "derived/ALL4-source-and-preserved-exclusion-ledger.json",
+        "bytes": 64306,
+        "sha256": "f61dc141b4c799382cfb8e2a6fc774e508c721cf839790190534509fde7ec946"
+      },
+      {
+        "name": "derived/ROOT-review-and-raw-evidence-limits.json",
+        "bytes": 4840,
+        "sha256": "f2dacdb1cb114114a292b799d9283919480fea62df0528319e51854e8d937598"
+      }
+    ]
+  },
+  "private_preserved": [
+    "full raw source-point dev/inode/stat/timestamps/report/journal/ZIP/log/API/environment",
+    "models/controllers/actual requests and returns except explicitly selected originals"
+  ],
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
