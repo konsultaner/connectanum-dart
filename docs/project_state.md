@@ -1,5 +1,16 @@
 # Project State
 
+## 2026-11-07: All210 include-entry source/alias relationships
+
+NEW source/alias intake retains all210 captured /usr/include entry records: original modes derive160regular49directory1symlink; parent/name remain separate. PriorCP4069strings/parent9matches; ONLYlinux1129name75hex andx86_64-linux-gnu910name4hex matches, other208nonmatches NOTabsence/newness/bodycoverage/alias/permission. ncurses.h literalcurses.h staysUNEXPANDED/UNFOLLOWED; originalreadlink-bytehex NOTsaved=NULL, no inferred laterloss/reconstruction. All210 names/modes/types/UIDGID/namehex/links/fulloriginalrecords and7sets1124rows/11source4exclusions9historical20relations/priorledgers retained, no favorablelanguage-version-ABI/default filter.
+
+Nativeintake tool0. Outerconsole27086tokens/budget24000truncated remainsUNRETAINED; Functions JSONparse failed on toolwarning AFTERnative fullsave/CPupdate, NOTnativefailure. No repoll/reexecution/gapfill. Distinct originalsummary130702B/SHA6a4dd4d76eb655863ac60a24ef0048922b5e4b872aef90877e2086df3c58c65d savedBEFOREprint usedFIRSTsaved-data binding/publication; originalraw+Python wholefield equality, no normalization/schema-gatewaiver/general missingraw allowance. OuterPID-pipeEOFNULL.
+
+Gemma21885 natural signed0/full691out276err/BOTH EOF; ROOTrejects LOST-bytehex wording: originalfield notsaved, laterlosscause unmeasured. AdvisoryNOTapproval/unavailability/relaunch; no advice-derivededit/test/query. [Evidence](research/2026-11-07-flatbuffers-include-entry-source-alias-intake.md):13regular selected10original3derived metadata, byteexact archiveSHA b598860269772bf31aa8afe36b558e3f61bea977c45e7a85172c713e69f1b08d/fullrawPRIVATE. ALLnewmetadata locators/index/report relationship intake/savedresult-binding/model/publication CONSUMED.
+
+Next separatelydeclare ALL160 regular body-input candidates as explicit literalparent+singlebasename text beforeIO; ALL49dirs deferred/noquery-recursion, symlink unexpanded/unfollowed, all210records kept. No oldSDK/sourcebody/hash/parser/model/Actions/acquisition/archive/numerical replay. No newActions/SDK-query/sourceacquisition/build/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE; follow-upACTIVE.
+
+
 ## 2026-11-07: GCC math dynamic-reference source metadata
 
 NEW ALL14request source/alias intake retains ten ordered NEEDED and four SONAME bindings/seven literal names/four sources. Prior CP scope3592string scalars, name matches75/107/75/75/1/75/143 and hex5/0/5/5/0/5/56 in gmp/libc/isl/mpfr/libm/mpc/loader order. Matches/nonmatches NOTabsence/newness/unread/bodycoverage/alias/permission.
