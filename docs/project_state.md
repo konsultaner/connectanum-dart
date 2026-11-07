@@ -1,5 +1,14 @@
 # Project State
 
+## 2026-11-07: First bounded GCC math input interiors
+
+FIRST ALL4 saved-body interpretation from original Actions42336634982 is complete and consumed: six read bindings (two mapping metadata, four NEW semantic body reads3293152B), all43 ordered program headers, ten ordered DT_NEEDED and four DT_SONAME bindings preserved. All4 ELFclass2/encoding1/machine62; all shown strings NUL-terminated inside STRSZ. Zero parsed INTERP/RPATH/RUNPATH requests is scoped metadata, NOTglobalabsence/defaultsearchpath/loadeddependency/ABI/defaultcompiler/Cargo/aliasidentity proof. Report/index ONLYlocate savedmembers; newbodyreader supplies bounded semantics. Remaining body ranges UNINSPECTED; original link/lexical epochs and ALLprior ledgers preserved NOTnewly reread/revalidated.
+
+Gemma17033 natural signed0/full994out191err/BOTH EOF; ROOT distinguishes NEEDED from SONAME, rejects change-point wording as edit/query authority. AdvisoryNOTapproval/unavailability/relaunch; no advice-derived edit/test/query. Reader tool0/separate outerPID-pipeEOFNULL, pointFD/hash/stat/close NOTatomicABA-origin/nativeactorFD/continuousphysicalEX-crash admission.
+
+[Evidence](research/2026-11-07-flatbuffers-gcc-math-bounded-interiors.md):7regular selected4original3derived metadata, byteexact archiveSHA 72829c682b8a942dbc106922bebaf0a8dd4beb2d6c840a30d506363021becb98; fullrawPRIVATE, wholeoriginalJSONSTRING equality/ALLfields-gates preserved. FIRSTreader/summary/publication CONSUMED. Next NEWsourcealiasmetadata intake ALL10NEEDED+4SONAME/seven combined names, check prior coverage before any acquisition; do not assume libm/newnames unread. No newActions/SDK-query/sourcebodyacquisition/build/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE; follow-upACTIVE.
+
+
 ## 2026-11-07: Declared GCC math regular inputs
 
 Original Actions run42336634982/job128294923408/source d64668e660cc72efc53379245022e798aac4680c acquired all four expressly declared regular math references: 3293152 bytes, four independently matching streams and zero point absences. All 27 prior jobs stayed unchanged/skipped (28 total). Original Ubuntu24/Dart3.13.5/Rust1.99/setup/PATH/env/argv/credentials/recipes retained, runtime UNADMITTED. All four interiors remain UNINSPECTED; no compiler/tool/header/native query, candidate execution, bootstrap/build/numerical/Source20-runtime adoption.
