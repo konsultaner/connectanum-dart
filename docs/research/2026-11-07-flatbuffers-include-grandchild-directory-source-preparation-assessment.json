@@ -1,0 +1,413 @@
+{
+  "source_validation": {
+    "ALL33_old_jobs_unchanged": true,
+    "ALL_original_top_fields_preserved_except_new_campaign_option": true,
+    "new_job_reverse_projection_equal_old_template": true,
+    "whole_original_workflow_reverse_projection_BYTEEXACT": true,
+    "parsed_jobs": 34,
+    "new_job_key": "flatbuffers-include-grandchild-directory-inputs",
+    "workflow_bytes": 482286,
+    "workflow_sha256": "9fee182f28e886a235d74765660982e6054722636c517878857b337e3388b1f2",
+    "declared_regular_file_stdin_python3_dash_NOT_identical_FD_topology": true,
+    "uploader_sink_match": true,
+    "ALL33_original_job_conditions": [
+      {
+        "job": "linux-wamp-profile",
+        "if": "github.event_name != 'workflow_dispatch' || inputs.campaign == 'profiles'"
+      },
+      {
+        "job": "linux-flatbuffers-primary",
+        "if": "github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus' || inputs.campaign == 'flatbuffers_rss_control' || inputs.campaign == 'flatbuffers_dictionary_component')"
+      },
+      {
+        "job": "merge-flatbuffers-extensions",
+        "if": "always() && github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_extensions'"
+      },
+      {
+        "job": "linux-flatbuffers-cpu-profile",
+        "if": "github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_profile' || inputs.campaign == 'flatbuffers_vm_profile')"
+      },
+      {
+        "job": "linux-flatbuffers-encoder-component",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_encoder_component'"
+      },
+      {
+        "job": "linux-flatbuffers-native-view-probe",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_native_view_probe'"
+      },
+      {
+        "job": "linux-flatbuffers-toolchain-preflight",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_toolchain_preflight'"
+      },
+      {
+        "job": "linux-flatbuffers-compiler-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_compiler_inputs'"
+      },
+      {
+        "job": "linux-flatbuffers-linkage-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_linkage_inputs'"
+      },
+      {
+        "job": "linux-flatbuffers-wrapper-delegates",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_wrapper_delegates'"
+      },
+      {
+        "job": "flatbuffers-cargo-config-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_cargo_config_inputs'"
+      },
+      {
+        "job": "flatbuffers-rustc-default-target",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_rustc_default_target'"
+      },
+      {
+        "job": "flatbuffers-linker-candidate-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_linker_candidate_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-runtime-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_runtime_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-runtime-transitive-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_runtime_transitive_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-search-environment",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_search_environment'"
+      },
+      {
+        "job": "flatbuffers-compiler-package-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_compiler_package_inputs'"
+      },
+      {
+        "job": "flatbuffers-bundled-installer-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_bundled_installer_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-header-environment-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_header_environment_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-program-parent-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_program_parent_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-component-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_component_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-entry-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_entry_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-reference-metadata",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_reference_metadata'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-lexical-target-metadata",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_lexical_target_metadata'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-child-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_child_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-grandchild-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_grandchild_regular_inputs'"
+      }
+    ],
+    "collector_bytes": 1613289,
+    "collector_sha256": "cab8351afb91aa946d151e472ee302d8800aa3f8351e1b51ae842138041d6fc2",
+    "whole_original_collector_reverse_projection_BYTEEXACT": true,
+    "ALL_original_metadata_functions_guards_fields_preserved": true,
+    "old63_guards_before_NEW190_loader_before_INPUTIO": true,
+    "NEW_source_Python_AST_PASS_ONCE_NOT_target_execution": true,
+    "source_scope_bytes": 1774384,
+    "source_scope_sha256": "36f6fa44cdf0e79c41decd92ce87ee44535be0b4f3174a1efc4af99f702db05f",
+    "scope_gzip_bytes": 50835,
+    "scope_gzip_sha256": "a68ade250e3fd6d306bb554ee4514940a5bca848da4e793a08a2d9eb89e9e8b0",
+    "scope_base64_characters": 67780,
+    "whole_scope_BYTEEXACT_JSONSTRING_PythonALLfield_equality": true,
+    "derived_runtime_ledger_bytes": 6135014,
+    "derived_runtime_ledger_sha256": "002d23aad10c6d2ba86a00a976f1aaa102e97555901bebf76effb1b976c441eb",
+    "derived_runtime_ledger_gzip_bytes": 499172,
+    "derived_runtime_ledger_gzip_sha256": "014a459f7dacd643c4ca4282928f15f3e18e876fd161969737ff289ebb672b4d",
+    "prior_actual_reference_ledger_group_counts": [
+      1229,
+      1199,
+      160,
+      63,
+      49
+    ],
+    "prior_static_literal_count": 168954,
+    "NEW190_prior_actual_static_match_candidates_ZERO_from_original_savedresult_notrecompared": true,
+    "ALL33_oldconditions_SOURCE_false_BEFOREdispatch": true,
+    "original_selector_failure_foreverterminal_minimal864585_matching_guard_PASS_ONCE": true,
+    "saved_metadata_read_bindings": 4,
+    "all_admission_flags": false,
+    "ownership": null,
+    "new_SDK_or_Actions_queries": 0,
+    "candidate_executions": 0,
+    "source_commit": null,
+    "run_id": null
+  },
+  "actual_selector_failure_boundary": {
+    "original_actual_failure_tool_exit_code": 1,
+    "original_failure_location": "assert body.startswith(expectedOUTanchor) atdeclaredabsolute633508 AFTERsixsavedinputbindings andNEW190ledgercomparison savedBEFOREassert/BEFOREnewcandidatewrite",
+    "original_failednamespace_forever_terminal": true,
+    "original_fullsource_and_readbindings_saved_BEFOREassert": true,
+    "first_NEW_distinct_source_range": [
+      860000,
+      875694
+    ],
+    "new_actual_OUT_relative_tail_offset": 4585,
+    "new_actual_OUT_absolute_offset": 864585,
+    "new_control_region": [
+      864585,
+      875694
+    ],
+    "new_control_bytes": 11109,
+    "new_control_sha256": "4f259d7b24893c306cdab8311e2cc6b664c4bfd164d5adc26a21632fb636467c",
+    "prior_source_offset633508_not_actual_new63collector_control_offset": true,
+    "NEW190ledger_group_counts": [
+      1229,
+      1199,
+      160,
+      63,
+      49
+    ],
+    "NEWprior_static_string_count": 168954,
+    "NEW190_actual_ledger_match_candidates": 0,
+    "NEW190_static_match_candidates": 0,
+    "NEW190_all_reference_relationships_PRIVATE_saved_unchanged": true,
+    "minimal_selector_correction_candidate": "Use actualsupported OUT controlstart forFIRSTremaininggeneration; preserve originalwhole-sourceuniqueanchor+allgates/byteexactreverse; no originalreader-ledgercomparison retry",
+    "new_SDK_or_Actions_queries": 0,
+    "all_admission_flags": false,
+    "ownership": null,
+    "separate_outer_PID_pipeEOF": null
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_model_raw_and_admission_limits",
+    "ROOT_qualification": "Qwen81775naturalSIGNED0/full1884out269err/BOTH EOF/SAMEwaitmaycached/stdoutdbc13e1b9634cf12a528a5f6b020d630300974ae3288fc2d7922ac2e56dfb6d3/stderrb09c9edb1f0003800e7d231c42f65ea401f6cb2385168e02a20839f9c51d8751. ROOTsupports staleearlier633508offset vsactualcurrent875694source OUT864585; actualsavedtail[860000,875694) relative4585 =>864585/control11109B4f259d7b24893c306cdab8311e2cc6b664c4bfd164d5adc26a21632fb636467c. Modelcoordinate-confusion statement qualified: actualfailure hardcodesearlierabsoluteoffset, no savedtail usedbeforefailure. OnlystartswithFalse measured/notwholecount0; fullsource-inputbindings-NEW190ledgerresult savedBEFOREassert, notmissing/reconstructed. Minimumselector864585 forFIRSTremaininggenerator retainsfullsourceuniqueanchor/rangeSHA/allgates/byteexactreverse; originalreader-ledgercomparison namespace permanentlyterminal/no replay. No dynamicfallback/extraquery/test/model advice adopted; notSDK-Source20-RAMcause-fix/admission authority. Review82188 naturalSIGNED1/full0out357err/BOTH EOF/SAMEwaitmaycached/stdoute3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/stderr6a38f96da4dffad5a19141a9ab3fd6c61ce04cf32aba1e72986dff017093d67a. HelperreportsOllama tokenlimit/input20659; backendpartialcontent2379 chars reportedinternally NOTreturned/saved byhelper, fullpartialrawUNRETAINED/no reconstruction. No finalanswer/NOTapproval/backendunavailability/relaunch/narrowed-unchangedreview permission. ROOTdoesnotinferacceptancefromabsenceofcomments. Selectedmodelpayload omitsoriginalopaque875694prefix/newscope-runtimeledgerpayloads; wholeactualsource-prefix/functions/guards-fields/reverse proofs retained separately/sourcegenerationonce. FIRSTnew190scope/schema/fullfield/sourceguard proofs remainactualdataNOTABI-access-ownership-physicalEX proof. No advice-derivededits-tests-queries-modelrelaunch. Rootassessment: originalOLD63scope/reportfields andoldfunctions remainBYTEEXACT underreverse, loaderintroducesdistinctNEW190scope/raw andactual190refs beforeINPUT, exactoutputbytesSHAguardtracksNEW190scope; old63printedcountkeptseparate, no unsupportedruntime/RAM-cost inference.",
+    "model_completions": [
+      {
+        "path": "source-selector-debug-v1/completion.json",
+        "pid": 81775,
+        "signed_status": 0,
+        "same_original_wait": true,
+        "wait_may_be_cached": true,
+        "stdout_eof": true,
+        "stderr_eof": true,
+        "stdout_bytes": 1884,
+        "stderr_bytes": 269,
+        "stdout_sha256": "dbc13e1b9634cf12a528a5f6b020d630300974ae3288fc2d7922ac2e56dfb6d3",
+        "stderr_sha256": "b09c9edb1f0003800e7d231c42f65ea401f6cb2385168e02a20839f9c51d8751",
+        "advisory_not_approval": true
+      },
+      {
+        "path": "review-v1/completion.json",
+        "pid": 82188,
+        "signed_status": 1,
+        "same_original_wait": true,
+        "wait_may_be_cached": true,
+        "stdout_eof": true,
+        "stderr_eof": true,
+        "stdout_bytes": 0,
+        "stderr_bytes": 357,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "6a38f96da4dffad5a19141a9ab3fd6c61ce04cf32aba1e72986dff017093d67a",
+        "advisory_not_approval": true
+      }
+    ],
+    "original_saved_validation_bytes": 8445,
+    "original_saved_validation_sha256": "ffab2ee41427c97c30148eac4a078959d03e087b4c54f630f8cb1eb567b8efd0",
+    "whole_original_raw_JSONSTRING_Python_ALLfield_equality": true,
+    "all_original_gates_preserved": true,
+    "separate_outer_launcher_PID_pipe_EOF": null,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "model_review_tokenlimit_NO_FINAL_ANSWER_NOT_approval_unavailability_relaunch": true,
+  "archive": {
+    "selected_regular_members": 28,
+    "original_declaration_controller_completion_descriptor_files": 25,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 26373,
+    "archive_sha256": "823a84ee94c0b7646f9671fe6e60feaf5d3cf2ef42eb25d8093e4449ed90ae88",
+    "not_full_raw_directory_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "original/source-control-intake-v1/declaration.json",
+        "bytes": 604,
+        "sha256": "88e682feff37bf8d45dca2c33a2b662793f245d4ef26fd9042d6a2e411fa1d16"
+      },
+      {
+        "name": "original/source-control-intake-v1/controller.py",
+        "bytes": 2777,
+        "sha256": "992bcef04261b467b8fcca2f609118c547f651fabd590e6f4bc485716b98248a"
+      },
+      {
+        "name": "original/source-control-intake-v1/checkpoint-read-binding.json",
+        "bytes": 634,
+        "sha256": "76aa1b5ff8bf4354103c9f8bfe66529a6745f034807e134d55c625a7c076fd97"
+      },
+      {
+        "name": "original/source-preparation-inputs-v1/declaration.json",
+        "bytes": 3711,
+        "sha256": "9eb9b26c254634c51e422d3e1d4b371dbe33bb54031f1a33675e177fad0b29ff"
+      },
+      {
+        "name": "original/source-preparation-inputs-v1/controller.py",
+        "bytes": 12141,
+        "sha256": "11b949d2dc3eda82d38692a424a2335ed1e3bd5e3e19fc2794f8b55979f63516"
+      },
+      {
+        "name": "original/source-preparation-inputs-v1/selected-source-exact-range-BEFORE-contentIO.json",
+        "bytes": 372,
+        "sha256": "0c7bc9a7962df77a94a714724e11978f18f0266444a3e17712210c45b86d2216"
+      },
+      {
+        "name": "original/source-control-boundary-v1/declaration.json",
+        "bytes": 1669,
+        "sha256": "d22b2545f5d744851c305720fb99f1bfcef370c95e46597ef556266ec8e4c432"
+      },
+      {
+        "name": "original/source-control-boundary-v1/controller.py",
+        "bytes": 7266,
+        "sha256": "22b26f7bfbb32518c5b5e264d8b9ed3e73250c00abd86fa511de5387675d572d"
+      },
+      {
+        "name": "original/source-control-boundary-v1/FIRST-actual-failure-boundary.json",
+        "bytes": 1404,
+        "sha256": "4bed8070134f2f3dcc12124252d10059378dfe60ea61b25d36fce2f208fc90ef"
+      },
+      {
+        "name": "original/source-selector-debug-v1/declaration.json",
+        "bytes": 545,
+        "sha256": "986ec3ad75865a4cc319d910ba211ff6bf786c972a0c82e73693d544b5cd5ada"
+      },
+      {
+        "name": "original/source-selector-debug-v1/controller.py",
+        "bytes": 3909,
+        "sha256": "af02d60fe7d4beec3572af604267124138021e107e6d12a96e4dda7e2a31db26"
+      },
+      {
+        "name": "original/source-selector-debug-v1/request.json",
+        "bytes": 2009,
+        "sha256": "15a0f00783e3fe23821fd9e21c460c929307d80d676b702d1e99415d74fe98b6"
+      },
+      {
+        "name": "original/source-selector-debug-v1/completion.json",
+        "bytes": 398,
+        "sha256": "967523e39cbc42d70672088c079b08603a688b18cea111f9ca8072a3b007e641"
+      },
+      {
+        "name": "original/FIRST-remaining-source-generation-v1/declaration.json",
+        "bytes": 5525,
+        "sha256": "9e9ec56128880c826c6fdc786d9a31e91d91670867f35dec45224356759053b5"
+      },
+      {
+        "name": "original/FIRST-remaining-source-generation-v1/controller.py",
+        "bytes": 21007,
+        "sha256": "a96c1d71ce53623e3205fa0dc8e52f1cdc8afd8f5ef8a8e61f1eb67d97f55d2e"
+      },
+      {
+        "name": "original/FIRST-remaining-source-generation-v1/FIRST-minimal-selector-matching-AFTER.json",
+        "bytes": 393,
+        "sha256": "2486384780346903dfaf3e56ae59d3da938ffd66ba3242a37d14e72e6a6d5423"
+      },
+      {
+        "name": "original/FIRST-remaining-source-generation-v1/new-generation-and-checks.rb",
+        "bytes": 3403,
+        "sha256": "a44d3511599a52342de953bd3ad710b65ec59a48200e0565dae50fa8f48c1d6b"
+      },
+      {
+        "name": "original/FIRST-remaining-source-generation-v1/generation-completion.json",
+        "bytes": 363,
+        "sha256": "6de41b4abdfda6c806835dd3468187ff499929804991d619e6d9ab67774170ed"
+      },
+      {
+        "name": "original/FIRST-remaining-source-generation-v1/FIRST-source-validation.json",
+        "bytes": 8445,
+        "sha256": "ffab2ee41427c97c30148eac4a078959d03e087b4c54f630f8cb1eb567b8efd0"
+      },
+      {
+        "name": "original/FIRST-remaining-source-generation-v1/ALL33-original-condition-source-preflight-BEFOREdispatch.json",
+        "bytes": 7764,
+        "sha256": "8c3f234fed40e524ae8f36366319348b469c85f1d4c47c253bb73b0dabc65a1d"
+      },
+      {
+        "name": "original/FIRST-remaining-source-generation-v1/NEW190-controlled-source-selection.json",
+        "bytes": 8711,
+        "sha256": "23b2adddd2ab27eaf09e8c3cb2028ee017ed4424f6e7eea2c40c91eee8965ef3"
+      },
+      {
+        "name": "original/review-v1/declaration.json",
+        "bytes": 968,
+        "sha256": "7fd30d1771670581ac93e4c2ac83ec87035649821abb100870e9a4e2c3e4d719"
+      },
+      {
+        "name": "original/review-v1/controller.py",
+        "bytes": 4314,
+        "sha256": "39cbbca61029cf17e7187721fa3904356fb12ad8881600b7ff92cdebc2196bf1"
+      },
+      {
+        "name": "original/review-v1/request.json",
+        "bytes": 2111,
+        "sha256": "8415a7e3c2ba39c6204e550ce17a8901a360c4efbe4a4a2a03eb0f4d383309d4"
+      },
+      {
+        "name": "original/review-v1/completion.json",
+        "bytes": 395,
+        "sha256": "004338c9ec1570fcc6ad1619f221ab94baf08512271c41cca8c2c23560142116"
+      },
+      {
+        "name": "derived/NEW190-source-workflow-validation.json",
+        "bytes": 9099,
+        "sha256": "61b5dfddeb7fb9fd0deb453328bca02c137515b617b94446bafd4edcacc8aaf5"
+      },
+      {
+        "name": "derived/NEW190-selector-failure-boundary-limits.json",
+        "bytes": 2740,
+        "sha256": "ac4799da399098c143297f6226633a0f071c624cbaa80d85a9c5d3b770a1ae26"
+      },
+      {
+        "name": "derived/ROOT-model-and-admission-limits.json",
+        "bytes": 3626,
+        "sha256": "c29e2e3b1a24ccd099935163edf19deb548c7bc598f5ea6171f0f1805ffa6a89"
+      }
+    ]
+  },
+  "full_raw_PRIVATE": true,
+  "next": "FIRST expresslydeclared localSTATIC binding/preflight for NEW190directory collector1613289B/SHA cab8351afb91aa946d151e472ee302d8800aa3f8351e1b51ae842138041d6fc2 andworkflow482286B/SHA9fee182f28e886a235d74765660982e6054722636c517878857b337e3388b1f2 BEFOREanyfirstoriginalActions INPUTquery/sourcecommit-dispatch. Preserve originalworkflow265291183/parentadcb77059cf1f81f61ecf039eca245617a02d752/Ubuntu24.04-Dart3.13.5-Rust1.99/PATH-env-argv-credentials-recipes; firstqualify actualNEW190scope-and-runtime literal ledger bindings/imports/old63scope-separateNEW190scope/actualdirectoryrefs190/reportnew190fields withNOtargetexec-eval/import-SDK/headerbodyquery. SourcegeneratedAST/wholeoldsource-workflow reverse/ALL33SOURCEfalsecondition gates alreadyPASSCONSUMED; reuseexactoriginal33PASSraw BYTEEXACT NOTreevaluate; actual33SKIPPED onlyiflaterobserved. Sourcefile1613289B explicitnotworkflowpayload; do notguess remoteAPI readbacklimits/contents-body/hash orskipfullbyteexactreadback. Allsource-read/ledgercomparison/selectorfailure-boundary-debug-minimal864585matching/sourcegeneration/review82188tokenlimit/publication CONSUMED; no unchangedbody-source-parser-model-SDKquery-Actions-acquisition-archive-numerical replay/newnamespace-alone retry/omittedpartial-modelraw reconstruction. Reviewtokenlimit hasNOFINALANSWER/NOTapproval-unavailability/relaunch; ROOTretainsactualallfield-gates/sourceprefix proof/modelpayload-coverage limitation/no advice-derivededit-test-query. Existingwholeoriginalfields/stat-times/1425-63-1229epochs/original190DEFERRED6unfollowed/prior1280-49-1199-old63DEFERRED18olderlinks-oldtopncursesrawhexNOTsavedNULL/allpriorledgers unchanged. No bootstrap-dependency-build-native-driver-perf-numerical/Source20-runtime adoption; allsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI incomplete/skip-ciNEVERfinalCIwaiver.",
+  "RAM_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
