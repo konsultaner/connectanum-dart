@@ -1,0 +1,434 @@
+{
+  "all_original_validation_fields": {
+    "ALL35_old_jobs_unchanged": true,
+    "ALL_original_top_fields_preserved_except_new_campaign_option": true,
+    "new_job_reverse_projection_equal_old_template": true,
+    "whole_original_workflow_reverse_projection_BYTEEXACT": true,
+    "parsed_jobs": 33,
+    "new_job_key": "flatbuffers-include-great-great-grandchild-directory-inputs",
+    "workflow_bytes": 484732,
+    "workflow_sha256": "1d1e7eee9fa017ca5f7fae25c9d6ae67e6df837ea223239093c0e6c88c705110",
+    "declared_regular_file_stdin_python3_dash_NOT_identical_FD_topology": true,
+    "uploader_sink_match": true,
+    "ALL35_original_job_conditions": [
+      {
+        "job": "linux-wamp-profile",
+        "if": "github.event_name != 'workflow_dispatch' || inputs.campaign == 'profiles'"
+      },
+      {
+        "job": "linux-flatbuffers-primary",
+        "if": "github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus' || inputs.campaign == 'flatbuffers_rss_control' || inputs.campaign == 'flatbuffers_dictionary_component')"
+      },
+      {
+        "job": "merge-flatbuffers-extensions",
+        "if": "always() && github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_extensions'"
+      },
+      {
+        "job": "linux-flatbuffers-cpu-profile",
+        "if": "github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_profile' || inputs.campaign == 'flatbuffers_vm_profile')"
+      },
+      {
+        "job": "linux-flatbuffers-encoder-component",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_encoder_component'"
+      },
+      {
+        "job": "linux-flatbuffers-native-view-probe",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_native_view_probe'"
+      },
+      {
+        "job": "linux-flatbuffers-toolchain-preflight",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_toolchain_preflight'"
+      },
+      {
+        "job": "linux-flatbuffers-compiler-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_compiler_inputs'"
+      },
+      {
+        "job": "linux-flatbuffers-linkage-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_linkage_inputs'"
+      },
+      {
+        "job": "linux-flatbuffers-wrapper-delegates",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_wrapper_delegates'"
+      },
+      {
+        "job": "flatbuffers-cargo-config-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_cargo_config_inputs'"
+      },
+      {
+        "job": "flatbuffers-rustc-default-target",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_rustc_default_target'"
+      },
+      {
+        "job": "flatbuffers-linker-candidate-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_linker_candidate_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-runtime-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_runtime_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-runtime-transitive-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_runtime_transitive_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-search-environment",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_search_environment'"
+      },
+      {
+        "job": "flatbuffers-compiler-package-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_compiler_package_inputs'"
+      },
+      {
+        "job": "flatbuffers-bundled-installer-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_bundled_installer_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-header-environment-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_header_environment_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-program-parent-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_program_parent_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-component-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_component_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-entry-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_entry_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-reference-metadata",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_reference_metadata'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-lexical-target-metadata",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_lexical_target_metadata'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-child-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_child_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-grandchild-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_grandchild_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-grandchild-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_grandchild_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-great-grandchild-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_great_grandchild_regular_inputs'"
+      }
+    ],
+    "collector_bytes": 6909460,
+    "collector_sha256": "5e89b1eb7372f5c45e2a5eefa283500c2a4165444df53de0f212ab5d5f5ae70b",
+    "whole_original_collector_reverse_projection_BYTEEXACT": true,
+    "all_original_directory_functions_guards_fields_preserved": true,
+    "old49_63_190_scopes_separate_before_NEW199_loader_beforeINPUTIO": true,
+    "new_source_Python_AST_PASS_ONCE": true,
+    "new_scope_bytes": 5234963,
+    "new_scope_sha256": "e1600b8bff415b6b7e531b66adeded088ac21362a4ce52c21946f347e60b5fd4",
+    "new_scope_gzip_bytes": 165331,
+    "new_scope_gzip_sha256": "8e666e51cd0019cc89e68f442abd8230280c57aa4cfe9698650ab7179ac4e26d",
+    "new_scope_base64_characters": 220444,
+    "whole_scope_BYTEEXACT_JSONSTRING_PythonALLfield_equality": true,
+    "prior_runtime_ledger_bytes": 38010474,
+    "prior_runtime_ledger_sha256": "33cddf7f329f87e24aa7393d38796fa3d26a205203b1f300cdfd1ef5ad85d9e3",
+    "prior_runtime_ledger_gzip_bytes": 3803113,
+    "prior_runtime_ledger_gzip_sha256": "b2ed77bbf12cc67985f5d47e60dbee9af469e04e4cb5d652fcf593616f7fa641",
+    "whole_runtime_ledger_BYTEEXACT_JSONSTRING_PythonALLfield_equality": true,
+    "original_reference_group_counts": [
+      4868,
+      190,
+      1229,
+      1199,
+      160,
+      63,
+      49,
+      1229,
+      1199,
+      160,
+      190,
+      63,
+      49,
+      1229,
+      1199,
+      160,
+      63,
+      49,
+      1199,
+      160,
+      63,
+      49
+    ],
+    "prior_static_metadata_scalar_count": 1004298,
+    "new199_prior_exact_matches": 0,
+    "ALL35oldconditions_SOURCE_false_BEFOREdispatch": true,
+    "saved_metadata_read_bindings": 5,
+    "source_commit": null,
+    "run_id": null,
+    "new_SDK_INPUT_queries": 0,
+    "candidate_executions": 0,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "all_original_control_descriptor_fields": {
+    "root_range": [
+      864585,
+      864683
+    ],
+    "root_sha256": "06e70015630db487ea3a9796980713ad94c85dfc08f331031932bd616238258f",
+    "FIRST_selected_original190_tail_range": [
+      1595289,
+      1613289
+    ],
+    "FIRST_sink_occurrences_relative_to_selected_tail": [
+      7448
+    ],
+    "selected_tail_sha256": "be2c91d5ef188d2bc1c0369080bf1bba5e8828dd59f39ab3f2837c5e636b23b7",
+    "NEW199_count": 199,
+    "original_group_counts": [
+      4868,
+      190,
+      1229,
+      1199,
+      160,
+      63,
+      49,
+      1229,
+      1199,
+      160,
+      190,
+      63,
+      49,
+      1229,
+      1199,
+      160,
+      63,
+      49,
+      1199,
+      160,
+      63,
+      49
+    ],
+    "prior_captured_static_metadata_string_count": 1004298,
+    "ALL199_exact_ledger_matched_candidates": 0,
+    "ALL199_exact_static_matched_candidates": 0,
+    "saved_metadata_bindings": 5,
+    "ledger_result_bytes": 369636780,
+    "ledger_result_sha256": "b3482fc757862b9768c49a8af2d1fa75dcb1851e132f288ea6d8c42c6995ead3",
+    "all_admission_flags": false,
+    "ownership": null,
+    "scope_sink_to_savedsource_end_range": [
+      1602737,
+      1613289
+    ],
+    "scope_sink_control_bytes": 10552,
+    "scope_sink_control_sha256": "c2908e7119c70ff630de0f9b9454d030d0948e9c57f757f3d5f35ba7686a0aec",
+    "FIRST_unique_NEW199_sink_selector_PASS": true,
+    "ALL199_exact_reference_ledger_staticmetadata_gates_PASS": true
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED ROOTmetadata/fulloriginalprivatefields-gates unchanged/modeladvisoryNOTapproval/admission",
+    "ROOT_qualification": "Qwen29081 naturalSIGNED0/full2126stdout270stderr/BOTH EOF/SAMEwaitmaycached/stdout29c040a8ba259b4000a7376e3b849ad157322acc7fbe30f99fae7866c8ab61d6/stderre026fb8885352fe512a7fc3d2d17ee0de2b352134dcd45e11f3fab5daff6b23b/input9782/reasonstop. No concrete supported findings inboundedselection; NOTapproval-fullsource/runtimeadmission or backendunavailability-relaunchpermission. ROOTrejectsmodelclaimno executableimplementationprovided: actualNEW199loader/report/rootdelta code strings AREinthecontrolledselection; opaqueoriginal1613289prefix/functions/metadata-scope-runtimepayloads/qualificationliteralpair/35conditionrows omittedONLYmodelselection areexplicitcoverage limitations. IndependentlyactualoriginalnewRuby28872SIGNED0/full6302out0err/BOTH EOF/b1b364adfc756481e52d9973c049d8e2f07b43a5f7dce18c9e2e7fc513ac02a2 andnewcandidateAST/wholeoldsource-workflowreverse/new35conditions proofs separate/notmodelselfreportedapproval. Speculativecompromisedhashsource/maliciousJSONexec/concurrency-permission-bypass/cache/order ideas UNSUPPORTED bymetadata-onlynoSDKquery/no JSONdataexec-eval-import/all199originalorder-duplicates retained; no advice-derivededit-test-query-build-adoption. Exacthash-byte-JSONSTRING-PythonALLfield equality preservesALLoriginalprivatefields-stat-times-relationships-gates/no fielddrop-round-normalize-schemawaiver, NOTatomicABA-origin-pathchain-globalactorFD-originaldrivercredentials-access-effectivecompilerABI-continuousphysicalEX-crashadmission. Originalreviewdeclaration inheritedolder4868prefix/count wording(854571/34/35) preservedUNMODIFIED; currentselectedmodelcontext andactualnewvalidation authoritative1613289original190collector/current483481workflow/ALL35oldjobs-sourceold35new36guards, originalparsed_jobs33literalSTALEunmodified/notruntimeactual36/no rerun-reparse-fieldrestore-polish. Prior10441tokenlimitNOFINALANSWER/fullpartialrawUNRETAINED unchanged/no reconstruction-unchangednarrowedreviewrelaunch. NewreviewdistinctNEW199source/question notoldreviewretry. ALL199newrefs vs22groups withoriginalcounts4868,190,1229,1199,160,63,49,1229,1199,160,190,63,49,1229,1199,160,63,49,1199,160,63,49 plus1004298capturedstrings:exact0/allmatching-nonmatchingpositions/duplicates-privatefields retained. Scoped0NOTglobalabsence-newness-previousqueryabsence-alias-ABI-access-originaldrivercredentials-ownership-permission-queryauthority-globalnoreplayproof. Original5067fullstat-times190metadataepochs199DEFERRED0NEWlinksTHISdataset vs4868physical/localread separate; prior1425-63-1229laterbody-original190DEFERRED6/prior1280-49-1199-old63DEFERRED18-unfollowed-oldncursesrawhexNULL/allledgers unchanged. Originalstatic48/preproof10UNMEASUREDNULLimmutable/newruntimefactsSEPARATE/oldownershipKeyErrorfailednamespaceFOREVERterminal-oldfinalresultNULL-newremainingproofONCE/notreconstruction-Sourcefieldrestore-gatewaiver. No originalActions sourcecommit-dispatch-SDKINPUT/headerbodyquery-bootstrap-build-native-driver-perf-numerical/Source20-runtimeadoption-cleanup. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE.",
+    "review_completion": {
+      "pid": 29081,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 2126,
+      "stderr_bytes": 270,
+      "stdout_sha256": "29c040a8ba259b4000a7376e3b849ad157322acc7fbe30f99fae7866c8ab61d6",
+      "stderr_sha256": "e026fb8885352fe512a7fc3d2d17ee0de2b352134dcd45e11f3fab5daff6b23b",
+      "advisory_not_approval": true
+    },
+    "separate_outer_launcher_PID_pipe_EOF": null,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "archive": {
+    "selected_regular_members": 26,
+    "original_declaration_controller_completion_descriptor_files": 23,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 24997,
+    "archive_sha256": "08fb6f9aad89665fd662a58474f73f674164c80766bbf18e3b84348af5cbea68",
+    "not_full_raw_directory_fullgeneratedsource_runtimepayload_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "original/input-declaration.json",
+        "bytes": 4148,
+        "sha256": "957eb55d8de738b3ed08aa1faf5fd5bd6458aa724963bfc4c7e7ded81cb2d14f"
+      },
+      {
+        "name": "original/input-controller.py",
+        "bytes": 7439,
+        "sha256": "eb16ba143ecd5b8d1d376f1e3738bdd2046ffe0a466b5eeca04f8138712da8bb"
+      },
+      {
+        "name": "original/input-control-descriptor.json",
+        "bytes": 5694,
+        "sha256": "241f2a982802f1bf29652b719651c77d397428869383bd8f63d8dc8d1c3f885e"
+      },
+      {
+        "name": "original/input-original190collector-binding.json",
+        "bytes": 1120,
+        "sha256": "a8ff188367b56fe8398acb9f1b0f7514af4fabed446dc4cde0b686c36fdb199b"
+      },
+      {
+        "name": "original/input-workflow35-binding.json",
+        "bytes": 1104,
+        "sha256": "2a0809dba0d9ad370491413a5a5f168a275d35ca587ad109e57e9aaff49c4d90"
+      },
+      {
+        "name": "original/input-NEW199scope-binding.json",
+        "bytes": 1128,
+        "sha256": "656ba7947541fabc1fe139c4ea16945d656dccf046ea28d868fdf5d6584e4f0d"
+      },
+      {
+        "name": "original/input-actual4868BODYmetadata-binding.json",
+        "bytes": 1190,
+        "sha256": "6c2121a2a9484c0794b29265b1d9d3d65d963520e0da052d5ee3875f9f55168c"
+      },
+      {
+        "name": "original/input-actual190DIRECTORYmetadata-binding.json",
+        "bytes": 1157,
+        "sha256": "f8f82ca1bb977e4ff4fba2ea5e6b810f38460656f637b3625437fcc64ac6ea1c"
+      },
+      {
+        "name": "original/input-actual1229BODYmetadata-binding.json",
+        "bytes": 1147,
+        "sha256": "14be1f24b3f520e8b2a5b892fcd98543e9e010c351487cf92e8653b66f2e5436"
+      },
+      {
+        "name": "original/ledger-declaration.json",
+        "bytes": 4158,
+        "sha256": "5652527c79904025c62bbf2f7379fe7b553e6168d3bad5f59bef01316661a59a"
+      },
+      {
+        "name": "original/ledger-controller.py",
+        "bytes": 10299,
+        "sha256": "99f7ee0501f7fdcf97a5850e5ce02b2dfedfff57ba0e1534d8ffbd250ba36dc7"
+      },
+      {
+        "name": "original/ledger-control-before-gates.json",
+        "bytes": 993,
+        "sha256": "2693e62f5e71296673a95e861ecd97c7995f1e6315223b04c682fc11a35bb6f4"
+      },
+      {
+        "name": "original/ledger-control-descriptor.json",
+        "bytes": 1319,
+        "sha256": "f1c6e6e8b13ba2b8886c75313df62c87ec9c6efc27b764918fedb77d96159749"
+      },
+      {
+        "name": "original/source-declaration.json",
+        "bytes": 3786,
+        "sha256": "969933574315c3a90e89832cfc0d879c7c7beafd803a119375cda6438edea245"
+      },
+      {
+        "name": "original/source-controller.py",
+        "bytes": 16493,
+        "sha256": "4194a1853793ab9e30fe620b0f7ad7d032fce1532f865db8d4c1db6e971150d4"
+      },
+      {
+        "name": "original/source-new-ruby-controller.rb",
+        "bytes": 3570,
+        "sha256": "3e5bbf9d0788e7d94486763d6c606fc0e54799c540b3025b4865707ab99b99b0"
+      },
+      {
+        "name": "original/source-validation.json",
+        "bytes": 8935,
+        "sha256": "0335e4427d97b8aec537f71aa9fa34a286ad21bd066cbaf69800ae0e717f90b3"
+      },
+      {
+        "name": "original/source-35-condition-proof.json",
+        "bytes": 8272,
+        "sha256": "d104c38d4a4a9c0ec02acccb89f6bc7093cf4cc667b6094e3892d409f2b03752"
+      },
+      {
+        "name": "original/source-native-completion.json",
+        "bytes": 363,
+        "sha256": "10b8fef617c7578955a875a28b6e6dc38723e997ef3e856c96f8b407fe34a1b5"
+      },
+      {
+        "name": "original/review-declaration.json",
+        "bytes": 1528,
+        "sha256": "effb72f391303ba382a14d71d5212370b26e2c03c34e0556822c56c6bb58fd44"
+      },
+      {
+        "name": "original/review-controller.py",
+        "bytes": 8298,
+        "sha256": "0630d8f937c27137bc6d7238939799d6084f348474fca210280c080e38a8aa47"
+      },
+      {
+        "name": "original/review-request.json",
+        "bytes": 2032,
+        "sha256": "e486f2dafcc2d6a7267468ccc8ede72ab3dbe639219fe6fd56a4df3f78196422"
+      },
+      {
+        "name": "original/review-completion.json",
+        "bytes": 398,
+        "sha256": "a219b07ef8cd13810a4c4978f6b36639b28dcd639e091f3aa0f3bc0b1caa2526"
+      },
+      {
+        "name": "derived/NEW199-source-preparation.json",
+        "bytes": 11621,
+        "sha256": "6e0583e89fca2284fc948f01b9299d5f464f6ac4074919c8b6cfb660a72c7b69"
+      },
+      {
+        "name": "derived/NEW199-remaining-work-and-limits.json",
+        "bytes": 2707,
+        "sha256": "f5f84ec508c876024071ab82c1ea4b709821b6ddb9458e4abdbfa050a40a02fb"
+      },
+      {
+        "name": "derived/ROOT-review-and-admission-limits.json",
+        "bytes": 3829,
+        "sha256": "a8366f057f25140bd7ed4cd1dd1743992153e095b7422c0d8df4433d53fed284"
+      }
+    ]
+  },
+  "original_validation_bytes": 8935,
+  "original_validation_sha256": "0335e4427d97b8aec537f71aa9fa34a286ad21bd066cbaf69800ae0e717f90b3",
+  "original_control_descriptor_bytes": 1319,
+  "original_control_descriptor_sha256": "f1c6e6e8b13ba2b8886c75313df62c87ec9c6efc27b764918fedb77d96159749",
+  "all_original_validation_control_descriptor_raw_UTF8_JSONSTRING_Python_ALLfield_equality_BEFORE_projection": true,
+  "all_private_original_metadata_fields_stat_times_relationships_unchanged": true,
+  "full_raw_PRIVATE": true,
+  "next": "FIRST expresslydeclared localSTATIC binding/preflight forNEW199directory collector6909460B/SHA5e89b1eb7372f5c45e2a5eefa283500c2a4165444df53de0f212ab5d5f5ae70b andworkflow484732B/SHA1d1e7eee9fa017ca5f7fae25c9d6ae67e6df837ea223239093c0e6c88c705110 BEFOREanyfirstoriginalActions INPUTquery/sourcecommit-dispatch. Originalworkflow265291183/parent46d477775e6e6e5dded97373db2d82bc1e1b32e7/Ubuntu24.04-Dart3.13.5-Rust1.99/PATH-env-argv-credentials-recipes preservedNOTadmitted. FIRSTqualifyactualNEW199scope/runtime-literalledger bindings/imports/old49-63-190scopes-separate-beforeNEW199loader-beforeINPUT/actualdirectoryrefs199/newreport199fields/exactscopeoutputbytesSHAguard/newjob-collector-uploader refs WITHOUTtargetexec-eval-import-globals/SDK/headerbodyquery. SourcegeneratedAST/wholeoldsource-workflowreverse/ALL35NEWcampaign SOURCEfalseconditions alreadyPASSCONSUMED; reuseoriginal35PASSraw BYTEEXACT NOTreevaluate. OriginalRubyparsed_jobs33STALEunmodified/currentactualsourceguardold35new36PASS supports36SOURCEcount NOTruntimeadmission; actual35SKIPPED onlyiflaterobserved. Reviewdeclaration inheritedold4868prefix/countwording unchanged/currentselectedcontext-newvalidation1613289-35-36 authoritative/no fieldrestore-rerun-reparse-polish. FullGitblobJSONdecodedbyteexactreadbacks BOTHfiles remainrequiredBEFOREdispatch/sourcefile6909460B distinctfromworkflowpayload/no guessedlimits-Contentsmetadata-asbody shortcut. Sourceprep6bindings-FIRSTcontrolselection-NEW19922group1004298scalarledgercomparison-5remainingbindings-generation5bindings-AST-reverse35conditions-Qwen29081-publication CONSUMED/no oldsource-bodyreader-parser-model-SDKquery-imagehash-Actionsacquisition-archive-numerical/schema-audit replay/newnamespace-alone retry. PriorQwen10441tokenlimitNOFINALANSWER/fullpartialrawUNRETAINED/no reconstruction-unchangednarrowedreviewrelaunch/new29081advisoryNOTapproval-unavailability-relaunch-edit-test-queryauthority. Fulloriginal5067stat-times-nativeorder-duplicates190epochs199DEFERRED0NEWlinksTHISdataset/4868physical-localreadepochs separate/prior1425-63-1229laterbody-original190DEFERRED6/prior1280-49-1199-old63DEFERRED18unfollowed-oldncursesrawhexNOTsavedNULL/allledgers unchanged. No bootstrap-dependency-build-native-driver-perf-numerical/Source20-runtime adoption-cleanup; allsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI incomplete/skip-ciNEVERfinalCIwaiver.",
+  "all_admission_flags": false,
+  "ownership": null
+}
