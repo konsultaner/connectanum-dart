@@ -1,0 +1,287 @@
+{
+  "result_saved": "ROOT-FIRST-ALL22905-great-grandchild-operand-source-alias-intake-PRIVATE.json",
+  "result_bytes": 1341906194,
+  "result_sha256": "dfa38748be29ad71fb61daf0d07bc18e6de8b14adf26ee7e9bfb24ec8f8c4c7b",
+  "summary": {
+    "source_physical_run_id": 42392808246,
+    "source_physical_revision": "46d477775e6e6e5dded97373db2d82bc1e1b32e7",
+    "source_metadata_run_id": 42375656726,
+    "source_metadata_revision": "06088b0d595946196f8b99aa748f2d52bf1b27bc",
+    "ALL22905_operand_rows": 22905,
+    "delimited_comparisons_performed": 22904,
+    "undelimited_macro_other_UNPERFORMED": 1,
+    "undelimited_macro_matchcount_matchlists_NULL": true,
+    "original_metadata_records": 5067,
+    "original_metadata_type_counts_from_saved_modes": {
+      "regular": 4868,
+      "directory": 199,
+      "symlink": 0,
+      "other": 0,
+      "unknown": 0
+    },
+    "eligible_saved_link_records_THISdataset": 0,
+    "ALL_operand_readlink_comparisons_UNPERFORMED_counts_lists_NULL": true,
+    "name_candidates_with_matches": 21331,
+    "name_candidates_without_matches": 1573,
+    "namehex_candidates_with_matches": 21583,
+    "namehex_candidates_without_matches": 1321,
+    "union_candidates_with_matches": 21583,
+    "union_candidates_without_matches": 1321,
+    "matching_operand_entry_relations": 211915,
+    "original_entry_record_positions_participating_NOT_alias_dedup": 3354,
+    "original_entry_record_positions_without_relations": 1713,
+    "matching_relation_original_type_counts": {
+      "regular": 170285,
+      "directory": 41630,
+      "symlink": 0,
+      "other": 0,
+      "unknown": 0
+    },
+    "saved_metadata_read_bindings": 2,
+    "new_SDK_queries": 0,
+    "new_Actions_queries": 0,
+    "new_header_body_reads": 0,
+    "new_body_parser_executions": 0,
+    "new_recursive_directory_queries": 0,
+    "candidate_executions": 0,
+    "alias_identity": null,
+    "effective_includes": null,
+    "query_permission": null,
+    "all_admission_flags": false,
+    "ownership": null,
+    "separate_outer_launcher_PID_pipe_EOF": null
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_model_raw_and_admission_limits",
+    "ROOT_qualification": "Gemma19670 naturalSIGNED0/full1305stdout190stderr/BOTH EOF/SAMEwaitmaycached/stdoutec49ecc45b5cd145fdb1cc5990871feac600df9f08a9d61acbf37a9bbf1a39b6/stderr90d5c225d9006950197948d884ed906343bc340f84f039d60d8c316002d58599. ROOT rejects discarded/absent-or-inapplicable interpretation: ALLoriginalprivatefields-stat-times-FD-credentials/rawphysicalrows-order-duplicates-overlappingcharacterUTF8/absolutephysicaloffsets andallmatched/nonmatchedrelationships retained. NULLmeansUNPERFORMED/unknown, notabsent-inapplicable/zero/approval/ownership; originalphysicalNULLfields immutable/NEWrelationships separate. Modelomittedactualcounts retained:22905rows22904performed1macroUNPERFORMEDNULL;5067metadata4868regular199directory0symlink-other-unknown/eligiblelinks0THISdataset vsALLreadlinkcomparisonsUNPERFORMED-count-listsNULL;name21331-1573/hex21583-1321/union21583-1321/211915relations170285regular41630directory/3354originalrecordpositionsparticipating1713without/notaliasdedup. BOTHsubstringdirections/exactscalar/fourflags/alloverlappingcharUTF8positions retained; rawhexcharacterpositions includingoddnibbles notSDKbytealiasidentity. No pathsplit-basenameextraction/join-normalize-resolve-follow-recursion/query-bodyhash/favorablefilter. Actualphysicalrun42392808246/source46d477775e6e6e5dded97373db2d82bc1e1b32e7 vsmetadatarun42375656726/source06088b0d595946196f8b99aa748f2d52bf1b27bc separate/notcohortequality; all5067stat-times190epochs199DEFERRED0NEWlinks THISdataset/prior1425-63-1229laterbody-original190DEFERRED6earlierlinks/prior1280-49-1199-old63DEFERRED18olderlinks-oldncursesrawhexNULL/allledgers unchanged. GenericAPI-ID-enumeratedtype-scope/data-source change suggestions metadata/processonly NOTedit-test-queryauthority; no advice-derivedSDKquery/Source20-runtime edit-test-build-adoption. Originalnewresult1341906194Bdfa38748be29ad71fb61daf0d07bc18e6de8b14adf26ee7e9bfb24ec8f8c4c7b savedBEFOREdescriptor/twoexactsavedmetadata bindings/no oldbodyreader-parser-SDKquery-Actionsacquisition-model-archive-numerical replay. MeasurednewresultSIZE motivatesPROSPECTIVEartifact-only boundedstreamingpublication BEFOREunboundedallocations/publicationbody; notRAMrepair/resourcefailure-retry/fielddrop-normalization-schemawaiver. Wholeoriginalraw-BYTEWISE/UTF8JSONSTRING/exhaustiveorderedstructure-standardPythonJSONDecoder ALLleaf/field equality preservesALLgates BEFOREpublicprojection/allprivateoriginals preserved. Qwen20177FIRSTnewartifactstreamer testideas naturalSIGNED0/full2918out352err/BOTH EOF/7d1866b11965ef9095f12538063c3ddb674d843ab124c7edb73e59c5988cf644/44880671054a81ec0388fe6bd5de41353bd4f9436c9def635882bf2fdccf69f8/advisoryNOTapproval/standardJSON-oracle-escape-UTF8-boundary-size-truncation-duplicates-empty-number-trailing cases verified; genericpytest/sha256sum/unboundedartifactread commandsNOTadopted. FIRSTownartifacthelper7283B631f2976b157f1c5d42437f9ca8d1ef8fa3cd99c9535b4bdc7b2aaf3b00b6cae; scopedtests20494signed0/full17094out0err/BOTH EOF/8462f018ba7608e0ebf142cf4d06e7197e8e558f921caece2596e48929180401/fresh1GiBbeforetests/180actualoraclechecks PASS once/EXheld/no oldprivate-tests-Source20-runtime-native-SDK/canonicaltests replay/adoption. OwnhelpercodeONLY executes/JSONmetadatafields NEVERexec-eval-imported; notcandidateheaderexecution/Source20runtimeadmission. Csemantics/effectiveincludes-aliasidentity-querypermissionNULL; SDK-Actions-bodyread-parser-recursivequery-candidateexec0. PointFD-countSHA-stat-close notatomicABA-origin-pathchain-originaldrivercredentials-access-effectivecompilerABI-transitiveactorFD-continuousphysicalEX-crashadmission/separateouterPIDEOFNULL/unknownpartialpermanentquarantine. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE.",
+    "model_completion": {
+      "pid": 19670,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 1305,
+      "stderr_bytes": 190,
+      "stdout_sha256": "ec49ecc45b5cd145fdb1cc5990871feac600df9f08a9d61acbf37a9bbf1a39b6",
+      "stderr_sha256": "90d5c225d9006950197948d884ed906343bc340f84f039d60d8c316002d58599",
+      "advisory_not_approval": true
+    },
+    "new_artifact_streaming_testideas_completion": {
+      "pid": 20177,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 2918,
+      "stderr_bytes": 352,
+      "stdout_sha256": "7d1866b11965ef9095f12538063c3ddb674d843ab124c7edb73e59c5988cf644",
+      "stderr_sha256": "44880671054a81ec0388fe6bd5de41353bd4f9436c9def635882bf2fdccf69f8",
+      "advisory_not_approval": true
+    },
+    "new_artifact_streamer_180case_oracle_test_completion": {
+      "pid": 20494,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 17094,
+      "stderr_bytes": 0,
+      "stdout_sha256": "8462f018ba7608e0ebf142cf4d06e7197e8e558f921caece2596e48929180401",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "whole_original_equality_proof": {
+      "original_bytes": 1341906194,
+      "original_sha256": "dfa38748be29ad71fb61daf0d07bc18e6de8b14adf26ee7e9bfb24ec8f8c4c7b",
+      "whole_original_raw_bytewise_equality": true,
+      "whole_JSONSTRING_UTF8_character_equality": true,
+      "JSONSTRING_characters": 1341906194,
+      "whole_Python_ALLfield_equality_exhaustive_structure_keys_arrayorder_and_standardJSONDecoder_leaf_values": true,
+      "stronger_ordered_structure_including_duplicatekeys_NOT_schema_projection": true,
+      "all_events": 53264743,
+      "event_counts": {
+        "object_start": 2462306,
+        "key": 18958338,
+        "atom_int": 8557742,
+        "atom_str": 6990995,
+        "atom_bool": 2998921,
+        "object_end": 2462306,
+        "atom_NoneType": 3224173,
+        "array_start": 3804981,
+        "array_end": 3804981
+      },
+      "all_original_fields_gates_preserved": true,
+      "prospective_bounded_processing_BEFORE_unboundedallocation_not_cap_failure_retry": true,
+      "no_original_fielddrop_rounding_normalization_schemawaiver": true,
+      "all_admission_flags": false,
+      "ownership": null
+    },
+    "original_saved_result_bytes": 1341906194,
+    "original_saved_result_sha256": "dfa38748be29ad71fb61daf0d07bc18e6de8b14adf26ee7e9bfb24ec8f8c4c7b",
+    "all_original_gates_preserved": true,
+    "separate_outer_launcher_PID_pipe_EOF": null,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "whole_original_equality_proof": {
+    "original_bytes": 1341906194,
+    "original_sha256": "dfa38748be29ad71fb61daf0d07bc18e6de8b14adf26ee7e9bfb24ec8f8c4c7b",
+    "whole_original_raw_bytewise_equality": true,
+    "whole_JSONSTRING_UTF8_character_equality": true,
+    "JSONSTRING_characters": 1341906194,
+    "whole_Python_ALLfield_equality_exhaustive_structure_keys_arrayorder_and_standardJSONDecoder_leaf_values": true,
+    "stronger_ordered_structure_including_duplicatekeys_NOT_schema_projection": true,
+    "all_events": 53264743,
+    "event_counts": {
+      "object_start": 2462306,
+      "key": 18958338,
+      "atom_int": 8557742,
+      "atom_str": 6990995,
+      "atom_bool": 2998921,
+      "object_end": 2462306,
+      "atom_NoneType": 3224173,
+      "array_start": 3804981,
+      "array_end": 3804981
+    },
+    "all_original_fields_gates_preserved": true,
+    "prospective_bounded_processing_BEFORE_unboundedallocation_not_cap_failure_retry": true,
+    "no_original_fielddrop_rounding_normalization_schemawaiver": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "public_projection_rows": {
+    "ALL22905-operand-relationship-metadata.json": 22905,
+    "ALL5067-original-entry-metadata.json": 5067
+  },
+  "archive": {
+    "selected_regular_members": 23,
+    "original_declaration_controller_completion_descriptor_files": 20,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 6440512,
+    "archive_sha256": "0dac51a46e8c16893cf66853071ed19a8e7b0d5094e55017592414aa1060b564",
+    "not_full_raw_directory_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "original/execution-declaration.json",
+        "bytes": 4185,
+        "sha256": "9cd1f5afcfd6e07246e0d1ed3261192e992d4dea1f109066fd6cf3a5adefdb34"
+      },
+      {
+        "name": "original/controller.py",
+        "bytes": 19902,
+        "sha256": "56f993d6136a02ae43dcf3e190cd850f382c05fb25445d3214d542e6d6dbab0e"
+      },
+      {
+        "name": "original/FIRST-original-result-descriptor.json",
+        "bytes": 2049,
+        "sha256": "ed8b412f95246e4980fed30e4e13ef5db1f4cb05fc3da966270fbd7df977db5c"
+      },
+      {
+        "name": "original/FIRST-summary-v1/declaration.json",
+        "bytes": 292,
+        "sha256": "851eee8f8faa9992ba52c12aec2b905ad10ec3f4a0362db203565a57af7c6966"
+      },
+      {
+        "name": "original/FIRST-summary-v1/controller.py",
+        "bytes": 4860,
+        "sha256": "3fdf68d378d9622b43e8344aa54332d9041012440e96dd140d629b3a44cfc2ce"
+      },
+      {
+        "name": "original/FIRST-summary-v1/request.json",
+        "bytes": 3256,
+        "sha256": "4447a888bc20f762e0f39fb226a5685b5d425d6e2ee48d908d55c552a1a83441"
+      },
+      {
+        "name": "original/FIRST-summary-v1/completion.json",
+        "bytes": 398,
+        "sha256": "8392631738e271a631271d5e19424dd9312fa729c43702ef68f86d1ee9e5c718"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-test-ideas-v1/declaration.json",
+        "bytes": 603,
+        "sha256": "3f64d1c186659b82e505d68391ff9fc5519b0172cdb3c2cd073fb8bebe5df3c5"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-test-ideas-v1/controller.py",
+        "bytes": 3460,
+        "sha256": "c09c82af3db36e11a3316e725ea49781f77239c2486821be317fc26fa4d284a6"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-test-ideas-v1/request.json",
+        "bytes": 1609,
+        "sha256": "8b5ec07745ce73b6ba2a2b707b4a4083cb6eab642a4ce9c5c4017419a4c970e2"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-test-ideas-v1/completion.json",
+        "bytes": 398,
+        "sha256": "9e9b45f3dcb40800da2a28873c50e390b0665462b1a3eb915fd9f046af0b167c"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-preparation-v1/execution-declaration.json",
+        "bytes": 1083,
+        "sha256": "94c4f7c1363d0ba56aa2f07ce0ed8e256eeffb153e3f69f42aa8768c2de7367f"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-preparation-v1/controller.py",
+        "bytes": 4802,
+        "sha256": "b9a8ec62b80882d87d73b19ddf61d7b755a531716f2c6ab8fc8f13a09cfa72c5"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-preparation-v1/bounded_json.py",
+        "bytes": 7283,
+        "sha256": "631f2976b157f1c5d42437f9ca8d1ef8fa3cd99c9535b4bdc7b2aaf3b00b6cae"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-preparation-v1/test_bounded_json.py",
+        "bytes": 4433,
+        "sha256": "be21f1d414761920b1afd3cab5ea0385ff3414e4d1acd193184c363a69708d93"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-preparation-v1/exact-new-source-binding.json",
+        "bytes": 201,
+        "sha256": "810ffe9be69bdcad892e819dacb105883e10cdf29d8e5242fd9df76676f1a480"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-preparation-v1/FIRST-new-scoped-test-request.json",
+        "bytes": 733,
+        "sha256": "723707945617698832ac2231d24006d76e217108b89ab108158b831fa0b5cb5c"
+      },
+      {
+        "name": "original/FIRST-streaming-publication-preparation-v1/FIRST-new-scoped-test-completion.json",
+        "bytes": 364,
+        "sha256": "8da3548f187426409880b174d3f680b82e6fa22fccaf7bb8480c76638104a7be"
+      },
+      {
+        "name": "original/publication-v1/FIRST-whole-original-byte-JSONSTRING-Python-ALLfield-equality.json",
+        "bytes": 1008,
+        "sha256": "7b2c49653092b6213e27879da671f7e7fbb565a9c93e1b8ce6a7d801157110f9"
+      },
+      {
+        "name": "original/publication-v1/FIRST-public-projection-stream-bindings.json",
+        "bytes": 541,
+        "sha256": "c4914134d3794b524575d611fdeecaea63cc9a7b69f77f3e969c6d217588aad9"
+      },
+      {
+        "name": "derived/ALL22905-operand-relationship-metadata.json",
+        "bytes": 197772425,
+        "sha256": "2efd6ad70fad1264e94a9b34ff4c69268647668c5d1fcdf6f6e8096fe361d0cf"
+      },
+      {
+        "name": "derived/ALL5067-original-entry-metadata.json",
+        "bytes": 5887545,
+        "sha256": "318ec869378ec139c639be1819a26e4240d922e5e2d73f3c5d4d327bf5a3147d"
+      },
+      {
+        "name": "derived/ROOT-model-and-admission-limits.json",
+        "bytes": 6627,
+        "sha256": "cfbc55394df2741977c672b7c9b42fe46f2af102fb8e89e0d7676483b16b9a8f"
+      }
+    ]
+  },
+  "all_original_full_metadata_rawrows_stat_times_FD_credentials_PRIVATE_retained": true,
+  "next": "FIRST expresslydeclared lexicaldirectory INPUT scope for ALL199 NEWsavedmode-directory records fromoriginalALL5067metadata/Actions42375656726/source06088b0d595946196f8b99aa748f2d52bf1b27bc, AFTERALL22905operand-sourcealias intake. Declareexactsavedmetadata source121981513B431a704ae20a0ce6590fd094554575188667e5b6c55ccec90356a4486fa43980/currentrelationshipdescriptor result1341906194Bdfa38748be29ad71fb61daf0d07bc18e6de8b14adf26ee7e9bfb24ec8f8c4c7b/ranges BEFOREIO. FIRSTEACH199literalparent+SINGLEliteralchildbasename asNEWlexicalcandidate TEXT savedBEFOREanyfutureSDKINPUTIO andBEFOREnewfullreference-priorCPcomparison; originalparent-childfields SEPARATE/all5067fullstat-times-nativeorder-duplicates/typeflags/190originalqueryepochs/199DEFERRED/0NEWlinks THISdataset retained/no filesystemjoin-normalize-resolve-follow-recursion/pathsplit-basenameextraction/favorablelanguage-version-ABI-defaultcompilerfilter/aliasdedup. NewfullreferenceCPmetadata question only, NOTconsumed5067basename-namehex/22905operand comparisons replay; ALLmatches-nonmatches-locations-overlappingcharUTF8offsets/duplicate-originalrecords PRIVATEkept/eachunperformedlink-comparisoncountNULL NOT0. CPmatches/nonmatches NOTglobalabsence-newness-previousqueryabsence-aliasidentity-effectivecompiler-defaultsysroot-CargoCFGflavor-ABI-runtimecohort-originaldrivercredentials-access-ownership-permission-queryauthority-globalnoreplayproof; actualapplicable priorliteralreference-consumptionledgers requirequalification BEFOREfutureSDKINPUTquery. 199dirsremainDEFERRED/no query-recursion; current22905relations211915 (170285regular41630directory)/name21331-1573hex21583-1321/3354records1713without aremetadata NOTtargetresolution/querypermission; one macroUNPERFORMEDNULL/allreadlinkcomparisonsNULL. Originalphysical/localread/metadataepochs separate/prior1425-63-1229laterbody-original190DEFERRED6earlierlinks/prior1280-49-1199-old63DEFERRED18olderlinks-oldncursesrawhexNOTsavedNULL/allledgers unchanged. ALLcurrent22905intake-Gemma19670/newartifactstreamer-testideas180oracle-tests-wholeoriginalproofs-publication CONSUMED; no oldsource-bodyreader-parser-model-SDKquery-imagehash-Actionsacquisition-archive-numerical/schema-audit replay/newnamespace-alone retry/Source20-runtime adoption-build-cleanup. OriginalLinux-Dart setupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE.",
+  "RAM_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
