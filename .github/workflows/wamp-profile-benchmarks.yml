@@ -52,6 +52,7 @@ on:
           - flatbuffers_c_tool_program_parent_inputs
           - flatbuffers_c_tool_child_directory_inputs
           - flatbuffers_gcc_directory_inputs
+          - flatbuffers_gcc_child_directory_inputs
       baseline_ref:
         description: Full baseline commit SHA used only for the dictionary component
         required: false
@@ -3546,5 +3547,148 @@ jobs:
       with:
         name: native-perf-gcc-directory-inputs
         path: "${{ runner.temp }}/native-perf-gcc-directory-inputs"
+        if-no-files-found: error
+        retention-days: 30
+
+  flatbuffers-gcc-child-directory-inputs:
+    name: FlatBuffers GCC child directory inputs (no execution)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_child_directory_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-rustc-default-target-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Preserve referenced C-tool runtime inputs (no execution)
+      run: |
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+        import pathlib
+        import stat
+        import sys
+        import time
+  
+        references = ["/usr/libexec/gcc/x86_64-linux-gnu","/usr/share/gcc/python"]
+        source_gcc_child_entry_metadata = json.loads("[{\"parent_source_reference\":\"/usr/libexec/gcc\",\"literal_entry_reference\":\"/usr/libexec/gcc/x86_64-linux-gnu\",\"literal_name\":\"x86_64-linux-gnu\",\"name_bytes_hex\":\"7838365f36342d6c696e75782d676e75\",\"saved_mode\":16877,\"saved_type\":\"directory\",\"saved_uid\":0,\"saved_gid\":0,\"literal_readlink\":null,\"target_NOT_expanded_resolved_or_executed\":true},{\"parent_source_reference\":\"/usr/share/gcc\",\"literal_entry_reference\":\"/usr/share/gcc/python\",\"literal_name\":\"python\",\"name_bytes_hex\":\"707974686f6e\",\"saved_mode\":16895,\"saved_type\":\"directory\",\"saved_uid\":0,\"saved_gid\":0,\"literal_readlink\":null,\"target_NOT_expanded_resolved_or_executed\":true}]")
+        source_gcc_entry_metadata = json.loads("[{\"parent_source_reference\":\"/usr/libexec\",\"literal_entry_reference\":\"/usr/libexec/gcc\",\"name\":\"gcc\",\"name_bytes_hex\":\"676363\",\"separate_lstat_filetype\":\"directory\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"separate_readlink_literal\":null,\"target_NOT_expanded_resolved_or_executed\":true},{\"parent_source_reference\":\"/usr/share\",\"literal_entry_reference\":\"/usr/share/gcc\",\"name\":\"gcc\",\"name_bytes_hex\":\"676363\",\"separate_lstat_filetype\":\"directory\",\"separate_lstat_mode\":16895,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"separate_readlink_literal\":null,\"target_NOT_expanded_resolved_or_executed\":true}]")
+        source_usr_entry_metadata = json.loads("[{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/bin\",\"name\":\"bin\",\"name_bytes_hex\":\"62696e\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/games\",\"name\":\"games\",\"name_bytes_hex\":\"67616d6573\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/include\",\"name\":\"include\",\"name_bytes_hex\":\"696e636c756465\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/lib\",\"name\":\"lib\",\"name_bytes_hex\":\"6c6962\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/lib32\",\"name\":\"lib32\",\"name_bytes_hex\":\"6c69623332\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/lib64\",\"name\":\"lib64\",\"name_bytes_hex\":\"6c69623634\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/libexec\",\"name\":\"libexec\",\"name_bytes_hex\":\"6c696265786563\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/local\",\"name\":\"local\",\"name_bytes_hex\":\"6c6f63616c\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/sbin\",\"name\":\"sbin\",\"name_bytes_hex\":\"7362696e\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/share\",\"name\":\"share\",\"name_bytes_hex\":\"7368617265\",\"separate_lstat_mode\":16895,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true},{\"parent_source_reference\":\"/usr\",\"literal_entry_reference\":\"/usr/src\",\"name\":\"src\",\"name_bytes_hex\":\"737263\",\"separate_lstat_mode\":16877,\"separate_lstat_uid\":0,\"separate_lstat_gid\":0,\"is_directory_by_separate_lstat\":true,\"is_symlink_by_separate_lstat\":false,\"separate_readlink_literal\":null,\"not_current_body_access_origin_ABI_or_selection_authority\":true}]")
+        explicit_source_exclusions = json.loads("[{\"literal_entry_reference\":\"/usr/bin\",\"reason\":\"Exact directory source already listed in consumed run42308644569; excluded before all source IO. No repeat.\"},{\"literal_entry_reference\":\"/usr/lib\",\"reason\":\"Conservative library-branch exclusion because earlier library catalogue/image scopes and alias coverage are not fully established. Not proven same directory or an ABI decision.\"},{\"literal_entry_reference\":\"/usr/lib32\",\"reason\":\"Same conservative library-branch exclusion; no favorable ABI choice or assertion of directory/body identity.\"},{\"literal_entry_reference\":\"/usr/lib64\",\"reason\":\"Historical /lib64 directory listing consumed in compiler package inputs. Potential alias with /usr/lib64 remains unproved, so both source names excluded from this collector before IO.\"}]")
+        source_candidate_metadata = json.loads("[{\"source_named_candidate\":\"gcc\",\"historical_PATH_lookup_return\":\"/usr/bin/gcc\",\"historical_image_path\":\"/usr/bin/gcc\",\"historical_readlink_literal\":\"gcc-13\",\"historical_realpath_literal\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"historical_absent_at_PATH_lookup_only\":false},{\"source_named_candidate\":\"cc\",\"historical_PATH_lookup_return\":\"/usr/bin/cc\",\"historical_image_path\":\"/usr/bin/cc\",\"historical_readlink_literal\":\"/etc/alternatives/cc\",\"historical_realpath_literal\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"historical_absent_at_PATH_lookup_only\":false},{\"source_named_candidate\":\"lld\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"ld\",\"historical_PATH_lookup_return\":\"/usr/bin/ld\",\"historical_image_path\":\"/usr/bin/ld\",\"historical_readlink_literal\":\"x86_64-linux-gnu-ld\",\"historical_realpath_literal\":\"/usr/bin/x86_64-linux-gnu-ld.bfd\",\"historical_absent_at_PATH_lookup_only\":false},{\"source_named_candidate\":\"link.exe\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"emcc.bat\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"emcc\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"bpf-linker\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true},{\"source_named_candidate\":\"llvm-bitcode-linker\",\"historical_PATH_lookup_return\":null,\"historical_image_path\":null,\"historical_readlink_literal\":null,\"historical_realpath_literal\":null,\"historical_absent_at_PATH_lookup_only\":true}]")
+        source_directory_reference_origins = json.loads("[{\"candidate\":\"gcc\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/gcc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/gcc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/gcc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/gcc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"gcc\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"cc\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/cc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"cc\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/cc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"cc\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/cc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"cc\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/cc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"cc\",\"source_field\":\"historical_readlink_literal\",\"literal_source_path\":\"/etc/alternatives/cc\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/etc/alternatives\"},{\"candidate\":\"cc\",\"source_field\":\"historical_readlink_literal\",\"literal_source_path\":\"/etc/alternatives/cc\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/etc\"},{\"candidate\":\"cc\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"cc\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-gcc-13\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"ld\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/ld\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"ld\",\"source_field\":\"historical_PATH_lookup_return\",\"literal_source_path\":\"/usr/bin/ld\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"ld\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/ld\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"ld\",\"source_field\":\"historical_image_path\",\"literal_source_path\":\"/usr/bin/ld\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"},{\"candidate\":\"ld\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-ld.bfd\",\"relation\":\"immediate_parent\",\"directory_reference\":\"/usr/bin\"},{\"candidate\":\"ld\",\"source_field\":\"historical_realpath_literal\",\"literal_source_path\":\"/usr/bin/x86_64-linux-gnu-ld.bfd\",\"relation\":\"one_more_parent\",\"directory_reference\":\"/usr\"}]")
+        root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "native-perf-gcc-child-directory-inputs"
+        root.mkdir()
+        journal = open(root / "operations.jsonl", "x", encoding="utf-8")
+        owned = []
+  
+        def event(operation, **fields):
+            journal.write(json.dumps({"operation": operation, "monotonic_ns": time.monotonic_ns(),
+                                      **fields}, sort_keys=True) + "\n")
+            journal.flush()
+  
+        def state(fd):
+            s = os.fstat(fd)
+            return {"dev": s.st_dev, "ino": s.st_ino, "mode": s.st_mode,
+                    "uid": s.st_uid, "gid": s.st_gid, "nlink": s.st_nlink,
+                    "size": s.st_size, "mtime_ns": s.st_mtime_ns, "ctime_ns": s.st_ctime_ns}
+  
+        def close_known(fd, role):
+            try:
+                event("close_attempt", fd=fd, role=role)
+            finally:
+                os.close(fd)
+            owned.remove(fd)
+            event("close_return", fd=fd, role=role)
+  
+        try:
+            observations = []
+            for reference in references:
+                row = {"source_directory_reference": reference, "entries": []}
+                observations.append(row)
+                try:
+                    fd = os.open(reference, os.O_RDONLY | os.O_DIRECTORY)
+                except FileNotFoundError as error:
+                    row["absent_at_directory_open_only"] = {"type": type(error).__name__, "text": str(error)}
+                    event("directory_absent_at_open", source=reference)
+                    continue
+                owned.append(fd)
+                try:
+                    event("directory_open_return_before_list", fd=fd, source=reference)
+                    row["directory_before"] = state(fd)
+                    names = os.listdir(fd)
+                    event("directory_list_return", fd=fd, source=reference, entry_count=len(names))
+                    for name in sorted(names, key=os.fsencode):
+                        entry = {"name": name, "name_bytes_hex": os.fsencode(name).hex()}
+                        row["entries"].append(entry)
+                        s = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                        entry["separate_lstat"] = {"dev": s.st_dev, "ino": s.st_ino,
+                            "mode": s.st_mode, "uid": s.st_uid, "gid": s.st_gid,
+                            "nlink": s.st_nlink, "size": s.st_size,
+                            "mtime_ns": s.st_mtime_ns, "ctime_ns": s.st_ctime_ns}
+                        if stat.S_ISLNK(s.st_mode):
+                            entry["separate_readlink_literal"] = os.readlink(name, dir_fd=fd)
+                            entry["link_target_not_followed_or_executed"] = True
+                    row["directory_after"] = state(fd)
+                finally:
+                    close_known(fd, "source_directory")
+            if owned:
+                raise RuntimeError("known input directory FD closure incomplete")
+            report = {
+                "workflow_revision": os.environ["GITHUB_SHA"], "run_id": os.environ["GITHUB_RUN_ID"],
+                "source_directory_references": references,
+                "ALL9_historical_candidate_metadata": source_candidate_metadata,
+                "ALL20_reference_relations": source_directory_reference_origins,
+                "ALL11_positive_usr_entries": source_usr_entry_metadata,
+                "ALL4_explicit_pre_IO_exclusions": explicit_source_exclusions,
+                "ALL2_positive_gcc_entry_metadata": source_gcc_entry_metadata,
+                "ALL2_positive_gcc_child_metadata": source_gcc_child_entry_metadata,
+                "reference_basis": "NEW explicitly declared originalActions metadata preparation for BOTH positive saved children /usr/libexec/gcc/x86_64-linux-gnu and /usr/share/gcc/python from FIRST interpretation of run42314394403. Keep every direct target/version/module name without host-language-target-version-ABI filtering. An architecture-like name is not effective compiler/Cargo target or ABI selection; python is not interpreter invocation. Scope nonmatches and names are not acquisition authority. No old parent directory/source body/hash/model/query is repeated. All prior source/exclusion/candidate/relation ledgers remain metadata only, not revalidated or admitted.",
+                "selection_rule": "List ALL immediate entry names, separate nonfollowing lstat metadata and literal symlink targets in BOTH fixed directory references, retaining ALL direct target/version names without filtering. ALL11 prior source entries/four prior exclusions remain metadata, no alias target resolution. No recursion, regular file opens/body reads/hashes, link target follow, native/tool/header query or execution.",
+                "observations": observations,
+                "collector_credentials": {"uid": os.getuid(), "gid": os.getgid(), "groups": os.getgroups()},
+                "collector_cwd": os.getcwd(), "collector_argv": list(sys.argv),
+                "collector_interpreter_reference": sys.executable,
+                "regular_file_body_opens": 0, "symlink_target_follows": 0, "recursive_walks": 0,
+                "native_information_queries": 0, "candidate_executions": 0, "environment_mutations": 0,
+                "remaining_known_input_FDs": list(owned), "all_admission_flags": False,
+                "qualification": "New point explicitly declared BOTH GCC child-directory input metadata only. Prior /usr/bin and three library-family exclusions remain before all source IO; no re-query of old two parent or seven prior source directories. Both fixed positive names are not actual selected compiler/delegate/header/default/flavor/ABI/cohort or automatic acquisition/execution authority. Current directory entries and symlink strings are not effective compiler prefix/program/delegate/default C-header/sysroot/Cargo/ABI/runtime/cohort/original driver/access/loaded-map/atomic ABA-origin-auth/transitive native actorFD/continuous official physicalEX-crash admission or execution authority. Historical program references are not current selection/execution or a missing-input generation claim. No SDK/bootstrap/dependency/native build/driver/broker/perf/benchmark/numerical or Source20/runtime edit/import/adoption; original setup separate UNADMITTED."
+            }
+            raw = (json.dumps(report, sort_keys=True, indent=2) + "\n").encode()
+            path = root / "gcc-child-directory-inputs.json"
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            owned.append(fd)
+            try:
+                event("report_open_return_before_write", fd=fd, path=str(path))
+                offset = 0
+                while offset < len(raw):
+                    event("report_write_attempt", fd=fd, offset=offset, requested_bytes=len(raw)-offset)
+                    count = os.write(fd, raw[offset:])
+                    event("report_write_return", fd=fd, offset=offset, written_bytes=count)
+                    if count <= 0:
+                        raise OSError("report write made no progress; partial report quarantined")
+                    offset += count
+                event("report_bytes_written", fd=fd, bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+            finally:
+                close_known(fd, "report")
+            event("report_saved", references=len(references), regular_file_body_opens=0,
+                  native_information_queries=0, candidate_executions=0, remaining_known_input_FDs=list(owned))
+        finally:
+            journal.close()
+  
+        PY
+    - name: Upload C-tool runtime input packet even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: native-perf-gcc-child-directory-inputs
+        path: "${{ runner.temp }}/native-perf-gcc-child-directory-inputs"
         if-no-files-found: error
         retention-days: 30
