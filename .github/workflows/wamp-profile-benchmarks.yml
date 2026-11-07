@@ -61,6 +61,7 @@ on:
           - flatbuffers_include_regular_inputs
           - flatbuffers_include_child_regular_inputs
           - flatbuffers_include_grandchild_regular_inputs
+          - flatbuffers_include_great_grandchild_regular_inputs
           - flatbuffers_include_directory_inputs
           - flatbuffers_include_child_directory_inputs
           - flatbuffers_include_grandchild_directory_inputs
@@ -4742,5 +4743,34 @@ jobs:
       with:
         name: native-perf-include-grandchild-directory-inputs
         path: "${{ runner.temp }}/native-perf-include-grandchild-directory-inputs"
+        if-no-files-found: error
+        retention-days: 30
+
+  flatbuffers-include-great-grandchild-regular-inputs:
+    name: FlatBuffers include great-grandchild regular inputs (no execution)
+    if: github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_great_grandchild_regular_inputs'
+    runs-on: ubuntu-24.04
+    env:
+      RUSTUP_TOOLCHAIN: 1.99.0
+    timeout-minutes: 20
+    concurrency:
+      group: flatbuffers-rustc-default-target-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+    - uses: actions/checkout@v5
+    - uses: dart-lang/setup-dart@v1
+      with:
+        sdk: 3.13.5
+    - uses: dtolnay/rust-toolchain@1.99.0
+    - name: Preserve referenced C-tool runtime inputs (no execution)
+      run: 'python3 - < .github/collectors/pr132_include_great_grandchild_regular_inputs.py
+  
+  '
+    - name: Upload C-tool runtime input packet even after failure
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: native-perf-include-great-grandchild-regular-inputs
+        path: "${{ runner.temp }}/native-perf-include-great-grandchild-regular-inputs"
         if-no-files-found: error
         retention-days: 30
