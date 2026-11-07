@@ -1,5 +1,16 @@
 # Project State
 
+## 2026-11-07: GCC entry dynamic reference intake
+
+NEW ALL76orderedNEEDED/14NULINTERP/15source source-alias metadata question COMPLETE_CONSUMED. Prior CP1962string scalars yields17matching records/1exact scalar, not absence/newness/alias/permission. Declared prior saved-assessment/local-evidence metadata locates retained45341Bloader catalogue/SHA55997c90be0a835b49635a4b5241e0f36d38ebe2bbf9ea151bc35d4a8299b993; FIRSTALL8-name lookup keepsALL9literal candidate lines/qualifiers/paths, including BOTHlibc variants without favorable ABI/version selection. No original query/body/parser/SDK refresh/Actions/acquisition replay.
+
+ALL4math candidate paths /lib/x86_64-linux-gnu/{libisl.so.23,libmpc.so.3,libmpfr.so.6,libgmp.so.10} lack scoped prior-reference matches NOTglobalabsence/newness/aliasidentity/permission. Other5catalogue rows (z,zstd,bothlibc,loader) prior exactreferences →conservative reacquisitionexclusions NOTprovenaliases; ALL14INTERPs NULpreserved/priorcoverage retained, not normalized/resolved. Current1basedfullstdout line ordinals remain distinct from oldcache_line records, no evidence rewrite/cause inference.
+
+Gemma6909natural0/full882out191err/BOTH EOF/ROOTqualifiedNOTapproval: catalogue candidate metadata not source code/linktarget/effective stages/loaded dependencies; no pathresolution. [Evidence](research/2026-11-07-flatbuffers-gcc-entry-dynamic-reference-intake.md):11regularselected8original3derived, byteexact archiveSHA7971e224836eb5638543266d5d13bf865b938bb84023a0a1fe0ac598bebfc547; fullraw PRIVATE/preserved. OriginalwholeJSONSTRING-Python equality/ALLfields/gates unchanged; reader tool0/separatePID-pipeEOFNULL.
+
+Allnewintake/metadata-locator/binding/catalogue-lookup/model/archivepublication COMPLETE_CONSUMED. Next prepare explicitlydeclared originalActions final-component metadata-only scope for ALL4positive mathrefs BEFORE ANYbody acquisition; no guessedlinktargets/automaticfollow/recursion/query/resolution/download/import/compile/executionauthority. ALL76/14/15/19/3plugins/unexpanded12link/v6deferred/ALLpriorledgers preserved, not reread/revalidated. OriginalUbuntu24/Dart3.13.5/Rust1.99/env/PATH/argv/credentials/recipes retainedNOTadmitted. No bootstrap/build/driver/perf/benchmark/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE; follow-upACTIVE.
+
+
 ## 2026-11-07: First bounded GCC entry body interpretation
 
 FIRST ALL15 saved-body interpretation from run42326330584/sourcece4325cb9da54ed6a98c5ac8ab74a0a5707edbcc is COMPLETE_CONSUMED. Seventeen bindings are2mapping metadata +15new semantic body reads/267691697B, not old journal comparison/SDK refresh. Both13/14 retain all7nonplugin helper/language names plus1B __init__.py; no favorable host-language-version-ABI selection.
