@@ -1,5 +1,14 @@
 # Project State
 
+## 2026-11-07: Declared GCC math regular inputs
+
+Original Actions run42336634982/job128294923408/source d64668e660cc72efc53379245022e798aac4680c acquired all four expressly declared regular math references: 3293152 bytes, four independently matching streams and zero point absences. All 27 prior jobs stayed unchanged/skipped (28 total). Original Ubuntu24/Dart3.13.5/Rust1.99/setup/PATH/env/argv/credentials/recipes retained, runtime UNADMITTED. All four interiors remain UNINSPECTED; no compiler/tool/header/native query, candidate execution, bootstrap/build/numerical/Source20-runtime adoption.
+
+New source/alias intake covered2694 prior CP strings; each candidate exactref0/basename3/originalsoname9/readlinkhex2 matches, NOTabsence/newness/alias/bodycoverage/permission. Separate explicit ALL4scope preserves original source-link hex and distinct late lexical epochs, ALL9paths/BOTHlibc/5priorrefs14INTERP exclusions/76NEEDED15sources19records3plugins/unexpanded12link/v6deferred/all earlier ledgers. Gen14693/val14698 signed0, full201/195out0err/BOTH EOF; FIRST AST/YAML/embedding/sink/27-job equality/reverseprojectionPASSonce. Qwen14766 signed1/tokenlimit/0out357err/BOTH EOF; 2058progress chars NOTretainedpartial-final/approval/backendunavailability/relaunch. ROOT scope/IO qualification retained.
+
+[Evidence](research/2026-11-07-flatbuffers-actions-gcc-math-regular-inputs.md):14regular selected11original3derived, byteexact archiveSHA 0d93e2354088bc74efa0efa519ba7fe658b9a6226a0fde410abc0e071c13f4d4. Report63429B/SHA44a66153b62948cd7398fa3d5add54696d7acaa218976c208d4600f8efd17cc0 matchesjournalONCE; fullrawPRIVATE, wholeoriginalJSONSTRING equality/ALLfields-gates preserved. OriginalActions exec65591tool0/noEXrefusal/watch15031natural0/full8706out0err/BOTH EOF; separate outerPID/pipeEOFNULL, notglobalactor/continuousphysicalEX-crash closure. All new intake/source/check/model-attempt/run/acquisition/comparisons/publication CONSUMED. Next FIRST bounded static ALL4savedbody interpretation, no automatic string resolution/query/download/import/compile/execute. AllflagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE; follow-upACTIVE.
+
+
 ## 2026-11-07: Explicit lexical math metadata and validator repair
 
 NEW ALL4literal-link intake2227CPstrings/3source matches each/0readlink matches precedes explicit lexical parent+single-basename declarations, not filesystem resolution/follow/alias-newness-permission. Original saved epoch flags retained; ALL4newcandidate metadata-only refs run42334755810/job128289046350/sourcecc00f98065073ec6411fff3fc8b9630b77823752 SUCCESS/all26oldskip/27total. ALL4regular/mode33188/UIDGID0, metadata sizes1863352/134440/760464/534896 NOTbodybytes/hashes/ELF/version/default/ABI/access/cohort/ownershipproof; ZEROregularINPUTbody/hash/targetfollow/query/recursion/child/execution.
