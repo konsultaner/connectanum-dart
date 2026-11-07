@@ -1,5 +1,16 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-07: GCC math dynamic-reference source metadata
+
+NEW ALL14request source/alias intake retains ten ordered NEEDED and four SONAME bindings/seven literal names/four sources. Prior CP scope3592string scalars, name matches75/107/75/75/1/75/143 and hex5/0/5/5/0/5/56 in gmp/libc/isl/mpfr/libm/mpc/loader order. Matches/nonmatches NOTabsence/newness/unread/bodycoverage/alias/permission.
+
+The ONE libm CPmention/noabsoluteCPrefs did not justify acquisition. NEW targeted saved-metadata locator binds original13550Bassessment/SHA b966921ebfdfa10f30b75754f1a5c3417862d45b5b2fb9b29f3f01afb050f057: originalimages7/8 already retain BOTH /lib/x86_64-linux-gnu/libm.so.6 and /lib32/libm.so.6/cache_line288/289. BOTH conservatively excluded from reacquisition, NOTprovenaliases/freshbodycoverage/loadedABI/cohort/access. No savedcatalogue stdout lookup/cache/nativequery/librarybody-hash refresh occurred. All original links/lexical epochs and prior ledgers preserved NOTrevalidated.
+
+Gemma19578 natural signed0/full1249out191err/BOTH EOF; ROOT qualifies source/build-context/dependency words as saved metadata, NOTeffective stages/runtime. AdvisoryNOTapproval/unavailability/relaunch; no advice-derivededit/test/query. [Evidence](../research/2026-11-07-flatbuffers-gcc-math-dynamic-reference-intake.md):11regular selected8original3derived metadata, byteexact archiveSHA 3d4e726d32f99a697d6975d9033aecc370cdbc2a713ce2082d6313d17cea8da1; fullrawPRIVATE/wholeoriginalJSONSTRING equality/ALLfields-gates preserved. FIRSTintake/metadata-locator/binding/model/publication CONSUMED.
+
+Next NEWsourcealiasmetadata intake ALL210 literal /usr/include entry records from saved seven-directory report before any header/body acquisition, no favorable language/version/ABI/default filter or automatic follow/recursion/query/execute. No newActions/SDK-query/sourceacquisition/build/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE; follow-upACTIVE.
+
+
 ## 2026-11-07: First bounded GCC math input interiors
 
 FIRST ALL4 saved-body interpretation from original Actions42336634982 is complete and consumed: six read bindings (two mapping metadata, four NEW semantic body reads3293152B), all43 ordered program headers, ten ordered DT_NEEDED and four DT_SONAME bindings preserved. All4 ELFclass2/encoding1/machine62; all shown strings NUL-terminated inside STRSZ. Zero parsed INTERP/RPATH/RUNPATH requests is scoped metadata, NOTglobalabsence/defaultsearchpath/loadeddependency/ABI/defaultcompiler/Cargo/aliasidentity proof. Report/index ONLYlocate savedmembers; newbodyreader supplies bounded semantics. Remaining body ranges UNINSPECTED; original link/lexical epochs and ALLprior ledgers preserved NOTnewly reread/revalidated.
