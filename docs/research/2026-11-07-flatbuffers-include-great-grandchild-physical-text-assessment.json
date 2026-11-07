@@ -1,0 +1,164 @@
+{
+  "original_saved_result_name": "ROOT-FIRST-ALL4868-great-grandchild-physical-text-PRIVATE.json",
+  "original_saved_result_bytes": 260299433,
+  "original_saved_result_sha256": "f0429417c62a70fece2ea22363c0093bac6ad15790e25743707179bce66bf2ca",
+  "summary": {
+    "source_commit": "46d477775e6e6e5dded97373db2d82bc1e1b32e7",
+    "run_id": 42392808246,
+    "job_id": 128463761879,
+    "totals": {
+      "files": 4868,
+      "bytes": 84566663,
+      "LF_bytes": 2241875,
+      "physical_segments": 2241879,
+      "nonempty_unterminated_tail_files": 4,
+      "strict_UTF8_files": 4868,
+      "invalid_UTF8_files": 0,
+      "NUL_bytes": 0,
+      "backslash_LF": 11491,
+      "backslash_CRLF": 0,
+      "SP_TAB_leading_hash_rows": 76889,
+      "include_include_next_operands": 22905
+    },
+    "ALL_directive_word_counts": {
+      "ifndef": 5942,
+      "define": 14674,
+      "pragma": 1395,
+      "endif": 16103,
+      "include": 22899,
+      "if": 8388,
+      "else": 2981,
+      "ifdef": 1773,
+      "warning": 4,
+      "undef": 1894,
+      "elif": 490,
+      "error": 174,
+      "include_next": 6,
+      "Frag": 6,
+      "NO_ASCII_WORD_UNMEASURED": 139,
+      "A": 3,
+      "b1op": 6,
+      "signature": 6,
+      "mode": 3,
+      "type": 3
+    },
+    "ALL_physical_operand_kind_counts": {
+      "angle_delimited_literal": 10095,
+      "quote_delimited_literal": 12809,
+      "macro_or_other_UNDELIMITED_UNPERFORMED": 1
+    },
+    "invalid_UTF8_file_ordinals": [],
+    "nonempty_unterminated_tail_file_ordinals": [
+      2506,
+      2973,
+      3624,
+      4100
+    ],
+    "saved_metadata_bindings": 3,
+    "saved_body_bindings": 4868,
+    "all_bindings": 4871,
+    "new_SDK_queries": 0,
+    "new_Actions_queries": 0,
+    "new_directory_queries": 0,
+    "candidate_executions": 0,
+    "preprocessor_compiler_include_target_resolution_UNPERFORMED": null,
+    "all_operand_comparison_counts_lists_UNPERFORMED_NULL": true,
+    "all_original_private_fields_stat_times_relationships_preserved": true,
+    "all_admission_flags": false,
+    "ownership": null,
+    "separate_outer_PID_pipe_EOF": null
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_model_raw_and_admission_limits",
+    "ROOT_qualification": "Gemma16961 naturalSIGNED0/full1433stdout190stderr/BOTH EOF/SAMEwaitmaycached/stdout51470efc8f4a7e2cf2e23fa14e0278a8050ddd10a82bc661ce99273374ab15a5/stderra2e3ce85b0fc7e94baf5bb6c71c511257d0b89b1a03f8a00c8429dfe818cc711. ROOT rejects model build/analysis wording: FIRSTsavedphysical-text metadata only/no build. Model printed wrong commit46d4777775e6e6e5dded97373db2d82bc1e1b32e7; authoritative actual46d477775e6e6e5dded97373db2d82bc1e1b32e7/run42392808246/job128463761879 unchanged. LiteralphysicalASCIIwords/rows are not evaluated Cpreprocessor directives ormacro usage. ROOT retainsmodelomitted actualcounts:4868files84566663B/2241875LF2241879segments FOURnonemptytails2506-2973-3624-4100/76889SP-TAB-leading#rows/14674define22899include6include_next/22905operands10095angle12809quote1undelimitedmacro-other/ALL22905comparisonUNPERFORMEDcount-matchlists-nonmatchlistsNULL not0/11491backslashLF0CRLF/4868strictUTF8-0invalid-0NUL/4871bindings3savedmetadata4868newbodyphysicalreads/rangesBEFOREIO/noEOFprobe-outofrange. LiteraloriginalbucketNO_ASCII_WORD_UNMEASURED139 retainedunchanged, not Csyntax judgment. NewSDK-Actions-directoryqueries-candidateexec0 vsUNPERFORMEDCsemantics/include-targetresolutionNULL separate/notfalse-or0. ALLoriginalprivatefields-stat-times-FD-credentials-relationships/rawrows-order-duplicates-byte-character-offsets retained, notnearlyall/largelypreserved/drop-round-normalize-schemawaiver. Genericchange-points/category-flag/reporting/binding modification suggestions haveNO edit-test-queryauthority; no advice-derivededits/tests/queries. Newlocalread epoch vsoriginalActionsphysicalepoch andoriginal5067metadata190queries199DEFERRED0NEWlinks THISdataset separate vsprior1425-63-1229laterbody-original190DEFERRED6earlierlinks/prior1280-49-1199-old63DEFERRED18olderlinks-oldncursesrawhexNULL/allledgers unchanged/notruntimecohortequality. Originalstatic48/preproof10UNMEASUREDNULLimmutable/newruntimefactsSEPARATE/no retrofill. OriginalActionscontrollerownershipKeyErrornamespaceFOREVERterminal/originalfinalresultUNSAVEDNULL/newremainingproofcompletedONCE/notoldreconstruction/no sourcefieldrestore-schema-gatewaiver. No oldbody-reader-parser-model-SDKquery-imagehash-Actions-acquisition-archive-numerical replay/Source20-runtime adoption-build-cleanup. PointFD-stat-countSHA-close NOTatomicABA-origin-pathchain-globalactorFD-originaldrivercredentials-access-effectivecompiler-defaultsysroot-ABI-continuousofficialphysicalEX-crashadmission/separateouterPIDEOFNULL/unknownpartialpermanentquarantine. AdvisoryNOTapproval-backendunavailability-relaunch. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE.",
+    "model_completion": {
+      "pid": 16961,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 1433,
+      "stderr_bytes": 190,
+      "stdout_sha256": "51470efc8f4a7e2cf2e23fa14e0278a8050ddd10a82bc661ce99273374ab15a5",
+      "stderr_sha256": "a2e3ce85b0fc7e94baf5bb6c71c511257d0b89b1a03f8a00c8429dfe818cc711",
+      "advisory_not_approval": true
+    },
+    "original_saved_result_bytes": 260299433,
+    "original_saved_result_sha256": "f0429417c62a70fece2ea22363c0093bac6ad15790e25743707179bce66bf2ca",
+    "whole_original_raw_JSONSTRING_Python_ALLfield_equality": true,
+    "all_original_gates_preserved": true,
+    "separate_outer_launcher_PID_pipe_EOF": null,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "archive": {
+    "selected_regular_members": 11,
+    "original_declaration_controller_completion_descriptor_files": 8,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 1660364,
+    "archive_sha256": "ad904c140f5d760488dab3c7e665c130aeba5ebcd808d5346d1514227b179d84",
+    "not_full_raw_directory_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "original/execution-declaration.json",
+        "bytes": 3948,
+        "sha256": "a655692e6ab776cc39238617cc9cd4e2948b08352d6051f886694b81b301da40"
+      },
+      {
+        "name": "original/controller.py",
+        "bytes": 17112,
+        "sha256": "98fab9ea1882bfe8ed151e351bdb5ec7cfb43be54fc2965d6971442886bdf3d0"
+      },
+      {
+        "name": "original/FIRST-ALL4868-physical-text-summary.json",
+        "bytes": 1706,
+        "sha256": "5433d518b954d8df9cc65d76d02fc8d8fe464ae731702da1bf91ea1317fbadaf"
+      },
+      {
+        "name": "original/original-saved-result-descriptor.json",
+        "bytes": 2097,
+        "sha256": "6436cf0023e569ec5becc3ee71c0568c01aa345789724a07aa01da1eae3da1d0"
+      },
+      {
+        "name": "original/FIRST-summary-v1/declaration.json",
+        "bytes": 319,
+        "sha256": "576f4e7cdcacbf39a9165a7f3e4dd887f6eedd8b99a7ba575164d69ab1876d30"
+      },
+      {
+        "name": "original/FIRST-summary-v1/controller.py",
+        "bytes": 4498,
+        "sha256": "2e56c2697737a6a754e3eb8a146454147119338ba4850ede090d65a6346aa5f3"
+      },
+      {
+        "name": "original/FIRST-summary-v1/request.json",
+        "bytes": 2841,
+        "sha256": "03ddf6205c768102e0bb4a1c764ac7ae7d945bb2500ebce81a5531c6618369ad"
+      },
+      {
+        "name": "original/FIRST-summary-v1/completion.json",
+        "bytes": 398,
+        "sha256": "cd2873860683994758482fc8ae863af12103a2da594124023160e250e85c23e6"
+      },
+      {
+        "name": "derived/ALL4868-physical-file-metadata.json",
+        "bytes": 4457485,
+        "sha256": "692d1679ddaedaf4084432fb4b12f1ccd4cd0571ee0070285e01c009609f5411"
+      },
+      {
+        "name": "derived/ALL22905-physical-include-operand-metadata.json",
+        "bytes": 26449930,
+        "sha256": "52b14cd4059c7a7f1cf52367a6234e84490098cedaf75700920e87810c036171"
+      },
+      {
+        "name": "derived/ROOT-model-and-admission-limits.json",
+        "bytes": 3606,
+        "sha256": "7e8932b95b1ef11ce8f2212152012b628f9a447ed560d1172b280f5c3d909644"
+      }
+    ]
+  },
+  "full_original_raw_and_directive_rows_stat_times_FD_credentials_PRIVATE_preserved": true,
+  "next": "FIRST saved-data source/alias relationship intake for ALL22905 NEWphysical include/include_next operand rows fromALL4868savedregularbodies/run42392808246/source46d477775e6e6e5dded97373db2d82bc1e1b32e7. Declareexactnewphysicalresult260299433Bf0429417c62a70fece2ea22363c0093bac6ad15790e25743707179bce66bf2ca andoriginalALL5067metadata intake121981513B431a704ae20a0ce6590fd094554575188667e5b6c55ccec90356a4486fa43980 savedranges BEFOREIO; originalrecords-stat-times-order-duplicates-privatefields/rawphysicalrows-byte-character-offsets kept. ALL22904physicaldelimitedliteraloperands (10095angle12809quote) vsALL5067originalsavedbasename-namehex/readlinkliteral-rawhex metadata only; retainALLmatches-nonmatches-locations-overlappingcharacter-UTF8offsets andalloriginaltypeflags/fullrelationships/no favorablefilter-aliasdedup/pathsplit-basenameextraction/automaticjoin-normalize-resolve-follow-recursion-query-bodyhash. ONEundelimitedmacro-other remainsUNPERFORMED/matchcount-matchlistsNULL not0; unperformedliteral-vs-link comparisons alsoNULL not0/no Cpreprocessor/include-target resolution. Scopedmatches/nonmatches NOTglobalabsence-newness-previousqueryabsence-aliasidentity-effectivecompiler-defaultsysroot-CargoCFGflavor-ABI-runtimecohort-originaldrivercredentials-access-ownership-permission-queryauthority-globalnoreplayproof. Original5067-190metadataepochs199DEFERRED0NEWlinks THISdataset vsnew4868Actionsphysical/localphysicalread epochs separate vsprior1425-63-1229laterbody-original190DEFERRED6earlierlinks/prior1280-49-1199-old63DEFERRED18olderlinks-oldtopncurses.h literalcurses.h originalrawreadlinkhexNOTsavedNULL/allledgers unchanged. ALL4868physicalreader-parser-Gemma16961-publication CONSUMED/no newbodyreads-parser/source-model-SDKquery-imagehash-Actions-acquisition-archive-numerical replay/Source20-runtime adoption-build-cleanup. Originalstatic48/preproof10UNMEASUREDNULLimmutable/34PASSrawreuse/oldcontrollerownershipKeyErrorfailednamespaceFOREVERterminal-oldfinalresultNULL/firstremainingproofcompletedONCE/notoldreconstruction/no sourcefieldrestore-gatewaiver. OriginalLinux-Dart setupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE.",
+  "RAM_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
