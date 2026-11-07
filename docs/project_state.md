@@ -1,5 +1,16 @@
 # Project State
 
+## 2026-11-07: All576 operand source relationships
+
+FIRST exactbyte source/alias intake retains all576physical operand candidates:575raw-delimited comparisons yield184matches to64originalregular basename records/391nonmatches;1macro-empty-other has no raw_name, comparison/matchcount NULL/unperformed. All210originalentries/146withnomatch and all576duplicates preserved; no favorabletype/language-version-ABI/defaultcompiler filter. Nameequality NOTaliasidentity/effectivedependency/bodycoverage/absence/newness/access/permission. No basenameextraction/parentjoin/normalize/resolve/follow/query/compile/execute.
+
+Exacttwo savedsemantic-result/ALL210metadata sources/ranges declaredBEFOREIO; two newregular O_NOFOLLOW/sameFD/countSHA/stat bindings, no headerbody reopen/reparse/oldacquisition-journalcomparison/SDKrefresh. ALLrawoperands/order/physicaloffset/fullphysicalrowPRIVATE/continuationflags/effective_include_requestNULL/original210metadata-separate-parent-name-vs-laterlexicalepochs/49dirsDEFERRED/ncurses.h-curses.h UNEXPANDED-UNFOLLOWED/readlinkhexNULL/allpriorledgers protectedNOTrevalidated.
+
+Gemma44014 naturalSIGNED0/full1034out192err/BOTH EOF/SAMEwaitmaycached; ROOTkeeps184/391/1 and64/146/NULL distinctions. AdvisoryNOTapproval/unavailability/relaunch/no advice-derivededit-test-query. [Evidence](research/2026-11-07-flatbuffers-include-operand-source-alias-intake.md):10selectedregular7original3explicitderivedmetadata, byteexactarchive 47828 B/SHA 4e1618beae734e03eb1532ee8ba1b1786c45c4a5c146181cf1bd05250db668f1; wholeoriginalraw/JSONSTRING/Python ALLfield equality/gates preserved beforederivedselection/fullrawPRIVATE. PointFD/stat/countSHA/close NOTatomicABA-origin/pathchain/globalactorFD/continuousphysicalEX-crash admission; separateouterPID-EOFNULL.
+
+Next prepare expresslydeclared originalActions ALL49saved-directory onelevel metadata scope; eachliteralparent+singlebasename must be declaredBEFOREIO. Current49 remainDEFERRED/unqueried until independentnewscope, no automaticjoin/resolve/follow/recursion/queryauthority fromrawnonmatches. ALLintake/model/publication consumed. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE; no Source20-runtime adoption/build/numerical; follow-upACTIVE.
+
+
 ## 2026-11-07: First all160 physical-header interpretation
 
 FIRST bounded saved-data scan covers160headers/3387853bytes/84569physical lines from Actions42350609933. Exactsource/range declaration precedes bodyIO; report/index onlylocatesavedmembers.15313first-nonspace# physical candidates include576include-operand candidates:575raw-delimited/1macro-empty-other;2129backslash-newlines/all160UTF8/noNUL. Comments/splicing/macros/conditions/tokenization remain unevaluated; included/Z3_* candidates show why these are not established effective directives/dependencies. No string joining/resolution/follow/query/import/compile/execution.
