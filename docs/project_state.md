@@ -1,5 +1,14 @@
 # Project State
 
+## 2026-11-07: GCC entry static input preparation
+
+OriginalActions run42326330584/job128262366682 succeeds at sourcece4325cb9da54ed6a98c5ac8ab74a0a5707edbcc;24oldjobs unchanged/skipped,25total. NEW ALL19positive-record source/alias metadata intake haszero scoped exact/basename matches NOTabsence/newness/identity/permission. ALL15nonplugin regularrefs expresslydeclared: both13/14 groups ALL7language/helpernames plus__init__.py. ALL3pluginrefs conservativelyexcluded BEFOREALLsourceIO;12relative link unexpanded/unfollowed, v6directory deferred NOTqueried. All19/priorledgers kept, no favorablehost-language-version-ABIfilter.
+
+Actual15newstreams/267691697B independentlymatchONCE; all15bodyinteriorsUNINSPECTED. Gen88636/val88641signed0/194/188out0err/BOTH EOF; FIRSTAST/YAML/embedding/sink/24job-equality/reverseprojectionPASSonce. Qwen88677natural0/1640out354err/BOTH EOF/ROOTqualifiedNOTapproval; reject speculativecap/falseevent-before-finally leak/postopenFDretargeting. NoactualBEFORE/advice-derivededit-test-query-modelrelaunch. Unknownacquire-write-close-crash/partialraw remainsquarantined, nodurability/ownership/physicalEX admission.
+
+[Evidence](research/2026-11-07-flatbuffers-actions-gcc-entry-inputs.md):11regularselected8original3derived, byteexact archiveSHA978f03b708a72673fdeda4c7438dbc3d0e32cc19b138103c4af13b86bec69b7f; reportSHA9a361b7e61516bbe2ed7cbd097dcaf597f596de44565ca113632428f28401993 matcheswritejournalONCE. Fullrawsavedbodies/report/journal/ZIP/log/API/env/models/controllers PRIVATE/preserved. ALLnewintake/source/check/review/Actions/acquisition/stream-reportcomparison/archive COMPLETE_CONSUMED. ZeroENTRYtargetfollow/recursion/directoryquery/collectorchild/candidateimport/candidate/compiler-header-nativequery/envmutation; staticinputbodyacquisition distinctfromexecution. No bootstrap/dependency/build/driver/broker/perf/benchmark/numerical/Source20-runtime adoption. OriginalUbuntu24/Dart3.13.5/Rust1.99/PATH/env/argv/credentials/recipes retained; setupUNADMITTED/allflagsFALSE/ownershipNone. Next FIRSTboundedinterpretationALL15savedstreams usingactualreport-indexONLYtolocate; no oldsource/hash/model/query/job/archive replay or automatic newname-body-resolution-import-download-executionauthority. Fullactualoriginalpreflight BEFOREcandidateexecution; RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE/follow-upACTIVE.
+
+
 ## 2026-11-07: Four GCC component-directory inputs
 
 OriginalActions run42317596293/job128233965809 succeeds at source478c7c0889d6c618fc372bb74f35ea81dda26079; all23previousjobs unchanged/skipped,24total. Four exact positive refs under numeric12/13/14 and libstdcxx expresslydeclared after source/prior-scope metadata intake; nonmatches/names NOTabsence/alias/newness/permission/default-version-ABI selection. All four structured references/collector/report align; one preserved scope prose word BOTH is stale, not actual two-root execution.
