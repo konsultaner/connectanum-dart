@@ -1,0 +1,537 @@
+{
+  "all_original_validation_fields": {
+    "ALL36_old_jobs_unchanged": true,
+    "ALL_original_top_fields_preserved_except_new_campaign_option": true,
+    "new_job_reverse_projection_equal_old_template": true,
+    "whole_original_workflow_reverse_projection_BYTEEXACT": true,
+    "parsed_jobs": 33,
+    "new_job_key": "flatbuffers-include-great-great-grandchild-regular-inputs",
+    "workflow_bytes": 485969,
+    "workflow_sha256": "5096d225c3d1114a1a3409eb69cda7802f0bd68586ff255e6b3a79f1d16fec2e",
+    "declared_regular_file_stdin_python3_dash_NOT_identical_FD_topology": true,
+    "uploader_sink_match": true,
+    "ALL36_original_job_conditions": [
+      {
+        "job": "linux-wamp-profile",
+        "if": "github.event_name != 'workflow_dispatch' || inputs.campaign == 'profiles'"
+      },
+      {
+        "job": "linux-flatbuffers-primary",
+        "if": "github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_primary' || inputs.campaign == 'flatbuffers_diagnostic' || inputs.campaign == 'flatbuffers_extensions' || inputs.campaign == 'flatbuffers_payload_repro' || inputs.campaign == 'flatbuffers_payload_focus' || inputs.campaign == 'flatbuffers_rss_control' || inputs.campaign == 'flatbuffers_dictionary_component')"
+      },
+      {
+        "job": "merge-flatbuffers-extensions",
+        "if": "always() && github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_extensions'"
+      },
+      {
+        "job": "linux-flatbuffers-cpu-profile",
+        "if": "github.event_name == 'workflow_dispatch' && (inputs.campaign == 'flatbuffers_profile' || inputs.campaign == 'flatbuffers_vm_profile')"
+      },
+      {
+        "job": "linux-flatbuffers-encoder-component",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_encoder_component'"
+      },
+      {
+        "job": "linux-flatbuffers-native-view-probe",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_native_view_probe'"
+      },
+      {
+        "job": "linux-flatbuffers-toolchain-preflight",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_toolchain_preflight'"
+      },
+      {
+        "job": "linux-flatbuffers-compiler-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_compiler_inputs'"
+      },
+      {
+        "job": "linux-flatbuffers-linkage-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_linkage_inputs'"
+      },
+      {
+        "job": "linux-flatbuffers-wrapper-delegates",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_wrapper_delegates'"
+      },
+      {
+        "job": "flatbuffers-cargo-config-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_cargo_config_inputs'"
+      },
+      {
+        "job": "flatbuffers-rustc-default-target",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_rustc_default_target'"
+      },
+      {
+        "job": "flatbuffers-linker-candidate-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_linker_candidate_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-runtime-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_runtime_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-runtime-transitive-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_runtime_transitive_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-search-environment",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_search_environment'"
+      },
+      {
+        "job": "flatbuffers-compiler-package-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_compiler_package_inputs'"
+      },
+      {
+        "job": "flatbuffers-bundled-installer-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_bundled_installer_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-header-environment-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_header_environment_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-program-parent-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_program_parent_inputs'"
+      },
+      {
+        "job": "flatbuffers-c-tool-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_c_tool_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-component-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_component_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-entry-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_entry_inputs'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-reference-metadata",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_reference_metadata'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-lexical-target-metadata",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_lexical_target_metadata'"
+      },
+      {
+        "job": "flatbuffers-gcc-math-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_gcc_math_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-child-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_child_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-child-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_child_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-grandchild-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_grandchild_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-grandchild-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_grandchild_directory_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-great-grandchild-regular-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_great_grandchild_regular_inputs'"
+      },
+      {
+        "job": "flatbuffers-include-great-great-grandchild-directory-inputs",
+        "if": "github.event_name == 'workflow_dispatch' && inputs.campaign == 'flatbuffers_include_great_great_grandchild_directory_inputs'"
+      }
+    ],
+    "collector_bytes": 14622722,
+    "collector_sha256": "35f18374649bde94ded2fff22b0f2747e4758ebb7974541d307aa0ddcec03a7e",
+    "whole_original_collector_reverse_projection_BYTEEXACT": true,
+    "ALL_original_metadata_functions_guards_fields_preserved": true,
+    "all_original1199_1229_4868_guards_separate_before_NEW2279_loader_before_INPUTIO": true,
+    "new_source_Python_AST_PASS_ONCE": true,
+    "new_scope_bytes": 6409181,
+    "new_scope_sha256": "601d18c6047db53f7159d16a9748ced542b69b89cf5b3b6da1e47c004e1a471c",
+    "new_scope_gzip_bytes": 200095,
+    "new_scope_gzip_sha256": "e68afaf0961a128a9bf5085cc539570cafdd301bb38a8ce268906eac988f6f5d",
+    "new_scope_base64_characters": 266796,
+    "whole_scope_BYTEEXACT_UTF8JSONSTRING_PythonALLfield_equality": true,
+    "prior_runtime_ledger_bytes": 88799033,
+    "prior_runtime_ledger_sha256": "b1d4704855b8fdd01362e1392088f37cd02377462d8bf0120e0e77d439e1020a",
+    "prior_runtime_ledger_gzip_bytes": 8767514,
+    "prior_runtime_ledger_gzip_sha256": "e9a9c7e4665114ea65bf2e323ad3f97e5c6f70115893bf7f2cc9b624cb315b64",
+    "whole_runtime_ledger_BYTEEXACT_UTF8JSONSTRING_PythonALLfield_equality": true,
+    "prior_actual_literal_ledger_group_counts": [
+      199,
+      4868,
+      190,
+      1229,
+      1229,
+      1199,
+      160,
+      63,
+      49,
+      4868,
+      190,
+      1229,
+      1199,
+      1199,
+      160,
+      160,
+      63,
+      63,
+      49,
+      49,
+      1229,
+      1229,
+      1199,
+      1199,
+      160,
+      160,
+      190,
+      190,
+      63,
+      63,
+      49,
+      49,
+      1229,
+      1229,
+      1199,
+      1199,
+      160,
+      160,
+      63,
+      63,
+      49,
+      49,
+      1199,
+      1199,
+      160,
+      160,
+      63,
+      63,
+      49,
+      49,
+      1199,
+      160,
+      63,
+      49,
+      1229,
+      1199,
+      160,
+      190,
+      63,
+      49,
+      1229,
+      1199,
+      160,
+      63,
+      49,
+      1199,
+      160,
+      63,
+      49
+    ],
+    "prior_static_metadata_literal_count": 2318866,
+    "new2279_prior_exact_literal_matches": 0,
+    "ALL36oldconditions_SOURCE_false_BEFOREdispatch": true,
+    "saved_metadata_read_bindings": 5,
+    "source_commit": null,
+    "run_id": null,
+    "new_SDK_INPUT_queries": 0,
+    "candidate_executions": 0,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "all_original_control_descriptor_fields": {
+    "root_range": [
+      463594,
+      463697
+    ],
+    "root_sha256": "edc587eabec8066223786da87f7e2bad9f6cb882ba0c08dad712056aea7154a7",
+    "FIRST_selected_original4868_tail_range": [
+      2640103,
+      2660103
+    ],
+    "FIRST_sink_occurrences_relative_to_selected_tail": [
+      5067
+    ],
+    "selected_tail_sha256": "a455737e9db5a8bd037824ab7741f862ed6c49c078de805189877b2c9c9603c3",
+    "NEW2279_count": 2279,
+    "original_group_counts": [
+      199,
+      4868,
+      190,
+      1229,
+      1229,
+      1199,
+      160,
+      63,
+      49,
+      4868,
+      190,
+      1229,
+      1199,
+      1199,
+      160,
+      160,
+      63,
+      63,
+      49,
+      49,
+      1229,
+      1229,
+      1199,
+      1199,
+      160,
+      160,
+      190,
+      190,
+      63,
+      63,
+      49,
+      49,
+      1229,
+      1229,
+      1199,
+      1199,
+      160,
+      160,
+      63,
+      63,
+      49,
+      49,
+      1199,
+      1199,
+      160,
+      160,
+      63,
+      63,
+      49,
+      49,
+      1199,
+      160,
+      63,
+      49,
+      1229,
+      1199,
+      160,
+      190,
+      63,
+      49,
+      1229,
+      1199,
+      160,
+      63,
+      49,
+      1199,
+      160,
+      63,
+      49
+    ],
+    "prior_captured_static_metadata_string_count": 2318866,
+    "ALL2279_exact_ledger_matched_candidates": 0,
+    "ALL2279_exact_static_matched_candidates": 0,
+    "saved_metadata_bindings": 6,
+    "ledger_result_bytes": 898531082,
+    "ledger_result_sha256": "8741bcc204fefa4dadd8d8be345fcc231c89f2273f2e52585ac157aab530f83e",
+    "all_admission_flags": false,
+    "ownership": null,
+    "scope_sink_to_savedsource_end_range": [
+      2645170,
+      2660103
+    ],
+    "scope_sink_control_bytes": 14933,
+    "scope_sink_control_sha256": "96dda5f4e99f609b3436ecd4d3fd976a14b3f7e56aaba0ed832d5e144cb80b19",
+    "FIRST_unique_NEW2279_sink_selector_PASS": true,
+    "ALL2279_exact_reference_ledger_staticmetadata_gates_PASS": true
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED ROOTmetadata/fulloriginalprivatefields-gates unchanged/modeladvisoryNOTapproval/admission",
+    "ROOT_qualification": "Qwen45063 naturalSIGNED0/full1612stdout271stderr/BOTH EOF/SAMEoriginalwaitmaycached/input12165/reasonstop. No concrete supported bug identified in boundedNEW2279delta selection; NOTapproval/fullsource-runtimeadmission/backendunavailability/relaunch permission. Model's opaque payload trust/security-tampering/environment idea is speculative; no observed tampering/assert-disable bypass/execution. Actualwholedecodedscope/runtime BYTEEXACT-UTF8JSONSTRING-PythonALLfield guards andwholeoldcollector-workflowBYTEEXACTreverse are independent ROOTproofs, not cryptographic origin/pathchain/ABA/globalactorFD/credentials/ABI/continuousphysicalEX/crashadmission. Model notes88MB/6.4MB metadata: actualruntimeledger88799033B andscope6409181B, notmeasuredRAMpeak/MemoryError/swapping/low-memoryCI failure/RAMcause orrepair; no suchfailure observed/no advice-derivededit-test-query-build-adoption/cohort-schema-gatechange. parsed_jobs33 is STALE UNMODIFIED originalmetadata; originalnewRubyoldjobs.size36/newjobs.size37 SOURCEguardsPASS/ALL36oldjobs-topfields/wholeoldreverse separate, no runtimeactual37/admission/no sourcefieldrestore-rerun-reparse-labelpolish. Prefix2660103imports/functions/opaqueNEWscope-runtimepayloads/qualificationliteralpair/36conditionrows omittedONLYmodelselection/coverage limitation. ActualNEWloader/root/report delta code strings provided, originalprivatefields-stat-times-relationships-gates preserved unchanged/all2279 kept. Full69groupcounts [199,4868,190,1229,1229,1199,160,63,49,4868,190,1229,1199,1199,160,160,63,63,49,49,1229,1229,1199,1199,160,160,190,190,63,63,49,49,1229,1229,1199,1199,160,160,63,63,49,49,1199,1199,160,160,63,63,49,49,1199,160,63,49,1229,1199,160,190,63,49,1229,1199,160,63,49,1199,160,63,49] +ALL2318866capturedstaticmetadata stringSCALARVALUES/ALL2279exactgroup0-exactscalar0/allmatching-nonmatchingpositions-duplicates-locations-halfopenruns PRIVATEkept/notaliasdedup-absence-newness-previousqueryabsence-aliasidentity-bodycoverage-effectivecompiler-defaultsysroot-CargoCFGflavor-ABI-runtimecohort-originaldrivercredentials-access-ownership-permission-queryauthority-globalnoreplayproof/querypermissionNULL. Ledger898531082B8741bcc204fefa4dadd8d8be345fcc231c89f2273f2e52585ac157aab530f83e savedBEFOREgates; no oldjournal-stream-bodyhash-query/reference-bodyrevalidation/CPcomparison replay. SevenFIRSTinputbindings/root[463594,463697)103Bedc587eabec8066223786da87f7e2bad9f6cb882ba0c08dad712056aea7154a7/tail[2640103,2660103)20000Ba455737e9db5a8bd037824ab7741f862ed6c49c078de805189877b2c9c9603c3; FIRSTremaining6bindings uniqueNEWsinkrelative5067=absolute2645170/[2645170,2660103)14933B96dda5f4e99f609b3436ecd4d3fd976a14b3f7e56aaba0ed832d5e144cb80b19/originalprefixopaqueexceptroot/no oldAST-selector-parser replay. Sourcewriter5exactbindings/fresh1GiB/officialEX afterONEofficialEXpretargetrefusal localcompanionactive BEFOREnamespace-contentIO/SAMEpreparedFIRSTbody afterfreshEXavailabilitynatural0. NewcandidateAST/wholeoldsource-workflowreverse/ALL36NEWcampaignSOURCEfalseconditions PASSONCE CONSUMED/reuseBYTEEXACT NOTreevaluate; actual36SKIPPED unobserved. NativeRuby44955SIGNED0/full6502out0err/BOTH EOF/7a83d9af72e35ce6e8df6c83d0eaab877b69ba2246efab6ff2ac564b8c5405e2/outer90986tool0/SAMEpollonly. Collector14622722B35f18374649bde94ded2fff22b0f2747e4758ebb7974541d307aa0ddcec03a7e versusworkflow485969B5096d225c3d1114a1a3409eb69cda7802f0bd68586ff255e6b3a79f1d16fec2e distinct/sourceNOTworkflowpayload; bothFULLGitblobJSONdecodedBYTEEXACTreadbacks stillrequiredBEFOREfuturedispatch/no guessedlimits-Contentsmetadata-asbody shortcut. Alloriginal1199/1229/4868functions-guards-metadata-fields-scopes separately BEFORENEW2279loader-beforeINPUT unchanged. Bothmetadata-onlygzip-base64 payloads wholedecodedBYTEEXACT-UTF8JSONSTRING-PythonALLfields/fullprivateoriginals-gatesunchanged/no fielddrop-rounding-normalization-schemawaiver/SDKbodycompression/aliasownershipshortcut. OldQwen10441tokenlimitNOFINALANSWER/fullpartialrawUNRETAINED remains/no reconstruction-unchangednarrowedreviewrelaunch; current45063 isdistinctNEWsource/questionFIRSTreview. All2308fulloriginalstat-times-nativeorder-duplicates199queryepochs2279bodiesUNOPENED29dirsDEFERRED0NEWlinksTHISdataset vsolder5067metadata190epochs199DEFERRED0NEWlinks/4868physical-localread/prior1425-63-1229laterbody-original190DEFERRED6/prior1280-49-1199-old63DEFERRED18/unfollowed-oldncursesrawhexNULL/ALLledgers unchanged/epochsSEPARATE. OriginalSTATIC7bindings32fields5preproofNULLimmutable/newfactsSEPARATE/older48static10preproofNULLimmutable/oldownershipKeyErrornamespaceFOREVERterminal-oldfinalresultNULL-firstremainingproofONCE/notreconstruction-Sourcefieldrestore-gatewaiver. Allcurrentsourceprep generationreview CONSUMED/no sourcecommit-dispatch-SDKINPUTquery-bootstrap-dependency-build-native-driver-perf-numerical/Source20-runtimeadoption-cleanup. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE.",
+    "review_completion": {
+      "pid": 45063,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 1612,
+      "stderr_bytes": 271,
+      "stdout_sha256": "eeb48399cced8f09b8d205d8d3e47d738a2633c5a927316f681a3407bc2be9bb",
+      "stderr_sha256": "fb131efbd88526a94a3e6f0bc79fe52c648281a10ccea71fe5ff7018f74a3008",
+      "advisory_not_approval": true
+    },
+    "separate_outer_launcher_PID_pipe_EOF": null,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "archive": {
+    "selected_regular_members": 27,
+    "original_declaration_controller_completion_descriptor_files": 24,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 28448,
+    "archive_sha256": "078f977f337de595b3d4f50757f528dc7a785e76d83c7d65c67ee371f97dcc34",
+    "not_full_raw_directory_fullgeneratedsource_runtimepayload_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "original/input-declaration.json",
+        "bytes": 5566,
+        "sha256": "aef1207c230cd27ad074cae7ede2c084dc8a1d8da566146d9c7632d39dd07b1f"
+      },
+      {
+        "name": "original/input-controller.py",
+        "bytes": 7659,
+        "sha256": "2853732f110f53a7a74659842b08f4afac2571ff1e996a5becf0fa2fe0c75716"
+      },
+      {
+        "name": "original/input-control-descriptor.json",
+        "bytes": 6954,
+        "sha256": "7784be8c00f2192323658714f168111de2dae8ad4c76e021f41059d6f33d8fea"
+      },
+      {
+        "name": "original/input-original4868collector-binding.json",
+        "bytes": 1105,
+        "sha256": "3e0b214ebb4202f62b98ebf8227b941c013f70cb1c22c9df555e1d838ced1312"
+      },
+      {
+        "name": "original/input-workflow36-binding.json",
+        "bytes": 1117,
+        "sha256": "fd6a89fa797ab90466dd202405abbb0b7661297fdac203c1232977f8db11ea85"
+      },
+      {
+        "name": "original/input-NEW2279scope-binding.json",
+        "bytes": 1132,
+        "sha256": "eb0a924b63854dbafb7f5e4a938a11261e7be8c405cbff4d7060e0186037d5f1"
+      },
+      {
+        "name": "original/input-actual199DIRECTORYmetadata-binding.json",
+        "bytes": 1169,
+        "sha256": "b7b465e199d1ccbcec55e424be14394c59b701b3c44d9c9711d7bbb733f43e72"
+      },
+      {
+        "name": "original/input-actual4868BODYmetadata-binding.json",
+        "bytes": 1190,
+        "sha256": "6c2121a2a9484c0794b29265b1d9d3d65d963520e0da052d5ee3875f9f55168c"
+      },
+      {
+        "name": "original/input-actual190DIRECTORYmetadata-binding.json",
+        "bytes": 1157,
+        "sha256": "f8f82ca1bb977e4ff4fba2ea5e6b810f38460656f637b3625437fcc64ac6ea1c"
+      },
+      {
+        "name": "original/input-actual1229BODYmetadata-binding.json",
+        "bytes": 1147,
+        "sha256": "14be1f24b3f520e8b2a5b892fcd98543e9e010c351487cf92e8653b66f2e5436"
+      },
+      {
+        "name": "original/ledger-declaration.json",
+        "bytes": 5719,
+        "sha256": "999ffacd44d208ef92ad3124439f0e705d0e7736a4872376ff57065544b00da4"
+      },
+      {
+        "name": "original/ledger-controller.py",
+        "bytes": 10883,
+        "sha256": "1ac0abdb4187871c7b3c4f8b6081c263b07f5a359c6029ee9cf7c463899d05a6"
+      },
+      {
+        "name": "original/ledger-control-before-gates.json",
+        "bytes": 1419,
+        "sha256": "c2aeb39b0c38f6810d27c0ecacfdc081d6155fa8486724f752d3d627fa245c9f"
+      },
+      {
+        "name": "original/ledger-control-descriptor.json",
+        "bytes": 1747,
+        "sha256": "1155a493c8794e32ab583a24ebd076bdda56979e51061fca99b3d74a9a3225dd"
+      },
+      {
+        "name": "original/source-declaration.json",
+        "bytes": 5411,
+        "sha256": "fcb8ce741819609ea0c0a61f413de4321ec386a9136c67215d37e97608ecd0aa"
+      },
+      {
+        "name": "original/source-controller.py",
+        "bytes": 18529,
+        "sha256": "903b2aad36fcb4d4a29aa47b609bc24f948bd0a66e74ca79ed0747173dbef537"
+      },
+      {
+        "name": "original/source-new-ruby-controller.rb",
+        "bytes": 3576,
+        "sha256": "3e31fd56aaaaa4409ce97df9d353c6b7597bb9a59367997748aed7c24e6dc0ce"
+      },
+      {
+        "name": "original/source-validation.json",
+        "bytes": 9625,
+        "sha256": "50c78bccefb41b1ac9bb793c0321271fb97860f8934381f2765c01ad7b67fd57"
+      },
+      {
+        "name": "original/source-36-condition-proof.json",
+        "bytes": 8546,
+        "sha256": "e6050839ca8ed8d07d340581854e2abe4ccdc1dc00d61b9a9995909e44afc871"
+      },
+      {
+        "name": "original/source-native-completion.json",
+        "bytes": 363,
+        "sha256": "286708e239ab0df913ff344ac3b0ad1ab4f84d22a7c7d1832f22087fa071c6b0"
+      },
+      {
+        "name": "original/review-declaration.json",
+        "bytes": 1475,
+        "sha256": "b103d3d730441cf61edf44a4d283fdeceaf6d14eb059ba73b41ca6786d474b68"
+      },
+      {
+        "name": "original/review-controller.py",
+        "bytes": 7985,
+        "sha256": "0e2c0856069b6fc5a16c8387b04c48e743984ac4f1a08d3353b024281626f1db"
+      },
+      {
+        "name": "original/review-request.json",
+        "bytes": 2264,
+        "sha256": "84cbdb38f310858f83a824dedc6ce3d430d5ad6d7ec9698a48216964016eaf0d"
+      },
+      {
+        "name": "original/review-completion.json",
+        "bytes": 398,
+        "sha256": "7116ec058ebf18b29fdf4490f56f7d61b89e3697115bc2f75dc40f35b204e792"
+      },
+      {
+        "name": "derived/NEW2279-source-preparation.json",
+        "bytes": 12935,
+        "sha256": "b854f47b11c6124b5c85148bb389428b5e194795f14ff61b132c759d5655f4e7"
+      },
+      {
+        "name": "derived/NEW2279-remaining-work-and-limits.json",
+        "bytes": 3022,
+        "sha256": "954b0e1ecd45d8d5b98b83a76f245133286b9824e941b90d4a972dc7e905d11c"
+      },
+      {
+        "name": "derived/ROOT-review-and-admission-limits.json",
+        "bytes": 5694,
+        "sha256": "b96ca0898b992fc56a51d104d9f8ec200370140e6ed693ef85044e031ee66dfc"
+      }
+    ]
+  },
+  "original_validation_bytes": 9625,
+  "original_validation_sha256": "50c78bccefb41b1ac9bb793c0321271fb97860f8934381f2765c01ad7b67fd57",
+  "original_control_descriptor_bytes": 1747,
+  "original_control_descriptor_sha256": "1155a493c8794e32ab583a24ebd076bdda56979e51061fca99b3d74a9a3225dd",
+  "all_original_validation_control_descriptor_raw_UTF8_JSONSTRING_Python_ALLfield_equality_BEFORE_projection": true,
+  "all_private_original_metadata_fields_stat_times_relationships_unchanged": true,
+  "full_raw_PRIVATE": true,
+  "next": "FIRST expresslydeclared localSTATIC binding/preflight forNEW2279 regular collector14622722B35f18374649bde94ded2fff22b0f2747e4758ebb7974541d307aa0ddcec03a7e andworkflow485969B5096d225c3d1114a1a3409eb69cda7802f0bd68586ff255e6b3a79f1d16fec2e BEFOREanyfirstoriginalActions INPUTquery/sourcecommit-dispatch. Originalworkflow265291183/parentc4b4e6b2d7bce853d008b9c91cccb811088ad6ed/Ubuntu24.04-Dart3.13.5-Rust1.99/PATH-env-argv-credentials-recipes preservedNOTadmitted. FIRSTqualifyactualNEW2279scope/runtime-literalledger bindings/imports/old1199-1229-4868scopes-separate-beforeNEW2279loader-beforeINPUT/actualregularrefs2279/newreport2279fields/exactscopeoutputbytesSHAguard/newjob-collector-uploader refs WITHOUTtargetexec-eval-import-globals/SDK/headerbodyquery. SourcegeneratedAST/wholeoldsource-workflowreverse/ALL36NEWcampaignSOURCEfalseconditions alreadyPASSCONSUMED; reuseoriginal36PASSraw BYTEEXACT NOTreevaluate. OriginalRubyparsed_jobs33STALEunmodified/actualnewRubyold36-new37PASS supports37SOURCEguardcount NOTruntimeadmission; actual36SKIPPED onlyiflaterobserved/no oldvalidationrerun-reparse-fieldrestore-polish. FullGitblobJSONdecodedBYTEEXACTreadbacks BOTHfiles remainrequiredBEFOREfuturedispatch/sourcefile14622722B distinctfromworkflowpayload485969B/no guessedlimits-Contentsmetadata-asbody shortcut. Sourceprep7bindings-FIRSTcontrolselection-NEW2279actual69group2318866scalarledger-FIRSTremaining6bindings-generation5bindings-AST-reverse36conditions-Qwen45063-publication CONSUMED/no oldsource-bodyreader-parser-model-SDKquery-imagehash-Actionsacquisition-archive-numerical/schemaaudit replay/newnamespace-alone retry. CurrentQwen45063advisoryNOTapproval-unavailability-relaunch-edit-test-queryauthority/memory-footprint-low-memoryfailure-security speculationNOTobserved_RAMcause-repair; priorQwen10441NOFINALANSWER/fullpartialrawUNRETAINED/no reconstruction-unchangednarrowedreviewrelaunch. ALL2308fullprivatefields-stat-times-nativeorder-duplicates199queryepochs2279BODYinteriorsUNOPENED29dirsDEFERRED0NEWlinksTHISdataset/older5067metadata190epochs199DEFERRED0NEWlinks/4868Actionsphysical-localread epochsSEPARATE/prior1425-63-1229laterbody-original190DEFERRED6/prior1280-49-1199-old63DEFERRED18unfollowed-oldncursesrawhexNOTsavedNULL/allledgers unchanged. No bootstrap-dependency-build-native-driver-perf-numerical/Source20-runtimeadoption-cleanup; originalSTATIC7bindings32fields5preproofNULLimmutable/newfactsSEPARATE/older48static10preproofNULLimmutable/oldownershipKeyErrornamespaceFOREVERterminal-oldfinalresultNULL-firstremainingproofONCE/notreconstruction-Sourcefieldrestore-gatewaiver. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE/skip-ciNEVERfinalCIwaiver.",
+  "all_admission_flags": false,
+  "ownership": null
+}
