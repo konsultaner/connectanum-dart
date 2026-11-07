@@ -1,5 +1,8 @@
 # Project State
 
+> Latest PR#132 preparation: [all 63 include child directory metadata inputs](research/2026-11-07-flatbuffers-actions-include-child-directory-inputs.md) completed at source `ed183100f5dff2c40a1a748b630960979114094f`, run 42365704161; all 31 prior jobs skipped (32 total). All 63 present, 1,425 entries (1,229 regular / 190 directory / six symlink), zero child-body opens/hashes, recursion or target follows. Actual local selector and static-binding controller faults received minimal preserving corrections; original collector/workflow and all gates remain byte-exact under reverse projection. Separate prior metadata/query epochs and old ncurses raw-hex NULL remain protected. Selected archive 288256 bytes / SHA-256 `e2b672f20625e29192fa5d06544803b72275ce9508ac69f9d6525866127eface` (37 regular members, three explicitly derived). Source/Actions/acquisition/publication consumed; next: first saved-data source/alias intake for all 1,425 records. All setup UNADMITTED/flags false/ownership None; RAM repair, immutable runtime admission, own FINAL strict48/50 and clean final production CI remain incomplete.
+
+
 ## 2026-11-07: All63 child-directory input scope and prior references
 
 FIRST ALL63originalmode-directory records expresslydeclared literalparent+SINGLEchildbasename NEWlexicalTEXT BEFORESDKINPUTIO; originalseparatefields/63DEFERREDflags unchanged vsNEWdeclaration0queryepoch. ALL1280metadata/fullstat-times/49queryepochs/1199latelexicalepoch/18rawlinkbytes-literals/priorledgers retained; ALL18symlinksUNEXPANDED-UNFOLLOWED/oldtopncurses.h-curses.h originalrawhexNOTsavedNULL neverretrofilled. Newexactscope5531267B/SHA42116723f7fcf899e46be761a74a45aa2e0b19ef07e5e4ae22683840383fde99.
