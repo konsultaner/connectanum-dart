@@ -1,5 +1,16 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-07: First bounded GCC entry body interpretation
+
+FIRST ALL15 saved-body interpretation from run42326330584/sourcece4325cb9da54ed6a98c5ac8ab74a0a5707edbcc is COMPLETE_CONSUMED. Seventeen bindings are2mapping metadata +15new semantic body reads/267691697B, not old journal comparison/SDK refresh. Both13/14 retain all7nonplugin helper/language names plus1B __init__.py; no favorable host-language-version-ABI selection.
+
+All14ELFs literal class2/encoding1/machine62 have196ordered program headers and14PT_INTERP records /lib64/ld-linux-x86-64.so.2 plusNUL. ALL76ordered DT_NEEDED bindings/eight literal names remain retained, including f951's distinct order; parsed active DYNAMIC has0RPATH/RUNPATH requests, not global absence/default searchpath proof. One-byte __init__.py is0a/LF/one line/AST0statements-imports-calls, never imported/executed. Other body ranges remain UNINSPECTED. ALL19/3plugin exclusions/unexpanded12link/v6deferred/prior ledgers preserved, not reread/revalidated.
+
+Gemma5022natural0/full1230out192err/BOTH EOF/ROOTqualified NOTapproval. Actual index/report only locate members; body reader supplies bounded semantics. Literal requests not loaded dependencies/fullgraph/default/Cargo/CFG/flavor/header/sysroot/ABI/cohort/driveraccess/ownership/execution proof. PointFD/stat/close not atomicABA-origin/globalnativeactorFD/continuous physicalEX-crash admission. No model/parser/bodyhash/query/Actions/acquisition replay or automatic string resolution/download/import/execution authority.
+
+[Evidence](../research/2026-11-07-flatbuffers-gcc-entry-bounded-interiors.md):7regularselected4original3derived, byteexact archiveSHA812dfda7d16b66cfcc26f205df3d6a8bce73a063e18db640787ab4670c98a8fd; fullraw PRIVATE/preserved. OriginalJSONSTRING-Python whole equality preservesALLfields/gates. Reader tool0/separatePID-pipeEOFNULL. FIRSTreader/model/archivepublication COMPLETE_CONSUMED. Next genuinelyNEW ALL76NEEDED/14INTERP source-alias metadata intake before expresslydeclared acquisition; prior catalogue/alias coverage checked first, no assumed new math-library inputs. No bootstrap/build/driver/perf/benchmark/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE; follow-upACTIVE.
+
+
 ## 2026-11-07: GCC entry static input preparation
 
 OriginalActions run42326330584/job128262366682 succeeds at sourcece4325cb9da54ed6a98c5ac8ab74a0a5707edbcc;24oldjobs unchanged/skipped,25total. NEW ALL19positive-record source/alias metadata intake haszero scoped exact/basename matches NOTabsence/newness/identity/permission. ALL15nonplugin regularrefs expresslydeclared: both13/14 groups ALL7language/helpernames plus__init__.py. ALL3pluginrefs conservativelyexcluded BEFOREALLsourceIO;12relative link unexpanded/unfollowed, v6directory deferred NOTqueried. All19/priorledgers kept, no favorablehost-language-version-ABIfilter.

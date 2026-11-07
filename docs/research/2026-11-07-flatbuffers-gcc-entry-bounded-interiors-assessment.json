@@ -1,0 +1,819 @@
+{
+  "phase": "FIRST_ALL15_saved_GCC_entry_bounded_interpretation_COMPLETE_CONSUMED_NOT_admitted",
+  "source_run": 42326330584,
+  "source_commit": "ce4325cb9da54ed6a98c5ac8ab74a0a5707edbcc",
+  "read_binding_count": 17,
+  "new_body_read_bytes": 267691697,
+  "reader_tool_separate_launcher_PID_pipe_EOF": null,
+  "remaining_body_ranges_UNINSPECTED": true,
+  "qualification": "FIRST bounded ELF program-header/DYNAMIC literal and small-text interpretation of ALL15 NEW saved GCC-entry inputs only, not whole program semantics/actual installed compiler version/selection/Cargo/CFG/flavor/header-sysroot/ABI/loadedruntime/cohort/driveraccess/ownership/execution authority. ALL tags/headers/bindings retained; no host-language-version-ABI filtering or guessing one binding; multiple/unresolved mappings remain explicit. Actualreport/index ONLYlocate savedmembers. New saved read bindings not old stream comparison/installedSDK hash refresh. No source reopen/nativequery/candidateexec/import/recursivepathresolution/download/build/numerical/Source20-runtime adoption. ALL19/3pluginexclusions/v6deferred/prior4flavors-BOTHcfg/11installer-BOTHLLVM/974rows remain protected metadata, not reread/revalidated. PointFD/hash/stat/close NOTatomicABA-origin-auth/globalnativeactorFD/continuousofficialphysicalEX-crash proof. Unparsed body ranges remain UNINSPECTED. AllsetupUNADMITTED/flagsFALSE/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE.",
+  "all_admission_flags": false,
+  "ALL15_summaries": [
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libisl.so.23",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpc.so.3",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpfr.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libgmp.so.10",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libz.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libzstd.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libisl.so.23",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpc.so.3",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpfr.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libgmp.so.10",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libz.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libzstd.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libz.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libisl.so.23",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpc.so.3",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpfr.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libgmp.so.10",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libzstd.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libisl.so.23",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpc.so.3",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpfr.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libgmp.so.10",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libz.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libzstd.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libisl.so.23",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpc.so.3",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpfr.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libgmp.so.10",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libz.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libzstd.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libisl.so.23",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpc.so.3",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpfr.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libgmp.so.10",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libz.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libzstd.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libz.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libisl.so.23",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpc.so.3",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpfr.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libgmp.so.10",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libzstd.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "format": "ELF",
+      "class_literal": 2,
+      "machine_literal": 62,
+      "program_header_count": 14,
+      "INTERP": [
+        {
+          "program_header_ordinal": 1,
+          "file_range_in_bounds": true,
+          "literal_bytes": {
+            "hex": "2f6c696236342f6c642d6c696e75782d7838362d36342e736f2e3200",
+            "utf8_surrogateescape": "/lib64/ld-linux-x86-64.so.2\u0000"
+          }
+        }
+      ],
+      "ALL_needed_RPATH_RUNPATH_bindings": [
+        {
+          "tag": 1,
+          "literal": "libisl.so.23",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpc.so.3",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libmpfr.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libgmp.so.10",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libz.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libzstd.so.1",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "libc.so.6",
+          "NUL_terminated": true
+        },
+        {
+          "tag": 1,
+          "literal": "ld-linux-x86-64.so.2",
+          "NUL_terminated": true
+        }
+      ],
+      "small_bytes": null,
+      "Python_AST_statement_count": null,
+      "unexpanded_reason": null
+    },
+    {
+      "source_reference": "/usr/share/gcc/python/libstdcxx/__init__.py",
+      "format": "non_ELF_prefix",
+      "class_literal": null,
+      "machine_literal": null,
+      "program_header_count": 0,
+      "INTERP": [],
+      "ALL_needed_RPATH_RUNPATH_bindings": [],
+      "small_bytes": {
+        "hex": "0a",
+        "utf8_surrogateescape": "\n"
+      },
+      "Python_AST_statement_count": 0,
+      "unexpanded_reason": null
+    }
+  ],
+  "source_and_exclusion_ledger": {
+    "interpretation": "EXPLICITLY_DERIVED_literal_source_and_preserved_scope_ledger",
+    "ALL15_source_regular_references": [
+      "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1",
+      "/usr/libexec/gcc/x86_64-linux-gnu/13/cc1plus",
+      "/usr/libexec/gcc/x86_64-linux-gnu/13/collect2",
+      "/usr/libexec/gcc/x86_64-linux-gnu/13/f951",
+      "/usr/libexec/gcc/x86_64-linux-gnu/13/g++-mapper-server",
+      "/usr/libexec/gcc/x86_64-linux-gnu/13/lto-wrapper",
+      "/usr/libexec/gcc/x86_64-linux-gnu/13/lto1",
+      "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1",
+      "/usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus",
+      "/usr/libexec/gcc/x86_64-linux-gnu/14/collect2",
+      "/usr/libexec/gcc/x86_64-linux-gnu/14/f951",
+      "/usr/libexec/gcc/x86_64-linux-gnu/14/g++-mapper-server",
+      "/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper",
+      "/usr/libexec/gcc/x86_64-linux-gnu/14/lto1",
+      "/usr/share/gcc/python/libstdcxx/__init__.py"
+    ],
+    "ALL3_plugin_refs_excluded_before_prior_acquisition_NOT_proven_aliases": [
+      "/usr/libexec/gcc/x86_64-linux-gnu/12/liblto_plugin.so",
+      "/usr/libexec/gcc/x86_64-linux-gnu/13/liblto_plugin.so",
+      "/usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so"
+    ],
+    "numeric12_literal_link_UNEXPANDED_UNFOLLOWED": "../../../../lib/gcc/x86_64-linux-gnu/12/liblto_plugin.so",
+    "directory_v6_deferred_NOT_queried": "/usr/share/gcc/python/libstdcxx/v6",
+    "ALL19_prior_records_preserved_NOT_newly_read_or_revalidated": true,
+    "prior_ledgers_preserved_NOT_newly_read_or_revalidated": "1124rows/seven sets/eleven source/four exclusions/nine historical/twenty relations/63slots/210include/23libexec/16local/3src/four flavors-both cfg/eleven installer-both LLVM/974channelrows",
+    "qualification": "Gemma5022 natural signed0/full1230stdout192stderr/both EOF; same-original wait may be cached. Advisory NOT approval. ROOT qualifies model wording: only actual index/report locate saved members; the new body reader supplies bounded semantic ELF/text observations. DT_NEEDED literals are static file requests, not actual loaded dependencies, full graph, selected compiler/runtime, ABI or acquisition/execution authority. Historical entries/exclusions are protected metadata, not newly read/revalidated. Numeric13/14 names are not active versions. Full ordered PH/DYNAMIC/all table bindings and all15 rows remain retained. Other body ranges remain UNINSPECTED; no default paths/header/sysroot/Cargo/CFG/flavor/cohort/driver-access/ownership/native actor FD/continuous official physical EX-crash admission. Zero RPATH/RUNPATH request observations means only this parsed active DYNAMIC scope. No new query/body acquisition/import/execution/build/numerical/Source20-runtime adoption, no model replay, approval or backend-unavailability inference.",
+    "all_admission_flags": false
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_model_and_raw_evidence_qualification",
+    "ROOT_qualification": "Gemma5022 natural signed0/full1230stdout192stderr/both EOF; same-original wait may be cached. Advisory NOT approval. ROOT qualifies model wording: only actual index/report locate saved members; the new body reader supplies bounded semantic ELF/text observations. DT_NEEDED literals are static file requests, not actual loaded dependencies, full graph, selected compiler/runtime, ABI or acquisition/execution authority. Historical entries/exclusions are protected metadata, not newly read/revalidated. Numeric13/14 names are not active versions. Full ordered PH/DYNAMIC/all table bindings and all15 rows remain retained. Other body ranges remain UNINSPECTED; no default paths/header/sysroot/Cargo/CFG/flavor/cohort/driver-access/ownership/native actor FD/continuous official physical EX-crash admission. Zero RPATH/RUNPATH request observations means only this parsed active DYNAMIC scope. No new query/body acquisition/import/execution/build/numerical/Source20-runtime adoption, no model replay, approval or backend-unavailability inference.",
+    "summary_completion": {
+      "pid": 5022,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 1230,
+      "stderr_bytes": 192,
+      "stdout_sha256": "b636c57c74b01d2a98262cae5e3a6ee41916e893098a665368c956c2ede120d7",
+      "stderr_sha256": "17363cd3004e053eea90479c15e2bde9fecf1d078556b27914ea43f4e31b209f",
+      "advisory_not_approval": true
+    },
+    "reader_tool_return_status": 0,
+    "reader_separate_launcher_PID_pipe_EOF": null,
+    "all_admission_flags": false
+  },
+  "archive": {
+    "selected_regular_members": 7,
+    "original_declaration_reader_completion_files": 4,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 8070,
+    "archive_sha256": "812dfda7d16b66cfcc26f205df3d6a8bce73a063e18db640787ab4670c98a8fd",
+    "not_full_raw_directory_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "reader-declaration.json",
+        "bytes": 1748,
+        "sha256": "336f813160ef6f1f108760cec08f2f95369b4bf9d7c5c1e445180ffb54be1d4f"
+      },
+      {
+        "name": "reader-controller.py",
+        "bytes": 13300,
+        "sha256": "ad5e19fda16a43693ae52c91ca84a961c1978ecd5513bef337af05c0c76d023d"
+      },
+      {
+        "name": "summary-declaration.json",
+        "bytes": 401,
+        "sha256": "fe45b8ab61e0f987de85051dccc39dc5dcb69f26d53a267d9ab3bbc7dd8b3a39"
+      },
+      {
+        "name": "summary-completion.json",
+        "bytes": 397,
+        "sha256": "dd68ebf04259cdbfeb3ce2f8a4b46e24c6779813dba63b12b7f04d489caeb881"
+      },
+      {
+        "name": "derived/ALL15-FIRST-bounded-interpretation-summary.json",
+        "bytes": 19926,
+        "sha256": "0ec955be0cf6183fd1dd8c59163828d82acdec9f70766e6017a6456502036154"
+      },
+      {
+        "name": "derived/ALL15-source-and-preserved-exclusion-ledger.json",
+        "bytes": 2787,
+        "sha256": "4935e07a700fbb82c37ccdc4d374593e1c39442a174d5ceb0b84885ed5169755"
+      },
+      {
+        "name": "derived/ROOT-model-and-raw-evidence-limits.json",
+        "bytes": 1717,
+        "sha256": "dd1bd4104d0d23f3bb1186c7e5a96d59d98e51177daeeeec86e8ec250aa4f989"
+      }
+    ]
+  },
+  "private_preserved": [
+    "full saved bodies/index/report/ZIP/log/environment/controllers/actual requests and returns",
+    "complete ordered program headers/DYNAMIC entries/all table bindings/range hashes/stat/timestamps",
+    "full model input/stdout/stderr and original live resource ownership qualifications"
+  ],
+  "RAM_cause_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
