@@ -1,5 +1,16 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-07: GCC math reference final-component metadata
+
+OriginalActions run42333280905/job128284403212/source5c9a4212d9022f7a13f80033867e9bced8a5f367 succeeds; all25priorjobs unchanged/skipped,26total. ALL4positive saved-catalogue refs expresslydeclared metadata-only BEFOREIO; zero regularINPUTbody/hash/ENTRYtargetfollow/recursion/directoryquery/child/compiler-header-nativequery/candidateexec/envmutation. All4present symlinks/mode41471/UIDGID0: libisl.so.23→libisl.so.23.3.0; libmpc.so.3→libmpc.so.3.3.1; libmpfr.so.6→libmpfr.so.6.2.1; libgmp.so.10→libgmp.so.10.5.0. Allliteralbytes unexpanded/unfollowed, NOTinstalledversions/default/ABI/access/cohort/ownership/execution authority.
+
+Gen8874/val8879signed0/full205/199out0err/BOTH EOF; FIRSTAST/YAML/embedding/sink/25job-equality/reverseprojectionPASSonce. Qwen8948natural0/full1943out269err/BOTH EOF/ROOTqualifiedNOTapproval: reject missing-import/global P1s caused by bounded IO selection; actual fullprefix definesall. No actualBEFORE/edit/test/modelrelaunch; journalflush not durability, unknownwrite-close-crash partialraw quarantined.
+
+[Evidence](../research/2026-11-07-flatbuffers-actions-gcc-math-reference-metadata.md):11regularselected8original3derived, byteexact archiveSHAb19f92c1ad72da6d3441c0ba901c9a46dfb1873150e768b0cf2121f36cd75022; report58074B/SHA662938df9ddae1a796a828f70b924c8ebe53cfef921541c1516ff6829c8b2417 matcheswritejournalONCE. FullrawPRIVATE; originalwholeJSONSTRING-Python equality before explicit public rawstat/time exclusions, no rounding/drop/schema/gatewaiver. OriginalActions33772FIRSTbody/noEXrefusal/tool0; watcher9141natural0/full8735out0err/BOTH EOF NOTglobalactor/physicalEX closure. ALLnewsource-check-review-42333280905-watch-acquisition-reportcomparison-FIRST4point/archivepublication COMPLETE_CONSUMED.
+
+Next genuinelyNEW ALL4literal math-link source/alias metadata intake BEFORE explicitlexicaltargetdeclaration/acquisition; no automaticexpand-follow/query-download-import-exec. ALL9cataloguepaths/BOTHlibc/5priorrefs+14INTERP exclusions/76NEEDED/15sources/19records/3plugins/unexpanded12link/v6deferred/ALLpriorledgers preserved NOTnewread/revalidation. OriginalUbuntu24/Dart3.13.5/Rust1.99/PATH/env/argv/credentials/recipes retained, setupUNADMITTED/allflagsFALSE/ownershipNone. No bootstrap/build/driver/perf/benchmark/numerical/Source20-runtime adoption. Fullactualoriginalpreflight BEFOREcandidateexecution; RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE/follow-upACTIVE.
+
+
 ## 2026-11-07: GCC entry dynamic reference intake
 
 NEW ALL76orderedNEEDED/14NULINTERP/15source source-alias metadata question COMPLETE_CONSUMED. Prior CP1962string scalars yields17matching records/1exact scalar, not absence/newness/alias/permission. Declared prior saved-assessment/local-evidence metadata locates retained45341Bloader catalogue/SHA55997c90be0a835b49635a4b5241e0f36d38ebe2bbf9ea151bc35d4a8299b993; FIRSTALL8-name lookup keepsALL9literal candidate lines/qualifiers/paths, including BOTHlibc variants without favorable ABI/version selection. No original query/body/parser/SDK refresh/Actions/acquisition replay.
