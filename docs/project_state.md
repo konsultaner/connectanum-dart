@@ -1,5 +1,16 @@
 # Project State
 
+## 2026-11-07: All1280 include-child source relationships
+
+FIRSTsaved-data intake ALL1280captured childrecords/49parents; originalmodes derive1199regular63directory18symlink/0other0unknown. PriorCP50nodes8322strings excluding current49acquisition/newintake:92childnames matched/1188unmatched/89namehexmatches; ALL18newtargetliteral+rawhex each0matches. ALLmatches/locations/offsets/nonmatches/duplicates retained; no aliasidentity/absence/newness/bodycoverage/access/ownership/effectivecompiler-sysroot-ABI/permission inference. Parent/child fields SEPARATE/no join/resolve/follow/query/recursion/bodyread-hash.
+
+Exactreport/index/result/CP sources declaredBEFOREcontentIO/fournewsameFD-O_NOFOLLOW/countSHA/stat bindings; report/index ONLYlocateoriginalrecords, notoldjournalcomparison/SDKrefresh. ALL1280originalnames-namehex-modes-types-UIDGID/fullstat-times/18NEWrawreadlinkbytes/literals protectedUNEXPANDED-UNFOLLOWED. Old210metadata/160lexical/original49DEFERREDflags unchanged vsNEW49queryepoch; oldtopncurses.h-curses.h rawhexNOTsavedNULL neverretrofilled fromnewchildrecords.
+
+Gemma49353naturalSIGNED0/full1411out192err/BOTH EOF/SAMEwaitmaycached; ROOTrejects ncursesw effective-dependency inference/genericAPI-change-point labels, retains1199/63/18 and92/1188/89/18target0 distinctions. AdvisoryNOTapproval/unavailability/relaunch/no advice-derivededit-test-query. [Evidence](research/2026-11-07-flatbuffers-include-child-entry-source-alias-intake.md):11selectedregular8original3explicitderivedmetadata, byteexactarchive 69025 B/SHA 0223b3e4e18dda176864d081cff79ebfaede23d97c62a5b096ebf6ec9c9c57c5. Originalfullresult6857245/SHAe827d803fc36a3d7f6e6e608370a01206224b949ecfabc93524108d108e6aaad savedBEFOREcompactconsole/wholeoriginalraw-JSONSTRING-PythonALLfield equality/gates beforederivedselection; fullrawPRIVATE. PointFD/read/stat/close NOTatomicABA-origin/pathchain/globalactorFD/continuousphysicalEX-crash admission; separateouterPID-EOFNULL.
+
+Next expresslydeclare ALL1199originalregular body-input scope/literalparent+SINGLEchildbasename NEWtext BEFOREIO; ALL63newchilddirsDEFERRED/ALL18symlinksUNEXPANDED-UNFOLLOWED/no recursion or queryauthorityfrommatches/nonmatches. ALLintake/model/publication CONSUMED; no replay/SDKquery/headerbody/Actions/build/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE/follow-upACTIVE.
+
+
 ## 2026-11-07: All49 include-directory metadata inputs
 
 ALL49originaldirectory records get expresslydeclared NEWliteralparent+singlebasename text BEFOREIO; original210metadata/160lexicalepochs/old49DEFERREDflags unchanged versusNEWqueryepoch. Actions42355093028/source7520bfd0c37d217e9e17d2b6be819aa32177b8a9/job128351335812 succeeds/all29oldjobs SKIPPED/30total.49present/1280onelevel childrecords/18NEWrawreadlinkbytehex-literals; childparent/name SEPARATE/no follow-recursion-childbodyopen/hash. Oldncurses.h-curses.h originalreadlinkhexNULL neverretrofilled.
