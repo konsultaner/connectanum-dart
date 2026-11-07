@@ -1,5 +1,16 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-07: First all160 physical-header interpretation
+
+FIRST bounded saved-data scan covers160headers/3387853bytes/84569physical lines from Actions42350609933. Exactsource/range declaration precedes bodyIO; report/index onlylocatesavedmembers.15313first-nonspace# physical candidates include576include-operand candidates:575raw-delimited/1macro-empty-other;2129backslash-newlines/all160UTF8/noNUL. Comments/splicing/macros/conditions/tokenization remain unevaluated; included/Z3_* candidates show why these are not established effective directives/dependencies. No string joining/resolution/follow/query/import/compile/execution.
+
+All210original metadata/separate-parent-name and laterlexicalepochs/49dirsDEFERRED/ncurses.h-curses.h UNEXPANDED-UNFOLLOWED/originalreadlinkhexNULL/allpriorledgers preservedNOTrevalidated. Gemma42653 naturalSIGNED0/full838out192err/BOTH EOF/SAMEwaitmaycached; ROOTcorrects160bodyfiles vs15313candidates and rejects unsupported newlyintroduced-binding comparison. AdvisoryNOTapproval/unavailability/relaunch/no advice-derivededit-test-query.
+
+[Evidence](../research/2026-11-07-flatbuffers-include-regular-interiors.md):14selectedregular11original3explicitderivedmetadata, byteexactarchive 64608 B/SHA 624576158970fddb043f05d5efd50d850e82e319313517fec4d1bee0043f922c. Wholeoriginal semantic-result raw/JSONSTRING/Python ALLfield equality/gates preserved beforederivedselection; fullrawPRIVATE. PointFD/countSHA/stat/close NOTatomicABA-origin/pathchain/effectivecompiler-sysroot/ABI-loadedcohort/drivercredentials/globalactorFD/continuousphysicalEX-crash admission; separateouterPID-EOFNULL.
+
+Next expresslydeclared saved-data ALL576operand-source/alias intake against original210basename fields only; no automaticjoin/normalize/aliasdedup/resolve/follow/effectivedependency inference. ALLnewmetadata/bodypattern-reader/model/publication CONSUMED; no replay/SDKquery/Actions/build/numerical/Source20-runtime adoption. AllsetupUNADMITTED/flagsFALSE/ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanCI INCOMPLETE; follow-upACTIVE.
+
+
 ## 2026-11-07: Include inputs and workflow size repair
 
 First source2eab286abe6c2e2497d4cdf814b81d001ae5323f/run42347134912 failed at startup:806230Bworkflow exceeds GitHub500KB;0jobs0artifacts0checkruns, BEFORElogs/report/headerbodies NULL forever. FIRST HTML35092 retains actual failure, no guessed cause or old run/watch/API replay. Minimal repair moves unchanged328210Bcollector/SHA62d02b31a6c724db8f99deb0ee98ab7378ae727ef79ac93d7dc8507c4d654d32 into a separate prep-source file. Workflow476626B/SHA897263b0fa289513cbaa2cbbf2785922b1012dc91efc93ee04710f281fd9ab5a; samepython3dashargv/restsettings, declaredregularfile stdin backing NOTidenticalFDtopology. All28oldjobs/all29job-topfields/originalworkflow bytes reversingONLYnewjobblock preserved.
