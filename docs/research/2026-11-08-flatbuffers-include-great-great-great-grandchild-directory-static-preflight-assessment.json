@@ -1,0 +1,550 @@
+{
+  "phase": "FIRST_NEW71_localSTATIC_BINDINGS_PASS_NO_TARGET_EXEC_SDKquery_Actions_NOTadmitted",
+  "scope": "FIRST saved-artifact STATIC source-literal/layout binding only; not target execution, SDK/Actions query, runtime admission or RAM repair",
+  "source_collector": {
+    "bytes": 79775955,
+    "sha256": "d960371450a3d235577b84de7777922b1bbf5d9c240297932deeab2ff216947c",
+    "role": "NEW71_collector_SOURCE"
+  },
+  "workflow": {
+    "bytes": 489851,
+    "sha256": "dcbcba1e7c5940a796c93cccc04ace777842ccf12832c74c2a2ab8ea5b6fe83f",
+    "role": "NEW40job_workflow_SOURCE"
+  },
+  "private_result_bytes": 170486,
+  "private_result_sha256": "906a70d6297025de4952c0eafa557d7ae3bfdfeb2d4a06e6e950918b1e08671a",
+  "private_whole_ALLfield_proof": {
+    "whole_RAWbytes_UTF8JSONSTRING_characters_equal": true,
+    "EVERY_standardPython_field_exhaustive_ordered_structure_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "ordered_event_counts": {
+      "object_start": 248,
+      "key": 2488,
+      "atom_str": 833,
+      "array_start": 66,
+      "atom_int": 1396,
+      "atom_bool": 287,
+      "object_end": 248,
+      "array_end": 66,
+      "atom_NoneType": 608
+    },
+    "total_ordered_events": 6240,
+    "UTF8_JSONSTRING_characters": 170486,
+    "all_original_private_fields_stat_times_FDcredentials_relationships_NULLs_UNCHANGED": true,
+    "no_public_projection_yet_no_oldproof_or_oracle_replay": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "proof_bytes": 1394,
+  "proof_sha256": "153daaf728aa385069d9cd6487d6dbba68c53920d397f1548b9ad176e2ccb5e8",
+  "layout": {
+    "classification": "EXPLICITLY_DERIVED_PUBLIC_METADATA_ONLY_original_full_private_fields_unchanged",
+    "input_bindings_native_order": [
+      {
+        "position_ZERO_based": 0,
+        "role": "NEWcontrolled_region_patchmap_METADATA",
+        "bytes": 1938,
+        "sha256": "f415e5b584be92690b0f5a4c4d14dab85eb90a7738b5f8140f05ab304ae62274",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      },
+      {
+        "position_ZERO_based": 1,
+        "role": "NEW71_collector_SOURCE",
+        "bytes": 79775955,
+        "sha256": "d960371450a3d235577b84de7777922b1bbf5d9c240297932deeab2ff216947c",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      },
+      {
+        "position_ZERO_based": 2,
+        "role": "NEW40job_workflow_SOURCE",
+        "bytes": 489851,
+        "sha256": "dcbcba1e7c5940a796c93cccc04ace777842ccf12832c74c2a2ab8ea5b6fe83f",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      },
+      {
+        "position_ZERO_based": 3,
+        "role": "NEW71_RAW_SOURCE_scope_noLF",
+        "bytes": 94092,
+        "sha256": "0556b6dd4da02409b69528e1647c93b8e80e9a01cad4d5ae7b078c98cb4fcf36",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      },
+      {
+        "position_ZERO_based": 4,
+        "role": "NEW71_encoded_runtime_metadata_packet",
+        "bytes": 33736361,
+        "sha256": "4e726dbbe773c51366f25c5193dfdd8587d9d0b535115bc08f6d207c29b47383",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      },
+      {
+        "position_ZERO_based": 5,
+        "role": "consumed_source_validation_METADATA_ONLY",
+        "bytes": 16047,
+        "sha256": "6cf596a23a39d7c55b27686f883bd9f964afc0b4c7eb410440db94b1baea809c",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      },
+      {
+        "position_ZERO_based": 6,
+        "role": "NEW39_SOURCEfalse_NEW40true_RAWproof_BYTEEXACT_REUSE_NOreevaluate",
+        "bytes": 19420,
+        "sha256": "64efe37a03e7347a63d880357cfe2d113277337df5d5f2cb65cd528777a664f5",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      },
+      {
+        "position_ZERO_based": 7,
+        "role": "NEW40job_block_source_ONLY",
+        "bytes": 1230,
+        "sha256": "084c1c4d3dff2189f2b6f4951dde3879e373358de29529f7780d7cc482df935b",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      },
+      {
+        "position_ZERO_based": 8,
+        "role": "consumed28883414event_codecproof_METADATA_ONLY_NOreexecute",
+        "bytes": 4648,
+        "sha256": "d932e6dc17d35839de0051c5c2710165c5f3969df34f4da25b0c68c8a13a83cf",
+        "sameFD_beforeafter_stat_countSHA_close_binding_private_retained": true
+      }
+    ],
+    "newcontrol_regions": [
+      {
+        "position_ZERO_based": 0,
+        "label": "NEW71_unique_OWN_output_namespace",
+        "range_ZERO_based_HALFOPEN": [
+          864585,
+          864702
+        ],
+        "bytes": 117,
+        "sha256": "c3265e79438ebd25db49052534ac50fe56f9d4293aa7dfe49a1f5ae3fc80270f"
+      },
+      {
+        "position_ZERO_based": 1,
+        "label": "NEW71_helpers_AFTER_original_save_json_before_original_main",
+        "range_ZERO_based_HALFOPEN": [
+          867328,
+          886889
+        ],
+        "bytes": 19561,
+        "sha256": "adf96223c7db7dbb90ef41d1a811ee98dffed0ca0a1c0111b0eb85cca9d0caec"
+      },
+      {
+        "position_ZERO_based": 2,
+        "label": "NEW71_loader_AFTER_all_old49_63_190_199_29guards_BEFORE_INPUTIO",
+        "range_ZERO_based_HALFOPEN": [
+          34769260,
+          79759663
+        ],
+        "bytes": 44990403,
+        "sha256": "c19d75b64d39a29cf4882dff1443397e96bd45aed156d84441d692bc61386bae"
+      },
+      {
+        "position_ZERO_based": 3,
+        "label": "NEW71_report_fields_separate_oldfields_unchanged",
+        "range_ZERO_based_HALFOPEN": [
+          79773737,
+          79774725
+        ],
+        "bytes": 988,
+        "sha256": "501e5ec19ddd3196a4bdcac485f02c364c1677d88f7be8f4223f10c85f66db4d"
+      }
+    ],
+    "ALL71_literalrefs_nativeorder_duplicates": [
+      "/usr/include/c++/12/ext/pb_ds/detail/binary_heap_",
+      "/usr/include/c++/12/ext/pb_ds/detail/splay_tree_",
+      "/usr/include/c++/12/ext/pb_ds/detail/pairing_heap_",
+      "/usr/include/c++/12/ext/pb_ds/detail/list_update_map_",
+      "/usr/include/c++/12/ext/pb_ds/detail/binomial_heap_",
+      "/usr/include/c++/12/ext/pb_ds/detail/rb_tree_map_",
+      "/usr/include/c++/12/ext/pb_ds/detail/tree_policy",
+      "/usr/include/c++/12/ext/pb_ds/detail/rc_binomial_heap_",
+      "/usr/include/c++/12/ext/pb_ds/detail/unordered_iterator",
+      "/usr/include/c++/12/ext/pb_ds/detail/binomial_heap_base_",
+      "/usr/include/c++/12/ext/pb_ds/detail/branch_policy",
+      "/usr/include/c++/12/ext/pb_ds/detail/hash_fn",
+      "/usr/include/c++/12/ext/pb_ds/detail/thin_heap_",
+      "/usr/include/c++/12/ext/pb_ds/detail/bin_search_tree_",
+      "/usr/include/c++/12/ext/pb_ds/detail/left_child_next_sibling_heap_",
+      "/usr/include/c++/12/ext/pb_ds/detail/cc_hash_table_map_",
+      "/usr/include/c++/12/ext/pb_ds/detail/pat_trie_",
+      "/usr/include/c++/12/ext/pb_ds/detail/eq_fn",
+      "/usr/include/c++/12/ext/pb_ds/detail/ov_tree_map_",
+      "/usr/include/c++/12/ext/pb_ds/detail/gp_hash_table_map_",
+      "/usr/include/c++/12/ext/pb_ds/detail/trie_policy",
+      "/usr/include/c++/12/ext/pb_ds/detail/list_update_policy",
+      "/usr/include/c++/12/ext/pb_ds/detail/resize_policy",
+      "/usr/include/c++/14/ext/pb_ds/detail/binary_heap_",
+      "/usr/include/c++/14/ext/pb_ds/detail/splay_tree_",
+      "/usr/include/c++/14/ext/pb_ds/detail/pairing_heap_",
+      "/usr/include/c++/14/ext/pb_ds/detail/list_update_map_",
+      "/usr/include/c++/14/ext/pb_ds/detail/binomial_heap_",
+      "/usr/include/c++/14/ext/pb_ds/detail/rb_tree_map_",
+      "/usr/include/c++/14/ext/pb_ds/detail/tree_policy",
+      "/usr/include/c++/14/ext/pb_ds/detail/rc_binomial_heap_",
+      "/usr/include/c++/14/ext/pb_ds/detail/unordered_iterator",
+      "/usr/include/c++/14/ext/pb_ds/detail/binomial_heap_base_",
+      "/usr/include/c++/14/ext/pb_ds/detail/branch_policy",
+      "/usr/include/c++/14/ext/pb_ds/detail/hash_fn",
+      "/usr/include/c++/14/ext/pb_ds/detail/thin_heap_",
+      "/usr/include/c++/14/ext/pb_ds/detail/bin_search_tree_",
+      "/usr/include/c++/14/ext/pb_ds/detail/left_child_next_sibling_heap_",
+      "/usr/include/c++/14/ext/pb_ds/detail/cc_hash_table_map_",
+      "/usr/include/c++/14/ext/pb_ds/detail/pat_trie_",
+      "/usr/include/c++/14/ext/pb_ds/detail/eq_fn",
+      "/usr/include/c++/14/ext/pb_ds/detail/ov_tree_map_",
+      "/usr/include/c++/14/ext/pb_ds/detail/gp_hash_table_map_",
+      "/usr/include/c++/14/ext/pb_ds/detail/trie_policy",
+      "/usr/include/c++/14/ext/pb_ds/detail/list_update_policy",
+      "/usr/include/c++/14/ext/pb_ds/detail/resize_policy",
+      "/usr/include/c++/13/ext/pb_ds/detail/binary_heap_",
+      "/usr/include/c++/13/ext/pb_ds/detail/splay_tree_",
+      "/usr/include/c++/13/ext/pb_ds/detail/pairing_heap_",
+      "/usr/include/c++/13/ext/pb_ds/detail/list_update_map_",
+      "/usr/include/c++/13/ext/pb_ds/detail/binomial_heap_",
+      "/usr/include/c++/13/ext/pb_ds/detail/rb_tree_map_",
+      "/usr/include/c++/13/ext/pb_ds/detail/tree_policy",
+      "/usr/include/c++/13/ext/pb_ds/detail/rc_binomial_heap_",
+      "/usr/include/c++/13/ext/pb_ds/detail/unordered_iterator",
+      "/usr/include/c++/13/ext/pb_ds/detail/binomial_heap_base_",
+      "/usr/include/c++/13/ext/pb_ds/detail/branch_policy",
+      "/usr/include/c++/13/ext/pb_ds/detail/hash_fn",
+      "/usr/include/c++/13/ext/pb_ds/detail/thin_heap_",
+      "/usr/include/c++/13/ext/pb_ds/detail/bin_search_tree_",
+      "/usr/include/c++/13/ext/pb_ds/detail/left_child_next_sibling_heap_",
+      "/usr/include/c++/13/ext/pb_ds/detail/cc_hash_table_map_",
+      "/usr/include/c++/13/ext/pb_ds/detail/pat_trie_",
+      "/usr/include/c++/13/ext/pb_ds/detail/eq_fn",
+      "/usr/include/c++/13/ext/pb_ds/detail/ov_tree_map_",
+      "/usr/include/c++/13/ext/pb_ds/detail/gp_hash_table_map_",
+      "/usr/include/c++/13/ext/pb_ds/detail/trie_policy",
+      "/usr/include/c++/13/ext/pb_ds/detail/list_update_policy",
+      "/usr/include/c++/13/ext/pb_ds/detail/resize_policy",
+      "/usr/include/php/20230831/ext/igbinary/src/php7",
+      "/usr/include/php/20230831/ext/mbstring/libmbfl/mbfl"
+    ],
+    "imports_METADATA_ONLY": [
+      {
+        "module_literal": "gzip",
+        "helper_relative_byte_positions": [
+          89
+        ],
+        "metadata_ONLY_not_loaded_delegate_effectiveABI_or_access": true
+      },
+      {
+        "module_literal": "base64",
+        "helper_relative_byte_positions": [
+          101
+        ],
+        "metadata_ONLY_not_loaded_delegate_effectiveABI_or_access": true
+      },
+      {
+        "module_literal": "zlib",
+        "helper_relative_byte_positions": [
+          115
+        ],
+        "metadata_ONLY_not_loaded_delegate_effectiveABI_or_access": true
+      },
+      {
+        "module_literal": "codecs",
+        "helper_relative_byte_positions": [
+          127,
+          309
+        ],
+        "metadata_ONLY_not_loaded_delegate_effectiveABI_or_access": true
+      }
+    ],
+    "helper_definition_locations_ONLY": [
+      {
+        "literal": "NEW71_BoundedJSON",
+        "helper_relative_byte_position": 494,
+        "not_target_import_or_execution": true
+      },
+      {
+        "literal": "NEW71CompressedUTF8",
+        "helper_relative_byte_position": 9409,
+        "not_target_import_or_execution": true
+      },
+      {
+        "literal": "NEW71PacketWire",
+        "helper_relative_byte_position": 11161,
+        "not_target_import_or_execution": true
+      },
+      {
+        "literal": "NEW71_save_exact_metadata_bytes",
+        "helper_relative_byte_position": 7431,
+        "not_target_import_or_execution": true
+      },
+      {
+        "literal": "NEW71_validate_owned_literal_history",
+        "helper_relative_byte_position": 13800,
+        "not_target_import_or_execution": true
+      }
+    ],
+    "old_scope_lexical_locations_NOTproof_replay": [
+      {
+        "scope_literal": "PRIOR_DIRECTORY_REFERENCES",
+        "original_declared_count_METADATA": 49,
+        "ALL_token_byte_positions_BEFORE_NEWloader": [
+          863972,
+          864146
+        ],
+        "actual_lexical_assert_rows_BEFORE_NEWloader": [
+          {
+            "range": [
+              864135,
+              864256
+            ],
+            "raw_UTF8": "assert len(PRIOR_DIRECTORY_REFERENCES) == 49 and len(DIRECTORY_REFERENCES) == 63 and len(set(DIRECTORY_REFERENCES)) == 63"
+          }
+        ],
+        "old_scope_proof_NOTreevaluated": true
+      },
+      {
+        "scope_literal": "PRIOR_CHILD_DIRECTORY_REFERENCES",
+        "original_declared_count_METADATA": 63,
+        "ALL_token_byte_positions_BEFORE_NEWloader": [
+          1621067,
+          1621239
+        ],
+        "actual_lexical_assert_rows_BEFORE_NEWloader": [
+          {
+            "range": [
+              1621224,
+              1621315
+            ],
+            "raw_UTF8": "    assert len(PRIOR_CHILD_DIRECTORY_REFERENCES) == 63 and len(DIRECTORY_REFERENCES) == 190"
+          }
+        ],
+        "old_scope_proof_NOTreevaluated": true
+      },
+      {
+        "scope_literal": "PRIOR_GRANDCHILD_DIRECTORY_REFERENCES",
+        "original_declared_count_METADATA": 190,
+        "ALL_token_byte_positions_BEFORE_NEWloader": [
+          6914612,
+          6914781
+        ],
+        "actual_lexical_assert_rows_BEFORE_NEWloader": [
+          {
+            "range": [
+              6914766,
+              6914863
+            ],
+            "raw_UTF8": "    assert len(PRIOR_GRANDCHILD_DIRECTORY_REFERENCES) == 190 and len(DIRECTORY_REFERENCES) == 199"
+          }
+        ],
+        "old_scope_proof_NOTreevaluated": true
+      },
+      {
+        "scope_literal": "PRIOR_GREAT_GREAT_GRANDCHILD_DIRECTORY_REFERENCES",
+        "original_declared_count_METADATA": 199,
+        "ALL_token_byte_positions_BEFORE_NEWloader": [
+          34767406,
+          34767585
+        ],
+        "actual_lexical_assert_rows_BEFORE_NEWloader": [
+          {
+            "range": [
+              34767570,
+              34767678
+            ],
+            "raw_UTF8": "    assert len(PRIOR_GREAT_GREAT_GRANDCHILD_DIRECTORY_REFERENCES) == 199 and len(DIRECTORY_REFERENCES) == 29"
+          }
+        ],
+        "old_scope_proof_NOTreevaluated": true
+      }
+    ],
+    "original29_lexical_guards_BEFORE_NEWloader": [
+      {
+        "range": [
+          34767570,
+          34767678
+        ],
+        "raw_UTF8": "    assert len(PRIOR_GREAT_GREAT_GRANDCHILD_DIRECTORY_REFERENCES) == 199 and len(DIRECTORY_REFERENCES) == 29"
+      }
+    ],
+    "new_loader_range": [
+      34769260,
+      79759663
+    ],
+    "new_loader_metadata_order_BEFORE_INPUT_IO": [
+      {
+        "literal": "    NEW71_scope_written = NEW71_save_exact_metadata_bytes(\"NEW71-scope-before-INPUT-IO.json\", NEW71_SOURCE_RAW)",
+        "absolute_source_byte_position": 34774324
+      },
+      {
+        "literal": "    NEW71_packet_written = NEW71_save_exact_metadata_bytes(\"NEW71-exact-wire-fragment-packet-original.json.gz\", NEW71_PACKET_RAW)",
+        "absolute_source_byte_position": 79758791
+      },
+      {
+        "literal": "    NEW71_history_before_INPUTIO = NEW71_validate_owned_literal_history(NEW71_PACKET_ROW, NEW71_RUNTIME_ROW, NEW71_DIRECTORY_REFERENCES, NEW71_EXPECTED_GROUPCOUNTS)",
+        "absolute_source_byte_position": 79759072
+      },
+      {
+        "literal": "    NEW71_history_written = save_json(\"NEW71-actual-runtime-metadata-guard-before-INPUT-IO.json\", NEW71_history_before_INPUTIO)",
+        "absolute_source_byte_position": 79759237
+      },
+      {
+        "literal": "    DIRECTORY_REFERENCES = NEW71_DIRECTORY_REFERENCES",
+        "absolute_source_byte_position": 79759365
+      }
+    ],
+    "original_directory_INPUTloop_positions": [
+      79759685
+    ],
+    "new_report71_keys": [
+      "NEW71_saved_SOURCE_all_fields_UNCHANGED_old_DEFERRED_flags_not_retrofilled",
+      "NEW71_scope_written_BEFORE_INPUT_IO",
+      "NEW71_all_prior_49_63_190_199_29_scopes_separate_NOT_requeried",
+      "NEW71_actual_one_level_directory_queries_NEW_epoch",
+      "NEW71_exact_original_runtime_metadata_packet_losslessly_retained",
+      "NEW71_actual_runtime_metadata_guard_before_INPUT_IO_NEWfacts",
+      "NEW71_actual_runtime_metadata_guard_saved_before_INPUT_IO",
+      "NEW71_metadata_encoding_NOT_SDKbodytransport_RAMrepair_cleanup_schemawaiver",
+      "NEW71_scoped_nonmatches_NOT_alias_ABI_ownership_querypermission_globalnoreplayproof",
+      "NEW71_all_admission_flags",
+      "NEW71_ownership"
+    ],
+    "new_report71_field_count": 11,
+    "actual_scope_literal_binding": {
+      "literal_byte_range_WITHIN_NEWloader": [
+        310,
+        4046
+      ],
+      "literal_base64_bytes": 3736,
+      "decoded_bytes": 94092,
+      "decoded_sha256": "0556b6dd4da02409b69528e1647c93b8e80e9a01cad4d5ae7b078c98cb4fcf36",
+      "whole_RAWbytes_UTF8JSONSTRING_EVERYstandardPythonfield_equal_to_bound_SOURCE": true,
+      "SOURCE_terminal_LF": false
+    },
+    "actual_packet_literal_binding": {
+      "literal_byte_range_WITHIN_NEWloader": [
+        7540,
+        44989356
+      ],
+      "literal_base64_bytes": 44981816,
+      "decoded_bytes": 33736361,
+      "decoded_sha256": "4e726dbbe773c51366f25c5193dfdd8587d9d0b535115bc08f6d207c29b47383",
+      "all_encoded_bytes_equal_bound_packet": true,
+      "packet_decompression_runtime_codec_reexecution": false
+    },
+    "new_job_collector_ref": ".github/collectors/pr132_include_great_great_great_grandchild_directory71_inputs.py",
+    "new_job_uploader_ref": "${{ runner.temp }}/native-perf-include-great-great-great-grandchild-directory71-inputs",
+    "new_campaign_literal": "flatbuffers_include_great_great_great_grandchild_directory71_inputs",
+    "original_full_stat_times_FDcredentials_privatecontexts_excluded_ONLY_public_projection": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "qualification": {
+    "classification": "EXPLICITLY_DERIVED_PUBLIC_METADATA_ONLY",
+    "runtime_preproof_original_STATIC_NULLs_immutable": {
+      "workflow_revision": null,
+      "run_id": null,
+      "observations": null,
+      "collector_credentials": null,
+      "collector_cwd": null,
+      "collector_argv": null,
+      "collector_interpreter_reference": null,
+      "directory_SOURCE_INPUT_opens": null,
+      "directory_SOURCE_INPUT_entrymetadata": null,
+      "remaining_known_input_output_FDs": null
+    },
+    "actual_new39_job_SKIPs_UNMEASURED": null,
+    "conditionproof_19420_64efe_reused_BYTEEXACT_NOreevaluate": true,
+    "original_parsed_jobs33_STALE_inheritedall199label_UNMODIFIED": true,
+    "whole_runtime_28883414event_and9GB379622015event_proof_bodies_NOTreplayed": true,
+    "rawSOURCE94092_noLF_and33736361encoded_packet_actual_literal_BINDINGS_PASS": true,
+    "all71_SDKdirectories_DEFERRED": true,
+    "all_old_links_epochs_ledgers_NULLs_unchanged": true,
+    "readlink_counts_matchlists_nonmatchlists_UNPERFORMED_NULL_not0_vs0eligible_THIS446dataset_separate": true,
+    "alias_identity": null,
+    "query_permission": null,
+    "sameFD_point_stat_countSHA_readback_NOTatomicABA_originalcredentials_access_effectiveABI_continuousphysicalEX_crash_admission": true,
+    "no_Source20_runtime_edits_imports_tests_build_native_SDKquery_Actions_sourcepublication_dispatch_adoption_numerical_cleanup": true,
+    "no_new_model_call_and_no_unchanged_NOFINALANSWER_review_retry": true,
+    "pre_native_JS_parse_errors": [
+      {
+        "phase": "PURE_JS_PARSE_ERROR_BEFORE_ANY_NATIVE_STATIC_REQUEST_NAMESPACE_IO",
+        "error": "SyntaxError: Unexpected token '.'",
+        "cause": "Unescaped dollar-brace sequence in prospective Python source template at uploader literal",
+        "original_failed_assembled_controller_bytes": null,
+        "original_failed_assembled_controller_sha256": null,
+        "no_native_body_or_namespace_entered": true,
+        "no_missing_raw_reconstruction": true
+      },
+      {
+        "phase": "PURE_JS_PARSE_ERROR_BEFORE_ANY_NATIVE_PUBLICATION_REQUEST_NAMESPACE_IO",
+        "error": "SyntaxError: Unexpected identifier 'd960371450a3d235577b84de7777922b1bbf5d9c240297932deeab2ff216947c'",
+        "cause": "Markdown backtick in prospective JavaScript source-template literal",
+        "failed_assembled_controller_bytes": null,
+        "failed_assembled_controller_sha256": null,
+        "no_native_or_namespace_entered": true,
+        "no_missing_raw_reconstruction": true
+      }
+    ],
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "archive": {
+    "repository_ref": "docs/research/2026-11-08-flatbuffers-include-great-great-great-grandchild-directory-static-preflight-evidence.tar.gz",
+    "bytes": 17904,
+    "sha256": "0989b07cec12121cff3c790e7d4480c6775d364db7458508fe4ed6cb24703f55",
+    "members": [
+      {
+        "position_ZERO_based": 0,
+        "name": "originals/declaration.json",
+        "bytes": 5274,
+        "sha256": "b4a4f138890b17cec9329d26c680bdd6a97d2c93dc45c01ea2609203e1a4e081",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 1,
+        "name": "originals/controller.py",
+        "bytes": 21322,
+        "sha256": "4ae0ac7fa3312a675e1ff0b9053ea4a0ece16d73093d2e50334bf780aaff79a7",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 2,
+        "name": "originals/completion-descriptor.json",
+        "bytes": 1724,
+        "sha256": "f68d72bf4e3bff81a059027875eea647e7c811e3e5a93f1a0201c6e9396a93cd",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 3,
+        "name": "originals/whole-ALLfield-proof.json",
+        "bytes": 1394,
+        "sha256": "153daaf728aa385069d9cd6487d6dbba68c53920d397f1548b9ad176e2ccb5e8",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 4,
+        "name": "originals/actual-ROOT-request-launch-poll-qualification.json",
+        "bytes": 57705,
+        "sha256": "0b5552a180ddb3010995b8e9a05102f8556fdbbddd74f5c020276c379d3f2eae",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 5,
+        "name": "derived/actual-source-layout.json",
+        "bytes": 15412,
+        "sha256": "cc4dec8727fb3f99f26fbf3f08a75af046bbb3378b90ad81a3c95239892a5546",
+        "kind": "EXPLICITLY_DERIVED_METADATA"
+      },
+      {
+        "position_ZERO_based": 6,
+        "name": "derived/ROOT-qualification.json",
+        "bytes": 2494,
+        "sha256": "2599dc12d7a61c4e72180e3620f574e8cfa0d91f22ed22bc3ec8c277602e2272",
+        "kind": "EXPLICITLY_DERIVED_METADATA"
+      }
+    ],
+    "regular_selected": 7,
+    "originals": 5,
+    "EXPLICITLY_derived_metadata": 2,
+    "not_full_private_directory_generatedpayload_Source20_runtime_package": true
+  },
+  "original39_to40_SOURCEproof_reused_bytes": 19420,
+  "original39_to40_SOURCEproof_reused_sha256": "64efe37a03e7347a63d880357cfe2d113277337df5d5f2cb65cd528777a664f5",
+  "all_setup_UNADMITTED": true,
+  "RAMrepair_original_immutable_admission_FINALstrict48_50_clean_finalCI_INCOMPLETE": true,
+  "all_admission_flags": false,
+  "ownership": null
+}
