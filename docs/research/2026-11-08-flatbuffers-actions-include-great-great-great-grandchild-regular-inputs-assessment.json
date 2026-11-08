@@ -1,0 +1,3374 @@
+{
+  "source_commit": "5a187768a0cb8ec1caa325ecb62bba4e7996efed",
+  "parent_source": "15c9dfa154d0985fcf75b7ebc6d2b02808cfbe9b",
+  "branch": "codex/pr132-actions-include-great-great-great-grandchild-regular-inputs-20261108",
+  "run_id": 42434499630,
+  "run_url": "https://github.com/konsultaner/connectanum-dart/actions/runs/42434499630",
+  "job_id": 128590360371,
+  "ALL38_previous_jobs": "skipped_not_rerun",
+  "parsed_and_actual_jobs": 39,
+  "artifact_id": 13599461399,
+  "artifact_bytes": 64525814,
+  "artifact_sha256": "84948ff1caf80c351a1d901a6a388fabb66509316c02812f353c15677a13be95",
+  "job_log_bytes": 39685,
+  "job_log_sha256": "c55a07e46574f4506cd9e0a4985a2ceccc44bc4ec1f9b79c882b7626aee1cb10",
+  "report_bytes": 677905776,
+  "report_sha256": "b5d647e5f97127b17a2d465174990f7b09becc48bf43a6cc1f5bf2382841008f",
+  "present_regular_streams": 375,
+  "absent_at_open_only": [],
+  "total_new_regular_stream_bytes": 1697754,
+  "all_admission_flags": false,
+  "ownership": null,
+  "result_saved": "ROOT-NEW-ALL375-regular-great-great-great-grandchild-input-assessment-PRIVATE.json",
+  "result_bytes": 713531338,
+  "result_sha256": "6132f2b63dd48842e41c8e0439a3bc46a52cb527b85086438e366c9d38f33e95",
+  "ALL375_EXPLICITLY_DERIVED_public_safe_regular_streams": [
+    {
+      "source_ordinal_ZERO_based": 0,
+      "source_reference": "/usr/include/c++/12/ext/pb_ds/detail/tree_trace_base.hpp",
+      "saved_member": "input-00.bin",
+      "bytes": 5153,
+      "sha256": "ba4750b1fcae10ccda5a550b843b84c47979985c0e57ce5aaa19a0d44cf80f76",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 1,
+      "source_reference": "/usr/include/c++/12/ext/pb_ds/detail/types_traits.hpp",
+      "saved_member": "input-01.bin",
+      "bytes": 6451,
+      "sha256": "472c72ffb959a6f487e1001cf1430d5821b5c7744030a21f4c0d2ae3d1ebf034",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 2,
+      "source_reference": "/usr/include/c++/12/ext/pb_ds/detail/type_utils.hpp",
+      "saved_member": "input-02.bin",
+      "bytes": 4318,
+      "sha256": "f776f27e67a51578a836faaecfd4a4e10678da12b0436d05b5a0e6c5da72fb27",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 3,
+      "source_reference": "/usr/include/c++/12/ext/pb_ds/detail/container_base_dispatch.hpp",
+      "saved_member": "input-03.bin",
+      "bytes": 13120,
+      "sha256": "c1ff4f4cd45096ea029de1e830cb8293b6161a0dc0e1b594666c1d2e2ad05fbf",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 4,
+      "source_reference": "/usr/include/c++/12/ext/pb_ds/detail/debug_map_base.hpp",
+      "saved_member": "input-04.bin",
+      "bytes": 8697,
+      "sha256": "1e2267a5e6b834c7ea2a51873870354b4334aef9b1bb46004f7792402e4c0242",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 5,
+      "source_reference": "/usr/include/c++/12/ext/pb_ds/detail/priority_queue_base_dispatch.hpp",
+      "saved_member": "input-05.bin",
+      "bytes": 4198,
+      "sha256": "9b41321d0226063404b06ec6356324d302d1a45e69237e4165986acc1628623f",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 6,
+      "source_reference": "/usr/include/c++/12/ext/pb_ds/detail/cond_dealtor.hpp",
+      "saved_member": "input-06.bin",
+      "bytes": 2772,
+      "sha256": "457718c29322f888cc8b709642e19d2a7de06caf25e269bbad3c310aa21faa59",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 7,
+      "source_reference": "/usr/include/c++/12/ext/pb_ds/detail/standard_policies.hpp",
+      "saved_member": "input-07.bin",
+      "bytes": 5031,
+      "sha256": "7162dc039df6e0fffd27dc9860b7933cf7098b3048efc0a81adb27f98fa0fcad",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 8,
+      "source_reference": "/usr/include/c++/14/ext/pb_ds/detail/tree_trace_base.hpp",
+      "saved_member": "input-08.bin",
+      "bytes": 5153,
+      "sha256": "6a630045b2f34ac1fb33d57ada5a7edc3db785799dd54778c8d3b32be18c93f6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 9,
+      "source_reference": "/usr/include/c++/14/ext/pb_ds/detail/types_traits.hpp",
+      "saved_member": "input-09.bin",
+      "bytes": 6451,
+      "sha256": "3b8f73f8c685605ef4e73ebb5441e4d0b579b519196a71608d89c208f0dbe389",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 10,
+      "source_reference": "/usr/include/c++/14/ext/pb_ds/detail/type_utils.hpp",
+      "saved_member": "input-10.bin",
+      "bytes": 4354,
+      "sha256": "0e44f5950dd92b4472f34c38a12c03b81d9b061bca3540a241a6622d54f952b5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 11,
+      "source_reference": "/usr/include/c++/14/ext/pb_ds/detail/container_base_dispatch.hpp",
+      "saved_member": "input-11.bin",
+      "bytes": 13120,
+      "sha256": "f7f1e1fad54b46a95ad7f86692c8bc804f277b57968ce4edc055569b629ec5af",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 12,
+      "source_reference": "/usr/include/c++/14/ext/pb_ds/detail/debug_map_base.hpp",
+      "saved_member": "input-12.bin",
+      "bytes": 8697,
+      "sha256": "f33b500ab0154eacde5e4178b38a7e8125654b6bbb0c6237636cb86aa8babf5e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 13,
+      "source_reference": "/usr/include/c++/14/ext/pb_ds/detail/priority_queue_base_dispatch.hpp",
+      "saved_member": "input-13.bin",
+      "bytes": 4198,
+      "sha256": "627ff65beb91c425650de2df6345088634f774478a463b7441a63e96f1d8ea9d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 14,
+      "source_reference": "/usr/include/c++/14/ext/pb_ds/detail/cond_dealtor.hpp",
+      "saved_member": "input-14.bin",
+      "bytes": 2772,
+      "sha256": "b9b50862b33222379c8a4ce007eff52a4d8e4dcae8879a4782997053b401b3f0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 15,
+      "source_reference": "/usr/include/c++/14/ext/pb_ds/detail/standard_policies.hpp",
+      "saved_member": "input-15.bin",
+      "bytes": 5031,
+      "sha256": "a40631f2969d7fd4fe9ba4b519a3f96aff210e27b1df00f3692dad1730d1e8ca",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 16,
+      "source_reference": "/usr/include/c++/13/ext/pb_ds/detail/tree_trace_base.hpp",
+      "saved_member": "input-16.bin",
+      "bytes": 5153,
+      "sha256": "e0a2f26bbb9e8da86c46c5303fffa3b809d63fd77b9585d54d5d697a0d6829a7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 17,
+      "source_reference": "/usr/include/c++/13/ext/pb_ds/detail/types_traits.hpp",
+      "saved_member": "input-17.bin",
+      "bytes": 6451,
+      "sha256": "9c07535b436dbcc2c7b6b00ed7b998ece9bfdbf48cbf9dc4665e1d2e09977e51",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 18,
+      "source_reference": "/usr/include/c++/13/ext/pb_ds/detail/type_utils.hpp",
+      "saved_member": "input-18.bin",
+      "bytes": 4354,
+      "sha256": "c1ac6561c85e15b25eaee3801eb380226bfb0fe15003e412d80fba3ef7629a58",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 19,
+      "source_reference": "/usr/include/c++/13/ext/pb_ds/detail/container_base_dispatch.hpp",
+      "saved_member": "input-19.bin",
+      "bytes": 13120,
+      "sha256": "777b22aeb08099651c315c0652973c9cdaddab07ba147dae9298f9b6dfd061b7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 20,
+      "source_reference": "/usr/include/c++/13/ext/pb_ds/detail/debug_map_base.hpp",
+      "saved_member": "input-20.bin",
+      "bytes": 8697,
+      "sha256": "bfaf3720961bb9a8015edeecea84b08c5c3386df2440dbbe1c806b8b51376c65",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 21,
+      "source_reference": "/usr/include/c++/13/ext/pb_ds/detail/priority_queue_base_dispatch.hpp",
+      "saved_member": "input-21.bin",
+      "bytes": 4198,
+      "sha256": "00581939b9cef05b94472506cda0e6d9a1cdc78015b67741b32b22e36c704872",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 22,
+      "source_reference": "/usr/include/c++/13/ext/pb_ds/detail/cond_dealtor.hpp",
+      "saved_member": "input-22.bin",
+      "bytes": 2772,
+      "sha256": "accedcc6bf724dfe3b9a74eb6149e8186af2db9788acefd16615fc98d6bd617a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 23,
+      "source_reference": "/usr/include/c++/13/ext/pb_ds/detail/standard_policies.hpp",
+      "saved_member": "input-23.bin",
+      "bytes": 5031,
+      "sha256": "cce91d39fb3df475b7e0d7c3784128f37510d71cd7d3456c161ff07e4e1f4eec",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 24,
+      "source_reference": "/usr/include/llvm-16/llvm/Support/Solaris/sys/regset.h",
+      "saved_member": "input-24.bin",
+      "bytes": 844,
+      "sha256": "e49db6d761d9c1d0b1829f4873429171ae9d6501855d6e10ec66fac96a50cbe2",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 25,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/TargetProcess/RegisterEHFrames.h",
+      "saved_member": "input-25.bin",
+      "bytes": 1655,
+      "sha256": "4c8c9b63f214b93bee92f5424409c9c63708049cd3e476f4f4589aae0611f743",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 26,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/TargetProcess/ExecutorBootstrapService.h",
+      "saved_member": "input-26.bin",
+      "bytes": 1206,
+      "sha256": "9fbdab2f23c61cddb78506a2d0fa31e4cb51c32ea16b47503a065b39818098a0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 27,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/TargetProcess/SimpleExecutorDylibManager.h",
+      "saved_member": "input-27.bin",
+      "bytes": 2244,
+      "sha256": "b168eaceae0a900b6236a8a46a13ee4e8daabd44598e4865dfb51b5bb041a743",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 28,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/TargetProcess/SimpleExecutorMemoryManager.h",
+      "saved_member": "input-28.bin",
+      "bytes": 2346,
+      "sha256": "20e0bb0688112cd64db597274721830a063fd9cb0f8cc8562b00f5c36f9c58b8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 29,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/TargetProcess/ExecutorSharedMemoryMapperService.h",
+      "saved_member": "input-29.bin",
+      "bytes": 2590,
+      "sha256": "6233c4d610baedebe7c4b0879db1ab8e6e520482286044c639263df57833e9f8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 30,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/TargetProcess/JITLoaderGDB.h",
+      "saved_member": "input-30.bin",
+      "bytes": 1054,
+      "sha256": "a60450b9cd301695d6894c933903b211534b19a406119b5efd52103aa130c105",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 31,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/TargetProcess/TargetExecutionUtils.h",
+      "saved_member": "input-31.bin",
+      "bytes": 1499,
+      "sha256": "2a726158368f475e3d1aab3518f610257cb83d81eccee9a9a5b359fecbf351e5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 32,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/TargetProcess/SimpleRemoteEPCServer.h",
+      "saved_member": "input-32.bin",
+      "bytes": 6529,
+      "sha256": "b0d4ea4f9831623494536ff75614584720d019a7352739282db2ce3f0c329722",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 33,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/OrcError.h",
+      "saved_member": "input-33.bin",
+      "bytes": 2111,
+      "sha256": "b9e21cb7324ce5423353c38654cd65743e8d3cda236cf54df1645cd31be31989",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 34,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h",
+      "saved_member": "input-34.bin",
+      "bytes": 28207,
+      "sha256": "c3589d71e48cc39ff17f2fcfa1aabf8eb65436efb2432c7d44f796dc4e4f9235",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 35,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/SimplePackedSerialization.h",
+      "saved_member": "input-35.bin",
+      "bytes": 25046,
+      "sha256": "a8f06b5d6bcd1cfa0b5931960fee16cc9897d17ff8b16be876eba1396047c158",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 36,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/OrcRTBridge.h",
+      "saved_member": "input-36.bin",
+      "bytes": 4341,
+      "sha256": "5505f3b8f18abfd4237a25c6275e13dceaf5db4a9b6220253b04dbf9d1d416e9",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 37,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/ExecutorAddress.h",
+      "saved_member": "input-37.bin",
+      "bytes": 9788,
+      "sha256": "4c618ae0ee6c5e03a3cf327d7b5874e7451f055a5900aa9937bfe9df566acde5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 38,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h",
+      "saved_member": "input-38.bin",
+      "bytes": 9389,
+      "sha256": "270b0b72dec2d2c78f527f1896b5c092500134878adef816ca2f8a6733ea177a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 39,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/SimpleRemoteEPCUtils.h",
+      "saved_member": "input-39.bin",
+      "bytes": 8015,
+      "sha256": "d2039efa4c207ffd1bbca8f30128f9f8bd4b8554e750e2af03bc731bbffef2cb",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 40,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/AllocationActions.h",
+      "saved_member": "input-40.bin",
+      "bytes": 3699,
+      "sha256": "047881d99f911a90a897da51cbb620b1d1f4dc396828f31fbb9748c7c8aef6f3",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 41,
+      "source_reference": "/usr/include/llvm-16/llvm/ExecutionEngine/Orc/Shared/MemoryFlags.h",
+      "saved_member": "input-41.bin",
+      "bytes": 7222,
+      "sha256": "2dcd7a437fe6948983782189e11e08faed6856620e5858e0fc2158b8eaa7f971",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 42,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVElement.h",
+      "saved_member": "input-42.bin",
+      "bytes": 11674,
+      "sha256": "e2e97c38ab17068cf079660d991fdba8b884b7a160c479898139099cd29ad004",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 43,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVOptions.h",
+      "saved_member": "input-43.bin",
+      "bytes": 22259,
+      "sha256": "92fbd5ea1cd5c04f364b007f8c67c6306544d4a7b0f223720789a359256fbe06",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 44,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVObject.h",
+      "saved_member": "input-44.bin",
+      "bytes": 12468,
+      "sha256": "c5cb1aa54ecfe82e02c710edaf08afb4dab5d27caba1df6c79af9db96e87e4f4",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 45,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVSymbol.h",
+      "saved_member": "input-45.bin",
+      "bytes": 6761,
+      "sha256": "9d0801adc63134450118830cf608b92bcfb3cae8e9fd02e8b675a57974e4608b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 46,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVScope.h",
+      "saved_member": "input-46.bin",
+      "bytes": 30353,
+      "sha256": "bb9c02c70ae7df4e677c8a1359d264af1555dbbb0f8b3c85ee815f8cd9c0d2ea",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 47,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVType.h",
+      "saved_member": "input-47.bin",
+      "bytes": 9468,
+      "sha256": "348df94e1447b0de0183d154384a3519ae5451fad57d3c36882891d41538e56c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 48,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVSort.h",
+      "saved_member": "input-48.bin",
+      "bytes": 1861,
+      "sha256": "8ecb50bd6a38ee6fb96ae038da4b7174b2580fdebf2f62c714faf7d9cf447d55",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 49,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVSupport.h",
+      "saved_member": "input-49.bin",
+      "bytes": 10986,
+      "sha256": "828fb45c8d03160361989135f224ee94ac0635a2c287949fc796a2190fa3b35d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 50,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVRange.h",
+      "saved_member": "input-50.bin",
+      "bytes": 3091,
+      "sha256": "d028e0fba4d82695796b8f4c634bf5cc3f22b210a53965d37757415fdf2ad815",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 51,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVLine.h",
+      "saved_member": "input-51.bin",
+      "bytes": 5644,
+      "sha256": "fb9b4c06e22d1e3a00db3168b62ebf0139a8ad082b90ce148490fe9f8ef502e6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 52,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVStringPool.h",
+      "saved_member": "input-52.bin",
+      "bytes": 2934,
+      "sha256": "fb2bc5b8c7c3ba39e4881599343da03c16a5e38d6431a489d9d1c6a1680ca0a0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 53,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVReader.h",
+      "saved_member": "input-53.bin",
+      "bytes": 7943,
+      "sha256": "cb3b625005824c07fe4339600b53ea456aa41995f0c4cf35b149c4365ddb8891",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 54,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVCompare.h",
+      "saved_member": "input-54.bin",
+      "bytes": 2907,
+      "sha256": "0105b7099a76f58defa325e6ee80e72e3f24b36ab5193930f38d20397eb45987",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 55,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Core/LVLocation.h",
+      "saved_member": "input-55.bin",
+      "bytes": 6729,
+      "sha256": "96f197ec191f6ed4cee01e9a85dc2e0fd75d14a08817622a54fdef31d618052b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 56,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Readers/LVBinaryReader.h",
+      "saved_member": "input-56.bin",
+      "bytes": 6934,
+      "sha256": "0effc5220107eed9bb2011065db10e530caa608cd7a6e54cb5beae0180d50e7a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 57,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/LogicalView/Readers/LVELFReader.h",
+      "saved_member": "input-57.bin",
+      "bytes": 5588,
+      "sha256": "eb939ca5a6577fcc9c03ca4069f6553d0f49f2cfaa57e21ac52ed5301f2ffd7c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 58,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/DbiModuleDescriptor.h",
+      "saved_member": "input-58.bin",
+      "bytes": 2157,
+      "sha256": "fd630df41943b51c91c7ea888cd49e7b2d1a999107b3bb719a8e30a2f50e7f29",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 59,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/LinePrinter.h",
+      "saved_member": "input-59.bin",
+      "bytes": 5149,
+      "sha256": "8d93594e5ceeef6f430af92b36aa0d682fbd54ae6727e50aa77fbfbe6859ccc1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 60,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeSymbolEnumerator.h",
+      "saved_member": "input-60.bin",
+      "bytes": 1809,
+      "sha256": "c920ceec1f1580c87591be760f9ceb6d34aa3ed32d0bd9e8d979015e09b8b770",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 61,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/GlobalsStream.h",
+      "saved_member": "input-61.bin",
+      "bytes": 2908,
+      "sha256": "da34944c08e6423c5f18690aeff366482abe783675f96ae952b45f2991191229",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 62,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeTypeVTShape.h",
+      "saved_member": "input-62.bin",
+      "bytes": 1523,
+      "sha256": "65ec68a2d7e22fd7ef7d315fbaacdd21b7041fa7888dc9da173a09f2d5ffa98a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 63,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/PDBFile.h",
+      "saved_member": "input-63.bin",
+      "bytes": 4443,
+      "sha256": "768cc655cc40d594849efd3cfe6df3eba135d5d9e01ff8befdf0e930f3b2f101",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 64,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/HashTable.h",
+      "saved_member": "input-64.bin",
+      "bytes": 10356,
+      "sha256": "4e649f73fabfaa962a27f1f1b25b3437d5949309f8bb5dc8aa41e438d5fd2a92",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 65,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/ModuleDebugStream.h",
+      "saved_member": "input-65.bin",
+      "bytes": 2845,
+      "sha256": "86a71b0b57dc68fec8d1fb9bd231345e9451c26306769f88c9488d6059170d80",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 66,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeSourceFile.h",
+      "saved_member": "input-66.bin",
+      "bytes": 1382,
+      "sha256": "3c3026d8bb3bfb84a51ea4ffdd29e0087acd1b032617637f3440fe4d59d33c1b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 67,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeTypeUDT.h",
+      "saved_member": "input-67.bin",
+      "bytes": 2634,
+      "sha256": "098810becdc6b969b29e722d5cdfebe323f410070e6c79387c3fe79f78a1e031",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 68,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeRawSymbol.h",
+      "saved_member": "input-68.bin",
+      "bytes": 10098,
+      "sha256": "65dbf3338643fca1223a09a87cdf39f9452a259859646f5be2ae0e4d2f5261dd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 69,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h",
+      "saved_member": "input-69.bin",
+      "bytes": 5064,
+      "sha256": "4ec38939e266cc6aef6ada74e561632d0b2e945849b5b6984f53f9ef0180324e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 70,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeTypePointer.h",
+      "saved_member": "input-70.bin",
+      "bytes": 2140,
+      "sha256": "8eba09fb93f1b857f048fcd15e050a220e6123e2ef233deb4a84abee1284901a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 71,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/InputFile.h",
+      "saved_member": "input-71.bin",
+      "bytes": 7073,
+      "sha256": "23048f45e944998e2da65897f16a60b80c3e7220c58b99b6908d8bfdaa3672c0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 72,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeEnumModules.h",
+      "saved_member": "input-72.bin",
+      "bytes": 1026,
+      "sha256": "b041024bc0836c56c6216845cd3c2c25e144a1c2ca7fd26d5cf0711c91449f12",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 73,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeTypeBuiltin.h",
+      "saved_member": "input-73.bin",
+      "bytes": 1444,
+      "sha256": "46c5cbf27d9e594f89763e1b56692ff422f07a06fe0f4cc57cfbc0bf36d7f81e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 74,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/TpiHashing.h",
+      "saved_member": "input-74.bin",
+      "bytes": 1993,
+      "sha256": "7317e635e978d8dfa68da76a6eae2c839ba9f3895be7d2e4991c29c908c5fc06",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 75,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/RawError.h",
+      "saved_member": "input-75.bin",
+      "bytes": 1522,
+      "sha256": "e4fa92e3719748bf130f6bb9c0ac1880615fd6beaa1893b1c3f44df9d5ac5853",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 76,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeEnumSymbols.h",
+      "saved_member": "input-76.bin",
+      "bytes": 1171,
+      "sha256": "aaaeda26a99e8eac2815f99233b9746e4183bbb1828888ada3b9785f1d05adb2",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 77,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/InfoStream.h",
+      "saved_member": "input-77.bin",
+      "bytes": 1889,
+      "sha256": "64404dce6a592e392ca2fc7328850a9cfd72600f8e61644b5b87f7918bd2a4b0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 78,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/TpiStream.h",
+      "saved_member": "input-78.bin",
+      "bytes": 2745,
+      "sha256": "0bc3040a8b6a65c49900eb5a018d27e8dfb7d771aab4226a525365ba8b451631",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 79,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/RawConstants.h",
+      "saved_member": "input-79.bin",
+      "bytes": 3107,
+      "sha256": "b66222ef2299c7c3be0545a11ab98e4225b877a5050ad528696c99177f0e6a2a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 80,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeEnumLineNumbers.h",
+      "saved_member": "input-80.bin",
+      "bytes": 1130,
+      "sha256": "ca31d0976a76149fa9a59e1bd825672e2a72ea2c4861885f73db480dcbc7d09c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 81,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/InfoStreamBuilder.h",
+      "saved_member": "input-81.bin",
+      "bytes": 2061,
+      "sha256": "b8383f8d7d58bba61073b7c86a075ca50e241b6f2fa0f461512d664c2e17cca5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 82,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeTypeFunctionSig.h",
+      "saved_member": "input-82.bin",
+      "bytes": 2321,
+      "sha256": "ab44ddd6a8003dc0d22d09c6b7e90c852b153fcfe1cf29df8e88442ec1c29b9b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 83,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeCompilandSymbol.h",
+      "saved_member": "input-83.bin",
+      "bytes": 1273,
+      "sha256": "e204dbf402ccac3ee0e7ed3c3886036b277573407d0cf1cb25ba750e4f034738",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 84,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/PDBStringTableBuilder.h",
+      "saved_member": "input-84.bin",
+      "bytes": 2090,
+      "sha256": "51924806ba415492ff979845e8917fd985e073c954d31d45b6a5e041dc134b6c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 85,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/DbiStream.h",
+      "saved_member": "input-85.bin",
+      "bytes": 4349,
+      "sha256": "6fcd7e085a07c18a50e3dcc07662b36fbb729323c02172a5bbeddddb40cf2c7c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 86,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativePublicSymbol.h",
+      "saved_member": "input-86.bin",
+      "bytes": 1392,
+      "sha256": "1c1ae25893d00fd1c8d291a7971df19e7bda1f8444120a2d4b3eef9e6c7fcfa4",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 87,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/DbiModuleList.h",
+      "saved_member": "input-87.bin",
+      "bytes": 4033,
+      "sha256": "af246db307b926ec2612cb540feb4295235ecc85ca6260d9891d51240e696e0d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 88,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/Hash.h",
+      "saved_member": "input-88.bin",
+      "bytes": 785,
+      "sha256": "9292b89d543b82dbb42b4f2955b446ade148a60b4819fa98c64489e988da9bdd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 89,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h",
+      "saved_member": "input-89.bin",
+      "bytes": 4304,
+      "sha256": "2dfabcb7fc56aef26b14731e3760b8666be89f92506a8effdfdfb89dd69f9ba6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 90,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeEnumGlobals.h",
+      "saved_member": "input-90.bin",
+      "bytes": 1207,
+      "sha256": "d73ddf40e0212ec00ede12711bbaeeb0fc9b4c134b974ac62e339b2f86cc36aa",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 91,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NamedStreamMap.h",
+      "saved_member": "input-91.bin",
+      "bytes": 1929,
+      "sha256": "07891f275eb118d6cebd1ea16ca710878dbb609a4edb1fd811837acbd083d57c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 92,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeLineNumber.h",
+      "saved_member": "input-92.bin",
+      "bytes": 1795,
+      "sha256": "4a09617724d0b8635e87b756917e91278ae4a3d69ad80adfd6501020ba109a73",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 93,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/SymbolStream.h",
+      "saved_member": "input-93.bin",
+      "bytes": 1143,
+      "sha256": "c3547dd07c6e3aa9719ce8a3ce7e3593e8aa5142aaf98d48ff8eb76037842f1c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 94,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/PublicsStream.h",
+      "saved_member": "input-94.bin",
+      "bytes": 1614,
+      "sha256": "dc4c041902ac17cccf20ab66feb268221fe8117572962043031f7258b8992191",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 95,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/TpiStreamBuilder.h",
+      "saved_member": "input-95.bin",
+      "bytes": 2564,
+      "sha256": "21384550e3fcc8187fcff426ee21f50a2fae7c84ddba3697eff323cf73ff986e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 96,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeEnumInjectedSources.h",
+      "saved_member": "input-96.bin",
+      "bytes": 1388,
+      "sha256": "00b59540c953d0a5fa344dfb9195791986e1942f0d04f4ed44765efbbf2dd1b1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 97,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/ISectionContribVisitor.h",
+      "saved_member": "input-97.bin",
+      "bytes": 874,
+      "sha256": "0d05a6bb8a24cd68c8198734db0a3d6ba119a78c0911433185c93e1c1da3b0c1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 98,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeEnumTypes.h",
+      "saved_member": "input-98.bin",
+      "bytes": 1481,
+      "sha256": "90efd62427c8a911fe1094003ccd073a792ca4ae95a2bfd3ce4e4a25070a19a1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 99,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeTypeArray.h",
+      "saved_member": "input-99.bin",
+      "bytes": 1444,
+      "sha256": "fa53cf50378e59eac984ac02dfb104cec66407371ed3f36df10347682703e089",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 100,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/EnumTables.h",
+      "saved_member": "input-100.bin",
+      "bytes": 683,
+      "sha256": "5b97e109fe2af503bf4963bc7986055ecb6c83649b3d71ce6ee6a1d9560c75c3",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 101,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/FormatUtil.h",
+      "saved_member": "input-101.bin",
+      "bytes": 4177,
+      "sha256": "73b461dc5b708df5c3199eac36e9800f99fb27b71a09df2a8638bc7617762eb6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 102,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeExeSymbol.h",
+      "saved_member": "input-102.bin",
+      "bytes": 1239,
+      "sha256": "841822ff07c565a46d2853cee0380691ef4fcbe1efe872b1901a8dfc40a43d81",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 103,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/SymbolCache.h",
+      "saved_member": "input-103.bin",
+      "bytes": 7414,
+      "sha256": "b5de9e10b28e958736cdd3850d1dce4e432df3ab5e43b3e982cd64ffeaf41258",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 104,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/PDBFileBuilder.h",
+      "saved_member": "input-104.bin",
+      "bytes": 3568,
+      "sha256": "cc595274c92cd99e4e317ba49f63ac8c029fad9e17426bac12bd8878506fc9bd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 105,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/InjectedSourceStream.h",
+      "saved_member": "input-105.bin",
+      "bytes": 1348,
+      "sha256": "6611689884be10257da256a0223d6443f2ae582b81810822d1e3d8550ce5e444",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 106,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/GSIStreamBuilder.h",
+      "saved_member": "input-106.bin",
+      "bytes": 4803,
+      "sha256": "a0151017cfcd902f8af4651e8a90a6812c24a899197c41ff229c59375e4cb046",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 107,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeTypeEnum.h",
+      "saved_member": "input-107.bin",
+      "bytes": 2644,
+      "sha256": "343cee5a066d0ae744c744674f5d43c70006112a685ec0a05779fe722367f707",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 108,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeTypeTypedef.h",
+      "saved_member": "input-108.bin",
+      "bytes": 1356,
+      "sha256": "5aaa83fe281f0e0987aaac2244ea9f352039f362c4f240d8aef19f15fa18547e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 109,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeSession.h",
+      "saved_member": "input-109.bin",
+      "bytes": 5806,
+      "sha256": "b62dc1b9887d79271db30b248ca1b1441f0f16e178d2dede47a9303850c412b4",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 110,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/PDBStringTable.h",
+      "saved_member": "input-110.bin",
+      "bytes": 1733,
+      "sha256": "acd5a6d41de604732832396dcdbe37e282f4cf4727202d7a20708b25ff1dce1c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 111,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/RawTypes.h",
+      "saved_member": "input-111.bin",
+      "bytes": 12206,
+      "sha256": "57e79e7c9f45a97a8f7faf8860c62d077f5756b860f9abe0c225ada486b512ea",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 112,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/Formatters.h",
+      "saved_member": "input-112.bin",
+      "bytes": 1813,
+      "sha256": "36522f62da43a3b5852497dcaa3e4a6edba31e2245dd5e81d34787592f378e13",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 113,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeInlineSiteSymbol.h",
+      "saved_member": "input-113.bin",
+      "bytes": 1589,
+      "sha256": "b602e3c3e67288ef0278e948a7736b6dd70462d5d236c895e6f5b14ee9973269",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 114,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/Native/NativeFunctionSymbol.h",
+      "saved_member": "input-114.bin",
+      "bytes": 1663,
+      "sha256": "34000857a33c09e661b07f918d27053c84b546af9d1f9434d8c415d0a1367dd7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 115,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAFrameData.h",
+      "saved_member": "input-115.bin",
+      "bytes": 1081,
+      "sha256": "b5d50995a184e029e166eec8d274c23a130ba02310e785c5f8a55d545e1d60f8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 116,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIASectionContrib.h",
+      "saved_member": "input-116.bin",
+      "bytes": 1892,
+      "sha256": "1e2cf563e8d20c7fc86bd43256633c6026ad01d6694ebc8542bdfd3faf47181a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 117,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAUtils.h",
+      "saved_member": "input-117.bin",
+      "bytes": 1027,
+      "sha256": "1b9a84cde7ca056f1da39f1f8031e4bc191c4875a9cb089ffeb438ef742f41d7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 118,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAInjectedSource.h",
+      "saved_member": "input-118.bin",
+      "bytes": 1197,
+      "sha256": "46ed75e2d25130bff0666a5b87dc76dc996f1ca258b0e719fcf736f17bbb63ba",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 119,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIATable.h",
+      "saved_member": "input-119.bin",
+      "bytes": 869,
+      "sha256": "9c803affe6ec2110df7bf7bf453ee6690cc523327c320abbc0fc7fe1de80946d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 120,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAEnumDebugStreams.h",
+      "saved_member": "input-120.bin",
+      "bytes": 1046,
+      "sha256": "dd3d95a400b63cac6c66cd4b796ebb6b26daa3582e52ebb40df50736480ebc9b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 121,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAEnumSymbols.h",
+      "saved_member": "input-121.bin",
+      "bytes": 1111,
+      "sha256": "abe5a4a88cae8514940edd71f350bdc58487cf2a8b0ec6a8429c207bfdff8508",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 122,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIARawSymbol.h",
+      "saved_member": "input-122.bin",
+      "bytes": 9939,
+      "sha256": "84115f63337a7561bbecdaf53e1d1a77a3b99b4ad05166d2f29dcae6bdcf22ce",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 123,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIASupport.h",
+      "saved_member": "input-123.bin",
+      "bytes": 1309,
+      "sha256": "13fc3f12c3192456fa85973d713b3ccba6ba5b8bbd9a95c679eca025fc97b4c8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 124,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAEnumFrameData.h",
+      "saved_member": "input-124.bin",
+      "bytes": 1039,
+      "sha256": "ba353aa63b95dcdbace018dd7dd37bebc4b224bdb36d17d522f4e0d29e121f48",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 125,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAEnumTables.h",
+      "saved_member": "input-125.bin",
+      "bytes": 1064,
+      "sha256": "8094c4e64672ff4f04cbd1515ceb113784a57118c12864e0e1dab747b38a864c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 126,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIALineNumber.h",
+      "saved_member": "input-126.bin",
+      "bytes": 1294,
+      "sha256": "3cbceec2d08f19db4a38ed9ec7303a087b1b4c590105ce1cd3cc37824487e141",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 127,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAEnumLineNumbers.h",
+      "saved_member": "input-127.bin",
+      "bytes": 1039,
+      "sha256": "e63933b297f038a7600e34d2d83a05175c7da7cb41ebf8acf8a82e9b14d6f5f7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 128,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAError.h",
+      "saved_member": "input-128.bin",
+      "bytes": 1407,
+      "sha256": "0eca741fe0dad8ab3b5dbe2fc6dbd205b841f4aea09323a7866d14d03aaebf9a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 129,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAEnumSectionContribs.h",
+      "saved_member": "input-129.bin",
+      "bytes": 1225,
+      "sha256": "4539fdec754c1a4216faeefe2777cf828febb63ac9d931742ff179588516fb64",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 130,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIASession.h",
+      "saved_member": "input-130.bin",
+      "bytes": 3949,
+      "sha256": "0af47a6b4682b927037676520c2fc7f5a90db7856acd8f072406215383a12d24",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 131,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAEnumSourceFiles.h",
+      "saved_member": "input-131.bin",
+      "bytes": 1124,
+      "sha256": "aaeea6710030f1166b1c81454f99d89f762fcf2574ed782e568b3446bdcf531f",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 132,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIADataStream.h",
+      "saved_member": "input-132.bin",
+      "bytes": 1000,
+      "sha256": "cdc8d04bb2eec148f9d5bb2e25c36538d9d04ea92c9ffd849c92713e978ef059",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 133,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIASourceFile.h",
+      "saved_member": "input-133.bin",
+      "bytes": 1190,
+      "sha256": "908c8d6baa3fdb5cbd22819e4c1985fe7f2933539b9eaadc8e4fdfff2134f627",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 134,
+      "source_reference": "/usr/include/llvm-16/llvm/DebugInfo/PDB/DIA/DIAEnumInjectedSources.h",
+      "saved_member": "input-134.bin",
+      "bytes": 1142,
+      "sha256": "131353f4273dc14e70b096bd2e5f7701beba79922d2fb8af0b58c349a55075d6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 135,
+      "source_reference": "/usr/include/llvm-17/llvm/Support/Solaris/sys/regset.h",
+      "saved_member": "input-135.bin",
+      "bytes": 844,
+      "sha256": "e49db6d761d9c1d0b1829f4873429171ae9d6501855d6e10ec66fac96a50cbe2",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 136,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/TargetProcess/RegisterEHFrames.h",
+      "saved_member": "input-136.bin",
+      "bytes": 1655,
+      "sha256": "4c8c9b63f214b93bee92f5424409c9c63708049cd3e476f4f4589aae0611f743",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 137,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/TargetProcess/ExecutorBootstrapService.h",
+      "saved_member": "input-137.bin",
+      "bytes": 1206,
+      "sha256": "9fbdab2f23c61cddb78506a2d0fa31e4cb51c32ea16b47503a065b39818098a0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 138,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/TargetProcess/SimpleExecutorDylibManager.h",
+      "saved_member": "input-138.bin",
+      "bytes": 2244,
+      "sha256": "b168eaceae0a900b6236a8a46a13ee4e8daabd44598e4865dfb51b5bb041a743",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 139,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/TargetProcess/SimpleExecutorMemoryManager.h",
+      "saved_member": "input-139.bin",
+      "bytes": 2346,
+      "sha256": "20e0bb0688112cd64db597274721830a063fd9cb0f8cc8562b00f5c36f9c58b8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 140,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/TargetProcess/ExecutorSharedMemoryMapperService.h",
+      "saved_member": "input-140.bin",
+      "bytes": 2590,
+      "sha256": "6233c4d610baedebe7c4b0879db1ab8e6e520482286044c639263df57833e9f8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 141,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/TargetProcess/JITLoaderGDB.h",
+      "saved_member": "input-141.bin",
+      "bytes": 1054,
+      "sha256": "a60450b9cd301695d6894c933903b211534b19a406119b5efd52103aa130c105",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 142,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/TargetProcess/TargetExecutionUtils.h",
+      "saved_member": "input-142.bin",
+      "bytes": 1499,
+      "sha256": "2a726158368f475e3d1aab3518f610257cb83d81eccee9a9a5b359fecbf351e5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 143,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/TargetProcess/SimpleRemoteEPCServer.h",
+      "saved_member": "input-143.bin",
+      "bytes": 7281,
+      "sha256": "453151ba75b5dec2894a7cad91a1b0340a02525ae76cbab1814902eb57da5665",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 144,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/OrcError.h",
+      "saved_member": "input-144.bin",
+      "bytes": 2111,
+      "sha256": "b9e21cb7324ce5423353c38654cd65743e8d3cda236cf54df1645cd31be31989",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 145,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h",
+      "saved_member": "input-145.bin",
+      "bytes": 28207,
+      "sha256": "c3589d71e48cc39ff17f2fcfa1aabf8eb65436efb2432c7d44f796dc4e4f9235",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 146,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/SimplePackedSerialization.h",
+      "saved_member": "input-146.bin",
+      "bytes": 25046,
+      "sha256": "a8f06b5d6bcd1cfa0b5931960fee16cc9897d17ff8b16be876eba1396047c158",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 147,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/OrcRTBridge.h",
+      "saved_member": "input-147.bin",
+      "bytes": 4341,
+      "sha256": "5505f3b8f18abfd4237a25c6275e13dceaf5db4a9b6220253b04dbf9d1d416e9",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 148,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/ExecutorAddress.h",
+      "saved_member": "input-148.bin",
+      "bytes": 10627,
+      "sha256": "6c9d4fbde77e60288fae8469c392943d00b5eee599855997ba40bdc44fcfc5bb",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 149,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h",
+      "saved_member": "input-149.bin",
+      "bytes": 9964,
+      "sha256": "1be82c9d00eb6719ec30d1abdbbff7c4d58e5ba2c73cc2e2b86ff564399604f6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 150,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/SimpleRemoteEPCUtils.h",
+      "saved_member": "input-150.bin",
+      "bytes": 8177,
+      "sha256": "236a660f67e6e43ca373ffc45f29c585c494df441a4be8e7d62a870c0d15c6ef",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 151,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/ExecutorSymbolDef.h",
+      "saved_member": "input-151.bin",
+      "bytes": 1695,
+      "sha256": "5c0fe9346cb03d2eb18535d20ecbdbdf6e7cd082e40674ea46b7f60c154f1bc9",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 152,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/AllocationActions.h",
+      "saved_member": "input-152.bin",
+      "bytes": 3699,
+      "sha256": "047881d99f911a90a897da51cbb620b1d1f4dc396828f31fbb9748c7c8aef6f3",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 153,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/ObjectFormats.h",
+      "saved_member": "input-153.bin",
+      "bytes": 2481,
+      "sha256": "c49a0131577686176c00e020cf14f67382ecb848386ab37d3626131fdbb10340",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 154,
+      "source_reference": "/usr/include/llvm-17/llvm/ExecutionEngine/Orc/Shared/MemoryFlags.h",
+      "saved_member": "input-154.bin",
+      "bytes": 7657,
+      "sha256": "bdf6e26f433fd4c72012cce2848e5b5b0301881f2b8e295ef9b94e50fec96c27",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 155,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVElement.h",
+      "saved_member": "input-155.bin",
+      "bytes": 12347,
+      "sha256": "cef886d29b74b34abe2756a53a6e0e79ee693cd32d3a70a0510eb4599ce2c300",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 156,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVOptions.h",
+      "saved_member": "input-156.bin",
+      "bytes": 22340,
+      "sha256": "f928c8ddb72341783d48599936c2926d2c770eb4a54922aa7de9b04a39ee70f3",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 157,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVObject.h",
+      "saved_member": "input-157.bin",
+      "bytes": 11612,
+      "sha256": "2cff13839d7ad392caa48b579b116ff8d29ba4367825c3f036fbef8ce02133d8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 158,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVSymbol.h",
+      "saved_member": "input-158.bin",
+      "bytes": 6689,
+      "sha256": "38ad37193cc61b9ea4f071e75f276ab6838ea4e72a73787cd5578ed7ff44aefc",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 159,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVScope.h",
+      "saved_member": "input-159.bin",
+      "bytes": 30642,
+      "sha256": "5f63a013f524d44f324f9c4d631843452d9db3f6e14284aa3b2c35a08d24fd54",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 160,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVType.h",
+      "saved_member": "input-160.bin",
+      "bytes": 9438,
+      "sha256": "683b91a1a31039e12bbb451ac3e24330956189a2508ae9b2c7ccf816205aef83",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 161,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVSort.h",
+      "saved_member": "input-161.bin",
+      "bytes": 1861,
+      "sha256": "8ecb50bd6a38ee6fb96ae038da4b7174b2580fdebf2f62c714faf7d9cf447d55",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 162,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVSupport.h",
+      "saved_member": "input-162.bin",
+      "bytes": 10549,
+      "sha256": "cb2411f6b31d2dbc425f2224bed8bee2f6bfb9765c1a1b25c4115b03e103f3ff",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 163,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVRange.h",
+      "saved_member": "input-163.bin",
+      "bytes": 3091,
+      "sha256": "d028e0fba4d82695796b8f4c634bf5cc3f22b210a53965d37757415fdf2ad815",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 164,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVLine.h",
+      "saved_member": "input-164.bin",
+      "bytes": 5644,
+      "sha256": "fb9b4c06e22d1e3a00db3168b62ebf0139a8ad082b90ce148490fe9f8ef502e6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 165,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVStringPool.h",
+      "saved_member": "input-165.bin",
+      "bytes": 2934,
+      "sha256": "fb2bc5b8c7c3ba39e4881599343da03c16a5e38d6431a489d9d1c6a1680ca0a0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 166,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVReader.h",
+      "saved_member": "input-166.bin",
+      "bytes": 11247,
+      "sha256": "1c5e51003f84b0604b3a539667aa03820d925645c753ccf1f4832283cbf767a0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 167,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVCompare.h",
+      "saved_member": "input-167.bin",
+      "bytes": 2907,
+      "sha256": "0105b7099a76f58defa325e6ee80e72e3f24b36ab5193930f38d20397eb45987",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 168,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Core/LVLocation.h",
+      "saved_member": "input-168.bin",
+      "bytes": 6507,
+      "sha256": "490d6454232028da8ee5596f4e7e30f7eac16c7ca85106af705046ba4af339f5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 169,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Readers/LVCodeViewVisitor.h",
+      "saved_member": "input-169.bin",
+      "bytes": 20296,
+      "sha256": "7117af7b3b164560615504e57ab616925fcfdebf3e760163c8e94d87c21e2e6a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 170,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Readers/LVCodeViewReader.h",
+      "saved_member": "input-170.bin",
+      "bytes": 9303,
+      "sha256": "a106208171d592563b2de2e9b2f783f2e0d066fdb75e6b7a4da9a85ec1e1dc68",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 171,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Readers/LVBinaryReader.h",
+      "saved_member": "input-171.bin",
+      "bytes": 7811,
+      "sha256": "a7f778afc3f237b4111dffe1c507010baf75400f23af9f3f898bffc002f71e16",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 172,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/LogicalView/Readers/LVELFReader.h",
+      "saved_member": "input-172.bin",
+      "bytes": 5787,
+      "sha256": "8d5190f3ce74e3fc61934d8f0ec9eb7d258859b066e9e457345ab899435ad25b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 173,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/DbiModuleDescriptor.h",
+      "saved_member": "input-173.bin",
+      "bytes": 2157,
+      "sha256": "fd630df41943b51c91c7ea888cd49e7b2d1a999107b3bb719a8e30a2f50e7f29",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 174,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/LinePrinter.h",
+      "saved_member": "input-174.bin",
+      "bytes": 5149,
+      "sha256": "8d93594e5ceeef6f430af92b36aa0d682fbd54ae6727e50aa77fbfbe6859ccc1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 175,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeSymbolEnumerator.h",
+      "saved_member": "input-175.bin",
+      "bytes": 1809,
+      "sha256": "c920ceec1f1580c87591be760f9ceb6d34aa3ed32d0bd9e8d979015e09b8b770",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 176,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/GlobalsStream.h",
+      "saved_member": "input-176.bin",
+      "bytes": 2908,
+      "sha256": "da34944c08e6423c5f18690aeff366482abe783675f96ae952b45f2991191229",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 177,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeTypeVTShape.h",
+      "saved_member": "input-177.bin",
+      "bytes": 1523,
+      "sha256": "65ec68a2d7e22fd7ef7d315fbaacdd21b7041fa7888dc9da173a09f2d5ffa98a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 178,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/PDBFile.h",
+      "saved_member": "input-178.bin",
+      "bytes": 4443,
+      "sha256": "768cc655cc40d594849efd3cfe6df3eba135d5d9e01ff8befdf0e930f3b2f101",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 179,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/HashTable.h",
+      "saved_member": "input-179.bin",
+      "bytes": 10356,
+      "sha256": "4e649f73fabfaa962a27f1f1b25b3437d5949309f8bb5dc8aa41e438d5fd2a92",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 180,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/ModuleDebugStream.h",
+      "saved_member": "input-180.bin",
+      "bytes": 2845,
+      "sha256": "86a71b0b57dc68fec8d1fb9bd231345e9451c26306769f88c9488d6059170d80",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 181,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeSourceFile.h",
+      "saved_member": "input-181.bin",
+      "bytes": 1382,
+      "sha256": "3c3026d8bb3bfb84a51ea4ffdd29e0087acd1b032617637f3440fe4d59d33c1b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 182,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeTypeUDT.h",
+      "saved_member": "input-182.bin",
+      "bytes": 2634,
+      "sha256": "098810becdc6b969b29e722d5cdfebe323f410070e6c79387c3fe79f78a1e031",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 183,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeRawSymbol.h",
+      "saved_member": "input-183.bin",
+      "bytes": 10098,
+      "sha256": "65dbf3338643fca1223a09a87cdf39f9452a259859646f5be2ae0e4d2f5261dd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 184,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h",
+      "saved_member": "input-184.bin",
+      "bytes": 5064,
+      "sha256": "4ec38939e266cc6aef6ada74e561632d0b2e945849b5b6984f53f9ef0180324e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 185,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeTypePointer.h",
+      "saved_member": "input-185.bin",
+      "bytes": 2140,
+      "sha256": "8eba09fb93f1b857f048fcd15e050a220e6123e2ef233deb4a84abee1284901a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 186,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/InputFile.h",
+      "saved_member": "input-186.bin",
+      "bytes": 7073,
+      "sha256": "23048f45e944998e2da65897f16a60b80c3e7220c58b99b6908d8bfdaa3672c0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 187,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeEnumModules.h",
+      "saved_member": "input-187.bin",
+      "bytes": 1026,
+      "sha256": "b041024bc0836c56c6216845cd3c2c25e144a1c2ca7fd26d5cf0711c91449f12",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 188,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeTypeBuiltin.h",
+      "saved_member": "input-188.bin",
+      "bytes": 1444,
+      "sha256": "46c5cbf27d9e594f89763e1b56692ff422f07a06fe0f4cc57cfbc0bf36d7f81e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 189,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/TpiHashing.h",
+      "saved_member": "input-189.bin",
+      "bytes": 1993,
+      "sha256": "7317e635e978d8dfa68da76a6eae2c839ba9f3895be7d2e4991c29c908c5fc06",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 190,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/RawError.h",
+      "saved_member": "input-190.bin",
+      "bytes": 1522,
+      "sha256": "e4fa92e3719748bf130f6bb9c0ac1880615fd6beaa1893b1c3f44df9d5ac5853",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 191,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeEnumSymbols.h",
+      "saved_member": "input-191.bin",
+      "bytes": 1171,
+      "sha256": "aaaeda26a99e8eac2815f99233b9746e4183bbb1828888ada3b9785f1d05adb2",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 192,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/InfoStream.h",
+      "saved_member": "input-192.bin",
+      "bytes": 1889,
+      "sha256": "64404dce6a592e392ca2fc7328850a9cfd72600f8e61644b5b87f7918bd2a4b0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 193,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/TpiStream.h",
+      "saved_member": "input-193.bin",
+      "bytes": 2745,
+      "sha256": "0bc3040a8b6a65c49900eb5a018d27e8dfb7d771aab4226a525365ba8b451631",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 194,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/RawConstants.h",
+      "saved_member": "input-194.bin",
+      "bytes": 3107,
+      "sha256": "b66222ef2299c7c3be0545a11ab98e4225b877a5050ad528696c99177f0e6a2a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 195,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeEnumLineNumbers.h",
+      "saved_member": "input-195.bin",
+      "bytes": 1130,
+      "sha256": "ca31d0976a76149fa9a59e1bd825672e2a72ea2c4861885f73db480dcbc7d09c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 196,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/InfoStreamBuilder.h",
+      "saved_member": "input-196.bin",
+      "bytes": 2061,
+      "sha256": "b8383f8d7d58bba61073b7c86a075ca50e241b6f2fa0f461512d664c2e17cca5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 197,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeTypeFunctionSig.h",
+      "saved_member": "input-197.bin",
+      "bytes": 2321,
+      "sha256": "ab44ddd6a8003dc0d22d09c6b7e90c852b153fcfe1cf29df8e88442ec1c29b9b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 198,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeCompilandSymbol.h",
+      "saved_member": "input-198.bin",
+      "bytes": 1273,
+      "sha256": "e204dbf402ccac3ee0e7ed3c3886036b277573407d0cf1cb25ba750e4f034738",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 199,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/PDBStringTableBuilder.h",
+      "saved_member": "input-199.bin",
+      "bytes": 2090,
+      "sha256": "51924806ba415492ff979845e8917fd985e073c954d31d45b6a5e041dc134b6c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 200,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/DbiStream.h",
+      "saved_member": "input-200.bin",
+      "bytes": 4349,
+      "sha256": "6fcd7e085a07c18a50e3dcc07662b36fbb729323c02172a5bbeddddb40cf2c7c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 201,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativePublicSymbol.h",
+      "saved_member": "input-201.bin",
+      "bytes": 1392,
+      "sha256": "1c1ae25893d00fd1c8d291a7971df19e7bda1f8444120a2d4b3eef9e6c7fcfa4",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 202,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/DbiModuleList.h",
+      "saved_member": "input-202.bin",
+      "bytes": 4033,
+      "sha256": "af246db307b926ec2612cb540feb4295235ecc85ca6260d9891d51240e696e0d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 203,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/Hash.h",
+      "saved_member": "input-203.bin",
+      "bytes": 785,
+      "sha256": "9292b89d543b82dbb42b4f2955b446ade148a60b4819fa98c64489e988da9bdd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 204,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h",
+      "saved_member": "input-204.bin",
+      "bytes": 4304,
+      "sha256": "2dfabcb7fc56aef26b14731e3760b8666be89f92506a8effdfdfb89dd69f9ba6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 205,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeEnumGlobals.h",
+      "saved_member": "input-205.bin",
+      "bytes": 1207,
+      "sha256": "d73ddf40e0212ec00ede12711bbaeeb0fc9b4c134b974ac62e339b2f86cc36aa",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 206,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NamedStreamMap.h",
+      "saved_member": "input-206.bin",
+      "bytes": 1929,
+      "sha256": "07891f275eb118d6cebd1ea16ca710878dbb609a4edb1fd811837acbd083d57c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 207,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeLineNumber.h",
+      "saved_member": "input-207.bin",
+      "bytes": 1795,
+      "sha256": "4a09617724d0b8635e87b756917e91278ae4a3d69ad80adfd6501020ba109a73",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 208,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/SymbolStream.h",
+      "saved_member": "input-208.bin",
+      "bytes": 1143,
+      "sha256": "c3547dd07c6e3aa9719ce8a3ce7e3593e8aa5142aaf98d48ff8eb76037842f1c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 209,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/PublicsStream.h",
+      "saved_member": "input-209.bin",
+      "bytes": 1614,
+      "sha256": "dc4c041902ac17cccf20ab66feb268221fe8117572962043031f7258b8992191",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 210,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/TpiStreamBuilder.h",
+      "saved_member": "input-210.bin",
+      "bytes": 2564,
+      "sha256": "21384550e3fcc8187fcff426ee21f50a2fae7c84ddba3697eff323cf73ff986e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 211,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeEnumInjectedSources.h",
+      "saved_member": "input-211.bin",
+      "bytes": 1388,
+      "sha256": "00b59540c953d0a5fa344dfb9195791986e1942f0d04f4ed44765efbbf2dd1b1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 212,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/ISectionContribVisitor.h",
+      "saved_member": "input-212.bin",
+      "bytes": 874,
+      "sha256": "0d05a6bb8a24cd68c8198734db0a3d6ba119a78c0911433185c93e1c1da3b0c1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 213,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeEnumTypes.h",
+      "saved_member": "input-213.bin",
+      "bytes": 1481,
+      "sha256": "90efd62427c8a911fe1094003ccd073a792ca4ae95a2bfd3ce4e4a25070a19a1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 214,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeTypeArray.h",
+      "saved_member": "input-214.bin",
+      "bytes": 1444,
+      "sha256": "fa53cf50378e59eac984ac02dfb104cec66407371ed3f36df10347682703e089",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 215,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/EnumTables.h",
+      "saved_member": "input-215.bin",
+      "bytes": 683,
+      "sha256": "5b97e109fe2af503bf4963bc7986055ecb6c83649b3d71ce6ee6a1d9560c75c3",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 216,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/FormatUtil.h",
+      "saved_member": "input-216.bin",
+      "bytes": 4177,
+      "sha256": "73b461dc5b708df5c3199eac36e9800f99fb27b71a09df2a8638bc7617762eb6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 217,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeExeSymbol.h",
+      "saved_member": "input-217.bin",
+      "bytes": 1239,
+      "sha256": "841822ff07c565a46d2853cee0380691ef4fcbe1efe872b1901a8dfc40a43d81",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 218,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/SymbolCache.h",
+      "saved_member": "input-218.bin",
+      "bytes": 7414,
+      "sha256": "b5de9e10b28e958736cdd3850d1dce4e432df3ab5e43b3e982cd64ffeaf41258",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 219,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/PDBFileBuilder.h",
+      "saved_member": "input-219.bin",
+      "bytes": 3568,
+      "sha256": "cc595274c92cd99e4e317ba49f63ac8c029fad9e17426bac12bd8878506fc9bd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 220,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/InjectedSourceStream.h",
+      "saved_member": "input-220.bin",
+      "bytes": 1348,
+      "sha256": "6611689884be10257da256a0223d6443f2ae582b81810822d1e3d8550ce5e444",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 221,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/GSIStreamBuilder.h",
+      "saved_member": "input-221.bin",
+      "bytes": 4803,
+      "sha256": "a0151017cfcd902f8af4651e8a90a6812c24a899197c41ff229c59375e4cb046",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 222,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeTypeEnum.h",
+      "saved_member": "input-222.bin",
+      "bytes": 2644,
+      "sha256": "343cee5a066d0ae744c744674f5d43c70006112a685ec0a05779fe722367f707",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 223,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeTypeTypedef.h",
+      "saved_member": "input-223.bin",
+      "bytes": 1356,
+      "sha256": "5aaa83fe281f0e0987aaac2244ea9f352039f362c4f240d8aef19f15fa18547e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 224,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeSession.h",
+      "saved_member": "input-224.bin",
+      "bytes": 5806,
+      "sha256": "b62dc1b9887d79271db30b248ca1b1441f0f16e178d2dede47a9303850c412b4",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 225,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/PDBStringTable.h",
+      "saved_member": "input-225.bin",
+      "bytes": 1733,
+      "sha256": "acd5a6d41de604732832396dcdbe37e282f4cf4727202d7a20708b25ff1dce1c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 226,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/RawTypes.h",
+      "saved_member": "input-226.bin",
+      "bytes": 12206,
+      "sha256": "57e79e7c9f45a97a8f7faf8860c62d077f5756b860f9abe0c225ada486b512ea",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 227,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/Formatters.h",
+      "saved_member": "input-227.bin",
+      "bytes": 1813,
+      "sha256": "36522f62da43a3b5852497dcaa3e4a6edba31e2245dd5e81d34787592f378e13",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 228,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeInlineSiteSymbol.h",
+      "saved_member": "input-228.bin",
+      "bytes": 1589,
+      "sha256": "b602e3c3e67288ef0278e948a7736b6dd70462d5d236c895e6f5b14ee9973269",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 229,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/Native/NativeFunctionSymbol.h",
+      "saved_member": "input-229.bin",
+      "bytes": 1663,
+      "sha256": "34000857a33c09e661b07f918d27053c84b546af9d1f9434d8c415d0a1367dd7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 230,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAFrameData.h",
+      "saved_member": "input-230.bin",
+      "bytes": 1081,
+      "sha256": "b5d50995a184e029e166eec8d274c23a130ba02310e785c5f8a55d545e1d60f8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 231,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIASectionContrib.h",
+      "saved_member": "input-231.bin",
+      "bytes": 1892,
+      "sha256": "1e2cf563e8d20c7fc86bd43256633c6026ad01d6694ebc8542bdfd3faf47181a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 232,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAUtils.h",
+      "saved_member": "input-232.bin",
+      "bytes": 1027,
+      "sha256": "1b9a84cde7ca056f1da39f1f8031e4bc191c4875a9cb089ffeb438ef742f41d7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 233,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAInjectedSource.h",
+      "saved_member": "input-233.bin",
+      "bytes": 1197,
+      "sha256": "46ed75e2d25130bff0666a5b87dc76dc996f1ca258b0e719fcf736f17bbb63ba",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 234,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIATable.h",
+      "saved_member": "input-234.bin",
+      "bytes": 869,
+      "sha256": "9c803affe6ec2110df7bf7bf453ee6690cc523327c320abbc0fc7fe1de80946d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 235,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAEnumDebugStreams.h",
+      "saved_member": "input-235.bin",
+      "bytes": 1046,
+      "sha256": "dd3d95a400b63cac6c66cd4b796ebb6b26daa3582e52ebb40df50736480ebc9b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 236,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAEnumSymbols.h",
+      "saved_member": "input-236.bin",
+      "bytes": 1111,
+      "sha256": "abe5a4a88cae8514940edd71f350bdc58487cf2a8b0ec6a8429c207bfdff8508",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 237,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIARawSymbol.h",
+      "saved_member": "input-237.bin",
+      "bytes": 9939,
+      "sha256": "84115f63337a7561bbecdaf53e1d1a77a3b99b4ad05166d2f29dcae6bdcf22ce",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 238,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIASupport.h",
+      "saved_member": "input-238.bin",
+      "bytes": 1309,
+      "sha256": "13fc3f12c3192456fa85973d713b3ccba6ba5b8bbd9a95c679eca025fc97b4c8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 239,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAEnumFrameData.h",
+      "saved_member": "input-239.bin",
+      "bytes": 1039,
+      "sha256": "ba353aa63b95dcdbace018dd7dd37bebc4b224bdb36d17d522f4e0d29e121f48",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 240,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAEnumTables.h",
+      "saved_member": "input-240.bin",
+      "bytes": 1064,
+      "sha256": "8094c4e64672ff4f04cbd1515ceb113784a57118c12864e0e1dab747b38a864c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 241,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIALineNumber.h",
+      "saved_member": "input-241.bin",
+      "bytes": 1294,
+      "sha256": "3cbceec2d08f19db4a38ed9ec7303a087b1b4c590105ce1cd3cc37824487e141",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 242,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAEnumLineNumbers.h",
+      "saved_member": "input-242.bin",
+      "bytes": 1039,
+      "sha256": "e63933b297f038a7600e34d2d83a05175c7da7cb41ebf8acf8a82e9b14d6f5f7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 243,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAError.h",
+      "saved_member": "input-243.bin",
+      "bytes": 1407,
+      "sha256": "0eca741fe0dad8ab3b5dbe2fc6dbd205b841f4aea09323a7866d14d03aaebf9a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 244,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAEnumSectionContribs.h",
+      "saved_member": "input-244.bin",
+      "bytes": 1225,
+      "sha256": "4539fdec754c1a4216faeefe2777cf828febb63ac9d931742ff179588516fb64",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 245,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIASession.h",
+      "saved_member": "input-245.bin",
+      "bytes": 3949,
+      "sha256": "0af47a6b4682b927037676520c2fc7f5a90db7856acd8f072406215383a12d24",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 246,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAEnumSourceFiles.h",
+      "saved_member": "input-246.bin",
+      "bytes": 1124,
+      "sha256": "aaeea6710030f1166b1c81454f99d89f762fcf2574ed782e568b3446bdcf531f",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 247,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIADataStream.h",
+      "saved_member": "input-247.bin",
+      "bytes": 1000,
+      "sha256": "cdc8d04bb2eec148f9d5bb2e25c36538d9d04ea92c9ffd849c92713e978ef059",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 248,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIASourceFile.h",
+      "saved_member": "input-248.bin",
+      "bytes": 1190,
+      "sha256": "908c8d6baa3fdb5cbd22819e4c1985fe7f2933539b9eaadc8e4fdfff2134f627",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 249,
+      "source_reference": "/usr/include/llvm-17/llvm/DebugInfo/PDB/DIA/DIAEnumInjectedSources.h",
+      "saved_member": "input-249.bin",
+      "bytes": 1142,
+      "sha256": "131353f4273dc14e70b096bd2e5f7701beba79922d2fb8af0b58c349a55075d6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 250,
+      "source_reference": "/usr/include/llvm-18/llvm/Support/Solaris/sys/regset.h",
+      "saved_member": "input-250.bin",
+      "bytes": 844,
+      "sha256": "e49db6d761d9c1d0b1829f4873429171ae9d6501855d6e10ec66fac96a50cbe2",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 251,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/RegisterEHFrames.h",
+      "saved_member": "input-251.bin",
+      "bytes": 1655,
+      "sha256": "4c8c9b63f214b93bee92f5424409c9c63708049cd3e476f4f4589aae0611f743",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 252,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/ExecutorBootstrapService.h",
+      "saved_member": "input-252.bin",
+      "bytes": 1206,
+      "sha256": "9fbdab2f23c61cddb78506a2d0fa31e4cb51c32ea16b47503a065b39818098a0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 253,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/JITLoaderPerf.h",
+      "saved_member": "input-253.bin",
+      "bytes": 1175,
+      "sha256": "3f216c609e2783e6f08102b633e44613bc6ec3e662ca348677cce1cb719fc68b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 254,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/SimpleExecutorDylibManager.h",
+      "saved_member": "input-254.bin",
+      "bytes": 2269,
+      "sha256": "32be93edbc294997c99578578bfd68c44aaae60f88f5829170e3106c06441fc0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 255,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/SimpleExecutorMemoryManager.h",
+      "saved_member": "input-255.bin",
+      "bytes": 2346,
+      "sha256": "20e0bb0688112cd64db597274721830a063fd9cb0f8cc8562b00f5c36f9c58b8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 256,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/ExecutorSharedMemoryMapperService.h",
+      "saved_member": "input-256.bin",
+      "bytes": 2590,
+      "sha256": "6233c4d610baedebe7c4b0879db1ab8e6e520482286044c639263df57833e9f8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 257,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/JITLoaderGDB.h",
+      "saved_member": "input-257.bin",
+      "bytes": 1591,
+      "sha256": "7a9db524a031e2334adbecc8de6ac77663d0a21cf2ddf572039634890504e77d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 258,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/TargetExecutionUtils.h",
+      "saved_member": "input-258.bin",
+      "bytes": 1499,
+      "sha256": "2a726158368f475e3d1aab3518f610257cb83d81eccee9a9a5b359fecbf351e5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 259,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/TargetProcess/SimpleRemoteEPCServer.h",
+      "saved_member": "input-259.bin",
+      "bytes": 7281,
+      "sha256": "453151ba75b5dec2894a7cad91a1b0340a02525ae76cbab1814902eb57da5665",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 260,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/OrcError.h",
+      "saved_member": "input-260.bin",
+      "bytes": 2111,
+      "sha256": "b9e21cb7324ce5423353c38654cd65743e8d3cda236cf54df1645cd31be31989",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 261,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/WrapperFunctionUtils.h",
+      "saved_member": "input-261.bin",
+      "bytes": 28207,
+      "sha256": "c3589d71e48cc39ff17f2fcfa1aabf8eb65436efb2432c7d44f796dc4e4f9235",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 262,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/SimplePackedSerialization.h",
+      "saved_member": "input-262.bin",
+      "bytes": 25046,
+      "sha256": "a8f06b5d6bcd1cfa0b5931960fee16cc9897d17ff8b16be876eba1396047c158",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 263,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/OrcRTBridge.h",
+      "saved_member": "input-263.bin",
+      "bytes": 4377,
+      "sha256": "998875b85378c2df1e26ec771c067b6afc36e14ee3522c21e883192a4f52c28f",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 264,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/PerfSharedStructs.h",
+      "saved_member": "input-264.bin",
+      "bytes": 8129,
+      "sha256": "b0add3ba10bf831b690500417cf1c4446060ee46eb17df3552c574020f18b18f",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 265,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/ExecutorAddress.h",
+      "saved_member": "input-265.bin",
+      "bytes": 10627,
+      "sha256": "6c9d4fbde77e60288fae8469c392943d00b5eee599855997ba40bdc44fcfc5bb",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 266,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/TargetProcessControlTypes.h",
+      "saved_member": "input-266.bin",
+      "bytes": 11103,
+      "sha256": "8ed0ab7b2fa23bb90990470fb487f7f4536746cc974bc012f1aca2ae8c9e7319",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 267,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/SimpleRemoteEPCUtils.h",
+      "saved_member": "input-267.bin",
+      "bytes": 8177,
+      "sha256": "236a660f67e6e43ca373ffc45f29c585c494df441a4be8e7d62a870c0d15c6ef",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 268,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/ExecutorSymbolDef.h",
+      "saved_member": "input-268.bin",
+      "bytes": 3610,
+      "sha256": "a02996ee6b3741ed65c1a28ee4796acdb2c2a0cf29b03370e164a1898459a075",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 269,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/AllocationActions.h",
+      "saved_member": "input-269.bin",
+      "bytes": 3699,
+      "sha256": "047881d99f911a90a897da51cbb620b1d1f4dc396828f31fbb9748c7c8aef6f3",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 270,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/ObjectFormats.h",
+      "saved_member": "input-270.bin",
+      "bytes": 2786,
+      "sha256": "0f6843ab2c45e9c5fb6bf3aa247a10c08a1f26e6b8210ecc1c5a7cebe150a421",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 271,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Shared/MemoryFlags.h",
+      "saved_member": "input-271.bin",
+      "bytes": 7567,
+      "sha256": "8f1654d951d7e0d21558f6f47986af9733268b1005558027b3b68fcb450f1412",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 272,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Debugging/DebugInfoSupport.h",
+      "saved_member": "input-272.bin",
+      "bytes": 2094,
+      "sha256": "26c793b676f1e596512ff2a3e5bea3904a7f74261911b3ae9ab20fde8524105a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 273,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Debugging/PerfSupportPlugin.h",
+      "saved_member": "input-273.bin",
+      "bytes": 2451,
+      "sha256": "d0fa36fdb7616cb10c6c293263c819c1ed6feafb092d0d67c31b85d1324963c8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 274,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Debugging/DebuggerSupport.h",
+      "saved_member": "input-274.bin",
+      "bytes": 818,
+      "sha256": "48d54f8f9adee82ee22177097a4fa25f3220d4741a1aa4f04d1e618d8ea1889d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 275,
+      "source_reference": "/usr/include/llvm-18/llvm/ExecutionEngine/Orc/Debugging/DebuggerSupportPlugin.h",
+      "saved_member": "input-275.bin",
+      "bytes": 2477,
+      "sha256": "a9707b0efe670a2ddcdea0f35acda5d247ba87c074eeed5c8b44caa5225c9a20",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 276,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVElement.h",
+      "saved_member": "input-276.bin",
+      "bytes": 12347,
+      "sha256": "cef886d29b74b34abe2756a53a6e0e79ee693cd32d3a70a0510eb4599ce2c300",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 277,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVOptions.h",
+      "saved_member": "input-277.bin",
+      "bytes": 22340,
+      "sha256": "f928c8ddb72341783d48599936c2926d2c770eb4a54922aa7de9b04a39ee70f3",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 278,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVObject.h",
+      "saved_member": "input-278.bin",
+      "bytes": 11597,
+      "sha256": "e72c6ee7c463fd63d65976985d6af35d7f4d4ea643a76a4be0ed5bbc2fa8045c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 279,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVSymbol.h",
+      "saved_member": "input-279.bin",
+      "bytes": 6689,
+      "sha256": "38ad37193cc61b9ea4f071e75f276ab6838ea4e72a73787cd5578ed7ff44aefc",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 280,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVScope.h",
+      "saved_member": "input-280.bin",
+      "bytes": 30642,
+      "sha256": "5f63a013f524d44f324f9c4d631843452d9db3f6e14284aa3b2c35a08d24fd54",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 281,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVType.h",
+      "saved_member": "input-281.bin",
+      "bytes": 9438,
+      "sha256": "683b91a1a31039e12bbb451ac3e24330956189a2508ae9b2c7ccf816205aef83",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 282,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVSort.h",
+      "saved_member": "input-282.bin",
+      "bytes": 1861,
+      "sha256": "8ecb50bd6a38ee6fb96ae038da4b7174b2580fdebf2f62c714faf7d9cf447d55",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 283,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVSupport.h",
+      "saved_member": "input-283.bin",
+      "bytes": 10515,
+      "sha256": "e73dd6349430bc65a520a9818c5c997f4384a4a20de51a5b6bb57220549f4674",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 284,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVRange.h",
+      "saved_member": "input-284.bin",
+      "bytes": 3091,
+      "sha256": "d028e0fba4d82695796b8f4c634bf5cc3f22b210a53965d37757415fdf2ad815",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 285,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVLine.h",
+      "saved_member": "input-285.bin",
+      "bytes": 5644,
+      "sha256": "fb9b4c06e22d1e3a00db3168b62ebf0139a8ad082b90ce148490fe9f8ef502e6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 286,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVStringPool.h",
+      "saved_member": "input-286.bin",
+      "bytes": 2934,
+      "sha256": "fb2bc5b8c7c3ba39e4881599343da03c16a5e38d6431a489d9d1c6a1680ca0a0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 287,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVReader.h",
+      "saved_member": "input-287.bin",
+      "bytes": 11247,
+      "sha256": "1c5e51003f84b0604b3a539667aa03820d925645c753ccf1f4832283cbf767a0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 288,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVCompare.h",
+      "saved_member": "input-288.bin",
+      "bytes": 2907,
+      "sha256": "0105b7099a76f58defa325e6ee80e72e3f24b36ab5193930f38d20397eb45987",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 289,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Core/LVLocation.h",
+      "saved_member": "input-289.bin",
+      "bytes": 6507,
+      "sha256": "490d6454232028da8ee5596f4e7e30f7eac16c7ca85106af705046ba4af339f5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 290,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Readers/LVCodeViewVisitor.h",
+      "saved_member": "input-290.bin",
+      "bytes": 20414,
+      "sha256": "34a4f25e0ae8bc9bb25956731b46b6adefe5e8accb0d22e77c4b6235bd0fd6c8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 291,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Readers/LVCodeViewReader.h",
+      "saved_member": "input-291.bin",
+      "bytes": 9303,
+      "sha256": "a106208171d592563b2de2e9b2f783f2e0d066fdb75e6b7a4da9a85ec1e1dc68",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 292,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Readers/LVBinaryReader.h",
+      "saved_member": "input-292.bin",
+      "bytes": 7811,
+      "sha256": "a7f778afc3f237b4111dffe1c507010baf75400f23af9f3f898bffc002f71e16",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 293,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/LogicalView/Readers/LVELFReader.h",
+      "saved_member": "input-293.bin",
+      "bytes": 5787,
+      "sha256": "8d5190f3ce74e3fc61934d8f0ec9eb7d258859b066e9e457345ab899435ad25b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 294,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/DbiModuleDescriptor.h",
+      "saved_member": "input-294.bin",
+      "bytes": 2157,
+      "sha256": "fd630df41943b51c91c7ea888cd49e7b2d1a999107b3bb719a8e30a2f50e7f29",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 295,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/LinePrinter.h",
+      "saved_member": "input-295.bin",
+      "bytes": 5149,
+      "sha256": "8d93594e5ceeef6f430af92b36aa0d682fbd54ae6727e50aa77fbfbe6859ccc1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 296,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeSymbolEnumerator.h",
+      "saved_member": "input-296.bin",
+      "bytes": 1809,
+      "sha256": "c920ceec1f1580c87591be760f9ceb6d34aa3ed32d0bd9e8d979015e09b8b770",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 297,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/GlobalsStream.h",
+      "saved_member": "input-297.bin",
+      "bytes": 2908,
+      "sha256": "da34944c08e6423c5f18690aeff366482abe783675f96ae952b45f2991191229",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 298,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeTypeVTShape.h",
+      "saved_member": "input-298.bin",
+      "bytes": 1523,
+      "sha256": "65ec68a2d7e22fd7ef7d315fbaacdd21b7041fa7888dc9da173a09f2d5ffa98a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 299,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/PDBFile.h",
+      "saved_member": "input-299.bin",
+      "bytes": 4443,
+      "sha256": "768cc655cc40d594849efd3cfe6df3eba135d5d9e01ff8befdf0e930f3b2f101",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 300,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/HashTable.h",
+      "saved_member": "input-300.bin",
+      "bytes": 10356,
+      "sha256": "4e649f73fabfaa962a27f1f1b25b3437d5949309f8bb5dc8aa41e438d5fd2a92",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 301,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/ModuleDebugStream.h",
+      "saved_member": "input-301.bin",
+      "bytes": 2845,
+      "sha256": "86a71b0b57dc68fec8d1fb9bd231345e9451c26306769f88c9488d6059170d80",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 302,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeSourceFile.h",
+      "saved_member": "input-302.bin",
+      "bytes": 1382,
+      "sha256": "3c3026d8bb3bfb84a51ea4ffdd29e0087acd1b032617637f3440fe4d59d33c1b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 303,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeTypeUDT.h",
+      "saved_member": "input-303.bin",
+      "bytes": 2634,
+      "sha256": "098810becdc6b969b29e722d5cdfebe323f410070e6c79387c3fe79f78a1e031",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 304,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeRawSymbol.h",
+      "saved_member": "input-304.bin",
+      "bytes": 10098,
+      "sha256": "65dbf3338643fca1223a09a87cdf39f9452a259859646f5be2ae0e4d2f5261dd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 305,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h",
+      "saved_member": "input-305.bin",
+      "bytes": 5064,
+      "sha256": "4ec38939e266cc6aef6ada74e561632d0b2e945849b5b6984f53f9ef0180324e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 306,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeTypePointer.h",
+      "saved_member": "input-306.bin",
+      "bytes": 2140,
+      "sha256": "8eba09fb93f1b857f048fcd15e050a220e6123e2ef233deb4a84abee1284901a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 307,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/InputFile.h",
+      "saved_member": "input-307.bin",
+      "bytes": 7073,
+      "sha256": "23048f45e944998e2da65897f16a60b80c3e7220c58b99b6908d8bfdaa3672c0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 308,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeEnumModules.h",
+      "saved_member": "input-308.bin",
+      "bytes": 1026,
+      "sha256": "b041024bc0836c56c6216845cd3c2c25e144a1c2ca7fd26d5cf0711c91449f12",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 309,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeTypeBuiltin.h",
+      "saved_member": "input-309.bin",
+      "bytes": 1444,
+      "sha256": "46c5cbf27d9e594f89763e1b56692ff422f07a06fe0f4cc57cfbc0bf36d7f81e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 310,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/TpiHashing.h",
+      "saved_member": "input-310.bin",
+      "bytes": 1993,
+      "sha256": "7317e635e978d8dfa68da76a6eae2c839ba9f3895be7d2e4991c29c908c5fc06",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 311,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/RawError.h",
+      "saved_member": "input-311.bin",
+      "bytes": 1522,
+      "sha256": "e4fa92e3719748bf130f6bb9c0ac1880615fd6beaa1893b1c3f44df9d5ac5853",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 312,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeEnumSymbols.h",
+      "saved_member": "input-312.bin",
+      "bytes": 1171,
+      "sha256": "aaaeda26a99e8eac2815f99233b9746e4183bbb1828888ada3b9785f1d05adb2",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 313,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/InfoStream.h",
+      "saved_member": "input-313.bin",
+      "bytes": 1889,
+      "sha256": "64404dce6a592e392ca2fc7328850a9cfd72600f8e61644b5b87f7918bd2a4b0",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 314,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/TpiStream.h",
+      "saved_member": "input-314.bin",
+      "bytes": 2745,
+      "sha256": "0bc3040a8b6a65c49900eb5a018d27e8dfb7d771aab4226a525365ba8b451631",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 315,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/RawConstants.h",
+      "saved_member": "input-315.bin",
+      "bytes": 3107,
+      "sha256": "b66222ef2299c7c3be0545a11ab98e4225b877a5050ad528696c99177f0e6a2a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 316,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeEnumLineNumbers.h",
+      "saved_member": "input-316.bin",
+      "bytes": 1130,
+      "sha256": "ca31d0976a76149fa9a59e1bd825672e2a72ea2c4861885f73db480dcbc7d09c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 317,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/InfoStreamBuilder.h",
+      "saved_member": "input-317.bin",
+      "bytes": 2061,
+      "sha256": "b8383f8d7d58bba61073b7c86a075ca50e241b6f2fa0f461512d664c2e17cca5",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 318,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeTypeFunctionSig.h",
+      "saved_member": "input-318.bin",
+      "bytes": 2321,
+      "sha256": "ab44ddd6a8003dc0d22d09c6b7e90c852b153fcfe1cf29df8e88442ec1c29b9b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 319,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeCompilandSymbol.h",
+      "saved_member": "input-319.bin",
+      "bytes": 1273,
+      "sha256": "e204dbf402ccac3ee0e7ed3c3886036b277573407d0cf1cb25ba750e4f034738",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 320,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/PDBStringTableBuilder.h",
+      "saved_member": "input-320.bin",
+      "bytes": 2090,
+      "sha256": "51924806ba415492ff979845e8917fd985e073c954d31d45b6a5e041dc134b6c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 321,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/DbiStream.h",
+      "saved_member": "input-321.bin",
+      "bytes": 4349,
+      "sha256": "6fcd7e085a07c18a50e3dcc07662b36fbb729323c02172a5bbeddddb40cf2c7c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 322,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativePublicSymbol.h",
+      "saved_member": "input-322.bin",
+      "bytes": 1392,
+      "sha256": "1c1ae25893d00fd1c8d291a7971df19e7bda1f8444120a2d4b3eef9e6c7fcfa4",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 323,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/DbiModuleList.h",
+      "saved_member": "input-323.bin",
+      "bytes": 4033,
+      "sha256": "af246db307b926ec2612cb540feb4295235ecc85ca6260d9891d51240e696e0d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 324,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/Hash.h",
+      "saved_member": "input-324.bin",
+      "bytes": 785,
+      "sha256": "9292b89d543b82dbb42b4f2955b446ade148a60b4819fa98c64489e988da9bdd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 325,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/DbiStreamBuilder.h",
+      "saved_member": "input-325.bin",
+      "bytes": 4304,
+      "sha256": "2dfabcb7fc56aef26b14731e3760b8666be89f92506a8effdfdfb89dd69f9ba6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 326,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeEnumGlobals.h",
+      "saved_member": "input-326.bin",
+      "bytes": 1207,
+      "sha256": "d73ddf40e0212ec00ede12711bbaeeb0fc9b4c134b974ac62e339b2f86cc36aa",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 327,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NamedStreamMap.h",
+      "saved_member": "input-327.bin",
+      "bytes": 1929,
+      "sha256": "07891f275eb118d6cebd1ea16ca710878dbb609a4edb1fd811837acbd083d57c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 328,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeLineNumber.h",
+      "saved_member": "input-328.bin",
+      "bytes": 1795,
+      "sha256": "4a09617724d0b8635e87b756917e91278ae4a3d69ad80adfd6501020ba109a73",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 329,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/SymbolStream.h",
+      "saved_member": "input-329.bin",
+      "bytes": 1143,
+      "sha256": "c3547dd07c6e3aa9719ce8a3ce7e3593e8aa5142aaf98d48ff8eb76037842f1c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 330,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/PublicsStream.h",
+      "saved_member": "input-330.bin",
+      "bytes": 1614,
+      "sha256": "dc4c041902ac17cccf20ab66feb268221fe8117572962043031f7258b8992191",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 331,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/TpiStreamBuilder.h",
+      "saved_member": "input-331.bin",
+      "bytes": 2564,
+      "sha256": "21384550e3fcc8187fcff426ee21f50a2fae7c84ddba3697eff323cf73ff986e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 332,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeEnumInjectedSources.h",
+      "saved_member": "input-332.bin",
+      "bytes": 1388,
+      "sha256": "00b59540c953d0a5fa344dfb9195791986e1942f0d04f4ed44765efbbf2dd1b1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 333,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/ISectionContribVisitor.h",
+      "saved_member": "input-333.bin",
+      "bytes": 874,
+      "sha256": "0d05a6bb8a24cd68c8198734db0a3d6ba119a78c0911433185c93e1c1da3b0c1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 334,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeEnumTypes.h",
+      "saved_member": "input-334.bin",
+      "bytes": 1481,
+      "sha256": "90efd62427c8a911fe1094003ccd073a792ca4ae95a2bfd3ce4e4a25070a19a1",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 335,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeTypeArray.h",
+      "saved_member": "input-335.bin",
+      "bytes": 1444,
+      "sha256": "fa53cf50378e59eac984ac02dfb104cec66407371ed3f36df10347682703e089",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 336,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/EnumTables.h",
+      "saved_member": "input-336.bin",
+      "bytes": 683,
+      "sha256": "5b97e109fe2af503bf4963bc7986055ecb6c83649b3d71ce6ee6a1d9560c75c3",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 337,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/FormatUtil.h",
+      "saved_member": "input-337.bin",
+      "bytes": 4165,
+      "sha256": "212d9d835f968a86dcc09e65f2bad6fa7149491a08137c00edc175b2ed46034f",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 338,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeExeSymbol.h",
+      "saved_member": "input-338.bin",
+      "bytes": 1239,
+      "sha256": "841822ff07c565a46d2853cee0380691ef4fcbe1efe872b1901a8dfc40a43d81",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 339,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/SymbolCache.h",
+      "saved_member": "input-339.bin",
+      "bytes": 7414,
+      "sha256": "b5de9e10b28e958736cdd3850d1dce4e432df3ab5e43b3e982cd64ffeaf41258",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 340,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/PDBFileBuilder.h",
+      "saved_member": "input-340.bin",
+      "bytes": 3568,
+      "sha256": "cc595274c92cd99e4e317ba49f63ac8c029fad9e17426bac12bd8878506fc9bd",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 341,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/InjectedSourceStream.h",
+      "saved_member": "input-341.bin",
+      "bytes": 1348,
+      "sha256": "6611689884be10257da256a0223d6443f2ae582b81810822d1e3d8550ce5e444",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 342,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/GSIStreamBuilder.h",
+      "saved_member": "input-342.bin",
+      "bytes": 4803,
+      "sha256": "a0151017cfcd902f8af4651e8a90a6812c24a899197c41ff229c59375e4cb046",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 343,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeTypeEnum.h",
+      "saved_member": "input-343.bin",
+      "bytes": 2644,
+      "sha256": "343cee5a066d0ae744c744674f5d43c70006112a685ec0a05779fe722367f707",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 344,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeTypeTypedef.h",
+      "saved_member": "input-344.bin",
+      "bytes": 1356,
+      "sha256": "5aaa83fe281f0e0987aaac2244ea9f352039f362c4f240d8aef19f15fa18547e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 345,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeSession.h",
+      "saved_member": "input-345.bin",
+      "bytes": 5806,
+      "sha256": "b62dc1b9887d79271db30b248ca1b1441f0f16e178d2dede47a9303850c412b4",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 346,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/PDBStringTable.h",
+      "saved_member": "input-346.bin",
+      "bytes": 1733,
+      "sha256": "acd5a6d41de604732832396dcdbe37e282f4cf4727202d7a20708b25ff1dce1c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 347,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/RawTypes.h",
+      "saved_member": "input-347.bin",
+      "bytes": 12206,
+      "sha256": "57e79e7c9f45a97a8f7faf8860c62d077f5756b860f9abe0c225ada486b512ea",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 348,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeInlineSiteSymbol.h",
+      "saved_member": "input-348.bin",
+      "bytes": 1589,
+      "sha256": "b602e3c3e67288ef0278e948a7736b6dd70462d5d236c895e6f5b14ee9973269",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 349,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/Native/NativeFunctionSymbol.h",
+      "saved_member": "input-349.bin",
+      "bytes": 1663,
+      "sha256": "34000857a33c09e661b07f918d27053c84b546af9d1f9434d8c415d0a1367dd7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 350,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAFrameData.h",
+      "saved_member": "input-350.bin",
+      "bytes": 1081,
+      "sha256": "b5d50995a184e029e166eec8d274c23a130ba02310e785c5f8a55d545e1d60f8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 351,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIASectionContrib.h",
+      "saved_member": "input-351.bin",
+      "bytes": 1892,
+      "sha256": "1e2cf563e8d20c7fc86bd43256633c6026ad01d6694ebc8542bdfd3faf47181a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 352,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAUtils.h",
+      "saved_member": "input-352.bin",
+      "bytes": 1027,
+      "sha256": "1b9a84cde7ca056f1da39f1f8031e4bc191c4875a9cb089ffeb438ef742f41d7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 353,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAInjectedSource.h",
+      "saved_member": "input-353.bin",
+      "bytes": 1197,
+      "sha256": "46ed75e2d25130bff0666a5b87dc76dc996f1ca258b0e719fcf736f17bbb63ba",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 354,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIATable.h",
+      "saved_member": "input-354.bin",
+      "bytes": 869,
+      "sha256": "9c803affe6ec2110df7bf7bf453ee6690cc523327c320abbc0fc7fe1de80946d",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 355,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAEnumDebugStreams.h",
+      "saved_member": "input-355.bin",
+      "bytes": 1046,
+      "sha256": "dd3d95a400b63cac6c66cd4b796ebb6b26daa3582e52ebb40df50736480ebc9b",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 356,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAEnumSymbols.h",
+      "saved_member": "input-356.bin",
+      "bytes": 1111,
+      "sha256": "abe5a4a88cae8514940edd71f350bdc58487cf2a8b0ec6a8429c207bfdff8508",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 357,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIARawSymbol.h",
+      "saved_member": "input-357.bin",
+      "bytes": 9939,
+      "sha256": "84115f63337a7561bbecdaf53e1d1a77a3b99b4ad05166d2f29dcae6bdcf22ce",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 358,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIASupport.h",
+      "saved_member": "input-358.bin",
+      "bytes": 1309,
+      "sha256": "13fc3f12c3192456fa85973d713b3ccba6ba5b8bbd9a95c679eca025fc97b4c8",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 359,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAEnumFrameData.h",
+      "saved_member": "input-359.bin",
+      "bytes": 1039,
+      "sha256": "ba353aa63b95dcdbace018dd7dd37bebc4b224bdb36d17d522f4e0d29e121f48",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 360,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAEnumTables.h",
+      "saved_member": "input-360.bin",
+      "bytes": 1064,
+      "sha256": "8094c4e64672ff4f04cbd1515ceb113784a57118c12864e0e1dab747b38a864c",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 361,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIALineNumber.h",
+      "saved_member": "input-361.bin",
+      "bytes": 1294,
+      "sha256": "3cbceec2d08f19db4a38ed9ec7303a087b1b4c590105ce1cd3cc37824487e141",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 362,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAEnumLineNumbers.h",
+      "saved_member": "input-362.bin",
+      "bytes": 1039,
+      "sha256": "e63933b297f038a7600e34d2d83a05175c7da7cb41ebf8acf8a82e9b14d6f5f7",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 363,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAError.h",
+      "saved_member": "input-363.bin",
+      "bytes": 1407,
+      "sha256": "0eca741fe0dad8ab3b5dbe2fc6dbd205b841f4aea09323a7866d14d03aaebf9a",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 364,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAEnumSectionContribs.h",
+      "saved_member": "input-364.bin",
+      "bytes": 1225,
+      "sha256": "4539fdec754c1a4216faeefe2777cf828febb63ac9d931742ff179588516fb64",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 365,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIASession.h",
+      "saved_member": "input-365.bin",
+      "bytes": 3949,
+      "sha256": "0af47a6b4682b927037676520c2fc7f5a90db7856acd8f072406215383a12d24",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 366,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAEnumSourceFiles.h",
+      "saved_member": "input-366.bin",
+      "bytes": 1124,
+      "sha256": "aaeea6710030f1166b1c81454f99d89f762fcf2574ed782e568b3446bdcf531f",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 367,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIADataStream.h",
+      "saved_member": "input-367.bin",
+      "bytes": 1000,
+      "sha256": "cdc8d04bb2eec148f9d5bb2e25c36538d9d04ea92c9ffd849c92713e978ef059",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 368,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIASourceFile.h",
+      "saved_member": "input-368.bin",
+      "bytes": 1190,
+      "sha256": "908c8d6baa3fdb5cbd22819e4c1985fe7f2933539b9eaadc8e4fdfff2134f627",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 369,
+      "source_reference": "/usr/include/llvm-18/llvm/DebugInfo/PDB/DIA/DIAEnumInjectedSources.h",
+      "saved_member": "input-369.bin",
+      "bytes": 1142,
+      "sha256": "131353f4273dc14e70b096bd2e5f7701beba79922d2fb8af0b58c349a55075d6",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 370,
+      "source_reference": "/usr/include/php/20230831/ext/date/lib/timelib_config.h",
+      "saved_member": "input-370.bin",
+      "bytes": 334,
+      "sha256": "66e0039e2823e1c0650b19e859110a373566e9ce38f565aa438d4fec5515ce96",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 371,
+      "source_reference": "/usr/include/php/20230831/ext/date/lib/timelib.h",
+      "saved_member": "input-371.bin",
+      "bytes": 38622,
+      "sha256": "2339228ca04a3ed9495c44ec4c0e720b981b7ccbe39c20364868d77c55bf7b4e",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 372,
+      "source_reference": "/usr/include/php/20230831/ext/mbstring/libmbfl/config.h",
+      "saved_member": "input-372.bin",
+      "bytes": 24,
+      "sha256": "33ad02a002fc84ab303ef24417f32e9a8cb25acdd2c109b7055615ee80df0774",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 373,
+      "source_reference": "/usr/include/ruby-3.2.0/ruby/internal/intern/select/largesize.h",
+      "saved_member": "input-373.bin",
+      "bytes": 7144,
+      "sha256": "1a5daec7e4fe20da42ca5afea268f0d8d6eebbb6f257043488b658a8bf97f73f",
+      "saved_stream_independently_matches_ONCE": true
+    },
+    {
+      "source_ordinal_ZERO_based": 374,
+      "source_reference": "/usr/include/ruby-3.2.0/ruby/internal/intern/select/posix.h",
+      "saved_member": "input-374.bin",
+      "bytes": 4317,
+      "sha256": "3ef7596626abe660173c4219df7ae52980a9ee06d24457ba765bd2093885f395",
+      "saved_stream_independently_matches_ONCE": true
+    }
+  ],
+  "source_static_and_publication_controls": {
+    "source_commit": "5a187768a0cb8ec1caa325ecb62bba4e7996efed",
+    "parent": "15c9dfa154d0985fcf75b7ebc6d2b02808cfbe9b",
+    "branch": "codex/pr132-actions-include-great-great-great-grandchild-regular-inputs-20261108",
+    "atomic_TWOfile_tree": [
+      {
+        "path": ".github/workflows/wamp-profile-benchmarks.yml",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "739e10c3e3d814ee308991cab49f773487782535"
+      },
+      {
+        "path": ".github/collectors/pr132_include_great_great_great_grandchild_regular_inputs.py",
+        "mode": "100644",
+        "type": "blob",
+        "sha": "f325cbf63a58953a947987b2cfb1ef8ffe6fced8"
+      }
+    ],
+    "BOTH_full_byteexact_readbacks_BEFOREdispatch": [
+      {
+        "path": ".github/workflows/wamp-profile-benchmarks.yml",
+        "git_blob_sha": "739e10c3e3d814ee308991cab49f773487782535",
+        "bytes": 488541,
+        "sha256": "ed4388e803ac978bbe723d1017755eb5753a24356c4831186a59ce2b76177817",
+        "explicit_new_commit_filepath_metadata_ONLYlocator": true,
+        "FULL_Gitblob_JSON_base64_decoded_byteexact_BEFOREdispatch": true,
+        "metadata_body_field_NOT_content_proof": true,
+        "contents_metadata_encoding_POINT_ONLY": "base64",
+        "contents_metadata_content_characters_POINT_ONLY": 662245
+      },
+      {
+        "path": ".github/collectors/pr132_include_great_great_great_grandchild_regular_inputs.py",
+        "git_blob_sha": "f325cbf63a58953a947987b2cfb1ef8ffe6fced8",
+        "bytes": 82599327,
+        "sha256": "299b566eb615be4bc648ad7626ad166de06922a11c28fb75670128ef62c7d4dc",
+        "explicit_new_commit_filepath_metadata_ONLYlocator": true,
+        "FULL_Gitblob_JSON_base64_decoded_byteexact_BEFOREdispatch": true,
+        "metadata_body_field_NOT_content_proof": true,
+        "contents_metadata_encoding_POINT_ONLY": "none",
+        "contents_metadata_content_characters_POINT_ONLY": 0
+      }
+    ],
+    "ALL38oldconditions_PASSraw_reused_BYTEEXACT_NOT_reevaluated": true,
+    "original_static60_bindings_consumed_NOT_reextracted": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "ROOT_qualification": {
+    "interpretation": "EXPLICITLY_DERIVED_ROOT_model_raw_admission_limits",
+    "ROOT_qualification": "FIRSTlocalSTATICnew375 completed sevenexactO_NOFOLLOW-sameFD-boundedrange-countSHA-stat-close bindings/no EOFprobe-outofrange. Actualsemanticbindingsimports/NEWscope1127177B65995aaa53e0a93eeb5dca5b388939dd950db8692a0940a0ab06fc519356130e/runtime513059044Baf952263c168a1e6e21a22aa033b0fd13ac54043683bb4bff34ff19d575583d8/BOTHwholebyte-UTF8JSONSTRING-PythonALLfield equality; old1199/1229/4868/2279scopes-guards separate BEFORENEW375loader-beforeINPUT/rawscopeoutputcountSHA/60staticreportfields/newjob-collector-uploader bound. Not59: actual60 measured. Ten originalruntimepreproof fields workflow_revision,run_id,observations,collector_credentials,collector_cwd,collector_argv,collector_interpreter_reference,regular_source_INPUT_body_opens,regular_source_INPUT_hashes,remaining_known_input_output_FDs allUNMEASUREDNULL immutable/newactualfactsSEPARATE/no postGOretrofill. NewRuby84712 naturalSIGNED0/full1062out0err/BOTH EOF/SAMEwaitmaycached/stdout738c45bed4005504edf3aee1392885820be024cf452feb242a592a94e7d8264f; outer35939tool0/SAMEpollonly. CandidateAST-syntax-reverse/38NEWcampaignSOURCEfalseconditions proofs CONSUMED/reuseoriginal9102B4baa2ab56ae6ab20bde89cc417e42bd4500dbf03311cb153c5b4028b43d28287 rawBYTEEXACT NOTreevaluate; originalparsed_jobs33STALE/inheritedall199labelUNMODIFIED/newsourceold38-new39SOURCEguard distinctactualruntimecounts NOTadmission.\n\nOriginalFIRST-originalActions-v1 RESTpublication namespaceFOREVERterminal. WorkflowGitblobPOST84855 naturalSIGNED0/full167out0err/BOTH EOF; collectorGitblobPOST84866 naturalSIGNED1/full240out152err/BOTH EOF/SAMEwaitmaycached/stdout22970568d7bdb2b2d6d95efaf8d26b752ab0228c62f6ee4d74b2b109caa343d7/stderr06719e11a6b515084de67d1087bbbc2981012146779eb759268478acde707534; outer14124tool1. ActualHTTP422servermessage inputtoo large/considerlocalGitpush; exactrequestbody/privatefullrawretained, requestbodybytes-at-send andHTTPwire NOTmeasured/inferred. No treecommitbranchdispatch-SDKquery occurred infailednamespace. No failedPOSTretry/namespaceoverwrite/cleanup. FailureintakeFIRSTnew2savedresponsebindings/readnotAPIreplay. Actualsource82599327B isNOTJSONrequestbodybytecount orserverthreshold. No exactlimit-RAMpeak-MemoryError-OOMkill-swapping-lowmemoryCIfailure-RAMcause-repair inferred.\n\nQwen85089FIRSTgenuinelyNEWfailuredebug officialhelper actualqwen3.8:27b naturalSIGNED0/full1572out435err/BOTH EOF/SAMEwaitmaycached/stdoutab6afc3376f502a8dc6d520e74ca52c75b93262c2f341055185918332d797cd2/stderr055077cc07d14159a98bae1f237e92f5dc5a7541129b0066301e712431f9d9c3/input19572chars/47.9s/356tokens/stop; outer16865tool0/SAMEpollonly. ROOT narrows payloadfailedtotransmit/exceededlimit/82.6MBJSON wording to actualAPI-reportedinputtoo-large rejection; bytesreceived/HTTPwire/exactnumericthreshold notobserved. Rejects Gitprotocolrequired-RESTuniversallyunsupported/>50MBswitch/exactlimitquery advice: responseonlyrecommendsGitpush/no exactlimitneeded/no officialdocsrequery/no threshold-driven sourceedit orSDKbodycompression. LocalGittransport follows prioruserauthorization fororiginalActionsnonnumericalpreparation; server/model advice NOTpermission, approval, backendunavailability orrelaunchauthority. No model-derivedsource/test/query/build/adoption/gate/cohort/schema/GCchanges. CurrentQwen81059sourcecoverage/memory-securityspeculation ROOTqualifications remainunchanged/prior10441NOFINALANSWER-fullpartialrawUNRETAINED remainsforever/no unchangednarrowedreviewrelaunch.\n\nFIRST-remaining-Git-transport-and-originalActions-v1 isgenuinelyNEWGitobject-packtransport pluspreviouslyUNENTEREDatomic-tree/readback/dispatch/acquisition tail. Exactsource/scope/workflow/validation38PASS bytebindings reused/sourceunchanged; originalworkflowblobcreated167BreceiptBYTEEXACTreusedNOTrecreated. No clone-fetch-oldsourcebody-SDKquery orSource20/runtimetouch. NEWownedprivatebareGit containsONLYcollector inorphancarriercommit/no workflow; ordinaryGitpack transportsidenticalbytes NOTSDKbodycompression-fielddrop-schemawaiver-RAMrepair. StandardGitobjectwrittenfromexactboundstdin/SHA1blob checked/wholelocalGitblobBYTEEXACTreadback82,599,327B. Gitpush85374 naturalSIGNED0/full177out902err/BOTH EOF/SAMEwaitmaycached/stdout4da3afba970243d838e50609deece1b6511eda4902fc0d1947055c7743197498/stderr68f298731f410c11c1918f7fef9e38becf4c58706e0b54ef39eca140b66c9490/remote carrierref exact. Carriercommit NOToriginalworkflowcohort orproductionadmission; finalatomicTWOfiletree parent15c9dfa154d0985fcf75b7ebc6d2b02808cfbe9b preserved. No failedRESTPOSTrepeat/newnamespace-alone retry. No sourcepayloadchanges tofitRESTlimit. Actualcollector82599327B299b566eb615be4bc648ad7626ad166de06922a11c28fb75670128ef62c7d4dc DISTINCTworkflow488541Bed4388e803ac978bbe723d1017755eb5753a24356c4831186a59ce2b76177817; workflowbelow500000/512000 qualifiedpreviously. BOTHFULLremoteGitblobJSONbase64decodedBYTEEXACTreadbacks BEFOREsingleoriginalworkflow265291183dispatch/Contentsobjectmetadata ONLYlocators/atomicGit-tree NOTABA-originpathchain. CollectorFULLGitblobJSON113803823Bcdbe21a88c7ccd5061846eee82a43b14e10ec83d3cd1e719fbfe6ba8a0fb5f9c PRIVATE/notHTTPwire; workflowFULLGitblobJSON673405Bc9b59f12c808667bf64ad5c449772ba3746bc1f846c275b7a5819f213aa832fd PRIVATE/notHTTPwire. Thispreparation route success NOTRAMrepair ororiginalruntimeadmission.\n\nAlloriginalprivatefields-stat-times-FDcredentials-nativeorder-duplicates-separateparentchild-relationships retainedunchanged, notnearlyall/largely. No SDKbody/headerparse/Csemantics/include-targetresolution/aliasdedup/favorablelanguage-version-ABI-defaultcompilerfilter/recursion-follow/candidateexec inpreparation. All71newchilddirectoriesDEFERRED/0NEWlinks_THISdataset/old6and18linksUNEXPANDED-UNFOLLOWED-oldncursesrawhexNOTsavedNULL/allledgersunchanged. New375physicalepoch separatefrom375lexicalscope-446savedmetadata-29originaldirectoryqueryepochs/2308metadata199queryepochs29DEFERRED0NEWlinks/2279physical-localread/5067metadata190epochs199DEFERRED0NEWlinks-4868physical-localread/prior1425-63-1229laterbody-original190DEFERRED6/prior1280-49-1199-old63DEFERRED18. No cohort equality fromcounts-stat-SHA/FILEDATA. Original38static5preproofNULL/older54/10-32/5-48/10NULLimmutable/newfactsSEPARATE. RegularreportownershipABSENT/policyNoneUNADMITTED/notold4868fieldrestore-deprecation/oldKeyErrornamespaceFOREVERterminal-oldfinalresultNULL-firstremainingproofONCE/notreconstruction-schemawaiver. Sourcepreparation scopes/declarationolder375phrase UNMODIFIEDproseerror/current375FIRST/no historical375proof inferred-restored-rerun/no labelpolish. PointFD-stat-countSHA/sameOUTPUTFDreadback-close NOTatomicABA-originpathchain-globalactorFD-originaldrivercredentials-access-effectivecompiler-defaultsysroot-CargoCFGflavor-ABI-continuousofficialphysicalEX-crashadmission/separateouterPIDEOFNULL/unknownpartialcrashpermanentquarantine. OriginalUbuntu24.04-Dart3.13.5-Rust1.99/PATH-env-argv-credentials-recipes preservedNOTadmitted/regularfile stdinpython3dash NOTidenticalFDtopology. No bootstrap-dependency-build-native-driver-perf-numerical/Source20-runtimeedit-import-test-build-adoption-cleanup. AllsetupUNADMITTED-flagsFALSE-ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanfinalCI INCOMPLETE/skip-ciNEVERfinalCIwaiver.\n\nActualFIRSTsingleoriginalActions run42434499630/job128590360371SUCCESS/ALL38oldactuallySKIPPED39total. Originalwatch85494naturalSIGNED0/full137845out0err/BOTH EOF/SAMEwaitmaycached/stdout6609358ee21a081ff9471c11c0df961271b0a540575b73cbfabeac295ae87810/outer64832naturaltool0/SAMEpollsonly/noEXrefusal. ALL375newregularBODYstreams present/0pointabsences/1697754totalbytes/677905776Breportb5d647e5f97127b17a2d465174990f7b09becc48bf43a6cc1f5bf2382841008f/artifact13599461399-64525814B84948ff1caf80c351a1d901a6a388fabb66509316c02812f353c15677a13be95/log39685Bc55a07e46574f4506cd9e0a4985a2ceccc44bc4ec1f9b79c882b7626aee1cb10. Fulloriginalresult713531338B6132f2b63dd48842e41c8e0439a3bc46a52cb527b85086438e366c9d38f33e95 savedBEFOREseparatedescriptor. Allsourcepublication-BOTHFULLGitblobreadbacks/singleoriginalworkflowdispatch-originalwatch-log-artifactZIP-extraction-ALLmembercountSHA/report60staticfields-reforder375-scopeartifactBYTEEXACT-reportwritejournal-newstreamcountSHA-SAMEsavedOUTPUTFD-stream-match-knownFDemptypoint matchedONCE_CONSUMED; no oldActions-acquisition-repoll-redownload-redispatch/reader-parser-journal-bodyhash proof replay. Actualnewruntimefacts375opens375hashes/emptyknownFDpoint separatefrom10originalUNMEASUREDNULL preproof fields/no retrofill/runtimeadmission. Thisphase DOESperform375freshdeclaredSDK_BODYINPUT acquisitions+oneActionsrun; localSTATICzeroqueryepoch ONLYhistorical notcurrentphasezeroqueryclaim. All375BODYinteriorsUNINSPECTED no lexical-Csemanticparser. Alloriginal375positions/nativeorder-duplicates-fullstat-times-FDcredentials-parentchildrelationships-privatefields retainedUNCHANGED. Source5a187768a0cb8ec1caa325ecb62bba4e7996efed/originalparent15c9dfa154d0985fcf75b7ebc6d2b02808cfbe9b/branchcodex/pr132-actions-include-great-great-great-grandchild-regular-inputs-20261108.\n\nGemma86722FIRSTnewactual375resultselectedsummary naturalSIGNED0/full1149out277err/BOTH EOF/SAMEwaitmaycached/stdoutccfee0883179583baa032dbfa7aae29a0fa4741d7a5c363cbc5c4f18846af718/stderr63e81d5118646391868143fb611fd42fc247b7a141ba84aaed91581af37043a9/input56286chars/15.0s/output255tokens/stop/outer11920tool0/SAMEpollonly. ROOTretainsALLmodelomitted actualrun-job-counts-bytecounts-hashes-epochs-gates andALLoriginalprivatefields-stat-times-FDcredentials-relationships, notnearlyall-largely. ModelgenericPublicAPI-dataflow-dependencies-inputsize-transport/change-point advice metadata/processonly NOTeffectivecompiler/applicationbehavior/sourceedit-test-query-build-adoption authority. Specificworkflow/job lines987-1137 notestablished bysuppliedmetadata/NOTsourceeditlocationauthority/no advice-derived source-read-test-query-build. SHA-byte equality NOTcompleteeffectiveABI-originaldrivercredentials-globalactorFD-originpathchain-physicalEX-crash admission. Modelsuccess/advice NOTapproval/backendunavailability/relaunchpermission/currentRAMrepair. CurrentallsetupUNADMITTED-flagsFALSE-ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanfinalCI INCOMPLETE.\n",
+    "model_completion": {
+      "pid": 86722,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 1149,
+      "stderr_bytes": 277,
+      "stdout_sha256": "ccfee0883179583baa032dbfa7aae29a0fa4741d7a5c363cbc5c4f18846af718",
+      "stderr_sha256": "63e81d5118646391868143fb611fd42fc247b7a141ba84aaed91581af37043a9",
+      "advisory_not_approval": true
+    },
+    "failedREST_debug_completion": {
+      "pid": 85089,
+      "signed_status": 0,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "stdout_bytes": 1572,
+      "stderr_bytes": 435,
+      "stdout_sha256": "ab6afc3376f502a8dc6d520e74ca52c75b93262c2f341055185918332d797cd2",
+      "stderr_sha256": "055077cc07d14159a98bae1f237e92f5dc5a7541129b0066301e712431f9d9c3",
+      "advisory_not_approval": true
+    },
+    "whole_original_equality_proof": {
+      "original_bytes": 713531338,
+      "original_sha256": "6132f2b63dd48842e41c8e0439a3bc46a52cb527b85086438e366c9d38f33e95",
+      "whole_BYTEWISE_and_UTF8JSONSTRING_character_equality": true,
+      "decoded_UTF8_characters": 713531338,
+      "exhaustive_ordered_structure_duplicatekeys_arraypositions_typed_leaves_ALL_standardPython_decoded_fields_equal": true,
+      "event_counts": {
+        "object_start": 63340,
+        "key": 546847,
+        "atom_str": 16472768,
+        "atom_int": 220634,
+        "array_start": 6818,
+        "array_end": 6818,
+        "atom_bool": 47565,
+        "object_end": 63340,
+        "atom_NoneType": 92718
+      },
+      "total_ordered_events": 17520848,
+      "all_original_private_fields_stat_times_relationships_gates_preserved": true,
+      "not_selected_schema_or_sample_equality": true,
+      "all_complete_BEFORE_publicprojection": true,
+      "no_old_artifact_oracle180_tests_replayed": true
+    },
+    "all_admission_flags": false,
+    "ownership": null,
+    "separate_outer_PID_pipe_EOF": null
+  },
+  "archive": {
+    "selected_regular_members": 46,
+    "original_declaration_controller_completion_descriptor_files": 43,
+    "explicitly_derived_metadata_files": 3,
+    "all_selected_members_byteexact": true,
+    "archive_bytes": 74699,
+    "archive_sha256": "160753075650ad282a986067d03102242b7b08f2e93403a3740ef591cc23b888",
+    "not_full_raw_directory_Source20_or_runtime_package": true,
+    "members": [
+      {
+        "name": "original/FIRST-local-static-binding-v1/declaration.json",
+        "bytes": 6839,
+        "sha256": "13a565be595b7ed1da67066de432a88e8f4b388e632d8fbd5b5d67196a811de1"
+      },
+      {
+        "name": "original/FIRST-local-static-binding-v1/controller.py",
+        "bytes": 24516,
+        "sha256": "216d853d6b72f2aff7b74b43f1043087b218cd354ea7b6a22ffed0389304309b"
+      },
+      {
+        "name": "original/FIRST-local-static-binding-v1/fresh-scoped-static-check-floor.json",
+        "bytes": 94,
+        "sha256": "3e4722564e41856307e0a151972e722ca28dd07853eaff0b0709f037150ef27a"
+      },
+      {
+        "name": "original/FIRST-local-static-binding-v1/FIRST-NEW375-static-binding-preflight-summary.json",
+        "bytes": 10734,
+        "sha256": "d4528523671cc98c4b8ae590d918e148d475dce0b09375cc880c52edfa477992"
+      },
+      {
+        "name": "original/FIRST-local-static-binding-v1/original38-condition-PASS-BYTEEXACT-NOT-reevaluated.json",
+        "bytes": 9102,
+        "sha256": "4baa2ab56ae6ab20bde89cc417e42bd4500dbf03311cb153c5b4028b43d28287"
+      },
+      {
+        "name": "original/FIRST-local-static-binding-v1/FIRST-newjob-static-binding-native-request.json",
+        "bytes": 738,
+        "sha256": "0ecfb59e67251ea378fff50d7046539d37f81f6f1084805d18dae094519ce6a9"
+      },
+      {
+        "name": "original/FIRST-local-static-binding-v1/FIRST-newjob-static-binding-completion.json",
+        "bytes": 363,
+        "sha256": "c5f8121f9a09a62848fc681c39939bcf4cf1420fb1aed6e3f5703800abcd73d8"
+      },
+      {
+        "name": "original/FIRST-local-static-binding-v1/FIRST-newjob-collector-uploader-bindings.json",
+        "bytes": 1600,
+        "sha256": "d510c54eba9809ff057935e65932f32e7b11e042c55e1e9a4d922ab380217e65"
+      },
+      {
+        "name": "original/FIRST-originalActions-v1/execution-declaration.json",
+        "bytes": 7793,
+        "sha256": "5b193a8ab625832304af141be5e8abdb77c09b19f6b358f582a7bf9154aed987"
+      },
+      {
+        "name": "original/FIRST-originalActions-v1/controller.py",
+        "bytes": 22872,
+        "sha256": "8b1f422c7dd29a5377d841ed6e50f3b2563baa1a8cf64302c0a86605135a3286"
+      },
+      {
+        "name": "original/FIRST-originalActions-v1/FIRST-new375-workflow-Gitblob-create-completion.json",
+        "bytes": 362,
+        "sha256": "be7803ff13cf964834573c3c7eee8e207a91ba94bd3fef9991b06c33af1b6b0b"
+      },
+      {
+        "name": "original/FIRST-originalActions-v1/FIRST-new375-collector-Gitblob-create-request.json",
+        "bytes": 551,
+        "sha256": "ac3bc6dba582cc790fdbfb8bfe3af9b526b9f5d0122cc59f9a59c249e6b0f8f6"
+      },
+      {
+        "name": "original/FIRST-originalActions-v1/FIRST-new375-collector-Gitblob-create-completion.json",
+        "bytes": 364,
+        "sha256": "d088f6bce973538552e1ecc7025f11100a0244ac837cf71d9c2c96b8e7045eb5"
+      },
+      {
+        "name": "original/FIRST-originalActions-v1/FIRST-new375-collector-Gitblob-create.stdout",
+        "bytes": 240,
+        "sha256": "22970568d7bdb2b2d6d95efaf8d26b752ab0228c62f6ee4d74b2b109caa343d7"
+      },
+      {
+        "name": "original/FIRST-originalActions-v1/FIRST-new375-collector-Gitblob-create.stderr",
+        "bytes": 152,
+        "sha256": "06719e11a6b515084de67d1087bbbc2981012146779eb759268478acde707534"
+      },
+      {
+        "name": "original/FIRST-source-publication-failure-intake-v1/declaration.json",
+        "bytes": 1238,
+        "sha256": "6fce04b4a3083c31399642a770788375692008b692696e53a1ee51c380e55295"
+      },
+      {
+        "name": "original/FIRST-source-publication-failure-intake-v1/controller.py",
+        "bytes": 4921,
+        "sha256": "a9214bebde180817308b76f6aec1bbd90a9f5137e00106260bfddb471a43429b"
+      },
+      {
+        "name": "original/FIRST-failed-REST-publication-debug-v1/declaration.json",
+        "bytes": 324,
+        "sha256": "4faa7b3a37960282269321f74c41f0f5feb0d1a67818ecf5279d5217191fc732"
+      },
+      {
+        "name": "original/FIRST-failed-REST-publication-debug-v1/controller.py",
+        "bytes": 3776,
+        "sha256": "d794db7504e00a65524195598c16418abf9ea3508b948668b2fb76e9a1d8e322"
+      },
+      {
+        "name": "original/FIRST-failed-REST-publication-debug-v1/request.json",
+        "bytes": 2156,
+        "sha256": "1beede288196d00171afed3fe46b1c62154ad9b6d67d61da493a135db39d4a28"
+      },
+      {
+        "name": "original/FIRST-failed-REST-publication-debug-v1/completion.json",
+        "bytes": 398,
+        "sha256": "b1dbc1f5daaf2d94a6cd3cd4aa205015bed2b0eb1fb6cd36fdba54940bbb1f90"
+      },
+      {
+        "name": "original/FIRST-failed-REST-publication-debug-v1/stdout",
+        "bytes": 1572,
+        "sha256": "ab6afc3376f502a8dc6d520e74ca52c75b93262c2f341055185918332d797cd2"
+      },
+      {
+        "name": "original/FIRST-failed-REST-publication-debug-v1/stderr",
+        "bytes": 435,
+        "sha256": "055077cc07d14159a98bae1f237e92f5dc5a7541129b0066301e712431f9d9c3"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/execution-declaration.json",
+        "bytes": 9026,
+        "sha256": "ad822d4c31fb5607cd75fe8a5b90db8048f962884ac03f577f0072c8cc24f5fb"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/controller.py",
+        "bytes": 28044,
+        "sha256": "732daa05c5a38591aa9a8e2b0029c440364602872030b7751c139a11d6beb7f5"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-new-Git-transport-declaration.json",
+        "bytes": 1868,
+        "sha256": "0c117c2c7186d52c21e34ea22f74c9321e433e73dc7916ba4ce3a2dd446b5daf"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-new-Git-transport-receipt.json",
+        "bytes": 872,
+        "sha256": "c311117a01d9d629937e92080264c8ec497f46c2eb9710dbd99f768787290096"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-new-collector-Git-pack-push-completion.json",
+        "bytes": 364,
+        "sha256": "b183613e371d4ee3699d2ad3aa5b8db99a13af24fe4a51d76625526e9a83dd57"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-new375-atomic-TWOfile-tree-completion.json",
+        "bytes": 363,
+        "sha256": "1584e92ee812ff14ad7e98f42bd93106638fc9fc9c6cbc264ce3a56694412766"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-new375-commit-completion.json",
+        "bytes": 363,
+        "sha256": "49f59969d279395939aaed0e82a28217c41778fe26aaa84f807a371a5febc4cc"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-new375-workflow-FULL-Gitblob-JSON-readback-completion.json",
+        "bytes": 365,
+        "sha256": "932a39fd193862132bea35fa3b635601e780f1bf64f2b6ecc7ec94c6f15d807c"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-new375-collector-FULL-Gitblob-JSON-readback-completion.json",
+        "bytes": 368,
+        "sha256": "1adbdc079272fc05a39e15fde8a29c7d66fbc332d6722e097ccabecf8ee7f7ef"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/source-publication-receipt.json",
+        "bytes": 2032,
+        "sha256": "e9a6223b1d4c590035a48dce6f5a5c340a9016acfcf9447b1d9bb1f8b7f95a14"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-dispatch-only-NEW375-great-great-great-grandchild-regular-inputs-completion.json",
+        "bytes": 360,
+        "sha256": "e9cc3e541736b2f61a375f4abe8c8db167c4d421e5fd1bd9e975746a1c723209"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/FIRST-watch-only-NEW375-run-completion.json",
+        "bytes": 365,
+        "sha256": "c517659d5b23ccb26277cd3aef9cd71dbdc10199a9fa2cdf40fb6125a1fc50fe"
+      },
+      {
+        "name": "original/FIRST-remaining-Git-transport-and-originalActions-v1/original-saved-result-descriptor.json",
+        "bytes": 1202,
+        "sha256": "363bcba9a164985a9104ceceef9a479603359aef277408703bcb41a7378a3f90"
+      },
+      {
+        "name": "original/FIRST-summary-v1/declaration.json",
+        "bytes": 625,
+        "sha256": "cbe48f8b938f2d1b83a62b8dacd3fce7553b1696bc239812dbd6cc8e43821a93"
+      },
+      {
+        "name": "original/FIRST-summary-v1/controller.py",
+        "bytes": 6394,
+        "sha256": "85ca396f5277c94ffcf6852838558316f18d3fcdd725e585956ff9876248b507"
+      },
+      {
+        "name": "original/FIRST-summary-v1/request.json",
+        "bytes": 4423,
+        "sha256": "f3adb468230807b69a772a7b0e2d4a22cc9c060406727f6faa688b3a259432a7"
+      },
+      {
+        "name": "original/FIRST-summary-v1/completion.json",
+        "bytes": 398,
+        "sha256": "ac05984b823703794dd2b81d9f1f36a615a410c402743db057dd6345740dc787"
+      },
+      {
+        "name": "original/FIRST-summary-v1/stdout",
+        "bytes": 1149,
+        "sha256": "ccfee0883179583baa032dbfa7aae29a0fa4741d7a5c363cbc5c4f18846af718"
+      },
+      {
+        "name": "original/FIRST-summary-v1/stderr",
+        "bytes": 277,
+        "sha256": "63e81d5118646391868143fb611fd42fc247b7a141ba84aaed91581af37043a9"
+      },
+      {
+        "name": "original/FIRST-inputs-publication-v1/whole-original-ALLfield-equality-proof.json",
+        "bytes": 859,
+        "sha256": "e6a45c7ca4bfc7a1076eff57d9842ffabb0632ab1331c7bbacd51d62709a375a"
+      },
+      {
+        "name": "derived/ALL375-regular-stream-metadata.json",
+        "bytes": 131332,
+        "sha256": "8f7b375c7738f44003c7180b39cfa8cbe7718cec694605b3f7a70d700a5add6d"
+      },
+      {
+        "name": "derived/NEW375-static-Git-source-publication-controls.json",
+        "bytes": 35890,
+        "sha256": "67509c294aef8d049eca3b00e572a8f36b2609fbac8d1e4f8031c724f78207a5"
+      },
+      {
+        "name": "derived/ROOT-model-and-admission-limits.json",
+        "bytes": 12293,
+        "sha256": "dc4cbe4b50c1c272b2776cdb0141c7f1059dda10cfd8ed1c751f88242687f1fd"
+      }
+    ]
+  },
+  "full_raw_PRIVATE": true,
+  "next": "FIRST saved-data-only lexical raw segmentation forALL375 NEWoriginalActions regularstreams fromrun42434499630/source5a187768a0cb8ec1caa325ecb62bba4e7996efed. Declareexactoriginalsavedresult/report/index pointFDsize-range BEFOREcontentIO/retainALLoriginal375referencepositions-nativeorder-duplicates/375mode-regular-only bodies andALL446originalmetadata-29parentqueryepochs-71dirsDEFERRED-0NEWlinks_THISdataset. Eachsavedstream isNEWlexicalquestion only: exactoriginalcountSHA-FDstat-close bindings/rawBYTEWISEcopies/fullUTF8JSONSTRING-EVERYPythonfield guards beforepublicprojection; keepEVERYrawsegment-line-ending-unterminated-tail/rawdirective-delimited-UNMEASUREDcounts/offsets/privateoriginalfields-stat-times-FDcredentials-relationships, no favorablelanguage-version-ABI-defaultcompilerfilter/aliasdedup/normalization/reconstructmissingraw. No remoteSDKrequery/bodyhashacquisition-journal-proof replay; previousoriginal375acquisitionmatchedONCE_CONSUMED/newmetadata-onlysaveddataquestion separate. Lexicalrawtext NOTCsyntax-semanticinclude-targetresolution-effectivecompiler-defaultsysroot-CargoCFGflavor-ABI-runtimecohort-access-originaldrivercredentials-ownership-permission-queryauthority-globalnoreplayproof. No SDKheaderscompilerexec-candidateexec-recursion-follow/newActions-sourcepublication-modelproofreplay/Source20-runtimeedit-import-test-build-adoption-cleanup. CurrentSTATIC7bindings60fields10runtimepreproofUNMEASUREDNULLimmutable/newactualruntimefactsSEPARATE/original38SOURCEfalsePASSraw9102B4baa2ab56ae6ab20bde89cc417e42bd4500dbf03311cb153c5b4028b43d28287 BYTEEXACTreuseNOTreevaluated/parsed_jobs33STALE-inheritedall199labelUNMODIFIED/sourceold38-new39vsactual39NOTadmission. OriginalcollectorRESTPOSTHTTP422 namespaceFOREVERterminal/no POSTretry; newGittransportcarrier+atomic2filetree/BOTHFULLGitblobJSONdecodedBYTEEXACT-before-single265291183dispatch/originalwatch-acquisition-FIRSTsummary-publication CONSUMED/no newnamespace-alone retry. All375bodyinteriorsUNINSPECTED untilthisFIRSTnewlexicalquestion; allolder6and18linksUNEXPANDED-UNFOLLOWED-oldncursesrawhexNOTsavedNULL/allledgersunchanged/new375physicalepoch separatefrom375scope-446metadata-29directoryqueryepoch/2308-199metadata29DEFERRED0NEWlinks-2279physical-localread/5067-190metadata199DEFERRED0NEWlinks-4868physical-localread/prior1425-63-1229laterbody-original190DEFERRED6/prior1280-49-1199-old63DEFERRED18. Original38static5preproofNULL/older54/10-32/5-48/10NULLimmutable/newfactsSEPARATE/no postGOretrofill/regularownershipABSENT-policyNoneUNADMITTED/oldKeyErrornamespaceFOREVERterminal-oldfinalresultNULL-firstremainingproofONCE/notfieldrestore-gatewaiver. PointFD/sameOUTPUTFDcountSHA/readback NOTatomicABA-originpathchain-globalactorFD-originaldrivercredentials-access-effectiveABI-continuousofficialphysicalEX-crashadmission/separateouterPIDEOFNULL/unknownpartialpermanentquarantine. OriginalUbuntu24.04-Dart3.13.5-Rust1.99/PATH-env-argv-credentials-recipes preservedNOTadmitted. No bootstrap-dependency-build-native-driver-perf-numerical/Source20-runtimeadoption-cleanup/allsetupUNADMITTED-flagsFALSE-ownershipNone/RAMrepair-originalimmutableadmission-FINALstrict48/50-cleanfinalCI INCOMPLETE/skip-ciNEVERfinalCIwaiver.",
+  "RAM_repair_original_immutable_admission_FINAL_strict48_50_clean_final_CI": "INCOMPLETE"
+}
