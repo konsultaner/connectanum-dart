@@ -1,0 +1,397 @@
+{
+  "sourcepublication": {
+    "phase": "FIRST_NEW71_originalActions_SOURCEPUBLICATION_BOTH_FULL_Gitblob_JSON_decodedBYTEEXACT_READBACKS_COMPLETE_NOdispatch_SDKquery_NOTadmitted",
+    "source_commit": "32ab37e14b8ab6e8a908426ef2ad07c37f1f27db",
+    "parent_source": "5a187768a0cb8ec1caa325ecb62bba4e7996efed",
+    "parent_tree": "20542d1f265f985222f3c66a5f7f29ff5c48878c",
+    "new_tree": "5a17f265f473a5899dc6d5d5bfeec3848b4be9d0",
+    "branch": "codex/pr132-actions-include-great-great-great-grandchild-directory71-inputs-20261108",
+    "collector_bytes": 79775955,
+    "collector_sha256": "d960371450a3d235577b84de7777922b1bbf5d9c240297932deeab2ff216947c",
+    "workflow_bytes": 489851,
+    "workflow_sha256": "dcbcba1e7c5940a796c93cccc04ace777842ccf12832c74c2a2ab8ea5b6fe83f",
+    "new71_source_scope_bytes": 94092,
+    "new71_source_scope_sha256": "0556b6dd4da02409b69528e1647c93b8e80e9a01cad4d5ae7b078c98cb4fcf36",
+    "source_scope_terminal_LF": false,
+    "source_commit_branch_created_ONCE": true,
+    "carrier_transport": {
+      "collector_git_blob_sha": "fbda02b68301bbfba5167e173f4e0c1736fcf631",
+      "collector_bytes": 79775955,
+      "collector_sha256": "d960371450a3d235577b84de7777922b1bbf5d9c240297932deeab2ff216947c",
+      "local_Gitobject_full_BYTEEXACT_readback": true,
+      "new_carrier_branch": "codex/pr132-directory71-collector-git-carrier-20261108",
+      "new_carrier_commit": "dd8d65e5bb147cb144da02d790d218b41c60f97a",
+      "new_carrier_tree": "43a6fac8940a66d1255219793b45f1f9d091361e",
+      "collector_ONLY_no_workflow_or_originalcohort_admission": true,
+      "new_Gitpush_completed_once": true,
+      "no_clone_fetch_oldsource_SDK_or_API_POST_retry": true,
+      "original_workload_cohort_copy_GC_flags_gates_schema_unchanged": true,
+      "all_admission_flags": false,
+      "ownership": null
+    },
+    "saved_input_bindings": 9,
+    "source_conditions19420_64efe_BYTEEXACT_REUSED_NOTreevaluated": true,
+    "old_AST_reverse_Ruby_conditions_codec_9GBproof_model_body_NOTreplayed": true,
+    "all71_sdkdirectories_DEFERRED": true,
+    "actual_Actions_run_id_UNPERFORMED": null,
+    "newSDK_INPUT_queries": 0,
+    "workflow_dispatches": 0,
+    "new_actual_sourcepublication_facts_SEPARATE_not_retrofill_STATIC_Sourcevalidation_NULLs": true,
+    "original_Linux_Dart_PATH_env_argv_credentials_recipes_preserved_NOTadmitted": true,
+    "full_original_raw_requests_returns_GitblobJSON_sourcebytes_private_fields_stattimes_FDcredentials_preserved_PRIVATE": true,
+    "pointFD_bytewise_countSHA_close_Gitpack_tree_readback_NOTatomicABA_globalactorFD_originaldrivercredentials_access_effectiveABI_physicalEX_crash_admission": true,
+    "no_Source20_runtime_edit_import_test_build_native_numerical_adoption_or_cleanup": true,
+    "all_admission_flags": false,
+    "ownership": null,
+    "separate_outer_PID_pipeEOF": null,
+    "classification": "EXPLICITLY_DERIVED_PUBLIC_METADATA_originals_UNCHANGED",
+    "full_Gitblob_readbacks": [
+      {
+        "kind": "collector",
+        "commit_path": ".github/collectors/pr132_include_great_great_great_grandchild_directory71_inputs.py",
+        "git_blob_sha": "fbda02b68301bbfba5167e173f4e0c1736fcf631",
+        "FULL_original_Gitblob_JSON_bytes": 109913843,
+        "FULL_original_Gitblob_JSON_sha256": "e2632fa13de5fa695832b2fd239d819bcbc0634556aeac15a7796bd77b961e6e",
+        "decoded_FULL_bytes": 79775955,
+        "decoded_FULL_sha256": "d960371450a3d235577b84de7777922b1bbf5d9c240297932deeab2ff216947c",
+        "whole_decoded_BYTES_equal_actual_bound_SOURCE": true,
+        "Contents_metadata_used_ONLY_as_locator": true,
+        "not_HTTPwire_bytes_atomicABA_originchain_admission": true
+      },
+      {
+        "kind": "workflow",
+        "commit_path": ".github/workflows/wamp-profile-benchmarks.yml",
+        "git_blob_sha": "eb7ea8512ceb7a7b98370ae6f4fb6b6b617f8c4d",
+        "FULL_original_Gitblob_JSON_bytes": 675211,
+        "FULL_original_Gitblob_JSON_sha256": "ba0d2e343f07c1feee53cceb8cf582d689d5a6f4af70093dc81cffcb2fbe3282",
+        "decoded_FULL_bytes": 489851,
+        "decoded_FULL_sha256": "dcbcba1e7c5940a796c93cccc04ace777842ccf12832c74c2a2ab8ea5b6fe83f",
+        "whole_decoded_BYTES_equal_actual_bound_SOURCE": true,
+        "Contents_metadata_used_ONLY_as_locator": true,
+        "not_HTTPwire_bytes_atomicABA_originchain_admission": true
+      }
+    ],
+    "original_STATIC10runtimepreproof_NULLs_immutable": {
+      "workflow_revision": null,
+      "run_id": null,
+      "observations": null,
+      "collector_credentials": null,
+      "collector_cwd": null,
+      "collector_argv": null,
+      "collector_interpreter_reference": null,
+      "directory_SOURCE_INPUT_opens": null,
+      "directory_SOURCE_INPUT_entrymetadata": null,
+      "remaining_known_input_output_FDs": null
+    }
+  },
+  "failure_and_ROOT_qualification": {
+    "classification": "EXPLICITLY_DERIVED_PUBLIC_METADATA_originals_UNCHANGED",
+    "actual_failure_assessment_ALLfields": {
+      "original_native_tool_status": 1,
+      "actual_saved_space_record_ALLfields_UNCHANGED": {
+        "free_bytes": 745529344,
+        "floor_bytes": 1073741824,
+        "not_build_capture_deletion_authority": true
+      },
+      "source_record_bytes": 106,
+      "source_record_sha256": "196a23be3f456df94d83ab15a89bc5161484754a3690d9f08d8281fdab7dd384",
+      "source_publication_ALREADY_complete_commit": "32ab37e14b8ab6e8a908426ef2ad07c37f1f27db",
+      "BOTH_full_GitblobJSON_decodedBYTEEXACT_readbacks_ALREADY_complete": true,
+      "dispatch_namespace_ENTERED_FOREVER_TERMINAL": true,
+      "failure_BEFORE_CP_phase_entry_input_metadata_IO_or_ANY_API_dispatch": true,
+      "actual_dispatches_in_failed_body": 0,
+      "run_id_UNPERFORMED": null,
+      "watch_PID_UNPERFORMED": null,
+      "no_guard_waiver_existingartifact_compression_deletion_cleanup_namespace_reset_or_relaunch": true,
+      "source_body_static_codec_Actions_SDKquery_proofs_NOTreplayed": true,
+      "local_storage_POINT_NOT_RAISE_MemoryError_OOM_swapping_CI_RAMcause_repair_or_ownership_admission": true,
+      "all_original_private_fields_stat_times_FDcredentials_relationships_NULLs_unchanged": true,
+      "all_admission_flags": false,
+      "ownership": null
+    },
+    "actual_Gitpush_completion_ALLfields": {
+      "pid": 25693,
+      "signed_status": 0,
+      "stdout_eof": true,
+      "stderr_eof": true,
+      "same_original_wait": true,
+      "wait_may_be_cached": true,
+      "stdout_bytes": 182,
+      "stdout_sha256": "da5742dd6492274243f686d797c2ce84db5b99bc983ba53bd62740b031c3cb6b",
+      "stderr_bytes": 916,
+      "stderr_sha256": "bb54abb2dfbaa10f557ff8c105a1d2d30c464562a50b08b9d735047c4e1b58ff"
+    },
+    "ROOT_model_qualification": {
+      "actual_child_completion": {
+        "pid": 26868,
+        "signed_status": 0,
+        "same_original_wait": true,
+        "wait_may_be_cached": true,
+        "stdout_eof": true,
+        "stderr_eof": true,
+        "stdout_bytes": 1138,
+        "stdout_sha256": "7462ff739be3f3f6a4c48e39f3281b86021c7994ae71ff8500846b711f907a0a",
+        "stderr_bytes": 190,
+        "stderr_sha256": "b8d955efc65dbb1b4a750db139ca94172643b16aa02610a14c4238aca81629a1",
+        "advisory_not_approval_unavailability_or_relaunch": true
+      },
+      "actual_model": "gemma4:latest",
+      "input_characters": 8825,
+      "elapsed_seconds": 6.5,
+      "output_tokens": 270,
+      "reason": "stop",
+      "ROOT_corrections": "Actual Git/source API calls and Gitpush DIDexecute successfully for sourcepublication32ab37e1, with both fullGitblobJSONdecodedBYTEEXACTreadbacks. The later disk_usage read succeeded and saved745529344B; the local numeric free-space guard failed against1073741824B before metadata inputs/CPphaseentry/dispatch API. It is not a storage read failure or an actual Actions pipeline failure. Generic internal-framework/PublicAPI/dataflow/change-point prose describes only the supplied metadata selection, not actual implementation or source-edit/test/query/build/adoption/guardwaiver/cleanup/retry authority. No advice-derived changes. All model-omitted counts/hashes/epochs/privatefields-stat-times-FDcredentials-relationships-gates retained UNCHANGED, not nearlyall/largely. All admission flags false, ownershipNone; no original-runtime/RAMrepair/strict48_50/cleanCI completion. Advisory NOTapproval-backendunavailability-relaunch; no unchangedmodelretry."
+    },
+    "initial_parentlocator_full_stdout_RAW_UNRETAINED_limit": {
+      "native_exit_code": 0,
+      "original_token_count": 6427,
+      "tool_budget": 6000,
+      "actual_available_output_characters": 24100,
+      "full_original_stdout_RAW_UNRETAINED": true,
+      "full_original_stdout_bytes": null,
+      "full_original_stdout_sha256": null,
+      "full_saved_metadata_result_NOT_reconstructed_stdout": true,
+      "no_native_body_CPreader_reexecution_or_partial_JSON_reconstruction": true
+    },
+    "OWN_saved_artifact_inventory_entries": 162,
+    "saved_parent_Gitmetadata_templates": 9,
+    "saved_Actions_request_templates": 7,
+    "all_original_CP_bytes_fields_private_verbatim_wholecopy_unchanged": true,
+    "no_old_SDK_QUERY_Actions_acquisition_model_proof_replay": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "whole_original_metadata_proof": {
+    "decoded_JSON_bytes": 3501056,
+    "decoded_JSON_sha256": "d3a346d11f7f0c9ef2ad7f4a90a79c9bd404d92bfa641bf513b37f673016f215",
+    "decoded_UTF8_JSONSTRING_characters": 3501048,
+    "gzip_members": 54,
+    "ALLcompressed_bytes_SAMEOUTPUTFD_BYTEWISE_readback_and_whole_decoded_BYTEWISE_UTF8JSONSTRING_EVERYstandardPythonfield_equal": true,
+    "exhaustive_ordered_structure_duplicatekeys_arraypositions_typedleaves_ALLfield_counts": {
+      "object_start": 6167,
+      "key": 45313,
+      "atom_str": 16062,
+      "atom_bool": 6609,
+      "array_start": 719,
+      "atom_int": 25852,
+      "atom_NoneType": 3357,
+      "object_end": 6167,
+      "array_end": 719,
+      "atom_float": 65
+    },
+    "total_ordered_events": 111030,
+    "all_original_private_fields_stattimes_FDcredentials_relationships_NULLs_unchanged": true,
+    "all_before_public_projection": true,
+    "no_oldoracle180_or_static_AST_reverse_conditions_codec_9GB_original4_62GB_proof_replay": true,
+    "not_RAMrepair_existingartifact_compression_SDKbodytransport_cleanup_retry_guardwaiver_schemawaiver": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "private_result_encoded_bytes": 537312,
+  "private_result_encoded_sha256": "2797f4887416395a7473ccb0ee47a4876c6f17b8c0fa7be7c4f05cf0c580c7db",
+  "copyproof_bytes": 1879,
+  "copyproof_sha256": "3af0d448060ced817ebc818e5f4e6fcc80cedef573fff3d2455d11f0cb940e8d",
+  "archive": {
+    "repository_ref": "docs/research/2026-11-08-flatbuffers-actions-directory71-source-publication-storage-guard-evidence.tar.gz",
+    "bytes": 39191,
+    "sha256": "e350b586fd128667a15cba14c8eb6a9b54db27baee941f117d44994b1c2cc7f4",
+    "regular_selected": 27,
+    "original_selected": 24,
+    "EXPLICITLY_derived_metadata": 3,
+    "members": [
+      {
+        "position_ZERO_based": 0,
+        "name": "sourcepublication/execution-declaration.json",
+        "bytes": 4801,
+        "sha256": "3d7bfb678078b321a7cc11b716e060f3d7c7c3b5df1e3b7ad42a8bfaa09b8cfd",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 1,
+        "name": "sourcepublication/controller.py",
+        "bytes": 18247,
+        "sha256": "dccd56ef169703574daba5ed26c307877d09504b3cd1a1bb09254c2ff006faf6",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 2,
+        "name": "sourcepublication/Gittransport-completion.json",
+        "bytes": 750,
+        "sha256": "ea554f4738d275f5613491fe6d975d061e57846dcae22ee59205a3beb7960399",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 3,
+        "name": "sourcepublication/Gitpush-completion.json",
+        "bytes": 364,
+        "sha256": "efd037724ea0932865ec9ef79355d04ac75d0c0c1a056943f6b4819a7783da4c",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 4,
+        "name": "sourcepublication/actual-original-parent-commit.json",
+        "bytes": 1220,
+        "sha256": "114680e4292fcc0d3aa5a41079352481413ec19ed28474b3dad956dbae07ded4",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 5,
+        "name": "sourcepublication/full-publication-receipt.json",
+        "bytes": 5526,
+        "sha256": "2c159343a8f0eb775b4b75a2050e132dd79cbb50040c99da2f77494472ee9167",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 6,
+        "name": "dispatch-failure/execution-declaration.json",
+        "bytes": 2516,
+        "sha256": "7fa8411c718637ec0ffada1a65f4767eefb4589c697e5aa43c44259a3e7c5ad3",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 7,
+        "name": "dispatch-failure/controller.py",
+        "bytes": 16719,
+        "sha256": "89e3ce04a7e1b1393f842257ff1232d0f8ecec41b08b2871c9f20dbe8170a027",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 8,
+        "name": "dispatch-failure/intake-declaration.json",
+        "bytes": 42956,
+        "sha256": "6dd3d6e4646af2eb0afc731744c947bb414dd9688d8161cb8f18bd48241523da",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 9,
+        "name": "dispatch-failure/intake-controller.py",
+        "bytes": 5214,
+        "sha256": "b1a8031fb1a12d03228f40f2683318b4ee88392829f080ddde7b1a47a2f72358",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 10,
+        "name": "dispatch-failure/original-saved-storage-point.json",
+        "bytes": 106,
+        "sha256": "196a23be3f456df94d83ab15a89bc5161484754a3690d9f08d8281fdab7dd384",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 11,
+        "name": "dispatch-failure/full-saved-failure-assessment.json",
+        "bytes": 1164,
+        "sha256": "6d54d184ec389e683823365dcc4233f946b800a97ef032bef6fb14169b97e7af",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 12,
+        "name": "metadata-intake/OWN-artifact-inventory-controller.py",
+        "bytes": 3239,
+        "sha256": "c56f4256e5694691b456199a2ddf187f7de085956af5ff7333a92c9ced224960",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 13,
+        "name": "metadata-intake/parent-receipt-controller.py",
+        "bytes": 4480,
+        "sha256": "06da660fc770f1624f2f8596f60249e8b60c39f2febde566839a8a48c83dc758",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 14,
+        "name": "metadata-intake/Actions-template-controller.py",
+        "bytes": 4503,
+        "sha256": "c2c356ca162bed8a3c3adf7338fe9a9a6455c169dfc7e219e6a242d356ae4ac6",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 15,
+        "name": "model-summary/controller.py",
+        "bytes": 3864,
+        "sha256": "fc0c308a485b5768274f03ebe04a6c7f8caa0355c5d0f7d45a9d8dfd9fa03a01",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 16,
+        "name": "model-summary/actual-selection.json",
+        "bytes": 6692,
+        "sha256": "61ea11de468528bec41a0961411bf0df4406d421958d3aab7882789086841135",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 17,
+        "name": "model-summary/request.json",
+        "bytes": 2294,
+        "sha256": "7b6973b84943c3765e3b229dc806f8c1b812e6c3bc7a0fd3921c39eecb9eb776",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 18,
+        "name": "model-summary/completion.json",
+        "bytes": 425,
+        "sha256": "afa2738322dee755858d262224b829b06d9e1708d2fb137099d15f04c05766e7",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 19,
+        "name": "model-summary/stdout",
+        "bytes": 1138,
+        "sha256": "7462ff739be3f3f6a4c48e39f3281b86021c7994ae71ff8500846b711f907a0a",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 20,
+        "name": "model-summary/stderr",
+        "bytes": 190,
+        "sha256": "b8d955efc65dbb1b4a750db139ca94172643b16aa02610a14c4238aca81629a1",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 21,
+        "name": "publication/controller.py",
+        "bytes": 28028,
+        "sha256": "cfd15493b2fab7f40563613d815f49c8bc744d77934842314d9129d5001c91c5",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 22,
+        "name": "publication/declaration.json",
+        "bytes": 11232,
+        "sha256": "0545b97d1a38a5ede6b4693d60ce052bf085780c48bc99e4826e5745e6fe8541",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 23,
+        "name": "publication/whole-ALLfield-equality-proof.json",
+        "bytes": 1879,
+        "sha256": "3af0d448060ced817ebc818e5f4e6fcc80cedef573fff3d2455d11f0cb940e8d",
+        "kind": "selected_original_BYTEEXACT"
+      },
+      {
+        "position_ZERO_based": 24,
+        "name": "derived/sourcepublication.json",
+        "bytes": 4606,
+        "sha256": "c73cc62045f2804f43d64574b9145ac91e89ab9ca338ecb32a128ea7d2be22b8",
+        "kind": "EXPLICITLY_DERIVED_METADATA"
+      },
+      {
+        "position_ZERO_based": 25,
+        "name": "derived/storage-and-ROOT-qualification.json",
+        "bytes": 4228,
+        "sha256": "7564602b22a4656c8ba07ed5a054fbea168ac36408d2abb2b2cbd6357388608b",
+        "kind": "EXPLICITLY_DERIVED_METADATA"
+      },
+      {
+        "position_ZERO_based": 26,
+        "name": "derived/whole-metadata-proof.json",
+        "bytes": 1091,
+        "sha256": "93bf3d0a097c314a4ffb182afe4e4a8fe24e97e2904b3f30c5821408e8795c87",
+        "kind": "EXPLICITLY_DERIVED_METADATA"
+      }
+    ],
+    "not_full_raw_directory_generatedcollector_runtime_payload_or_Source20_runtime_package": true
+  },
+  "all_setup_UNADMITTED_RAMrepair_FINALstrict48_50_cleanfinalCI_INCOMPLETE": true,
+  "all_admission_flags": false,
+  "ownership": null
+}
