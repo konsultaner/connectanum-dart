@@ -1,0 +1,103 @@
+{
+  "status": "NEW_LOADER4390_FIRST_SYNTAX35999_PASS_REVIEW36281_TIMEOUT_NOANSWER_UNEXECUTED_UNINTEGRATED_UNADMITTED",
+  "source_preparation": {
+    "classification": "EXPLICIT_DERIVED_PUBLIC_METADATA_PRIVATE_CONTEXTS_EXCLUDED_ONLY",
+    "source": {
+      "name": "NEW696-owned-metadata-FD-loader-DRAFT-NOTexecuted.py",
+      "bytes": 4390,
+      "sha256": "3bb1a046b8c224906cf6da1a2dc77d69d50bc67e47d891f01e18c03242d6a35b"
+    },
+    "parser": {
+      "status": "PASS_FIRST_LOCAL_SYNTAX_ONLY",
+      "actual_local_PID": 35999,
+      "AST_traversal": false,
+      "module_or_loader_execution": false,
+      "original_Actions_Python_compatibility_UNQUALIFIED_NULL": null
+    },
+    "proposed_interface": {
+      "function": "load_opaque_context_from_owned_regular_fd",
+      "parameters": [
+        "input_fd",
+        "metadata_owner",
+        "input_binding",
+        "operations"
+      ],
+      "input": "Future independently owned caller supplies a byte-zero borrowed regular metadata FD, its exact original observed FD binding, strong owner and operation registry. No default pathname/environment/descriptor, opening, seeking reset or close.",
+      "output": "Entire original 70049 compressed bytes bound to e97264c25e31c836f8447a5ec1d9b421bf939642b6f75e2a57f7dd7eb3134d2d. No original private payload read/decode/reparse or transport performed in this preparation.",
+      "original_fields": "All71 full contexts/all696 full references/private fields/stat-times/FDcredentials/ancestry/native order/duplicates/relationships/original and new static NULLs remain unchanged in the opaque original. Future actual loader facts stay separate.",
+      "future_qualification": "Input FD/path producer and actual original Actions/runtime credential/actorFD/cohort/continuous physicalEX/crash preflight remain UNPERFORMED NULL. Equality, mode, cursor, hash and owner-reference checks never supply ownership or SDK query permission. The caller and corrected-adapter wiring remain unintegrated.",
+      "reads": "Proposed one-pass consuming read with at most70050 returned bytes, one extra-byte/EOF check, retained raw returned chunks/unknown read records and first error. No borrowed FD close, rewind, retry, source execution or collector guard removal.",
+      "limitation": "This source draft has no local behavior test, original Actions compatibility or actual runtime transport qualification; the byte-zero collector guard remains unchanged."
+    },
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "first_distinct_advisory_review": {
+    "classification": "EXPLICIT_DERIVED_PUBLIC_METADATA_PRIVATE_CONTEXTS_EXCLUDED_ONLY",
+    "preview_PID": 36280,
+    "preview_signed_status": 0,
+    "preview_stdout_bytes": 7073,
+    "preview_stdout_sha256": "faa42857bd57562bbae92099e783115c0357e8a2c5269e6f15559654f0e5f9b5",
+    "selected_stdin_bytes": 5536,
+    "selected_stdin_sha256": "ce09729dc8e866a485c9d322d1bec35d5c451f222c5bf8febd4c05b2b6673897",
+    "actual_inference_PID": 36281,
+    "signed_status": 1,
+    "stdout_bytes": 0,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr_bytes": 551,
+    "stderr_sha256": "bfacc7875bd76ca5fe885627574d52a72c644b06ac63fe9a150a7af41141ab57",
+    "BOTH_EOF": true,
+    "first_num_predict": 1200,
+    "first_timeout_seconds": 90,
+    "FINAL_answer_UNPROVIDED_NULL": null,
+    "no_retry_narrowing_cap_increase_fallback_or_approval_unavailability_inference": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "ROOT_scope": {
+    "status": "NEW_LOADER4390_FIRST_SYNTAX35999_PASS_REVIEW36281_TIMEOUT_NOANSWER_UNEXECUTED_UNINTEGRATED_UNADMITTED",
+    "firsterror_adapter2280_and_bytezero_guard248_earlier_qualification_COMPLETE_CONSUMED_UNCHANGED": true,
+    "independent_source_observation_NOT_BEFORE_AFTER": "The caller's same mutable input_binding dictionary is used by both stat comparisons and retained by reference, allowing an external mutation to change the expected baseline. No execution/fix authority/RAM-cause claim.",
+    "source_writer_syntax_and_first_distinct_review_COMPLETE_CONSUMED_NO_REPLAY": true,
+    "actual_runtime_staging_inputFD_producer_loader_adapter_integration_original_preflight_UNPERFORMED_NULL": null,
+    "original71_contexts_696_references_all_private_fields_stat_times_FDcredentials_ancestry_nativeorder_duplicates_relationships_original_newstaticNULLs_UNCHANGED": true,
+    "no_old_packet_scope_decoder_schema_source_AST_parser_model_case_numerical_or_proof_replay": true,
+    "no_Source20_runtime_SDK_collector_workflow_source_publication_dispatch_build_numerical_adoption_cleanup": true,
+    "raw_limits": {
+      "outer_tool_pipe_EOF_UNPROVIDED_NULL": null,
+      "full_HTTP_request_RAW_UNPROVIDED_NULL": null,
+      "full_partial_model_output_final_tokens_stop_metadata_UNPROVIDED_NULL": null,
+      "earlier_missing_original_descriptors_and_staticNULLs_UNCHANGED": true
+    },
+    "next": "Qualify the mutable-binding/borrowed-FD contract and independently owned actual input producer/path before integration or runtime invocation, under the applicable original preflight. Do not replay this source writer/syntax/model/review/copyproof or earlier consumed cases. SDK queries, runtime adoption, numerical work and final strict48/50/cleanCI remain blocked on their original requirements.",
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "private_retention": {
+    "status": "FIRST_NEW_LOADER_THREE_ORIGINAL_METADATA_AND_ACTUAL_ROOT_WHOLE_RETENTION_BEFORE_PUBLIC_PROJECTION",
+    "compressed_bytes": 98888,
+    "compressed_sha256": "a1bf1bb6ff2fa7be011e748853ce2eff3768ea3312e581af426816fc201cd069",
+    "decoded_bytes": 391876,
+    "decoded_sha256": "61dba3472f321760dadeabd99a9246b6394f56e1f8663438d60f3fa96235c9ff",
+    "UTF8_JSONSTRING_characters": 391874,
+    "events": 2557,
+    "original_saved_JSON_values": 3,
+    "complete_actual_ROOT_roles": 24,
+    "original_native_part_JSON_values": 9,
+    "complete_actual_part_tool_returns": 9,
+    "same_output_FD_compressed_BYTEWISE_decoded_BYTEWISE_strictUTF8_JSONSTRING_every_standard_Pythonfield_duplicatekeys_arraypositions_typedleaves_equal": true
+  },
+  "selected_archive": {
+    "bytes": 3009,
+    "sha256": "d93636804c35494a8a94c2e5644729fd4912f88ca2a8be994bac0605cdca4708",
+    "regular_members": 3,
+    "members": [
+      "loader-source-and-first-syntax-public-metadata.json",
+      "first-distinct-advisory-review-public-metadata.json",
+      "ROOT-scope-and-RAW-limits-public-metadata.json"
+    ],
+    "FIRST_archive_check": "PASS_ONCE"
+  },
+  "all_admission_flags": false,
+  "ownership": null
+}

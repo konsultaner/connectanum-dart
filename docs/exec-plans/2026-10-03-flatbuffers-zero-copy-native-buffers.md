@@ -1,5 +1,13 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-09 — PR #132 owned metadata FD loader draft prepared
+
+The4,390-byte private loader draft passed its first local syntax parse35999 under official EX; it was not imported or executed. Its proposed caller-owned borrowed-FD interface has no path/environment fallback and leaves the collector's unconditional byte-zero guard unchanged. Actual staging/FD producer, corrected-adapter integration and original Actions/runtime preflight remain incomplete.
+
+The first distinct advisory review had a complete input preview, then timed out at90 seconds with signed1/0 stdout/551 stderr/both EOF and no final answer. No retry, fallback, approval or backend-unavailability inference followed. ROOT independently noted the shared mutable binding dictionary as an untested source-flow risk; no supported BEFORE/AFTER failure or RAM cause is claimed.
+
+All original full private contexts/fields/stat-times/FDcredentials/ancestry/order/duplicates/relationships/nulls remain unchanged; new local facts are separate. Source20/runtime, SDK queries, collector execution, source publication/dispatch, builds, numerical work, adoption and cleanup remain untouched. RAM repair, strict48/50 and clean final CI remain incomplete. See [the loader draft evidence](../research/2026-11-09-flatbuffers-actions-file696-owned-fd-loader-draft.md).
+
 ## 2026-11-09 — PR #132 adapter first-error correction and guard placement qualified locally
 
 Fresh focused BEFORE cases reproduced the private adapter's outward-error defect:1 failure and2 passes,0 errors. After a minimal correction, the same saved harness and matching3 cases all passed, retaining the original exception, cause/context, input-byte object and owner reference. The recorder fault is explicitly test-only policy evidence, not an allocator failure, RAM cause or production acceptance result.
