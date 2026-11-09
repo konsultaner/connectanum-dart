@@ -1,0 +1,79 @@
+{
+  "phase": "COMPLETE_CONSUMED_FIRST_NEW696_retained_entry_type_literal_FDpoint_readlink_NOTadmitted",
+  "original_run_id": 42548811231,
+  "job_id": 128939570785,
+  "artifact_id": 13644492854,
+  "new_question_summary": {
+    "actual_observation_positions": 71,
+    "actual_entry_positions": 696,
+    "DERIVED_all_entry_mode_kind_counts": {
+      "regular": 696
+    },
+    "DERIVED_original_readlink_field_state_counts": {
+      "BOTH_original_NULL_UNPERFORMED": 696
+    },
+    "original_target_UNEXPANDED_UNFOLLOWED_true_positions": 696,
+    "literal_parent_namehex_relationship_positions_with_other_matches": 0,
+    "literal_parent_namehex_relationship_directed_edges": 0,
+    "lstat_devino_POINT_ONLY_relationship_positions_with_other_matches": 0,
+    "lstat_devino_POINT_ONLY_relationship_directed_edges": 0,
+    "directory_FD_before_devino_POINT_ONLY_directed_edges": 0,
+    "no_native_order_duplicate_records_removed": true,
+    "no_join_normalize_resolve_readlink_follow_query_body_hash_exec": true,
+    "all_original_SOURCE71_DEFERRED_STATIC10_older_NULLs_immutable_new_facts_SEPARATE": true,
+    "point_relationships_NOT_physical_alias_ABI_access_credentials_ownership_querypermission_globalabsence_noreplayproof": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "new_question_copy_proof_PUBLIC_projection": {
+    "compressed_bytes": 33905,
+    "compressed_sha256": "4359377da58fb98c49df9acb8a0baff5b7d0cc4c53e167cdb705536b0eaa7a59",
+    "decoded_bytes": 865641,
+    "decoded_sha256": "ee189fb670344b8027b7e72c9073216de23247947075874731cafcc72947564a",
+    "whole_compressed_SAMEOUTPUTFD_BYTEWISE_readback": true,
+    "whole_decoded_BYTEWISE_strictUTF8_JSONSTRING_EVERYstandardPythonfield_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "ordered_events": 51377,
+    "only_NEW696_question_result_COPY_not_old_member_runtime_9GB_source_codec_schema_condition_proof_replay": true,
+    "prospective_gzip_BEFORE_inputIO_no_plaintextaggregate_file_or_existingartifactcompression_cleanup": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "selected_archive": {
+    "FIRST_archive_validation_ONCE_complete": true,
+    "regular_selected_members": 4,
+    "original_saved_metadata_members": 1,
+    "EXPLICIT_derived_members": 3,
+    "all_names_sizes_bytes_SHA_equal": true,
+    "bytes": 1880,
+    "sha256": "fcb2af63af06615053cac473cec0a560feb335393e70a5ac1358c6667d238c10",
+    "not_full_private_report_SDK_Source20_runtime_package": true
+  },
+  "public_scope_and_followup": {
+    "scope": "FIRST retained NEW696 type/literal/FDpoint/readlink metadata only; no SDK filesystem/body query/execution or Source20/runtime admission",
+    "original_private_fields_contexts_UNCHANGED_NOT_deleted": true,
+    "new_question_result_not_full_original_report_or_Source20_runtime_package": true,
+    "original_copy_proof_output_FD_path_stat_context_excluded_from_public_projection_ONLY": true,
+    "followup": {
+      "status": "ACTIVE_same_chat_app_once_exact_request_saved_before_call_independent_TOMLreadback_original_SH_holder_natural0",
+      "prompt_chars": 31610,
+      "prompt_bytes": 31618,
+      "prompt_sha256": "0608992161cd23e869e8bb9ef65912559df5d1234ab4a068d519c20cc8c625b7",
+      "same_original_holder_pid": 72487,
+      "same_original_execsession": 90655,
+      "outer_holder_pipe_EOF_UNPROVIDED_NULL": null
+    },
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "private_publication_copy_proof_metadata": {
+    "compressed_bytes": 15699,
+    "compressed_sha256": "5a7430e722ac0706c8d0fe45ab44593a6641c5017e9b6050e059aa7c6ddaf401",
+    "decoded_bytes": 96564,
+    "decoded_sha256": "9eb027fcc376a03ac007b406dc352a6b5d2a12a89592a7529bdebcbb9a056a03",
+    "ordered_events": 463,
+    "whole_compressed_decoded_UTF8_JSONSTRING_everyPythonfield_equal_BEFORE_projection": true
+  },
+  "next": "FIRST expressly declared ALL696 retained file-input scope/source preparation with full original-source/ledger/ownership/SDK preflight before any new body query; no old run/query/proof/model replay or admission inference",
+  "all_admission_flags": false,
+  "ownership": null
+}
