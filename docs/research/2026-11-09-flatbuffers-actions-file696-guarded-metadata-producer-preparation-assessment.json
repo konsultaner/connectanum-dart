@@ -1,0 +1,129 @@
+{
+  "status": "GUARDED_METADATA_PRODUCER_DRAFT_LOCAL_SYNTAX_PASS_FIRST_REVIEW_TIMEOUT_UNEXECUTED_UNINTEGRATED_UNADMITTED",
+  "facts": {
+    "status": "GUARDED_METADATA_PRODUCER_DRAFT_LOCAL_SYNTAX_PASS_FIRST_REVIEW_TIMEOUT_UNEXECUTED_UNINTEGRATED_UNADMITTED",
+    "source": {
+      "bytes": 7514,
+      "sha256": "325401d7436f41290a220d8cc304969889f75b9c3fedc278bd915dc857e5c038",
+      "unconditional_bytezero_guard": true,
+      "first_local_parser_PID": 57958,
+      "first_local_syntax": "PASS",
+      "AST_traversed": false,
+      "imported_or_executed": false
+    },
+    "review": {
+      "preview_PID": 60569,
+      "preview_signed_status": 0,
+      "preview_stdout_bytes": 10675,
+      "preview_stdout_sha256": "519ab743db7536cedc3924efd90eaab47997c843a397c648a0791e3cb86dd9db",
+      "selected_stdin_bytes": 8899,
+      "selected_stdin_sha256": "fdb9e289e8fc62514d98e2a0f2552c7e3d2c08935471154d0bf5239f1c5ed5af",
+      "inference_PID": 60570,
+      "inference_signed_status": 1,
+      "stdout_bytes": 0,
+      "stderr_bytes": 552,
+      "stderr_sha256": "5175e3cfa25a7f74e3d73ed6fc864bc27d6cb7defd8f075cb68b01916551ecc2",
+      "BOTH_EOF": true,
+      "first_num_predict": 1200,
+      "first_timeout_seconds": 90,
+      "helper_input_chars": 10674,
+      "FINAL_answer": null,
+      "no_retry_fallback_approval_or_backend_unavailability_inference": true
+    },
+    "interface_proposals": {
+      "immutable_eight_field_baseline": "Proposed separately retained tuple of exact integer leaves; original mutable binding/context identities remain separately retained.",
+      "opaque_producer": "Caller-preallocated strong references and operation slots, explicit native modules/directory FD/literal byte name, retained write/FD/stat/cursor/error facts; ownership and borrow lifetime remain unqualified.",
+      "local_case": "Prospective single controlled metadata-drift case only; no actual BEFORE, fix or matching AFTER has run."
+    },
+    "RAW_limits": {
+      "prelease_controller_typo": "An initial review controller label substitution changed ModuleSpec.loader to ModuleSpec.producer. It failed before helper import, lease, target namespace, source/preview/model IO. Exactly that controller token was corrected for the FIRST still-unentered review body; original exact request/return retained.",
+      "source_observations": "Missing separate slice-object retention and per-observation entered states, parent-point comparison and mutable operation-record boundary are untested ROOT observations; not executed supported failures or RAM causes.",
+      "original_Actions_Python_compatibility_runtime_path_transport_producer_owner_and_original_preflight_UNQUALIFIED_NULL": null,
+      "full_HTTP_request_final_partial_bytes_output_tokens_stop_metadata_UNPROVIDED_NULL": null,
+      "outer_tool_pipe_EOF_UNPROVIDED_NULL": null
+    },
+    "preservation": "All71 full contexts/all696 references/full private fields/stat-times/FDcredentials/ancestry/native order/duplicates/relationships and original/newstatic NULLs remain unchanged. New actual local facts are separate.",
+    "no_import_invocation_guard_bypass_SDK_private_scope_query_Source20_runtime_adoption_source_publication_dispatch_bootstrap_build_native_driver_broker_profiler_numerical_capture_or_cleanup": true,
+    "RAM_repair_FINAL_strict48_50_and_clean_final_CI": "INCOMPLETE",
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "original_metadata_bindings": [
+    {
+      "role": "contract",
+      "bytes": 6348,
+      "sha256": "e5427205a74e863f895f87c43c158dc9f2d4b69067ea59c147479228a7d7688b"
+    },
+    {
+      "role": "contract_receipt",
+      "bytes": 1932,
+      "sha256": "a4aa610f376e24e3d5c38b80462aabbf0fb30ed56fb3d3a1e020a41c03491f75"
+    },
+    {
+      "role": "contract_IO",
+      "bytes": 10500,
+      "sha256": "39ced2b42e75023dcc861f99b523a38ad5ed9804aca80858411e3c5d24c5d96b"
+    },
+    {
+      "role": "qualification",
+      "bytes": 9746,
+      "sha256": "2c4782757aa5e2e28175de28ccdfa4e9f84be83980e4cd6a2dafa8a18ac53910"
+    },
+    {
+      "role": "qualification_receipt",
+      "bytes": 2027,
+      "sha256": "26106aaed6920ef0e21adf2d46761dd5fe776c4f909036320129fdfbe573990d"
+    },
+    {
+      "role": "qualification_IO",
+      "bytes": 17647,
+      "sha256": "aa0210f0f1f0fd43c8a474d906043b9058d6e735c1926b23d77de6c6be1a4a25"
+    },
+    {
+      "role": "producer",
+      "bytes": 4507,
+      "sha256": "cc2333b6c4516b155e0110ee65b3aef2375953bf32a193b7f2252ff63771519c"
+    },
+    {
+      "role": "producer_IO",
+      "bytes": 18067,
+      "sha256": "13f3ac2848a38c6be2696ad8a3cf84443433346c38dc1a500f6d11d6e243e726"
+    },
+    {
+      "role": "review",
+      "bytes": 31224,
+      "sha256": "d58dad40359705f930cf5ae895be20e86b99301796db77b0a081255b3552d6a2"
+    }
+  ],
+  "private_copy_proof": {
+    "status": "FIRST_NINE_ORIGINAL_METADATA_VALUES_LOSSLESS_PRIVATE_COPY_BEFORE_PUBLIC_PROJECTION_COMPLETE_CONSUMED",
+    "compressed": {
+      "bytes": 17460,
+      "sha256": "3f51231f459a3447fa6203e6b770edeb3205b14975a27629ef90fae74dcefd56"
+    },
+    "decoded_bytes": 127690,
+    "decoded_sha256": "9cd40385a5efa65f4fdf6f32966b63d989c855551abeb213846dc85e14766d5f",
+    "strict_UTF8_JSONSTRING_characters": 127690,
+    "original_complete_JSON_metadata_values": 9,
+    "same_output_FD_compressed_BYTEWISE_decoded_BYTEWISE_UTF8_JSONSTRING_every_standard_Pythonfield_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "events": 5492,
+    "original_all_private_fields_and_original_newstatic_NULLs_UNCHANGED": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "selected_archive": {
+    "path": "docs/research/2026-11-09-flatbuffers-actions-file696-guarded-metadata-producer-preparation-evidence.tar.gz",
+    "bytes": 2138,
+    "sha256": "2c144217cc40b83a758b57425e46ea946dd8434050e6913e42a70e565eb862d2",
+    "regular_explicit_derived_public_metadata_members": [
+      "guarded-producer-source-and-first-syntax-public-metadata.json",
+      "first-distinct-producer-review-public-metadata.json",
+      "scope-and-RAW-limits-public-metadata.json"
+    ],
+    "FIRST_member_bytes_check": "PASS_ONCE_COMPLETE_CONSUMED",
+    "not_full_private_or_raw_SDK_source_runtime_admitted_package": true
+  },
+  "next": "Independently qualify producer ownership/error/borrow interfaces and applicable original/local preflight before integration or invocation; prepare the one new harness as unexecuted source only. No completed source/syntax/model/review/copy/archive/body replay or original gate/SDK/ownership waiver.",
+  "all_admission_flags": false,
+  "ownership": null
+}

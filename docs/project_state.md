@@ -1,5 +1,13 @@
 # Project State
 
+## 2026-11-09 — PR #132 guarded metadata producer draft prepared
+
+A private 7,514-byte producer draft passed its first local syntax parse 57958 under official EX. Its unconditional byte-zero guard remains intact; the module and producer were not imported or executed. The proposed immutable FD baseline, independent producer and one-case drift qualification remain unintegrated and unqualified.
+
+The first distinct review had a full-input preview, then timed out at 90 seconds with signed 1, 0 stdout, 552 stderr and both EOF, without a final answer. No retry, fallback, approval or backend-unavailability inference followed. An earlier controller typo failed before lease/target/source/model activity; its exact request and return remain retained separately from the first actual review.
+
+ROOT identified untested interface/IO-recording questions. No supported BEFORE/AFTER case or RAM cause is claimed. All full original private fields/relationships/static nulls remain unchanged, with new local facts separate. Source20/runtime, original collector guards, SDK queries, builds, source publication/dispatch, numerical work, adoption and cleanup remain untouched. RAM repair, strict48/50 and clean final CI remain incomplete. See [the producer preparation evidence](research/2026-11-09-flatbuffers-actions-file696-guarded-metadata-producer-preparation.md).
+
 ## 2026-11-09 — PR #132 owned metadata FD loader draft prepared
 
 The4,390-byte private loader draft passed its first local syntax parse35999 under official EX; it was not imported or executed. Its proposed caller-owned borrowed-FD interface has no path/environment fallback and leaves the collector's unconditional byte-zero guard unchanged. Actual staging/FD producer, corrected-adapter integration and original Actions/runtime preflight remain incomplete.
