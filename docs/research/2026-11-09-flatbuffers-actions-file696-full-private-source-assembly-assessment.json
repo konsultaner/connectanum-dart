@@ -1,0 +1,77 @@
+{
+  "status": "FULL_PRIVATE_SOURCE_DRAFT_AND_NEW_LOCAL_SYNTAX_DATA_ONLY_NOT_FINALIZED_NOT_ADMITTED",
+  "NEW_full_PRIVATE_SOURCE_assembly_and_local_syntax_SEPARATE_from_earlier_static_NULLs": {
+    "status": "FULL_PRIVATE_SOURCE_DRAFT_AND_NEW_LOCAL_SYNTAX_DATA_ONLY_NOT_FINALIZED_NOT_ADMITTED",
+    "source_assembly": {
+      "bytes": 80496772,
+      "sha256": "a57ffdba308c769d8ac5ba2f4b7f119ead53c635844b4b0963f3f8fc20c6a7b9",
+      "whole_same_OUTPUT_FD_BYTEWISE_readback": true,
+      "known_close_returned": true,
+      "parent_prefix_end_offset": 79759072,
+      "one_output_namespace_constant_change": "native-perf-include-great-great-great-grandchild-directory71-inputs -> native-perf-include-great-great-great-grandchild-file696-inputs",
+      "new_scope_operand_DATA_bytes": 708044,
+      "new_scope_operand_DATA_sha256": "d39ebae55a7fce12e82619ca46f8f1cc1a1d969504213b176438f8f767976d19",
+      "immutable_V3_blocks_byteexact": true,
+      "new_SOURCE_bytes_literal_roundtrip_only": true
+    },
+    "new_actual_syntax": {
+      "actual_local_parser_PID": 98777,
+      "syntax_PASS": true,
+      "AST_not_traversed_or_executed": true,
+      "original_static_full_source_syntax_parser_NULL_UNCHANGED": true,
+      "new_actual_fact_SEPARATE": true,
+      "original_Actions_Python_compatibility_NOT_established": true
+    },
+    "remaining_qualification": {
+      "full_original_PRIVATE_scope_70049_e972_byteexact_OPAQUE_bound_not_decoded_or_reproved": true,
+      "full_private_context_transport_into_future_runtime_NOTfinalized_UNPERFORMED_NULL": null,
+      "original_source_knownledger_SDK_ownership_actorFD_generatedcohort_physicalEX_crash_preflight_INCOMPLETE": true,
+      "exact_literal_history_guard_is_NOT_querypermission_or_ownership_admission": true,
+      "source_finalization": null,
+      "source_publication": null,
+      "workflow_dispatch": null,
+      "collector_import_or_execution": null,
+      "SDK_file_body_queries": null,
+      "Source20_runtime_adoption": null,
+      "actual_supported_BEFORE_failure_and_matching_AFTER": null
+    },
+    "RAW_limits": {
+      "source_writer_outer_tool_pipe_EOF_UNPROVIDED_NULL": null,
+      "syntax_outer_tool_pipe_EOF_UNPROVIDED_NULL": null,
+      "displaced_original_parent_main_tail_sidecar_creation_FD_stat_descriptor_UNSAVED_NULL": null,
+      "reason": "Source writer copied that new sidecar and checked its bytes/known close, but its returned creation-FD/stat descriptor was not stored. The original full parent source and declared byte range remain unchanged. No writer/reader rerun or original creation-point reconstruction.",
+      "no_global_actorFD_originaldrivercredentials_atomicABA_physicalEX_crash_admission": true
+    },
+    "all_original_PRIVATE_fullcontexts_fields_stat_times_FDcredentials_ancestry_nativeorder_duplicates_relationships_original_newstatic_NULLs_UNCHANGED": true,
+    "all_admission_flags": false,
+    "ownership": null,
+    "RAM_repair_FINAL_strict48_50_clean_final_CI_INCOMPLETE": true,
+    "kind": "EXPLICIT_DERIVED_PUBLIC_PROJECTION_private_contexts_excluded_ONLY"
+  },
+  "new_selected_archive": {
+    "bytes": 2211,
+    "sha256": "864be99bf4e4a0b5d0e03521193e613c7bb61a3f3c578a3e64cded01a5fcb63b",
+    "selected_regular_members": 3,
+    "all_EXPLICIT_DERIVED_PUBLIC_METADATA": true,
+    "FIRST_archive_check_PASS_once": true
+  },
+  "new_whole_PRIVATE_metadata_COPYproof": {
+    "status": "COMPLETE_CONSUMED_FIRST_NEW_PRIVATE_metadata_COPY_BEFORE_publicprojection",
+    "compressed_bytes": 19841,
+    "compressed_sha256": "e2c2126d2c3c800f815ef15628d62bf1d4976cf0cdc448d2c286bd540d8a6e59",
+    "decoded_bytes": 89274,
+    "decoded_sha256": "7bab4738bfa9a633c53570292e8f5b4c6502353d3db24c9a2636152e6876aba7",
+    "decoded_UTF8_JSONSTRING_characters": 89274,
+    "whole_compressed_same_OUTPUT_FD_BYTEWISE": true,
+    "whole_decoded_BYTEWISE_strict_UTF8_JSONSTRING_every_standard_Pythonfield_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "ordered_events": 669,
+    "original_saved_JSON_values": 2,
+    "complete_actual_ROOT_roles": 4,
+    "no_old_copyproof_source_reader_model_parser_conditions_or_archive_reexecution": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "full_SOURCE_and_PRIVATE_context_transport_remain_unadmitted": true,
+  "all_admission_flags": false,
+  "ownership": null
+}
