@@ -1,5 +1,13 @@
 # Project State
 
+## 2026-11-09 — PR #132 guard and opaque adapter fragments prepared
+
+The previously unentered writer completed once under official EX. Its390-byte unconditional-entry fragment and2,234-byte opaque full-context metadata adapter passed their first local syntax parses and six bounded source-shape checks. They remain private, unintegrated and unexecuted. Exact entry insertion, first-error retention, staging/input loader and applicable actual original preflight remain unqualified.
+
+The first distinct advisory review had an exact full-input preview, then timed out at90 seconds with signed1/0 stdout/654 stderr/both EOF and no final answer. No retry, fallback or approval inference followed. ROOT independently identified a source-flow risk: an exception-list append can replace the outward primary error. The original fragment remains unchanged; this is not an executed supported BEFORE/AFTER failure or RAM cause.
+
+All original full private fields/stat-times/FDcredentials/ancestry/order/duplicates/relationships/static nulls remain unchanged; new facts are separate. Source20/runtime and original collector/workflow remain untouched. No SDK query, module execution, source publication/dispatch, build, numerical work, adoption or cleanup occurred. Strict48/50 and clean final CI remain incomplete. See [the guard/adapter preparation evidence](research/2026-11-09-flatbuffers-actions-file696-entry-adapter-draft-preparation.md).
+
 ## 2026-11-09 — PR #132 private context packet prepared; integration frontier remains open
 
 The full original private scope now has a local opaque Base64 packet:93,400 ASCII bytes in32,768/32,768/27,864-byte parts. Saved output-FD readbacks, whole strict decode and canonical re-encoding preserved all70,049 original compressed bytes; the original scope was not decompressed or reparsed. A prospective three-secret Actions interface is documented; no secret API/upload or staging/runtime forwarding occurred.

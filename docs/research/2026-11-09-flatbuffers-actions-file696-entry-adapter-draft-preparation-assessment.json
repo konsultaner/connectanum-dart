@@ -1,0 +1,213 @@
+{
+  "status": "EXPLICIT_DERIVED_PUBLIC_NEW_FRAGMENT_PREPARATION_METADATA_ONLY_NOT_SOURCE_RUNTIME_ADMISSION",
+  "fragments": {
+    "status": "FIRST_NEW_ENTRY_AND_OPAQUE_CONTEXT_METADATA_FRAGMENTS_LOCAL_SYNTAX_SHAPE_PASS_NOT_INTEGRATED_EXECUTED_ADMITTED",
+    "source_entry": {
+      "name": "NEW696-entry-guard-DRAFT-NOTexecuted.py",
+      "bytes": 390,
+      "sha256": "017a39e1cf8f321db8eed9d745f5b025f604c0878dc2b57288126efc716392f9"
+    },
+    "source_adapter": {
+      "name": "NEW696-opaque-full-scope-adapter-DRAFT-NOTexecuted.py",
+      "bytes": 2234,
+      "sha256": "f47ef46ea44c555826a28bcc1c4b528732c2bcc01241457b16968c95e656ea7f"
+    },
+    "new_fragment_checks": {
+      "entry_first_and_only_executable_node_is_unconditional_Raise": true,
+      "entry_has_no_flag_condition_or_import": true,
+      "adapter_top_level_definitions_only": true,
+      "adapter_imports_only_hashlib_base64_inside_definition": true,
+      "adapter_no_filesystem_environment_process_eval_exec_calls": true,
+      "adapter_no_decorators_or_executable_defaults": true
+    },
+    "assessment": {
+      "name": "FIRST-new-fragment-syntax-and-shape-assessment-PRIVATE.json",
+      "bytes": 5560,
+      "sha256": "ae4adbcccac1eef914f62e1053e66554f2bc39ebc5636611ae7aaa356fda4f47"
+    },
+    "original_native_ledger": {
+      "name": "FIRST-original-native-fragment-creation-and-IO-PRIVATE.json",
+      "bytes": 13273,
+      "sha256": "25bd0fbc8dbece3da31d4bf3ed77fd9e0c007983818cc16ca636a933a2200310"
+    },
+    "fragment_body_executions_UNPERFORMED_NULL": null,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "review": {
+    "status": "FIRST_DISTINCT_FRAGMENT_REVIEW_FAILED_OR_INCOMPLETE_NO_RETRY_NO_APPROVAL",
+    "preview": {
+      "PID": 61745,
+      "SIGNED_returncode": 0,
+      "input_bytes": 8309,
+      "input_sha256": "547382756aa795dc7567c1d1ffc72fa52f7c7488631c51cbd4c6f0ef3989d86c",
+      "stdout_EOF": true,
+      "stderr_EOF": true,
+      "stdout": {
+        "bytes": 9248,
+        "sha256": "15791befb38f71a42d93016b70ee36f11399d0643335b4511af6441785fe50b9"
+      },
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "actual_review": {
+      "PID": 61746,
+      "SIGNED_returncode": 1,
+      "input_bytes": 8309,
+      "input_sha256": "547382756aa795dc7567c1d1ffc72fa52f7c7488631c51cbd4c6f0ef3989d86c",
+      "stdout_EOF": true,
+      "stderr_EOF": true,
+      "stdout": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "bytes": 654,
+        "sha256": "581e6ebb3f616384ec8a9616618890e7bfcefda238846160ceeb2829bc9e9039"
+      }
+    },
+    "ROOT_qualification": {
+      "status": "ROOT_FIRST_NEW_FRAGMENT_SOURCE_FLOW_QUALIFICATION_NOT_EXECUTED_BEFORE_AFTER",
+      "source_bindings_METADATA_ONLY": {
+        "entry_bytes": 390,
+        "entry_sha256": "017a39e1cf8f321db8eed9d745f5b025f604c0878dc2b57288126efc716392f9",
+        "adapter_bytes": 2234,
+        "adapter_sha256": "f47ef46ea44c555826a28bcc1c4b528732c2bcc01241457b16968c95e656ea7f"
+      },
+      "finding": "The adapter's except block appends the primary exception to a list before bare raise. If that append raises, the append failure becomes the outward exception. The original primary can remain in exception context, but the fragment does not guarantee outward first-error priority. The registry append also occurs before the try and therefore is outside this local exception recorder. This is source-flow reasoning, not a measured memory failure, supported executed BEFORE/AFTER or a cause of RAM behavior.",
+      "consequence": "No source adoption or integration. Keep original fragment unchanged and quarantined as a preparation draft; qualify first-error/retention behavior in a future explicitly authorized new source epoch before any runtime use. No re-execution of this consumed new syntax/shape question or unchanged model review.",
+      "guard_limit": "The unconditional Raise is currently a standalone fragment only. Exact insertion before all original prefix side effects, after required future imports, is unqualified. It does not guard the existing full draft until an actually qualified integration exists.",
+      "context_limit": "The metadata adapter forwards full original compressed metadata only as an opaque representation. It performs no acquisition. Actual path/FD loader, staging actor, full runtime field forwarding and original preflight are unperformed.",
+      "review_qualification": {
+        "preview_PID": 61745,
+        "preview_SIGNED_status": 0,
+        "preview_full_stdout_bytes": 9248,
+        "entire_selection_occurs_once": true,
+        "actual_review_PID": 61746,
+        "actual_review_SIGNED_status": 1,
+        "actual_review_stdout_bytes": 0,
+        "actual_review_stderr_bytes": 654,
+        "actual_review_stderr_sha256": "581e6ebb3f616384ec8a9616618890e7bfcefda238846160ceeb2829bc9e9039",
+        "stdout_EOF": true,
+        "stderr_EOF": true,
+        "selected_stdin_bytes": 8309,
+        "helper_actual_input_chars": 9247,
+        "first_token_cap": 900,
+        "deadline_seconds": 90,
+        "result": "NO_FINAL_ANSWER_NO_ADVICE_NO_APPROVAL_NOT_BACKEND_UNAVAILABILITY",
+        "observed_progress_output_chars": 0,
+        "observed_progress_thinking_chars": 0,
+        "full_HTTP_request_RAW_UNRETAINED_NULL": null,
+        "final_partial_RAW_UNRETAINED_NULL": null,
+        "final_output_tokens_UNPROVIDED_NULL": null,
+        "final_stop_reason_UNPROVIDED_NULL": null
+      },
+      "no_model_retry_narrowing_cap_increase_fallback_or_old_review_replay": true,
+      "all_admission_flags": false,
+      "ownership": null
+    },
+    "no_model_advice_or_approval": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "contract": {
+    "namespace": "FIRST-NEW696-unadmitted-entry-and-opaque-full-context-adapter-DRAFT-preparation-v1",
+    "status": "NEW_PRIVATE_SOURCE_FRAGMENTS_AND_INTERFACE_CONTRACT_ONLY_NOT_INTEGRATED_NOT_EXECUTED_NOT_ADMITTED",
+    "entry_guard": {
+      "intent": "Unconditional refusal with no override argument, flag, schema or receipt branch. Must precede every original collector side effect, after required future imports if any. Exact full-source insertion remains UNQUALIFIED; no new full source is assembled.",
+      "behavior_qualification": "No guard execution or supported BEFORE/AFTER occurred. A parsed fragment does not prove that original prefix cannot execute."
+    },
+    "adapter": {
+      "intent": "Accept already-owned full compressed metadata bytes and retain original owner/raw bytes/encoding/transport value/unknown exceptions before transformation. Forward one intact opaque blob, not parsed or projected fields.",
+      "preconditions": "The caller must independently own and retain the operation registry and original metadata owner for process life. An object reference/list/constant hash is not ownership, original credential, alias or query-permission proof.",
+      "output_integration": "Future PRIVATE report metadata may include the entire transport value. Original public operands remain separate; neither transport encoding nor original hash authorizes any SDK query.",
+      "limitations": "No staging implementation, file/path/FD acquisition, loader, original runtime ownership, execution or private payload forwarding. This function definition is not invoked by preparation.",
+      "unknowns": "Constructor/append/hash/encoding/exception-retention failures remain unknown/quarantined; no retries, field restoration or global cleanup authority."
+    },
+    "handoff_protocol": {
+      "provider": "Original Actions repository-secret proposal from packet preparation, not activated or queried.",
+      "source_actor": "Original70049-byte gzip remains immutable, all71 full contexts/all696 full references/FDcredentials/stat-times/ancestry/order/duplicates/relationships/original-newstatic NULLs preserved.",
+      "staging_actor": "Separate metadata actor, explicit step-scoped secret inputs, no shell/source interpolation. Future private exclusive/no-follow file creation with actual owner/FD receipts. No global env write or staging-parent substitution.",
+      "input_loader": "UNRESOLVED_PATH_FD_AND_OWNERSHIP_INTERFACE: declare from actually qualified original workflow/collector context before implementation. Do not guess a path, descriptor number, environment default or input permission.",
+      "runtime_bridge": "Supply original compressed bytes through an actually owned metadata loader; adapter carries whole opaque bytes. No gzip decompression, scope JSON parse, key projection, normalization, joins or deduplication in adapter.",
+      "collector": "Original Python3 stdin/PATH/argv/environment/credentials/Ubuntu24.04/Dart3.13.5/Rust1.99.0 recipe retained as obligations, not inferred equal from labels.",
+      "activation": "The unconditional guard is not removed by a receipt/boolean. Requires a new explicit source epoch after applicable complete actual original preflight, independent ROOT qualification and preservation of all existing obligations. No activation performed."
+    },
+    "before_any_SDK_body_IO_original_preflight_frontiers": [
+      {
+        "frontier": "own source/current source epoch/native/driver/staticRLIB/actual locks and configs",
+        "current": "UNADMITTED_INCOMPLETE"
+      },
+      {
+        "frontier": "original recipe/PATH/tool/SDK/compiler/effective linker/headers/loaded delegates/kernel",
+        "current": "UNADMITTED_INCOMPLETE"
+      },
+      {
+        "frontier": "known-ledger/no-replay/alias/access/query permission with full original references",
+        "current": "UNADMITTED_INCOMPLETE"
+      },
+      {
+        "frontier": "original UID/GID/env/argv and actual access, transitive actor FD ownership and inheritance",
+        "current": "UNADMITTED_INCOMPLETE"
+      },
+      {
+        "frontier": "generated-output cohort, continuous official physical EX and crash behavior",
+        "current": "UNADMITTED_INCOMPLETE"
+      }
+    ],
+    "new_static_execution_fields_UNPERFORMED_NULL": {
+      "entry_guard_execution": null,
+      "adapter_invocation": null,
+      "staging_actor_execution": null,
+      "input_loader_execution": null,
+      "collector_full_context_forwarding": null,
+      "SDK_body_IO": null,
+      "original_Actions_compatibility": null,
+      "source_insertion_qualification": null
+    },
+    "consumed_bindings_METADATA_ONLY": {
+      "full_source80496772_sha256": "a57ffdba308c769d8ac5ba2f4b7f119ead53c635844b4b0963f3f8fc20c6a7b9",
+      "full_source_syntax98777": "COMPLETE_CONSUMED_NO_REPEAT",
+      "workflow_YAML90454": "COMPLETE_CONSUMED_NO_REPEAT",
+      "opaque_packet93400_sha256": "dddd99c67da9b3bb4643db887f0211316c99cb3870b568a7bfcb55c3a6d38387",
+      "packet_strict_whole_decode_proof": "COMPLETE_CONSUMED_NO_REPEAT",
+      "selected_stage_glue_review": "COMPLETE_CONSUMED_QUERY_PERMISSION_UNPROVED_BEFORE_FILE_COLLECTOR_CALL"
+    },
+    "all_original_private_fields_stat_times_FDcredentials_ancestry_nativeorder_duplicates_relationships_original_newstatic_NULLs_unchanged": true,
+    "no_Source20_runtime_source_publication_dispatch_module_execution_build_native_numerical_adoption_cleanup": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "new_private_whole_retention_proof_METADATA": {
+    "status": "FIRST_NEW_METADATA_AND_ACTUAL_ROOT_WHOLE_RETENTION_BEFORE_PUBLIC_PROJECTION",
+    "compressed_bytes": 23837,
+    "compressed_sha256": "7757f92dc14341ec203494291a9f641937d8f79c8c05b6136b2c6aa0fe2cd769",
+    "decoded_bytes": 177260,
+    "decoded_sha256": "3377bf647b4b564d0a406d303d93ab6a7ce2035c634f8f21d681e42964f1ef08",
+    "UTF8_JSONSTRING_characters": 177260,
+    "same_output_FD_compressed_BYTEWISE_and_decoded_BYTEWISE_strictUTF8_JSONSTRING_every_standard_Python_field_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "events": 3250,
+    "original_saved_JSON_values": 5,
+    "complete_actual_model_ROOT_roles": 12,
+    "actual_startup_refusal_request_return_pairs": 5,
+    "no_original_scope_packet_or_completed_source_parser_reader_model_proof_replay": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "selected_archive": {
+    "bytes": 4523,
+    "sha256": "d0fe017a65792ac8d4816b77fbb251b957c90b467162db007aa202b92dcb90a3",
+    "members": [
+      "new-fragment-public-metadata.json",
+      "new-review-and-ROOT-qualification-public-metadata.json",
+      "new-interface-contract-public-metadata.json"
+    ],
+    "regular_members": 3,
+    "FIRST_archive_check": "PASS_ONCE"
+  },
+  "all_original_full_private_fields_stat_times_FDcredentials_ancestry_order_duplicates_relationships_original_newstatic_NULLs_unchanged": true,
+  "all_admission_flags": false,
+  "ownership": null
+}
