@@ -1,46 +1,48 @@
 # Regression And Mutation Coverage
 
-Status: active; full436 preflight is terminal and a fresh campaign is pending
+Status: active; full437 preflight is terminal and a fresh campaign is pending
 Started: 2026-09-15
 Baseline: `8248ad62` (PR #92 merged into master as `f3323e48`)
 
 On 2026-11-09 the operator approved a fixed-size 64-GiB APFS disk image on the
 existing external drive for an isolated clean worktree, scratch and evidence;
-no reformatting or deletion is authorized. A small disposable image passed
-basic APFS semantics and remount verification, but sustained throughput and
-disconnect recovery are unproven. Finish allocation and validate the actual
-image/backing allocation and unchanged admission before any preflight. Keep
-original resource limits, tests, operators, deadlines, batching and independent
-95% gates. The optional host-headroom guard remains a separate proposal. Stop
-if external I/O makes unchanged control timing unreliable.
+no reformatting or deletion is authorized. The image passed full-allocation,
+mount, APFS and volume checks. Full437 then failed canonical verification at
+the format check because the fresh worktree lacked Dart package resolution.
+Its output is terminal preflight-only, with no inventory, controls, collection
+or score. Keep original resource limits, tests, operators, deadlines, batching
+and independent 95% gates. The optional host-headroom guard remains a separate
+proposal. Stop if external I/O makes unchanged control timing unreliable.
 
 Operational continuation for this approved storage path:
 
-1. Image creation is in progress at
+1. The completed image is at
    `/Volumes/Storage/Codex/connectanum-native-mutation-20261109/campaign.dmg`.
-   Never attach or use the image while `hdiutil create` is live. Check its exact
-   PID/PPID/start/command; do not start a second creator or overwrite a partial
-   image. If creation exits unsuccessfully, retain the partial image for
-   diagnosis and stop.
-2. On successful creation, require the image's apparent and allocated sizes to
-   both be 68,719,476,736 bytes (64 GiB), adequate free space on the external
-   device, and no path collision at `/Volumes/ConnectanumMutation`. Attach
-   with owners enabled, verify it is a mounted APFS volume backed by that exact
-   image, and run `diskutil verifyVolume`. Fail closed on any mismatch.
-3. Include this plan, `docs/project_state.md` and
-   `docs/native-mutation-coexistence-proposal.md` in the committed fingerprint
-   after reviewing the docs-only diff. Make a new clean detached worktree at
-   that commit *inside* the mounted image. Use a private `TMPDIR` there; keep
-   new preflight, inventory, controls, scratch and campaign evidence there.
-   Leave the original checkout, all previous `out/native-mutation-*` results
-   and unrelated external-drive work untouched.
+   Its apparent and allocated sizes were both 68,719,476,736 bytes (64 GiB).
+   It is mounted with owners enabled at `/Volumes/ConnectanumMutation`, backed
+   by that exact image, and passed `diskutil verifyVolume`. Recheck this identity,
+   external free space and mount health before a fresh attempt; fail closed on
+   any mismatch.
+2. Full437's clean detached worktree, private `TMPDIR`, terminal preflight log
+   and status remain inside the image. Its canonical `bin/verify` exited 1
+   during formatting: the checkout lacked `.dart_tool/package_config.json`, so
+   `package:lints/recommended.yaml` could not resolve. `dart format` used
+   `--output=none`; the tracked worktree is clean. Preserve all full437 files
+   unchanged, and never count it toward either mutation gate.
+3. Commit the updated state/plan and advance the clean detached worktree to
+   that exact fingerprint without touching ignored full437 evidence. Before a
+   new preflight, resolve workspace Dart dependencies there using the canonical
+   bootstrap path while holding the exclusive machine lease. Confirm package
+   resolution, clean tracked files and disk admission. Keep all scratch,
+   preflight and new evidence on the image; leave prior outputs and
+   unrelated external-drive work untouched. Do not automatically relaunch after
+   full437's terminal failure.
 4. Recheck exact machine-lock holders and native/inference/build users. When
    admissible, use a fresh output and the existing exclusive-lease preflight
    orchestrator, preserving its fail-closed cleanup and original `bin/verify`.
-   Do not reuse full436's output or score. Require matching inventories,
-   default/lean controls and pilot timing before either complete Core/FFI run.
-   The fixed-size image solves disk admission, not CPU/I/O contention; stop on
-   failed controls or original deadlines rather than changing them.
+   Require matching inventories, default/lean controls and pilot timing before
+   either complete Core/FFI run. The image solves disk admission, not CPU/I/O
+   contention; stop on failed controls or original deadlines.
 
 ## Objective
 

@@ -1,24 +1,27 @@
 # Project State
 
-Last updated: 2026-10-10
+Last updated: 2026-11-09
 Current branch: `codex/mutation-runner-speed`
 Current milestone: make full native campaigns restart-resumable, then measure
 both gates without narrowing inventories, tests, deadlines or evidence rules.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
-On 2026-11-09 the operator approved a non-destructive, fixed-size 64-GiB APFS
-image on the external drive for a fresh isolated worktree and campaign evidence.
-The internal APFS container had about 7.8 GB free, below the unchanged 13-GiB
-preflight floor. A disposable 256-MiB image passed executable, symlink,
-atomic-replace, file/directory fsync, remount and APFS verification checks;
-the campaign-sized image is being allocated. This is not a performance or
-disconnect-recovery proof. Preserve the current native mutation resource
-policy, original tests/deadlines, independent strict 95% Core/FFI gates and
-all prior raw evidence. No fresh preflight or campaign has started yet; abort
-if the external drive cannot sustain the unchanged controls. The separate
-host-headroom guard in `docs/native-mutation-coexistence-proposal.md` is still
-only a proposal.
+Full437 is terminal preflight-only and unscored. The approved fixed-size 64-GiB
+APFS image on the external drive was fully allocated, mounted with owners
+enabled, and verified. A clean detached worktree at `18451e9b` was launched
+under the exclusive machine lease, but canonical `bin/verify` exited 1 during
+`bin/check-format` because the new worktree lacked Dart package resolution
+(`package:lints/recommended.yaml`). The formatter reported 300 would-change
+files with `--output=none`; the tracked worktree remains clean. No successful
+verified-preflight evidence, inventories, controls or mutation collection exist.
+Preserve all full437 raw logs and status; its launchd service is unloaded and
+no campaign owner remains. Before any fresh attempt, bootstrap Dart
+dependencies in the isolated worktree under the machine lease, verify
+cleanliness and disk admission, then use a new output at the updated committed
+fingerprint. Do not silently retry full437.
+The separate host-headroom guard in
+`docs/native-mutation-coexistence-proposal.md` remains only a proposal.
 
 Work436 is terminal preflight evidence only: its canonical verification timed
 out waiting for the interactive router example to become ready within the
