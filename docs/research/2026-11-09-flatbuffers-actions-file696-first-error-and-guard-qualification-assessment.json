@@ -1,0 +1,938 @@
+{
+  "status": "NEW_PRIVATE_DRAFT_CORRECTION_AND_BYTEZERO_GUARD_BOUNDED_LOCAL_QUALIFICATION_NOT_RUNTIME_ADMISSION",
+  "behavior": {
+    "classification": "EXPLICIT_DERIVED_PUBLIC_CONTROLLED_POLICY_TEST_METADATA",
+    "actual_local_qualification_PID": 82647,
+    "BEFORE": {
+      "testsRun": 3,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "unexpectedSuccesses": 0,
+      "rows": [
+        {
+          "case": "recorder_failure_keeps_original_primary",
+          "controlled_recorder_injected": true,
+          "primary_type": "ValueError",
+          "primary_args": [
+            "full original metadata byte count differs"
+          ],
+          "outward_type": "ControlledRecorderFailure",
+          "outward_args": [
+            "FIRST declared recorder fault"
+          ],
+          "outward_IS_original_primary": false,
+          "outward_IS_controlled_recorder_failure": true,
+          "primary_cause_IS_original": true,
+          "primary_context_IS_original": true,
+          "registry_operation_count": 1,
+          "raw_input_IS_original_object": true,
+          "owner_reference_IS_original": true,
+          "preallocated_primary_slot_IS_primary": false,
+          "controlled_recorder_append_calls": 1,
+          "trace_events": [
+            {
+              "event": "call",
+              "line": 4,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 6,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 9,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 10,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 11,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 12,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 13,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 14,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 8,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 16,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 17,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 18,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 20,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 22,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 23,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 24,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 25,
+              "exception_type": null
+            },
+            {
+              "event": "exception",
+              "line": 25,
+              "exception_type": "ValueError"
+            },
+            {
+              "event": "line",
+              "line": 40,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 41,
+              "exception_type": null
+            },
+            {
+              "event": "exception",
+              "line": 41,
+              "exception_type": "ControlledRecorderFailure"
+            },
+            {
+              "event": "return",
+              "line": 41,
+              "exception_type": null
+            }
+          ]
+        },
+        {
+          "case": "ordinary_length_error_keeps_original_primary",
+          "controlled_recorder_injected": false,
+          "primary_type": "ValueError",
+          "primary_args": [
+            "full original metadata byte count differs"
+          ],
+          "outward_type": "ValueError",
+          "outward_args": [
+            "full original metadata byte count differs"
+          ],
+          "outward_IS_original_primary": true,
+          "outward_IS_controlled_recorder_failure": false,
+          "primary_cause_IS_original": true,
+          "primary_context_IS_original": true,
+          "registry_operation_count": 1,
+          "raw_input_IS_original_object": true,
+          "owner_reference_IS_original": true,
+          "preallocated_primary_slot_IS_primary": false,
+          "controlled_recorder_append_calls": 0,
+          "trace_events": [
+            {
+              "event": "call",
+              "line": 4,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 6,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 9,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 10,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 11,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 12,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 13,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 14,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 8,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 16,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 17,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 18,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 20,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 22,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 23,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 24,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 25,
+              "exception_type": null
+            },
+            {
+              "event": "exception",
+              "line": 25,
+              "exception_type": "ValueError"
+            },
+            {
+              "event": "line",
+              "line": 40,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 41,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 42,
+              "exception_type": null
+            },
+            {
+              "event": "return",
+              "line": 42,
+              "exception_type": null
+            }
+          ]
+        },
+        {
+          "case": "missing_owner_keeps_original_primary",
+          "controlled_recorder_injected": false,
+          "primary_type": "ValueError",
+          "primary_args": [
+            "original metadata owner reference is required"
+          ],
+          "outward_type": "ValueError",
+          "outward_args": [
+            "original metadata owner reference is required"
+          ],
+          "outward_IS_original_primary": true,
+          "outward_IS_controlled_recorder_failure": false,
+          "primary_cause_IS_original": true,
+          "primary_context_IS_original": true,
+          "registry_operation_count": 1,
+          "raw_input_IS_original_object": true,
+          "owner_reference_IS_original": true,
+          "preallocated_primary_slot_IS_primary": false,
+          "controlled_recorder_append_calls": 0,
+          "trace_events": [
+            {
+              "event": "call",
+              "line": 4,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 6,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 9,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 10,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 11,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 12,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 13,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 14,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 8,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 16,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 17,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 18,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 19,
+              "exception_type": null
+            },
+            {
+              "event": "exception",
+              "line": 19,
+              "exception_type": "ValueError"
+            },
+            {
+              "event": "line",
+              "line": 40,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 41,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 42,
+              "exception_type": null
+            },
+            {
+              "event": "return",
+              "line": 42,
+              "exception_type": null
+            }
+          ]
+        }
+      ]
+    },
+    "AFTER": {
+      "testsRun": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "unexpectedSuccesses": 0,
+      "rows": [
+        {
+          "case": "recorder_failure_keeps_original_primary",
+          "controlled_recorder_injected": true,
+          "primary_type": "ValueError",
+          "primary_args": [
+            "full original metadata byte count differs"
+          ],
+          "outward_type": "ValueError",
+          "outward_args": [
+            "full original metadata byte count differs"
+          ],
+          "outward_IS_original_primary": true,
+          "outward_IS_controlled_recorder_failure": false,
+          "primary_cause_IS_original": true,
+          "primary_context_IS_original": true,
+          "registry_operation_count": 1,
+          "raw_input_IS_original_object": true,
+          "owner_reference_IS_original": true,
+          "preallocated_primary_slot_IS_primary": true,
+          "controlled_recorder_append_calls": 0,
+          "trace_events": [
+            {
+              "event": "call",
+              "line": 4,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 6,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 9,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 10,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 11,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 12,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 13,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 14,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 15,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 8,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 17,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 18,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 19,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 21,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 23,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 24,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 25,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 26,
+              "exception_type": null
+            },
+            {
+              "event": "exception",
+              "line": 26,
+              "exception_type": "ValueError"
+            },
+            {
+              "event": "line",
+              "line": 41,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 42,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 43,
+              "exception_type": null
+            },
+            {
+              "event": "return",
+              "line": 43,
+              "exception_type": null
+            }
+          ]
+        },
+        {
+          "case": "ordinary_length_error_keeps_original_primary",
+          "controlled_recorder_injected": false,
+          "primary_type": "ValueError",
+          "primary_args": [
+            "full original metadata byte count differs"
+          ],
+          "outward_type": "ValueError",
+          "outward_args": [
+            "full original metadata byte count differs"
+          ],
+          "outward_IS_original_primary": true,
+          "outward_IS_controlled_recorder_failure": false,
+          "primary_cause_IS_original": true,
+          "primary_context_IS_original": true,
+          "registry_operation_count": 1,
+          "raw_input_IS_original_object": true,
+          "owner_reference_IS_original": true,
+          "preallocated_primary_slot_IS_primary": true,
+          "controlled_recorder_append_calls": 0,
+          "trace_events": [
+            {
+              "event": "call",
+              "line": 4,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 6,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 9,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 10,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 11,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 12,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 13,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 14,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 15,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 8,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 17,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 18,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 19,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 21,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 23,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 24,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 25,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 26,
+              "exception_type": null
+            },
+            {
+              "event": "exception",
+              "line": 26,
+              "exception_type": "ValueError"
+            },
+            {
+              "event": "line",
+              "line": 41,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 42,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 43,
+              "exception_type": null
+            },
+            {
+              "event": "return",
+              "line": 43,
+              "exception_type": null
+            }
+          ]
+        },
+        {
+          "case": "missing_owner_keeps_original_primary",
+          "controlled_recorder_injected": false,
+          "primary_type": "ValueError",
+          "primary_args": [
+            "original metadata owner reference is required"
+          ],
+          "outward_type": "ValueError",
+          "outward_args": [
+            "original metadata owner reference is required"
+          ],
+          "outward_IS_original_primary": true,
+          "outward_IS_controlled_recorder_failure": false,
+          "primary_cause_IS_original": true,
+          "primary_context_IS_original": true,
+          "registry_operation_count": 1,
+          "raw_input_IS_original_object": true,
+          "owner_reference_IS_original": true,
+          "preallocated_primary_slot_IS_primary": true,
+          "controlled_recorder_append_calls": 0,
+          "trace_events": [
+            {
+              "event": "call",
+              "line": 4,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 6,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 9,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 10,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 11,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 12,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 13,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 14,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 15,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 8,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 17,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 18,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 19,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 20,
+              "exception_type": null
+            },
+            {
+              "event": "exception",
+              "line": 20,
+              "exception_type": "ValueError"
+            },
+            {
+              "event": "line",
+              "line": 41,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 42,
+              "exception_type": null
+            },
+            {
+              "event": "line",
+              "line": 43,
+              "exception_type": null
+            },
+            {
+              "event": "return",
+              "line": 43,
+              "exception_type": null
+            }
+          ]
+        }
+      ]
+    },
+    "harness": {
+      "name": "FIRST-new-identical-BEFORE-AFTER-and-entry-qualification-harness.py",
+      "bytes": 6650,
+      "sha256": "2fb7c22bafa8d6ab46ff25984d83802fbfccd4c742b04dc7016ef4768025cad6"
+    },
+    "corrected_adapter": {
+      "name": "NEW696-opaque-full-scope-adapter-first-error-corrected-DRAFT.py",
+      "bytes": 2280,
+      "sha256": "4ca2186abf6ae9b3bf0403689c7e8505829356e3d4aa6e95029ca1fe237f6265"
+    },
+    "scope": "TEST-ONLY recorder-slot mutation while tracing the private Python adapter. This is not an actual allocator failure, original Linux/SDK ownership proof, RAM cause or production acceptance result.",
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "guard": {
+    "classification": "EXPLICIT_DERIVED_PUBLIC_BYTEZERO_COMPOSITION_AND_PREFIX_BEHAVIOR_METADATA",
+    "guard": {
+      "status": "PASS_NEW_PREFIX_EXECUTION_AND_EXACT_FULL_SOURCE_COMPOSITION",
+      "guard_start_byte": 0,
+      "original_source_start_byte": 248,
+      "sentinel_executed": false,
+      "actual_trace_lines": [
+        2,
+        3,
+        2
+      ],
+      "full_collector_compile_import_exec_UNPERFORMED_NULL": null,
+      "original_Actions_compatibility_UNQUALIFIED_NULL": null
+    },
+    "prefix": {
+      "name": "NEW696-bytezero-unconditional-entry-prefix-DRAFT.py",
+      "bytes": 248,
+      "sha256": "9d58fc9df5877659a4a51c03ba8871aacb037056434626b1e13fdfcd92b24c46"
+    },
+    "guarded_full_source": {
+      "name": "NEW696-full-collector-bytezero-guarded-DRAFT.py",
+      "bytes": 80497020,
+      "sha256": "d8cb1a2f4411acb747ec71b68fab75e871e811973dda9f94527297c41af7abcd"
+    },
+    "full_original_source_suffix_UNCHANGED": true,
+    "full_collector_compile_import_exec_UNPERFORMED_NULL": null,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "ROOT_qualification": {
+    "status": "NEW_PRIVATE_ADAPTER_FIRSTERROR_CORRECTED_MATCHING_FOCUSED_CASES_PASS_BYTEZERO_GUARD_PLACEMENT_QUALIFIED_WITHIN_DECLARED_SCOPE",
+    "controlled_policy_scope": "TEST-ONLY recorder-slot mutation while tracing the private Python adapter. This is not an actual allocator failure, original Linux/SDK ownership proof, RAM cause or production acceptance result.",
+    "BEFORE": {
+      "testsRun": 3,
+      "failures": 1,
+      "errors": 0
+    },
+    "AFTER": {
+      "testsRun": 3,
+      "failures": 0,
+      "errors": 0
+    },
+    "first_error_before": {
+      "outward_type": "ControlledRecorderFailure",
+      "outward_IS_primary": false,
+      "recorder_calls": 1
+    },
+    "first_error_after": {
+      "outward_type": "ValueError",
+      "outward_IS_primary": true,
+      "primary_context_preserved": true,
+      "primary_cause_preserved": true,
+      "raw_input_identity_preserved": true,
+      "owner_reference_identity_preserved": true,
+      "primary_retained": true,
+      "recorder_calls": 0
+    },
+    "corrected_adapter": {
+      "name": "NEW696-opaque-full-scope-adapter-first-error-corrected-DRAFT.py",
+      "bytes": 2280,
+      "sha256": "4ca2186abf6ae9b3bf0403689c7e8505829356e3d4aa6e95029ca1fe237f6265"
+    },
+    "guard_prefix": {
+      "name": "NEW696-bytezero-unconditional-entry-prefix-DRAFT.py",
+      "bytes": 248,
+      "sha256": "9d58fc9df5877659a4a51c03ba8871aacb037056434626b1e13fdfcd92b24c46"
+    },
+    "guarded_full_source": {
+      "name": "NEW696-full-collector-bytezero-guarded-DRAFT.py",
+      "bytes": 80497020,
+      "sha256": "d8cb1a2f4411acb747ec71b68fab75e871e811973dda9f94527297c41af7abcd"
+    },
+    "guard": {
+      "status": "PASS_NEW_PREFIX_EXECUTION_AND_EXACT_FULL_SOURCE_COMPOSITION",
+      "guard_start_byte": 0,
+      "original_source_start_byte": 248,
+      "sentinel_executed": false,
+      "actual_trace_lines": [
+        2,
+        3,
+        2
+      ],
+      "full_collector_compile_import_exec_UNPERFORMED_NULL": null,
+      "original_Actions_compatibility_UNQUALIFIED_NULL": null
+    },
+    "no_consumed_parser_source_review_model_packet_proof_old_case_or_numerical_replay": true,
+    "previous_source2234_syntax6_and_Qwen61746_timeout_original_fields_and_NULLs_unchanged": true,
+    "no_new_model_request_or_fallback_no_model_approval_inferred": true,
+    "actual_original_preflight_full_context_loader_RAM_repair_FINAL_strict48_50_clean_final_CI_INCOMPLETE": true,
+    "all_admission_flags": false,
+    "ownership": null,
+    "RAW_limits": {
+      "original_before_and_after_unittest_output_save_return_descriptors_UNSAVED_NULL": null,
+      "qualification": "The original native IO ledger retains actual FD/stat-time/read-write/close points for both saved unittest outputs. Their helper-return descriptor values were not serialized; missing original descriptor fields remain unsaved/null. Later observations must be separate and cannot reconstruct them.",
+      "outer_tool_pipe_EOF_UNPROVIDED_NULL": null
+    }
+  },
+  "private_new_whole_retention_proof_METADATA": {
+    "status": "FIRST_NEW_CORRECTION_NATIVE_METADATA_AND_ACTUAL_ROOT_WHOLE_RETENTION_BEFORE_PROJECTION",
+    "compressed_bytes": 24309,
+    "compressed_sha256": "d59d2ce524fa68dff7ca2281be8642221cc38811d35e27e3b637441c512c8ccb",
+    "decoded_bytes": 540325,
+    "decoded_sha256": "5251dd8d46d7ecf30ff8d105db0b1996f4cc2c620a4f20e0c9279f397254bf2d",
+    "UTF8_JSONSTRING_characters": 540325,
+    "same_output_FD_compressed_BYTEWISE_decoded_BYTEWISE_strictUTF8_JSONSTRING_every_standard_Pythonfield_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "events": 28426,
+    "original_saved_JSON_values": 3,
+    "complete_actual_ROOT_roles": 4,
+    "no_old_copyproof_codec_source_parser_model_or_numerical_replay": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "selected_archive": {
+    "bytes": 2541,
+    "sha256": "09e5f1847393945dca71f697da775fb4894d0fffa23f4615c5cba807ee78e6b5",
+    "regular_members": 3,
+    "members": [
+      "controlled-before-after-public-metadata.json",
+      "guard-composition-and-prefix-public-metadata.json",
+      "ROOT-scope-and-RAW-limits-public-metadata.json"
+    ],
+    "FIRST_archive_check": "PASS_ONCE"
+  },
+  "all_original_full_private_fields_stat_times_FDcredentials_ancestry_order_duplicates_relationships_original_static_NULLs_unchanged": true,
+  "all_admission_flags": false,
+  "ownership": null
+}

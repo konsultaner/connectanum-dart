@@ -1,5 +1,13 @@
 # Project State
 
+## 2026-11-09 — PR #132 adapter first-error correction and guard placement qualified locally
+
+Fresh focused BEFORE cases reproduced the private adapter's outward-error defect:1 failure and2 passes,0 errors. After a minimal correction, the same saved harness and matching3 cases all passed, retaining the original exception, cause/context, input-byte object and owner reference. The recorder fault is explicitly test-only policy evidence, not an allocator failure, RAM cause or production acceptance result.
+
+A new248-byte unconditional guard is at byte zero in a private80,497,020-byte draft whose original80,496,772-byte suffix is byteexact. Prefix-plus-sentinel execution refused before the sentinel. The full collector was not compiled/imported/executed. The corrected adapter is2,280 bytes; original artifacts/static nulls and consumed syntax/model/case histories remain unchanged.
+
+Official EX, fresh scoped capacity and new raw/native metadata are retained. Original Actions compatibility, full-context staging/input loader and applicable actual original preflight remain incomplete. Source20/runtime are untouched; no SDK body query, source publication/dispatch, build, numerical work, adoption or cleanup occurred. RAM repair, strict48/50 and clean final CI remain incomplete. See [the new bounded qualification](research/2026-11-09-flatbuffers-actions-file696-first-error-and-guard-qualification.md).
+
 ## 2026-11-09 — PR #132 guard and opaque adapter fragments prepared
 
 The previously unentered writer completed once under official EX. Its390-byte unconditional-entry fragment and2,234-byte opaque full-context metadata adapter passed their first local syntax parses and six bounded source-shape checks. They remain private, unintegrated and unexecuted. Exact entry insertion, first-error retention, staging/input loader and applicable actual original preflight remain unqualified.
