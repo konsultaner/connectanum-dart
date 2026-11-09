@@ -1,5 +1,13 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-09 — PR #132 guarded rejection-origin observer prepared
+
+A separate private 5,248-byte observer draft passed its first local syntax parse 91758 under official EX. Its unconditional byte-zero guard remains intact. The module, observer and proposed cases were not executed or integrated.
+
+The proposed observer compares only an already captured exception's actual innermost code identity and instruction offset with an independently predeclared site. Such a match remains data only. Semantic rejection cause, caller ownership/error interfaces, source cohort, original helper-global coverage and applicable original/local preflight remain unqualified.
+
+Its first distinct review had a complete input preview, then timed out at 90 seconds with signed 1, 0 stdout, 654 stderr and both EOF, without a final answer. No retry, fallback, approval or backend-unavailability inference followed. All original full private fields/relationships/static nulls remain unchanged. No supported BEFORE, fix, matching AFTER or RAM cause is claimed. Source20/runtime, SDK queries, source publication/dispatch, builds, numerical work, adoption and cleanup remain untouched. RAM repair, strict48/50 and clean final CI remain incomplete. See [the observer preparation evidence](../research/2026-11-09-flatbuffers-actions-file696-guarded-rejection-origin-observer-preparation.md).
+
 ## 2026-11-09 — PR #132 guarded single-case harness prepared
 
 A private 11,890-byte one-case harness draft passed its first local syntax parse 77295 under official EX. Its unconditional byte-zero guard remains intact. No module, fixture, clone, proxy, producer, loader or case executed.

@@ -1,0 +1,109 @@
+{
+  "status": "GUARDED_ORIGIN_OBSERVER_FIRST_LOCAL_SYNTAX_PASS_FIRST_REVIEW_NOFINAL_UNEXECUTED_UNINTEGRATED_UNADMITTED",
+  "facts": {
+    "status": "GUARDED_ORIGIN_OBSERVER_FIRST_LOCAL_SYNTAX_PASS_FIRST_REVIEW_NOFINAL_UNEXECUTED_UNINTEGRATED_UNADMITTED",
+    "source": {
+      "bytes": 5248,
+      "sha256": "fadda0cdbe67ef9bd04077345a93d31bd375d7c6ae74ac14b9b7e4db59d9bde3",
+      "unconditional_bytezero_guard": true,
+      "first_local_parser_PID": 91758,
+      "first_local_syntax": "PASS",
+      "AST_traversed": false,
+      "guard_module_observer_or_case_executed": false
+    },
+    "review": {
+      "preview_PID": 92010,
+      "preview_signed_status": 0,
+      "preview_stdout_bytes": 8403,
+      "preview_stdout_sha256": "bb078c4153d3dd7d79e7e9121bbfad2f32d346f9f512dceb92e689f61b114e05",
+      "selected_stdin_bytes": 6630,
+      "selected_stdin_sha256": "af60841bcb5bd7940056021806b89031b08b073069fdb1f59cf4f70cdb9b13e8",
+      "inference_PID": 92011,
+      "inference_signed_status": 1,
+      "stdout_bytes": 0,
+      "stderr_bytes": 654,
+      "stderr_sha256": "10d9398ec63a9b554a8f5bbcf1e3d157333647feac5e421743630260450998f8",
+      "BOTH_EOF": true,
+      "first_num_predict": 1200,
+      "first_timeout_seconds": 90,
+      "helper_input_chars": 8402,
+      "FINAL_answer": null,
+      "no_retry_narrowing_cap_increase_fallback_approval_or_backend_unavailability_inference": true
+    },
+    "interface_proposals": {
+      "observation": "A separate prospective observer would retain an already captured exact ValueError, its original traceback/cause/context and every ordered traceback node/frame/code reference.",
+      "matching": "Only the actual innermost code-object identity and instruction offset are compared with an independently predeclared site. A point match remains DATA ONLY; semantic rejection cause is not established.",
+      "unqualified": "Expected site/source-cohort semantics, actual traceback/code types, caller-owned observation/error interfaces, original function/helper-global coverage and all applicable original/local preflight remain independently unqualified.",
+      "integration": "No producer, loader, harness or collector has been altered or integrated with this observer."
+    },
+    "RAW_limits": {
+      "full_HTTP_request_final_partial_bytes_output_tokens_stop_metadata_UNPROVIDED_NULL": null,
+      "outer_tool_pipe_EOF_UNPROVIDED_NULL": null,
+      "original_Actions_compatibility_semantic_site_caller_ownership_runtime_preflight_UNQUALIFIED_NULL": null,
+      "old_terminal_namespaces_original_unsaved_or_unperformed_fields": "UNCHANGED; no old copy or proof replay"
+    },
+    "preservation": "All71 full contexts/all696 references/full private fields/stat-times/FDcredentials/ancestry/native order/duplicates/relationships and every original/newstatic NULL remain unchanged; actual new local facts remain separate.",
+    "no_import_invocation_guard_bypass_SDK_private_scope_query_Source20_runtime_adoption_source_publication_dispatch_bootstrap_build_native_driver_broker_profiler_numerical_capture_or_cleanup": true,
+    "RAM_repair_FINAL_strict48_50_and_clean_final_CI": "INCOMPLETE",
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "original_metadata_bindings": [
+    {
+      "role": "observer",
+      "bytes": 5499,
+      "sha256": "c4d4dc3016d50dfa2de3c427d05c7a3d29208582a691186f15b2415f3beddc3d"
+    },
+    {
+      "role": "observer_IO",
+      "bytes": 18584,
+      "sha256": "a1dcfb54454b691140ed259b1b5f7b24ae698a082b39ea4a3b23d7cbcb6e66a3"
+    },
+    {
+      "role": "review",
+      "bytes": 18906,
+      "sha256": "497c710f24e55da0e75514fb0f563e922a4d253dbb183619537047d930083ef9"
+    },
+    {
+      "role": "source_ROOT_receipt",
+      "bytes": 2438,
+      "sha256": "2cc26944958f829dccb896420bcfe1120bf9efb1aef5672654ffe81c47147bd2"
+    },
+    {
+      "role": "review_ROOT_receipt",
+      "bytes": 2092,
+      "sha256": "298f9fd384318a44d20e7e646f4889e176038d5514e85ab340f0b8a3dd37da31"
+    }
+  ],
+  "private_copy_proof": {
+    "status": "FIRST_FIVE_ORIGINAL_OBSERVER_METADATA_VALUES_LOSSLESS_PRIVATE_COPY_BEFORE_PUBLIC_PROJECTION_COMPLETE_CONSUMED",
+    "compressed": {
+      "bytes": 7270,
+      "sha256": "78909d9b3b901cc888c7c4813e60992a93fce1a06873f344851b7f6b3ce2ffc2"
+    },
+    "decoded_bytes": 60795,
+    "decoded_sha256": "28fd00a57eeb668691dd041cb80a1c6ae7c8e595c6df7e70e28379a419fd270d",
+    "strict_UTF8_JSONSTRING_characters": 60795,
+    "original_complete_JSON_metadata_values": 5,
+    "same_output_FD_compressed_BYTEWISE_decoded_BYTEWISE_UTF8_JSONSTRING_every_standard_Pythonfield_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "events": 2965,
+    "original_all_private_fields_and_original_newstatic_NULLs_UNCHANGED": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "selected_archive": {
+    "path": "docs/research/2026-11-09-flatbuffers-actions-file696-guarded-rejection-origin-observer-preparation-evidence.tar.gz",
+    "bytes": 2034,
+    "sha256": "2440941593a4f2b0f9b41caf1e3d3590f05c10acb64cfd731b4d0f16bc995d67",
+    "regular_explicit_derived_public_metadata_members": [
+      "guarded-origin-observer-source-and-first-syntax-public-metadata.json",
+      "first-distinct-origin-observer-review-public-metadata.json",
+      "scope-and-RAW-limits-public-metadata.json"
+    ],
+    "FIRST_member_bytes_check": "PASS_ONCE_COMPLETE_CONSUMED",
+    "not_full_private_or_raw_SDK_source_runtime_admitted_package": true
+  },
+  "next": "Independently qualify exact rejection-site/source-cohort semantics, original function/helper-global coverage and complete caller-owned observation/error interfaces plus applicable actual original/local preflight before any invocation. Keep all guarded drafts unexecuted and unintegrated; no guard bypass, SDK query, source publication/dispatch, Source20/runtime adoption, tests/build/numerical or cleanup. No completed source/parser/model/copy/archive body replay.",
+  "all_admission_flags": false,
+  "ownership": null
+}
