@@ -1,0 +1,122 @@
+{
+  "phase": "LOCAL_NEW696_SOURCE_operand_data_PREPARED_NEW_reader_DRAFT_UNFINALIZED_UNREVIEWED_NOTadmitted",
+  "SOURCE_projection_bytes": 708044,
+  "SOURCE_projection_sha256": "d39ebae55a7fce12e82619ca46f8f1cc1a1d969504213b176438f8f767976d19",
+  "terminal_LF": false,
+  "all696_reference_positions_all71_groups_nojoin_aliasdedup": true,
+  "SOURCE_new_copy_events": 32004,
+  "original_full_PRIVATE_scope_bytes_METADATA_ONLY": 70049,
+  "original_full_PRIVATE_scope_sha256_METADATA_ONLY": "e97264c25e31c836f8447a5ec1d9b421bf939642b6f75e2a57f7dd7eb3134d2d",
+  "all_original_private_fields_stat_times_FDcredentials_ancestry_order_duplicates_relationships_and_original_newstatic_NULLs_UNCHANGED": true,
+  "SOURCE_copy_proof_PUBLIC_projection": {
+    "terminal_LF": false,
+    "ALL696_positions_nojoin_aliasdedup_selected_values_types_equal_original": true,
+    "ALL71_positiongroups_nativeorder_preserved": true,
+    "strictUTF8_JSONSTRING_everyPythonfield_duplicatekeys_arraypositions_typedleaves_copy_equal": true,
+    "ordered_events": 32004,
+    "original_full_PRIVATE_scope_ALLfields_stat_times_FDcredentials_ancestry_order_duplicates_relationships_NULLs_UNCHANGED_not_reproved": true,
+    "notcollector_workflow_SOURCE_or_SDKquery_bodytransport_RAMrepair_schemawaiver_cleanup_admission": true,
+    "all_admission_flags": false,
+    "ownership": null,
+    "new_PUBLIC_SOURCE": {
+      "bytes": 708044,
+      "sha256": "d39ebae55a7fce12e82619ca46f8f1cc1a1d969504213b176438f8f767976d19",
+      "SAMEOUTPUTFD_BYTEWISE_readback_known_with_close_return": true
+    },
+    "excluded_privatecontexts_ONLY_fulloriginal_fields_remain_PRIVATE_unchanged": true
+  },
+  "ROOT_tool_raw_limitations": {
+    "actual_native_SOURCEprep_tool_status": 0,
+    "ROOT_JSONparse_failure": "Unexpected token W from tool truncation prefix",
+    "tool_reported_original_tokens": 13809,
+    "tool_output_budget_tokens": 10000,
+    "actual_available_tool_output_chars": 40102,
+    "full_original_stdout_RAW_UNRETAINED_bytes_SHA_NULL_forever": null,
+    "saved_partial_control_source_bytes": 47710,
+    "saved_partial_control_source_sha256": "0341d9e8682db43b93ae78f3e1229cbded1bfad19bd56b40f7040f899496e7b2",
+    "saved_selection_NOT_reconstructedstdout_or_full_source_approval": true,
+    "complete_helper_selection_bytes": 9225,
+    "complete_helper_selection_sha256": "cd29db3a0199f047da3f12e5ae6fd1c4b72e1797c6a840899ab7ab0cc0bb7c3d",
+    "ROOT_remaining_integration_only_complete_available_metadata_tokens_or_explicit_partialRAWspans": true,
+    "no_reader_body_reexecution_missingmiddle_or_stdout_reconstruction": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "model_ROOT_qualification": {
+    "model_PID": 81191,
+    "model_signed_status": 0,
+    "stdout_EOF": true,
+    "stderr_EOF": true,
+    "stdout_bytes": 1760,
+    "stdout_sha256": "50c41a4d0767f462d2a2d26d8fefa616fa1b5d1fc0736f4b79c5f5721d5d7582",
+    "stderr_bytes": 185,
+    "stderr_sha256": "9895b150aed62142c3d11aab1a03da1532242794520f90d9dd080079d9c1f4b1",
+    "saved_selection_bytes": 22382,
+    "saved_selection_sha256": "3ba549632a53e1b20e64b8ac772f8777109281b03572d78299fc848e4c26fc31",
+    "actual_helper_reported_input_chars": 1207,
+    "actual_model_full_FINAL_answer": "NO_CONCRETE_FINDINGS_MISSING_CODE_INPUT",
+    "reason": "stop",
+    "elapsed_seconds_reported": 9.2,
+    "output_tokens_reported": 353,
+    "ROOT_transport_defect": "Original Popen had stdout/stderr PIPE but no stdin=PIPE; communicate(input=...) did not provide the selected code to the helper's stdin. Exact original constructor/request/returns unchanged and retained.",
+    "not_model_hallucination_or_backend_unavailability_or_approval": true,
+    "no_code_review_coverage": true,
+    "no_findings_or_permission_for_source_edit_test_adoption_from_generic_residual_risks": true,
+    "no_unchanged_review_retry_capincrease_othermodel_retry_or_namespace_reset": true,
+    "full_HTTP_model_request_RAW_UNRETAINED_UNSAVED_NULL": null,
+    "actual_input_context_not_reconstructed_from_saved_selection": true,
+    "all_admission_flags": false,
+    "ownership": null,
+    "saved_selection_NOT_delivered_model_code": true
+  },
+  "independent_proposed_code_findings_SOURCE_only_NOTactual_BEFOREexecution": {
+    "scope": "ROOT independent inspection of proposed NEW696 code only, not actual SDK tests, not model-derived changes/admission; no Source20/runtime/source file edits yet",
+    "findings": [
+      {
+        "trigger": "NEW696_collect_separate_file_inputs except BaseException sets current_error then calls emit; if emit raises, control leaves before the file/parent close loop",
+        "consequence": "The logging exception can replace the first I/O error and skip attempts to close the already known original descriptors.",
+        "verified_against": "dir71_0455New696CollectDraft",
+        "status": "VERIFIED_source_control_flow_only_NOTactual_supported_BEFORE_execution"
+      },
+      {
+        "trigger": "The descriptor-close try block includes os.close, registry deletion, close-return assignment AND emit; emit failure is caught as actual_file/parent_close_unknown despite an already observed close return, followed by another emit",
+        "consequence": "Known close success and journal uncertainty are conflated; a second logging failure can stop remaining known-descriptor cleanup and mask first error.",
+        "verified_against": "dir71_0455New696CollectDraft",
+        "status": "VERIFIED_source_control_flow_only_NOTactual_supported_BEFORE_execution"
+      },
+      {
+        "trigger": "New proposed pair-history/output helper clones emit inside error handlers; logging failure can escape before original FD close",
+        "consequence": "The new helper draft also needs explicit first-error/secondary-log uncertainty handling; old unchanged collector/helper code remains untouched and unadmitted.",
+        "verified_against": "dir71_0455New696GuardDraft and dir71_0455New696SaveDraft",
+        "status": "VERIFIED_source_control_flow_only_NOTactual_supported_BEFORE_execution"
+      }
+    ],
+    "decision": "Do not finalize or execute the draft or retry its unchanged model review. Prepare a materially corrected new draft while preserving originals, then perform only explicitly authorized applicable validation/review; no current Source20/runtime tests, builds, SDK-body queries, adoption or dispatch.",
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "selected_archive": {
+    "FIRST_archive_validation_ONCE_complete": true,
+    "regular_selected_members": 5,
+    "original_saved_EXPLICITderived_SOURCE_members": 1,
+    "EXPLICIT_derived_metadata_members": 4,
+    "whole_names_sizes_bytes_SHA_equal": true,
+    "bytes": 25232,
+    "sha256": "471795ddbff7114d31d8872c18fc23cc01434dd6214cc092afa80d06f3a4be19",
+    "not_full_private_RAW_SDK_Source20_runtime_package_or_admission": true
+  },
+  "publication_new_wholecopy_metadata": {
+    "compressed_bytes": 32025,
+    "compressed_sha256": "f926585fed6450001bc8c495def19a5aa49640cd434e7e3a7721983b734632aa",
+    "decoded_bytes": 1058210,
+    "decoded_sha256": "591c784248e85be6da564e14fe29e86ba1e8512c606ee4cf701402599bf2d862",
+    "ordered_events": 39657,
+    "BEFORE_publicprojection": true
+  },
+  "no_newcollector_workflow_SOURCE_finalized_or_dispatched": true,
+  "new_SDKfilebody_operations_UNPERFORMED_NULL": null,
+  "knownledger_originalsource_SDK_ownership_runtime_admission_UNPERFORMED_NULL": null,
+  "all_admission_flags": false,
+  "ownership": null,
+  "next": "Materially correct the new draft first-error/journal/known-FD-close handling and prepare original-workflow SOURCE with applicable validation. No unchanged model/reader/proof retry or SDKbodyquery before preflight."
+}
