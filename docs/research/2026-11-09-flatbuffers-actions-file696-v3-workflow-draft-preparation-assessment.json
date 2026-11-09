@@ -1,0 +1,143 @@
+{
+  "status": "V3_IO_RETENTION_AND_ORIGINAL_RECIPE_WORKFLOW_PRIVATE_DRAFT_PREPARATION_NOT_FINALIZED_NOT_ADMITTED",
+  "public_projections": {
+    "EXPLICIT-derived-model-result.json": {
+      "kind": "EXPLICIT_DERIVED_PUBLIC_PROJECTION_private_contexts_excluded_ONLY",
+      "status": "COMPLETE_CONSUMED_NOFINALANSWER_NOTapproval_NOTbackend_unavailability",
+      "preview": {
+        "signed_status": 0,
+        "pid": 85857,
+        "stdout_bytes": 29289,
+        "stdout_sha256": "201fe12d9aed14a8fe35757445f2809156b058eecb1a1d5fb7282ff9a0978d10",
+        "exact_selected_code_occurrences": 1,
+        "exact_full_code_bytes_before_inference": true
+      },
+      "model": {
+        "pid": 85858,
+        "signed_status": 1,
+        "stdout_bytes": 0,
+        "stderr_bytes": 357,
+        "stderr_sha256": "ec9841c47857b16e707f20fe46b9bb9426dd89dc3fafc8dacd6012a0df599693",
+        "stdout_EOF": true,
+        "stderr_EOF": true,
+        "input_chars": 29288,
+        "num_predict": 1200,
+        "timeout_seconds": 180,
+        "reported_progress_partial_chars_at_30s": 2331,
+        "full_partial_RAW_UNRETAINED": true,
+        "full_partial_bytes": null,
+        "full_partial_sha256": null,
+        "final_partial_length": null,
+        "final_output_tokens": null,
+        "stop_reason": null,
+        "final_answer": null
+      },
+      "no_retry_no_capincrease_no_othermodel_fallback": true,
+      "all_admission_flags": false,
+      "ownership": null
+    },
+    "EXPLICIT-derived-draft-source-checks.json": {
+      "kind": "EXPLICIT_DERIVED_PUBLIC_PROJECTION_private_contexts_excluded_ONLY",
+      "status": "PRIVATE_DRAFT_SOURCE_PREPARED_NOT_FINALIZED_NOT_EXECUTED_NOT_ADMITTED",
+      "V2_syntax_unit": {
+        "bytes": 27857,
+        "sha256": "a86ee87f293f6a52e4e1a3da444752330dd6a978e17f6e2cc05661fbe8d3348f",
+        "syntax_parse_PASS": true,
+        "targeted_source_flow_checks": 10
+      },
+      "V3_syntax_unit": {
+        "bytes": 29653,
+        "sha256": "ea9c6a4062407268b3aa9785e7580e890ce96ae09210e46dfc01b2128a9c2e5a",
+        "syntax_parse_PASS": true,
+        "targeted_static_checks": {
+          "operation_registry_has_explicit_raw_buffers_io_attempts_and_result_rows": true,
+          "save_function_has_known_close_and_first_error": true,
+          "collector_has_explicit_input_attempts_and_partial_raws_retained": true
+        }
+      },
+      "changes": [
+        "Strongly retain raw I/O buffers, read/write attempts, returned byte values and unknown exceptions in the operation registry.",
+        "Keep observed close results separate from registry/log failures; continue known-FD closes after secondary journal failure.",
+        "Retain first errors and uncertain journal raw records; require new outer error/finalization tail."
+      ],
+      "actual_supported_BEFORE_failure": null,
+      "actual_matching_AFTER_execution": null,
+      "full_collector_SOURCE_assembly": null,
+      "SDK_file_body_queries": null,
+      "all_original_and_static_preproof_NULLs_unchanged": true,
+      "all_full_original_PRIVATE_fields_stat_times_FDcredentials_ancestry_nativeorder_duplicates_relationships_unchanged": true,
+      "applicable_original_preflight_INCOMPLETE": true,
+      "all_admission_flags": false,
+      "ownership": null
+    },
+    "EXPLICIT-derived-workflow-recipe.json": {
+      "kind": "EXPLICIT_DERIVED_PUBLIC_PROJECTION_private_contexts_excluded_ONLY",
+      "status": "PRIVATE_DRAFT_NOT_YAML_VALIDATED_NOT_PUBLISHED_NOT_DISPATCHED",
+      "parent_fixed_source": "32ab37e14b8ab6e8a908426ef2ad07c37f1f27db",
+      "parent_workflow_bytes": 489851,
+      "parent_workflow_sha256": "dcbcba1e7c5940a796c93cccc04ace777842ccf12832c74c2a2ab8ea5b6fe83f",
+      "actual_retained_tail_selection_bytes": 1229,
+      "actual_retained_tail_selection_sha256": "6adb823462488fe068158e5cd68058e819b980b914387d18f6275f5cf6c57cd4",
+      "draft_bytes": 494745,
+      "draft_sha256": "abde1f5bba4896df42abf5775da8c5d96fcefee5682cd1b4b0f5cf1af2520e23",
+      "new_jobs_STATIC_TEXT_ONLY": 41,
+      "new_old_job_skips_actual": null,
+      "new_campaign": "flatbuffers_include_great_great_great_grandchild_file696_inputs",
+      "recipe": {
+        "runs_on": "ubuntu-24.04",
+        "dart": "3.13.5",
+        "rust": "1.99.0",
+        "checkout": "actions/checkout@v5",
+        "dart_setup": "dart-lang/setup-dart@v1",
+        "rust_setup": "dtolnay/rust-toolchain@1.99.0",
+        "uploader": "actions/upload-artifact@v7",
+        "collector_invocation": "python3 - < .github/collectors/pr132_include_great_great_great_grandchild_file696_inputs.py",
+        "timeout_minutes": 20,
+        "cancel_in_progress": false,
+        "concurrency_group": "flatbuffers-rustc-default-target-${{ github.ref }}"
+      },
+      "changes": "Add the new campaign and a clone of the actually observed last recipe; add a new-campaign exclusion around each of 40 retained job conditions without evaluating them.",
+      "YAML_syntax_parse": null,
+      "source_publication": null,
+      "dispatch": null,
+      "all_admission_flags": false,
+      "ownership": null
+    }
+  },
+  "selected_public_archive": {
+    "bytes": 2509,
+    "sha256": "ea801a89f32db216d1aebf6582722eef78b66fdf335855438a1dcd395033d856",
+    "selected_regular_members": 4,
+    "all_members_EXPLICIT_DERIVED_PUBLIC_metadata": true,
+    "FIRST_archive_check_PASS_once": true
+  },
+  "new_PRIVATE_wholecopy_proof_metadata_ONLY": {
+    "compressed_bytes": 81190,
+    "compressed_sha256": "6848baaecfa744559eb1f59bec720922f26b5d7f3918c74e8f59e21620504e1a",
+    "decoded_bytes": 411554,
+    "decoded_sha256": "c4b8868010231aeebdf8626035662886b680988bb43dd8264e2b547f90b24796",
+    "decoded_UTF8_JSONSTRING_characters": 411554,
+    "whole_compressed_same_OUTPUT_FD_BYTEWISE": true,
+    "whole_decoded_BYTEWISE_strict_UTF8_JSONSTRING": true,
+    "whole_every_standard_Pythonfield_ordered_duplicate_keys_array_positions_typed_leaves_equal": true,
+    "ordered_comparison_events": 1950,
+    "original_saved_JSON_values": 4,
+    "complete_actual_ROOT_roles": 8,
+    "original_part_RAW_returns_UNRETAINED_NULLs_unchanged": true,
+    "not_original_creation_FD_stat_reconstruction_or_global_actor_admission": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "original_part_RAW_retention_limit": {
+    "eleven_saved_gzip_part_carriers_retained_unchanged": true,
+    "actual_available_aggregate_parts": 11,
+    "per_part_native_RAW_returns_UNRETAINED": true,
+    "original_part_creation_FD_stat_UNSAVED_NULL": null,
+    "not_reconstructed_or_reexecuted": true
+  },
+  "scope_FULL_original_PRIVATE_fields_and_all_static_NULLs_UNCHANGED": true,
+  "NEXT": "FIRST qualify V3 draft and original-recipe workflow draft before full collector SOURCE assembly, then applicable original-source/known-ledger/SDK/ownership/actorFD/generatedcohort/physicalEX/crash preflight before any file-body query. V2 model85858 NOFINALANSWER/token limit consumed; no retry/fallback. All source scopes/full private contexts and original/static NULLs unchanged; new actual facts separate. No Source20/runtime edit/import/tests/build/bootstrap/native/driver/broker/perf/numerical/adoption/dispatch/cleanup.",
+  "RAM_repair_FINAL_strict48_50_clean_final_CI_INCOMPLETE": true,
+  "all_admission_flags": false,
+  "ownership": null
+}
