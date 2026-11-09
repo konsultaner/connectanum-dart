@@ -5,7 +5,7 @@ constructing Dart entities. This is a VM-only package for Dart and Flutter.
 
 ```yaml
 dependencies:
-  connectanum_objectbox_adapter: ^3.0.0-beta.8
+  connectanum_objectbox_adapter: ^3.0.0-beta.9
 ```
 
 Use the normal ObjectBox setup and generated model in your application. Dart
@@ -100,5 +100,5 @@ are rejected. Regenerate/rewrite such rows using the agreed current model.
 
 Close the adapter when finished; it does not close the application's Store.
 This release restricts compatibility to ObjectBox 5.3.x and the Connectanum
-beta.8 band because its isolated compatibility layer uses their native
-integration interfaces. Tests use ObjectBox 5.3.2 and Connectanum 3.0.0-beta.8.
+beta.9 band because its isolated compatibility layer uses their native
+integration interfaces. Tests use ObjectBox 5.3.2 and Connectanum 3.0.0-beta.9.

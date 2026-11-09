@@ -1,3 +1,9 @@
+## 3.0.0-beta.9
+
+- Add MQTT 5 and 3.1.1 QoS 0 pub/sub over TCP, TLS, WebSocket and secure WebSocket.
+- Decode resumed backlogs in bounded asynchronous batches and preserve payload ownership, pending controls and callback closure.
+- Align MCP client metadata and native release selection with beta.9.
+
 ## 3.0.0-beta.8
 
 - Release MQTT sockets after remote shutdown and bound native WAMP receive

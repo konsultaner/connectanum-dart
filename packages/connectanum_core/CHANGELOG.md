@@ -1,3 +1,8 @@
+## 3.0.0-beta.9
+
+- Include the MQTT packet codec and topic validation used by native QoS 0 clients and routing.
+- Align the shared protocol package with the beta.9 Dart and native release.
+
 ## 3.0.0-beta.8
 
 - Add the FlatBuffers WAMP serializer beside JSON, MessagePack and CBOR, with

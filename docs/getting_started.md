@@ -9,8 +9,8 @@ Pub/Sub example. A Connectanum router deployment has three parts:
 
 ## Beta Availability
 
-This guide targets the synchronized `3.0.0-beta.8` Dart packages and matching
-`v3.0.0-beta.8` native release assets for integration testing before final
+This guide targets the synchronized `3.0.0-beta.9` Dart packages and matching
+`v3.0.0-beta.9` native release assets for integration testing before final
 `3.0.0`. Use the [package path](#install-the-published-package) for
 applications or the [source-checkout path](#run-the-current-beta-from-source)
 when contributing to Connectanum itself.
@@ -78,12 +78,12 @@ environment:
   sdk: ^3.10.0
 
 dependencies:
-  connectanum_router: 3.0.0-beta.5
+  connectanum_router: 3.0.0-beta.9
 ```
 
 `connectanum_router` depends on `connectanum_client`, and both packages expose a
 native-asset hook. In a hosted package install, each hook derives
-`v3.0.0-beta.5` from its package version, downloads the matching signed release
+`v3.0.0-beta.9` from its package version, downloads the matching signed release
 archive, verifies its SHA-256 checksum, and bundles the platform library. Source
 checkouts continue to compile the checked-out Rust workspace by default.
 

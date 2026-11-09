@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.0-beta.9
+
+- Align remote-authentication service dependencies with the beta.9 router and shared protocol package.
+
 ## 3.0.0-beta.8
 
 - Consume the synchronized remote-authentication service and router graph,
