@@ -1,0 +1,159 @@
+{
+  "status": "EXPLICIT_DERIVED_PUBLIC_PACKET_AND_GLUE_METADATA_NOT_RUNTIME_ADMISSION",
+  "packet": {
+    "status": "FIRST_NEW_OPAQUE_PRIVATE_CONTEXT_PACKET_PREPARED_NOT_UPLOADED_NOT_RUNTIME_ADMITTED",
+    "original_private_scope_OPAQUE": {
+      "bytes": 70049,
+      "sha256": "e97264c25e31c836f8447a5ec1d9b421bf939642b6f75e2a57f7dd7eb3134d2d"
+    },
+    "new_packet": {
+      "encoded_bytes": 93400,
+      "encoded_sha256": "dddd99c67da9b3bb4643db887f0211316c99cb3870b568a7bfcb55c3a6d38387",
+      "parts": [
+        {
+          "index": 0,
+          "bytes": 32768,
+          "sha256": "72b66e4f014529d9187bc8020ca0b6b43dfb81d6c1fb358ec254233ba3690157",
+          "future_secret_name": "PR132_NEW696_PRIVATE_CONTEXT_V1_000"
+        },
+        {
+          "index": 1,
+          "bytes": 32768,
+          "sha256": "d66049bc28de81536b5190549af45cbd28edea0037b40bfb322944f7bebfc6d2",
+          "future_secret_name": "PR132_NEW696_PRIVATE_CONTEXT_V1_001"
+        },
+        {
+          "index": 2,
+          "bytes": 27864,
+          "sha256": "f4874519a10a10933376c3b2aea665c7bcaa6a248f08437b290c57777740f4c0",
+          "future_secret_name": "PR132_NEW696_PRIVATE_CONTEXT_V1_002"
+        }
+      ]
+    },
+    "verification": {
+      "whole_new_saved_output_concat_BYTEWISE_equal": true,
+      "strict_Base64_decode_whole_original_compressed_bytes_equal": true,
+      "canonical_reencoding_equal": true,
+      "original_gzip_decompression_or_scope_JSON_parse": false
+    },
+    "packet_native_metadata": {
+      "assessment_bytes": 17545,
+      "assessment_sha256": "ba128ccb8c2c62750c9b8a60aaa9a7fd02dbfc3091d1cbb5fadcbd5db9002595",
+      "original_creation_IO_receipt_bytes": 13519,
+      "original_creation_IO_receipt_sha256": "45827897cca1e4614b94a891fd2875bc94a9fb47782ad33bbe7f044e6408cd96"
+    },
+    "classification": "EXPLICIT_DERIVED_PUBLIC_METADATA_ONLY: all original private contexts/full fields remain unchanged in original evidence; packet bytes and private creation/IO context remain private. Public projection is not runtime payload/source publication/admission.",
+    "provider_contract": {
+      "status": "PROPOSAL_ONLY_NOT_UPLOADED_NOT_EXECUTED_NOT_ADMITTED",
+      "target": "original GitHub Actions repository secrets",
+      "repository": "konsultaner/connectanum-dart",
+      "upload_argv_template": [
+        "gh",
+        "secret",
+        "set",
+        "<explicit-secret-name>",
+        "--repo",
+        "konsultaner/connectanum-dart",
+        "--app",
+        "actions"
+      ],
+      "upload_input": "future whole selected packet part via stdin ONLY; no --body, argv data or inherited environment payload",
+      "secret_expressions": "future step-scoped environment of a separate metadata staging actor ONLY; never interpolate expressions in shell or source",
+      "collector_recipe": "Original python3 stdin collector recipe/PATH/argv/env/credentials remain required and UNPROVEN; no GITHUB_ENV, secret payload env or staging parent substituted for collector/driver.",
+      "staging_file": "future explicitly declared new private metadata file, exclusive no-follow creation, 0600, owned handles before fallible IO; no fixed FD or guessed SDK paths",
+      "full_context": "Future forward original gzip bytes intact; original decoded JSON STRING/full fields remain original, no public operand projection, normalization, regrouping or omission.",
+      "runtime_integration": "UNFINALIZED: no staging implementation, collector input reader, input ownership/preflight, original SDK/actorFD/generatedcohort/continuous physical EX/crash qualification or permission established.",
+      "confidentiality": "Base64 is not encryption; local packet files PRIVATE0600/new namespace0700. Never log, publish or place packet data in Git/public archives.",
+      "service_operations_UNPERFORMED_NULL": {
+        "secret_inventory": null,
+        "public_key_query": null,
+        "secret_set": null,
+        "upload": null,
+        "workflow_publication": null,
+        "dispatch": null,
+        "staging_execution": null,
+        "collector_execution": null,
+        "full_context_runtime_forwarding": null
+      }
+    },
+    "all_original_private_fields_stat_times_FDcredentials_ancestry_nativeorder_duplicates_relationships_original_newstatic_NULLs_unchanged": true,
+    "outer_tool_pipe_EOF_UNPROVIDED_NULL": null,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "new_glue_frontier": {
+    "scope": "FIRST manual source-flow qualification of the newly assembled NEW696 stage integration frontier and new private-context transport design. Uses retained immutable source blocks as selected source metadata; no full source AST/condition/parser/reader/model/proof replay or execution.",
+    "original_full_source_binding_METADATA_REUSE_ONLY": {
+      "bytes": 80496772,
+      "sha256": "a57ffdba308c769d8ac5ba2f4b7f119ead53c635844b4b0963f3f8fc20c6a7b9",
+      "local_syntax98777": "PASS_CONSUMED_NOT_REPEATED"
+    },
+    "selected_new_stage_lines": {
+      "emit_call": 18,
+      "unproved_query_permission": 21,
+      "file_reader_call": 23
+    },
+    "finding": "The selected stage emits query_permission_UNPROVED:null and alias_identity_UNPROVED:null, then calls NEW696_collect_separate_file_inputs. No qualified original-source/known-ledger/SDK/ownership/actorFD/generatedcohort/continuousphysicalEX/crash admission is supplied by this new integration callsite. This is an unresolved source-flow frontier, not an executed supported BEFORE failure or proof about uninspected parent-prefix behavior.",
+    "full_context_finding": "Current full collector source embeds the explicit public operand projection. The original full PRIVATEscope remains preserved; the new opaque packet offers a prospective delivery representation only. No private staging actor, collector full-context loader or actual runtime full-field forwarding exists yet.",
+    "next": {
+      "source": "Prepare a fail-closed integration contract that withholds all SDK body IO until applicable actual original preflight is complete. Preserve inherited static NULLs and store actual future facts separately; no boolean declaration or fake receipt substitutes for admission.",
+      "context": "Prepare a separate step-scoped metadata staging design and explicit collector input contract forwarding original gzip bytes intact; no interpolation, global env changes, staging-parent substitution, field projection or reparse of consumed original scope.",
+      "qualification": "Qualify original recipe/Python compatibility, original credentials, actor FD ownership, generated-output cohort, continuous official physical EX/crash behavior before execution. No source finalization/publication/dispatch, SDK queries or build authority from this packet."
+    },
+    "not_actual_supported_BEFORE_AFTER_or_RAM_repair": true,
+    "no_new_local_model_call_or_fallback": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "official_sources": {
+    "status": "EXPLICIT_DERIVED_PUBLIC_OFFICIAL_PROVIDER_INTERFACE_METADATA",
+    "sources": [
+      {
+        "url": "https://docs.github.com/en/actions/reference/security/secrets",
+        "use": "48KB per secret, repository limit100 and queued-run timing; supports chunk sizing only, not available slots or access."
+      },
+      {
+        "url": "https://cli.github.com/manual/gh_secret_set",
+        "use": "Official --app actions, --repo and standard-input interface; locally encrypted by CLI before send. No CLI/service execution."
+      },
+      {
+        "url": "https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets",
+        "use": "Explicit workflow inputs/environment and secret handling; payload never source/shell interpolation."
+      },
+      {
+        "url": "https://docs.github.com/en/actions/reference/security/secure-use",
+        "use": "Secret confidentiality requires access controls and explicit workflow handling; masking is not admission."
+      }
+    ],
+    "no_service_API_calls_or_secret_upload": true
+  },
+  "private_new_metadata_retention_proof_PUBLIC_METADATA": {
+    "status": "FIRST_NEW_PACKET_NATIVE_METADATA_AND_ACTUAL_ROOT_RETENTION_BEFORE_PUBLIC_PROJECTION",
+    "gzip_bytes": 27400,
+    "gzip_sha256": "e49523616532dad740abfc629736e5233a03b3be6bf4ef5fc2c1cecb4acb956a",
+    "decoded_bytes": 135006,
+    "decoded_sha256": "e79bb6005a99cbac9b36f3d26e60baf27b0130bbb21a82d312a90736a42d0d28",
+    "UTF8_JSONSTRING_characters": 135006,
+    "whole_compressed_same_output_FD_BYTEWISE": true,
+    "whole_decoded_BYTEWISE_strict_UTF8_JSONSTRING_every_standard_Python_field_including_duplicate_keys_arraypositions_typed_leaves_equal": true,
+    "events": 1906,
+    "original_metadata_values": 2,
+    "complete_actual_ROOT_roles": 2,
+    "original_private_scope_not_decoded_or_parsed": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "selected_archive": {
+    "bytes": 3536,
+    "sha256": "d78e97d0e76bf723a2935b03cc62176e912bd8eecfa07f5590c570df26ea0e53",
+    "members": [
+      "packet-public-projection.json",
+      "glue-frontier-public-projection.json",
+      "provider-official-sources-public-projection.json"
+    ],
+    "all_regular_members": true,
+    "FIRST_archive_validation": "PASS_ONCE"
+  },
+  "all_admission_flags": false,
+  "ownership": null
+}

@@ -1,5 +1,13 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-09 — PR #132 private context packet prepared; integration frontier remains open
+
+The full original private scope now has a local opaque Base64 packet:93,400 ASCII bytes in32,768/32,768/27,864-byte parts. Saved output-FD readbacks, whole strict decode and canonical re-encoding preserved all70,049 original compressed bytes; the original scope was not decompressed or reparsed. A prospective three-secret Actions interface is documented; no secret API/upload or staging/runtime forwarding occurred.
+
+First selected new-stage glue review found an unresolved frontier: the stage reports query permission unproved before calling the file reader. This is source-flow data, not an executed supported BEFORE/AFTER failure. The collector still embeds the public operand projection; full private-context forwarding, a fail-closed prequery contract and applicable actual original preflight remain incomplete. Original source assembly/syntax98777/YAML90454 are consumed and were not repeated. All original fields/stat-times/FDcredentials/order/duplicates/relationships/nulls remain unchanged; actual new facts are separate.
+
+Source20/runtime remain untouched; no source publication/dispatch, SDK body query, collector execution, build, numerical work, adoption or cleanup occurred. All admission flags remain false/ownership null. RAM repair, own FINAL strict48/50 and clean final CI remain incomplete. See [the packet and integration evidence](research/2026-11-09-flatbuffers-actions-file696-private-context-packet.md).
+
 ## 2026-11-09 — PR #132 full private collector source draft assembled
 
 The full private NEW696 collector draft is80,496,772 bytes and passed saved-output bytewise readback plus its first local syntax parse98777. It remains unfinalized, unexecuted and unadmitted. The original parent/source operands/full private scope and every private field/stat-time/FDcredential/order/duplicate/relationship/static null remain unchanged; new facts are separate. Full private-context transport and applicable original-source/known-ledger/SDK/ownership/actorFD/generatedcohort/physicalEX/crash qualification are still incomplete. No SDK body query, workflow source publication/dispatch or Source20/runtime change occurred. RAM repair, own FINAL strict48/50 and clean final CI remain incomplete. Next: qualify the new source glue/frontier and private-context transport. See [the source assembly evidence](../research/2026-11-09-flatbuffers-actions-file696-full-private-source-assembly.md).
