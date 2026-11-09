@@ -1,5 +1,13 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-09 — PR #132 guarded single-case harness prepared
+
+A private 11,890-byte one-case harness draft passed its first local syntax parse 77295 under official EX. Its unconditional byte-zero guard remains intact. No module, fixture, clone, proxy, producer, loader or case executed.
+
+Its first distinct review had a complete input preview, then timed out at 90 seconds with signed 1, 0 stdout, 552 stderr and both EOF, without a final answer. No retry, fallback, approval or backend-unavailability inference followed. A separate bookkeeping controller then failed on a stale poll key before carrier-file/receipt/CP IO. Its entered namespace is permanently terminal; a distinct failure-only intake preserved the original request/return without retrying the failed eight-role copy question. Its unperformed and unsaved fields remain null.
+
+Original loader/helper-global proxy coverage, rejection-cause discrimination and complete ownership/local-original preflight remain unqualified. No supported BEFORE, fix, matching AFTER or RAM cause is claimed. All original full private fields/relationships/static nulls remain unchanged. Source20/runtime, SDK queries, builds, source publication/dispatch, numerical work, adoption and cleanup remain untouched. RAM repair, strict48/50 and clean final CI remain incomplete. See [the harness preparation evidence](../research/2026-11-09-flatbuffers-actions-file696-guarded-single-case-harness-preparation.md).
+
 ## 2026-11-09 — PR #132 guarded metadata producer draft prepared
 
 A private 7,514-byte producer draft passed its first local syntax parse 57958 under official EX. Its unconditional byte-zero guard remains intact; the module and producer were not imported or executed. The proposed immutable FD baseline, independent producer and one-case drift qualification remain unintegrated and unqualified.

@@ -1,0 +1,106 @@
+{
+  "status": "GUARDED_SINGLE_CASE_HARNESS_LOCAL_SYNTAX_PASS_FIRST_REVIEW_NOFINAL_UNEXECUTED_UNINTEGRATED_UNADMITTED",
+  "facts": {
+    "status": "GUARDED_SINGLE_CASE_HARNESS_LOCAL_SYNTAX_PASS_FIRST_REVIEW_NOFINAL_UNEXECUTED_UNINTEGRATED_UNADMITTED",
+    "source": {
+      "bytes": 11890,
+      "sha256": "501dcaef7161b5ef93db8df2077932ec30c774cc46451ee9a7ff014d1e9db914",
+      "unconditional_bytezero_guard": true,
+      "first_local_parser_PID": 77295,
+      "first_local_syntax": "PASS",
+      "AST_traversed": false,
+      "guard_module_or_case_executed": false
+    },
+    "review": {
+      "preview_PID": 77541,
+      "preview_signed_status": 0,
+      "preview_stdout_bytes": 14915,
+      "preview_stdout_sha256": "4f8957ddd3041578546e67ab35b54c909a4c1201bdf0b070ca7745ec151eabb4",
+      "selected_stdin_bytes": 13207,
+      "selected_stdin_sha256": "8e2f43d1e308e750f46300c60ee1fc36f57f5b5f54ff4f4463512bb1c226ad10",
+      "inference_PID": 77542,
+      "inference_signed_status": 1,
+      "stdout_bytes": 0,
+      "stderr_bytes": 552,
+      "stderr_sha256": "f49149bff1cbf6637b61d67cefc560a81449e40ff48ebe57a37142422f6996f8",
+      "BOTH_EOF": true,
+      "first_num_predict": 1200,
+      "first_timeout_seconds": 90,
+      "helper_input_chars": 14914,
+      "FINAL_answer": null,
+      "no_retry_narrowing_cap_increase_fallback_approval_or_backend_unavailability_inference": true
+    },
+    "interface_proposals": {
+      "case": "One future LOCAL controlled real-FD metadata-drift case, not executed.",
+      "binding": "The proposal preserves original loader code/module-global references and supplies a separate cloned function/global dictionary with a narrow read/stat/cursor proxy. Original helper/global call-graph compatibility remains unqualified.",
+      "rejection_cause": "Accepting any ValueError after the event checks does not establish rejection specifically for baseline drift; this remains an untested prospective false-positive risk.",
+      "ownership_and_preflight": "Independent fixture, full opaque-input access, native modules/function factory/hash, complete owner/borrow/error interfaces and all applicable original/local preflight remain unqualified."
+    },
+    "RAW_limits": {
+      "terminal_bookkeeping_failure": "A stale second poll4 key remained in the controller after its first occurrence was changed to poll3. The bookkeeping namespace directory was created, then KeyError occurred before carrier-file/receipt/CP IO. That namespace is permanently terminal. The original request/return was captured for the separate failure-only intake; the failed eight-role copy question was not retried or completed.",
+      "failed_eight_role_copy_receipt_and_CP_update_UNPERFORMED_NULL": null,
+      "failed_directory_original_creation_FD_stat_UNSAVED_NULL": null,
+      "full_HTTP_request_final_partial_bytes_output_tokens_stop_metadata_UNPROVIDED_NULL": null,
+      "outer_tool_pipe_EOF_UNPROVIDED_NULL": null,
+      "original_Actions_compatibility_loader_callgraph_rejection_cause_ownership_runtime_preflight_UNQUALIFIED_NULL": null
+    },
+    "preservation": "All71 full contexts/all696 references/full private fields/stat-times/FDcredentials/ancestry/native order/duplicates/relationships and every original/newstatic NULL remain unchanged; actual new local facts remain separate.",
+    "no_import_invocation_guard_bypass_SDK_private_scope_query_Source20_runtime_adoption_source_publication_dispatch_bootstrap_build_native_driver_broker_profiler_numerical_capture_or_cleanup": true,
+    "RAM_repair_FINAL_strict48_50_and_clean_final_CI": "INCOMPLETE",
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "original_metadata_bindings": [
+    {
+      "role": "harness",
+      "bytes": 4719,
+      "sha256": "7214db729bcd83f8bf9fae69d70cd29b47427af6079c821362801965fe27dadb"
+    },
+    {
+      "role": "harness_IO",
+      "bytes": 18341,
+      "sha256": "7fed2c8b2df688bd7fbcda95a473766e70e346bbbcae6ffa45465d4cfa01f6b7"
+    },
+    {
+      "role": "review",
+      "bytes": 18549,
+      "sha256": "c1e914ea65d88c013147ace6d1c97d5ea1d3bbae4c6dfcaeb239f74d0234a761"
+    },
+    {
+      "role": "failure_receipt",
+      "bytes": 2194,
+      "sha256": "a2a2fad84639f6ce19710b791091cb8d39a178dd9727067fcb440d366ef0d6ed"
+    }
+  ],
+  "private_copy_proof": {
+    "status": "FIRST_FOUR_ORIGINAL_HARNESS_METADATA_VALUES_LOSSLESS_PRIVATE_COPY_BEFORE_PUBLIC_PROJECTION_COMPLETE_CONSUMED",
+    "compressed": {
+      "bytes": 6706,
+      "sha256": "5a652021e85b4b74c95589a87bc99d93656efce706f6029bc0565405c8620772"
+    },
+    "decoded_bytes": 55640,
+    "decoded_sha256": "88b551c63405e7d2160252fc31a10ed4dfe98a260a63c522000c3453f2ca9ce6",
+    "strict_UTF8_JSONSTRING_characters": 55640,
+    "original_complete_JSON_metadata_values": 4,
+    "same_output_FD_compressed_BYTEWISE_decoded_BYTEWISE_UTF8_JSONSTRING_every_standard_Pythonfield_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "events": 2755,
+    "original_all_private_fields_and_original_newstatic_NULLs_UNCHANGED": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "selected_archive": {
+    "path": "docs/research/2026-11-09-flatbuffers-actions-file696-guarded-single-case-harness-preparation-evidence.tar.gz",
+    "bytes": 2229,
+    "sha256": "11d72f2f0f43cada9dec427f8df667f2f658da6d3ee3474c7d30bf65d2dd1133",
+    "regular_explicit_derived_public_metadata_members": [
+      "guarded-single-case-harness-source-and-first-syntax-public-metadata.json",
+      "first-distinct-single-case-harness-review-public-metadata.json",
+      "scope-and-RAW-limits-public-metadata.json"
+    ],
+    "FIRST_member_bytes_check": "PASS_ONCE_COMPLETE_CONSUMED",
+    "not_full_private_or_raw_SDK_source_runtime_admitted_package": true
+  },
+  "next": "Independently qualify the new harness rejection-cause, original function/helper-global proxy coverage and owner/borrow interfaces plus applicable actual original/local preflight before invocation. No source/module/case execution or guard bypass. Keep the failed bookkeeping namespace and its unperformed/unsaved NULLs terminal; never retry that eight-role copy question or completed writers/parsers/models/reviews/copy/archive bodies.",
+  "all_admission_flags": false,
+  "ownership": null
+}
