@@ -7,6 +7,19 @@ both gates without narrowing inventories, tests, deadlines or evidence rules.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
 
+On 2026-11-09 the operator approved a non-destructive, fixed-size 64-GiB APFS
+image on the external drive for a fresh isolated worktree and campaign evidence.
+The internal APFS container had about 7.8 GB free, below the unchanged 13-GiB
+preflight floor. A disposable 256-MiB image passed executable, symlink,
+atomic-replace, file/directory fsync, remount and APFS verification checks;
+the campaign-sized image is being allocated. This is not a performance or
+disconnect-recovery proof. Preserve the current native mutation resource
+policy, original tests/deadlines, independent strict 95% Core/FFI gates and
+all prior raw evidence. No fresh preflight or campaign has started yet; abort
+if the external drive cannot sustain the unchanged controls. The separate
+host-headroom guard in `docs/native-mutation-coexistence-proposal.md` is still
+only a proposal.
+
 Work436 is terminal preflight evidence only: its canonical verification timed
 out waiting for the interactive router example to become ready within the
 unchanged 20-second lifecycle test deadline. No mutation inventory, collection
